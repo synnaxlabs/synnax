@@ -72,9 +72,10 @@ func (h Header) Encode(offset uint64) []byte {
 	return b
 }
 
-// DecodeHeader decodes the copy of a header at offset from the start of b. It returns
-// ErrUnknown for a version that this binary does not know.
-func DecodeHeader(b []byte, offset uint64) (Header, error) {
+// DecodeHeader decodes the copy of the header at offset from the start of b, for the
+// log of generation in database db. It returns ErrUnknown for a version that this
+// binary does not know.
+func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 	if len(b) < HeaderSize {
 		return Header{}, errors.Wrapf(
 			place.ErrCorrupt,
@@ -84,20 +85,21 @@ func DecodeHeader(b []byte, offset uint64) (Header, error) {
 		)
 	}
 	b = b[:HeaderSize]
+	want := place.Log(db, generation, offset).Sum(b[:60])
+	if !bytes.Equal(b[:8], fileMagic) || binary.LittleEndian.Uint32(b[60:]) != want {
+		return Header{}, errors.Wrapf(
+			place.ErrCorrupt,
+			"log header at %d fails its check for generation %d",
+			offset,
+			generation,
+		)
+	}
 	h := Header{
 		DB:         binary.LittleEndian.Uint64(b[16:]),
 		Generation: binary.LittleEndian.Uint64(b[24:]),
 		Sequence:   binary.LittleEndian.Uint64(b[32:]),
 		Size:       binary.LittleEndian.Uint64(b[40:]),
 		PrevCRC:    binary.LittleEndian.Uint32(b[48:]),
-	}
-	want := place.Log(h.DB, h.Generation, offset).Sum(b[:60])
-	if !bytes.Equal(b[:8], fileMagic) || binary.LittleEndian.Uint32(b[60:]) != want {
-		return Header{}, errors.Wrapf(
-			place.ErrCorrupt,
-			"log header at %d fails its check",
-			offset,
-		)
 	}
 	if v := binary.LittleEndian.Uint16(b[8:]); v != headerVersion {
 		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", v)

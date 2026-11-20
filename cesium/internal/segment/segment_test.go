@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -103,7 +104,7 @@ var _ = Describe("Segment", func() {
 			)
 			BeforeEach(func() {
 				fs = makeFS()
-				budget = MustSucceed(segment.NewBudget(4))
+				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
 			})
 
 			create := func(c segment.Config) *segment.Writer {
@@ -121,7 +122,8 @@ var _ = Describe("Segment", func() {
 
 			Describe("Fixed density", func() {
 				It(
-					"Should follow each full block with the checksum of the block at its place",
+					"Should follow each full block with the checksum of the block at "+
+						"its place",
 					func() {
 						w := create(cfg)
 						data := pattern(2*segment.BlockSize + 10)
@@ -141,7 +143,8 @@ var _ = Describe("Segment", func() {
 				)
 
 				It(
-					"Should return the running checksum of the unfinished block at a commit",
+					"Should return the running checksum of the unfinished block at "+
+						"a commit",
 					func() {
 						w := create(cfg)
 						data := pattern(segment.BlockSize + 100)
@@ -150,7 +153,9 @@ var _ = Describe("Segment", func() {
 						length, tail := w.Commit()
 						Expect(length).To(Equal(uint32(len(data))))
 						Expect(tail).
-							To(Equal(placeAt(cfg, 65_540).Sum(data[segment.BlockSize:])))
+							To(Equal(
+								placeAt(cfg, 65_540).Sum(data[segment.BlockSize:]),
+							))
 						Expect(h.Close()).To(Succeed())
 					},
 				)
@@ -223,9 +228,46 @@ var _ = Describe("Segment", func() {
 				Entry("variable, over blocks", varCfg, first(samples(200_000, 7))),
 			)
 
+			It("Should copy nothing of a write that fills no block", func() {
+				h = MustSucceed(budget.Create(nullFS{FS: fs}, "3.seg"))
+				w := segment.NewWriter(h, cfg)
+				data := pattern(segment.BlockSize - 10)
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				Expect(w.Write(data)).To(Succeed())
+				runtime.ReadMemStats(&after)
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", segment.BlockSize/4))
+				Expect(h.Close()).To(Succeed())
+			})
+
+			It("Should stage at most one block and its trailer of a large write, and "+
+				"write a last piece with nothing staged from the caller's bytes",
+				func() {
+					ops := newOpFS(fs)
+					budget2 := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					h2 := MustSucceed(budget2.Create(ops, "4.seg"))
+					w := segment.NewWriter(h2, cfg)
+					Expect(w.Write(pattern(100))).To(Succeed())
+					Expect(w.Write(pattern(3*segment.BlockSize + 50))).To(Succeed())
+					Expect(w.Write(pattern(segment.BlockSize - 100))).To(Succeed())
+					Expect(w.Write(pattern(10))).To(Succeed())
+					Expect(h2.Close()).To(Succeed())
+					Expect(ops.Sizes()).To(Equal([]int{
+						100,
+						segment.BlockSize - 100 + 4,
+						segment.BlockSize + 4,
+						segment.BlockSize + 4,
+						150,
+						segment.BlockSize - 150 + 4 + 50,
+						10,
+					}))
+				})
+
 			Describe("Variable density", func() {
 				DescribeTable(
-					"Should give each trailer the position and offset of the first sample "+
+					"Should give each trailer the position and offset of the first "+
+						"sample "+
 						"that starts in its block",
 					func(sizes []int, split bool) {
 						stream, starts := samples(sizes...)
@@ -277,13 +319,16 @@ var _ = Describe("Segment", func() {
 				)
 
 				It(
-					"Should refuse a write that ends inside a sample and change nothing",
+					"Should refuse a write that ends inside a sample and change "+
+						"nothing",
 					func() {
 						stream, starts := samples(10, 70_000, 20)
 						w := create(varCfg)
 						Expect(w.Write(stream[:starts[1]])).To(Succeed())
 						Expect(w.Write(stream[starts[1] : starts[1]+3])).
-							To(MatchError(ContainSubstring("ends inside the length at 0")))
+							To(MatchError(
+								ContainSubstring("ends inside the length at 0"),
+							))
 						Expect(w.Write(stream[starts[1] : starts[2]-1])).
 							To(MatchError(ContainSubstring("ends inside a sample")))
 						Expect(w.Len()).To(Equal(starts[1]))
@@ -294,7 +339,8 @@ var _ = Describe("Segment", func() {
 				)
 
 				It(
-					"Should put the sample count and block state back to the last commit",
+					"Should put the sample count and block state back to the last "+
+						"commit",
 					func() {
 						first, _ := samples(5, 70_000)
 						w := create(varCfg)
@@ -334,9 +380,29 @@ var _ = Describe("Segment", func() {
 		})
 	}
 
+	It("Should refuse a write that grows the stream past 4 GiB", func() {
+		budget := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+		h := MustSucceed(budget.Create(nullFS{FS: xfs.NewMem()}, "1.seg"))
+		w := segment.NewWriter(h, cfg)
+		chunk := make([]byte, 1<<20)
+		for range 4095 {
+			Expect(w.Write(chunk)).To(Succeed())
+		}
+		Expect(w.Write(chunk)).To(MatchError(ContainSubstring(
+			"segment of 4293918720 stream bytes cannot grow by 1048576 past 4 GiB",
+		)))
+		Expect(w.Len()).To(Equal(int64(4293918720)))
+		Expect(w.Write(chunk[:1<<20-1])).To(Succeed())
+		length, _ := w.Commit()
+		Expect(length).To(Equal(uint32(1<<32 - 1)))
+		Expect(h.Close()).To(Succeed())
+	})
+
 	DescribeTable(
 		"Should place stream offsets past the trailers of the blocks before them",
-		func(c segment.Config, x, want int64) { Expect(c.FileOffset(x)).To(Equal(want)) },
+		func(c segment.Config, x, want int64) {
+			Expect(c.FileOffset(x)).To(Equal(want))
+		},
 		Entry("start", cfg, int64(0), int64(0)),
 		Entry("inside the first block", cfg, int64(65_535), int64(65_535)),
 		Entry("start of the second block", cfg, int64(65_536), int64(65_540)),
@@ -348,6 +414,18 @@ var _ = Describe("Segment", func() {
 })
 
 func first[A, B any](a A, _ B) A { return a }
+
+// nullFS keeps no byte that its files write.
+type nullFS struct{ xfs.FS }
+
+func (f nullFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	return nullFile{File: file}, err
+}
+
+type nullFile struct{ xfs.File }
+
+func (nullFile) WriteAt(p []byte, _ int64) (int, error) { return len(p), nil }
 
 func repeat(size, n int) []int {
 	s := make([]int, n)

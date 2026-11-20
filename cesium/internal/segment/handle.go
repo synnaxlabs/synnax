@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -26,35 +26,10 @@ var (
 	ErrDirSync = errors.New("directory sync failed")
 )
 
-// Budget limits the open file handles of a database. To open a handle when the limit
-// is reached, it closes the idle handle that was used least recently, and syncs that
-// handle first when it has unsynced bytes. When every open handle is in use, the open
-// waits for one to become idle. A Budget is safe for concurrent use.
-type Budget struct {
-	limit int
-	mu    sync.Mutex
-	cond  sync.Cond
-	// open counts the handles that are open, opening, or closing.
-	open int
-	// idle is the sentinel of a ring of the open handles that no call uses, the most
-	// recently used first.
-	idle Handle
-}
-
-// NewBudget returns a budget of limit open handles, at least 1.
-func NewBudget(limit int) (*Budget, error) {
-	if limit < 1 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"handle budget of %d is below 1",
-			limit,
-		)
-	}
-	b := &Budget{limit: limit}
-	b.cond.L = &b.mu
-	b.idle.prev, b.idle.next = &b.idle, &b.idle
-	return b, nil
-}
+const (
+	createFlag = os.O_CREATE | os.O_EXCL | os.O_RDWR
+	openFlag   = os.O_RDWR
+)
 
 // Handle is the file of one segment. Its budget opens the file on use and may close it
 // between calls. A sync that fails, from any caller, marks the handle failed: it never
@@ -64,6 +39,9 @@ type Handle struct {
 	b    *Budget
 	fs   xfs.FS
 	name string
+	// wmu serializes the writes and syncs of the file, so none runs between a failed
+	// sync and its mark. It comes before b.mu.
+	wmu sync.Mutex
 	// The fields below are guarded by b.mu.
 	file xfs.File
 	// flag opens file. It holds O_CREATE until the first open.
@@ -72,8 +50,8 @@ type Handle struct {
 	refs int
 	// busy is true while the file opens or closes. Calls on the handle wait.
 	busy bool
-	// written counts writes, and synced is written at the start of the last sync
-	// that passed.
+	// written counts writes, and synced is written at the last sync that passed. The
+	// budget closes a file only when they are equal or the handle is failed.
 	written, synced uint64
 	// newEntry is true until a sync makes the directory entry of a created file
 	// durable.
@@ -82,29 +60,6 @@ type Handle struct {
 	closed   bool
 	// prev and next link the handle in the idle ring of b while it is idle.
 	prev, next *Handle
-}
-
-// Create creates the file name in fs, which must not exist, and returns its handle. The
-// first Sync of the handle also syncs the directory of name.
-func (b *Budget) Create(fs xfs.FS, name string) (*Handle, error) {
-	h := &Handle{
-		b:        b,
-		fs:       fs,
-		name:     name,
-		flag:     os.O_CREATE | os.O_EXCL | os.O_RDWR,
-		newEntry: true,
-	}
-	if _, err := h.acquire(); err != nil {
-		return nil, err
-	}
-	h.release(false)
-	return h, nil
-}
-
-// Open returns the handle of the file name in fs, which exists. The file opens on the
-// first call that uses it.
-func (b *Budget) Open(fs xfs.FS, name string) *Handle {
-	return &Handle{b: b, fs: fs, name: name, flag: os.O_RDWR}
 }
 
 // acquire returns the open file of h and counts the caller as a user of it.
@@ -147,32 +102,8 @@ func (h *Handle) openFile() (xfs.File, error) {
 		b.open--
 		return nil, err
 	}
-	h.file, h.flag, h.refs = file, os.O_RDWR, 1
+	h.file, h.flag, h.refs = file, openFlag, 1
 	return file, nil
-}
-
-// evict syncs v when it has unsynced bytes, then closes it. The caller holds b.mu,
-// which evict releases while the file syncs and closes. A failed sync or close marks v
-// failed.
-func (b *Budget) evict(v *Handle) {
-	v.unlink()
-	v.busy = true
-	file, written, dirty := v.file, v.written, v.failed == nil && v.written != v.synced
-	b.mu.Unlock()
-	var err error
-	if dirty {
-		err = file.Sync()
-	}
-	err = errors.Combine(err, file.Close())
-	b.mu.Lock()
-	v.file, v.busy = nil, false
-	b.open--
-	if err != nil {
-		v.fail(err)
-	} else if dirty {
-		v.synced = written
-	}
-	b.cond.Broadcast()
 }
 
 // release ends one use of the file of h, and counts a write when wrote is true.
@@ -226,6 +157,8 @@ func (h *Handle) ReadAt(p []byte, off int64) (int, error) {
 // WriteAt writes p at file offset off, with no sync. It returns the error of the
 // failed sync when the handle is failed.
 func (h *Handle) WriteAt(p []byte, off int64) (int, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
 	file, err := h.acquire()
 	if err != nil {
 		return 0, err
@@ -245,29 +178,44 @@ func (h *Handle) failure() error {
 	return h.failed
 }
 
-// Sync makes every write that returned before the call durable, and the directory
-// entry of a created file. It returns the error of the failed sync when the handle is
-// failed, from this call or an earlier one. errors.Is matches a failed sync of the
-// directory with ErrDirSync.
+// Sync makes every write that returned before the call durable, and the directory entry
+// of a created file. It runs one sync of the handle at a time, inside the width of the
+// budget. It returns the error of the failed sync when the handle is failed, from this
+// call or an earlier one. errors.Is matches a failed sync of the directory with
+// ErrDirSync.
 func (h *Handle) Sync() error {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
 	b := h.b
 	b.mu.Lock()
-	written, synced, newEntry := h.written, h.synced, h.newEntry
-	failed, closed := h.failed, h.closed
-	b.mu.Unlock()
-	switch {
-	case closed:
-		return errors.Wrapf(ErrClosed, "segment file %s", h.name)
-	case failed != nil:
-		return failed
+	for h.busy {
+		b.cond.Wait()
 	}
+	switch {
+	case h.closed:
+		b.mu.Unlock()
+		return errors.Wrapf(ErrClosed, "segment file %s", h.name)
+	case h.failed != nil:
+		b.mu.Unlock()
+		return h.failed
+	}
+	file, dirty, newEntry := h.file, h.written != h.synced, h.newEntry
+	if dirty {
+		if invariants.Enabled && file == nil {
+			panic("segment: a closed handle holds unsynced writes")
+		}
+		h.refs++
+		h.unlink()
+	}
+	b.mu.Unlock()
 	var err error
-	if written != synced {
-		err = h.syncFile()
+	if dirty {
+		err = b.do(file.Sync)
+		h.release(false)
 	}
 	if err == nil && newEntry {
 		d := dir(h.name)
-		if err = h.fs.SyncDir(d); err != nil {
+		if err = b.do(func() error { return h.fs.SyncDir(d) }); err != nil {
 			err = errors.Mark(errors.Wrapf(err, "sync of directory %q", d), ErrDirSync)
 		}
 	}
@@ -277,20 +225,8 @@ func (h *Handle) Sync() error {
 		h.fail(err)
 		return h.failed
 	}
-	h.synced = max(h.synced, written)
-	if newEntry {
-		h.newEntry = false
-	}
+	h.synced, h.newEntry = h.written, false
 	return h.failed
-}
-
-func (h *Handle) syncFile() error {
-	file, err := h.acquire()
-	if err != nil {
-		return err
-	}
-	defer h.release(false)
-	return file.Sync()
 }
 
 func dir(name string) string {

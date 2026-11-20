@@ -45,14 +45,37 @@ func decodeAll(b []byte) ([]any, error) {
 			out = append(out, c)
 		case *log.Seal:
 			out = append(out, *v)
+		case *log.Tombstone:
+			out = append(out, tombstoneOf(v))
+		case *log.Replace:
+			c := *v
+			c.Pointers = append([]log.Pointer(nil), v.Pointers...)
+			out = append(out, c)
 		case *log.Drop:
 			out = append(out, *v)
 		case *log.Restart:
+			out = append(out, *v)
+		case *log.Check:
 			out = append(out, *v)
 		case *log.Intent:
 			out = append(out, *v)
 		}
 	}
+}
+
+// tombstoneOf returns a copy of a decoded tombstone whose cuts the decoder does not
+// own.
+func tombstoneOf(v *log.Tombstone) log.Tombstone {
+	t := log.Tombstone{Key: v.Key, Start: v.Start, End: v.End}
+	if v.Left != nil {
+		left := *v.Left
+		t.Left = &left
+	}
+	if v.Right != nil {
+		right := *v.Right
+		t.Right = &right
+	}
+	return t
 }
 
 // entryOf returns the bytes of an entry that holds records.
@@ -119,6 +142,26 @@ var commit = log.Commit{
 	},
 }
 
+var (
+	tombstone = log.Tombstone{
+		Key:   4,
+		Start: 100,
+		End:   200,
+		Left:  &log.Cut{Segment: 2, Offset: 16, Alignment: 5<<32 | 2},
+		Right: &log.Cut{Segment: 3, Offset: 8, Alignment: 6<<32 | 1},
+	}
+	replace = log.Replace{
+		Old:     2,
+		New:     11,
+		Length:  65_536,
+		TailCRC: 9,
+		Pointers: []log.Pointer{
+			{Offset: 0, Length: 24, Samples: 3, Alignment: 5 << 32, First: 1, Last: 3},
+			{Offset: 32, Length: 8, Samples: 1, Alignment: 6 << 32, First: 9, Last: 9},
+		},
+	}
+)
+
 var _ = Describe("Record", func() {
 	It("Should decode every record that an entry holds, in order", func() {
 		records := []log.Record{
@@ -126,20 +169,28 @@ var _ = Describe("Record", func() {
 			&log.Create{Segment: 2, Key: 4, Clock: 4, Version: 1, DataType: 6},
 			&commit,
 			&log.Seal{Segment: 2, Length: 24, TailCRC: 0xAABBCCDD},
+			&tombstone,
+			&log.Tombstone{Key: 5, Start: 1, End: 2},
+			&replace,
 			&log.Drop{Key: 8},
 			&log.Restart{},
+			&log.Check{Segment: 12},
 			&log.Intent{Key: 8},
-			&log.Intent{Key: 8, Clear: true},
+			&log.Intent{Key: 8, Cleared: true},
 		}
 		Expect(decodeAll(entryOf(records...))).To(Equal([]any{
 			log.Reserve{Segments: 17, Alignments: 1 << 20},
 			log.Create{Segment: 2, Key: 4, Clock: 4, Version: 1, DataType: 6},
 			commit,
 			log.Seal{Segment: 2, Length: 24, TailCRC: 0xAABBCCDD},
+			tombstone,
+			log.Tombstone{Key: 5, Start: 1, End: 2},
+			replace,
 			log.Drop{Key: 8},
 			log.Restart{},
+			log.Check{Segment: 12},
 			log.Intent{Key: 8},
-			log.Intent{Key: 8, Clear: true},
+			log.Intent{Key: 8, Cleared: true},
 		}))
 	})
 
@@ -195,9 +246,54 @@ var _ = Describe("Record", func() {
 			concat([]byte{10, 0, 0, 0}, le32(8), le32(8, 0)),
 		),
 		Entry(
-			"intent clear",
-			&log.Intent{Key: 8, Clear: true},
+			"intent cleared",
+			&log.Intent{Key: 8, Cleared: true},
 			concat([]byte{10, 0, 0, 0}, le32(8), le32(8, 1)),
+		),
+		Entry(
+			"tombstone with both cuts",
+			&tombstone,
+			concat(
+				[]byte{5, 0, 0, 0},
+				le32(72, 4, 3),
+				le64(100, 200, 2),
+				le32(16, 0),
+				le64(5<<32|2, 3),
+				le32(8, 0),
+				le64(6<<32|1),
+			),
+		),
+		Entry(
+			"tombstone with a right cut only",
+			&log.Tombstone{Key: 4, Start: 1, End: 2, Right: tombstone.Right},
+			concat(
+				[]byte{5, 0, 0, 0},
+				le32(72, 4, 2),
+				le64(1, 2),
+				make([]byte, 24),
+				le64(3),
+				le32(8, 0),
+				le64(6<<32|1),
+			),
+		),
+		Entry(
+			"replace",
+			&replace,
+			concat(
+				[]byte{6, 0, 0, 0},
+				le32(112),
+				le64(2, 11),
+				le32(65_536, 9, 2, 0),
+				le32(0, 24, 3, 0),
+				le64(5<<32, 1, 3),
+				le32(32, 8, 1, 0),
+				le64(6<<32, 9, 9),
+			),
+		),
+		Entry(
+			"check",
+			&log.Check{Segment: 12},
+			concat([]byte{9, 0, 0, 0}, le32(8), le64(12)),
 		),
 	)
 
@@ -231,7 +327,7 @@ var _ = Describe("Record", func() {
 
 	It("Should skip a record of an unknown type that an older binary may skip", func() {
 		b := rawEntry(
-			raw{1<<15 | 40, []byte{1, 2, 3}},
+			raw{1<<15 | 40, []byte{1, 2, 3, 4, 5, 6, 7, 8}},
 			raw{7, le32(5, 0)},
 		)
 		Expect(decodeAll(b)).To(Equal([]any{log.Drop{Key: 5}}))
@@ -240,22 +336,54 @@ var _ = Describe("Record", func() {
 	It(
 		"Should refuse a record of an unknown type that an older binary may not skip",
 		func() {
-			Expect(decodeAll(rawEntry(raw{5, make([]byte, 72)}))).Error().
+			Expect(decodeAll(rawEntry(raw{11, make([]byte, 8)}))).Error().
 				To(SatisfyAll(
 					MatchError(log.ErrUnknown),
-					MatchError(ContainSubstring("record type 5")),
+					MatchError(ContainSubstring("record type 11")),
 				))
 		},
 	)
 
-	It("Should refuse a segment format version that this binary does not know", func() {
-		body := concat(le64(2), le32(4, 4), []byte{2, 0, 6, 0, 0, 0, 0, 0})
-		Expect(decodeAll(rawEntry(raw{2, body}))).Error().
-			To(SatisfyAll(
-				MatchError(log.ErrUnknown),
-				MatchError(ContainSubstring("format version 2")),
-			))
-	})
+	DescribeTable(
+		"Should decode values that only the state can refuse",
+		func(b []byte) {
+			Expect(decodeAll(b)).To(HaveLen(1))
+		},
+		Entry(
+			"a segment format version this binary does not know",
+			rawEntry(
+				raw{2, concat(le64(2), le32(4, 4), []byte{2, 0, 6, 0, 0, 0, 0, 0})},
+			),
+		),
+		Entry(
+			"a reserve above the alignment limit",
+			rawEntry(raw{1, le64(1, 1<<31+1)}),
+		),
+		Entry(
+			"a create of segment 0",
+			rawEntry(raw{2, concat(le64(0), le32(1, 1), le64(1))}),
+		),
+		Entry(
+			"a commit with no slot",
+			rawEntry(raw{3, concat(le32(0, 1), le64(1, 1, 1))}),
+		),
+		Entry(
+			"a commit that gains no samples",
+			rawEntry(raw{3, concat(le32(1, 0), le64(1, 1, 1, 1), le32(1, 1))}),
+		),
+		Entry(
+			"a commit that ends before it starts",
+			rawEntry(raw{3, concat(le32(1, 1), le64(1, 5, 4, 1), le32(1, 1))}),
+		),
+		Entry(
+			"commit slots out of order",
+			rawEntry(raw{
+				3,
+				concat(le32(2, 1), le64(1, 1, 1, 4), le32(1, 1), le64(4), le32(1, 1)),
+			}),
+		),
+		Entry("a seal of segment 0", rawEntry(raw{4, concat(le64(0), le32(1, 1))})),
+	)
 
 	DescribeTable(
 		"Should refuse an entry that breaks the format",
@@ -265,116 +393,7 @@ var _ = Describe("Record", func() {
 				MatchError(ContainSubstring(message)),
 			))
 		},
-		Entry("a short entry header", []byte{1, 2, 3}, "entry header needs 8 bytes"),
-		Entry(
-			"records past the end",
-			concat(le32(100, 1), make([]byte, 8)),
-			"entry holds 100 bytes of records",
-		),
-		Entry(
-			"a count that its bytes cannot hold",
-			concat(le32(8, 2), []byte{8, 0, 0, 0}, le32(0)),
-			"cannot hold 2 records",
-		),
-		Entry(
-			"bytes after the last record",
-			concat(le32(16, 1), []byte{8, 0, 0, 0}, le32(0), make([]byte, 8)),
-			"8 bytes after its last record",
-		),
-		Entry(
-			"fewer records than its count",
-			concat(le32(12, 1), []byte{8, 0, 0, 0}, le32(4), make([]byte, 4)),
-			"restart record has 4 bytes, not 0",
-		),
-		Entry(
-			"a set reserved field in a record header",
-			concat(le32(8, 1), []byte{8, 0, 1, 0}, le32(0)),
-			"set reserved field",
-		),
-		Entry(
-			"a record past its entry",
-			concat(le32(8, 1), []byte{7, 0, 0, 0}, le32(8)),
-			"holds 8 bytes, but 0 remain",
-		),
-		Entry(
-			"a reserve above the alignment limit",
-			rawEntry(raw{1, le64(1, 1<<31+1)}),
-			"alignment limit 2147483649",
-		),
-		Entry(
-			"a create of segment 0",
-			rawEntry(raw{2, concat(le64(0), le32(1, 1), le64(1))}),
-			"create record has segment 0",
-		),
-		Entry(
-			"a set reserved byte in a create",
-			rawEntry(raw{
-				2,
-				concat(le64(1), le32(1, 1), []byte{1, 0, 3, 0, 0, 9, 0, 0}),
-			}),
-			"create record has a set reserved byte",
-		),
-		Entry(
-			"a commit with no slot",
-			rawEntry(raw{3, concat(le32(0, 1), le64(1, 1, 1))}),
-			"commit record has 32 bytes",
-		),
-		Entry(
-			"a commit whose slot count differs from its size",
-			rawEntry(
-				raw{3, concat(le32(2, 1), le64(1, 1, 1, 1), le32(1, 1))},
-			),
-			"names 2 slots",
-		),
-		Entry(
-			"a commit that gains no samples",
-			rawEntry(
-				raw{3, concat(le32(1, 0), le64(1, 1, 1, 1), le32(1, 1))},
-			),
-			"gains no samples",
-		),
-		Entry(
-			"a commit that ends before it starts",
-			rawEntry(
-				raw{3, concat(le32(1, 1), le64(1, 5, 4, 1), le32(1, 1))},
-			),
-			"starts at 5, after its end 4",
-		),
-		Entry(
-			"commit slots out of order",
-			rawEntry(raw{
-				3,
-				concat(le32(2, 1), le64(1, 1, 1, 4), le32(1, 1), le64(4), le32(1, 1)),
-			}),
-			"slot 1 names segment 4, not above segment 4",
-		),
-		Entry(
-			"a commit of segment 0",
-			rawEntry(
-				raw{3, concat(le32(1, 1), le64(1, 1, 1, 0), le32(1, 1))},
-			),
-			"commit record names segment 0",
-		),
-		Entry(
-			"a seal of segment 0",
-			rawEntry(raw{4, concat(le64(0), le32(1, 1))}),
-			"seal record has segment 0",
-		),
-		Entry(
-			"a set reserved field in a drop",
-			rawEntry(raw{7, le32(1, 1)}),
-			"drop record has a set reserved byte",
-		),
-		Entry(
-			"unknown intent flags",
-			rawEntry(raw{10, le32(1, 2)}),
-			"unknown flags 0x2",
-		),
-		Entry(
-			"a short seal",
-			rawEntry(raw{4, le64(1)}),
-			"seal record has 8 bytes, not 16",
-		),
+		refusalEntries(entryRefusals),
 	)
 
 	It("Should decode a commit with no allocation", func() {

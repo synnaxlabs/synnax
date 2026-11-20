@@ -41,7 +41,7 @@ var _ = Describe("Seek", func() {
 			// returns the stream and the stream offset where each sample starts.
 			write := func(sizes ...int) ([]byte, []int64) {
 				GinkgoHelper()
-				b := MustSucceed(segment.NewBudget(1))
+				b := MustSucceed(segment.NewBudget(1, 4, segment.GoExecutor))
 				h = MustSucceed(b.Create(makeFS(), "3.seg"))
 				DeferCleanup(func() { Expect(h.Close()).To(Succeed()) })
 				stream, starts := samples(sizes...)
@@ -114,6 +114,45 @@ var _ = Describe("Seek", func() {
 							MatchError(ContainSubstring("trailer of segment block 1")),
 						))
 				},
+			)
+
+			// corrupt writes v at field off (0 first_pos, 4 first_off) of the trailer
+			// of
+			// full block b.
+			corrupt := func(b, off int64, v uint32) {
+				GinkgoHelper()
+				at := varCfg.FileOffset((b+1)*segment.BlockSize) - 16 + off
+				Expect(h.WriteAt(binary.LittleEndian.AppendUint32(nil, v), at)).
+					To(Equal(4))
+			}
+
+			DescribeTable(
+				"Should refuse trailers that disagree with one another",
+				func(sizes []int, block, field int64, v, pos uint32, msg string) {
+					stream, starts := write(sizes...)
+					corrupt(block, field, v)
+					Expect(varCfg.Seek(h, make([]byte, 16), pos, int64(len(stream)),
+						uint32(len(starts)))).Error().To(SatisfyAll(
+						MatchError(place.ErrCorrupt),
+						MatchError(ContainSubstring(msg)),
+					))
+				},
+				Entry("block 0 counts samples before it",
+					[]int{70_000, 70_000}, int64(0), int64(0), uint32(1), uint32(0),
+					"segment block 0 counts samples before it"),
+				Entry("block 0 starts no sample",
+					[]int{140_000, 3}, int64(0), int64(0), uint32(1), uint32(1),
+					"segment block 0 starts no sample"),
+				Entry(
+					"the block before a run of no starts starts none",
+					[]int{200_000, 3},
+					int64(0),
+					int64(4),
+					segment.NoStart,
+					uint32(1),
+					"segment block 0 starts no sample, but the block after it "+
+						"counts more",
+				),
 			)
 
 			It("Should refuse a sample length that runs past the segment", func() {

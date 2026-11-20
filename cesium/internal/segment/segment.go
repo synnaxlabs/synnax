@@ -15,6 +15,7 @@ package segment
 import (
 	"encoding/binary"
 	"io"
+	"math"
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
@@ -110,52 +111,81 @@ func NewWriter(h *Handle, cfg Config) *Writer {
 	return w
 }
 
-// Write appends p to the stream, with the trailer of each block that p fills, in one
-// write and with no sync. p holds whole samples. A failed write puts the writer back to
-// its last commit. A variable-density write that ends inside a sample fails and
-// changes nothing.
+// Write appends p to the stream, with the trailer of each block that p fills, and no
+// sync. p holds whole samples. Write stages at most one block and its trailer, so a
+// large write takes one write call per block. A failed write puts the writer back to
+// its last commit. A write that ends inside a variable-density sample, or that would
+// grow the stream past 4 GiB, fails and changes nothing.
 func (w *Writer) Write(p []byte) error {
+	if w.at.length+int64(len(p)) > math.MaxUint32 {
+		return errors.Newf(
+			"segment of %d stream bytes cannot grow by %d past 4 GiB",
+			w.at.length,
+			len(p),
+		)
+	}
 	if w.cfg.Variable {
 		if err := wholeSamples(p); err != nil {
 			return err
 		}
 	}
-	start := w.cfg.FileOffset(w.at.length)
-	// Only a write that fills a block needs a copy, to append the trailer.
-	fills := int(w.at.length%BlockSize)+len(p) >= BlockSize
+	at := w.cfg.FileOffset(w.at.length)
 	w.buf = w.buf[:0]
+	flush := func() error {
+		if len(w.buf) == 0 {
+			return nil
+		}
+		if _, err := w.handle.WriteAt(w.buf, at); err != nil {
+			w.PutBack()
+			return err
+		}
+		at += int64(len(w.buf))
+		w.buf = w.buf[:0]
+		return nil
+	}
 	// next is the offset in p of the next variable-density sample.
 	next := 0
 	for i := 0; i < len(p); {
 		inBlock := int(w.at.length % BlockSize)
 		n := min(BlockSize-inBlock, len(p)-i)
-		if w.cfg.Variable {
-			for ; next < i+n; w.at.samples++ {
-				if w.at.blockOff == NoStart {
-					w.at.blockOff = uint32(inBlock + next - i)
-				}
-				next += lengthSize + int(binary.LittleEndian.Uint32(p[next:]))
+		if len(w.buf)+n+int(w.cfg.trailer()) > BlockSize+VariableTrailer {
+			if err := flush(); err != nil {
+				return err
 			}
 		}
-		w.at.crc = place.Update(w.at.crc, p[i:i+n])
-		if fills {
-			w.buf = append(w.buf, p[i:i+n]...)
+		if w.cfg.Variable {
+			next = w.countStarts(p, next, i, n)
 		}
+		w.at.crc = place.Update(w.at.crc, p[i:i+n])
 		w.at.length += int64(n)
+		if inBlock+n < BlockSize && len(w.buf) == 0 {
+			// The last piece, with nothing staged before it, needs no copy.
+			if _, err := w.handle.WriteAt(p[i:i+n], at); err != nil {
+				w.PutBack()
+				return err
+			}
+			return nil
+		}
+		w.buf = append(w.buf, p[i:i+n]...)
 		i += n
 		if inBlock+n == BlockSize {
 			w.buf = w.appendTrailer(w.buf)
 		}
 	}
-	out := p
-	if fills {
-		out = w.buf
+	return flush()
+}
+
+// countStarts counts the variable-density samples that start in the piece p[i:i+n] of
+// one block, from the sample at next, and returns the offset of the sample after them.
+func (w *Writer) countStarts(p []byte, next, i, n int) int {
+	inBlock := int(w.at.length % BlockSize)
+	for ; next < i+n; w.at.samples++ {
+		if w.at.blockOff == NoStart {
+			w.at.blockOff = uint32(inBlock + next - i)
+		}
+		next += lengthSize + int(binary.LittleEndian.Uint32(p[next:]))
 	}
-	if _, err := w.handle.WriteAt(out, start); err != nil {
-		w.PutBack()
-		return err
-	}
-	return nil
+	return next
 }
 
 // appendTrailer appends the trailer of the block that just filled to dst, and starts

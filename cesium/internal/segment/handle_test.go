@@ -25,7 +25,7 @@ var errInjected = errors.New("injected")
 
 var _ = Describe("Handle", func() {
 	It("Should refuse a budget below one handle", func() {
-		Expect(segment.NewBudget(0)).Error().
+		Expect(segment.NewBudget(0, 4, segment.GoExecutor)).Error().
 			To(MatchError(validate.ErrValidation))
 	})
 
@@ -40,7 +40,7 @@ var _ = Describe("Handle", func() {
 
 			newBudget := func(limit int) *segment.Budget {
 				GinkgoHelper()
-				return MustSucceed(segment.NewBudget(limit))
+				return MustSucceed(segment.NewBudget(limit, 4, segment.GoExecutor))
 			}
 
 			// write writes the name of h's file at offset 0 of it.
@@ -132,7 +132,8 @@ var _ = Describe("Handle", func() {
 					).Error().
 						To(MatchError(errInjected))
 					Expect(first.Sync()).To(MatchError(ContainSubstring(
-						"segment file 1.seg failed, and it is never synced or written again",
+						"segment file 1.seg failed, and it is never synced or " +
+							"written again",
 					)))
 					Expect(read(first, 5)).To(Equal("1.seg"))
 					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
@@ -199,22 +200,125 @@ var _ = Describe("Handle", func() {
 				},
 			)
 
-			It("Should keep a write made during a sync for the next sync", func() {
+			It("Should hold a write back until a sync of the handle returns", func() {
 				h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
 				write(h, "1.seg")
 				release := fs.Hold()
-				synced := make(chan error)
+				synced := make(chan error, 1)
 				go func() { synced <- h.Sync() }()
 				Eventually(fs.held).Should(Receive(Equal("1.seg")))
-				write(h, "2.seg")
+				wrote := make(chan error, 1)
+				go func() {
+					_, err := h.WriteAt([]byte("2.seg"), 0)
+					wrote <- err
+				}()
+				Consistently(wrote).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
-				Expect(<-synced).To(Succeed())
+				Eventually(synced).Should(Receive(BeNil()))
+				Eventually(wrote).Should(Receive(BeNil()))
 				Expect(h.Sync()).To(Succeed())
 				Expect(fs.Ops()).To(Equal([]string{
 					"open 1.seg", "sync 1.seg", "syncdir ", "sync 1.seg",
 				}))
+				Expect(read(h, 5)).To(Equal("2.seg"))
 				Expect(h.Close()).To(Succeed())
+			})
+
+			It("Should fail a sync that waits for a failed sync of the same handle",
+				func() {
+					h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
+					write(h, "1.seg")
+					fs.FailSync("1.seg", errInjected)
+					release := fs.Hold()
+					first := make(chan error, 1)
+					go func() { first <- h.Sync() }()
+					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					second := make(chan error, 1)
+					go func() { second <- h.Sync() }()
+					wrote := make(chan error, 1)
+					go func() {
+						_, err := h.WriteAt([]byte("x"), 0)
+						wrote <- err
+					}()
+					Consistently(fs.held).ShouldNot(Receive())
+					fs.FailSync("1.seg", nil)
+					fs.Unhold()
+					close(release)
+					Eventually(first).Should(Receive(MatchError(errInjected)))
+					Eventually(second).Should(Receive(MatchError(errInjected)))
+					Eventually(wrote).Should(Receive(MatchError(errInjected)))
+					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
+					Expect(h.Close()).To(Succeed())
+				},
+			)
+
+			It("Should not sync a file again after the sync before its close failed",
+				func() {
+					b := newBudget(1)
+					first := MustSucceed(b.Create(fs, "1.seg"))
+					write(first, "1.seg")
+					fs.FailSync("1.seg", errInjected)
+					release := fs.Hold()
+					created := make(chan *segment.Handle, 1)
+					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					synced := make(chan error, 1)
+					go func() { synced <- first.Sync() }()
+					read := make(chan error, 1)
+					go func() {
+						_, err := first.ReadAt(make([]byte, 5), 0)
+						read <- err
+					}()
+					Consistently(synced).ShouldNot(Receive())
+					Consistently(read).ShouldNot(Receive())
+					fs.FailSync("1.seg", nil)
+					fs.Unhold()
+					close(release)
+					Eventually(synced).Should(Receive(MatchError(errInjected)))
+					var second *segment.Handle
+					Eventually(created).Should(Receive(&second))
+					Expect(second.Close()).To(Succeed())
+					Eventually(read).Should(Receive(BeNil()))
+					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
+					Expect(fs.Ops()).ToNot(ContainElement("syncdir "))
+					Expect(first.Close()).To(Succeed())
+				},
+			)
+
+			It("Should sync the directory of a created file once when two callers sync",
+				func() {
+					h := MustSucceed(newBudget(2).Create(fs, "12/1.seg"))
+					release := fs.Hold()
+					done := make(chan error, 2)
+					go func() { done <- h.Sync() }()
+					Eventually(fs.held).Should(Receive(Equal("12")))
+					go func() { done <- h.Sync() }()
+					Consistently(fs.held).ShouldNot(Receive())
+					fs.Unhold()
+					close(release)
+					Eventually(done).Should(Receive(BeNil()))
+					Eventually(done).Should(Receive(BeNil()))
+					Expect(fs.Ops()).To(Equal([]string{"open 12/1.seg", "syncdir 12"}))
+					Expect(h.Close()).To(Succeed())
+				},
+			)
+
+			It("Should close a handle only once its calls in flight return", func() {
+				h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
+				write(h, "1.seg")
+				release := fs.Hold()
+				synced := make(chan error, 1)
+				go func() { synced <- h.Sync() }()
+				Eventually(fs.held).Should(Receive(Equal("1.seg")))
+				closed := make(chan error, 1)
+				go func() { closed <- h.Close() }()
+				Consistently(closed).ShouldNot(Receive())
+				fs.Unhold()
+				close(release)
+				Eventually(synced).Should(Receive(BeNil()))
+				Eventually(closed).Should(Receive(BeNil()))
+				Expect(fs.Ops()).To(ContainElement("close 1.seg"))
 			})
 
 			It(
@@ -224,16 +328,17 @@ var _ = Describe("Handle", func() {
 					first := MustSucceed(b.Create(fs, "1.seg"))
 					write(first, "1.seg")
 					release := fs.Hold()
-					synced := make(chan error)
+					synced := make(chan error, 1)
 					go func() { synced <- first.Sync() }()
 					Eventually(fs.held).Should(Receive(Equal("1.seg")))
-					created := make(chan *segment.Handle)
+					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
 					Consistently(created).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
-					Expect(<-synced).To(Succeed())
-					second := <-created
+					Eventually(synced).Should(Receive(BeNil()))
+					var second *segment.Handle
+					Eventually(created).Should(Receive(&second))
 					Expect(fs.MaxOpen()).To(Equal(1))
 					Expect(second.Close()).To(Succeed())
 					Expect(first.Close()).To(Succeed())

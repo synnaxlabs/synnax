@@ -28,7 +28,7 @@ type opFS struct {
 	release chan struct{}
 }
 
-func newOpFS() *opFS { return &opFS{FS: xfs.NewMem(), held: make(chan struct{})} }
+func newOpFS(fs xfs.FS) *opFS { return &opFS{FS: fs, held: make(chan struct{})} }
 
 func (f *opFS) record(op string) {
 	f.mu.Lock()

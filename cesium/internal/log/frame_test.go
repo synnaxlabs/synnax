@@ -33,8 +33,8 @@ func sealedFrame(b []byte, offset uint64) []byte {
 }
 
 // sealedHeader sets the checksum of the header copy in b at offset.
-func sealedHeader(b []byte, offset uint64) []byte {
-	crc := place.Log(db, generation, offset).Sum(b[:60])
+func sealedHeader(b []byte) []byte {
+	crc := place.Log(db, generation, 0).Sum(b[:60])
 	binary.LittleEndian.PutUint32(b[60:], crc)
 	return b
 }
@@ -103,14 +103,6 @@ var _ = Describe("Frame", func() {
 		Entry("another offset", uint64(db), uint64(generation), uint64(12_288)),
 	)
 
-	It("Should refuse a frame with a changed byte", func() {
-		f := log.Frame{Count: 1, Sequence: 9, Entries: entries}
-		b := f.Append(nil, db, generation, 8_192)
-		b[len(b)-1] ^= 1
-		Expect(log.DecodeFrame(b, db, generation, 8_192)).Error().
-			To(MatchError(place.ErrCorrupt))
-	})
-
 	DescribeTable(
 		"Should refuse a frame that breaks the format",
 		func(b []byte, message string) {
@@ -119,31 +111,7 @@ var _ = Describe("Frame", func() {
 				MatchError(ContainSubstring(message)),
 			))
 		},
-		Entry("a short header", make([]byte, 31), "needs 32 bytes, but 31 remain"),
-		Entry("no magic", make([]byte, 32), "no frame magic at 8192"),
-		Entry(
-			"entries past the bytes",
-			concat(le32(0x464C5043, 0, 8, 0), make([]byte, 16)),
-			"holds 8 bytes of entries, past its bounds",
-		),
-		Entry(
-			"entries past the largest frame",
-			concat(le32(0x464C5043, 0, 16<<20, 0), make([]byte, 16)),
-			"past its bounds",
-		),
-		Entry(
-			"unknown flags",
-			sealedFrame(concat(le32(0x464C5043, 0, 0, 0), le64(1), le32(0, 2)), 8_192),
-			"unknown flags 0x2",
-		),
-		Entry(
-			"more entries than its bytes hold",
-			sealedFrame(
-				concat(le32(0x464C5043, 0, 8, 2), le64(1), le32(0, 0), le32(0, 0)),
-				8_192,
-			),
-			"cannot hold 2 entries",
-		),
+		refusalEntries(frameRefusals),
 	)
 })
 
@@ -151,7 +119,9 @@ var _ = Describe("Header", func() {
 	DescribeTable(
 		"Should decode a copy that it encodes",
 		func(offset uint64) {
-			Expect(log.DecodeHeader(header.Encode(offset), offset)).To(Equal(header))
+			Expect(
+				log.DecodeHeader(header.Encode(offset), db, generation, offset),
+			).To(Equal(header))
 		},
 		Entry("first copy", uint64(0)),
 		Entry("second copy", uint64(log.HeaderCopy)),
@@ -169,27 +139,45 @@ var _ = Describe("Header", func() {
 	})
 
 	It("Should refuse a copy decoded at the offset of the other copy", func() {
-		Expect(log.DecodeHeader(header.Encode(0), log.HeaderCopy)).Error().
+		Expect(
+			log.DecodeHeader(header.Encode(0), db, generation, log.HeaderCopy),
+		).Error().
 			To(SatisfyAll(
 				MatchError(place.ErrCorrupt),
 				MatchError(ContainSubstring("log header at 4096 fails its check")),
 			))
 	})
 
+	DescribeTable(
+		"Should refuse a copy of another log",
+		func(dbOf, generationOf uint64) {
+			Expect(log.DecodeHeader(header.Encode(0), dbOf, generationOf, 0)).Error().
+				To(SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(ContainSubstring("log header at 0 fails its check")),
+				))
+		},
+		Entry("another database", uint64(1), uint64(generation)),
+		Entry("another generation", uint64(db), uint64(4)),
+	)
+
 	It("Should refuse a copy without the magic", func() {
 		b := header.Encode(0)
 		b[0] = 'X'
-		Expect(log.DecodeHeader(sealedHeader(b, 0), 0)).Error().
+		Expect(log.DecodeHeader(sealedHeader(b), db, generation, 0)).Error().
 			To(MatchError(ContainSubstring("fails its check")))
 	})
 
 	It("Should refuse a log format version that this binary does not know", func() {
 		b := header.Encode(0)
 		b[8] = 2
-		Expect(log.DecodeHeader(sealedHeader(b, 0), 0)).Error().To(SatisfyAll(
-			MatchError(log.ErrUnknown),
-			MatchError(ContainSubstring("log format version 2")),
-		))
+		Expect(
+			log.DecodeHeader(sealedHeader(b), db, generation, 0),
+		).Error().
+			To(SatisfyAll(
+				MatchError(log.ErrUnknown),
+				MatchError(ContainSubstring("log format version 2")),
+			))
 	})
 
 	DescribeTable(
@@ -197,17 +185,20 @@ var _ = Describe("Header", func() {
 		func(at int) {
 			b := header.Encode(0)
 			b[at] = 1
-			Expect(log.DecodeHeader(sealedHeader(b, 0), 0)).Error().To(SatisfyAll(
-				MatchError(place.ErrCorrupt),
-				MatchError(ContainSubstring("set reserved byte")),
-			))
+			Expect(
+				log.DecodeHeader(sealedHeader(b), db, generation, 0),
+			).Error().
+				To(SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(ContainSubstring("set reserved byte")),
+				))
 		},
 		Entry("after the version", 12),
 		Entry("after the link", 55),
 	)
 
 	It("Should refuse a short copy", func() {
-		Expect(log.DecodeHeader(make([]byte, 63), 0)).Error().
+		Expect(log.DecodeHeader(make([]byte, 63), db, generation, 0)).Error().
 			To(MatchError(ContainSubstring("needs 64 bytes, but 63 remain")))
 	})
 })

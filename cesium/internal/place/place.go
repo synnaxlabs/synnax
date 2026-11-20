@@ -13,9 +13,8 @@
 package place
 
 import (
+	"errors" //nolint:depguard // place imports the standard library only.
 	"hash/crc32"
-
-	"github.com/synnaxlabs/x/errors"
 )
 
 // ErrCorrupt is the error of bytes that fail their checksum, or that pass it and break
@@ -46,8 +45,8 @@ type Place struct {
 	clock    uint32
 }
 
-// Segment returns the place of bytes at offset in segment file of database db, with
-// the segment's format version, data type code, and clock key.
+// Segment returns the place of bytes at offset in segment file of database db, with the
+// segment's format version, data type code, and clock key.
 func Segment(
 	db, file, offset uint64,
 	version uint16,
