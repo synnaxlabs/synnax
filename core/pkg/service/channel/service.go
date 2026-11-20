@@ -115,12 +115,12 @@ type Service struct {
 	// renames holds the renames of each transaction. The hook of the last one sends all
 	// of them to storage in one call.
 	renames *gorp.Attachment[rename]
-	// isBuiltIn is IsBuiltIn, bound once so that a retrieve allocates no method value.
-	isBuiltIn func(Key) bool
 	// builtIns holds the keys that Writer.Declare declared. A commit replaces the set
 	// under mu, so a read takes no lock.
-	builtIns atomic.Pointer[set.Set[Key]]
-	mu       struct {
+	builtIns atomic.Pointer[builtInSet]
+	// builtInFilters holds the filters of MatchInternal.
+	builtInFilters builtInFilters
+	mu             struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -145,8 +145,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
 	}
-	s.builtIns.Store(new(set.New[Key]()))
-	s.isBuiltIn = s.IsBuiltIn
+	s.builtIns.Store(&builtInSet{keys: set.New[Key]()})
+	s.builtInFilters = newBuiltInFilters(&s.builtIns)
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
@@ -185,7 +185,7 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
-		builtIn: s.isBuiltIn,
+		builtIn: &s.builtInFilters,
 	}
 }
 

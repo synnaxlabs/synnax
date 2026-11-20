@@ -18,18 +18,41 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// builtInSet holds the keys of the built-in channels.
+type builtInSet struct {
+	keys set.Set[Key]
+	// lo and hi bound keys. Built-in channels take the first keys of free channels, so
+	// most other keys fall outside the bounds and need no lookup.
+	lo, hi Key
+}
+
+func (b *builtInSet) contains(k Key) bool {
+	return k >= b.lo && k <= b.hi && b.keys.Contains(k)
+}
+
+// with returns a copy of b that holds k.
+func (b *builtInSet) with(k Key) *builtInSet {
+	next := &builtInSet{keys: maps.Clone(b.keys), lo: k, hi: k}
+	if len(b.keys) > 0 {
+		next.lo, next.hi = min(b.lo, k), max(b.hi, k)
+	}
+	next.keys.Add(k)
+	return next
+}
+
 // IsBuiltIn reports whether a Core service declared the channel with key k for its own
 // work through Writer.Declare.
-func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().Contains(k) }
+func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
 
 // BuiltIns returns the keys of the channels that Core services declared, in ascending
 // order.
 func (s *Service) BuiltIns() Keys {
-	keys := Keys(s.builtIns.Load().Slice())
+	keys := Keys(s.builtIns.Load().keys.Slice())
 	slices.Sort(keys)
 	return keys
 }
@@ -80,9 +103,7 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	gorp.BeforeCommit(w.tx, func(context.Context) error {
 		w.svc.mu.Lock()
 		defer w.svc.mu.Unlock()
-		next := maps.Clone(*w.svc.builtIns.Load())
-		next.Add(key)
-		w.svc.builtIns.Store(&next)
+		w.svc.builtIns.Store(w.svc.builtIns.Load().with(key))
 		w.svc.mu.externalNonVirtualSet.Remove(key)
 		return nil
 	})
