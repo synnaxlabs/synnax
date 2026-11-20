@@ -15,8 +15,8 @@ import {
   selectWindowKey,
   selectWindows,
 } from "@/selectors";
-import { type StoreState } from "@/state";
-import { type WindowState } from "@/window";
+import type { StoreState } from "@/state";
+import type { WindowState } from "@/window";
 
 /**
  * Selects the window with the given key.

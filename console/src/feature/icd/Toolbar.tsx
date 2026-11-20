@@ -24,7 +24,7 @@ import { Core } from "@/platform/core";
 import { Empty } from "@/platform/empty";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
 import { Toolbar } from "@/platform/toolbar";
 

@@ -16,7 +16,7 @@ import {
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { deep } from "@synnaxlabs/x";
 
-import { type Documents } from "@/session/window/keyed";
+import type { Documents } from "@/session/window/keyed";
 import { createMinimalStore } from "@/testutil";
 
 /**

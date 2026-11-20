@@ -9,8 +9,8 @@
 
 import "@/description/Description.css";
 
-import { type text } from "@synnaxlabs/x";
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";

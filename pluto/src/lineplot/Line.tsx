@@ -10,7 +10,7 @@
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { type ReactElement, useEffect } from "react";
 
-import { type Aether } from "@/aether";
+import type { Aether } from "@/aether";
 import { useContext } from "@/lineplot/Frame";
 import { Line as Base } from "@/vis/line";
 

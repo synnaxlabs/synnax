@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useClear } from "@/feature/persist/useClear";
 import { Settings as PlatformSettings } from "@/platform/settings";

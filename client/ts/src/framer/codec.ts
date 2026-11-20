@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WebsocketMessage } from "@synnaxlabs/freighter";
+import type { WebsocketMessage } from "@synnaxlabs/freighter";
 import {
   binary,
   DataType,
@@ -16,14 +16,14 @@ import {
   TimeStamp,
   type zod,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { ValidationError } from "@/errors";
-import { type Frame, type Payload } from "@/framer/frame";
-import { type StreamerResponse } from "@/framer/streamer";
+import type { Frame, Payload } from "@/framer/frame";
+import type { StreamerResponse } from "@/framer/streamer";
 import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
-import { type WriteRequest } from "@/framer/writer";
+import type { WriteRequest } from "@/framer/writer";
 
 const BITS_PER_BYTE = 8;
 

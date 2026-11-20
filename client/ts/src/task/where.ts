@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Lines } from "@/task/where.gen";
+import type { Lines } from "@/task/where.gen";
 
 /** The typed lines of a task Where. Only the Core can check which Arc a task runs. */
 export const LINES: Lines = { arcs: null };

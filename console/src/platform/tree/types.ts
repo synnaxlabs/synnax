@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource, type Synnax } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
-import { type Tree } from "@synnaxlabs/lyra/tree";
-import { type destructor } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { resource, Synnax } from "@synnaxlabs/client";
+import type { Status } from "@synnaxlabs/lyra/status";
+import type { Tree } from "@synnaxlabs/lyra/tree";
+import type { destructor } from "@synnaxlabs/x";
+import type { FC } from "react";
 
-import { type Panel } from "@/platform/panel";
-import { type Draft } from "@/platform/tree/store";
-import { type Session } from "@/session";
+import type { Panel } from "@/platform/panel";
+import type { Draft } from "@/platform/tree/store";
+import type { Session } from "@/session";
 
 /** A record that a tree shows: its resource ID and name. */
 export interface Resource extends resource.Resource {}

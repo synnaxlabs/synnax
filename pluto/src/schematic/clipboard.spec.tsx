@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import {
-  type ClipboardEvent as ReactClipboardEvent,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
+import type {
+  ClipboardEvent as ReactClipboardEvent,
+  FC,
+  PropsWithChildren,
+  ReactElement,
 } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 

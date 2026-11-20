@@ -18,7 +18,7 @@ import {
   mockSupervisor,
   type Status,
 } from "@/feature/embedded/testutil";
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 
 const FAILED: Status = {

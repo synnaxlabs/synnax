@@ -9,7 +9,7 @@
 
 import "@/device/StatusIndicator.css";
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 

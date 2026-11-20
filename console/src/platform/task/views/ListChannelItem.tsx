@@ -9,14 +9,14 @@
 
 import "@/platform/task/views/ListChannelItem.css";
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName } from "@/platform/task/ChannelName";
@@ -24,7 +24,7 @@ import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { useHoveredRef, useIsHovered } from "@/platform/task/port/Hovered";
 import { TareButton } from "@/platform/task/TareButton";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 
 /** The channel column that follows a task's own columns. */
 export const LIST_CHANNEL_COLUMNS: List.Column[] = [

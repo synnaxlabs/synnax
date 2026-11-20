@@ -10,13 +10,13 @@
 import { device, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
 import { useSearch } from "@/feature/device/search";
 import { listTreeRoot } from "@/feature/device/tree";
 import { Empty } from "@/platform/empty";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Rack } from "@/platform/rack";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
