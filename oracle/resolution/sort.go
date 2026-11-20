@@ -123,7 +123,7 @@ func subField(field Field, value ExpressionValue, table *Table) (Field, error) {
 			name,
 		)
 	}
-	fields, ok := RecordFields(typ, table)
+	fields, ok := recordFields(typ, ref.TypeArgs, table)
 	if !ok {
 		return Field{}, errors.Newf(
 			"%s: @index sorted %s needs a struct",
@@ -140,7 +140,5 @@ func subField(field Field, value ExpressionValue, table *Table) (Field, error) {
 			name,
 		)
 	}
-	args := TypeArgMap(TypeParams(typ.Form), ref.TypeArgs)
-	sub.Type = SubstituteTypeRef(sub.Type, args)
 	return sub, nil
 }
