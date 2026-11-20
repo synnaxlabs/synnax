@@ -146,6 +146,15 @@ const removeFromContextMenu = async (item: HTMLElement): Promise<void> => {
   fireEvent.click(await screen.findByText("Remove"));
 };
 
+/** Pastes the text into the element. */
+const paste = (target: HTMLElement, text: string): void => {
+  const clipboardData = new DataTransfer();
+  clipboardData.setData("text/plain", text);
+  // fireEvent.paste copies only own properties onto a new DataTransfer, which drops
+  // the data set above.
+  fireEvent(target, new ClipboardEvent("paste", { clipboardData, bubbles: true }));
+};
+
 describe("ICD editor", () => {
   it("should add a message with a unique name", async () => {
     const ic = await createICD([createMessage([], "Message 1")]);
@@ -334,9 +343,7 @@ describe("ICD editor", () => {
     await renderEditor(ic);
     const input = await screen.findByLabelText("Name 1");
     fireEvent.focus(input);
-    fireEvent.paste(input, {
-      clipboardData: { getData: () => "Temp\t/temp\nSpeed\t/speed" },
-    });
+    paste(input, "Temp\t/temp\nSpeed\t/speed");
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
         { name: "Temp", pointer: "/temp", type: "float" },
@@ -350,7 +357,7 @@ describe("ICD editor", () => {
     await renderEditor(ic);
     const input = await screen.findByLabelText("Pointer 1");
     fireEvent.focus(input);
-    fireEvent.paste(input, { clipboardData: { getData: () => "/a\n/b\n/c" } });
+    paste(input, "/a\n/b\n/c");
     await waitFor(async () =>
       expect(
         (await retrieveMessage(ic.key)).payload.fields.map(({ name }) => name),

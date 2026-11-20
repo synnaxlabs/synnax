@@ -271,10 +271,9 @@ const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
 describe("Schematic toolbar Symbols drag preview", () => {
   it("should picture a symbol as its drawing with its corner on the pointer", async () => {
     await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
-    const setDragImage = vi.fn();
-    fireEvent.dragStart(await screen.findByText("Polygon"), {
-      dataTransfer: { setDragImage },
-    });
+    const dataTransfer = new DataTransfer();
+    const setDragImage = vi.spyOn(dataTransfer, "setDragImage");
+    fireEvent.dragStart(await screen.findByText("Polygon"), { dataTransfer });
     const path = layer()?.querySelector(".pluto-polygon path");
     expect(path?.getAttribute("fill")).toBe("var(--pluto-gray-l1)");
     expect(layer()?.querySelector(".lyra-haul-preview")).toBeNull();
@@ -286,7 +285,9 @@ describe("Schematic toolbar Symbols drag preview", () => {
     const { grp } = await createRemoteSymbolGroup([name]);
     await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
     fireEvent.click(await screen.findByText(grp.name));
-    fireEvent.dragStart(await screen.findByText(name));
+    fireEvent.dragStart(await screen.findByText(name), {
+      dataTransfer: new DataTransfer(),
+    });
     expect(layer()?.querySelector(".pluto-custom-drawing")).toBeInstanceOf(Element);
     expect(layer()?.textContent).toBe("");
   });
