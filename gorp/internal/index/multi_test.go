@@ -202,4 +202,34 @@ var _ = Describe("Multi", func() {
 			Expect(known).To(BeFalse())
 		})
 	})
+
+	Describe("Current", func() {
+		It("Should report the values a key holds as current", func() {
+			Expect(m.Current(nil, 1, []string{"a", "b"})).To(BeTrue())
+			Expect(m.Current(nil, 1, []string{"a"})).To(BeFalse())
+			Expect(m.Current(nil, 1, []string{"b", "a"})).To(BeFalse())
+		})
+
+		It("Should tell a key that holds none from a key it does not hold", func() {
+			m.Set(3, nil)
+			Expect(m.Current(nil, 3, nil)).To(BeTrue())
+			Expect(m.Current(nil, 9, nil)).To(BeFalse())
+		})
+
+		It("Should apply the changes that a scope staged", func() {
+			m.Stage(txn, 1, []string{"c"})
+			m.StageDelete(txn, 2)
+			Expect(m.Current(txn, 1, []string{"c"})).To(BeTrue())
+			Expect(m.Current(nil, 1, []string{"a", "b"})).To(BeTrue())
+			Expect(m.Current(txn, 2, nil)).To(BeFalse())
+		})
+
+		It("Should report nothing as current before the load finishes", func() {
+			loading := index.NewMulti[*scope, int, string]()
+			_, finish := loading.Populate()
+			Expect(loading.Current(nil, 1, nil)).To(BeFalse())
+			finish(errLoad)
+			Expect(loading.Current(nil, 1, nil)).To(BeFalse())
+		})
+	})
 })

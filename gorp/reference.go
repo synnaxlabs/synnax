@@ -387,7 +387,12 @@ func (r *reference[K, E, T]) set(entry E) {
 func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
 
 func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
-	r.store.Stage(tx.txIdentity(), entry.GorpKey(), r.targetsOf(&entry))
+	k, held := entry.GorpKey(), r.targetsOf(&entry)
+	// A write that keeps the targets of an entry leaves the index as it is.
+	if r.store.Current(scopeOf(tx), k, held) {
+		return
+	}
+	r.store.Stage(tx.txIdentity(), k, held)
 }
 
 func (r *reference[K, E, T]) stageDelete(tx Tx, key K) {
