@@ -138,10 +138,12 @@ describe("Legend", () => {
       expect(await screen.findByText("T0")).toBeDefined();
     });
 
-    it("should note a range that has no zero", async () => {
+    it("should note a range that has no zero, with no eye", async () => {
       const ranges = [{ ...RANGES[0], zero: undefined }];
-      renderLegend(LINES, { ranges });
+      renderLegend(LINES, { ranges, onRangeVisibleChange: vi.fn() });
       expect(await screen.findByText("Shows in absolute time only")).toBeDefined();
+      const name = screen.getByText("Test 2").closest(".pluto-legend-name");
+      expect(name?.querySelector("button[aria-label='Hide']")).toBeNull();
     });
 
     it("should hide a range from the eye on its name, alone on an Alt click", async () => {

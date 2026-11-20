@@ -81,7 +81,8 @@ const zeroBadge = (zero: TimeStamp, start: TimeStamp): GroupData["badge"] => {
   };
 };
 
-// groupRanges lists each range in order with the lines registered under its key.
+// groupRanges lists each range in order with the lines registered under its key. A
+// range with no zero does not draw, so it has no eye.
 const groupRanges = (
   ranges: LegendRange[],
   lines: LineSpec[],
@@ -91,7 +92,7 @@ const groupRanges = (
     key,
     name,
     color,
-    visible: hidden?.has(key) !== true,
+    visible: zero == null ? undefined : hidden?.has(key) !== true,
     badge: zero != null && start != null ? zeroBadge(zero, start) : undefined,
     note: zero == null ? ABSOLUTE_ONLY : undefined,
     data: lines
