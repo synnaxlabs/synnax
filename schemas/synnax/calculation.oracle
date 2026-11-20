@@ -1,0 +1,139 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/status"
+import "schemas/x/filter"
+import "schemas/x/patch"
+import "schemas/x/telem"
+
+@go output "core/pkg/service/calculation"
+@py output "client/py/synnax/calculation"
+@ts output "client/ts/src/calculation"
+
+Key = uuid {
+    @doc value "is the key of a calculation."
+}
+
+Window struct {
+    reset    channel.Key?   {
+        @doc value     """
+            is the channel whose samples reset the window. When absent, only the
+            duration resets it.
+        """
+        @ref direction read
+        @ref kind      use
+        @ref on_delete weak
+    }
+    duration telem.TimeSpan = 0 {
+        @doc value """
+            is the interval at which the window resets. Zero resets it on no timer.
+        """
+    }
+
+    @doc value  "is the span of samples that a windowed operation aggregates."
+    @go marshal
+}
+
+Operation union on type {
+    min extends Window {
+        @doc value "keeps the lowest sample of the window."
+    }
+    max extends Window {
+        @doc value "keeps the highest sample of the window."
+    }
+    avg extends Window {
+        @doc value "keeps the mean of the samples of the window."
+    }
+    derivative {
+        @doc value "computes the rate of change of the samples."
+    }
+
+    @doc value  "is an operation that a calculation applies to the samples it computes."
+    @go marshal
+}
+
+Status = status.Status<nil> {
+    @doc value "is the status of a calculation."
+}
+
+Calculation struct {
+    key        Key = create {
+        @doc value "is the key of the calculation."
+        @key
+    }
+    output     channel.Key  {
+        @doc value     """
+            is the channel that the calculation writes. A channel holds at most one
+            calculation, and a delete of the channel deletes it.
+        """
+        @ref direction write
+        @ref kind      place
+        @ref on_delete cascade
+        @ref unique
+    }
+    expression string       {
+        @doc value           "is the Arc expression that computes each output sample."
+        @patch
+        @validate min_length 1
+    }
+    operations Operation[] = [] {
+        @doc value "are the operations applied to the computed samples, in order."
+        @patch
+    }
+    primary    channel.Key? {
+        @doc value     """
+            is the channel that the expression reads whose samples time the output.
+        """
+        @patch
+        @ref direction read
+        @ref kind      use
+        @ref on_delete weak
+    }
+    status     Status?      {
+        @doc value  "is the status of the calculation, joined on retrieve."
+        @go marshal omit
+        @include
+    }
+
+    action Create {
+        calculation Calculation
+
+        @doc value """
+            replaces the calculation with the given created state. Emitted by the Core
+            when a calculation is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
+    @create
+    @doc value     """
+        computes the samples of its output channel from an Arc expression over other
+        channels. It has no name or folder of its own: both are those of its output.
+    """
+    @go marshal
+    @go migrate
+    @resource type "calculation"
+    @retrieve
+}
+
+Where filter Calculation {
+    key
+    output
+
+    @doc value         "is a filter that selects calculations."
+    @go request_output "core/pkg/api/calculation"
+}

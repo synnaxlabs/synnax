@@ -89,6 +89,8 @@ TYPE_ICD: Literal["icd"] = "icd"
 
 TYPE_ENUMERATION: Literal["enumeration"] = "enumeration"
 
+TYPE_CALCULATION: Literal["calculation"] = "calculation"
+
 
 Type = Literal[
     "arc",
@@ -129,4 +131,5 @@ Type = Literal[
     "color",
     "icd",
     "enumeration",
+    "calculation",
 ]

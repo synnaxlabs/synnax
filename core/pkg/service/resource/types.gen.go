@@ -87,6 +87,8 @@ const (
 	TypeICD Type = versions.TypeICD
 	// TypeEnumeration identifies an enumeration.
 	TypeEnumeration Type = versions.TypeEnumeration
+	// TypeCalculation identifies a calculation.
+	TypeCalculation Type = versions.TypeCalculation
 )
 
 // ID is a unique identifier for a Resource. An example:

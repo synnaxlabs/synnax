@@ -15,9 +15,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Status is a calculated channel status entry.
-type Status = status.Status[struct{}]
-
 // StatusFromError builds the error status for a calculated channel whose expression
 // fails to compile.
 func StatusFromError(key channel.Key, name string, err error) *Status {

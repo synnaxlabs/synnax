@@ -168,6 +168,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
+  calculation: null,
   certificate: changes(
     certificate.ACTION_CHANNEL_NAME,
     certificate.DELETE_CHANNEL_NAME,

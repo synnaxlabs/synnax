@@ -55,6 +55,7 @@ enum Type {
   TYPE_COLOR = 35;
   TYPE_ICD = 36;
   TYPE_ENUMERATION = 37;
+  TYPE_CALCULATION = 38;
 }
 
 // ID is a unique identifier for a Resource. An example:
