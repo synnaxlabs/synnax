@@ -38,7 +38,8 @@ type KeptChannel struct {
 // intent first. Sweep also returns the highest key that the DB holds in any form, so
 // that no new channel takes it. Only the first Sweep in one open of the DB decides. A
 // later call ignores keys, drops nothing, and returns the channels that the first kept
-// and that are still kept, with the highest key.
+// and that are still kept, with the highest key. When the first fails, every later
+// call returns its error.
 func (db *DB) Sweep(
 	ctx context.Context,
 	keys []ChannelKey,
@@ -48,13 +49,30 @@ func (db *DB) Sweep(
 	if db.closed.Load() {
 		return nil, 0, ErrDBClosed
 	}
-	if db.mu.kept != nil {
+	if db.mu.swept {
+		if db.mu.sweepErr != nil {
+			return nil, 0, db.mu.sweepErr
+		}
 		return db.keptChannels(db.mu.kept), db.highestKey(), nil
 	}
-	db.mu.kept = set.New[ChannelKey]()
-	records := set.New(keys...)
-	if err := db.reopenFailedDeletes(ctx, records); err != nil {
+	db.mu.swept = true
+	kept, err := db.decide(ctx, set.New(keys...))
+	if err != nil {
+		db.mu.sweepErr = err
 		return nil, 0, err
+	}
+	db.mu.kept = kept
+	return db.keptChannels(kept), db.highestKey(), nil
+}
+
+// decide drops, keeps, and hides the channels of the DB against records, and returns
+// the keys it keeps. The caller must hold db.mu.
+func (db *DB) decide(
+	ctx context.Context,
+	records set.Set[ChannelKey],
+) (set.Set[ChannelKey], error) {
+	if err := db.reopenFailedDeletes(ctx, records); err != nil {
+		return nil, err
 	}
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
@@ -83,18 +101,14 @@ func (db *DB) Sweep(
 		}
 	}
 	if err := db.intendDrops(drop); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	err := errors.Join(db.dropLocked(drop), db.removeOrphanIntents(records, hidden))
 	if err == nil {
 		err = db.intents.truncateIfEmpty()
 	}
 	db.mu.skipped = set.New[ChannelKey]()
-	if err != nil {
-		return nil, 0, err
-	}
-	db.mu.kept = kept
-	return db.keptChannels(kept), db.highestKey(), nil
+	return kept, err
 }
 
 // keptChannels returns the channels of kept that are still hidden, in rising order of
