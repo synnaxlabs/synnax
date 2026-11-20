@@ -67,6 +67,15 @@ describe("Enumeration.CreatePromptProvider", () => {
     await waitFor(() => expect(screen.queryByLabelText("Enumeration name")).toBeNull());
   });
 
+  it("should close on one Escape from the name field and create nothing", async () => {
+    const { result } = await openPrompt({ name: "Pump", entries: [] });
+    const field = await nameField();
+    fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+    fireEvent.keyUp(field, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByLabelText("Enumeration name")).toBeNull());
+    expect(await result).toBeNull();
+  });
+
   it("should show an error at the name field on a Create with no name", async () => {
     await openPrompt({ name: "", entries: [] });
     const field = await nameField();
