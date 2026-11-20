@@ -15,6 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apicalculation "github.com/synnaxlabs/synnax/pkg/api/calculation"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
+	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -27,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -97,6 +103,117 @@ var _ = Describe("Calculation grants upgrade", func() {
 			channel.ResourceID(doubled.Key()),
 			calculation.ResourceID(calculation.MigratedKey(doubled.Key())),
 		))
+	})
+})
+
+var _ = Describe("Calculated channels of a channel-only subject after upgrade", func() {
+	It("Should let the subject create, retrieve, and edit through both APIs", func(
+		ctx SpecContext,
+	) {
+		n := testutil.NewNode(ctx)
+		keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+			{Name: "doubled", Leaseholder: node.KeyFree, Virtual: true},
+		}))
+		doubled := channelv1.Channel{
+			Name:        keys[0].Name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    keys[0].LocalKey,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Expression:  "return 2",
+		}
+		channels := gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB)
+		Expect(channels.Set(ctx, doubled)).To(Succeed())
+		roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{DB: n.DB}))
+		policies := MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:   n.DB,
+			Role: roles,
+		}))
+		r := role.Role{Name: "Channel editors"}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return roles.NewWriter(tx, false).Create(ctx, &r)
+		})).To(Succeed())
+		Expect(policies.Close()).To(Succeed())
+		Expect(roles.Close()).To(Succeed())
+		stored := gorp.WrapWriter[policy.Key, policy.Policy](n.DB)
+		Expect(stored.Set(ctx, policy.Policy{
+			Key:     uuid.New(),
+			Name:    "every channel",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{
+				access.ActionCreate,
+				access.ActionRetrieve,
+				access.ActionUpdate,
+			},
+			Role: r.Key,
+		})).To(Succeed())
+
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+		var u user.User
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			u, err = l.User.NewWriter(tx).Create(ctx, user.User{
+				Name: "editor-" + uuid.New().String(),
+				Role: r.Key,
+			})
+			return err
+		})).To(Succeed())
+		apiChannels := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
+			DB:          n.DB,
+			RBAC:        l.RBAC,
+			Channel:     l.Channel,
+			Status:      l.Status,
+			Calculation: l.Calculation,
+		}))
+		apiCalculations := MustSucceed(apicalculation.NewService(
+			apicalculation.ServiceConfig{Calculation: l.Calculation, Status: l.Status},
+		))
+		binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+			DB:   n.DB,
+			RBAC: l.RBAC,
+			Held: apiauth.HeldTables(),
+		}))
+		authed := AuthedCtx(ctx, u)
+
+		created := MustSucceed(bind.Write(binder, apiChannels.Create)(
+			authed,
+			apichannel.CreateRequest{Channels: []apichannel.Channel{{
+				Name:       "tripled",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return 3",
+			}}},
+		)).Channels[0]
+		retrieved := MustSucceed(bind.Read(binder, apiCalculations.Retrieve)(
+			authed,
+			apicalculation.RetrieveRequest{},
+		)).Calculations
+		outputs := make([]channel.Key, len(retrieved))
+		for i, c := range retrieved {
+			outputs[i] = c.Output
+		}
+		Expect(outputs).To(ContainElements(doubled.Key(), created.Key))
+
+		Expect(bind.Write(binder, apiChannels.Dispatch)(
+			authed,
+			apichannel.DispatchRequest{
+				Key: doubled.Key(),
+				Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+					Path:  []string{"expression"},
+					Value: "return 4",
+				})},
+			},
+		)).Error().To(Succeed())
+		set := calculation.NewSetAction(
+			calculation.SetPayload{Path: []string{"expression"}, Value: "return 5"},
+		)
+		Expect(bind.Write(binder, apiCalculations.Dispatch)(
+			authed,
+			apicalculation.DispatchRequest{
+				Key:     calculation.MigratedKey(doubled.Key()),
+				Actions: []calculation.Action{set},
+			},
+		)).Error().To(Succeed())
 	})
 })
 
