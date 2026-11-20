@@ -49,6 +49,7 @@ const SHARED_TEXT: Partial<Record<Key, ReactElement | string>> = {
   PageDown: "Page Down",
   Equal: "=",
   Minus: "-",
+  Period: ".",
 };
 
 const MAC_TEXT: Partial<Record<Key, ReactElement | string>> = {

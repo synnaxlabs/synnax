@@ -291,6 +291,24 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("hosts")).toBeDefined();
     });
 
+    it("should open the home folder when the last picked folder is gone", async () => {
+      const listings = [HOME_TOP, HOME, ROOT, ETC];
+      const { result, reopen } = await openBrowser(listings);
+      await findEntry("notes.txt");
+      const places = screen.getByRole("navigation", { name: "Places" });
+      fireEvent.click(within(places).getByText("File system"));
+      await openFolder("etc");
+      fireEvent.doubleClick(await findEntry("client.crt"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: "/etc/client.crt" }),
+      );
+      listings.pop();
+      reopen();
+      expect(await findEntry("notes.txt")).toBeDefined();
+      const reopened = screen.getByRole("navigation", { name: "Places" });
+      expect(within(reopened).queryByText("Recent")).toBeNull();
+    });
+
     it("should open the home folder first", async () => {
       await openBrowser([HOME_TOP, HOME]);
       expect(await findEntry("notes.txt")).toBeDefined();
@@ -729,6 +747,24 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("client.crt")).toBeDefined();
     });
 
+    it("should clear on Escape in the list and keep the dialog open", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      fireEvent.keyDown(findFiles(), { key: "Escape", code: "Escape" });
+      expect(findFilter()).toHaveProperty("value", "");
+      expect(await findEntry("client.crt")).toBeDefined();
+    });
+
+    it("should keep Alt+Up in the filter for its caret", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      typeFilter("host");
+      fireEvent.keyDown(findFilter(), { key: "ArrowUp", altKey: true });
+      expect(findFilter()).toHaveProperty("value", "host");
+      expect(entryNames()).toEqual([expect.stringMatching(/^hosts/)]);
+    });
+
     it("should take the focus on Ctrl+F", async () => {
       await openBrowser(LISTINGS);
       await openEtc();
@@ -742,6 +778,23 @@ describe("FileBrowser.useModal", () => {
       typeFilter("host");
       fireEvent.click(screen.getByRole("button", { name: "Up" }));
       expect(await findEntry("etc", true)).toBeDefined();
+      expect(findFilter()).toHaveProperty("value", "");
+    });
+
+    it("should show the folder it returns to unfiltered", async () => {
+      await openBrowser([
+        ...LISTINGS,
+        createListing({ path: "/etc/ssl", parent: "/etc" }),
+      ]);
+      await openEtc();
+      typeFilter("host");
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "/etc/ssl" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      await screen.findByText("This folder is empty");
+      fireEvent.click(screen.getByRole("button", { name: "Up" }));
+      expect(await findEntry("ssl", true)).toBeDefined();
       expect(findFilter()).toHaveProperty("value", "");
     });
 

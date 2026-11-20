@@ -29,7 +29,7 @@ export interface StoreState {
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({});
 
-interface AddRecentPayload {
+interface RecentPayload {
   rack: rack.Key;
   folder: string;
 }
@@ -38,20 +38,24 @@ const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    addRecent: (
-      state,
-      { payload: { rack, folder } }: PayloadAction<AddRecentPayload>,
-    ) => {
+    addRecent: (state, { payload: { rack, folder } }: PayloadAction<RecentPayload>) => {
       const prev = state.recent[rack] ?? [];
       state.recent[rack] = [folder, ...prev.filter((f) => f !== folder)].slice(
         0,
         MAX_RECENT,
       );
     },
+    removeRecent: (
+      state,
+      { payload: { rack, folder } }: PayloadAction<RecentPayload>,
+    ) => {
+      const prev = state.recent[rack];
+      if (prev != null) state.recent[rack] = prev.filter((f) => f !== folder);
+    },
   },
 });
 
-export const { addRecent } = actions;
+export const { addRecent, removeRecent } = actions;
 export { reducer };
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

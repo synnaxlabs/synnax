@@ -107,11 +107,7 @@ export interface ModalParams {
   path?: string;
 }
 
-interface Filter {
-  /** The folder the filter was typed in. Another folder shows unfiltered. */
-  path: string;
-  text: string;
-}
+const HIDDEN_FILES_TRIGGER: PTriggers.Trigger = ["Control", "Shift", "Period"];
 
 const Content = ({
   close,
@@ -133,7 +129,8 @@ const Content = ({
     startFile === "" ? null : startFile,
   );
   const [hiddenShown, setHiddenShown] = useState(() => hidden(basenameOf(startFile)));
-  const [filter, setFilter] = useState<Filter>({ path: "", text: "" });
+  // Each navigation clears the filter, so it never hides the entry that opens selected.
+  const [query, setQuery] = useState("");
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
   const [shownPath, setShownPath] = useState<string | null>(null);
@@ -158,9 +155,16 @@ const Content = ({
 
   useEffect(() => session?.prefetch(""), [session]);
 
-  // Each visit lists the folder again. The snapshot shows the result or the failure.
+  // Each visit lists the folder again. The snapshot shows the result or the failure. A
+  // recent folder that fails leaves Recent. As the start folder, it gives way to home.
   const relist = (): void => {
-    session?.list(path).catch(() => {});
+    session?.list(path).catch(() => {
+      if (!recent.includes(path)) return;
+      dispatch(FileBrowser.removeRecent({ rack, folder: path }));
+      setHistory((h) =>
+        h.stack.length === 1 && h.stack[0] === path ? { stack: [""], index: 0 } : h,
+      );
+    });
   };
   useEffect(relist, [session, path]);
 
@@ -174,8 +178,6 @@ const Content = ({
   const failure = snapshot.failures.get(path);
   // While a folder loads or fails, the dimmed last folder offers no file to pick.
   const current = !stale && failure == null;
-  const query = filter.path === path ? filter.text : "";
-  const setQuery = (text: string): void => setFilter({ path, text });
   const visible = shown?.entries.filter((e) => hiddenShown || !hidden(e.name)) ?? [];
   const folded = query.toLowerCase();
   const matched = visible.filter((e) => e.name.toLowerCase().includes(folded));
@@ -194,6 +196,7 @@ const Content = ({
   const countNavigation = (): void => {
     navigations.current++;
     setResolving(false);
+    setQuery("");
   };
   const go = (to: string, entry: string | null = null): void => {
     countNavigation();
@@ -282,16 +285,29 @@ const Content = ({
     if (editing != null) return;
     const mod = e.metaKey || e.ctrlKey;
     const key = e.key.toLowerCase();
-    if ((e.ctrlKey && key === "l") || (mod && e.shiftKey && key === "g")) {
+    // The filter keeps the arrow keys that move its caret.
+    const inInput = e.target instanceof HTMLInputElement;
+    if (e.key === "Escape" && query !== "") {
+      // The filter clears first, so the dialog stays open.
+      e.preventDefault();
+      e.stopPropagation();
+      setQuery("");
+    } else if ((e.ctrlKey && key === "l") || (mod && e.shiftKey && key === "g")) {
       e.preventDefault();
       setEditing(withSeparator(path));
-    } else if ((e.altKey && e.key === "ArrowLeft") || (e.metaKey && e.key === "[")) {
+    } else if (
+      (!inInput && e.altKey && e.key === "ArrowLeft") ||
+      (e.metaKey && e.key === "[")
+    ) {
       e.preventDefault();
       back();
-    } else if ((e.altKey && e.key === "ArrowRight") || (e.metaKey && e.key === "]")) {
+    } else if (
+      (!inInput && e.altKey && e.key === "ArrowRight") ||
+      (e.metaKey && e.key === "]")
+    ) {
       e.preventDefault();
       forward();
-    } else if ((e.altKey || e.metaKey) && e.key === "ArrowUp") {
+    } else if (!inInput && (e.altKey || e.metaKey) && e.key === "ArrowUp") {
       e.preventDefault();
       up();
     } else if (mod && key === "f") {
@@ -303,12 +319,7 @@ const Content = ({
     }
   };
   const handleFilterKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === "Escape" && query !== "") {
-      // The filter clears first, so the dialog stays open.
-      e.preventDefault();
-      e.stopPropagation();
-      setQuery("");
-    } else if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       focusList();
     }
@@ -518,7 +529,11 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={hiddenShown ? 11 : 9}
-                  tooltip={hiddenShown ? "Hide hidden files" : "Show hidden files"}
+                  tooltip={
+                    <PTriggers.Text trigger={HIDDEN_FILES_TRIGGER} level="small">
+                      {hiddenShown ? "Hide hidden files" : "Show hidden files"}
+                    </PTriggers.Text>
+                  }
                   aria-label="Hidden files"
                   aria-pressed={hiddenShown}
                   onClick={() => setHiddenShown((shown) => !shown)}
