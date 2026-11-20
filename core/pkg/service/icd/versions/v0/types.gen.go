@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"uuid"
 
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -220,8 +221,7 @@ func (b BaseField) Validate() error {
 	return v.Error()
 }
 
-// BinaryField is a field read from a bit range of a binary payload. With no default, a
-// write needs a channel.
+// BinaryField is a field read from a bit range of a binary payload.
 type BinaryField struct {
 	BaseField
 	// StartBit is the bit where the field starts, numbered as in a DBC file: the least
@@ -241,9 +241,6 @@ type BinaryField struct {
 	// MultiplexValues are the raw values of the multiplexor for which this field is
 	// present.
 	MultiplexValues []int32 `json:"multiplex_values" msgpack:"multiplex_values"`
-	// Default is the raw value, before scale and offset, when a read finds none or no
-	// channel is bound. It is a whole number unless the kind is float.
-	Default *payload.Float `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -285,27 +282,6 @@ func (b BinaryField) Validate() error {
 	return v.Error()
 }
 
-// TextBaseField carries the parts every text field shares.
-type TextBaseField struct {
-	BaseField
-	// Default is the raw number, before scale and offset, when a read finds none or no
-	// channel is bound.
-	Default *payload.Float `json:"default,omitzero" msgpack:"default,omitempty"`
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (t *TextBaseField) SetDefaults() {
-	t.BaseField.SetDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t TextBaseField) Validate() error {
-	v := validate.New("TextBaseField")
-	v.Exec(t.BaseField.Validate)
-	return v.Error()
-}
-
 // TextFieldType is the "encoding" value that selects a variant of TextField.
 type TextFieldType string
 
@@ -323,7 +299,7 @@ type TextFieldVariant interface {
 
 // DelimitedTextField is a field read from one item of a delimited text line.
 type DelimitedTextField struct {
-	TextBaseField
+	BaseField
 	// Position is the zero-based item index after splitting on the delimiter.
 	Position uint32 `json:"position" msgpack:"position"`
 }
@@ -332,20 +308,20 @@ func (DelimitedTextField) isTextFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (d *DelimitedTextField) SetDefaults() {
-	d.TextBaseField.SetDefaults()
+	d.BaseField.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (d DelimitedTextField) Validate() error {
 	v := validate.New("DelimitedTextField")
-	v.Exec(d.TextBaseField.Validate)
+	v.Exec(d.BaseField.Validate)
 	return v.Error()
 }
 
 // TaggedTextField is a field read from the text that follows a tag.
 type TaggedTextField struct {
-	TextBaseField
+	BaseField
 	// Tag is the text that comes just before the value in the line.
 	Tag string `json:"tag" msgpack:"tag"`
 }
@@ -354,18 +330,18 @@ func (TaggedTextField) isTextFieldVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (t *TaggedTextField) SetDefaults() {
-	t.TextBaseField.SetDefaults()
+	t.BaseField.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (t TaggedTextField) Validate() error {
 	v := validate.New("TaggedTextField")
-	v.Exec(t.TextBaseField.Validate)
+	v.Exec(t.BaseField.Validate)
 	return v.Error()
 }
 
-// TextField is a field read from a text line. With no default, a write needs a channel.
+// TextField is a field read from a text line.
 type TextField struct {
 	Variant TextFieldVariant
 }
@@ -467,270 +443,28 @@ func (u TextField) Validate() error {
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
-func (u TextField) Base() TextBaseField {
+func (u TextField) Base() BaseField {
 	switch variant := u.Variant.(type) {
 	case DelimitedTextField:
-		return variant.TextBaseField
+		return variant.BaseField
 	case TaggedTextField:
-		return variant.TextBaseField
+		return variant.BaseField
 	}
-	return TextBaseField{}
+	return BaseField{}
 }
 
 // SetBase replaces the fields every variant shares. It panics if Variant is nil.
-func (u *TextField) SetBase(base TextBaseField) {
+func (u *TextField) SetBase(base BaseField) {
 	switch variant := u.Variant.(type) {
 	case DelimitedTextField:
-		variant.TextBaseField = base
+		variant.BaseField = base
 		u.Variant = variant
 	case TaggedTextField:
-		variant.TextBaseField = base
+		variant.BaseField = base
 		u.Variant = variant
 	default:
 		panic(errors.Newf("TextField: cannot set the base of variant %T", variant))
 	}
-}
-
-// TimestampDefaultType is the "type" value that selects a variant of TimestampDefault.
-type TimestampDefaultType string
-
-const (
-	// ConstantTimestampDefaultType is one fixed timestamp.
-	ConstantTimestampDefaultType TimestampDefaultType = "constant"
-	// NowTimestampDefaultType is the time of each read or write.
-	NowTimestampDefaultType TimestampDefaultType = "now"
-)
-
-// TimestampDefaultVariant is implemented by every TimestampDefault variant.
-type TimestampDefaultVariant interface {
-	isTimestampDefaultVariant()
-}
-
-// ConstantTimestampDefault is one fixed timestamp.
-type ConstantTimestampDefault struct {
-	// Value is the timestamp that the default gives.
-	Value telem.TimeStamp `json:"value" msgpack:"value"`
-}
-
-func (ConstantTimestampDefault) isTimestampDefaultVariant() {}
-
-// NowTimestampDefault is the time of each read or write.
-type NowTimestampDefault struct {
-}
-
-func (NowTimestampDefault) isTimestampDefaultVariant() {}
-
-// TimestampDefault is the default of a timestamp field.
-type TimestampDefault struct {
-	Variant TimestampDefaultVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u TimestampDefault) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case ConstantTimestampDefault:
-		return json.MarshalEncode(enc, struct {
-			Type TimestampDefaultType `json:"type"`
-			ConstantTimestampDefault
-		}{Type: ConstantTimestampDefaultType, ConstantTimestampDefault: v})
-	case NowTimestampDefault:
-		return json.MarshalEncode(enc, struct {
-			Type TimestampDefaultType `json:"type"`
-			NowTimestampDefault
-		}{Type: NowTimestampDefaultType, NowTimestampDefault: v})
-	default:
-		return errors.Newf("TimestampDefault: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *TimestampDefault) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type TimestampDefaultType `json:"type"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ConstantTimestampDefaultType:
-		var v struct {
-			Type TimestampDefaultType `json:"type"`
-			ConstantTimestampDefault
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.ConstantTimestampDefault
-	case NowTimestampDefaultType:
-		var v struct {
-			Type TimestampDefaultType `json:"type"`
-			NowTimestampDefault
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.NowTimestampDefault
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"TimestampDefault: unknown type %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Type returns the type of the active variant, or an empty type when there is none.
-func (u TimestampDefault) Type() TimestampDefaultType {
-	switch u.Variant.(type) {
-	case ConstantTimestampDefault:
-		return ConstantTimestampDefaultType
-	case NowTimestampDefault:
-		return NowTimestampDefaultType
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u TimestampDefault) Validate() error {
-	v := validate.New("TimestampDefault")
-	v.Ternary("type", u.Variant == nil, "required")
-	return v.Error()
-}
-
-// UUIDDefaultType is the "type" value that selects a variant of UUIDDefault.
-type UUIDDefaultType string
-
-const (
-	// ConstantUUIDDefaultType is one fixed UUID.
-	ConstantUUIDDefaultType UUIDDefaultType = "constant"
-	// RandomUUIDDefaultType is a new random UUID for each read or write.
-	RandomUUIDDefaultType UUIDDefaultType = "random"
-)
-
-// UUIDDefaultVariant is implemented by every UUIDDefault variant.
-type UUIDDefaultVariant interface {
-	isUUIDDefaultVariant()
-}
-
-// ConstantUUIDDefault is one fixed UUID.
-type ConstantUUIDDefault struct {
-	// Value is the UUID that the default gives.
-	Value uuid.UUID `json:"value" msgpack:"value"`
-}
-
-func (ConstantUUIDDefault) isUUIDDefaultVariant() {}
-
-// RandomUUIDDefault is a new random UUID for each read or write.
-type RandomUUIDDefault struct {
-}
-
-func (RandomUUIDDefault) isUUIDDefaultVariant() {}
-
-// UUIDDefault is the default of a UUID field.
-type UUIDDefault struct {
-	Variant UUIDDefaultVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u UUIDDefault) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case ConstantUUIDDefault:
-		return json.MarshalEncode(enc, struct {
-			Type UUIDDefaultType `json:"type"`
-			ConstantUUIDDefault
-		}{Type: ConstantUUIDDefaultType, ConstantUUIDDefault: v})
-	case RandomUUIDDefault:
-		return json.MarshalEncode(enc, struct {
-			Type UUIDDefaultType `json:"type"`
-			RandomUUIDDefault
-		}{Type: RandomUUIDDefaultType, RandomUUIDDefault: v})
-	default:
-		return errors.Newf("UUIDDefault: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *UUIDDefault) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type UUIDDefaultType `json:"type"`
-	}
-	if err := json.Unmarshal(
-		data, &disc, opts, json.RejectUnknownMembers(false),
-	); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ConstantUUIDDefaultType:
-		var v struct {
-			Type UUIDDefaultType `json:"type"`
-			ConstantUUIDDefault
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.ConstantUUIDDefault
-	case RandomUUIDDefaultType:
-		var v struct {
-			Type UUIDDefaultType `json:"type"`
-			RandomUUIDDefault
-		}
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v.RandomUUIDDefault
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"UUIDDefault: unknown type %q",
-			disc.Type,
-		)
-	}
-	return nil
-}
-
-// Type returns the type of the active variant, or an empty type when there is none.
-func (u UUIDDefault) Type() UUIDDefaultType {
-	switch u.Variant.(type) {
-	case ConstantUUIDDefault:
-		return ConstantUUIDDefaultType
-	case RandomUUIDDefault:
-		return RandomUUIDDefaultType
-	}
-	return ""
-}
-
-// Validate returns an error wrapping validate.ErrValidation if no variant is active or
-// the active variant violates its schema constraints.
-func (u UUIDDefault) Validate() error {
-	v := validate.New("UUIDDefault")
-	v.Ternary("type", u.Variant == nil, "required")
-	return v.Error()
 }
 
 // JSONBaseField carries the parts every JSON field shares.
@@ -764,8 +498,7 @@ type FloatJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.FloatEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the raw value, before scale and offset, when a read finds none or no
-	// channel is bound.
+	// Default is the value when the document has none. Absent requires one.
 	Default *payload.Float `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -789,8 +522,7 @@ type IntegerJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.IntegerEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the raw value, before scale and offset, when a read finds none or no
-	// channel is bound.
+	// Default is the value when the document has none. Absent requires one.
 	Default *payload.Integer `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -814,8 +546,7 @@ type UnsignedJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.UnsignedEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the raw value, before scale and offset, when a read finds none or no
-	// channel is bound.
+	// Default is the value when the document has none. Absent requires one.
 	Default *payload.Unsigned `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -839,7 +570,7 @@ type StringJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.StringEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the value when a read finds none or no channel is bound.
+	// Default is the value when the document has none. Absent requires one.
 	Default *string `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -863,7 +594,7 @@ type BooleanJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.BooleanEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the value when a read finds none or no channel is bound.
+	// Default is the value when the document has none. Absent requires one.
 	Default *bool `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -887,8 +618,8 @@ type TimestampJSONField struct {
 	JSONBaseField
 	// TimeFormat is the encoding of the timestamp.
 	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
-	// Default is the value when a read finds none or no channel is bound.
-	Default *TimestampDefault `json:"default,omitzero" msgpack:"default,omitempty"`
+	// Default is the value when the document has none. Absent requires one.
+	Default *telem.TimeStamp `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 func (TimestampJSONField) isJSONFieldVariant() {}
@@ -904,17 +635,12 @@ func (t TimestampJSONField) Validate() error {
 	v := validate.New("TimestampJSONField")
 	v.Ternaryf("time_format", !t.TimeFormat.IsValid(), "invalid time_format: %v", t.TimeFormat)
 	v.Exec(t.JSONBaseField.Validate)
-	if t.Default != nil {
-		v.Exec(func() error { return validate.PathedError(t.Default.Validate(), "default") })
-	}
 	return v.Error()
 }
 
 // JSONJSONField is any JSON value.
 type JSONJSONField struct {
 	JSONBaseField
-	// Default is the value when a read finds none or no channel is bound.
-	Default *any `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 func (JSONJSONField) isJSONFieldVariant() {}
@@ -935,8 +661,6 @@ func (j JSONJSONField) Validate() error {
 // UuidJSONField is a UUID held in a JSON string.
 type UuidJSONField struct {
 	JSONBaseField
-	// Default is the value when a read finds none or no channel is bound.
-	Default *UUIDDefault `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 func (UuidJSONField) isJSONFieldVariant() {}
@@ -951,18 +675,12 @@ func (u *UuidJSONField) SetDefaults() {
 func (u UuidJSONField) Validate() error {
 	v := validate.New("UuidJSONField")
 	v.Exec(u.JSONBaseField.Validate)
-	if u.Default != nil {
-		v.Exec(func() error { return validate.PathedError(u.Default.Validate(), "default") })
-	}
 	return v.Error()
 }
 
 // BytesJSONField is base64 text held in a JSON string.
 type BytesJSONField struct {
 	JSONBaseField
-	// Default is the base64 text of the value when a read finds none or no channel is
-	// bound.
-	Default *string `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 func (BytesJSONField) isJSONFieldVariant() {}
@@ -980,8 +698,7 @@ func (b BytesJSONField) Validate() error {
 	return v.Error()
 }
 
-// JSONField is a field read from a JSON document. With no default, a read needs its
-// value and a write needs a channel.
+// JSONField is a field read from a JSON document.
 type JSONField struct {
 	Variant JSONFieldVariant
 }
@@ -1767,4 +1484,27 @@ func (ic ICD) Validate() error {
 		v.Exec(func() error { return validate.PathedError(ic.Messages[i].Validate(), "messages", strconv.Itoa(i)) })
 	}
 	return v.Error()
+}
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding struct {
+	// Field is the key of the message field to read.
+	Field FieldKey `json:"field" msgpack:"field"`
+	// Channel is the channel the value of the field is written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// DataType is the data type of the channel that a client creates for the field.
+	// Empty takes the default of the field's kind. The Core ignores it once the channel
+	// exists.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+}
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage struct {
+	// Message is the key of the ICD message to read.
+	Message MessageKey `json:"message" msgpack:"message"`
+	// Index is the key of the field whose channel indexes the others. Absent when the
+	// task stamps samples on arrival.
+	Index *FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
+	// Bindings are the fields the task reads. A field with no binding is not read.
+	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
 }

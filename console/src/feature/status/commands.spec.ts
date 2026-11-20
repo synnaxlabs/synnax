@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,12 +17,7 @@ import { Status } from "@/feature/status";
 import { findCommand } from "@/platform/command/testutil";
 import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  renderHookWithConsole,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

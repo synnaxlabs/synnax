@@ -10,6 +10,7 @@
 import {
   array,
   type destructor,
+  map,
   type record,
   type TimeSpan,
   TimeStamp,
@@ -67,7 +68,10 @@ export interface List<D extends Data, C> {
    * records. Fetches nothing when the window holds every match.
    */
   more: (n: number, options?: FetchOptions) => Promise<Window<D, C>>;
-  /** Returns the window without touching the network, or undefined before a fetch. */
+  /**
+   * Returns the window without touching the network, or undefined before a fetch or
+   * when a trigger does not cover the window.
+   */
   getCached: () => Window<D, C> | undefined;
   /**
    * Subscribes to changes in the window. The window is maintained while a subscriber
@@ -237,17 +241,15 @@ export class Lists<
       rest.searchTerm === "" ? { ...rest, searchTerm: undefined } : rest
     ) as Q;
     const entry = this.ensure(base);
-    let list = entry.lists.get(limit);
-    if (list == null) {
-      list = {
-        retrieve: async (options) => await this.retrieve(entry, limit, options),
-        more: async (n, options) => await this.more(entry, n, options),
-        getCached: () => this.cachedOf(entry),
-        onChange: (handler) => this.subscribe(entry, limit, handler),
-      };
-      entry.lists.set(limit, list);
-    }
-    return list;
+    return map.getOrInsert(entry.lists, limit, () => ({
+      retrieve: async (options) => await this.retrieve(entry, limit, options),
+      more: async (n, options) => await this.more(entry, n, options),
+      getCached: () => {
+        const window = this.cachedOf(entry);
+        return window != null && this.triggersCover(entry) ? window : undefined;
+      },
+      onChange: (handler) => this.subscribe(entry, limit, handler),
+    }));
   }
 
   /**
@@ -314,10 +316,9 @@ export class Lists<
 
   private ensure(query: Q): Entry<Q, K, D, V, C> {
     const hashed = hash(query);
-    let entry = this.entries.get(hashed);
-    if (entry == null) {
+    return map.getOrInsert(this.entries, hashed, () => {
       const { matches, serverComputed } = this.config;
-      entry = {
+      return {
         query,
         ranked:
           matches == null ||
@@ -334,9 +335,7 @@ export class Lists<
         ingesting: false,
         stale: false,
       };
-      this.entries.set(hashed, entry);
-    }
-    return entry;
+    });
   }
 
   private async retrieve(
@@ -623,7 +622,11 @@ export class Lists<
     const releases = [
       table.subscribeBatch((events) => this.onEvents(entry, events)),
       ...triggers.map((t) =>
-        t.attach(entry.query, (result) => this.onTrigger(entry, t, result)),
+        t.attach(
+          entry.query,
+          (result) => this.onTrigger(entry, t, result),
+          () => entry.keys,
+        ),
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());
@@ -654,6 +657,11 @@ export class Lists<
       versions: this.versions(),
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
+  }
+
+  private triggersCover({ query, keys }: Entry<Q, K, D, V, C>): boolean {
+    const { triggers = [] } = this.config;
+    return triggers.every((t) => t.covers?.(query, keys) !== false);
   }
 
   /** The versions of the table and of each trigger's table. */

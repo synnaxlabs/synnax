@@ -60,7 +60,7 @@ controller" and the path `/api/control`, it creates `Pump_controller_api_control
 and its index `Pump_controller_api_control_cmd_time`. To choose another name,
 right-click the endpoint and select **Rename** before you start.
 
-<Video id="hardware/http/write-task" />
+<Video id="hardware/http/write-task" label="Create and start an HTTP write task" />
 
   </Fragment>
   <Fragment slot="python">
@@ -197,15 +197,16 @@ Check the path, the body fields, and the authentication of the server.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Pointer ... is already used by another field"}>
+<Problem.Item message={"Pointer ... is already used by or overlaps another field"}>
 <Problem.Cause>
 
-Two fields in the body use the same pointer.
+Two fields in the body use the same pointer, or one pointer sits inside another, such as
+`/value` and `/value/unit`.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each field its own pointer.
+Give each field its own pointer that does not overlap another.
 
 </Problem.Fix>
 </Problem.Item>

@@ -22,9 +22,9 @@ import { useFormats } from "@/platform/icd/Formats";
 import {
   isReadable,
   jsonFields,
-  type ReadBinding,
   type ReadSource,
   suit,
+  type TreeField,
 } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
@@ -55,8 +55,8 @@ const UNREADABLE_TOOLTIP =
   "A bytes field needs a JSON pointer. Give it one in the message format.";
 
 export interface ReadCheckboxProps {
-  bindings: deep.Target<ReadBinding[]>;
-  field: icd.JSONField;
+  bindings: deep.Target<icd.ReadBinding[]>;
+  field: TreeField;
   /** Starts or stops reading the field. */
   onChange: (on: boolean) => void;
 }

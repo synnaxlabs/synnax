@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type payload } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
@@ -31,14 +31,54 @@ const createPayload = (format: payload.Format): icd.Payload => {
   }
 };
 
+const checkCycleTime = (span: TimeSpan): string | null => {
+  if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
+  if (span.greaterThan(TimeSpan.MAX))
+    return `Cycle time must be ${Input.formatTimeSpan(TimeSpan.MAX)} or less`;
+  return null;
+};
+
+interface CycleTimeProps {
+  path: deep.Target<CrudeTimeSpan | undefined>;
+}
+
+/** Edits the cycle time of a message. A number typed alone is in milliseconds. */
+const CycleTime = ({ path }: CycleTimeProps): ReactElement => {
+  const { set, mode } = Form.useContext();
+  const state = Form.useFieldState(path, { optional: true });
+  // The form store clones its values, which strips the TimeSpan class.
+  const value = state?.value == null ? undefined : new TimeSpan(state.value);
+  return (
+    <Input.Item
+      label="Cycle time"
+      padHelpText
+      helpText={state?.status.message}
+      status={state?.status.variant}
+    >
+      <Input.TimeSpan
+        inline
+        unit={TimeSpan.MILLISECOND}
+        precision={TimeSpan.NANOSECOND}
+        value={value == null ? undefined : Number(value.valueOf())}
+        onChange={(ns) => set(path, new TimeSpan(ns))}
+        onClear={() => set(path, undefined)}
+        check={checkCycleTime}
+        placeholder="None"
+        aria-label="Cycle time"
+        preview={mode === "preview"}
+      />
+    </Input.Item>
+  );
+};
+
 export interface MessageProps {
   /** The form path of the message. */
   path: deep.Path<icd.Message>;
 }
 
 /**
- * Edits a message: its format, how frames match it, and its fields. A format switch
- * replaces the payload with an empty one of the new format.
+ * Edits a message: its format, its cycle time, how frames match it, and its fields. A
+ * format switch replaces the payload with an empty one of the new format.
  */
 export const Message = ({ path }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
@@ -67,6 +107,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
             </Select.Buttons>
           </Input.Item>
         </Flex.Box>
+        <CycleTime path={path.cycleTime} />
       </Form.Section>
       {format === "binary" && (
         <>

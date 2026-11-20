@@ -207,7 +207,7 @@ var _ = Describe("JSONEncoder", func() {
 				Name:    "v",
 				Scale:   1,
 				Pointer: "/v",
-				Default: new(any(map[string]any{"set_point": 1.5, "mode": "auto"})),
+				Default: new(`{"set_point":1.5,"mode":"auto"}`),
 			}},
 			`{"v":{"set_point":1.5,"mode":"auto"}}`,
 		),
@@ -232,6 +232,33 @@ var _ = Describe("JSONEncoder", func() {
 				Default: new("AQI="),
 			}},
 			`{"v":"AQI="}`,
+		),
+	)
+
+	DescribeTable("Should write every digit of a default",
+		func(field icd.JSONField, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{field})))
+			Expect(string(MustSucceed(enc.Encode(nil, nil)))).To(Equal(expected))
+		},
+		Entry("JSON text with an integer past a float64",
+			icd.JSONField{Variant: icd.JSONJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(`{"id": 9007199254740993}`),
+			}},
+			`{"v":{"id": 9007199254740993}}`,
+		),
+		Entry("the largest unsigned integer",
+			icd.JSONField{Variant: icd.UnsignedJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(payload.Unsigned(math.MaxUint64)),
+			}},
+			`{"v":18446744073709551615}`,
 		),
 	)
 
@@ -448,6 +475,17 @@ var _ = Describe("JSONEncoder", func() {
 				Default: new("AQI"),
 			}}}),
 			"message command: field blob: default: illegal base64 data at input byte 0: "+
+				"validation error",
+		),
+		Entry("a JSON default that is not valid JSON",
+			message([]icd.JSONField{{Variant: icd.JSONJSONField{
+				Key:     uuid.New(),
+				Name:    "doc",
+				Scale:   1,
+				Pointer: "/doc",
+				Default: new(`{"id":`),
+			}}}),
+			"message command: field doc: default is not valid JSON: "+
 				"validation error",
 		),
 		Entry("a timestamp default with no type",

@@ -134,7 +134,6 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 	resolver := readResolver{
 		icds:     cfg.ICD,
 		channels: readChannels(cfg.Channel),
-		create:   createICD(cfg.ICD),
 		ins:      cfg.Instrumentation,
 	}
 	return config.ServiceConfig[ReadConfig]{
@@ -144,7 +143,7 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 		Type:            ReadTaskType,
 		Ladder:          versions.ReadConfigLadder,
 		Migrations: []gorp.Migration{
-			v2.NewReadMigration(resolver.channels, resolver.create),
+			v2.NewReadMigration(resolver.channels, createICD(cfg.ICD)),
 		},
 		SetEntryKey:    (*ReadConfig).SetKey,
 		PatchEntry:     (*ReadConfig).Patch,

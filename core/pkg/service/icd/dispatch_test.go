@@ -37,10 +37,10 @@ var _ = Describe("Apply", func() {
 	)
 	// field returns a binary field in the form a JSON round trip leaves it.
 	field := func(name string, startBit uint16) icd.BinaryField {
-		f := binaryField(name, startBit, 8)
-		f.Key = uuid.New()
-		f.MultiplexValues = []int32{}
-		return f
+		return updateBase(binaryField(name, startBit, 8), func(b *icd.BinaryBaseField) {
+			b.Key = uuid.New()
+			b.MultiplexValues = []int32{}
+		})
 	}
 	BeforeEach(func(ctx SpecContext) {
 		editDB = DeferClose(gorp.Wrap(memkv.New()))
@@ -97,7 +97,7 @@ var _ = Describe("Apply", func() {
 		return append([]string{"messages", bus.Messages[i].Key.String()}, segments...)
 	}
 	fieldPath := func(i, j int, segments ...string) []string {
-		key := binaryFieldOf(bus.Messages[i], j).Key.String()
+		key := binaryFieldOf(bus.Messages[i], j).Base().Key.String()
 		return append(messagePath(i, "payload", "fields", key), segments...)
 	}
 	formatGuard := func(i int, format payload.Format) patch.Guard {
@@ -112,7 +112,9 @@ var _ = Describe("Apply", func() {
 		next.Messages = append([]icd.Message(nil), bus.Messages...)
 		next.Messages[i] = updateBinary(next.Messages[i], func(p *icd.BinaryPayload) {
 			p.Fields = append([]icd.BinaryField(nil), p.Fields...)
-			p.Fields[j].Scale = scale
+			p.Fields[j] = updateBase(p.Fields[j], func(b *icd.BinaryBaseField) {
+				b.Scale = scale
+			})
 		})
 		return next
 	}
@@ -211,8 +213,9 @@ var _ = Describe("Apply", func() {
 			})
 		}, "messages.0.key: required"),
 		Entry("a field with no key", func() icd.Action {
-			f := field("open", 16)
-			f.Key = uuid.Nil()
+			f := updateBase(field("open", 16), func(b *icd.BinaryBaseField) {
+				b.Key = uuid.Nil()
+			})
 			return icd.NewInsertAction(icd.InsertPayload{
 				Path:  messagePath(0, "payload", "fields"),
 				Value: f,

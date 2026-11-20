@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { type GLBufferController } from "@/telem/gl";
 import { type CrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
@@ -20,7 +21,73 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@/telem/telem";
-import { MockGLBufferController } from "@/testutil";
+
+// WebGL copies data whether it is a buffer or a view.
+const viewBytes = (data: AllowSharedBufferSource): Uint8Array =>
+  ArrayBuffer.isView(data)
+    ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+    : new Uint8Array(data);
+
+/** A controller that is also the GL context it hands to a series. */
+class MockGLBufferController implements GLBufferController {
+  readonly gl: GLBufferController["gl"] = this;
+  generation: number = 0;
+  ARRAY_BUFFER: number = 1;
+  STATIC_DRAW: number = 2;
+  DYNAMIC_DRAW: number = 3;
+
+  targets: Record<number, number> = {};
+  counter: number = 0;
+  buffers: Record<number, ArrayBuffer> = {};
+
+  createBufferMock: Mock<() => WebGLBuffer | null> = vi.fn();
+  bufferDataMock: Mock<(a: number, b: ArrayBufferLike | number, c: number) => void> =
+    vi.fn();
+  bufferSubDataMock: Mock<(a: number, b: number, c: ArrayBufferLike) => void> = vi.fn();
+  bindBufferMock: Mock<(a: number, b: WebGLBuffer | null) => void> = vi.fn();
+  deleteBufferMock: Mock<(a: WebGLBuffer | null) => void> = vi.fn();
+
+  deleteBuffer(buffer: WebGLBuffer | null): void {
+    if (buffer != null) delete this.buffers[buffer as number];
+    this.deleteBufferMock(buffer);
+  }
+
+  createBuffer(): WebGLBuffer | null {
+    this.createBufferMock();
+    const v = ++this.counter;
+    this.buffers[v] = new ArrayBuffer(0);
+    return v;
+  }
+
+  bufferData(
+    target: number,
+    dataOrSize: AllowSharedBufferSource | number,
+    usage: number,
+  ): void {
+    if (typeof dataOrSize === "number")
+      this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
+    else this.buffers[this.targets[target]] = viewBytes(dataOrSize).slice().buffer;
+
+    this.bufferDataMock(target, dataOrSize as ArrayBuffer, usage);
+  }
+
+  bindBuffer(target: number, buffer: WebGLBuffer | null): void {
+    if (buffer === 0) throw new Error("Cannot bind to 0");
+    this.targets[target] = buffer as number;
+    this.bindBufferMock(target, buffer);
+  }
+
+  bufferSubData(target: number, offset: number, data: AllowSharedBufferSource): void {
+    let buffer = this.buffers[this.targets[target]];
+    if (buffer == null) {
+      buffer = new ArrayBuffer(offset + data.byteLength);
+      this.buffers[target] = buffer;
+    }
+    const view = new Uint8Array(buffer);
+    view.set(viewBytes(data), offset);
+    this.bufferSubDataMock(target, offset, data as ArrayBuffer);
+  }
+}
 
 // More items than a call takes as arguments.
 const MANY = 200_000;
@@ -570,6 +637,17 @@ describe("Series", () => {
       expect(series.atAlignment(1n)).toEqual(1);
       expect(series.atAlignment(2n)).toEqual(2);
       expect(series.atAlignment(3n)).toEqual(3);
+    });
+
+    it("should return undefined below the series alignment when the multiple is above one", () => {
+      const series = new Series({
+        data: new Float64Array([1, 2, 3]),
+        dataType: DataType.FLOAT64,
+        alignment: 10n,
+        alignmentMultiple: 2n,
+      });
+      expect(series.atAlignment(9n)).toBeUndefined();
+      expect(series.atAlignment(10n)).toEqual(1);
     });
   });
 

@@ -141,7 +141,12 @@ export default manifest.define([
     },
   },
   { id: "get-started/first-run", script: "scripts/first-run.ts" },
-  { id: "client/connect/desktop", script: "scripts/connect-from-code.ts" },
+  // The browser snippet shows the Core's port, so it runs on the default port.
+  {
+    id: "client/connect/desktop",
+    script: "scripts/connect-from-code.ts",
+    port: 9090,
+  },
   {
     id: "desktop/troubleshooting/diagnostics",
     script: "scripts/desktop-diagnostics.ts",
@@ -223,6 +228,7 @@ export default manifest.define([
     serial: true,
   },
   { id: "releases/0-61-0/mqtt", script: "scripts/mqtt-read-task.ts", serial: true },
+  { id: "releases/0-62-0/sift", script: "scripts/sift-upload.ts", serial: true },
   {
     id: "console/tables/redline",
     script: "scripts/still-table-redline.ts",

@@ -10,6 +10,7 @@
 package icd
 
 import (
+	"encoding/json/jsontext"
 	"math"
 	"slices"
 	"strconv"
@@ -17,7 +18,6 @@ import (
 	"uuid"
 
 	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,6 +84,9 @@ func pathOf(parent []string, segments ...string) []string {
 }
 
 func (c *checker) checkMessage(path []string, m Message) {
+	if m.CycleTime != nil && *m.CycleTime <= 0 {
+		c.Addf(pathOf(path, "cycle_time"), "cycle time must be positive")
+	}
 	path = pathOf(path, "payload")
 	var (
 		bases = m.Payload.FieldBases()
@@ -96,11 +99,15 @@ func (c *checker) checkMessage(path []string, m Message) {
 	case BinaryPayload:
 		binary := make(map[FieldKey]BinaryField, len(p.Fields))
 		for i, f := range p.Fields {
+			if f.Variant == nil {
+				untyped.Add(i)
+				continue
+			}
 			c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
-			binary[f.Key] = f
+			binary[f.Base().Key] = f
 		}
 		for i, f := range p.Fields {
-			if f.Multiplexor != nil {
+			if f.Variant != nil && f.Base().Multiplexor != nil {
 				c.checkMultiplexor(pathOf(path, "fields", strconv.Itoa(i)), f, binary)
 			}
 		}
@@ -176,9 +183,16 @@ func (c *checker) checkJSONFields(
 			unscaled.Add(i)
 		}
 		c.checkEnumLabels(fieldPath, f)
-		if v, ok := f.Variant.(BytesJSONField); ok && v.Default != nil {
-			if _, err := xjson.DecodeBase64(*v.Default); err != nil {
-				c.Addf(pathOf(fieldPath, "default"), "default must be base64")
+		switch v := f.Variant.(type) {
+		case BytesJSONField:
+			if v.Default != nil {
+				if _, err := xjson.DecodeBase64(*v.Default); err != nil {
+					c.Addf(pathOf(fieldPath, "default"), "default must be base64")
+				}
+			}
+		case JSONJSONField:
+			if v.Default != nil && !jsontext.Value(*v.Default).IsValid() {
+				c.Addf(pathOf(fieldPath, "default"), "default must be valid JSON")
 			}
 		}
 		b := f.Base()
@@ -197,7 +211,8 @@ func (c *checker) checkJSONFields(
 	}
 }
 
-// checkEnumLabels finds each enum label that an earlier entry of the field uses.
+// checkEnumLabels finds each enum label that is empty or that an earlier entry of the
+// field uses.
 func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	var labels []string
 	switch v := f.Variant.(type) {
@@ -224,12 +239,13 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	}
 	seen := make(set.Set[string], len(labels))
 	for i, label := range labels {
+		labelPath := pathOf(path, "enum_values", strconv.Itoa(i), "label")
+		if label == "" {
+			c.Addf(labelPath, "enum label is required")
+			continue
+		}
 		if seen.Contains(label) {
-			c.Addf(
-				pathOf(path, "enum_values", strconv.Itoa(i), "label"),
-				"duplicate enum label %q",
-				label,
-			)
+			c.Addf(labelPath, "duplicate enum label %q", label)
 		}
 		seen.Add(label)
 	}
@@ -298,36 +314,37 @@ func (c *checker) checkScaling(path []string, b BaseField) {
 
 func (c *checker) checkMultiplexor(
 	path []string,
-	b BinaryField,
+	f BinaryField,
 	binary map[FieldKey]BinaryField,
 ) {
-	mux, ok := binary[*b.Multiplexor]
+	base := f.Base()
+	mux, ok := binary[*base.Multiplexor]
 	switch {
-	case *b.Multiplexor == b.Key:
+	case *base.Multiplexor == base.Key:
 		c.Addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
 	case !ok:
 		c.Addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
 	case !integral(mux):
 		c.Addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
-	case inCycle(b.Key, binary):
+	case inCycle(base.Key, binary):
 		c.Addf(pathOf(path, "multiplexor"), "multiplexors form a cycle")
 	}
-	if len(b.MultiplexValues) == 0 {
+	if len(base.MultiplexValues) == 0 {
 		c.Addf(
 			pathOf(path, "multiplex_values"),
 			"at least one value is required when the field has a multiplexor",
 		)
 	}
-	if !ok || !integral(mux) || !validBitLength(mux.BitLength) {
+	if !ok || !integral(mux) || !validBitLength(mux.Base().BitLength) {
 		return
 	}
-	for i, v := range b.MultiplexValues {
-		if !fits(float64(v), mux) {
+	for i, v := range base.MultiplexValues {
+		if !fits(int64(v), mux) {
 			c.Addf(
 				pathOf(path, "multiplex_values", strconv.Itoa(i)),
 				"value %d does not fit the multiplexor %q",
 				v,
-				mux.Name,
+				mux.Base().Name,
 			)
 		}
 	}
@@ -339,10 +356,10 @@ func inCycle(key FieldKey, binary map[FieldKey]BinaryField) bool {
 	cur := key
 	for range binary {
 		f, ok := binary[cur]
-		if !ok || f.Multiplexor == nil {
+		if !ok || f.Base().Multiplexor == nil {
 			return false
 		}
-		if cur = *f.Multiplexor; cur == key {
+		if cur = *f.Base().Multiplexor; cur == key {
 			return true
 		}
 	}
@@ -396,35 +413,25 @@ func (c *checker) checkIdentifier(
 			)
 		case !integral(f):
 			c.Addf(pathOf(idPath, "field"), "the identifier must be an integer field")
-		case validBitLength(f.BitLength) && !fits(float64(id.Value), f):
+		case validBitLength(f.Base().BitLength) && !fits(int64(id.Value), f):
 			c.Addf(
 				pathOf(idPath, "value"),
 				"value %d does not fit the field %q",
 				id.Value,
-				f.Name,
+				f.Base().Name,
 			)
 		}
 	}
 }
 
 func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField) {
-	if f.Kind != payload.KindFloat && !integral(f) {
-		c.Addf(
-			pathOf(path, "kind"),
-			"a binary field must be a float, an integer, or an unsigned integer",
-		)
-	}
-	if !validBitLength(f.BitLength) {
+	base := f.Base()
+	if !validBitLength(base.BitLength) {
 		return
 	}
-	if f.Kind == payload.KindFloat && f.BitLength != 32 && f.BitLength != 64 {
-		c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
-	}
-	if f.Default != nil {
-		c.checkBinaryDefault(pathOf(path, "default"), f)
-	}
+	c.checkBinaryDefault(path, f)
 	if p.Length != nil {
-		if lastByte(f) >= int(*p.Length) {
+		if lastByte(base) >= int(*p.Length) {
 			c.Addf(
 				pathOf(path, "start_bit"),
 				"field extends past the %d-byte payload",
@@ -437,7 +444,7 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 		return
 	}
 	if id, ok := p.Identifier.Variant.(CanIdentifier); ok &&
-		lastByte(f) >= int(canLength(id)) {
+		lastByte(base) >= int(canLength(id)) {
 		c.Addf(
 			pathOf(path, "start_bit"),
 			"field extends past the %d bytes a CAN frame carries",
@@ -446,18 +453,34 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 	}
 }
 
-// checkBinaryDefault adds a problem when the bits of f cannot hold its default.
+// checkBinaryDefault adds a problem when f is a float of the wrong width, or when the
+// bits of f cannot hold its default.
 func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
-	v := float64(*f.Default)
-	switch {
-	case math.IsNaN(v) || math.IsInf(v, 0):
-		c.Addf(path, "default must be finite")
-	case integral(f) && v != math.Trunc(v):
-		c.Addf(path, "default %g is not a whole number", v)
-	case integral(f) && !fits(v, f):
-		c.Addf(path, "default %g does not fit the field", v)
-	case f.Kind == payload.KindFloat && f.BitLength == 32 && math.Abs(v) > math.MaxFloat32:
-		c.Addf(path, "default %g does not fit a 32-bit float", v)
+	n := f.Base().BitLength
+	defaultPath := pathOf(path, "default")
+	switch v := f.Variant.(type) {
+	case FloatBinaryField:
+		if n != 32 && n != 64 {
+			c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
+		}
+		if v.Default == nil {
+			return
+		}
+		d := float64(*v.Default)
+		switch {
+		case math.IsNaN(d) || math.IsInf(d, 0):
+			c.Addf(defaultPath, "default must be finite")
+		case n == 32 && math.Abs(d) > math.MaxFloat32:
+			c.Addf(defaultPath, "default %g does not fit a 32-bit float", d)
+		}
+	case IntegerBinaryField:
+		if v.Default != nil && !fits(int64(*v.Default), f) {
+			c.Addf(defaultPath, "default %d does not fit the field", *v.Default)
+		}
+	case UnsignedBinaryField:
+		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
+			c.Addf(defaultPath, "default %d does not fit the field", *v.Default)
+		}
 	}
 }
 
@@ -470,8 +493,12 @@ func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
 	found := make([]int, len(fields))
 	bits := make([][]int, len(fields))
 	groups := make(map[muxValue][]int)
-	for j, f := range fields {
+	for j, field := range fields {
 		found[j] = noField
+		if field.Variant == nil {
+			continue
+		}
+		f := field.Base()
 		if !validBitLength(f.BitLength) {
 			continue
 		}
@@ -516,7 +543,7 @@ func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
 			c.Addf(
 				pathOf(path, strconv.Itoa(j), "start_bit"),
 				"field overlaps the bits of field %q",
-				fields[i].Name,
+				fields[i].Base().Name,
 			)
 		}
 	}
@@ -564,7 +591,7 @@ func (r readers) release(bits []int) {
 
 // coveredBits returns the payload bits the field reads, each numbered 8*byte + bit,
 // where bit 0 is the least significant bit of its byte.
-func coveredBits(f BinaryField) []int {
+func coveredBits(f BinaryBaseField) []int {
 	start, length := int(f.StartBit), int(f.BitLength)
 	bits := make([]int, 0, length)
 	if f.ByteOrder != ByteOrderBigEndian {
@@ -592,22 +619,27 @@ func canLength(id CanIdentifier) uint16 {
 
 // integral reports whether the binary field f holds an integer.
 func integral(f BinaryField) bool {
-	return f.Kind == payload.KindInteger || f.Kind == payload.KindUnsigned
+	switch f.Variant.(type) {
+	case IntegerBinaryField, UnsignedBinaryField:
+		return true
+	default:
+		return false
+	}
 }
 
-// fits reports whether the integer field f can hold the whole number v.
-func fits(v float64, f BinaryField) bool {
-	n := int(f.BitLength)
-	if f.Kind == payload.KindUnsigned {
-		return v >= 0 && v < math.Ldexp(1, n)
+// fits reports whether the integer field f, of a valid bit length, can hold v.
+func fits(v int64, f BinaryField) bool {
+	n := f.Base().BitLength
+	if _, ok := f.Variant.(UnsignedBinaryField); ok {
+		return v >= 0 && (n == 64 || v < int64(1)<<n)
 	}
-	return v >= -math.Ldexp(1, n-1) && v < math.Ldexp(1, n-1)
+	return n == 64 || (v >= -(int64(1)<<(n-1)) && v < int64(1)<<(n-1))
 }
 
 // lastByte returns the index of the last payload byte a binary field touches. A
 // little-endian start bit is the field's least significant bit; a big-endian start bit
 // is its most significant bit, and the field continues toward higher byte indices.
-func lastByte(f BinaryField) int {
+func lastByte(f BinaryBaseField) int {
 	start, length := int(f.StartBit), int(f.BitLength)
 	if f.ByteOrder == ByteOrderBigEndian {
 		msb := 8*(start/8) + 7 - start%8

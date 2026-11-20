@@ -11,7 +11,6 @@ package codec
 
 import (
 	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"fmt"
 	"math"
 	"slices"
@@ -366,11 +365,8 @@ func defaultOf(jf icd.JSONField) ([]byte, generator, error) {
 		}
 	case icd.JSONJSONField:
 		if v.Default != nil {
-			text, err := json.Marshal(*v.Default)
-			if err != nil {
-				return nil, nil, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-			return text, nil, nil
+			text, err := jsonDefault(*v.Default)
+			return text, nil, err
 		}
 	case icd.UuidJSONField:
 		if v.Default != nil {

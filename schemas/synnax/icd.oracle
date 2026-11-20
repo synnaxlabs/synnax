@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/channel"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/payload"
@@ -132,44 +133,36 @@ BaseField struct {
     @go marshal
 }
 
-BinaryField struct extends BaseField {
-    start_bit        uint16 = 0 {
-        @doc value """
-            is the bit where the field starts, numbered as in a DBC file: the least
-            significant bit for little-endian fields and the most significant bit for
-            big-endian fields.
-        """
+BinaryField union on kind extends BinaryBaseField {
+    float {
+        default payload.Float? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are an IEEE 754 float of 32 or 64 bits."
     }
-    bit_length       uint8 = 8 {
-        @doc value    "is the number of bits in the field, from 1 to 64."
-        @validate max 64
-        @validate min 1
+    integer {
+        default payload.Integer? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are a two's complement integer."
     }
-    byte_order       ByteOrder = little_endian {
-        @doc value "is the byte order of the field."
-    }
-    kind             payload.Kind = unsigned {
-        @doc value """
-            is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
-            complement integer, or an unsigned integer. No other kind is valid.
-        """
-    }
-    multiplexor      FieldKey?      {
-        @doc value """
-            is the key of the field that selects whether this field is present. When
-            absent the field is always present.
-        """
-    }
-    multiplex_values int32[] = [] {
-        @doc value """
-            are the raw values of the multiplexor for which this field is present.
-        """
-    }
-    default          payload.Float? {
-        @doc value """
-            is the raw value, before scale and offset, when a read finds none or no
-            channel is bound. It is a whole number unless the kind is float.
-        """
+    unsigned {
+        default payload.Unsigned? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are an unsigned integer."
     }
 
     @doc value  """
@@ -328,11 +321,11 @@ JSONField union on type payload.Kind extends JSONBaseField {
         @doc value "is a timestamp held in a JSON number or string."
     }
     json {
-        default any? {
-            @doc value        """
-                is the value when a read finds none or no channel is bound.
+        default string? {
+            @doc value """
+                is the JSON text of the value when a read finds none or no channel is
+                bound.
             """
-            @ts preserve_case
         }
 
         @doc value "is any JSON value."
@@ -467,15 +460,21 @@ Payload union on format payload.Format {
 }
 
 Message struct {
-    key     MessageKey = create {
+    key        MessageKey = create {
         @doc value "is the unique identifier for the message within its ICD."
     }
-    name    string     {
+    name       string          {
         @doc value           "is the name of the message, unique within its ICD."
         @validate min_length 1
     }
-    payload Payload    {
+    payload    Payload         {
         @doc value "is the layout of the message's payload."
+    }
+    cycle_time telem.TimeSpan? {
+        @doc value """
+            is the send cycle that the protocol states for the message. When absent the
+            protocol states none.
+        """
     }
 
     @doc value  "is the layout of one message a system sends or receives."
@@ -538,4 +537,76 @@ Where filter ICD {
 
     @doc value         "is a filter that selects ICDs."
     @go request_output "core/pkg/api/icd"
+}
+
+ReadBinding struct {
+    field     FieldKey       {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value     "is the channel the value of the field is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+        @ts type   "string"
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  MessageKey    {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    FieldKey?     {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the documents of one ICD message."
+    @go marshal
+}
+
+BinaryBaseField struct extends BaseField {
+    start_bit        uint16 = 0 {
+        @doc value """
+            is the bit where the field starts, numbered as in a DBC file: the least
+            significant bit for little-endian fields and the most significant bit for
+            big-endian fields.
+        """
+    }
+    bit_length       uint8 = 8 {
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
+    }
+    byte_order       ByteOrder = little_endian {
+        @doc value "is the byte order of the field."
+    }
+    multiplexor      FieldKey? {
+        @doc value """
+            is the key of the field that selects whether this field is present. When
+            absent the field is always present.
+        """
+    }
+    multiplex_values int32[] = [] {
+        @doc value """
+            are the raw values of the multiplexor for which this field is present.
+        """
+    }
+
+    @doc value  "carries the parts every binary field shares."
+    @go marshal
 }

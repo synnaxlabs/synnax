@@ -15,19 +15,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
 func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField {
-	return icd.BinaryField{
-		Name: name, Scale: 1,
+	return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		Name:      name,
+		Scale:     1,
 		StartBit:  startBit,
 		BitLength: bitLength,
 		ByteOrder: icd.ByteOrderLittleEndian,
-		Kind:      payload.KindUnsigned,
-	}
+	}}
+}
+
+// updateBase returns f with its shared parts changed by update.
+func updateBase(f icd.BinaryField, update func(*icd.BinaryBaseField)) icd.BinaryField {
+	b := f.Base()
+	update(&b)
+	f.SetBase(b)
+	return f
 }
 
 func binaryMessage(name string, fields ...icd.BinaryField) icd.Message {
@@ -101,7 +108,7 @@ var _ = Describe("Writer", func() {
 				Expect(ic.Key).ToNot(Equal(uuid.Nil()))
 				m := ic.Messages[0]
 				Expect(m.Key).ToNot(Equal(uuid.Nil()))
-				Expect(binaryFieldOf(m, 0).Key).ToNot(Equal(uuid.Nil()))
+				Expect(binaryFieldOf(m, 0).Base().Key).ToNot(Equal(uuid.Nil()))
 				Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
 			},
 		)

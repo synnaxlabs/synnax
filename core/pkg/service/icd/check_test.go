@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,12 +85,15 @@ var _ = Describe("Check", func() {
 	})
 
 	It("Should find every problem in an ICD, not only the first", func() {
-		mux := binaryField("mux", 0, 4)
-		mux.Key = uuid.New()
-		sig := binaryField("sig", 8, 8)
-		sig.Scale = 0
-		sig.Multiplexor = new(mux.Key)
-		sig.MultiplexValues = []int32{16}
+		muxKey := uuid.New()
+		mux := updateBase(binaryField("mux", 0, 4), func(b *icd.BinaryBaseField) {
+			b.Key = muxKey
+		})
+		sig := updateBase(binaryField("sig", 8, 8), func(b *icd.BinaryBaseField) {
+			b.Scale = 0
+			b.Multiplexor = new(muxKey)
+			b.MultiplexValues = []int32{16}
+		})
 		ic := icd.ICD{Messages: []icd.Message{
 			canMessage("M", 0x800, mux, sig),
 			binaryMessage("M"),
@@ -157,6 +161,12 @@ var _ = Describe("Check", func() {
 			}}},
 			"messages.0.payload.match.type", "type is required",
 		),
+		Entry("binary field without a kind",
+			icd.ICD{Name: "L", Messages: []icd.Message{
+				binaryMessage("M", icd.BinaryField{}),
+			}},
+			"messages.0.payload.fields.0.kind", "kind is required",
+		),
 		Entry("identifier without a type",
 			icd.ICD{Name: "L", Messages: []icd.Message{updateBinary(
 				binaryMessage("M", binaryField("a", 0, 8)),
@@ -167,9 +177,8 @@ var _ = Describe("Check", func() {
 	)
 
 	DescribeTable("Should require finite numbers, which JSON cannot carry",
-		func(update func(*icd.BinaryField), path, message string) {
-			f := binaryField("a", 0, 8)
-			update(&f)
+		func(update func(*icd.BinaryBaseField), path, message string) {
+			f := updateBase(binaryField("a", 0, 8), update)
 			ic := icd.ICD{Name: "L", Messages: []icd.Message{
 				canMessage("M", 1, f),
 			}}
@@ -181,21 +190,34 @@ var _ = Describe("Check", func() {
 			))
 		},
 		Entry("NaN scale",
-			func(f *icd.BinaryField) { f.Scale = math.NaN() },
+			func(f *icd.BinaryBaseField) { f.Scale = math.NaN() },
 			"scale", "scale must be finite and non-zero",
 		),
 		Entry("infinite scale",
-			func(f *icd.BinaryField) { f.Scale = math.Inf(1) },
+			func(f *icd.BinaryBaseField) { f.Scale = math.Inf(1) },
 			"scale", "scale must be finite and non-zero",
 		),
 		Entry("infinite offset",
-			func(f *icd.BinaryField) { f.Offset = math.Inf(-1) },
+			func(f *icd.BinaryBaseField) { f.Offset = math.Inf(-1) },
 			"offset", "offset must be finite",
 		),
 		Entry("NaN minimum",
-			func(f *icd.BinaryField) { f.Min = new(math.NaN()) },
+			func(f *icd.BinaryBaseField) { f.Min = new(math.NaN()) },
 			"min", "min must be finite",
 		),
+	)
+
+	DescribeTable("Should accept every digit of a 64-bit unsigned default",
+		func(d payload.Unsigned) {
+			f := icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				BinaryBaseField: binaryField("a", 0, 64).Base(),
+				Default:         new(d),
+			}}
+			ic := icd.ICD{Name: "L", Messages: []icd.Message{canMessage("M", 1, f)}}
+			Expect(icd.Check(ic)).To(BeEmpty())
+		},
+		Entry("the largest unsigned integer", payload.Unsigned(math.MaxUint64)),
+		Entry("an integer past a float64", payload.Unsigned(9007199254740993)),
 	)
 
 	It("Should not count messages and fields without keys as duplicates", func() {
@@ -219,22 +241,26 @@ var _ = Describe("Check", func() {
 			}
 		}
 		bigEndian := func(f icd.BinaryField) icd.BinaryField {
-			f.ByteOrder = icd.ByteOrderBigEndian
-			return f
+			return updateBase(f, func(b *icd.BinaryBaseField) {
+				b.ByteOrder = icd.ByteOrderBigEndian
+			})
 		}
 		multiplexed := func(
 			f icd.BinaryField,
 			mux icd.BinaryField,
 			values ...int32,
 		) icd.BinaryField {
-			f.Multiplexor = new(mux.Key)
-			f.MultiplexValues = values
-			return f
+			return updateBase(f, func(b *icd.BinaryBaseField) {
+				b.Multiplexor = new(mux.Base().Key)
+				b.MultiplexValues = values
+			})
+		}
+		withKey := func(f icd.BinaryField) icd.BinaryField {
+			return updateBase(f, func(b *icd.BinaryBaseField) { b.Key = uuid.New() })
 		}
 		var mux icd.BinaryField
 		BeforeEach(func() {
-			mux = binaryField("mux", 0, 4)
-			mux.Key = uuid.New()
+			mux = withKey(binaryField("mux", 0, 4))
 		})
 
 		It("Should find two fields that read the same bits", func() {
@@ -303,8 +329,7 @@ var _ = Describe("Check", func() {
 		)
 
 		It("Should not compare fields under different multiplexors", func() {
-			other := binaryField("other", 4, 4)
-			other.Key = uuid.New()
+			other := withKey(binaryField("other", 4, 4))
 			Expect(check(
 				mux,
 				other,

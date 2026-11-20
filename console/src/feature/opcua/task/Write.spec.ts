@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
@@ -35,7 +36,6 @@ import {
   commitTextEdit,
   fakePickedFile,
   interceptFilePicker,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -43,7 +43,10 @@ const client = createTestClient();
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(OPCUA.Task.Write, options);
+  const rendered = await renderTaskFormTab(
+    OPCUA.Task.FORMS[OPCUA.Task.WRITE_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };

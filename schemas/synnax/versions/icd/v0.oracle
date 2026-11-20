@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/x/versions/payload/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -72,7 +73,8 @@ BaseField struct {
         @doc value "is the unique identifier for the field within its message."
     }
     name   string   {
-        @doc value "is the name of the field, unique within its message."
+        @doc value           "is the name of the field, unique within its message."
+        @validate min_length 1
     }
     scale  float64 = 1 {
         @doc value "multiplies the raw value on decode."
@@ -109,7 +111,9 @@ BinaryField struct extends BaseField {
         """
     }
     bit_length       uint8 = 8 {
-        @doc value "is the number of bits in the field, from 1 to 64."
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
     }
     byte_order       ByteOrder = little_endian {
         @doc value "is the byte order of the field."
@@ -120,7 +124,7 @@ BinaryField struct extends BaseField {
             complement integer, or an unsigned integer. No other kind is valid.
         """
     }
-    multiplexor      FieldKey?      {
+    multiplexor      FieldKey?    {
         @doc value """
             is the key of the field that selects whether this field is present. When
             absent the field is always present.
@@ -131,33 +135,12 @@ BinaryField struct extends BaseField {
             are the raw values of the multiplexor for which this field is present.
         """
     }
-    default          payload.Float? {
-        @doc value """
-            is the raw value, before scale and offset, when a read finds none or no
-            channel is bound. It is a whole number unless the kind is float.
-        """
-    }
 
-    @doc value  """
-        is a field read from a bit range of a binary payload. With no default, a write
-        needs a channel.
-    """
+    @doc value  "is a field read from a bit range of a binary payload."
     @go marshal
 }
 
-TextBaseField struct extends BaseField {
-    default payload.Float? {
-        @doc value """
-            is the raw number, before scale and offset, when a read finds none or no
-            channel is bound.
-        """
-    }
-
-    @doc value  "carries the parts every text field shares."
-    @go marshal
-}
-
-TextField union on encoding extends TextBaseField {
+TextField union on encoding extends BaseField {
     delimited {
         position uint32 = 0 {
             @doc value "is the zero-based item index after splitting on the delimiter."
@@ -173,41 +156,7 @@ TextField union on encoding extends TextBaseField {
         @doc value "is a field read from the text that follows a tag."
     }
 
-    @doc value  """
-        is a field read from a text line. With no default, a write needs a channel.
-    """
-    @go marshal
-}
-
-TimestampDefault union on type {
-    constant {
-        value telem.TimeStamp {
-            @doc value "is the timestamp that the default gives."
-        }
-
-        @doc value "is one fixed timestamp."
-    }
-    now {
-        @doc value "is the time of each read or write."
-    }
-
-    @doc value  "is the default of a timestamp field."
-    @go marshal
-}
-
-UUIDDefault union on type {
-    constant {
-        value uuid {
-            @doc value "is the UUID that the default gives."
-        }
-
-        @doc value "is one fixed UUID."
-    }
-    random {
-        @doc value "is a new random UUID for each read or write."
-    }
-
-    @doc value  "is the default of a UUID field."
+    @doc value  "is a field read from a text line."
     @go marshal
 }
 
@@ -229,10 +178,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Float?       {
-            @doc value """
-                is the raw value, before scale and offset, when a read finds none or no
-                channel is bound.
-            """
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a JSON number read as a float."
@@ -242,10 +188,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Integer?       {
-            @doc value """
-                is the raw value, before scale and offset, when a read finds none or no
-                channel is bound.
-            """
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a JSON number read as a signed integer."
@@ -255,10 +198,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Unsigned?       {
-            @doc value """
-                is the raw value, before scale and offset, when a read finds none or no
-                channel is bound.
-            """
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a JSON number read as an unsigned integer."
@@ -268,7 +208,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     string?               {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a JSON string."
@@ -278,7 +218,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     bool?                  {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a JSON boolean."
@@ -287,44 +227,23 @@ JSONField union on type payload.Kind extends JSONBaseField {
         time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
         }
-        default     TimestampDefault?  {
-            @doc value "is the value when a read finds none or no channel is bound."
+        default     telem.TimeStamp?   {
+            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a timestamp held in a JSON number or string."
     }
     json {
-        default any? {
-            @doc value        """
-                is the value when a read finds none or no channel is bound.
-            """
-            @ts preserve_case
-        }
-
         @doc value "is any JSON value."
     }
     uuid {
-        default UUIDDefault? {
-            @doc value "is the value when a read finds none or no channel is bound."
-        }
-
         @doc value "is a UUID held in a JSON string."
     }
     bytes {
-        default string? {
-            @doc value """
-                is the base64 text of the value when a read finds none or no channel is
-                bound.
-            """
-        }
-
         @doc value "is base64 text held in a JSON string."
     }
 
-    @doc value  """
-        is a field read from a JSON document. With no default, a read needs its value
-        and a write needs a channel.
-    """
+    @doc value  "is a field read from a JSON document."
     @go marshal
 }
 
@@ -399,7 +318,8 @@ Payload union on format payload.Format {
     }
     text {
         delimiter string = "," {
-            @doc value "splits the items of the line."
+            @doc value           "splits the items of the line."
+            @validate min_length 1
         }
         prefix    string = "" {
             @doc value """
@@ -436,7 +356,8 @@ Message struct {
         @doc value "is the unique identifier for the message within its ICD."
     }
     name    string     {
-        @doc value "is the name of the message, unique within its ICD."
+        @doc value           "is the name of the message, unique within its ICD."
+        @validate min_length 1
     }
     payload Payload    {
         @doc value "is the layout of the message's payload."
@@ -452,7 +373,8 @@ ICD struct {
         @key
     }
     name     string    {
-        @doc value "is a human-readable name for the ICD."
+        @doc value           "is a human-readable name for the ICD."
+        @validate min_length 1
     }
     messages Message[] = [] {
         @doc value "are the messages the ICD holds."
@@ -465,4 +387,41 @@ ICD struct {
     @go imex
     @go marshal
     @go migrate
+}
+
+ReadBinding struct {
+    field     FieldKey       {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the channel the value of the field is written to."
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  MessageKey    {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    FieldKey?     {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the documents of one ICD message."
+    @go marshal
 }

@@ -52,8 +52,7 @@ func parseCSV(data []byte) ([]Message, error) {
 	r.FieldsPerRecord = -1
 	rows, err := r.ReadAll()
 	if err != nil {
-		var perr *csv.ParseError
-		if errors.As(err, &perr) {
+		if perr, ok := errors.AsType[*csv.ParseError](err); ok {
 			return nil, dataErrorf("line %d: %s", perr.StartLine, perr.Err)
 		}
 		return nil, err
@@ -280,13 +279,12 @@ func (t *table) readMessage(row int, cells []string, m *tableMessage) error {
 }
 
 func (t *table) readField(row int, cells []string) (BinaryField, error) {
-	f := BinaryField{
+	f := BinaryBaseField{
 		Key:       uuid.New(),
 		Name:      t.cell(cells, columnField),
 		Scale:     1,
 		Units:     t.cell(cells, columnUnits),
 		ByteOrder: ByteOrderLittleEndian,
-		Kind:      payload.KindUnsigned,
 	}
 	if f.Name == "" {
 		return BinaryField{}, rowErrorf(row, columnField, "is required")
@@ -296,10 +294,11 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if err != nil {
 		return BinaryField{}, err
 	}
+	kind := UnsignedBinaryFieldType
 	switch k := payload.Kind(strings.ToLower(t.cell(cells, columnKind))); k {
 	case "":
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
-		f.Kind = k
+		kind = BinaryFieldType(k)
 	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
 		payload.KindJSON, payload.KindUUID, payload.KindBytes:
 		fallthrough
@@ -331,7 +330,16 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	if f.Max, err = t.number(row, cells, columnMax); err != nil {
 		return BinaryField{}, err
 	}
-	return f, nil
+	var field BinaryField
+	switch kind {
+	case FloatBinaryFieldType:
+		field.Variant = FloatBinaryField{BinaryBaseField: f}
+	case IntegerBinaryFieldType:
+		field.Variant = IntegerBinaryField{BinaryBaseField: f}
+	case UnsignedBinaryFieldType:
+		field.Variant = UnsignedBinaryField{BinaryBaseField: f}
+	}
+	return field, nil
 }
 
 // readLayout returns the start bit, the bit length, and the byte order of the field

@@ -25,7 +25,7 @@ func (p Payload) FieldBases() []BaseField {
 	case TextPayload:
 		bases := make([]BaseField, len(v.Fields))
 		for i, f := range v.Fields {
-			bases[i] = f.Base().BaseField
+			bases[i] = f.Base()
 		}
 		return bases
 	case JSONPayload:
@@ -58,7 +58,7 @@ func (p *Payload) UpdateFieldBases(update func(*BaseField)) {
 				continue
 			}
 			b := v.Fields[i].Base()
-			update(&b.BaseField)
+			update(&b)
 			v.Fields[i].SetBase(b)
 		}
 		p.Variant = v

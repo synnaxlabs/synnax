@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
@@ -36,15 +37,14 @@ var (
 		Pointer: "test_8",
 	}
 	fullyPopulatedJSONBaseMatch = v0.JSONBaseMatch{Pointer: "test_1"}
-	fullyPopulatedTextBaseField = v0.TextBaseField{
-		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:    "test_2",
-		Scale:   3.5,
-		Offset:  4.5,
-		Units:   "test_5",
-		Min:     new(float64(6.5)),
-		Max:     new(float64(7.5)),
-		Default: new(payload.Float(8.5)),
+	fullyPopulatedBaseField     = v0.BaseField{
+		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:   "test_2",
+		Scale:  3.5,
+		Offset: 4.5,
+		Units:  "test_5",
+		Min:    new(float64(6.5)),
+		Max:    new(float64(7.5)),
 	}
 )
 
@@ -60,15 +60,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.BaseField{
-				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:   "test_2",
-				Scale:  3.5,
-				Offset: 4.5,
-				Units:  "test_5",
-				Min:    new(float64(6.5)),
-				Max:    new(float64(7.5)),
-			}),
+			Entry("fully populated", fullyPopulatedBaseField),
 			Entry("zero values", v0.BaseField{
 				Key:    uuid.Nil(),
 				Name:   "",
@@ -105,7 +97,6 @@ var _ = Describe("Codec", func() {
 				Kind:            payload.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 				MultiplexValues: []int32{14},
-				Default:         new(payload.Float(14.5)),
 			}),
 			Entry("zero values", v0.BinaryField{
 				Key:             uuid.Nil(),
@@ -121,7 +112,6 @@ var _ = Describe("Codec", func() {
 				Kind:            payload.Kind(""),
 				Multiplexor:     nil,
 				MultiplexValues: []int32{},
-				Default:         nil,
 			}),
 			Entry("empty collections", v0.BinaryField{
 				Key:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -137,7 +127,6 @@ var _ = Describe("Codec", func() {
 				Kind:            payload.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 				MultiplexValues: []int32{},
-				Default:         new(payload.Float(14.5)),
 			}),
 		)
 	})
@@ -183,7 +172,6 @@ var _ = Describe("Codec", func() {
 									Kind:            payload.Kind("float"),
 									Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 									MultiplexValues: []int32{28},
-									Default:         new(payload.Float(28.5)),
 								},
 							},
 						}},
@@ -304,22 +292,11 @@ var _ = Describe("Codec", func() {
 			Entry("timestamp variant", v0.JSONField{Variant: v0.TimestampJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
 				TimeFormat:    payload.TimeFormat("iso8601"),
-				Default:       new(v0.TimestampDefault{Variant: v0.ConstantTimestampDefault{Value: telem.TimeStamp(4)}}),
+				Default:       new(telem.TimeStamp(3)),
 			}}),
-			Entry("json variant", v0.JSONField{Variant: v0.JSONJSONField{
-				JSONBaseField: fullyPopulatedJSONBaseField,
-				Default:       new(any(map[string]any{"key_1": "value_1"})),
-			}}),
-			Entry("uuid variant", v0.JSONField{Variant: v0.UuidJSONField{
-				JSONBaseField: fullyPopulatedJSONBaseField,
-				Default: new(v0.UUIDDefault{Variant: v0.ConstantUUIDDefault{
-					Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-				}}),
-			}}),
-			Entry("bytes variant", v0.JSONField{Variant: v0.BytesJSONField{
-				JSONBaseField: fullyPopulatedJSONBaseField,
-				Default:       new(string("test_1")),
-			}}),
+			Entry("json variant", v0.JSONField{Variant: v0.JSONJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
+			Entry("uuid variant", v0.JSONField{Variant: v0.UuidJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
+			Entry("bytes variant", v0.JSONField{Variant: v0.BytesJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
 		)
 	})
 	Describe("JSONMatch", func() {
@@ -387,7 +364,6 @@ var _ = Describe("Codec", func() {
 							Kind:            payload.Kind("float"),
 							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 							MultiplexValues: []int32{25},
-							Default:         new(payload.Float(25.5)),
 						},
 					},
 				}},
@@ -438,14 +414,13 @@ var _ = Describe("Codec", func() {
 						Kind:            payload.Kind("float"),
 						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 						MultiplexValues: []int32{22},
-						Default:         new(payload.Float(22.5)),
 					},
 				},
 			}}),
 			Entry("text variant", v0.Payload{Variant: v0.TextPayload{
 				Delimiter: "test_1",
 				Prefix:    "test_2",
-				Fields:    []v0.TextField{{Variant: v0.DelimitedTextField{TextBaseField: fullyPopulatedTextBaseField, Position: 5}}},
+				Fields:    []v0.TextField{{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 5}}},
 			}}),
 			Entry("json variant", v0.Payload{Variant: v0.JSONPayload{
 				Match: new(v0.JSONMatch{Variant: v0.FloatJSONMatch{
@@ -462,27 +437,60 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
-	Describe("TextBaseField", func() {
+	Describe("ReadBinding", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.TextBaseField) {
+			func(original v0.ReadBinding) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.TextBaseField
+				var decoded v0.ReadBinding
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", fullyPopulatedTextBaseField),
-			Entry("zero values", v0.TextBaseField{
-				Key:     uuid.Nil(),
-				Name:    "",
-				Scale:   0,
-				Offset:  0,
-				Units:   "",
-				Min:     nil,
-				Max:     nil,
-				Default: nil,
+			Entry("fully populated", v0.ReadBinding{
+				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Channel:  channel.Key(3),
+				DataType: telem.DataType("test_3"),
+			}),
+			Entry("zero values", v0.ReadBinding{
+				Field:    uuid.Nil(),
+				Channel:  channel.Key(0),
+				DataType: telem.DataType(""),
+			}),
+		)
+	})
+	Describe("ReadMessage", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.ReadMessage) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.ReadMessage
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.ReadMessage{
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Index:   new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+				Bindings: []v0.ReadBinding{
+					{
+						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+						Channel:  channel.Key(6),
+						DataType: telem.DataType("test_6"),
+					},
+				},
+			}),
+			Entry("zero values", v0.ReadMessage{
+				Message:  uuid.Nil(),
+				Index:    nil,
+				Bindings: []v0.ReadBinding{},
+			}),
+			Entry("empty collections", v0.ReadMessage{
+				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Index:    new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+				Bindings: []v0.ReadBinding{},
 			}),
 		)
 	})
@@ -497,54 +505,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("delimited variant", v0.TextField{Variant: v0.DelimitedTextField{TextBaseField: fullyPopulatedTextBaseField, Position: 2}}),
-			Entry("tagged variant", v0.TextField{Variant: v0.TaggedTextField{TextBaseField: fullyPopulatedTextBaseField, Tag: "test_1"}}),
-		)
-	})
-	Describe("TimestampDefault", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.TimestampDefault) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.TimestampDefault
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("constant variant", v0.TimestampDefault{Variant: v0.ConstantTimestampDefault{Value: telem.TimeStamp(2)}}),
-			Entry("now variant", v0.TimestampDefault{Variant: v0.NowTimestampDefault{}}),
-		)
-	})
-	Describe("UUIDDefault", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.UUIDDefault) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.UUIDDefault
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("constant variant", v0.UUIDDefault{Variant: v0.ConstantUUIDDefault{
-				Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			}}),
-			Entry("random variant", v0.UUIDDefault{Variant: v0.RandomUUIDDefault{}}),
+			Entry("delimited variant", v0.TextField{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 2}}),
+			Entry("tagged variant", v0.TextField{Variant: v0.TaggedTextField{BaseField: fullyPopulatedBaseField, Tag: "test_1"}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeBaseField(b *testing.B) {
-	seed := v0.BaseField{
-		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:   "test_2",
-		Scale:  3.5,
-		Offset: 4.5,
-		Units:  "test_5",
-		Min:    new(float64(6.5)),
-		Max:    new(float64(7.5)),
-	}
+	seed := fullyPopulatedBaseField
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -575,7 +543,6 @@ func BenchmarkEncodeDecodeBinaryField(b *testing.B) {
 		Kind:            payload.Kind("float"),
 		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 		MultiplexValues: []int32{14},
-		Default:         new(payload.Float(14.5)),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -624,7 +591,6 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 							Kind:            payload.Kind("float"),
 							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 							MultiplexValues: []int32{28},
-							Default:         new(payload.Float(28.5)),
 						},
 					},
 				}},
@@ -772,7 +738,6 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 					Kind:            payload.Kind("float"),
 					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 					MultiplexValues: []int32{25},
-					Default:         new(payload.Float(25.5)),
 				},
 			},
 		}},
@@ -817,7 +782,6 @@ func BenchmarkEncodeDecodePayload(b *testing.B) {
 				Kind:            payload.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 				MultiplexValues: []int32{22},
-				Default:         new(payload.Float(22.5)),
 			},
 		},
 	}}
@@ -836,8 +800,12 @@ func BenchmarkEncodeDecodePayload(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeTextBaseField(b *testing.B) {
-	seed := fullyPopulatedTextBaseField
+func BenchmarkEncodeDecodeReadBinding(b *testing.B) {
+	seed := v0.ReadBinding{
+		Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Channel:  channel.Key(3),
+		DataType: telem.DataType("test_3"),
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -845,7 +813,34 @@ func BenchmarkEncodeDecodeTextBaseField(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.TextBaseField
+		var decoded v0.ReadBinding
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadMessage(b *testing.B) {
+	seed := v0.ReadMessage{
+		Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Index:   new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+		Bindings: []v0.ReadBinding{
+			{
+				Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Channel:  channel.Key(6),
+				DataType: telem.DataType("test_6"),
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.ReadMessage
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -854,7 +849,7 @@ func BenchmarkEncodeDecodeTextBaseField(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTextField(b *testing.B) {
-	seed := v0.TextField{Variant: v0.DelimitedTextField{TextBaseField: fullyPopulatedTextBaseField, Position: 2}}
+	seed := v0.TextField{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 2}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -870,53 +865,9 @@ func BenchmarkEncodeDecodeTextField(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeTimestampDefault(b *testing.B) {
-	seed := v0.TimestampDefault{Variant: v0.ConstantTimestampDefault{Value: telem.TimeStamp(2)}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.TimestampDefault
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeUUIDDefault(b *testing.B) {
-	seed := v0.UUIDDefault{Variant: v0.ConstantUUIDDefault{
-		Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-	}}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.UUIDDefault
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func FuzzDecodeBaseField(f *testing.F) {
 	{
-		seed := v0.BaseField{
-			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:   "test_2",
-			Scale:  3.5,
-			Offset: 4.5,
-			Units:  "test_5",
-			Min:    new(float64(6.5)),
-			Max:    new(float64(7.5)),
-		}
+		seed := fullyPopulatedBaseField
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -977,7 +928,6 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Kind:            payload.Kind("float"),
 			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 			MultiplexValues: []int32{14},
-			Default:         new(payload.Float(14.5)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1000,7 +950,6 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Kind:            payload.Kind(""),
 			Multiplexor:     nil,
 			MultiplexValues: []int32{},
-			Default:         nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1023,7 +972,6 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			Kind:            payload.Kind("float"),
 			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 			MultiplexValues: []int32{},
-			Default:         new(payload.Float(14.5)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1086,7 +1034,6 @@ func FuzzDecodeICD(f *testing.F) {
 								Kind:            payload.Kind("float"),
 								Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 								MultiplexValues: []int32{28},
-								Default:         new(payload.Float(28.5)),
 							},
 						},
 					}},
@@ -1345,7 +1292,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		seed := v0.JSONField{Variant: v0.TimestampJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
 			TimeFormat:    payload.TimeFormat("iso8601"),
-			Default:       new(v0.TimestampDefault{Variant: v0.ConstantTimestampDefault{Value: telem.TimeStamp(4)}}),
+			Default:       new(telem.TimeStamp(3)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1354,10 +1301,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.JSONField{Variant: v0.JSONJSONField{
-			JSONBaseField: fullyPopulatedJSONBaseField,
-			Default:       new(any(map[string]any{"key_1": "value_1"})),
-		}}
+		seed := v0.JSONField{Variant: v0.JSONJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1365,12 +1309,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.JSONField{Variant: v0.UuidJSONField{
-			JSONBaseField: fullyPopulatedJSONBaseField,
-			Default: new(v0.UUIDDefault{Variant: v0.ConstantUUIDDefault{
-				Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-			}}),
-		}}
+		seed := v0.JSONField{Variant: v0.UuidJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1378,10 +1317,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.JSONField{Variant: v0.BytesJSONField{
-			JSONBaseField: fullyPopulatedJSONBaseField,
-			Default:       new(string("test_1")),
-		}}
+		seed := v0.JSONField{Variant: v0.BytesJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1511,7 +1447,6 @@ func FuzzDecodeMessage(f *testing.F) {
 						Kind:            payload.Kind("float"),
 						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 						MultiplexValues: []int32{25},
-						Default:         new(payload.Float(25.5)),
 					},
 				},
 			}},
@@ -1586,7 +1521,6 @@ func FuzzDecodePayload(f *testing.F) {
 					Kind:            payload.Kind("float"),
 					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 					MultiplexValues: []int32{22},
-					Default:         new(payload.Float(22.5)),
 				},
 			},
 		}}
@@ -1600,7 +1534,7 @@ func FuzzDecodePayload(f *testing.F) {
 		seed := v0.Payload{Variant: v0.TextPayload{
 			Delimiter: "test_1",
 			Prefix:    "test_2",
-			Fields:    []v0.TextField{{Variant: v0.DelimitedTextField{TextBaseField: fullyPopulatedTextBaseField, Position: 5}}},
+			Fields:    []v0.TextField{{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 5}}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1650,9 +1584,13 @@ func FuzzDecodePayload(f *testing.F) {
 	})
 }
 
-func FuzzDecodeTextBaseField(f *testing.F) {
+func FuzzDecodeReadBinding(f *testing.F) {
 	{
-		seed := fullyPopulatedTextBaseField
+		seed := v0.ReadBinding{
+			Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Channel:  channel.Key(3),
+			DataType: telem.DataType("test_3"),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1660,15 +1598,10 @@ func FuzzDecodeTextBaseField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TextBaseField{
-			Key:     uuid.Nil(),
-			Name:    "",
-			Scale:   0,
-			Offset:  0,
-			Units:   "",
-			Min:     nil,
-			Max:     nil,
-			Default: nil,
+		seed := v0.ReadBinding{
+			Field:    uuid.Nil(),
+			Channel:  channel.Key(0),
+			DataType: telem.DataType(""),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1677,7 +1610,7 @@ func FuzzDecodeTextBaseField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.TextBaseField
+		var decoded v0.ReadBinding
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1687,7 +1620,72 @@ func FuzzDecodeTextBaseField(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.TextBaseField
+		var redecoded v0.ReadBinding
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadMessage(f *testing.F) {
+	{
+		seed := v0.ReadMessage{
+			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Index:   new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+			Bindings: []v0.ReadBinding{
+				{
+					Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+					Channel:  channel.Key(6),
+					DataType: telem.DataType("test_6"),
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadMessage{
+			Message:  uuid.Nil(),
+			Index:    nil,
+			Bindings: []v0.ReadBinding{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.ReadMessage{
+			Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Index:    new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+			Bindings: []v0.ReadBinding{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.ReadMessage
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.ReadMessage
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1700,7 +1698,7 @@ func FuzzDecodeTextBaseField(f *testing.F) {
 
 func FuzzDecodeTextField(f *testing.F) {
 	{
-		seed := v0.TextField{Variant: v0.DelimitedTextField{TextBaseField: fullyPopulatedTextBaseField, Position: 2}}
+		seed := v0.TextField{Variant: v0.DelimitedTextField{BaseField: fullyPopulatedBaseField, Position: 2}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1708,7 +1706,7 @@ func FuzzDecodeTextField(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TextField{Variant: v0.TaggedTextField{TextBaseField: fullyPopulatedTextBaseField, Tag: "test_1"}}
+		seed := v0.TextField{Variant: v0.TaggedTextField{BaseField: fullyPopulatedBaseField, Tag: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1727,86 +1725,6 @@ func FuzzDecodeTextField(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.TextField
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTimestampDefault(f *testing.F) {
-	{
-		seed := v0.TimestampDefault{Variant: v0.ConstantTimestampDefault{Value: telem.TimeStamp(2)}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.TimestampDefault{Variant: v0.NowTimestampDefault{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.TimestampDefault
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.TimestampDefault
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeUUIDDefault(f *testing.F) {
-	{
-		seed := v0.UUIDDefault{Variant: v0.ConstantUUIDDefault{
-			Value: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.UUIDDefault{Variant: v0.RandomUUIDDefault{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.UUIDDefault
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.UUIDDefault
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

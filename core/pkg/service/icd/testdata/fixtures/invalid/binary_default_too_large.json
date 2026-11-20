@@ -28,7 +28,7 @@
               "bit_length": 8,
               "byte_order": "little_endian",
               "kind": "unsigned",
-              "default": 256
+              "default": "256"
             }
           ],
           "length": 8

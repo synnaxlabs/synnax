@@ -202,14 +202,18 @@ export type StringSink = Sink<string>;
 export const stringSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("string") });
 export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
 
-export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+export abstract class Base<P extends z.ZodType> implements observe.Observable<void> {
+  protected readonly observer = new observe.Observer<void>();
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   abstract schema: P;
 
   constructor(props: unknown) {
-    super();
     this.uProps_ = props;
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   get props(): z.infer<P> {

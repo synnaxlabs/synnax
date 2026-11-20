@@ -269,6 +269,32 @@ var _ = Describe("JSON", func() {
 			Expect(second[6] >> 4).To(Equal(byte(4)))
 		})
 
+		It("Should fill a missing JSON value with every digit of its default", func() {
+			dec := decoder(icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id": 9007199254740993}`),
+			}}, telem.JSONT)
+			samples := [][][]byte{make([][]byte, 1)}
+			_, ok := MustSucceed2(dec.Decode([]byte(`{}`), samples))
+			Expect(ok).To(BeTrue())
+			Expect(string(samples[0][0][4:])).To(Equal(`{"id":9007199254740993}`))
+		})
+
+		It("Should reject a JSON default that is not valid JSON", func() {
+			f := icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "doc", Scale: 1, Pointer: "/doc",
+				Default: new(`{"id":`),
+			}}
+			Expect(codec.NewJSON([]codec.JSONMessage{{
+				Name:     "reading",
+				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.JSONT}},
+			}})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("default is not valid JSON")),
+			))
+		})
+
 		DescribeTable("Should reject a default with no type",
 			func(f icd.JSONField, dt telem.DataType) {
 				Expect(codec.NewJSON([]codec.JSONMessage{{
