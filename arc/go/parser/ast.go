@@ -419,9 +419,9 @@ func (n Name) String() string {
 	return n.Head + "." + n.Tail
 }
 
-// ChannelName returns the path that a quoted channel name token holds, with its
+// decodeChannelName returns the path that a quoted channel name token holds, with its
 // escapes decoded, in NFC.
-func ChannelName(token antlr.TerminalNode) string {
+func decodeChannelName(token antlr.TerminalNode) string {
 	text := token.GetText()
 	text = text[1 : len(text)-1]
 	var b strings.Builder
@@ -437,7 +437,7 @@ func ChannelName(token antlr.TerminalNode) string {
 }
 
 func channelName(token antlr.TerminalNode) Name {
-	return Name{Head: ChannelName(token), Channel: true}
+	return Name{Head: decodeChannelName(token), Channel: true}
 }
 
 // IdentifierParts returns the name of a flow identifier. A bare identifier returns

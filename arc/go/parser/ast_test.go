@@ -482,12 +482,12 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("ChannelName", func() {
+	Describe("a quoted channel path", func() {
 		pathOf := func(code string) string {
 			GinkgoHelper()
 			primary := parser.GetPrimaryExpression(parseExpr(code))
 			Expect(primary).ToNot(BeNil())
-			return parser.ChannelName(primary.CHANNEL_NAME())
+			return parser.PrimaryNameParts(primary).Head
 		}
 
 		It("Should decode an escaped quote and an escaped backslash", func() {
