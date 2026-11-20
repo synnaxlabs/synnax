@@ -123,7 +123,7 @@ describe("Color.Field", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Edit" }));
   };
 
-  const nameInput = (): HTMLElement => screen.getByRole("textbox", { name: "Name" });
+  const nameInput = (): HTMLElement => screen.getByRole("textbox", { name: /^Name/ });
 
   const nameValue = (): string => {
     const input = nameInput();
@@ -175,6 +175,22 @@ describe("Color.Field", () => {
   });
 
   describe("create and edit", () => {
+    it("should mark the name of a new color as required", async () => {
+      const { palette } = await createInPalette();
+      const { result } = await renderField();
+      openPicker(result);
+      await openCreate(palette);
+      expect(await screen.findByRole("textbox", { name: "Name *" })).toBeTruthy();
+    });
+
+    it("should mark the name of an edited color as required", async () => {
+      const { named } = await createInPalette();
+      const { result } = await renderField({ type: "named", key: named.key });
+      openPicker(result);
+      await openEdit(named.name);
+      expect(await screen.findByRole("textbox", { name: "Name *" })).toBeTruthy();
+    });
+
     it("should create a named color from the shown color and link the field", async () => {
       const { palette } = await createInPalette();
       const { result, values } = await renderField();
@@ -189,7 +205,7 @@ describe("Color.Field", () => {
       expect(xcolor.hex(created.light)).toBe("#000000");
       expect(created.dark).toBeUndefined();
       await waitFor(() =>
-        expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull(),
+        expect(screen.queryByRole("textbox", { name: /^Name/ })).toBeNull(),
       );
     });
 
@@ -343,7 +359,7 @@ describe("Color.Field", () => {
       openPicker(result);
       await openEdit(named.name);
       const name = `renamed-${id.create()}`;
-      fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
+      fireEvent.change(await screen.findByRole("textbox", { name: /^Name/ }), {
         target: { value: name },
       });
       fireEvent.click(screen.getByLabelText("Back"));
@@ -373,7 +389,7 @@ describe("Color.Field", () => {
         openPicker(result);
         await openCreate(palette);
         fireEvent.click(screen.getByLabelText("Back"));
-        expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+        expect(screen.queryByRole("textbox", { name: /^Name/ })).toBeNull();
         expect(screen.getByRole("dialog")).toBeTruthy();
         expect(document.activeElement).toBe(plusOf(palette.name));
       });
