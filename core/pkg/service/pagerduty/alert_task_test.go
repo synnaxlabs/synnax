@@ -74,10 +74,11 @@ var _ = Describe("AlertTask", func() {
 	BeforeEach(func(ctx SpecContext) {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
-			DB:     db,
-			Status: statusSvc,
-			Secret: secretSvc,
-			Sender: sender,
+			Channel: channelSvc,
+			DB:      db,
+			Status:  statusSvc,
+			Secret:  secretSvc,
+			Sender:  sender,
 		}))
 		routingKey = createRoutingKey(ctx, strings.Repeat("b", 32))
 	})
