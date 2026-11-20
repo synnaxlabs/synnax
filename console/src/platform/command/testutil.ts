@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Command } from "@/platform/command";
+import type { Command } from "@/platform/command";
 
 /**
  * Returns the command a domain offers under the name, so a spec can read its gate

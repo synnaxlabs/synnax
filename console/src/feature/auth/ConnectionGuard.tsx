@@ -9,7 +9,7 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { type connection } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";

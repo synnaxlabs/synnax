@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type EnhancedStore, type UnknownAction } from "@reduxjs/toolkit";
+import type { Action, EnhancedStore, UnknownAction } from "@reduxjs/toolkit";
 import { createElement, type ReactElement, useState } from "react";
 import { Provider, type ProviderProps as BaseProps } from "react-redux";
 
-import { type Enhancers } from "@/configureStore";
-import { type StoreState } from "@/state";
+import type { Enhancers } from "@/configureStore";
+import type { StoreState } from "@/state";
 
 /** Overrides the default react-redux Provider to allow for a promise based store. */
 export interface ProviderProps<

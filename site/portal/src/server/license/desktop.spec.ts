@@ -27,7 +27,7 @@ import {
   TERM_MS,
   unlink,
 } from "@/server/license/desktop";
-import { type Signer } from "@/server/license/sign";
+import type { Signer } from "@/server/license/sign";
 import {
   activationOf,
   HASH_A,

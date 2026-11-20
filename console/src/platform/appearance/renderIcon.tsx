@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type color } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/x";
 
 /** Arguments for {@link renderIcon}. */
 export interface RenderIconArgs {

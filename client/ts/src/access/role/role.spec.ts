@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type Action } from "@/access/action/types.gen";
+import type { Action } from "@/access/action/types.gen";
 import { role } from "@/access/role";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/index";

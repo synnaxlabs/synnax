@@ -10,7 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Settings } from "@/app/settings";

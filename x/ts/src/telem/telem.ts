@@ -10,10 +10,10 @@
 import { z } from "zod";
 
 import { math } from "@/math";
-import { type numeric } from "@/numeric";
-import { type primitive } from "@/primitive";
-import { type bounds } from "@/spatial";
-import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
+import type { numeric } from "@/numeric";
+import type { primitive } from "@/primitive";
+import type { bounds } from "@/spatial";
+import type { TimestampFormat, TimeZone } from "@/telem/types.gen";
 
 export type CrudeValueExtension<V extends NonNullable<primitive.Value>> = {
   value: V;

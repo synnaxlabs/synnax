@@ -11,7 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
 import { type Condition, decode, encode } from "@/platform/view/filter/codec";
-import { type Properties } from "@/platform/view/filter/types";
+import type { Properties } from "@/platform/view/filter/types";
 
 /**
  * @returns the conditions of the filter of the view in the form, and a setter that

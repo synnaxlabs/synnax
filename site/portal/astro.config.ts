@@ -10,18 +10,29 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
+import { jitless } from "@synnaxlabs/site-common/csp";
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 import path from "path";
 
+import { csp } from "./src/csp";
+
 const secret = envField.string({ context: "server", access: "secret" });
 
 export default defineConfig({
-  integrations: [react(), clerk({ signInUrl: "/login", signUpUrl: "/sign-up" })],
+  integrations: [
+    react(),
+    clerk({ signInUrl: "/login", signUpUrl: "/sign-up" }),
+    jitless(),
+  ],
   output: "server",
   adapter: vercel(),
-  // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins instead.
-  security: { checkOrigin: false },
+  security: {
+    // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins
+    // instead.
+    checkOrigin: false,
+    csp: csp(process.env.VERCEL_ENV),
+  },
   // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
   vite: {
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },

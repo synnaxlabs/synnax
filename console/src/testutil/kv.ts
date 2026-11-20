@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 /** An in-memory SugaredKV. Nothing survives a reload. */
 export class MemoryKV implements Session.Persist.SugaredKV {

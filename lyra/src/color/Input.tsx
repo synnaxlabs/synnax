@@ -10,7 +10,7 @@
 import "@/color/Input.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { HexText, type HexTextProps } from "@/color/HexText";
 import { findNamed } from "@/color/named";

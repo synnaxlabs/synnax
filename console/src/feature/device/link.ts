@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { getIntegration, useConfigureModal } from "@/feature/device/make";
-import { type Link } from "@/platform/link";
+import type { Link } from "@/platform/link";
 
 export const useLink = (): Link.Handler => {
   const configure = useConfigureModal();
