@@ -405,6 +405,28 @@ describe("Input.Table", () => {
       expect(document.activeElement).not.toBe(input);
     });
 
+    it("should commit nothing on two Escs in a cell that commits on blur", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["a"]]} onChange={onChange}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string">
+              {(props) => <Input.Text {...props} onlyChangeOnBlur />}
+            </Input.TableColumn>,
+          ]}
+        </Input.Table>,
+      );
+      const input = cell("Name", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("a");
+      expect(document.activeElement).toBe(input);
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     it("should discard a typed number and keep focus", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       const input = cell("Raw", "1");

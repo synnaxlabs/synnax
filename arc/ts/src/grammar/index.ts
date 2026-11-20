@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Raw JSON string for Monaco/VS Code extension registration
-import arcGrammarRaw from "./arc.tmLanguage.json?raw";
-import arcLanguageConfigurationRaw from "./language-configuration.json?raw";
+import arcGrammarRaw from "@/grammar/arc.tmLanguage.json?raw";
+import arcLanguageConfigurationRaw from "@/grammar/language-configuration.json?raw";
 
 /**
  * TextMate grammar for the Arc language. This interface satisfies Shiki's

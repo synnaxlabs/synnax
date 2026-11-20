@@ -20,10 +20,16 @@ import {
 
 import { CDN } from "@/components/media/cdn";
 import { DARK } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-// Studio's upload writes each video's version here.
-const VERSIONS: Record<string, string> = versions;
+interface Uploaded {
+  version: string;
+  width: number;
+  height: number;
+}
+
+// Studio's upload writes the version and size of each video here.
+const VIDEOS: Record<string, Uploaded> = videos;
 
 interface MediaProps {
   id: string;
@@ -36,7 +42,10 @@ export interface VideoProps
     Omit<
       DetailedHTMLProps<VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
-    > {}
+    > {
+  /** Describes what the video shows, for screen readers. */
+  label: string;
+}
 
 /**
  * Renders a looping, muted docs video that follows the reader's color scheme. The
@@ -44,17 +53,33 @@ export interface VideoProps
  * `@/components/media/lightbox` expands it.
  * @throws {Error} if Studio has uploaded no version of the video.
  */
-export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
-  const version = VERSIONS[id];
-  if (version == null)
+export const Video = ({
+  id,
+  label,
+  themed = true,
+  style,
+  ...rest
+}: VideoProps): ReactElement => {
+  const uploaded = VIDEOS[id];
+  if (uploaded == null)
     throw new Error(
       `no version of video ${id}: add an entry to studio/videos.ts, then run pnpm upload ${id} in studio/`,
     );
+  const { version, width, height } = uploaded;
   // The time fragment makes iOS Safari render the first frame before playback.
   const src = (theme?: string): string => `${CDN.video(id, version, theme)}#t=0.001`;
   return (
     <div className="docs-video">
-      <video loop muted playsInline preload="metadata" {...rest}>
+      <video
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        aria-label={label}
+        // With `auto`, the ratio sizes the frame inside the border, not the border box.
+        style={{ aspectRatio: `auto ${width} / ${height}`, ...style }}
+        {...rest}
+      >
         {themed && <source src={src("dark")} media={DARK} type="video/mp4" />}
         <source src={src(themed ? "light" : undefined)} type="video/mp4" />
       </video>
@@ -114,6 +139,8 @@ export interface ImageProps
       "id"
     > {
   extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
+  /** Describes what the image shows. Use an empty string only for decoration. */
+  alt: string;
 }
 
 /**

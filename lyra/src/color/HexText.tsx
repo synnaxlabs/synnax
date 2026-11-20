@@ -11,6 +11,7 @@ import "@/color/HexText.css";
 
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { CSS } from "@/css";
 import { Input } from "@/input";
@@ -36,8 +37,10 @@ export interface HexTextProps extends Omit<
   Input.TextProps,
   "value" | "onChange" | "onBlur" | "onKeyDown" | "onPaste"
 > {
-  /** The hex digits to show while the user is not editing. */
+  /** The hex digits, or a name, to show while the user is not editing. */
   text: string;
+  /** If true, `text` is a name, shown in the text font until the user edits it. */
+  named?: boolean;
   /** The alpha a hex without alpha digits keeps. */
   alpha: number;
   onChange: (value: color.Color) => void;
@@ -48,10 +51,12 @@ export interface HexTextProps extends Omit<
 /**
  * A text box for a hex color. A complete 6 or 8 digit hex applies as the user types,
  * a paste applies at once, and anything else applies on Enter or blur. With
- * `onlyChangeOnBlur`, everything applies on Enter or blur.
+ * `onlyChangeOnBlur`, everything applies on Enter or blur. Escape discards an edit that
+ * has not applied yet.
  */
 export const HexText = ({
   text,
+  named = false,
   alpha,
   onChange,
   onClear,
@@ -68,7 +73,11 @@ export const HexText = ({
   };
   return (
     <Input.Text
-      className={CSS.cls(CSS.B("color-hex-text"), className)}
+      className={CSS.cls(
+        CSS.B("color-hex-text"),
+        named && draft == null && CSS.M("named"),
+        className,
+      )}
       value={draft ?? text}
       onChange={(raw) => {
         setDraft(raw);
@@ -82,6 +91,8 @@ export const HexText = ({
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && draft != null) commit(draft);
+        // The input blurs on Escape after this returns, so the blur must see no draft.
+        if (e.key === "Escape") flushSync(() => setDraft(null));
       }}
       onPaste={(e) => {
         const parsed = parseHexInput(e.clipboardData.getData("text"), alpha);

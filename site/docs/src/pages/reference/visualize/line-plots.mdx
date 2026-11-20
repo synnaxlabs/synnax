@@ -18,6 +18,7 @@ export const components = mdxOverrides;
   layout="layered"
   tone="soft"
   palette="blue-violet"
+  alt="A line plot of oxidizer pressures with range annotations and its toolbar"
 />
 
 A line plot graphs the values of channels over time. It shows live data as it arrives,
@@ -42,7 +43,10 @@ channels toolbar, double-click a channel to add it to the focused line plot, or 
 line plot when none is focused. To create a line plot from a Python or TypeScript
 script, see [visualizations in code](/reference/visualize/code#create-a-line-plot).
 
-<Video id="console/line-plots/create" />
+<Video
+  id="console/line-plots/create"
+  label="Create a line plot and add channels to it"
+/>
 
 <Divider.Divider x />
 
@@ -55,8 +59,17 @@ field to open the range picker:
   The plot ends at the newest sample and moves only when new samples arrive. A plot
   shows one live span at most, so a new span replaces the old one. Click **Off** to show
   no live data.
-- **A typed duration** -> type a duration such as `1h 30min` in the search field, then
-  press **Enter**. The plot shows the live data of that span.
+- **A typed duration** -> type a duration such as `1h 30min` or `last 2 hours` in the
+  search field, then press **Enter**. The plot shows the live data of that span.
+- **A typed time range** -> type a time range in the search field, then press **Enter**.
+  The plot shows the data between those times. You can type:
+  - two ends, such as `yesterday from 1pm to 2pm`, `3h ago to 1h ago`, or
+    `monday 3pm to tuesday 4pm`.
+  - a start and a length, such as `2h ago for 1h` or `yesterday 1pm for 30m`.
+  - a start until now, such as `since 8am`.
+  - a start alone, such as `1h ago` or `yesterday 1pm`, to show the hour after it. The
+    hour stops at now.
+  - a day, week, or month, such as `last friday` or `last week`, to show all of it.
 - **A range** -> click a range to show its data. The list holds every range, newest
   first, and the search field finds a range by name. You can also drag a range from the
   ranges toolbar onto the field.
@@ -89,7 +102,7 @@ edge that pulses. A bar that goes past the edge of the plot fades out.
 To hide the bars, click <Icon.Range /> (**Hide range annotations**) in the top right of
 the plot.
 
-<Video id="console/line-plots/range-zoom" />
+<Video id="console/line-plots/range-zoom" label="Zoom a line plot to a range" />
 
 <Divider.Divider x />
 
@@ -149,6 +162,9 @@ hover** (<Icon.Tooltip />). It is on by default.
      selection. See [create ranges](/reference/ranges/create).
    - **Download region as CSV** downloads the data of the selection. See
      [export data](/reference/ranges/export).
+   - **Upload region to Sift** sends the data of the selection to Sift. It shows only
+     while the Core has a Sift connection. See
+     [send data to Sift](/reference/ranges/sift#upload-data).
 
 To download the data of the whole plot, click <Icon.CSV /> in the component toolbar.
 
@@ -164,7 +180,10 @@ between the two points. Each point snaps to the nearest sample. To move a point,
 **1** or **2**, then click a new position. Pause a live plot first, so the points stay
 in place.
 
-<Video id="console/line-plots/slope" />
+<Video
+  id="console/line-plots/slope"
+  label="Measure the slope between two points on a line plot"
+/>
 
 <Divider.Divider x />
 
@@ -222,7 +241,7 @@ Open the component toolbar with **V**, or double-click the plot. The header has 
 to download the data as CSV, export the plot, and copy a link to it. Synnax Desktop does
 not show **Copy link**.
 
-<Video id="console/line-plots/toolbar" />
+<Video id="console/line-plots/toolbar" label="The tabs of the line plot toolbar" />
 
 ### Data
 

@@ -1,28 +1,24 @@
 ---
-title: "Version 0.60 release notes"
+title: "Synnax Desktop, tiled line plots, and EtherCAT that recovers"
+version: "0.60.0"
+desktopVersion: "1.0.0"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
 import { Image, Video } from "@/components/media/Media";
-import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
-<Releases.Release
-    version="0.60.0"
-    desktopVersion="1.0.0"
-    breakingChanges
-    title="Synnax Desktop, tiled line plots, and EtherCAT that recovers"
->
-
 <Hero.Hero
   still="releases/0-60-0/hero"
   layout="bleed"
   tone="deep"
   palette="violet-pink"
+  alt="A line plot, a schematic, a table, and a log in Synnax Desktop"
 />
 
 Synnax v0.60 comes with Synnax Desktop 1.0: the Console, a Core, and a Driver in one
@@ -43,6 +39,7 @@ A Core now needs a license from the Synnax portal. Read the
   id="releases/0-60-0/desktop-graphic/d3be34cf37bd"
   extension="webp"
   themed={false}
+  alt="Synnax Desktop: the Console, a Core, and a Driver in one app"
 />
 
 Synnax Desktop is all of Synnax in one free app on your computer. The Console plots and
@@ -62,7 +59,10 @@ Synnax Desktop is for one person on one computer. For a team or for Linux, use
 
 ### Tiled line plots
 
-<Video id="releases/0-60-0/line-plots" />
+<Video
+  id="releases/0-60-0/line-plots"
+  label="Pan and zoom a line plot over a week of data"
+/>
 
 A week of 1 kHz data is 600 million samples. Before, a line plot loaded all of them,
 stayed blank until it finished, and drew only some. A one-sample spike showed only by
@@ -95,7 +95,13 @@ See [Line plots](/reference/visualize/line-plots).
 
 ### Setpoints that show what the device reports
 
-<Hero.Hero inset still="releases/0-60-0/read-back" layout="bleed" palette="blue-pink" />
+<Hero.Hero
+  inset
+  still="releases/0-60-0/read-back"
+  layout="bleed"
+  palette="blue-pink"
+  alt="A press regulator setpoint with the reported value under it"
+/>
 
 Setpoint, Text input, and Select symbols now show the last command that anyone sent,
 and, in a tray under it, the value the device reports: "I asked for 300 psi" and "the
@@ -114,6 +120,7 @@ not land stays visible. To add the tray, set **Control** > **State** > **Channel
   still="releases/0-60-0/connect-device"
   layout="framed"
   palette="green-blue"
+  alt="The device picker with every integration"
 />
 
 Select **+** in the Devices toolbar to open one picker for every integration. Connect
@@ -198,14 +205,17 @@ the `.lic` file. See [Activate a license](/reference/enterprise/license).
 
 #### Change the type of a symbol
 
-<Video id="releases/0-60-0/change-symbol" />
+<Video
+  id="releases/0-60-0/change-symbol"
+  label="Change the type of a schematic symbol"
+/>
 
 Select a symbol, click **Change**, and pick a new one. The label, channels, colors, and
 pipes stay.
 
 #### Drag table rows and columns
 
-<Video id="releases/0-60-0/table-reorder" />
+<Video id="releases/0-60-0/table-reorder" label="Drag rows and columns of a table" />
 
 Drag a row or column to move it. Select several to move them together.
 
@@ -216,6 +226,7 @@ Drag a row or column to move it. Select several to move them together.
   still="releases/0-60-0/panel-icons"
   layout="bleed"
   palette="orange-yellow"
+  alt="The icon picker of a panel over a schematic"
 />
 
 Right-click a panel and select **Change icon** to give it one of 64 icons and a color.
@@ -311,5 +322,3 @@ and on macOS the first code editor opens in 0.2 seconds instead of 1.3.
 - `status.fromException(error, heading)` needs the heading.
 - `setLineDownsample` and `setLineDownsampleMode` are now `setLineAggregation` and
   `setLineDetail`.
-
-</Releases.Release>

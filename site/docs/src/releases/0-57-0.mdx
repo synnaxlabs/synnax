@@ -1,9 +1,11 @@
 ---
-title: "Version 0.57 release notes"
+title: "Projects, panels, and a redesigned Console"
+version: "0.57.0"
+date: "Aug 23, 2026"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
@@ -11,19 +13,13 @@ import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
-<Release
-    version="0.57.0"
-    breakingChanges
-    date="Aug 23, 2026"
-    title="Projects, panels, and a redesigned Console"
->
-
 <Hero.Hero
   video="releases/0-57-0/panels"
   themed={false}
   layout="framed"
   tone="deep"
   palette="blue-violet"
+  alt="Switch between panels in a project"
 />
 
 Synnax v0.57 rebuilds how you organize work in the Console. Projects replace workspaces,
@@ -91,7 +87,12 @@ and choose `Copy link`.
 
 ### A redesigned Console
 
-<Image id="releases/0-57-0/visual-language" extension="webp" themed={false} />
+<Image
+  id="releases/0-57-0/visual-language"
+  extension="webp"
+  themed={false}
+  alt="The redesigned Console with a schematic, line plots, a table, and a log"
+/>
 
 We redesigned the Console from the ground up, down to the context menus, for consistency
 and clarity. The interface is nearly colorless by design, so the only color on screen
@@ -143,7 +144,12 @@ while the table scrolls.
 
 ### Fill levels and scales
 
-<Image id="releases/0-57-0/tank-fill" extension="webp" themed={false} />
+<Image
+  id="releases/0-57-0/tank-fill"
+  extension="webp"
+  themed={false}
+  alt="Two tank symbols with live fill levels and scales"
+/>
 
 Tanks can now show a live fill level. Bind a channel, set the bounds, and the tank
 tracks the value. A graduated scale can be drawn along the outside wall, with major and
@@ -284,7 +290,12 @@ The Arc editor's deploy controls now behave like a hardware task's, described be
 
 ### Tasks
 
-<Image id="releases/0-57-0/task-deploy" extension="webp" themed={false} />
+<Image
+  id="releases/0-57-0/task-deploy"
+  extension="webp"
+  themed={false}
+  alt="An OPC UA read task with the node browser and its channels"
+/>
 
 We reworked the whole task lifecycle this release: how a configuration is saved, when it
 reaches hardware, and when a device is claimed.
@@ -486,5 +497,3 @@ warning; the old cold junction fields do not.
 
 A task key no longer encodes its rack, and the rack is a plain field. Code that derived
 a rack from a task key must read `rack` instead. Existing tasks migrate automatically.
-
-</Release>

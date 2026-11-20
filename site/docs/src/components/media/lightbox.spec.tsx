@@ -19,9 +19,9 @@ import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
 import { REDUCED_MOTION } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [ID] = Object.keys(versions);
+const [ID] = Object.keys(videos);
 
 let dialogHTML = "";
 let duration = 10;
@@ -44,7 +44,7 @@ const dialog = (): HTMLDialogElement => find(".docs-lightbox");
 const control = (name: string): HTMLElement => find(`.docs-lightbox__${name}`);
 
 const openVideo = (): HTMLVideoElement => {
-  show(renderToString(<Media.Video id={ID} />));
+  show(renderToString(<Media.Video id={ID} label="A video" />));
   const video = find<HTMLVideoElement>("video");
   video.click();
   return video;
@@ -147,10 +147,16 @@ describe("lightbox", () => {
       ).not.toBeNull();
     });
 
-    it("should caption a video with the heading of its section", () => {
+    it("should caption a video with its label", () => {
       openVideo();
+      expect(control("caption").textContent).toBe("A video");
+      expect(dialog().getAttribute("aria-label")).toBe("A video");
+    });
+
+    it("should caption a decorative image with the heading of its section", () => {
+      show('<img class="docs-image" src="still.webp" alt="">');
+      find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("Create a plot");
-      expect(dialog().getAttribute("aria-label")).toBe("Create a plot");
     });
 
     it("should caption an image with its text alternative", () => {

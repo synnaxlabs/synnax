@@ -99,12 +99,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # The runner's user cannot end other users' processes, so this ends only what a
       # past run left.
       - name: Force quit existing Synnax processes
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcesses.cmd
+        shell: powershell
+        run: integration/scripts/KillSynnaxProcesses.ps1
 
       # The station's own services hold the hardware. The last step starts them again.
       - name: Stop the station's Synnax services
@@ -166,11 +168,11 @@ jobs:
           }
 
       - name: Download Core
-        shell: cmd
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ github.run_id }}
-        run: integration/scripts/DownloadArtifacts.cmd
+        run: integration/scripts/DownloadArtifacts.ps1
 
       - name: Download NI Linux RT Driver
         shell: powershell
@@ -201,26 +203,26 @@ jobs:
 
       - name: Correctness tests
         timeout-minutes: 45
-        shell: cmd
+        shell: powershell
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: >-
-          uv run test-conductor --name tc_hitl --server %CORE_HOST% --port %CORE_PORT%
-          hitl
+          uv run test-conductor --name tc_hitl --server $env:CORE_HOST --port
+          $env:CORE_PORT hitl
 
       - name: Performance tests
         if: ${{ !cancelled() && steps.core.outcome == 'success' }}
         timeout-minutes: 15
-        shell: cmd
+        shell: powershell
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: >-
-          uv run test-conductor --name tc_hitl_perf --server %CORE_HOST% --port
-          %CORE_PORT% hitl_perf
+          uv run test-conductor --name tc_hitl_perf --server $env:CORE_HOST --port
+          $env:CORE_PORT hitl_perf
 
       - name: Upload test results
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -233,8 +235,8 @@ jobs:
       # The Core's embedded Driver scans the station's devices until it stops.
       - name: Stop Core
         if: always()
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcesses.cmd
+        shell: powershell
+        run: integration/scripts/KillSynnaxProcesses.ps1
 
       - name: Start the station's Synnax services
         if: always() && steps.services.outputs.running != ''

@@ -14,8 +14,8 @@ import { type Level, LEVELS } from "@/text/types.gen";
 /** Steps a typography level down by one rank; bottoms out at the smallest. */
 export const downLevel = (level: Level): Level => {
   const index = LEVELS.indexOf(level);
-  if (index === -1 || index === LEVELS.length - 1) return level;
-  return LEVELS[index + 1];
+  if (index === -1) return level;
+  return LEVELS[index + 1] ?? level;
 };
 
 export const weightZ = z.union([

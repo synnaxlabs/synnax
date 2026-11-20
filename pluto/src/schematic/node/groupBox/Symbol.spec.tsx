@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import { type Node, ReactFlowProvider, useOptionsStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -91,8 +91,8 @@ describe("GroupBox.Symbol", () => {
       label: string;
       nodes: Node[];
     }): ReactElement => {
-      const store = useStoreApi();
-      return <button onClick={() => store.getState().setNodes(nodes)}>{label}</button>;
+      const setNodes = useOptionsStore((s) => s.setNodes);
+      return <button onClick={() => setNodes(nodes)}>{label}</button>;
     };
     const { container, getByText } = render(
       <ReactFlowProvider initialNodes={initialNodes}>

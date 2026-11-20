@@ -45,7 +45,8 @@ const convert = (
         type: "remove",
         remove: {
           path: converted.slice(0, -1),
-          key: converted[converted.length - 1],
+          // Conversion maps each segment to one segment, so the key is the last one.
+          key: converted.at(-1)!,
           guards: convertGuards(gs),
         },
       };

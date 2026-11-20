@@ -42,8 +42,7 @@ func FuzzParse(f *testing.F) {
 		if err == nil {
 			return
 		}
-		var perr *dbc.Error
-		if !errors.As(err, &perr) || defs != nil {
+		if _, ok := errors.AsType[*dbc.Error](err); !ok || defs != nil {
 			t.Fatalf("Parse returned %d definitions and error %v", len(defs), err)
 		}
 	})

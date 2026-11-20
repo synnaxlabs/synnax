@@ -1,9 +1,10 @@
 ---
-title: "Version 0.58 release notes"
+title: "Schematic grouping and Console improvements"
+version: "0.58.0"
+date: "Sep 5, 2026"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
@@ -11,18 +12,13 @@ import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
-<Release
-    version="0.58.0"
-    date="Sep 5, 2026"
-    title="Schematic grouping and Console improvements"
->
-
 <Hero.Hero
   image="releases/0-58-0/schematic-features"
   extension="webp"
   layout="framed"
   tone="soft"
   palette="pink-orange"
+  alt="A schematic with grouped symbols and the cut, copy, paste, and group menu"
 />
 
 Synnax v0.58 brings grouping, cut, copy, and paste to schematics, consistent symbol
@@ -68,7 +64,11 @@ schematics, and the symbol shows the icon of the page it points to.
 
 ### Custom plot ranges
 
-<Image id="releases/0-58-0/custom-plot-ranges" extension="webp" />
+<Image
+  id="releases/0-58-0/custom-plot-ranges"
+  extension="webp"
+  alt="A line plot with a custom time span of 1d 6h"
+/>
 
 Line plots can now display a custom rolling time span. Pick `Custom` in the ranges
 dropdown and type a duration like `45m` or `1h 30m`. The built-in list also gains longer
@@ -89,5 +89,3 @@ ranges.
 
 - Value units no longer sit in a filled block.
 - Fit view accounts for symbol labels.
-
-</Release>

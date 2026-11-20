@@ -1,19 +1,14 @@
 ---
-title: "Version 0.37 release notes"
+title: "Goodbye 2024 - Touch ups"
+version: "0.37.0"
+date: "Dec 31, 2024"
 ---
 
 import { Image, Video } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Thumbnail from "@/components/releases/Thumbnail0370.astro";
 export const components = mdxOverrides;
-
-<Release
-    version="0.37.0"
-    date="Dec 31, 2024"
-    title="Goodbye 2024 - Touch ups"
->
 
 <Thumbnail />
 
@@ -36,6 +31,7 @@ meters, flame arresters, new valves, pumps, heat exchangers, strainers, and a th
     padding: "2rem",
     background: "var(--pluto-dark-gray-l0)",
   }}
+  alt="New schematic symbols: flowmeters, flame arresters, valves, pumps, compressors, and heat exchangers"
 />
 
 <Divider.Divider x />
@@ -67,5 +63,3 @@ meters, flame arresters, new valves, pumps, heat exchangers, strainers, and a th
 - Fixed issue where schematic snapshots could not be renamed from their tab name.
 - Fixed an issue where a deleted table would continue to render its values over an
   existing visualization.
-
-</Release>

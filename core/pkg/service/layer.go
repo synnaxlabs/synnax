@@ -11,6 +11,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
+	"os"
 	"slices"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -37,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
+	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -94,6 +99,16 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// CA reads the CA certificates of the Core, whose expiry the certificate service
+	// reports.
+	//
+	// [OPTIONAL] - Nil in insecure mode.
+	CA *cert.Loader
+	// Listeners are the listeners of the Core that serve TLS, whose certificates'
+	// expiry the certificate service reports.
+	//
+	// [OPTIONAL] - Empty in insecure mode.
+	Listeners []certificate.Listener
 	// Distribution is the underlying distribution layer.
 	//
 	// [REQUIRED]
@@ -125,6 +140,11 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	SecretsKey secret.EncryptionKey
+	// SecretsDir is the folder that holds the file secrets of the Core's rack. Empty
+	// when the Core has none.
+	//
+	// [OPTIONAL]
+	SecretsDir string
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -154,6 +174,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.CA = override.Nil(c.CA, other.CA)
+	c.Listeners = override.Slice(c.Listeners, other.Listeners)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.FIPS = override.Nil(c.FIPS, other.FIPS)
@@ -175,6 +197,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SecretsKey,
 		other.SecretsKey != secret.EncryptionKey{},
 	)
+	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
 	return c
 }
 
@@ -261,6 +284,8 @@ type Layer struct {
 	MQTT *mqtt.Service
 	// Sift owns the stored configuration records of the Sift task types.
 	Sift *sift.Service
+	// File owns the stored configuration records of the file browser task type.
+	File *file.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
@@ -331,6 +356,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
+	}
+	var secretsFolder fs.FS
+	if cfg.SecretsDir != "" {
+		if secretsFolder, err = openSecretsFolder(cfg.SecretsDir); err != nil {
+			return nil, err
+		}
 	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
@@ -678,6 +709,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	coreRack, err := l.Rack.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %d", cfg.Distribution.Identity.HostKey),
+	)
+	if !ok(err, nil) {
+		return nil, err
+	}
 	// The Driver reads sy_rack_set as racks, so actions take their own channel.
 	if err = l.Signals.PublishActions(
 		ctx,
@@ -829,6 +867,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,
+		Rack:            coreRack.Key,
+		Folder:          secretsFolder,
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
@@ -839,7 +879,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		Rack:            l.Rack,
 		References: []gorp.Reference[device.Key, device.Device]{
-			sift.APIKeyReference(),
+			sift.APIKeyReference(l.Secret),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err
@@ -918,6 +958,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Secret:          l.Secret,
+		Rack:            coreRack.Key,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -935,10 +976,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Sift) {
 		return nil, err
 	}
+	if l.File, err = file.OpenService(ctx, file.ServiceConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.File) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
+		l.File.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -1000,6 +1048,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Secret:          l.Secret,
 		Status:          l.Status,
 		Signals:         l.Signals,
+		Rack:            coreRack.Key,
+		HostKey:         cfg.Distribution.Identity.HostKey,
+		CA:              cfg.CA,
+		Listeners:       cfg.Listeners,
 	}); !ok(err, l.Certificate) {
 		return nil, err
 	}
@@ -1153,10 +1205,20 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, siftFactory) {
 		return nil, err
 	}
+	fileFactory, err := file.NewFactory(file.FactoryConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		SecretsDir:      cfg.SecretsDir,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
+		RackKey:         coreRack.Key,
 		Task:            l.Task,
 		Framer:          l.Framer,
 		Channel:         l.Channel,
@@ -1167,10 +1229,24 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			kafkaFactory,
 			mqttFactory,
 			siftFactory,
+			fileFactory,
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// openSecretsFolder returns the folder at dir. It returns an error when dir is not a
+// folder.
+func openSecretsFolder(dir string) (fs.FS, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "secrets folder")
+	}
+	if !info.IsDir() {
+		return nil, errors.Newf("secrets folder %s is not a folder", dir)
+	}
+	return os.DirFS(dir), nil
 }

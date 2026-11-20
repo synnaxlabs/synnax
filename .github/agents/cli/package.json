@@ -1,0 +1,9 @@
+{
+  "name": "agent-cli",
+  "private": true,
+  "description": "The agent CLIs that the agent and Sedosaur jobs run",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.328",
+    "@openai/codex": "0.170.0"
+  }
+}

@@ -194,6 +194,18 @@ describe("scale/aether/Scale", () => {
 
     const STALE = color.hex(THEME.colors.warning.m1);
 
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
+      source.setValue(50);
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      source.setValue(60);
+      expect(component.state.stale).toBe(false);
+    });
+
     it("should recolor the fill once the source stops sending", () => {
       const { recorder, source } = setup({
         color: ACCENT,
@@ -205,6 +217,20 @@ describe("scale/aether/Scale", () => {
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
       vi.advanceTimersByTime(2000);
       expect(canvasStyles(recorder, "lower2d", "fillStyle")).toContain(STALE);
+    });
+
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, recorder, source } = setup({
+        color: ACCENT,
+        showCaret: false,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+        staleColorHidden: true,
+      });
+      source.setValue(50);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      expect(canvasStyles(recorder, "lower2d", "fillStyle")).not.toContain(STALE);
+      expect(canvasStyles(recorder, "upper2d", "fillStyle")).not.toContain(STALE);
     });
 
     it("should stay live while samples keep arriving", () => {

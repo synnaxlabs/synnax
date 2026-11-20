@@ -32,9 +32,9 @@ describe("shapeZ", () => {
       count: 2,
     });
     expect(shape.index).toEqual(0);
-    expect(shape.fields[0].dataType.equals(DataType.TIMESTAMP)).toBe(true);
-    expect(shape.fields[0].kind).toEqual("timestamp");
-    expect(shape.fields[0].timeFormat).toEqual("unix_ms");
+    expect(shape.fields[0]?.dataType.equals(DataType.TIMESTAMP)).toBe(true);
+    expect(shape.fields[0]?.kind).toEqual("timestamp");
+    expect(shape.fields[0]?.timeFormat).toEqual("unix_ms");
   });
 
   it("should read a negative index as no index", () => {

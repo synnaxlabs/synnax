@@ -223,8 +223,8 @@ export const setOpacity = (color: Crude, opacity: number): Color => {
  * @see https://en.wikipedia.org/wiki/Relative_luminance for more information.
  */
 const luminance = (color: Crude): number => {
-  const [r, g, b] = construct(color).map(toLinear);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const [r, g, b] = construct(color);
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 };
 
 /** Converts an sRGB byte to a linear-light 0-1 value. */
@@ -245,7 +245,7 @@ const fromLinear = (v: number): number => {
  */
 export const oklab = (color: Crude): OKLab => {
   const [r8, g8, b8, a] = construct(color);
-  const [r, g, b] = [r8, g8, b8].map(toLinear);
+  const [r, g, b] = [toLinear(r8), toLinear(g8), toLinear(b8)];
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
   const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
@@ -282,7 +282,9 @@ export const DEFICIENCIES = ["protanopia", "deuteranopia", "tritanopia"] as cons
 export type Deficiency = (typeof DEFICIENCIES)[number];
 
 // Machado, Oliveira, and Fernandes (2009), Table 1, severity 1.0, for linear RGB.
-const DEFICIENCY_MATRICES: Record<Deficiency, number[][]> = {
+type Row = [number, number, number];
+
+const DEFICIENCY_MATRICES: Record<Deficiency, [Row, Row, Row]> = {
   protanopia: [
     [0.152286, 1.052583, -0.204868],
     [0.114503, 0.786281, 0.099216],
@@ -306,11 +308,10 @@ const DEFICIENCY_MATRICES: Record<Deficiency, number[][]> = {
  */
 export const simulate = (color: Crude, deficiency: Deficiency): Color => {
   const [r8, g8, b8, a] = construct(color);
-  const rgb = [r8, g8, b8].map(toLinear);
-  const [r, g, b] = DEFICIENCY_MATRICES[deficiency].map((row) =>
-    fromLinear(row[0] * rgb[0] + row[1] * rgb[1] + row[2] * rgb[2]),
-  );
-  return [r, g, b, a];
+  const [r, g, b] = [toLinear(r8), toLinear(g8), toLinear(b8)];
+  const project = ([x, y, z]: Row): number => fromLinear(x * r + y * g + z * b);
+  const [rRow, gRow, bRow] = DEFICIENCY_MATRICES[deficiency];
+  return [project(rRow), project(gRow), project(bRow), a];
 };
 
 /** @returns the color for an OKLCH tuple, clamped into the sRGB gamut. */
@@ -334,10 +335,11 @@ export const fromOKLCH = ([L, c, hDeg, a]: OKLCH): Color => {
  * @param opacity - The opacity of fg, between 0 and 1.
  */
 export const over = (fg: Crude, bg: Crude, opacity: number): Color => {
-  const f = construct(fg);
-  const b = construct(bg);
-  const mix = (i: number): number => Math.round(f[i] * opacity + b[i] * (1 - opacity));
-  return [mix(0), mix(1), mix(2), 255];
+  const [fr, fg_, fb] = construct(fg);
+  const [br, bg_, bb] = construct(bg);
+  const mix = (f: number, b: number): number =>
+    Math.round(f * opacity + b * (1 - opacity));
+  return [mix(fr, br), mix(fg_, bg_), mix(fb, bb), 255];
 };
 
 /**
@@ -355,10 +357,10 @@ export const contrast = (a: Crude, b: Crude): number => {
  * @returns the color with the highest contrast ratio to the given colors.
  */
 export const pickByContrast = (source: Crude, ...colors: Crude[]): Color => {
-  if (colors.length === 0)
-    throw new Error("[Color.pickByContrast] - must provide at least one color");
   const source_ = construct(source);
   const [best] = colors.sort((a, b) => contrast(source_, b) - contrast(source_, a));
+  if (best == null)
+    throw new Error("[Color.pickByContrast] - must provide at least one color");
   return construct(best);
 };
 
@@ -384,9 +386,10 @@ const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)$/;
  */
 const parseString = (input: string): RGBA | undefined => {
   const s = input.trim().toLowerCase();
-  if (Object.hasOwn(NAMES, s)) return [...NAMES[s]];
-  const fn = s.match(FUNCTION_PATTERN);
-  if (fn != null) return parseFunction(fn[1], fn[2]);
+  const named = NAMES[s];
+  if (named != null && Object.hasOwn(NAMES, s)) return [...named];
+  const [, name, body] = s.match(FUNCTION_PATTERN) ?? [];
+  if (name != null && body != null) return parseFunction(name, body);
   return parseHex(s.startsWith("#") ? s.slice(1) : s);
 };
 
@@ -402,19 +405,21 @@ const parseHex = (digits: string): RGBA | undefined => {
 const parseFunction = (name: string, body: string): RGBA | undefined => {
   const args = splitArgs(body);
   if (args == null) return undefined;
-  const alpha = args.length === 4 ? parseNumber(args[3], 1) : 1;
+  const [first, second, third, alphaArg] = args;
+  const alpha = alphaArg == null ? 1 : parseNumber(alphaArg, 1);
   if (alpha == null || alpha < 0 || alpha > 1) return undefined;
   const a = Math.round(alpha * 255);
   if (name === "rgb") {
-    const channels = args.slice(0, 3).map((arg) => parseNumber(arg, 255));
-    if (channels.some((c) => c == null || c < 0 || c > 255)) return undefined;
-    const [r, g, b] = channels.map((c) => Math.round(c ?? 0));
+    const r = parseChannel(first);
+    const g = parseChannel(second);
+    const b = parseChannel(third);
+    if (r == null || g == null || b == null) return undefined;
     return [r, g, b, a];
   }
-  const hue = args[0].replace(/deg$/, "");
+  const hue = first.replace(/deg$/, "");
   const h = hue.endsWith("%") ? undefined : parseNumber(hue, 1);
-  const sat = parseNumber(args[1].replace(/%$/, ""), 100);
-  const light = parseNumber(args[2].replace(/%$/, ""), 100);
+  const sat = parseNumber(second.replace(/%$/, ""), 100);
+  const light = parseNumber(third.replace(/%$/, ""), 100);
   if (h == null || sat == null || light == null) return undefined;
   if (sat < 0 || sat > 100 || light < 0 || light > 100) return undefined;
   return hslToRGBA((((h % 360) + 360) % 360) / 360, sat / 100, light / 100, a);
@@ -424,24 +429,32 @@ const parseFunction = (name: string, body: string): RGBA | undefined => {
  * Splits the arguments of a color function in comma syntax, or in space syntax with an
  * optional slash before the alpha.
  */
-const splitArgs = (body: string): string[] | undefined => {
+const splitArgs = (body: string): Args | undefined => {
   if (body.includes(",")) {
     if (body.includes("/")) return undefined;
-    const args = body.split(",").map((a) => a.trim());
-    return args.length === 3 || args.length === 4 ? args : undefined;
+    return toArgs(body.split(",").map((a) => a.trim()));
   }
-  const [channels, ...rest] = body.split("/");
-  const args = channels
-    .trim()
-    .split(/\s+/)
-    .filter((a) => a.length > 0);
-  if (args.length !== 3 || rest.length > 1) return undefined;
-  if (rest.length === 0) return args;
-  const alpha = rest[0]
-    .trim()
-    .split(/\s+/)
-    .filter((a) => a.length > 0);
-  return alpha.length === 1 ? [...args, alpha[0]] : undefined;
+  const [channels, alpha, ...extra] = body.split("/").map((part) =>
+    part
+      .trim()
+      .split(/\s+/)
+      .filter((a) => a.length > 0),
+  );
+  if (channels?.length !== 3 || extra.length > 0) return undefined;
+  if (alpha == null) return toArgs(channels);
+  return alpha.length === 1 ? toArgs([...channels, ...alpha]) : undefined;
+};
+
+/** Three channel arguments and an optional alpha argument. */
+type Args = [string, string, string, string?];
+
+const toArgs = ([a, b, c, d, ...extra]: string[]): Args | undefined =>
+  a == null || b == null || c == null || extra.length > 0 ? undefined : [a, b, c, d];
+
+/** Parses an rgb() channel, which must be within 0-255. */
+const parseChannel = (arg: string): number | undefined => {
+  const c = parseNumber(arg, 255);
+  return c == null || c < 0 || c > 255 ? undefined : Math.round(c);
 };
 
 /** Parses a number, reading a percentage as a fraction of scale. */

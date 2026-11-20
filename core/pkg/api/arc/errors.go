@@ -24,8 +24,7 @@ type CompileError struct {
 func (e CompileError) Error() string { return e.Diagnostics }
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
-	var ce CompileError
-	if errors.As(err, &ce) {
+	if ce, ok := errors.AsType[CompileError](err); ok {
 		return errors.Payload{Type: errorType, Data: ce.Diagnostics}, true
 	}
 	return errors.Payload{}, false

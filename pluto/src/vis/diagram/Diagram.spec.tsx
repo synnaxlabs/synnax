@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { fireEvent, waitFor } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { render } from "@/testutil";
@@ -36,15 +37,23 @@ const VIEWPORT: Diagram.Viewport = { position: { x: 0, y: 0 }, zoom: 1 };
 const noop = () => {};
 
 interface HarnessProps {
+  children?: ReactNode;
+  themeKey?: string;
   onSelectionChange: (selected: string[]) => void;
   onViewportChange: (viewport: Diagram.Viewport) => void;
+  editable?: boolean;
+  onPaste?: () => void;
 }
 
 // The diagram is controlled, so the harness feeds each selection back as the next
 // `selected` prop the way a caller would.
 const Harness = ({
+  themeKey = "synnaxLight",
   onSelectionChange,
   onViewportChange,
+  children,
+  editable = true,
+  onPaste,
 }: HarnessProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
   const handleSelectionChange = (next: string[]): void => {
@@ -52,25 +61,30 @@ const Harness = ({
     onSelectionChange(next);
   };
   return (
-    <Triggers.Provider>
-      <Base
-        nodes={NODES}
-        edges={[]}
-        onNodesChange={noop}
-        onEdgesChange={noop}
-        selected={selected}
-        onSelectionChange={handleSelectionChange}
-        editable
-        onEditableChange={noop}
-        viewport={VIEWPORT}
-        onViewportChange={onViewportChange}
-        fitViewOnResize={false}
-        setFitViewOnResize={noop}
-        viewportMode="zoom"
-        onViewportModeChange={noop}
-        visible
-      />
-    </Triggers.Provider>
+    <Theming.Provider theme={{ key: themeKey }} applyCSSVars={false}>
+      <Triggers.Provider>
+        <Base
+          nodes={NODES}
+          edges={[]}
+          onNodesChange={noop}
+          onEdgesChange={noop}
+          selected={selected}
+          onSelectionChange={handleSelectionChange}
+          editable={editable}
+          onEditableChange={noop}
+          onPaste={onPaste}
+          viewport={VIEWPORT}
+          onViewportChange={onViewportChange}
+          fitViewOnResize={false}
+          setFitViewOnResize={noop}
+          viewportMode="zoom"
+          onViewportModeChange={noop}
+          visible
+        >
+          {children}
+        </Base>
+      </Triggers.Provider>
+    </Theming.Provider>
   );
 };
 
@@ -99,14 +113,20 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-const renderDiagram = async () => {
+const renderDiagram = async (
+  children?: ReactNode,
+  props: Pick<HarnessProps, "editable" | "onPaste" | "themeKey"> = {},
+) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
   render(
     <Harness
       onSelectionChange={onSelectionChange}
       onViewportChange={onViewportChange}
-    />,
+      {...props}
+    >
+      {children}
+    </Harness>,
     { registry: diagram.REGISTRY, render: true },
   );
   await waitFor(() => expect(node("b")).not.toBeNull());
@@ -141,6 +161,15 @@ describe("Diagram", () => {
     vi.unstubAllGlobals();
   });
 
+  describe("controls", () => {
+    it("names the fit view button for assistive technology", async () => {
+      await renderDiagram(<Diagram.Controls.FitView />);
+      expect(
+        screen.getByRole("button", { name: "Fit view to contents" }),
+      ).toBeDefined();
+    });
+  });
+
   describe("selection", () => {
     it("replaces the selection on a plain click", async () => {
       const { onSelectionChange } = await renderDiagram();
@@ -167,6 +196,33 @@ describe("Diagram", () => {
     );
   });
 
+  describe("color mode", () => {
+    const flowRoot = (): HTMLElement =>
+      document.querySelector(".react-flow") as HTMLElement;
+
+    const preferDark = (dark: boolean): void => {
+      vi.stubGlobal("matchMedia", (query: string): Partial<MediaQueryList> => ({
+        matches: dark && query === "(prefers-color-scheme: dark)",
+        addEventListener: noop,
+        removeEventListener: noop,
+      }));
+    };
+
+    it("follows a light theme when the OS prefers dark", async () => {
+      preferDark(true);
+      await renderDiagram(undefined, { themeKey: "synnaxLight" });
+      expect(flowRoot().classList.contains("light")).toBe(true);
+      expect(flowRoot().classList.contains("dark")).toBe(false);
+    });
+
+    it("follows a dark theme when the OS prefers light", async () => {
+      preferDark(false);
+      await renderDiagram(undefined, { themeKey: "synnaxDark" });
+      expect(flowRoot().classList.contains("dark")).toBe(true);
+      expect(flowRoot().classList.contains("light")).toBe(false);
+    });
+  });
+
   describe("zoom reset", () => {
     const holdControl = (): void => {
       fireEvent.mouseMove(window, { clientX: 10, clientY: 10 });
@@ -187,6 +243,15 @@ describe("Diagram", () => {
       onViewportChange.mockClear();
       fireEvent.mouseDown(handle("a"), { button: 0 });
       expect(onViewportChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("clipboard", () => {
+    it("does not paste while the diagram is not editable", async () => {
+      const onPaste = vi.fn();
+      await renderDiagram(undefined, { editable: false, onPaste });
+      fireEvent.paste(document.querySelector(".pluto-diagram__container") as Element);
+      expect(onPaste).not.toHaveBeenCalled();
     });
   });
 });

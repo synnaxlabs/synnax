@@ -10,7 +10,6 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -22,7 +21,6 @@ import {
   type Device,
   DI_PORT_TYPE,
   type DIPort,
-  MAKE,
   type Model,
   negativeChannelOf,
   PORTS,
@@ -48,13 +46,11 @@ import {
   deployReadConfigZ,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadChannel,
   type ReadSchemas,
 } from "@/feature/labjack/task/types";
 import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<ReadSchemas>>();
@@ -181,11 +177,6 @@ const ChannelDetails = ({ path, device }: ChannelDetailsProps) => {
   );
 };
 
-const createFirstChannel = (): ReadChannel => ({
-  ...createReadChannel("analog"),
-  key: id.create(),
-});
-
 /**
  * Creates a channel on the port. It copies the template when the template's type fits
  * the port, which keeps a thermocouple a thermocouple on an AI port.
@@ -292,16 +283,6 @@ const Form: FC = PlatformDevice.wrapTaskForm({
   Content: ChannelsForm,
 });
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createFirstChannel()];
-  return { name: "LabJack read task", type: READ_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
@@ -377,16 +358,3 @@ export const Read = Task.wrapForm({
   type: "labjack_read",
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "LabJack read task",
-  label: "Read",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: useCreateRead,
-};
