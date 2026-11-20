@@ -1045,29 +1045,9 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		if typeRef.TypeParam.HasDefault() {
-			forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
-				resolution.Field{
-					Name:     field.Name,
-					Type:     *typeRef.TypeParam.Default,
-					Optional: field.Optional,
-				},
-				data,
-				parentStruct,
-			)
-			return fieldTranslatorData{
-				GoName:       goName,
-				PBName:       pbName,
-				ForwardExpr:  forwardExpr,
-				BackwardExpr: backwardExpr,
-				BackwardCast: backwardCast,
-				IsOptional:   isOptional,
-				IsOptionalStruct: isOptional &&
-					isStructType(*typeRef.TypeParam.Default, data.table),
-				IsOptionalEnum: isOptional &&
-					isEnumType(*typeRef.TypeParam.Default, data.table),
-				HasError:         hasError,
-				HasBackwardError: hasBackwardError,
-			}, false
+			resolved := field
+			resolved.Type = *typeRef.TypeParam.Default
+			return p.processFieldForTranslation(resolved, data, parentStruct), false
 		}
 
 		paramName := typeRef.TypeParam.Name
@@ -1265,14 +1245,21 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward string) {
+	// A plain [N]uint8 copies back, since a []byte may not have length N.
+	plainForward := goField + "[:]"
+	plainBackward := fmt.Sprintf(
+		"func() (a [%d]uint8) { copy(a[:], %s); return a }()",
+		*arrays.Size(typeRef, data.table),
+		pbField,
+	)
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
-		return goField + "[:]", pbField
+		return plainForward, plainBackward
 	}
 
 	goOutput := output.GetPath(resolved, "go")
 	if goOutput == "" {
-		return goField + "[:]", pbField
+		return plainForward, plainBackward
 	}
 
 	importPath := resolveGoImportPath(goOutput, data.repoRoot)
@@ -1387,23 +1374,37 @@ func (p *Plugin) generateFieldConversion(
 	return goFieldName, pbFieldName, "", false, false
 }
 
+// primitiveCast is a primitive that converts to and from protobuf by a plain cast.
+type primitiveCast struct{ goType, pbType, pkg string }
+
+var primitiveCasts = map[string]primitiveCast{
+	"timestamp": {"telem.TimeStamp", "int64", "github.com/synnaxlabs/x/telem"},
+	"timespan":  {"telem.TimeSpan", "int64", "github.com/synnaxlabs/x/telem"},
+	"data_type": {"telem.DataType", "string", "github.com/synnaxlabs/x/telem"},
+	"uint12":    {"types.Uint12", "uint32", "github.com/synnaxlabs/x/types"},
+	"uint20":    {"types.Uint20", "uint32", "github.com/synnaxlabs/x/types"},
+	"int8":      {"int8", "int32", ""},
+	"int16":     {"int16", "int32", ""},
+	"uint8":     {"uint8", "uint32", ""},
+	"uint16":    {"uint16", "uint32", ""},
+}
+
 func (p *Plugin) generatePrimitiveConversion(
 	primitive, goField, pbField string,
 	data *templateData,
 ) (forward, backward string, hasError, hasBackwardError bool) {
+	if cast, ok := primitiveCasts[primitive]; ok {
+		if cast.pkg != "" {
+			data.AddExternal(cast.pkg)
+		}
+		return fmt.Sprintf("%s(%s)", cast.pbType, goField),
+			fmt.Sprintf("%s(%s)", cast.goType, pbField), false, false
+	}
 	switch primitive {
 	case "uuid":
 		data.AddExternal("uuid")
 		return goField + ".String()",
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
-	case "timestamp":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeStamp(%s)", pbField), false, false
-	case "timespan":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
 	case "time_range", "time_range_bounded":
 		data.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
@@ -1412,18 +1413,6 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			pbField + ".AsMap()", true, false
-	case "uint12":
-		data.AddExternal("github.com/synnaxlabs/x/types")
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("types.Uint12(%s)", pbField), false, false
-	case "uint20":
-		data.AddExternal("github.com/synnaxlabs/x/types")
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("types.Uint20(%s)", pbField), false, false
-	case "data_type":
-		data.AddExternal("github.com/synnaxlabs/x/telem")
-		return fmt.Sprintf("string(%s)", goField),
-			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
 		data.AddExternal("encoding/json/v2")
 		return fmt.Sprintf("json.Marshal(%s)", goField),
@@ -1432,18 +1421,6 @@ func (p *Plugin) generatePrimitiveConversion(
 					"_ = json.Unmarshal(%s, &v); return v }()",
 				pbField,
 			), true, false
-	case "int8":
-		return fmt.Sprintf("int32(%s)", goField),
-			fmt.Sprintf("int8(%s)", pbField), false, false
-	case "int16":
-		return fmt.Sprintf("int32(%s)", goField),
-			fmt.Sprintf("int16(%s)", pbField), false, false
-	case "uint8":
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("uint8(%s)", pbField), false, false
-	case "uint16":
-		return fmt.Sprintf("uint32(%s)", goField),
-			fmt.Sprintf("uint16(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -1933,6 +1910,23 @@ func (p *Plugin) generateArrayConversion(
 				}
 			}
 		}
+	}
+
+	// A primitive that protobuf retypes converts element by element.
+	if cast, ok := primitiveCasts[dealiasPrimitive(elemType, data.table).Name]; ok {
+		data.AddExternal("github.com/samber/lo")
+		if cast.pkg != "" {
+			data.AddExternal(cast.pkg)
+		}
+		return fmt.Sprintf(
+				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+				goField, cast.goType, cast.pbType, cast.pbType,
+			),
+			fmt.Sprintf(
+				"lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+				pbField, cast.pbType, cast.goType, cast.goType,
+			),
+			false, false
 	}
 
 	return goField, pbField, false, false
