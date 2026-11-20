@@ -109,14 +109,15 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
    before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`). `Drop` never refuses. It
    removes the segments of the key when reader pins drop. An error of `Drop` raises a
    status.
-5. At start, before a writer opens, the Core calls `DB.Sweep` once with each key of the
-   table; a second call in one open fails. For a key with an intent and a record, the
-   commit never happened: `Sweep` clears the intent and opens the key's directory, which
-   the open skipped. It drops a key with an intent and no record, and a key with no
-   record and no samples; every drop logs an intent first, so a crash in it ends as the
-   crash table says. It keeps a key with samples, no record, and no intent, refuses
-   writers and readers on it, and returns it. The Core then raises a warning status
-   whose description names the keys and their bytes and says: restore the records from a
+5. At start, before a writer opens, the Core calls `DB.Sweep` with each key of the
+   table. Only the first call in one open decides: a later call drops nothing and
+   returns the kept keys that remain. For a key with an intent and a record, the commit
+   never happened: `Sweep` clears the intent and opens the key's directory, which the
+   open skipped. It drops a key with an intent and no record, and a key with no record
+   and no samples; every drop logs an intent first, so a crash in it ends as the crash
+   table says. It keeps a key with samples, no record, and no intent, refuses writers
+   and readers on it, and returns it. The Core then raises a warning status whose
+   description names the keys and their bytes and says: restore the records from a
    backup to keep the data, or stop the Core and run `synnax purge <keys>` to remove it.
    Before any create, the channel service raises each key counter above the highest key
    that Cesium holds in any form (live, kept, or with an intent), which `Sweep` returns,
