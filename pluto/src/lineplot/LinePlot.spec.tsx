@@ -342,6 +342,46 @@ describe("LinePlot", () => {
       expect(trace("line1").state.raised).toBe(false);
     });
 
+    it.each([
+      {
+        name: "a hidden range",
+        props: { hiddenRanges: new Set(["r1"]) },
+        options: {},
+        from: "r2",
+        to: "Range 1",
+      },
+      {
+        name: "a range with no zero",
+        props: { ranges: [RANGES[0], { ...RANGES[2], color: "#0000ff" }] },
+        options: {},
+        from: "Range 1",
+        to: "Rolling",
+      },
+      {
+        name: "a hidden line on an absolute axis",
+        props: { hiddenLines: new Set(["line1"]) },
+        options: { relative: false, labels: ["pressure", "flow"] },
+        from: "pressure",
+        to: "flow",
+      },
+    ])(
+      "should dim no line on the hover of $name",
+      async ({ props, options, from, to }) => {
+        await renderTraces(props, options);
+        fireEvent.pointerEnter(await screen.findByText(from));
+        await waitFor(() =>
+          expect([...traces().values()].some((t) => t.state.raised)).toBe(true),
+        );
+        fireEvent.pointerEnter(screen.getByText(to));
+        await waitFor(() => {
+          for (const t of traces().values()) {
+            expect(t.state.opacity).toEqual(1);
+            expect(t.state.raised).toBe(false);
+          }
+        });
+      },
+    );
+
     it("should rename the stored line from the entry of one range", async () => {
       await renderTraces();
       const [label] = await screen.findAllByText("pressure");
