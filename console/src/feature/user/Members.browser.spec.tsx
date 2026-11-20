@@ -122,6 +122,10 @@ describe("User.Members", () => {
     await renderMembers();
     await search(u.name);
     await clickAndSettle("Operator");
+    // Other tests leave roles on the Core, so the first page of roles can miss Viewer.
+    fireEvent.change(await screen.findByPlaceholderText("Search roles..."), {
+      target: { value: "Viewer" },
+    });
     await clickAndSettle("Viewer");
     const viewer = await roleKey("Viewer");
     await expect
