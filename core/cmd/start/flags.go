@@ -39,6 +39,7 @@ const (
 	FlagStopOnStdinClose             = "stop-on-stdin-close"
 	FlagSecretsKey                   = "secrets-key"
 	FlagSecretsKeyFile               = "secrets-key-file"
+	FlagSecretsDir                   = "secrets-dir"
 	FlagNoUpdateBackup               = "no-update-backup"
 )
 
@@ -49,12 +50,14 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,
-		"Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc)",
+		"Integrations to enable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
 	cmd.Flags().StringSlice(
 		FlagDisableIntegrations,
 		nil,
-		"Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc)",
+		"Integrations to disable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
 	AddDataFlag(cmd)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
@@ -132,6 +135,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagSecretsKeyFile,
 		"",
 		"File that holds the base64 key that encrypts stored secrets. Defaults to secrets.key in the data directory",
+	)
+	cmd.Flags().String(
+		FlagSecretsDir,
+		"",
+		"Folder that holds the file secrets of the Core and its embedded Driver",
 	)
 	cmd.Flags().String(FlagLicenseKey, "", "License key")
 	cmd.Flags().String(
