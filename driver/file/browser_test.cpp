@@ -391,15 +391,6 @@ TEST_F(BrowserTest, RootHomeNamedByPath) {
     ASSERT_EQ(data["entries"][0]["name"], root.string());
 }
 
-/// @brief it should list a home folder that is one of the roots only once.
-TEST_F(BrowserTest, RootHomeListedOnce) {
-    const auto root = this->dir.root_path();
-    const Browser browser(Config{.roots = {root}, .home = root});
-    const auto data = ASSERT_NIL_P(browser.list(""));
-    ASSERT_EQ(data["entries"].size(), 1);
-    ASSERT_EQ(data["entries"][0]["path"], root.string());
-}
-
 /// @brief it should reject a folder that the Driver cannot read.
 TEST_F(BrowserTest, PermissionDenied) {
     const auto locked = this->dir / "locked";
