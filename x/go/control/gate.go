@@ -73,6 +73,13 @@ func (g *Gate[K, R]) Authorize(f func(R) error) error {
 	return f(r)
 }
 
+// Authorized reports whether the gate has control of its resource. It takes no lock on
+// the use of the resource, so control can move once it returns.
+func (g *Gate[K, R]) Authorized() bool {
+	_, err := g.authorize()
+	return err == nil
+}
+
 func (g *Gate[K, R]) authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()

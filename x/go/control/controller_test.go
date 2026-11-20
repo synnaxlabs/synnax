@@ -293,6 +293,27 @@ var _ = Describe("Control", func() {
 				})
 			})
 
+			It(
+				"Should report whether a gate has control, as transfers move it",
+				func() {
+					low, _ := baseConfig(1)
+					low.Subject.Key = "low"
+					low.Authority = 1
+					high, _ := baseConfig(1)
+					high.Subject.Key = "high"
+					high.Authority = 2
+					g1, _ := MustSucceed2(c.OpenGate(low))
+					Expect(g1.Authorized()).To(BeTrue())
+					g2, _ := MustSucceed2(c.OpenGate(high))
+					Expect(g2.Authorized()).To(BeTrue())
+					Expect(g1.Authorized()).To(BeFalse())
+					g2.Release()
+					Expect(g1.Authorized()).To(BeTrue())
+					Expect(g2.Authorized()).To(BeFalse())
+					g1.Release()
+				},
+			)
+
 			Describe("ErrOnUnauthorizedOpen", func() {
 				It("Should return nil if gate is err on open", func() {
 					cfg, _ := baseConfig(1)
