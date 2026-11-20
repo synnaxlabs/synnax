@@ -35,9 +35,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// jsdom's XML parser does not attach CSSStyleDeclaration to painted SVG shapes, which
-// normalizeSVG's computed-style pass requires; a shapeless SVG exercises the same
-// production load path without touching that jsdom hole.
+// A shapeless SVG exercises the production load path.
 const SHAPELESS_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="grp"></g></svg>';
 
