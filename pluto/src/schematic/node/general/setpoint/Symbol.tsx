@@ -14,7 +14,6 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { Channel } from "@/channel";
 import { Control } from "@/schematic/node/common/control";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
@@ -104,9 +103,7 @@ export const Symbol = ({
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
-  const stateDeleted = Channel.useDeleted(stateChannel);
-  const commandDeleted = Channel.useDeleted(commandChannel);
-  const deleted = stateDeleted || commandDeleted;
+  const deleted = Deleted.useEither(stateChannel, commandChannel);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );

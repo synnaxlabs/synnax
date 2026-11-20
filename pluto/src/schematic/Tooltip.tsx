@@ -133,6 +133,16 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     const key = values[field];
     return typeof key === "number" && !primitive.isZero(key) ? key : [];
   });
+  const keyOf = (field: Field): number => {
+    const key = values[field];
+    return typeof key === "number" ? key : 0;
+  };
+  // The symbol reads the same answers, so the tooltip and the symbol agree.
+  const deleted: Partial<Record<Field, boolean>> = {
+    stateChannel: Channel.useDeleted(keyOf("stateChannel")),
+    channel: Channel.useDeleted(keyOf("channel")),
+    commandChannel: Channel.useDeleted(keyOf("commandChannel")),
+  };
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
@@ -142,8 +152,9 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     const key = values[field];
     if (typeof key !== "number" || primitive.isZero(key)) return [];
     const ch = data?.find((c) => c.key === key);
-    // The schematic keeps the key of a deleted channel, which a retrieve leaves out.
-    if (ch == null)
+    if (ch == null) {
+      // A retrieve also leaves out a channel the user cannot read.
+      if (deleted[field] !== true) return [];
       return (
         <Row
           key={field}
@@ -157,6 +168,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
           value={undefined}
         />
       );
+    }
     const KindIcon = kindIcon(ch);
     return (
       <Row
