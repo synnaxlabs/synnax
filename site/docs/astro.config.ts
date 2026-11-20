@@ -12,10 +12,14 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { CDN } from "@synnaxlabs/site-common/cdn";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
 
+import { ORIGIN as ALGOLIA } from "./src/components/search/algolia";
+import { HASHES } from "./src/inline";
 import { tokenSource } from "./src/util/githubApp";
 import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
@@ -62,9 +66,24 @@ const SECRET = envField.string({
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [integration(), react(), mdx()],
+  integrations: [integration(), react(), mdx(), jitless()],
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
   image: { domains: IMAGES.domains },
+  security: {
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", ALGOLIA, "https://formspree.io"],
+        "img-src": ["'self'", "data:", CDN],
+        "media-src": ["'self'", CDN],
+      },
+      hashes: HASHES,
+      posthogAllowed: true,
+      // Shiki colors code with style attributes, and transitions add style elements
+      // that differ by page while the client router keeps the first page's policy.
+      inlineStylesAllowed: true,
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
+  },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
   },

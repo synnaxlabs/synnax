@@ -19,7 +19,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { Symbol } from "@/schematic/node/general/line/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 const POSITION = { x: 100, y: 100 };
 const NODES: Node[] = [{ id: "l1", position: POSITION, data: {} }];

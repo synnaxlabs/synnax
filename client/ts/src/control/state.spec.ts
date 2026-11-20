@@ -10,7 +10,7 @@
 import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type control } from "@/control";
+import type { control } from "@/control";
 import { query } from "@/query";
 import { createTestClient } from "@/testutil";
 

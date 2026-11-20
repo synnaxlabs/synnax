@@ -11,7 +11,7 @@
 
 import reactRenderer from "@astrojs/react/server.js";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { type Element, type Properties, type Root } from "hast";
+import type { Element, Properties, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 

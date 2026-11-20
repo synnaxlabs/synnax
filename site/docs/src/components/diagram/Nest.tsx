@@ -9,7 +9,7 @@
 
 import "@/components/diagram/Block.css";
 
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useId } from "react";
 
 import { Content, Item } from "@/components/diagram/Block";

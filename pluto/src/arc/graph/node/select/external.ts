@@ -9,7 +9,7 @@
 
 import { type Config, defaultConfig } from "@/arc/graph/node/select/config";
 import { Symbol } from "@/arc/graph/node/select/Select";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import type { Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/select/config";
 

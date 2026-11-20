@@ -10,7 +10,7 @@
 import "@/schematic/node/general/line/line.css";
 
 import { color, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";

@@ -539,12 +539,19 @@ bound, a log precision, or the line plot X channel.
 
 - An explorer has two bars. The first holds the search, then the views. The second holds
   Filter and its chips on the left, and the sort, layouts, and Create on the right.
-- The search is 270 px wide. A hairline that runs the full height of the bar separates
-  it from the views. Its icon is above the Filter icon.
+- The search is 40% of the bar, from 156 to 270 px. A hairline that runs the full height
+  of the bar separates it from the views. Its icon is above the Filter icon. While it
+  holds a term, a close button ends it, and so does Esc.
 - Both bars sit in one island: an l1 card with an l5 border and the large radius, inset
   6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
   bars. The second bar's controls are 28 px with 13 px text.
 - Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- A narrow explorer never pushes a control out of the island. Below 900 px the chips
+  take their own line under Filter and the actions. A chip wider than its line cuts its
+  value first, then its other parts, and fades each cut. Below 528 px the layouts show
+  only their icons, below 372 px the sort does, and below 282 px Filter does. Each one
+  is then a square with a tooltip that names it. Below 420 px the search folds to its
+  icon, and a press opens it over the views until it loses the focus with no term.
 - The bars have no edit toggle. The search shows on every view. On a static view, and on
   a saved view that the user may update, the user changes the filters, the sort, and the
   layout. Other saved views show the filter chips, the sort, and the layout read-only.

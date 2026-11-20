@@ -9,7 +9,7 @@
 
 import { color, type destructor, xy } from "@synnaxlabs/x";
 
-import { type Context } from "@/vis/render/context";
+import type { Context } from "@/vis/render/context";
 
 const errorCompile = (msg: string): Error =>
   new Error(`failed to compile webgl program: ${msg}`);

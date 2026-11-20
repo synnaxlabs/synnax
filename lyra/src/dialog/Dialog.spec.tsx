@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";

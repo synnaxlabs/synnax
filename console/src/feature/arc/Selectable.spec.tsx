@@ -11,7 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import { screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";

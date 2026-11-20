@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device, type task } from "@synnaxlabs/client";
+import type { channel, device, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { strings } from "@synnaxlabs/x";
 
@@ -21,7 +21,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Sift } from "@/feature/sift";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export const INTEGRATIONS: Task.Integration[] = [
   EtherCAT.Task.INTEGRATION,

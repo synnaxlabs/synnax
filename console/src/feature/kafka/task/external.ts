@@ -9,7 +9,7 @@
 
 import { WRITE_TYPE } from "@/feature/kafka/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/kafka/task/commands";
 export * from "@/feature/kafka/task/create";

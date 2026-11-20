@@ -11,9 +11,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Activity } from "@/page";
+import type { Activity } from "@/page";
 import { describeEvent, machineName } from "@/ui/format";
 import { Empty } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";

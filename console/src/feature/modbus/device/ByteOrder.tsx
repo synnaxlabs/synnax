@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/device/ByteOrder.css";
 
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { Option } from "@/feature/modbus/device/Option";
 import { type ByteOrder, swapsOf } from "@/feature/modbus/device/types";
