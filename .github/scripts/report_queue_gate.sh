@@ -12,10 +12,10 @@
 # Posts the Review gate status of a merge group. Usage: report_queue_gate.sh <queue_ref>
 # <sha>. Judges the pull request the group adds, if GitHub's ref points at the commit.
 # Under ALLGREEN each entry ahead passes its own gate. A merge group cannot wait, so
-# anything short of success is a failure. When the gate cannot judge, posts a failure, so the queue does not stall
-# until its timeout, and exits non-zero. When the queue ref is gone or points at another
-# commit, the queue destroyed the group, so there is nothing to judge, and the script
-# exits zero.
+# anything short of success is a failure. When the gate cannot judge, posts a failure,
+# so the queue does not stall until its timeout, and exits non-zero. When the queue ref
+# is gone or points at another commit, the queue destroyed the group, so there is
+# nothing to judge, and the script exits zero.
 
 set -euo pipefail
 
