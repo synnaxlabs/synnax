@@ -26,7 +26,8 @@ import (
 )
 
 var _ = Describe("Delete checks", func() {
-	It("Should list a record that holds the index the delete of a calculation removes",
+	It(
+		"Should detach a record that holds the index the delete of a calculation removes",
 		func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
@@ -72,11 +73,13 @@ var _ = Describe("Delete checks", func() {
 			Expect(MustSucceed(layer.Channel.NewRetrieve().
 				Where(channel.MatchKeys(calc.Index())).
 				Exists(ctx, db))).To(BeFalse())
-			records := make([]string, len(applied.Entries))
-			for i, e := range applied.Entries {
-				records[i] = e.Record.String()
-			}
-			Expect(records).To(ContainElement(lineplot.ResourceID(plot.Key).String()))
+			Expect(applied).To(Equal(impact.Plan{}))
+			var stored lineplot.LinePlot
+			Expect(layer.LinePlot.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Channels.Y1).To(BeEmpty())
 		},
 	)
 })

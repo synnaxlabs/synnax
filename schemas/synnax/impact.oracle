@@ -47,11 +47,10 @@ Choice enum {
 }
 
 Entry struct {
-    id      string      {
-        @doc value "identifies the entry in a plan: the text form of its record."
-    }
     record  resource.ID {
-        @doc value "is the record that the change touches."
+        @doc value """
+            is the record that the change touches. A pick names it in text form.
+        """
     }
     effect  Effect      {
         @doc value "is what the change does to the record."

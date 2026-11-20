@@ -139,7 +139,7 @@ var _ = Describe("Delete", Ordered, func() {
 		return applied, err
 	}
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
-		e := impact.Entry{ID: id.String(), Record: id, Effect: effect}
+		e := impact.Entry{Record: id, Effect: effect}
 		if effect == impact.EffectRestrict {
 			e.Choices = []impact.Choice{impact.ChoiceCancel, impact.ChoiceDelete}
 			e.Default = new(impact.ChoiceCancel)
@@ -222,7 +222,7 @@ var _ = Describe("Delete", Ordered, func() {
 			plot := createPlot(ctx, ch.Key())
 			sch := createSchematic(ctx, ch.Key())
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{}, ch.Key()))
-			Expect(applied).To(Equal(impact.Plan{Change: deleteOf(ch.Key())}))
+			Expect(applied).To(Equal(impact.Plan{}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().

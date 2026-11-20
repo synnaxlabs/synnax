@@ -161,9 +161,7 @@ func (c Choice) IsValid() bool {
 
 // Entry is one record that a change touches.
 type Entry struct {
-	// ID identifies the entry in a plan: the text form of its record.
-	ID string `json:"id" msgpack:"id"`
-	// Record is the record that the change touches.
+	// Record is the record that the change touches. A pick names it in text form.
 	Record resource.ID `json:"record" msgpack:"record"`
 	// Effect is what the change does to the record.
 	Effect Effect `json:"effect" msgpack:"effect"`

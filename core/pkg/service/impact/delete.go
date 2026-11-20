@@ -10,6 +10,7 @@
 package impact
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"strings"
@@ -22,12 +23,21 @@ import (
 // planned is a plan with what Apply needs to carry it out.
 type planned struct {
 	Plan
-	// cancels maps the id of each restrict entry to the error that a cancel returns.
+	// cancels maps the text form of the record of each restrict entry to the error that
+	// a cancel returns.
 	cancels map[string]gorp.RestrictError
 	// keys are the keys of the channels that the delete removes.
 	keys channel.Keys
 	// effects is what the delete does to the records that hold the channels.
 	effects gorp.DeleteEffects
+}
+
+// compareEntries orders entries by record type, then key.
+func compareEntries(a, b Entry) int {
+	return cmp.Or(
+		strings.Compare(string(a.Record.Type), string(b.Record.Type)),
+		strings.Compare(a.Record.Key, b.Record.Key),
+	)
 }
 
 // planDelete plans the delete of the channels with keys, as seen by snap. Each record
@@ -42,20 +52,19 @@ func (s *Service) planDelete(
 		return planned{}, err
 	}
 	p := planned{
-		Change:  Change{Variant: DeleteChannelsChange{Keys: keys}},
 		cancels: make(map[string]gorp.RestrictError, len(effects.Restricts)),
 		keys:    deleted,
 		effects: effects,
 	}
-	byID := make(map[string]int)
+	listed := set.New[string]()
 	add := func(e gorp.DeleteEffect, effect Effect) (string, bool) {
 		record := s.cfg.RecordOf(e.Holder)
 		id := record.String()
-		if _, ok := byID[id]; ok {
+		if listed.Contains(id) {
 			return id, false
 		}
-		byID[id] = len(p.Entries)
-		entry := Entry{ID: id, Record: record, Effect: effect}
+		listed.Add(id)
+		entry := Entry{Record: record, Effect: effect}
 		if effect == EffectRestrict {
 			entry.Choices = []Choice{ChoiceCancel, ChoiceDelete}
 			entry.Default = new(ChoiceCancel)
@@ -80,17 +89,11 @@ func (s *Service) planDelete(
 	}
 	kept := set.New[string]()
 	for _, e := range effects.Weak {
-		if id := s.cfg.RecordOf(e.Holder).String(); !slices.ContainsFunc(
-			p.Entries,
-			func(entry Entry) bool { return entry.ID == id },
-		) {
+		if id := s.cfg.RecordOf(e.Holder).String(); !listed.Contains(id) {
 			kept.Add(id)
 		}
 	}
 	p.Kept = uint32(len(kept))
-	slices.SortFunc(
-		p.Entries,
-		func(a, b Entry) int { return strings.Compare(a.ID, b.ID) },
-	)
+	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
 }

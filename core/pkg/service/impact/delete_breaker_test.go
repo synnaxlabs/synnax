@@ -182,7 +182,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 		return layer.Channel.NewWriter(tx).DeleteMany(ctx, keys, false)
 	}
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
-		e := impact.Entry{ID: id.String(), Record: id, Effect: effect}
+		e := impact.Entry{Record: id, Effect: effect}
 		if effect == impact.EffectRestrict {
 			e.Choices = []impact.Choice{impact.ChoiceCancel, impact.ChoiceDelete}
 			e.Default = new(impact.ChoiceCancel)
@@ -196,7 +196,14 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			calc := createCalculated(ctx)
 			Expect(calc.LocalIndex).ToNot(BeZero())
 			plot := createPlot(ctx, calc.Index())
-			applied := MustSucceed(apply(ctx, nil, calc.Key()))
+			tsk := createTask(ctx, calc.Key())
+			applied := MustSucceed(apply(
+				ctx,
+				map[string]impact.Choice{
+					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				},
+				calc.Key(),
+			))
 			Expect(exists(ctx, calc.Index())).To(BeFalse())
 			Expect(retrievePlot(ctx, plot.Key).Channels.Y1).To(BeEmpty())
 			Expect(applied.Entries).To(ContainElement(
@@ -256,7 +263,9 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 					Picks: map[string]impact.Choice{id: impact.ChoiceDelete},
 				},
 			)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("can't delete built-in channel")))
 			Expect(exists(ctx, builtIn)).To(BeTrue())
 			Expect(taskExists(ctx, tsk.Key)).To(BeTrue())
 		})
@@ -269,7 +278,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			b := createChannel(ctx, channel.Channel{})
 			createTask(ctx, a.Key(), b.Key())
 			want := deleteManyErr(ctx, b.Key(), a.Key())
-			Expect(want).To(HaveOccurred())
+			Expect(want).To(MatchError(ContainSubstring("cannot delete channel")))
 			Expect(apply(ctx, nil, b.Key(), a.Key())).Error().
 				To(MatchError(want.Error()))
 		})
@@ -290,7 +299,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 					ch.Key(),
 				)
 				want := deleteManyErr(ctx, ch.Key())
-				Expect(want).To(HaveOccurred())
+				Expect(want).To(MatchError(ContainSubstring("cannot delete channel")))
 				Expect(apply(ctx, nil, ch.Key())).Error().To(MatchError(want.Error()))
 			})
 	})
