@@ -9,7 +9,7 @@
 
 import "@/platform/certificate/Details.css";
 
-import { type certificate } from "@synnaxlabs/client";
+import { type certificate, type rack } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -23,6 +23,7 @@ import { type ReactElement, useState } from "react";
 
 import { leafDER } from "@/platform/certificate/pem";
 import { CSS } from "@/platform/css";
+import { Picker } from "@/platform/picker";
 import { Runtime } from "@/platform/runtime";
 import { Secret } from "@/platform/secret";
 
@@ -175,22 +176,19 @@ export interface DetailsProps {
   certificate: certificate.Certificate;
   /** The time the validity reads against. */
   now: TimeStamp;
+  /** The rack of the device. A file certificate of another rack shows an error. */
+  rack: rack.Key;
 }
 
 /**
  * A line with the path of a file certificate and a button that shows the full details
  * of the certificate. A stored certificate also downloads.
  */
-export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
+export const Details = ({ certificate: c, now, rack }: DetailsProps): ReactElement => {
   const [visible, setVisible] = useState(false);
   return (
     <Flex.Box y gap="small">
-      <Flex.Box
-        x
-        align="center"
-        justify="end"
-        className={CSS.BE("certificate-field", "summary")}
-      >
+      <Picker.Line justify="end">
         {c.source === "file" && (
           <Text.Text
             level="small"
@@ -198,7 +196,19 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
             overflow="fade"
             className={CSS.BE("certificate-field", "summary-text")}
           >
-            {c.certificatePath}
+            {c.rack !== rack && (
+              <>
+                <Text.Text
+                  el="span"
+                  color={9}
+                  status={Secret.OTHER_RACK_DESCRIPTION.status}
+                >
+                  {Secret.OTHER_RACK_DESCRIPTION.text}
+                </Text.Text>
+                <span>·</span>
+              </>
+            )}
+            <span>{c.certificatePath}</span>
           </Text.Text>
         )}
         <Button.Button
@@ -209,7 +219,7 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
         >
           {visible ? "Hide details" : "Details"}
         </Button.Button>
-      </Flex.Box>
+      </Picker.Line>
       {visible && <Card certificate={c} now={now} />}
     </Flex.Box>
   );

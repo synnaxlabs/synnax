@@ -39,7 +39,8 @@ export interface Validity {
   status?: "warning" | "error";
 }
 
-const describeDetails = (
+/** Describes whether the details of a certificate are valid at the given time. */
+export const describeDetails = (
   { notBefore, notAfter }: certificate.Details,
   now: TimeStamp,
 ): Validity => {

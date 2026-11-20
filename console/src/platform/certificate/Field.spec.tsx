@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { certificate, type Synnax as Client } from "@synnaxlabs/client";
+import { certificate, type rack, type Synnax as Client } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
@@ -28,6 +28,11 @@ import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
 import { Certificate } from "@/platform/certificate";
+import {
+  createFileRack,
+  createListing,
+  serveListings,
+} from "@/platform/file-browser/testutil";
 import {
   createFile,
   fakeFileEntry,
@@ -54,6 +59,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const SECRETS_DIR = "/etc/synnax/secrets";
 
 const created: certificate.Key[] = [];
 
@@ -86,6 +93,7 @@ const path = deep.path<z.infer<typeof schema>>();
 interface FixtureProps {
   value: string;
   defaultName: string;
+  rack: rack.Key;
   onChange: (key: string) => void;
   mode?: Form.Mode;
 }
@@ -93,6 +101,7 @@ interface FixtureProps {
 const Fixture = ({
   value,
   defaultName,
+  rack,
   onChange,
   mode,
 }: FixtureProps): ReactElement => {
@@ -104,7 +113,11 @@ const Fixture = ({
   });
   return (
     <Form.Form<typeof schema> {...form}>
-      <Certificate.Field path={path.certificate} defaultName={defaultName} />
+      <Certificate.Field
+        path={path.certificate}
+        defaultName={defaultName}
+        rack={rack}
+      />
     </Form.Form>
   );
 };
@@ -114,23 +127,31 @@ interface RenderedField {
   defaultName: string;
   onChange: Mock<(key: string) => void>;
   statuses: Status.NotificationSpec[];
+  /** Renders the field again with another rack, as when the device's rack changes. */
+  setRack: (rack: rack.Key) => void;
+}
+
+interface RenderOptions {
+  as?: Client;
+  mode?: Form.Mode;
+  rack?: rack.Key;
 }
 
 const renderField = async (
   value: string = "",
-  as: Client = client,
-  mode?: Form.Mode,
+  { as = client, mode, rack = 0 }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
   const statuses: Status.NotificationSpec[] = [];
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+  const content = (fieldRack: rack.Key): ReactElement => (
     <Haul.Provider>
       <FileDragSource />
       <Fixture
         value={value}
         defaultName={defaultName}
+        rack={fieldRack}
         onChange={onChange}
         mode={mode}
       />
@@ -138,10 +159,15 @@ const renderField = async (
       <CaptureStatuses
         onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
       />
-    </Haul.Provider>,
-    { wrapper },
+    </Haul.Provider>
   );
-  return { defaultName, onChange, statuses };
+  const { rerender } = render(content(rack), { wrapper });
+  return {
+    defaultName,
+    onChange,
+    statuses,
+    setRack: (next) => rerender(content(next)),
+  };
 };
 
 const open = async (shown: string): Promise<void> => {
@@ -220,7 +246,7 @@ describe("Certificate.Field", () => {
   });
 
   it("shows no prompt to pick a certificate in preview", async () => {
-    await renderField("", client, "preview");
+    await renderField("", { mode: "preview" });
     await screen.findByText("None");
     expect(screen.queryByText("Select a certificate")).toBeNull();
   });
@@ -232,7 +258,7 @@ describe("Certificate.Field", () => {
 
   it("shows that the certificate is unavailable to a user who cannot retrieve it", async () => {
     const c = await createStored();
-    await renderField(c.key, await createTestClientWithGrants(client));
+    await renderField(c.key, { as: await createTestClientWithGrants(client) });
     await findDialogTriggerByText("Unavailable certificate");
     expect(screen.queryByText(c.name)).toBeNull();
   });
@@ -304,7 +330,7 @@ describe("Certificate.Field", () => {
       rack: r.key,
     });
     created.push(c.key);
-    await renderField(c.key);
+    await renderField(c.key, { rack: r.key });
     await screen.findByText("/etc/synnax/client.crt");
     expect((await findDialogTriggerByText(c.name)).textContent).toBe(c.name);
     await showDetails();
@@ -346,7 +372,7 @@ describe("Certificate.Field", () => {
       retrieve: [certificate.TYPE_RESOURCE_ID],
     });
     await awaitGranted(reader, certificate.TYPE_RESOURCE_ID, "retrieve");
-    await renderField("", reader);
+    await renderField("", { as: reader });
     await open("Select a certificate");
     await findOption("certificate", c.name);
     expect(screen.queryByText("New certificate")).toBeNull();
@@ -461,9 +487,11 @@ describe("Certificate.Field", () => {
     expect(getPEMInput("Private key")).toHaveProperty("value", "");
   });
 
-  it("requires a certificate before it saves", async () => {
+  it("marks the certificate as required and requires it before it saves", async () => {
     const { onChange } = await renderField();
     await openCreate();
+    expect(screen.getByRole("textbox", { name: "Certificate *" })).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Private key" })).toBeDefined();
     fireEvent.click(findButton("Create"));
     await screen.findByText("Certificate is required");
     expect(onChange).not.toHaveBeenCalled();
@@ -493,5 +521,156 @@ describe("Certificate.Field", () => {
     await act(async () => {});
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(c.name);
+  });
+
+  it("shows a held file certificate of another rack as an error before its path", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const c = await client.certificates.set({
+      name: uniqueName("file"),
+      source: "file",
+      certificatePath: "/etc/synnax/client.crt",
+      rack: own.key,
+    });
+    created.push(c.key);
+    const { setRack } = await renderField(c.key, { rack: own.key });
+    const trigger = await findDialogTriggerByText(c.name);
+    expect(screen.queryByText("File on another Driver")).toBeNull();
+    setRack(other.key);
+    const shown = await screen.findByText("File on another Driver");
+    expect(shown.classList).toContain("lyra--status-error");
+    expect(trigger.contains(shown)).toBe(false);
+    screen.getByText("·");
+    screen.getByText("/etc/synnax/client.crt");
+  });
+
+  it("offers no file to a field with no rack", async () => {
+    await renderField();
+    await openCreate();
+    await screen.findByLabelText("Certificate name");
+    expect(screen.queryByText("File on Driver")).toBeNull();
+  });
+
+  it("creates a file certificate with the details of the picked file", async () => {
+    const stored = await createStored();
+    const files = await createFileRack(client);
+    await serveListings(client, files, [
+      createListing({
+        secretsDir: SECRETS_DIR,
+        entries: [{ name: "/", path: "/", kind: "directory" }],
+      }),
+      createListing({
+        path: "/",
+        entries: [
+          {
+            name: "client.crt",
+            path: "/client.crt",
+            kind: "file",
+            size: 1200,
+            certificate: stored.details,
+          },
+        ],
+      }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [
+          { name: "client.key", path: `${SECRETS_DIR}/client.key`, kind: "file" },
+        ],
+      }),
+    ]);
+    const { defaultName, onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate();
+    fireEvent.click(await screen.findByText("File on Driver"));
+    fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+    fireEvent.doubleClick(await screen.findByText("/"));
+    fireEvent.doubleClick(await screen.findByText("client.crt"));
+    await screen.findByText(new RegExp(`^${stored.details.subject} · Expires `));
+    await open("No file");
+    fireEvent.click(await screen.findByRole("option", { name: "client.key" }));
+    fireEvent.click(findButton("Create"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
+    expect(await client.certificates.retrieve({ key })).toEqual(
+      expect.objectContaining({
+        name: defaultName,
+        source: "file",
+        certificatePath: "/client.crt",
+        privateKeyFile: "client.key",
+        details: expect.objectContaining({ sha256: stored.details.sha256 }),
+      }),
+    );
+  });
+
+  it("saves no details for a path typed by hand", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    const { onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate();
+    fireEvent.click(await screen.findByText("File on Driver"));
+    fireEvent.change(screen.getByPlaceholderText("/etc/ssl/certs/client.crt"), {
+      target: { value: "/etc/ssl/certs/client.crt" },
+    });
+    fireEvent.click(findButton("Create"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
+    const c = await client.certificates.retrieve({ key });
+    assert(c.source === "file");
+    expect(c.certificatePath).toBe("/etc/ssl/certs/client.crt");
+    expect(c.details).toBeUndefined();
+    expect(c.privateKeyFile).toBeUndefined();
+  });
+
+  it("marks the certificate file as required and requires it for a file certificate", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    const { onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate();
+    fireEvent.click(await screen.findByText("File on Driver"));
+    await screen.findByRole("textbox", { name: "Certificate file *" });
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Certificate file is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it("lists stored certificates and the file certificates of its rack, not of another", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const prefix = uniqueName("rack certificate");
+    const createFile = async (
+      r: rack.Rack,
+      name: string,
+    ): Promise<certificate.Certificate> => {
+      const c = await client.certificates.set({
+        name: `${prefix} ${name}`,
+        source: "file",
+        certificatePath: "/etc/ssl/client.crt",
+        rack: r.key,
+      });
+      created.push(c.key);
+      return c;
+    };
+    const onRack = await createFile(own, "own");
+    const offRack = await createFile(other, "other");
+    const stored = await createStored();
+    await renderField("", { rack: own.key });
+    await open("Select a certificate");
+    await findOption("certificate", stored.name);
+    fireEvent.change(screen.getByPlaceholderText("Search certificates..."), {
+      target: { value: prefix },
+    });
+    await screen.findByRole("option", { name: new RegExp(onRack.name) });
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 });
