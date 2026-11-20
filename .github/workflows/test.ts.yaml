@@ -281,7 +281,7 @@ jobs:
         working-directory: ${{ inputs.directory }}
         run: |
           specs=$(git grep -L -E \
-            'create(Proxied)?TestClient|TEST_(CLIENT_PARAMS|CORE_ADDRESS)' \
+            'create(Proxied)?TestClient|test(ClientParams|CoreAddress)' \
             -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
           echo "SPECS=$specs" >> "$GITHUB_ENV"
 
