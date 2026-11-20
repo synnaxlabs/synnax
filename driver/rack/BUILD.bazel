@@ -70,6 +70,7 @@ cc_library(
         "//driver/ni:names",
         "//driver/opcua",
         "//driver/rack/status",
+        "//driver/secret",
         "//driver/task",
         "//x/cpp/args",
         "//x/cpp/defer",
