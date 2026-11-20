@@ -168,6 +168,25 @@ func (c *Controller[K, R]) LeadingState() *State[K] {
 	return nil
 }
 
+// HolderAt returns the subject that controls a region that tr reaches, bounded regions
+// included, and false when no gate controls such a region.
+func (c *Controller[K, R]) HolderAt(tr telem.TimeRange) (Subject, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, reg := range c.regions {
+		if !reg.timeRange.OverlapsWith(tr) {
+			continue
+		}
+		reg.RLock()
+		curr := reg.curr
+		reg.RUnlock()
+		if curr != nil {
+			return curr.Subject(), true
+		}
+	}
+	return Subject{}, false
+}
+
 // ResourceAt returns the resource held by the region overlapping tr, reporting false
 // when no region covers it. A bounded region takes precedence over an unbounded region
 // that overlaps it. ResourceAt waits for a region that is opening unless an open

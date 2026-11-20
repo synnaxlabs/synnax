@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
@@ -34,6 +35,9 @@ type session struct {
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
 	w *cesium.Writer
+	// gates gate the writes of the session on its control of each channel.
+	gates    *gates
+	controls *controls
 	// release releases the hold of the session on its channels.
 	release func()
 	stamper *unindexedStamper[cesium.ChannelKey]
@@ -67,9 +71,12 @@ func (s *Service) newSession(
 	virtual []cesium.ChannelKey,
 	autoIndex *indexStamper,
 	release func(),
+	g *gates,
 ) *session {
 	return &session{
 		w:               w,
+		gates:           g,
+		controls:        s.controls,
 		release:         release,
 		stamper:         newUnindexedStamper(virtual),
 		autoIndex:       autoIndex,
@@ -109,10 +116,12 @@ func (s *session) run(ctx context.Context) error {
 	}
 }
 
-// close closes the Cesium writer and releases the hold of the session on its channels.
-// It returns the first error of the session or of the close, and otherwise cause.
+// close closes the Cesium writer and releases the hold of the session on its channels
+// and on their control. It returns the first error of the session or of the close, and
+// otherwise cause.
 func (s *session) close(cause error) error {
 	err := errors.Combine(s.err, s.w.Close())
+	s.controls.notify(s.gates.release())
 	s.release()
 	if err != nil {
 		return err
@@ -132,16 +141,23 @@ func (s *session) exec(
 		authorized, err = s.write(ctx, req.Frame)
 		return 0, authorized && err == nil, err
 	case CommandCommit:
-		end, err = s.commit(ctx)
-		refused := s.writeRefused
+		var refused bool
+		end, refused, err = s.commit(ctx)
+		writeRefused := s.writeRefused
 		s.writeRefused = false
-		if err == nil {
-			return end, !refused, nil
+		if err != nil || refused {
+			return 0, false, err
 		}
+		return end, !writeRefused, nil
 	case CommandSetAuthority:
-		err = s.w.SetAuthority(req.Config.toStorage())
+		var transfers []transfer
+		if transfers, err = s.gates.setAuthority(req.Config); err != nil {
+			s.err = err
+			return 0, false, err
+		}
+		s.controls.notify(transfers)
 	case CommandEndDomain:
-		err = s.w.EndDomain(ctx, req.Config.Keys.Uint32()...)
+		err = s.endDomain(ctx, req.Config.Keys)
 		if err == nil || errors.Is(err, control.ErrUnauthorized) {
 			if syncErr := s.maybeSync(); syncErr != nil {
 				err = syncErr
@@ -163,9 +179,9 @@ func (s *session) exec(
 	return 0, err == nil, err
 }
 
-// write writes fr, commits it when the session auto commits, and relays the frame that
-// the Cesium writer returns. A refusal for no control is not an error: write returns
-// authorized false.
+// write writes fr except the channels the session does not control, commits it when the
+// session auto commits, and relays the frame that the Cesium writer returns. A refusal
+// for no control is not an error: write returns authorized false.
 func (s *session) write(
 	ctx context.Context,
 	fr frame.Frame,
@@ -175,34 +191,59 @@ func (s *session) write(
 	if s.autoIndex != nil {
 		st = s.autoIndex.stamp(st)
 	}
-	written, err := s.w.Write(ctx, st)
-	refused := errors.Is(err, control.ErrUnauthorized)
-	if err != nil && !refused {
-		return false, err
+	written, refused, err := s.w.WriteExcept(ctx, st, s.gates.refused())
+	if err != nil {
+		return false, s.fail(err)
 	}
 	if s.autoCommit {
-		if _, err = s.commit(ctx); errors.Is(err, control.ErrUnauthorized) {
-			refused = true
-		} else if err != nil {
+		_, commitRefused, err := s.commit(ctx)
+		if err != nil {
 			return false, err
 		}
+		refused = refused || commitRefused
 	}
 	s.writeRefused = s.writeRefused || refused
 	return !refused, s.relay(ctx, written)
 }
 
-// commit commits the Cesium writer, then syncs it when the persist rule asks, also
-// after a commit refused for no control.
-func (s *session) commit(ctx context.Context) (telem.TimeStamp, error) {
-	end, err := s.w.Commit(ctx)
-	// A commit refused for no control still applies the indexes the writer controls.
-	if err != nil && !errors.Is(err, control.ErrUnauthorized) {
-		return 0, err
+// commit commits the channels the session controls, then syncs the Cesium writer when
+// the persist rule asks, also after a commit refused for no control. It returns true
+// when the session lacked control of a channel with samples to commit.
+func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
+	end, refused, err := s.w.CommitExcept(ctx, s.gates.refused())
+	if err != nil {
+		return 0, false, s.fail(err)
 	}
 	if syncErr := s.maybeSync(); syncErr != nil {
-		return 0, syncErr
+		return 0, false, syncErr
 	}
-	return end, err
+	return end, refused, nil
+}
+
+// endDomain commits and ends the domains of the indexes the session may end, and
+// commits the channels it controls of the others. It returns an error that wraps
+// control.ErrUnauthorized for an index it may not end.
+func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
+	ended, skip, refusal := s.gates.endDomain(indexes)
+	if skip != nil {
+		if _, _, err := s.w.CommitExcept(ctx, skip); err != nil {
+			return s.fail(err)
+		}
+	}
+	if err := s.w.EndDomain(ctx, ended...); err != nil {
+		return s.fail(err)
+	}
+	return refusal
+}
+
+// fail names the holder in a claim refusal of err and makes the named refusal the error
+// of the session.
+func (s *session) fail(err error) error {
+	named, ok := s.controls.nameHolder(err)
+	if ok && s.err == nil {
+		s.err = named
+	}
+	return named
 }
 
 // maybeSync syncs the Cesium writer on every commit when the session does not auto

@@ -11,12 +11,10 @@ package unary
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -62,25 +60,17 @@ func (db *DB) resolveByteOffset(
 	return db.resolver.byteOffset(ctx, iter, sampleOffset)
 }
 
-func (db *DB) lockControllerForNonWriteOp(
-	tr telem.TimeRange,
-	opName string,
-) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(
-		xcontrol.GateConfig[channel.Key, *controlledWriter]{
-			ErrIfControlled: new(true),
-			TimeRange:       tr,
-			Authority:       xcontrol.AuthorityAbsolute,
-			Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
-			OpenResource: func() (*controlledWriter, error) {
-				return &controlledWriter{
-					Writer:     nil,
-					channelKey: db.cfg.Channel.Key,
-				}, nil
-			},
-		},
-	)
-	return func() { g.Release() }, err
+// claimForNonWriteOp claims tr for an operation that no writer may overlap.
+func (db *DB) claimForNonWriteOp(tr telem.TimeRange) (release func(), err error) {
+	c, err := db.claims.Open(claim.Config[*sharedWriter]{
+		Exclusive: true,
+		TimeRange: tr,
+		Open:      func() (*sharedWriter, error) { return &sharedWriter{}, nil },
+	})
+	if err != nil {
+		return nil, err
+	}
+	return func() { c.Release() }, nil
 }
 
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
@@ -91,7 +81,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 			tr.End,
 		)
 	}
-	release, err := db.lockControllerForNonWriteOp(tr, "delete")
+	release, err := db.claimForNonWriteOp(tr)
 	if err != nil {
 		return err
 	}

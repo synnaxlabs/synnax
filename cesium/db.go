@@ -15,10 +15,10 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/set"
@@ -35,9 +35,15 @@ type (
 	ChannelError = channel.Error
 )
 
+// ClaimError is the refusal of a writer, a commit, or a delete that reaches the time
+// range another writer claims. It names the time range, never the writer.
+type ClaimError = claim.Error
+
 var (
 	ErrDBClosed        = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound = channel.ErrNotFound
+	// ErrClaimed is wrapped by a ClaimError that refuses an open or a delete.
+	ErrClaimed = claim.ErrClaimed
 )
 
 // Metrics contains statistics about the cesium database.
@@ -48,8 +54,6 @@ type Metrics struct {
 
 type DB struct {
 	*options
-	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
-	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	// intents makes the delete intents of the DB durable.
@@ -73,9 +77,7 @@ type DB struct {
 	}
 }
 
-// Write writes the frame to database at the specified start time. It returns
-// control.ErrUnauthorized if another writer controls a channel in the frame, and then
-// it may have committed only some of the channels.
+// Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -89,18 +91,8 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if err != nil {
 		return span.Error(err)
 	}
-	// A write refused for no control still writes the channels the writer controls,
-	// so they commit.
-	if _, err = w.Write(
-		ctx,
-		frame,
-	); err == nil ||
-		errors.Is(err, xcontrol.ErrUnauthorized) {
-		_, commitErr := w.Commit(ctx)
-		err = errors.Join(err, commitErr)
-	}
-	if errors.Is(err, xcontrol.ErrUnauthorized) {
-		err = errors.Wrap(err, "another writer controls the frame")
+	if _, err = w.Write(ctx, frame); err == nil {
+		_, err = w.Commit(ctx)
 	}
 	return span.Error(errors.Join(err, w.Close()))
 }

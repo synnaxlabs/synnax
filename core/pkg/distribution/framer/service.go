@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -184,6 +185,16 @@ func (s *Service) SetFreeIndexResolver(resolver writer.FreeIndexResolver) {
 // keys.
 func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
 	return s.writer.ClaimDelete(keys)
+}
+
+// ControlStates returns the state of control over each channel that a writer controls.
+func (s *Service) ControlStates() []writer.ControlState { return s.writer.ControlStates() }
+
+// OnControlUpdate calls handler with each batch of control transfers between writers.
+func (s *Service) OnControlUpdate(
+	handler func(context.Context, writer.ControlUpdate),
+) observe.Disconnect {
+	return s.writer.OnControlUpdate(handler)
 }
 
 // DeleteTimeRange deletes a time range in the specified channels.

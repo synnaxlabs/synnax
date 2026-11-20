@@ -12,8 +12,6 @@
 package control
 
 import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/control"
 )
@@ -30,37 +28,3 @@ type (
 	// Update is a batch of transfers that a Core applied atomically.
 	Update = control.Update[channel.Key]
 )
-
-// stateFromStorage returns nil when s is nil, so the acquire and release ends of a
-// transfer survive the conversion.
-func stateFromStorage(s *cesium.ControlState) *State {
-	if s == nil {
-		return nil
-	}
-	return &State{
-		Subject:   s.Subject,
-		Resource:  channel.Key(s.Resource),
-		Authority: s.Authority,
-	}
-}
-
-func updateFromStorage(u cesium.ControlUpdate) Update {
-	return Update{Transfers: lo.Map(
-		u.Transfers,
-		func(t cesium.ControlTransfer, _ int) Transfer {
-			return Transfer{From: stateFromStorage(t.From), To: stateFromStorage(t.To)}
-		},
-	)}
-}
-
-// statesFromStorage drops releases: updates returned by cesium.DB.ControlStates carry
-// only the To end of each transfer.
-func statesFromStorage(u cesium.ControlUpdate) []State {
-	states := make([]State, 0, len(u.Transfers))
-	for _, t := range u.Transfers {
-		if s := stateFromStorage(t.To); s != nil {
-			states = append(states, *s)
-		}
-	}
-	return states
-}

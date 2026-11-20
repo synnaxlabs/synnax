@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -27,29 +27,23 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type controlResource struct {
-	ck channel.Key
-	// alignment tracks the current write position as a packed domain index (upper 32
-	// bits) and sample index (lower 32 bits). This field is accessed atomically because
-	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
-	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it
-	// through PeekResource concurrently.
+// cursor is the write position that the writers of one claim share.
+type cursor struct {
+	// alignment is the current write position as a packed domain index (upper 32 bits)
+	// and sample index (lower 32 bits).
 	alignment atomic.Uint64
 }
 
-func (r *controlResource) Key() channel.Key { return r.ck }
-
-func (r *controlResource) loadAlignment() telem.Alignment {
+func (r *cursor) loadAlignment() telem.Alignment {
 	return telem.Alignment(r.alignment.Load())
 }
 
-func (r *controlResource) storeAlignment(a telem.Alignment) {
+func (r *cursor) storeAlignment(a telem.Alignment) {
 	r.alignment.Store(uint64(a))
 }
 
 type DB struct {
-	controller       *xcontrol.Controller[channel.Key, *controlResource]
+	claims           *claim.Set[*cursor]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *telem.AlignmentCounter
@@ -113,16 +107,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := xcontrol.New[channel.Key, *controlResource](xcontrol.Config{
-		Concurrency:     xcontrol.ConcurrencyShared,
-		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
-		return nil, err
-	}
 	db := &DB{
 		cfg:              cfg,
-		controller:       c,
+		claims:           &claim.Set[*cursor]{},
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
@@ -133,10 +120,6 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 
 func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
-}
-
-func (db *DB) LeadingControlState() *xcontrol.State[channel.Key] {
-	return db.controller.LeadingState()
 }
 
 // Close closes the DB. It returns an error wrapping resource.ErrOpen and leaves the DB

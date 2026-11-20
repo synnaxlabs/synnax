@@ -133,7 +133,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 
 	if l.Control, err = control.OpenService(ctx, control.ServiceConfig{
 		Instrumentation: cfg.Child("control"),
-		TS:              cfg.Storage.TS,
+		Framer:          l.Framer,
 	}); !ok(err, l.Control) {
 		return nil, err
 	}

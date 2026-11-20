@@ -15,11 +15,11 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/config"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -121,17 +121,10 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, err := xcontrol.New[channel.Key, *controlledWriter](xcontrol.Config{
-		Concurrency:     cfg.Channel.Concurrency,
-		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
-		return nil, err
-	}
 	db := &DB{
 		cfg:              cfg,
 		domain:           domainDB,
-		controller:       c,
+		claims:           &claim.Set[*sharedWriter]{},
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
