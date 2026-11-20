@@ -52,6 +52,14 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
   "aria-label": string;
 }
 
+/** The props a custom column's cell renderer receives. */
+export interface TableCustomCellProps<
+  V extends TableCell = TableCell,
+> extends TableCellProps<V> {
+  /** The index of the cell's row. */
+  row: number;
+}
+
 interface BaseTableColumnProps {
   /** The heading rendered above the column. Omitted for a lone unlabeled column. */
   name?: string;
@@ -97,7 +105,7 @@ export type TableColumnProps<V = unknown> =
       empty: V;
       /** Reads pasted text, or returns null to refuse it. Omitted, pastes fail. */
       parse?: (text: string) => V | null;
-      children: RenderProp<TableCellProps<V>>;
+      children: RenderProp<TableCustomCellProps<V>>;
     });
 
 /**
@@ -110,7 +118,13 @@ export type TableColumnProps<V = unknown> =
  */
 export const TableColumn = <V,>(_: TableColumnProps<V>): null => null;
 
-const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode => {
+// Only a custom renderer gets the row. A typed column's renderer often spreads its
+// props onto an input, where the row would land on the DOM.
+const renderCell = (
+  column: TableColumnProps,
+  props: TableCellProps,
+  row: number,
+): ReactNode => {
   switch (column.type) {
     case "string": {
       const cell = { ...props, value: String(props.value) };
@@ -124,7 +138,7 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
       return <Checkbox {...cell} preview={false} disabled={props.preview} />;
     }
     case "custom":
-      return column.children(props);
+      return column.children({ ...props, row });
     case "number":
     case undefined: {
       const cell = { ...props, value: Number(props.value) };
@@ -732,16 +746,20 @@ export const Table = ({
                       onBlur={handleCellBlur}
                     >
                       <ItemContext value={cellItem}>
-                        {renderCell(column, {
-                          value: row[j] ?? emptyCell(column),
-                          onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                          preview,
-                          variant: "shadow",
-                          "aria-label":
-                            column.name == null
-                              ? rowName(i)
-                              : `${column.name} ${rowName(i)}`,
-                        })}
+                        {renderCell(
+                          column,
+                          {
+                            value: row[j] ?? emptyCell(column),
+                            onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                            preview,
+                            variant: "shadow",
+                            "aria-label":
+                              column.name == null
+                                ? rowName(i)
+                                : `${column.name} ${rowName(i)}`,
+                          },
+                          i,
+                        )}
                       </ItemContext>
                     </td>
                   );
