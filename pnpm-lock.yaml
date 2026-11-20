@@ -600,9 +600,6 @@ catalogs:
     typescript-eslint:
       specifier: ^8.71.2
       version: 8.71.2
-    undici:
-      specifier: ^8.12.2
-      version: 8.12.2
     use-sync-external-store:
       specifier: ^1.7.0
       version: 1.7.0
@@ -802,6 +799,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      undici:
+        specifier: catalog:node22
+        version: 7.30.2
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -2121,9 +2121,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
-      undici:
-        specifier: 'catalog:'
-        version: 8.12.2
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
