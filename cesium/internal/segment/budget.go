@@ -74,8 +74,11 @@ func (b *Budget) Open(fs xfs.FS, name string) *Handle {
 	return &Handle{b: b, fs: fs, name: name, flag: openFlag}
 }
 
-// Sync syncs each handle of hs on the executor, and returns once every sync returned.
-// It returns the errors of the failed syncs, in the order of hs.
+// Sync makes every write to each handle of hs that returned before the call durable,
+// and the directory entry of a created file, with one job per handle on the executor.
+// It returns once every sync returned, with the errors of the failed syncs in the order
+// of hs. A sync that fails, from any caller, marks its handle failed for good.
+// errors.Is matches a failed sync of a directory with ErrDirSync.
 func (b *Budget) Sync(hs []*Handle) error {
 	var wg sync.WaitGroup
 	errs := make([]error, len(hs))
@@ -83,7 +86,7 @@ func (b *Budget) Sync(hs []*Handle) error {
 	for i, h := range hs {
 		b.exec(func() {
 			defer wg.Done()
-			errs[i] = h.Sync()
+			errs[i] = h.sync()
 		})
 	}
 	wg.Wait()
@@ -97,16 +100,10 @@ func (b *Budget) do(f func() error) error {
 	return f()
 }
 
-// run runs f in a slot of the pool, on the executor, and returns its error.
-func (b *Budget) run(f func() error) error {
-	done := make(chan error, 1)
-	b.exec(func() { done <- b.do(f) })
-	return <-done
-}
-
-// evict syncs v when it has unsynced bytes, then closes it. The caller holds b.mu,
-// which evict releases while the file syncs and closes. A failed sync or close marks v
-// failed.
+// evict syncs v when it has unsynced bytes, then closes it. The sync runs in a slot of
+// the pool on the caller's goroutine, so a job of the executor never waits for another
+// job. The caller holds b.mu, which evict releases while the file syncs and closes. A
+// failed sync or close marks v failed.
 func (b *Budget) evict(v *Handle) {
 	v.unlink()
 	v.busy = true
@@ -114,7 +111,7 @@ func (b *Budget) evict(v *Handle) {
 	b.mu.Unlock()
 	var err error
 	if dirty {
-		err = b.run(file.Sync)
+		err = b.do(file.Sync)
 	}
 	err = errors.Join(err, file.Close())
 	b.mu.Lock()

@@ -198,7 +198,7 @@ var _ = Describe("Segment", func() {
 						w := create(cfg)
 						data := pattern(3*segment.BlockSize + 5)
 						Expect(w.Write(data)).To(Succeed())
-						Expect(h.Sync()).To(Succeed())
+						Expect(budget.Sync([]*segment.Handle{h})).To(Succeed())
 						Expect(h.Close()).To(Succeed())
 						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
 						defer func() { Expect(f.Close()).To(Succeed()) }()

@@ -161,6 +161,26 @@ var _ = Describe("Header", func() {
 		Entry("another generation", uint64(db), uint64(4)),
 	)
 
+	DescribeTable(
+		"Should refuse a copy whose fields name another log, even with a passing "+
+			"checksum",
+		func(change func(*log.Header)) {
+			other := header
+			change(&other)
+			b := other.Encode(0)
+			binary.LittleEndian.PutUint32(
+				b[60:],
+				place.Log(db, generation, 0).Sum(b[:60]),
+			)
+			Expect(log.DecodeHeader(b, db, generation, 0)).Error().To(SatisfyAll(
+				MatchError(place.ErrCorrupt),
+				MatchError(ContainSubstring("log header at 0 names database")),
+			))
+		},
+		Entry("another database", func(h *log.Header) { h.DB++ }),
+		Entry("another generation", func(h *log.Header) { h.Generation++ }),
+	)
+
 	It("Should refuse a copy without the magic", func() {
 		b := header.Encode(0)
 		b[0] = 'X'
