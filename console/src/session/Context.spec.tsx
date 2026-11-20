@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { TEST_CORE_ADDRESS } from "@synnaxlabs/client/testutil";
+import { testCoreAddress } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -53,7 +53,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [CORE_KEY]: {
       key: CORE_KEY,
       name: "Local",
-      ...TEST_CORE_ADDRESS,
+      ...testCoreAddress(),
       username: "synnax",
       password: "seldon",
       secure: false,
