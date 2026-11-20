@@ -320,7 +320,6 @@ func (w *Writer) write(
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, false, w.wrapError(err)
 	}
-	// A skip with no lock writes nothing, so it cannot land after a new holder's write.
 	if skip != nil && skip(w.Channel.Key) {
 		return 0, true, nil
 	}

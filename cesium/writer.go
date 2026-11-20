@@ -114,10 +114,9 @@ func (w *Writer) Close() error {
 // without them, with the alignment and time range of each written series set. A skipped
 // index also skips the data channels it indexes in the writer. The returned bool is
 // true when Write skipped a series of fr, and the next commit of that index then
-// commits nothing. Write validates every series of fr. A skip that returns true with no
-// lock skips at once; else skip runs again under the lock of each channel's claim. A
-// nil
-// skip skips nothing.
+// commits nothing. Write validates every series of fr. When skip returns true with no
+// lock held, Write skips at once. If not, it calls skip again under the lock of each
+// channel's claim. A nil skip skips nothing.
 func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,
