@@ -173,11 +173,24 @@ const cloneSafeError = (err: Error, depth: number = 8): Error => {
   return safe;
 };
 
-/** Flattens an error's cause chain into one readable line. */
+const joinParts = (parts: Array<string | undefined>, separator: string): string =>
+  parts.filter((part) => part != null && part.length > 0).join(separator);
+
+/**
+ * Flattens an error's cause chain into one readable line. A cause with a toStatus()
+ * description reads as its status and ends the chain.
+ */
 const causeChain = (err: Error): string | undefined => {
   const parts: string[] = [];
   for (const cause of errors.causes(err, 8)) {
     if (!(cause instanceof Error)) break;
+    const custom = safeToStatus(cause);
+    if (custom?.description != null) {
+      parts.push(
+        joinParts([custom.message ?? cause.message, custom.description], ". "),
+      );
+      break;
+    }
     if (cause.message.length > 0) parts.push(cause.message);
   }
   if (parts.length === 0) return undefined;
@@ -189,9 +202,6 @@ const causeChain = (err: Error): string | undefined => {
  * and the name of what the status is about.
  */
 export type Heading = string | Pick<Base<Variant>, "message" | "name">;
-
-const joinParts = (parts: Array<string | undefined>, separator: string): string =>
-  parts.filter((part) => part != null && part.length > 0).join(separator);
 
 /**
  * Turns any thrown value into an error status. The heading sets the message and name.
