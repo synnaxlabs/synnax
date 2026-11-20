@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/zod/length";
-export * from "@/zod/lessThan";
 export * from "@/zod/nullToUndefined";
 export * from "@/zod/parse";
 export * from "@/zod/schemas";

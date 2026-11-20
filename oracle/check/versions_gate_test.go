@@ -1162,6 +1162,7 @@ Entry struct {
 	}
 	max_val float64 = 1 {` + entryRules + `
 	}
+	limit float64
 }
 
 Window union on variant {
@@ -1189,6 +1190,7 @@ Entry struct {
 	}
 	max_val float64 = 1 {` + entryRules + `
 	}
+	limit float64
 ` + entryGo + `
 }
 
@@ -1210,7 +1212,7 @@ Channel struct {
 		const (
 			validate   = "\n\t\t@validate max 17"
 			group      = "\n\t\t@default group \"range\""
-			goValidate = "\n\t\t@go validate lt max_val"
+			goValidate = "\n\t\t@go validate lt limit"
 			fields     = "\t@go fields \"Size int\""
 		)
 

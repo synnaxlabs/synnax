@@ -809,11 +809,6 @@ func (p *Plugin) processStruct(
 	} else {
 		p.processFlatFields(&sd, entry, form, table, data)
 	}
-	carried := set.New[string]()
-	if sd.HasExtends {
-		carried = fieldNames(form.Extends[0], table)
-	}
-	sd.LessThan = lessThanChecks(resolution.UnifiedFields(entry, table), carried, data)
 	if sd.CoalesceTypeParams {
 		computeCoalescedTypes(&sd)
 	}
@@ -3394,7 +3389,6 @@ type structData struct {
 	ConditionalOmittedFields []string
 	Fields                   []fieldData
 	ExtendsParents           []extendsParentInfo
-	LessThan                 []lessThanCheck
 	HasExtends               bool
 	UseInput                 bool
 	AllParamsOptional        bool
@@ -3816,7 +3810,7 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 {{- end }}
 {{- end }}
   })
-{{- end }}{{- range .LessThan }}.check(zod.lessThan("{{ .Field }}", "{{ .Other }}", {{ .Message }})){{ end }};
+{{- end }};
 {{- end }}
 {{- if $.GenerateTypes }}
 {{- if .TypeOnly }}
@@ -3868,7 +3862,7 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
   {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-}){{- range .LessThan }}.check(zod.lessThan("{{ .Field }}", "{{ .Other }}", {{ .Message }})){{ end }};
+});
 {{- if $.GenerateTypes }}
 {{- if .Request }}
 export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
@@ -3902,7 +3896,7 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
   {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-}){{- range .LessThan }}.check(zod.lessThan("{{ .Field }}", "{{ .Other }}", {{ .Message }})){{ end }};
+});
 {{- if $.GenerateTypes }}
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}
 {{- end }}

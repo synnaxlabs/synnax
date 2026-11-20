@@ -31,8 +31,6 @@ type Rules struct {
 	Required       bool
 	// Finite refuses NaN and the infinities in a floating point field.
 	Finite bool
-	// LessThan requires the field to be less than another field of the same struct.
-	LessThan *Comparison
 	// Skip excludes the field from generated validation entirely, including recursion
 	// into it. Used for fields that hold a reference to another entity (e.g. a parent
 	// key or label keys) rather than embedded data to validate.
@@ -90,11 +88,6 @@ func Parse(domain resolution.Domain) *Rules {
 			rules.GT = newNumber(v)
 		case "max":
 			rules.Max = newNumber(v)
-		case "lt":
-			rules.LessThan = &Comparison{Field: v.IdentValue}
-			if len(expr.Values) > 1 {
-				rules.LessThan.Message = expr.Values[1].StringValue
-			}
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -105,23 +98,18 @@ func Parse(domain resolution.Domain) *Rules {
 	return rules
 }
 
-// LessThan returns the lt rule that domains set for lang: one set with `@validate lt`,
-// else one set with `@<lang> validate lt`. It returns nil when neither sets one.
+// LessThan returns the rule that domains set with `@<lang> validate lt <field>
+// ["message"]`, or nil when they set none.
 func LessThan(domains map[string]resolution.Domain, lang string) *Comparison {
-	if lt := Parse(domains["validate"]).LessThan; lt != nil {
-		return lt
-	}
 	expr, ok := domains[lang].Expressions.Find("validate")
-	if !ok || len(expr.Values) == 0 {
+	if !ok || len(expr.Values) < 2 || expr.Values[0].IdentValue != "lt" {
 		return nil
 	}
-	scoped := resolution.Expression{
-		Name:   expr.Values[0].IdentValue,
-		Values: expr.Values[1:],
+	lt := &Comparison{Field: expr.Values[1].IdentValue}
+	if len(expr.Values) > 2 {
+		lt.Message = expr.Values[2].StringValue
 	}
-	return Parse(
-		resolution.Domain{Expressions: resolution.Expressions{scoped}},
-	).LessThan
+	return lt
 }
 
 // FieldRules returns the rules that apply to field: its own rules merged with the
@@ -158,8 +146,7 @@ func TypeChain(ref resolution.TypeRef, table *resolution.Table) []resolution.Typ
 	return chain
 }
 
-// TypeRules returns the merged type-level rules of types. Skip and LessThan never apply
-// to a type.
+// TypeRules returns the merged type-level rules of types. Skip never applies to a type.
 func TypeRules(types []resolution.Type) *Rules {
 	rules := &Rules{}
 	for _, t := range types {
@@ -168,7 +155,6 @@ func TypeRules(types []resolution.Type) *Rules {
 		}
 	}
 	rules.Skip = false
-	rules.LessThan = nil
 	return rules
 }
 
@@ -181,9 +167,6 @@ func Merge(a, b *Rules) *Rules {
 	out.Required = a.Required || b.Required
 	out.Finite = a.Finite || b.Finite
 	out.Skip = a.Skip || b.Skip
-	if out.LessThan == nil {
-		out.LessThan = b.LessThan
-	}
 	out.MinLength = tighterLength(a.MinLength, b.MinLength, true)
 	out.MaxLength = tighterLength(a.MaxLength, b.MaxLength, false)
 	out.Min = tighterNumber(a.Min, b.Min, true)
@@ -238,6 +221,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && !r.Finite && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil &&
-		r.LessThan == nil
+		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil
 }

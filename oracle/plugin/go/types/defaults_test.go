@@ -824,11 +824,11 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 
 				Range struct {
 					min float64 {
-						@validate lt max
+						@go validate lt max
 					}
 					max float64
 					low int32 {
-						@validate lt high "low must be below high"
+						@go validate lt high "low must be below high"
 					}
 					high int32
 					lower uint32 {

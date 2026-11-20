@@ -232,12 +232,11 @@ and never overwrite a value the caller sent.
 
 ## Field comparisons
 
-`@validate lt <field> ["message"]` on a number field requires it to be less than another
-required number field of the same struct, such as a `min_val` below a `max_val`. Go
-checks it in the struct's `Validate`, TypeScript in a `zod.lessThan` check on the object
-schema, and Python in a model validator. `@go validate lt <field> ["message"]` sets the
-same rule for Go alone. The analyzer rejects it on a type, on a generic struct, and on
-fields of different types or that are not required numbers.
+`@go validate lt <field> ["message"]` on a number field requires it to be less than
+another required number field of the same type in its struct, such as a `min_val` below
+a `max_val`. Only Go checks it, in the struct's `Validate`: clients must still read a
+stored value that breaks it. The analyzer rejects it on a type, in a generic struct, and
+on fields it cannot compare.
 
 ## Contextual validation
 
