@@ -11,5 +11,4 @@ export * from "@/platform/task/payload/AdditionalFields";
 export * from "@/platform/task/payload/ChannelSections";
 export * from "@/platform/task/payload/DataTypeField";
 export * from "@/platform/task/payload/EnumMappingSection";
-export * from "@/platform/task/payload/read";
 export * from "@/platform/task/payload/TimeFormatField";
