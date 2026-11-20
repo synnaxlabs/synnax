@@ -17,9 +17,11 @@ import { CSS } from "@/platform/css";
 
 type Mode = lineplot.TimeMode;
 
+const ICON_CLASS = CSS.BE("line-plot", "toolbar", "time-mode-icon");
+
 const ICONS: Record<Mode, ReactElement> = {
-  absolute: <Icon.Time />,
-  relative: <Icon.Timeline />,
+  absolute: <Icon.Time className={ICON_CLASS} />,
+  relative: <Icon.Timeline className={ICON_CLASS} />,
 };
 
 const LABELS: Record<Mode, string> = { absolute: "Absolute", relative: "Relative" };
@@ -47,7 +49,9 @@ export const TimeModeSelect = (): ReactElement => {
   const item = (mode: Mode) => (
     <Select.Item itemKey={mode} size="medium" tooltip={TOOLTIPS[mode]}>
       {ICONS[mode]}
-      {LABELS[mode]}
+      <span className={CSS.BE("line-plot", "toolbar", "time-mode-label")}>
+        {LABELS[mode]}
+      </span>
     </Select.Item>
   );
   return (

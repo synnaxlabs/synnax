@@ -45,14 +45,16 @@ import { useSetT0Modal } from "@/feature/lineplot/useSetT0Modal";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import {
   countHidden,
+  inScope,
   type Item,
   NONE_HIDDEN,
   type Scope,
   setItemVisible,
+  showOnly,
+  toggleSolo,
   type Visibility,
 } from "@/feature/lineplot/visibility";
 import { Sift } from "@/feature/sift";
-import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import type { Panel } from "@/platform/panel";
@@ -101,7 +103,8 @@ interface Compare {
   refs: ranger.Ref[];
   ranges: Base.RangeSpec[];
   hovered: Base.Hovered | null;
-  onItemVisibleChange: (item: Item, visible: boolean, solo: boolean) => void;
+  onItemVisibleChange: (item: Item, visible: boolean) => void;
+  onShowOnly: (item: Item) => void;
   hiddenCount: number;
   /** The key of the range the plot is zoomed to, if any. */
   zoomed: string | null;
@@ -124,6 +127,7 @@ const CompareMenuItems = ({
     ranges,
     hovered,
     onItemVisibleChange,
+    onShowOnly,
     hiddenCount,
     zoomed,
     onShowAll,
@@ -162,10 +166,10 @@ const CompareMenuItems = ({
       const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null || range.zero == null) return;
       const s = scale.Scale.scale<number>(bounds.x1).scale(1);
-      const end = Number(timeRange.end.sub(range.zero).valueOf());
+      const zero = range.zero.valueOf();
       linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(0),
-        upper: s.pos(end),
+        lower: s.pos(Number(timeRange.start.valueOf() - zero)),
+        upper: s.pos(Number(timeRange.end.valueOf() - zero)),
       });
     }, "Failed to zoom to range");
   return (
@@ -180,9 +184,7 @@ const CompareMenuItems = ({
       )}
       <Menu.Item
         itemKey="showOnlyRange"
-        onClick={() =>
-          onItemVisibleChange({ variant: "range", range: range.key }, true, true)
-        }
+        onClick={() => onShowOnly({ variant: "range", range: range.key })}
       >
         <Icon.Visible /> Show only this range
       </Menu.Item>
@@ -190,16 +192,14 @@ const CompareMenuItems = ({
         <>
           <Menu.Item
             itemKey="showOnlyLine"
-            onClick={() =>
-              onItemVisibleChange({ variant: "line", line: target.line }, true, true)
-            }
+            onClick={() => onShowOnly({ variant: "line", line: target.line })}
           >
             <Icon.Visible /> Show only this channel
           </Menu.Item>
           <Menu.Item
             itemKey="hideLine"
             onClick={() =>
-              onItemVisibleChange({ variant: "line", line: target.line }, false, false)
+              onItemVisibleChange({ variant: "line", line: target.line }, false)
             }
           >
             <Icon.Hidden /> Hide this channel in all ranges
@@ -356,32 +356,36 @@ const Internal = (): ReactElement => {
   const refs = Base.useRanges();
   const ranges = Session.Range.useResolveRanges(refs, Base.useRangeColors({}));
   const x1 = Base.useXAxis({ axisKey: "x1" });
-  const relative = FLAGS.compare && Base.isRelative(x1);
+  const relative = Base.isRelative(x1);
 
   const derived = Base.useLines();
-  const hidden = Session.LinePlot.useSelectHidden();
-  const soloRestore = Session.LinePlot.useSelectSoloRestore();
-  const { dispatch: dispatchPlot } = Base.useDispatch();
-  const hoveredRef = useRef<Base.Hovered | null>(null);
   const scope: Scope = {
-    ranges: ranges.map((r) => r.key),
+    ranges: ranges.filter((r) => r.zero != null).map((r) => r.key),
     lines: derived.map((d) => d.key),
   };
+  const hidden = inScope(Session.LinePlot.useSelectHidden(), scope);
+  const solo = Session.LinePlot.useSelectSolo();
+  const { dispatch: dispatchPlot } = Base.useDispatch();
+  const hoveredRef = useRef<Base.Hovered | null>(null);
   const setVisibility = (next: Visibility) =>
     dispatch(Session.LinePlot.setHidden({ key, ...next }));
-  const handleItemVisibleChange = (item: Item, itemVisible: boolean, solo: boolean) =>
-    setVisibility(
-      setItemVisible({ hidden, soloRestore }, item, itemVisible, solo, scope),
-    );
-  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, soloRestore: null });
-  const handleLineVisibleChange = (lineKey: string, v: boolean, solo: boolean) => {
+  const handleItemVisibleChange = (item: Item, itemVisible: boolean) =>
+    setVisibility(setItemVisible({ hidden, solo }, item, itemVisible, scope));
+  const handleShowOnly = (item: Item) =>
+    setVisibility(showOnly({ hidden, solo }, item, scope));
+  const handleLegendChange = (item: Item, itemVisible: boolean, isSolo: boolean) =>
+    isSolo
+      ? setVisibility(toggleSolo({ hidden, solo }, item, scope))
+      : handleItemVisibleChange(item, itemVisible);
+  const handleShowAll = () => setVisibility({ hidden: NONE_HIDDEN, solo: null });
+  const handleLineVisibleChange = (lineKey: string, v: boolean, isSolo: boolean) => {
     const trace = relative ? Base.parseTraceKey(lineKey, ranges) : null;
-    if (!relative) handleItemVisibleChange({ variant: "line", line: lineKey }, v, solo);
+    if (!relative) handleLegendChange({ variant: "line", line: lineKey }, v, isSolo);
     else if (trace != null)
-      handleItemVisibleChange({ variant: "trace", ...trace }, v, solo);
+      handleLegendChange({ variant: "trace", ...trace }, v, isSolo);
   };
-  const handleRangeVisibleChange = (range: string, v: boolean, solo: boolean) =>
-    handleItemVisibleChange({ variant: "range", range }, v, solo);
+  const handleRangeVisibleChange = (range: string, v: boolean, isSolo: boolean) =>
+    handleLegendChange({ variant: "range", range }, v, isSolo);
   const handleRangeColorChange = (rangeKey: string, c: color.Color) => {
     const ref = refs.find((r) => Session.Range.keyOf(r) === rangeKey);
     if (ref == null) return;
@@ -480,6 +484,7 @@ const Internal = (): ReactElement => {
               ranges,
               hovered: keys.length === 0 ? menuHovered : null,
               onItemVisibleChange: handleItemVisibleChange,
+              onShowOnly: handleShowOnly,
               hiddenCount,
               zoomed,
               onShowAll: handleShowAll,
@@ -512,7 +517,7 @@ const Internal = (): ReactElement => {
           hiddenTraces={new Set(hidden.traces)}
           onLineVisibleChange={handleLineVisibleChange}
           onRangeVisibleChange={handleRangeVisibleChange}
-          onRangeColorChange={handleRangeColorChange}
+          onRangeColorChange={hasUpdatePermission ? handleRangeColorChange : undefined}
           legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
           onZoomedChange={setZoomed}
