@@ -133,15 +133,11 @@ export const takenPointers = (shape: json.Shape, { pointers }: Reads): Set<strin
 };
 
 /**
- * @returns the pointers that any key of a shape reads, or that a new record of its keys
- * carries. Their messages gain the picks of the shape, so the picks must not mix
- * variable-length fields among them.
+ * @returns the pointers that any key of a shape reads. Their messages gain the picks of
+ * the shape, so the picks must not mix variable-length fields among them.
  */
-export const heldPointers = (shape: json.Shape, reads: Reads): Set<string> =>
-  new Set([
-    ...shape.sources.flatMap((key) => [...(reads.pointers.get(key) ?? [])]),
-    ...carriedFields(shape, reads).keys(),
-  ]);
+export const heldPointers = (shape: json.Shape, { pointers }: Reads): Set<string> =>
+  new Set(shape.sources.flatMap((key) => [...(pointers.get(key) ?? [])]));
 
 /**
  * @returns the fields that a click on a shape picks: each one that a key of the shape
