@@ -91,25 +91,24 @@ const rangeItem = Component.renderProp(RangeItem);
 const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
 
 interface RollingTagProps {
-  itemKey: string;
+  onRemove: () => void;
   window: DynamicWindow;
 }
 
-const RollingTag = ({ itemKey, window }: RollingTagProps): ReactElement => {
-  const { onSelect } = Select.useItemState(itemKey);
+const RollingTag = ({ onRemove, window }: RollingTagProps): ReactElement => {
   return (
-    <Tag.Tag icon={liveIcon} onClose={onSelect} level="small" size="small">
+    <Tag.Tag icon={liveIcon} onClose={onRemove} level="small" size="small">
       {new TimeSpan(window.timeSpan).toString()}
     </Tag.Tag>
   );
 };
 
 interface KeyTagProps {
+  onRemove: () => void;
   range: ranger.KeyRef;
 }
 
-const KeyTag = ({ range: { key } }: KeyTagProps): ReactElement => {
-  const { onSelect } = Select.useItemState(key);
+const KeyTag = ({ onRemove, range: { key } }: KeyTagProps): ReactElement => {
   const result = Ranger.useResult({ key });
   let name = "";
   let tooltip: string | undefined;
@@ -128,7 +127,7 @@ const KeyTag = ({ range: { key } }: KeyTagProps): ReactElement => {
   return (
     <Tag.Tag
       icon={icon}
-      onClose={onSelect}
+      onClose={onRemove}
       level="small"
       size="small"
       textColor={result.variant === "error" ? 8 : undefined}
@@ -169,19 +168,18 @@ const formatExact = ({ start, end }: TimeRange): string =>
   `${start.toPreciseString("local")} → ${end.toPreciseString("local")}`;
 
 interface StaticTagProps {
-  itemKey: string;
+  onRemove: () => void;
   window: StaticWindow;
 }
 
-const StaticTag = ({ itemKey, window }: StaticTagProps): ReactElement => {
-  const { onSelect } = Select.useItemState(itemKey);
+const StaticTag = ({ onRemove, window }: StaticTagProps): ReactElement => {
   const timeRange = resolveWindow(window, TimeStamp.now());
   // The day prefix changes at midnight.
   const now = useNow((now) => Telem.Text.nextMidnight(now));
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
-      onClose={onSelect}
+      onClose={onRemove}
       level="small"
       size="small"
       tooltip={formatExact(timeRange)}
@@ -430,14 +428,14 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
         {status.message}
       </Status.Summary>
     );
-  const renderTag = ({ itemKey }: Select.MultipleTagProps<string>) => {
+  const renderTag = ({ itemKey, onRemove }: Select.MultipleTagProps<string>) => {
     const entry = entries.find(({ key }) => key === itemKey);
     if (entry == null) return null;
     const { ref } = entry;
-    if (ref.variant === "key") return <KeyTag key={itemKey} range={ref} />;
+    if (ref.variant === "key") return <KeyTag key={itemKey} onRemove={onRemove} range={ref} />;
     if (ref.window.variant === "dynamic")
-      return <RollingTag key={itemKey} itemKey={itemKey} window={ref.window} />;
-    return <StaticTag key={itemKey} itemKey={itemKey} window={ref.window} />;
+      return <RollingTag key={itemKey} onRemove={onRemove} window={ref.window} />;
+    return <StaticTag key={itemKey} onRemove={onRemove} window={ref.window} />;
   };
   return (
     <Input.Item x label="Ranges" {...props} {...dropProps}>

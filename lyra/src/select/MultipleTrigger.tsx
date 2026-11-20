@@ -45,6 +45,8 @@ export interface MultipleTagProps<K extends record.Key> extends Omit<
   "onDragStart"
 > {
   itemKey: K;
+  /** Removes only this tag's key from the selection, whatever modifier keys are held. */
+  onRemove: () => void;
   onDragStart: (key: K, event: DragEvent<HTMLElement>) => void;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
@@ -54,23 +56,16 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   icon,
   onDragStart,
   onClick,
+  onRemove,
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const fixed = useIsFixed(itemKey);
   const item = List.useItem<K, E>(itemKey);
-  const { getState, setSelected } = useContext<K>();
-  // In a multiple frame, a reselect no-op means the selection cannot be empty.
-  const reselectNoop = useReselectNoop();
-  const remove = (): void => {
-    const next = array.toArray(getState().value).filter((k) => k !== itemKey);
-    if (next.length === 0 && reselectNoop) return;
-    setSelected(next);
-  };
   const label = primitive.isNonZero(item?.name) ? item.name : itemKey.toString();
   const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
-      onClose={remove}
+      onClose={onRemove}
       onClick={onClick}
       onDragStart={(event) => onDragStart(itemKey, event)}
       draggable
@@ -156,7 +151,9 @@ export const MultipleTrigger = <
   size,
 }: MultipleTriggerProps<K, E>): ReactElement | null => {
   const value = useSelected<K>();
-  const { setSelected } = useContext<K>();
+  const { getState, setSelected } = useContext<K>();
+  // In a multiple frame, a reselect no-op means the selection cannot be empty.
+  const reselectNoop = useReselectNoop();
   const { getItem } = List.useUtilContext<K, E>();
   const { toggle, toggleAt, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
@@ -170,6 +167,12 @@ export const MultipleTrigger = <
       return dropped;
     },
   });
+
+  const removeKey = (key: K): void => {
+    const next = array.toArray(getState().value).filter((k) => k !== key);
+    if (next.length === 0 && reselectNoop) return;
+    setSelected(next);
+  };
 
   const handleSuccessfulDrop = ({ dropped }: Haul.OnSuccessfulDropProps) => {
     const res = value.filter((key) => !dropped.some((h) => h.key === key));
@@ -291,6 +294,7 @@ export const MultipleTrigger = <
         children({
           key: v,
           itemKey: v,
+          onRemove: () => removeKey(v),
           onDragStart: onTagDragStart,
           onClick: openAt,
           icon,
