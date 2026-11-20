@@ -176,3 +176,8 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+tool (
+	github.com/onsi/ginkgo/v2/ginkgo
+	golang.org/x/tools/cmd/stringer
+)

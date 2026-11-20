@@ -20,7 +20,7 @@ import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
-  where: { integrations: { any: ["arc"] } },
+  where: { integrations: { any: [PlatformArc.INTEGRATION_KEY] } },
 };
 const RACK_TRIGGER_PROPS = {
   className: CSS.BE("rack-select", "trigger"),
