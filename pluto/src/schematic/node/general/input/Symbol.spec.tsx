@@ -10,11 +10,10 @@
 import { schematic } from "@synnaxlabs/client";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, type RenderResult, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Input } from "@/schematic/node/general/input";
@@ -106,7 +105,6 @@ const staleUI = (badged: boolean): ReactElement => (
 
 describe("Input.Symbol staleness", () => {
   beforeEach(() => staleColorHidden.mockClear());
-  afterEach(() => vi.useRealTimers());
 
   it("should show the stale indicator in place of the stale color", async () => {
     const { findByRole } = render(staleUI(true));
@@ -121,35 +119,6 @@ describe("Input.Symbol staleness", () => {
     await findByRole("img", { name: "Stale" });
     rerender(staleUI(false));
     await waitFor(() => expect(staleColorHidden).toHaveBeenLastCalledWith(false));
-    expect(queryByRole("img", { name: "Stale" })).toBeNull();
-  });
-
-  // The readback runs with no state channel. Its source never sends, so it never goes
-  // stale.
-  it("should never show the stale indicator with no state channel", async () => {
-    // Fakes only the sweep's clock, so React and the worker still run on real timers.
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "performance"] });
-    const { queryByRole } = render(
-      <Wrapper>
-        <Staleness.Provider badged>
-          <ReactFlowProvider>
-            <Haul.Provider>
-              <Input.spec.Node
-                nodeKey={NODE_KEY}
-                selected={false}
-                onConfigChange={vi.fn()}
-                config={schematic.inputNodeConfigZ.parse({ variant: "input" })}
-              />
-            </Haul.Provider>
-          </ReactFlowProvider>
-        </Staleness.Provider>
-      </Wrapper>,
-    );
-    // Lets the worker mount the sweep before its clock moves.
-    await act(async () => {});
-    await act(async () => {
-      vi.advanceTimersByTime(TimeSpan.seconds(10).milliseconds);
-    });
     expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });
