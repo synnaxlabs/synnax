@@ -547,7 +547,7 @@ describe("Schematic toolbar Properties", () => {
             : { ...createBoxConfig(), strokeColor: GREEN },
       });
       await screen.findByText("Selection");
-      expect(selectionSwatches()).toHaveLength(1);
+      expect(getSwatches("Selection")).toHaveLength(1);
     });
 
     it("sets a staleness color only on the symbols that have staleness", async () => {
