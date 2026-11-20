@@ -53,12 +53,17 @@ export interface Served {
   paths: string[];
   /** Stops answering, as a Driver that went down. */
   stop: () => void;
+  /** Holds each answer until {@link Served.release}, as a slow Driver. */
+  hold: () => void;
+  /** Sends the held answers, then answers at once again. */
+  release: () => Promise<void>;
 }
 
 /**
  * Answers each list command to the browser as a Driver does, with the listing of its
- * path. A path with no listing gets the error of a missing folder. Answers until the
- * test ends or it stops.
+ * path. A path with no listing gets the error of a missing folder. It reads the
+ * listings when it answers, so a spec can change them between answers. Answers until
+ * the test ends or it stops.
  */
 export const serveListings = async (
   client: Synnax,
@@ -67,39 +72,52 @@ export const serveListings = async (
 ): Promise<Served> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   const paths: string[] = [];
+  let held: task.Command[] | null = null;
   let finished = false;
   const stop = (): void => {
     finished = true;
     streamer.close();
   };
   onTestFinished(stop);
+  const answer = async (cmd: task.Command): Promise<void> => {
+    const { path } = listArgsZ.parse(cmd.args);
+    const listing = listings.find((l) => l.path === path);
+    await answerCommand(
+      client,
+      browser,
+      cmd,
+      listing == null
+        ? {
+            variant: "error",
+            message: "Failed to list files",
+            description: `${path} does not exist.`,
+          }
+        : { data: listing },
+    );
+  };
   const respond = async (): Promise<void> => {
     for (;;) {
       const frame = await streamer.read();
       for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
         const cmd = task.commandZ.parse(sample);
         if (cmd.task !== browser.key || cmd.type !== "list") continue;
-        const { path } = listArgsZ.parse(cmd.args);
-        paths.push(path);
-        const listing = listings.find((l) => l.path === path);
-        await answerCommand(
-          client,
-          browser,
-          cmd,
-          listing == null
-            ? {
-                variant: "error",
-                message: "Failed to list files",
-                description: `${path} does not exist.`,
-              }
-            : { data: listing },
-        );
+        paths.push(listArgsZ.parse(cmd.args).path);
+        if (held != null) held.push(cmd);
+        else await answer(cmd);
       }
     }
+  };
+  const hold = (): void => {
+    held ??= [];
+  };
+  const release = async (): Promise<void> => {
+    const queued = held ?? [];
+    held = null;
+    for (const cmd of queued) await answer(cmd);
   };
   // The read fails once the streamer closes at the end of the test.
   respond().catch((e: unknown) => {
     if (!finished) throw errors.fromUnknown(e);
   });
-  return { paths, stop };
+  return { paths, stop, hold, release };
 };

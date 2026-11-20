@@ -112,6 +112,29 @@ describe("FileBrowser.useModal", () => {
     expect(served.paths).toEqual([""]);
   });
 
+  it("should list a reopened folder again and keep the selection", async () => {
+    const listings = [TOP];
+    const { result, reopen, served } = await openBrowser(listings);
+    await screen.findByText("secrets");
+    fireEvent.click(findButton("Cancel"));
+    await expect(result()).resolves.toBeNull();
+    const extra: FileBrowser.Entry = {
+      name: "extra",
+      path: "/extra",
+      kind: "directory",
+    };
+    listings[0] = { ...TOP, entries: [...TOP.entries, extra] };
+    served.hold();
+    reopen();
+    fireEvent.click(await screen.findByText("secrets"));
+    await screen.findByRole("option", { name: "secrets", selected: true });
+    await served.release();
+    await screen.findByText("extra");
+    expect(
+      screen.getByRole("option", { name: "secrets", selected: true }),
+    ).toBeDefined();
+  });
+
   it("should find the file browser again once the rack gains it", async () => {
     const r = await createRunningRack(client, "file");
     const { result, reopen } = await renderModalOpener(
