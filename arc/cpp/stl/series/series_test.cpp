@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -508,16 +509,24 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
 
-#define TEST_ELEMENT_MOD_ZERO(suffix)                                                  \
-    TEST(SeriesModule, element_modByZero_##suffix) {                                   \
+#define TEST_ELEMENT_ZERO_DIVISOR_TRAPS(suffix, op_name)                               \
+    TEST(SeriesModule, op_name##ZeroScalarTraps_##suffix) {                            \
         SETUP_ELEMENT_FIXTURE(suffix, 10, 20)                                          \
-        auto result = f.get("element_mod")                                             \
-                          .call(                                                       \
-                              f.store,                                                 \
-                              {wasmtime::Val(h), make_wasm_val(#suffix, 0)}            \
-                          )                                                            \
-                          .unwrap();                                                   \
-        EXPECT_EQ(result[0].i32(), 0);                                                 \
+        expect_failure(                                                                \
+            f.get(#op_name)                                                            \
+                .call(f.store, {wasmtime::Val(h), make_wasm_val(#suffix, 0)}),         \
+            "integer divide by zero"                                                   \
+        );                                                                             \
+    }
+
+#define TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, op_name)                               \
+    TEST(SeriesModule, op_name##ZeroElementTraps_##suffix) {                           \
+        SETUP_ELEMENT_FIXTURE(suffix, 10, 0)                                           \
+        expect_failure(                                                                \
+            f.get(#op_name)                                                            \
+                .call(f.store, {make_wasm_val(#suffix, 5), wasmtime::Val(h)}),         \
+            "integer divide by zero"                                                   \
+        );                                                                             \
     }
 
 #define ALL_ELEMENT_TESTS(suffix, get_val)                                             \
@@ -529,7 +538,6 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
     TEST_ELEMENT_OP_NULL(suffix, element_sub)                                          \
     TEST_ELEMENT_OP_NULL(suffix, element_mul)                                          \
     TEST_ELEMENT_OP_NULL(suffix, element_div)                                          \
-    TEST_ELEMENT_DIV_ZERO(suffix)                                                      \
     TEST_REVERSE_OP(suffix, element_radd, 5, 15, get_val)                              \
     TEST_REVERSE_OP(suffix, element_rsub, 30, 20, get_val)                             \
     TEST_REVERSE_OP(suffix, element_rmul, 2, 20, get_val)                              \
@@ -543,9 +551,12 @@ wasmtime::Val make_wasm_val(const std::string &suffix, double v) {
     ALL_ELEMENT_TESTS(suffix, get_val)                                                 \
     TEST_ELEMENT_OP(suffix, element_mod, 3, 1, get_val)                                \
     TEST_ELEMENT_OP_NULL(suffix, element_mod)                                          \
-    TEST_ELEMENT_MOD_ZERO(suffix)                                                      \
     TEST_REVERSE_OP(suffix, element_rmod, 23, 3, get_val)                              \
-    TEST_REVERSE_OP_NULL(suffix, element_rmod)
+    TEST_REVERSE_OP_NULL(suffix, element_rmod)                                         \
+    TEST_ELEMENT_ZERO_DIVISOR_TRAPS(suffix, element_div)                               \
+    TEST_ELEMENT_ZERO_DIVISOR_TRAPS(suffix, element_mod)                               \
+    TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, element_rdiv)                              \
+    TEST_REVERSE_ZERO_DIVISOR_TRAPS(suffix, element_rmod)
 
 ALL_ELEMENT_TESTS_INT(u8, i32)
 ALL_ELEMENT_TESTS_INT(u16, i32)
@@ -557,14 +568,79 @@ ALL_ELEMENT_TESTS_INT(i32, i32)
 ALL_ELEMENT_TESTS_INT(i64, i64)
 ALL_ELEMENT_TESTS(f32, f32)
 ALL_ELEMENT_TESTS(f64, f64)
+TEST_ELEMENT_DIV_ZERO(f32)
+TEST_ELEMENT_DIV_ZERO(f64)
+
+#define TEST_ELEMENT_SIGNED_OVERFLOW(suffix, cpptype, get_val)                         \
+    TEST(SeriesModule, element_divSignedMinByNegativeOneWraps_##suffix) {              \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_ELEMENT_FIXTURE(suffix, static_cast<double>(min), 4)                     \
+        auto rh = f.get("element_div")                                                 \
+                      .call(f.store, {wasmtime::Val(h), make_wasm_val(#suffix, -1)})   \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), min);                                              \
+    }                                                                                  \
+    TEST(SeriesModule, element_modSignedMinByNegativeOneIsZero_##suffix) {             \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_ELEMENT_FIXTURE(suffix, static_cast<double>(min), 4)                     \
+        auto rh = f.get("element_mod")                                                 \
+                      .call(f.store, {wasmtime::Val(h), make_wasm_val(#suffix, -1)})   \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), 0);                                                \
+    }                                                                                  \
+    TEST(SeriesModule, element_rdivSignedMinByNegativeOneWraps_##suffix) {             \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_ELEMENT_FIXTURE(suffix, -1, 1)                                           \
+        auto rh = f.get("element_rdiv")                                                \
+                      .call(                                                           \
+                          f.store,                                                     \
+                          {make_wasm_val(#suffix, static_cast<double>(min)),           \
+                           wasmtime::Val(h)}                                           \
+                      )                                                                \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), min);                                              \
+    }                                                                                  \
+    TEST(SeriesModule, element_rmodSignedMinByNegativeOneIsZero_##suffix) {            \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_ELEMENT_FIXTURE(suffix, -1, 1)                                           \
+        auto rh = f.get("element_rmod")                                                \
+                      .call(                                                           \
+                          f.store,                                                     \
+                          {make_wasm_val(#suffix, static_cast<double>(min)),           \
+                           wasmtime::Val(h)}                                           \
+                      )                                                                \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), 0);                                                \
+    }
+
+TEST_ELEMENT_SIGNED_OVERFLOW(i32, int32_t, i32)
+TEST_ELEMENT_SIGNED_OVERFLOW(i64, int64_t, i64)
 
 #undef SETUP_ELEMENT_FIXTURE
 #undef TEST_ELEMENT_OP
 #undef TEST_ELEMENT_OP_NULL
 #undef TEST_REVERSE_OP
 #undef TEST_REVERSE_OP_NULL
+#undef TEST_REVERSE_ZERO_DIVISOR_TRAPS
+#undef TEST_ELEMENT_ZERO_DIVISOR_TRAPS
+#undef TEST_ELEMENT_SIGNED_OVERFLOW
 #undef TEST_ELEMENT_DIV_ZERO
-#undef TEST_ELEMENT_MOD_ZERO
 #undef ALL_ELEMENT_TESTS
 #undef ALL_ELEMENT_TESTS_INT
 
@@ -632,6 +708,15 @@ ALL_ELEMENT_TESTS(f64, f64)
         EXPECT_EQ(result[0].i32(), 0);                                                 \
     }
 
+#define TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, op_name)                                \
+    TEST(SeriesModule, op_name##ZeroElementTraps_##suffix) {                           \
+        SETUP_TWO_SERIES(suffix, 10, 20, 2, 0)                                         \
+        expect_failure(                                                                \
+            f.get(#op_name).call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),     \
+            "integer divide by zero"                                                   \
+        );                                                                             \
+    }
+
 #define ALL_SERIES_OPS(suffix, get_val)                                                \
     TEST_SERIES_OP(suffix, series_add, 10, 20, 3, 4, 13, get_val)                      \
     TEST_SERIES_OP(suffix, series_sub, 10, 20, 3, 4, 7, get_val)                       \
@@ -645,7 +730,9 @@ ALL_ELEMENT_TESTS(f64, f64)
 #define ALL_SERIES_OPS_INT(suffix, get_val)                                            \
     ALL_SERIES_OPS(suffix, get_val)                                                    \
     TEST_SERIES_OP(suffix, series_mod, 10, 20, 3, 7, 1, get_val)                       \
-    TEST_SERIES_OP_NULL(suffix, series_mod)
+    TEST_SERIES_OP_NULL(suffix, series_mod)                                            \
+    TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, series_div)                                 \
+    TEST_SERIES_ZERO_DIVISOR_TRAPS(suffix, series_mod)
 
 ALL_SERIES_OPS_INT(u8, i32)
 ALL_SERIES_OPS_INT(u16, i32)
@@ -658,9 +745,40 @@ ALL_SERIES_OPS_INT(i64, i64)
 ALL_SERIES_OPS(f32, f32)
 ALL_SERIES_OPS(f64, f64)
 
+#define TEST_SERIES_SIGNED_OVERFLOW(suffix, cpptype, get_val)                          \
+    TEST(SeriesModule, series_divSignedMinByNegativeOneWraps_##suffix) {               \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_TWO_SERIES(suffix, static_cast<double>(min), 4, -1, 2)                   \
+        auto rh = f.get("series_div")                                                  \
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})           \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), min);                                              \
+    }                                                                                  \
+    TEST(SeriesModule, series_modSignedMinByNegativeOneIsZero_##suffix) {              \
+        constexpr auto min = std::numeric_limits<cpptype>::min();                      \
+        SETUP_TWO_SERIES(suffix, static_cast<double>(min), 4, -1, 2)                   \
+        auto rh = f.get("series_mod")                                                  \
+                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})           \
+                      .unwrap()[0]                                                     \
+                      .i32();                                                          \
+        auto val = f.get("index")                                                      \
+                       .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})  \
+                       .unwrap();                                                      \
+        EXPECT_EQ(val[0].get_val(), 0);                                                \
+    }
+
+TEST_SERIES_SIGNED_OVERFLOW(i32, int32_t, i32)
+TEST_SERIES_SIGNED_OVERFLOW(i64, int64_t, i64)
+
 #undef SETUP_TWO_SERIES
 #undef TEST_SERIES_OP
 #undef TEST_SERIES_OP_NULL
+#undef TEST_SERIES_ZERO_DIVISOR_TRAPS
+#undef TEST_SERIES_SIGNED_OVERFLOW
 #undef ALL_SERIES_OPS
 #undef ALL_SERIES_OPS_INT
 
