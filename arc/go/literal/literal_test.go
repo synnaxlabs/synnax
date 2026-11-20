@@ -889,6 +889,24 @@ var _ = Describe("Literal Parser", func() {
 				types.U64(),
 				"out of range for u64",
 			),
+			Entry(
+				"float above i64 range",
+				"10000000000000000000.0",
+				types.I64(),
+				"out of range for i64",
+			),
+			Entry(
+				"time unit above i64 range",
+				"10000000000.0s",
+				types.I64(),
+				"out of range for i64",
+			),
+			Entry(
+				"float above u64 range",
+				"100000000000000000000.0",
+				types.U64(),
+				"out of range for u64",
+			),
 		)
 	})
 })
