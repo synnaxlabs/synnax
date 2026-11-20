@@ -525,6 +525,17 @@ export class Lists<
     return moved;
   }
 
+  /**
+   * Admits the keys of a change. A window that the change leaves short of its limit
+   * fetches again, so the matches past its end fill it.
+   */
+  private admitChange(entry: Entry<Q, K, D, V, C>, keys: Iterable<K>): boolean {
+    const moved = this.admit(entry, keys);
+    if (entry.end != null && entry.keys.length < entry.limit)
+      this.scheduleRefetch(entry);
+    return moved;
+  }
+
   private qualifies(entry: Entry<Q, K, D, V, C>, record: V, fetched: boolean): boolean {
     const { matches, cursor, compare } = this.config;
     const matched = matches?.(record, entry.query) ?? null;
@@ -557,7 +568,7 @@ export class Lists<
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {
-      if (this.admit(entry, keys)) this.deliver(entry);
+      if (this.admitChange(entry, keys)) this.deliver(entry);
       return;
     }
     // Only the Core knows relevance. A change to a member shows at once, so a local
@@ -611,7 +622,7 @@ export class Lists<
     if (result.some((key) => members.has(key))) entry.composed = undefined;
     if (trigger.contentOnly !== true)
       if (entry.ranked) this.scheduleRefetch(entry);
-      else this.admit(entry, result);
+      else this.admitChange(entry, result);
     const admitted = new Set(entry.keys);
     if (!result.some((key) => admitted.has(key))) return;
     this.deliver(entry);

@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type NumericTimeRange, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 // A float64 holds the nanoseconds of this instant exactly.
 const EXACT = new Date(Date.UTC(2026, 0, 1));
@@ -195,5 +198,63 @@ describe("nextCrossing", () => {
   it("should not cross at an open end", () => {
     const ranges = [rangeOf(AT.sub(DAY), TimeStamp.MAX)];
     expect(Ranger.nextCrossing({ stages: ["in_progress"] }, ranges, AT)).toBeNull();
+  });
+});
+
+describe("useNextRanges", () => {
+  const client = createTestClient();
+  let wrapper: FC<PropsWithChildren>;
+  let at: TimeStamp;
+  let created: ranger.Key[];
+  const createAt = async (offset: TimeSpan): Promise<ranger.Range> => {
+    const start = at.add(offset);
+    const range = await client.ranges.create({
+      name: "next",
+      timeRange: new TimeRange(start, start.add(TimeSpan.HOUR)),
+    });
+    created.push(range.key);
+    return range;
+  };
+  const renderNext = () =>
+    renderHook(() => Ranger.useNextRanges({ stages: ["to_do"] }, at), { wrapper });
+  // The next range to start comes first. A running range of another spec may follow.
+  const startingOf = (ranges: ranger.Range[]): ranger.Key | undefined => ranges[0]?.key;
+
+  beforeEach(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    // Far past the ranges of other specs, so none of them starts between these.
+    at = TimeStamp.now().add(TimeSpan.days(365 * (100 + Math.random() * 100)));
+    created = [];
+  });
+  afterEach(async () => {
+    await client.ranges.delete(created);
+  });
+
+  it("should load the next range to start after the current one is deleted", async () => {
+    const first = await createAt(TimeSpan.minutes(1));
+    const second = await createAt(TimeSpan.minutes(2));
+    const { result } = renderNext();
+    await waitFor(() => expect(startingOf(result.current)).toBe(first.key));
+    await client.ranges.delete(first.key);
+    await waitFor(() => expect(startingOf(result.current)).toBe(second.key));
+  });
+
+  it("should show a created range that starts before the current one", async () => {
+    const later = await createAt(TimeSpan.minutes(2));
+    const { result } = renderNext();
+    await waitFor(() => expect(startingOf(result.current)).toBe(later.key));
+    const sooner = await createAt(TimeSpan.minutes(1));
+    await waitFor(() => expect(startingOf(result.current)).toBe(sooner.key));
+  });
+
+  it("should load the next range to start after the current one moves past it", async () => {
+    const moved = await createAt(TimeSpan.minutes(1));
+    const second = await createAt(TimeSpan.minutes(2));
+    const { result } = renderNext();
+    await waitFor(() => expect(startingOf(result.current)).toBe(moved.key));
+    const start = at.add(TimeSpan.minutes(3));
+    const value = { start: start.valueOf(), end: start.add(TimeSpan.HOUR).valueOf() };
+    await client.ranges.dispatch(moved.key, ranger.set({ path: ["timeRange"], value }));
+    await waitFor(() => expect(startingOf(result.current)).toBe(second.key));
   });
 });

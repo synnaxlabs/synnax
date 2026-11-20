@@ -347,6 +347,40 @@ describe("Lists", () => {
       expect(window?.end).toEqual({ key: "2", name: "b" });
     });
 
+    it("should fill a window that a deleted member leaves short", async () => {
+      const { table, core, list, handler } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records = core.records.filter((r) => r.key !== "1");
+      table.delete("1");
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
+    it("should fill a window that a member moved past the end leaves short", async () => {
+      const { table, core, list } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records[0] = rec("1", "z");
+      table.set("1", rec("1", "z"));
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+    });
+
+    it("should not fetch again when a change leaves the window full", async () => {
+      const { table, core, list, fetch } = await maintained([
+        rec("1", "a"),
+        rec("2", "c"),
+        rec("3", "d"),
+      ]);
+      core.records.push(rec("4", "b"));
+      table.set("4", rec("4", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b", "c"]);
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("should place several changes of one batch", async () => {
       const { table, list } = await maintained([rec("1", "b"), rec("2", "d")], {
         order: byName,
