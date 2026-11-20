@@ -348,6 +348,7 @@ const buildPlotGrid = (g: grid.Grid): CSSProperties => {
   b.col("plot-start", "plot-end", "minmax(0, 1fr)");
   grid
     .regions("right", g)
+    .reverse()
     .forEach(({ key, size }) => b.col(`axis-start-${key}`, `axis-end-${key}`, size));
   return b.build();
 };
