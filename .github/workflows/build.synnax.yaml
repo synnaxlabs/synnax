@@ -418,13 +418,6 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install Rust
-        if: inputs.driver && env.DRIVER_REF_RUN_ID == ''
-        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
-        with:
-          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
-          cache-bin: false
-
       - name: Build Driver (Windows)
         if:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
@@ -1273,12 +1266,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Extract Go version
-        id: go-version
-        run:
-          echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
-          "$GITHUB_OUTPUT"
-
       # A rerun after a newer Core release must not move the channel back.
       - name: Resolve the channel
         id: channel
@@ -1318,7 +1305,6 @@ jobs:
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
-            GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   build-console-tauri:
     name: Build Console app

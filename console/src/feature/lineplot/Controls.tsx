@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { LinePlot, Viewport } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
@@ -26,7 +26,7 @@ export interface ControlsProps {
   hasAnnotations: boolean;
 }
 
-export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement => {
+export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
   const key = LinePlot.useKey();
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
@@ -159,5 +159,5 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
       )}
     </Vis.Controls>
   );
-});
+};
 Controls.displayName = "Controls";

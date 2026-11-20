@@ -228,6 +228,19 @@ export default manifest.define([
     serial: true,
   },
   { id: "releases/0-61-0/mqtt", script: "scripts/mqtt-read-task.ts", serial: true },
+  { id: "releases/0-62-0/sift", script: "scripts/sift-upload.ts", serial: true },
+  { id: "ranges/sift/connect", script: "scripts/sift-connect.ts", serial: true },
+  { id: "ranges/sift/upload", script: "scripts/sift-upload.ts", serial: true },
+  {
+    id: "ranges/sift/upload-region",
+    script: "scripts/sift-upload-region.ts",
+    serial: true,
+  },
+  {
+    id: "ranges/sift/stream-task",
+    script: "scripts/sift-stream-task.ts",
+    serial: true,
+  },
   {
     id: "console/tables/redline",
     script: "scripts/still-table-redline.ts",
