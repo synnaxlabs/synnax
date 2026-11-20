@@ -208,7 +208,7 @@ export class RollingAverage extends UnarySourceTransformer<
   // from a source with no count. Every change notifies, so a rewritten sample redraws
   // and staleness can count arrivals. A NaN sample enters the window like any other, so
   // the average reports it until it slides out.
-  protected shouldNotify({ data, appended }: Result<numeric.Value>): boolean {
+  protected override shouldNotify({ data, appended }: Result<numeric.Value>): boolean {
     if (this.props.windowSize < 2) return true;
     if (appended != null) {
       if (this.appended != null && appended <= this.appended) return true;
@@ -280,7 +280,7 @@ export class BandColor extends MultiSourceTransformer<
     );
   }
 
-  protected shouldNotify(): boolean {
+  protected override shouldNotify(): boolean {
     const next = this.value().data;
     if (this.notified != null && color.equals(this.notified, next)) return false;
     this.notified = next;

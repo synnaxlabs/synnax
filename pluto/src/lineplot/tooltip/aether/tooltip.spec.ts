@@ -30,9 +30,9 @@ const TOOLTIP_KEY = "tooltip";
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "tooltip-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, () => {});
   }
 }
