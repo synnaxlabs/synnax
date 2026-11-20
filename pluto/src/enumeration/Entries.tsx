@@ -177,7 +177,8 @@ export interface TableProps {
 
 /**
  * Edits a list of entries as a grid of name, value, color, and abnormal. A value that
- * another entry has stays in its cell, marked and unsent, until no other entry has it.
+ * another entry has stays in its cell, marked and unsent. It saves when the user's own
+ * edit frees it, and the cell shows the stored value again when another user frees it.
  * An entry that is hard to tell apart from the others shows a warning in its color.
  */
 export const Table = ({
