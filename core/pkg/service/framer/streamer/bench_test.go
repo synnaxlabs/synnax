@@ -20,8 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -39,6 +40,7 @@ type benchStreamerEnv struct {
 	node        testutil.Node
 	closer      io.MultiCloser
 	channelSvc  *channel.Service
+	creator     calctestutil.Creator
 	streamerSvc *streamer.Service
 }
 
@@ -64,6 +66,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	statusSvc = mustOpen(b, "status service", statusSvc, err)
 	channelSvc, err := channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -102,6 +105,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 			calc, channelSvc, statusSvc, labelSvc, groupSvc, node,
 		},
 		channelSvc:  channelSvc,
+		creator:     calctestutil.Creator{DB: node.DB, Channel: channelSvc},
 		streamerSvc: streamerSvc,
 	}
 }
@@ -168,17 +172,15 @@ func (e *benchStreamerEnv) createCalculation(
 	name, expression string,
 ) *channel.Channel {
 	b.Helper()
-	calc := &channel.Channel{
+	calc, err := e.creator.Create(e.ctx, calctestutil.Calculation{
 		Name:       name,
 		DataType:   telem.Float32T,
 		Expression: expression,
-	}
-	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
-		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
-	}); err != nil {
+	})
+	if err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
-	return calc
+	return &calc
 }
 
 // benchPipeline is a writer on writerKeys and a running streamer that has sent its

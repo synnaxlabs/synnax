@@ -14,7 +14,6 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -199,7 +198,9 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	}
 	cfg = w.propagateAuthority(cfg)
 	var (
-		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+		u = ControlUpdate{
+			Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
+		}
 		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
 			return cfg.Authorities[0], true
 		}
@@ -469,7 +470,7 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 func (w *streamWriter) close() error {
 	var err error
 	parentUpdate := ControlUpdate{
-		Transfers: make([]control.Transfer, 0, len(w.internal)),
+		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
 	}
 	for _, idx := range w.internal {
 		u, errClose := idx.Close()
@@ -870,7 +871,7 @@ func (w *idxWriter) endDomain(
 func (w *idxWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{
-		Transfers: make([]control.Transfer, 0, len(w.internal)),
+		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
 	}
 	for _, uWriter := range w.internal {
 		transfer, closeErr := uWriter.Close()
@@ -1092,7 +1093,9 @@ func (w virtualWriter) write(
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
 	var err error
-	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	update := ControlUpdate{
+		Transfers: make([]xcontrol.Transfer[ChannelKey], 0, len(w.internal)),
+	}
 	for _, chW := range w.internal {
 		transfer, closeErr := chW.Close()
 		if closeErr != nil {

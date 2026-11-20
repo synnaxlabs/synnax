@@ -323,7 +323,8 @@ var _ = Describe("Metrics upgrade", func() {
 			[]distchannel.Channel{idx},
 			MustSucceed(n.Channel.Allocate(ctx, data))...,
 		)
-		Expect(n.Channel.Create(ctx, stored)).To(Succeed())
+		Expect(n.Storage.TS.CreateChannel(ctx, distchannel.ToStorage(stored)...)).
+			To(Succeed())
 		calcIdx := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{{
 			Name:        prefix + "total_size_gb_time",
 			Leaseholder: node.KeyFree,

@@ -657,18 +657,19 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
-// ResolveMember resolves head, then tail as a member of head when tail is not empty.
-// options apply to head only, so a module member stays subject to export.
+// ResolveMember resolves parts[0], then each later part as a member of the symbol
+// before it. parts must not be empty. options apply to parts[0] only, so a module
+// member stays subject to export.
 func (s *Symbol) ResolveMember(
 	ctx context.Context,
-	head, tail string,
+	parts []string,
 	options ...ResolveOption,
 ) (*Symbol, error) {
-	sym, err := s.Resolve(ctx, head, options...)
-	if err != nil || tail == "" {
-		return sym, err
+	sym, err := s.Resolve(ctx, parts[0], options...)
+	for i := 1; err == nil && i < len(parts); i++ {
+		sym, err = sym.Resolve(ctx, parts[i])
 	}
-	return sym.Resolve(ctx, tail)
+	return sym, err
 }
 
 // resolve does the actual lexical walk. origin is the scope the caller

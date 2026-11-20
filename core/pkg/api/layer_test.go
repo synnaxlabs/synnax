@@ -239,8 +239,8 @@ var _ = Describe("Layer", func() {
 		]}`, keys[0], names[0], keys[1], names[1])))
 		stored := MustSucceed(node.Storage.TS.RetrieveChannels(
 			ctx,
-			keys[0].StorageKey(),
-			keys[1].StorageKey(),
+			uint32(keys[0]),
+			uint32(keys[1]),
 		))
 		Expect(stored).To(HaveLen(2))
 		Expect(stored[0].Name).To(Equal(names[0]))

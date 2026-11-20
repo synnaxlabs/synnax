@@ -85,6 +85,16 @@ test("decode varied", async ({ bench }) => {
   }).run();
 });
 
+// A read can return many series for one channel, such as one for each stored domain.
+test("decode one channel", async ({ bench }) => {
+  const [key] = createKeys(1);
+  const codec = createCodec([key]);
+  const wire = codec.encode(createPayload(Array<number>(100).fill(key), 10));
+  await bench("100ser x 10smp", () => {
+    codec.decode(wire);
+  }).run();
+});
+
 {
   const keys = createKeys(100);
   const codec = createCodec(keys);

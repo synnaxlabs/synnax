@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -1369,9 +1368,12 @@ var _ = Describe("Control", func() {
 
 							t := db.ControlStates().Transfers
 							Expect(t).To(HaveLen(3))
-							names := lo.Map(t, func(t control.Transfer, _ int) string {
-								return t.To.Subject.Name
-							})
+							names := lo.Map(
+								t,
+								func(t xcontrol.Transfer[cesium.ChannelKey], _ int) string {
+									return t.To.Subject.Name
+								},
+							)
 							Expect(names).To(ConsistOf("writer1", "writer2", "writer2"))
 
 							Expect(w1.Close()).To(Succeed())

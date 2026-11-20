@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -33,6 +34,7 @@ type benchIterEnv struct {
 	node        testutil.Node
 	closer      io.MultiCloser
 	channelSvc  *channel.Service
+	creator     calctestutil.Creator
 	iteratorSvc *iterator.Service
 }
 
@@ -64,6 +66,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -88,6 +91,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 		channelSvc:  channelSvc,
+		creator:     calctestutil.Creator{DB: node.DB, Channel: channelSvc},
 		iteratorSvc: iteratorSvc,
 	}
 }
@@ -179,17 +183,15 @@ func (e *benchIterEnv) createCalculation(
 	name, expression string,
 ) *channel.Channel {
 	b.Helper()
-	calc := &channel.Channel{
+	calc, err := e.creator.Create(e.ctx, calctestutil.Calculation{
 		Name:       name,
 		DataType:   telem.Float32T,
 		Expression: expression,
-	}
-	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
-		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
-	}); err != nil {
+	})
+	if err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
-	return calc
+	return &calc
 }
 
 func BenchmarkIteratorCalc_SingleResponse(b *testing.B) {
