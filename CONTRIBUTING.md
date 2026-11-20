@@ -84,10 +84,8 @@ by its severity. A review starts two minutes after a PR opens, reopens, leaves d
 gets a push, or gets a new base, and a newer push in that time replaces the request. A
 head gets no second review on one base once one succeeds, and a push that leaves the
 diff the same, as a merge of the base does, gets the last review at once. To review that
-head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. A
-release branch cut from 0.62.0 or older still runs the old relay, so a push to a PR into
-it starts no review: run `gh workflow run review.sedosaur.yaml -f pr=<number>` after
-each push. To make Sedosaur stop reporting a finding, someone with write access replies
+head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. To
+make Sedosaur stop reporting a finding, someone with write access replies
 `@sedosaur dismiss` and a reason on its thread. A finding outside the diff has no
 thread: they run
 `gh workflow run dismiss.sedosaur.yaml -f pr=<number> -f finding='<title>' -f reason='<why>'`,
