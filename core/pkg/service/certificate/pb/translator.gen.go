@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	resourcepb "github.com/synnaxlabs/synnax/pkg/service/resource/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secretpb "github.com/synnaxlabs/synnax/pkg/service/secret/pb"
 	"github.com/synnaxlabs/x/defaults"
@@ -87,6 +88,13 @@ func BaseToPB(r certificate.Base) (*Base, error) {
 		Name: r.Name,
 		Key:  r.Key.String(),
 	}
+	if r.Uses != nil {
+		vals, err := resourcepb.IDSToPB(r.Uses)
+		if err != nil {
+			return nil, err
+		}
+		pb.Uses = &ResourceIdList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -106,6 +114,13 @@ func BaseFromPB(pb *Base) (certificate.Base, error) {
 		return certificate.Base{}, err
 	}
 	r.Name = pb.Name
+	if pb.Uses != nil {
+		vals, err := resourcepb.IDSFromPB(pb.Uses.Values)
+		if err != nil {
+			return certificate.Base{}, err
+		}
+		r.Uses = xpb.ListValues(vals)
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
