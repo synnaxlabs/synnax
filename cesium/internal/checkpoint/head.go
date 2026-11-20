@@ -52,7 +52,7 @@ const (
 var (
 	magic = []byte("CSCHKPT\x00")
 	// recordSizes holds the record size of each section kind of a head, from 1.
-	recordSizes = [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 80, 4, 4}
+	recordSizes = [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 96, 4, 4}
 )
 
 // Name returns the file name of the head of generation.

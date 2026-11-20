@@ -56,7 +56,7 @@ var entryRefusals = []refusal{
 		"commit record of 56 bytes does not hold 32 bytes and its 1 slots",
 	},
 	{"a long seal", long(4, concat(le64(1), le32(1, 1))), "seal record has 24 bytes"},
-	{"a long tombstone", long(5, make([]byte, 72)), "tombstone record has 80 bytes"},
+	{"a long tombstone", long(5, make([]byte, 88)), "tombstone record has 96 bytes"},
 	{
 		"a long replace",
 		long(6, concat(le64(1, 2), le32(1, 1, 0, 0))),
@@ -140,25 +140,25 @@ var entryRefusals = []refusal{
 	},
 	{
 		"a short tombstone",
-		rawEntry(raw{5, make([]byte, 64)}),
-		"tombstone record has 64 bytes, not 72",
+		rawEntry(raw{5, make([]byte, 80)}),
+		"tombstone record has 80 bytes, not 88",
 	},
 	{
 		"unknown tombstone flags",
-		rawEntry(raw{5, concat(le32(4, 4), make([]byte, 64))}),
+		rawEntry(raw{5, concat(le32(4, 4), make([]byte, 80))}),
 		"tombstone record of key 4 has unknown flags 0x4",
 	},
 	{
 		"a set byte in an absent cut",
 		rawEntry(
-			raw{5, concat(le32(4, 2), make([]byte, 16), le64(1), make([]byte, 40))},
+			raw{5, concat(le32(4, 2), make([]byte, 16), le64(1), make([]byte, 56))},
 		),
 		"tombstone record has a set reserved byte",
 	},
 	{
 		"a set reserved field in a cut",
 		rawEntry(raw{5, concat(le32(4, 1), make([]byte, 16), le64(1), le32(0, 1),
-			make([]byte, 32))}),
+			make([]byte, 48))}),
 		"tombstone record has a set reserved byte",
 	},
 	{

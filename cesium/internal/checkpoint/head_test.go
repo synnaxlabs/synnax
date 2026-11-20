@@ -70,7 +70,7 @@ var _ = Describe("Head", func() {
 			To(Equal(place.Head(db, generation, chunks).Sum(b[chunks:])))
 		Expect(binary.LittleEndian.Uint32(b[chunks:])).
 			To(Equal(place.Head(db, generation, 4096).Sum(b[4096:chunks])))
-		sizes := []uint32{48, 1, 24, 20, 32, 36, 80, 4, 4}
+		sizes := []uint32{48, 1, 24, 20, 32, 36, 96, 4, 4}
 		counts := []uint64{0, 0, 0, 3, 5, 5, 0, 2, 2}
 		for kind := 1; kind <= 9; kind++ {
 			e := b[table+uint64(kind-1)*24:]

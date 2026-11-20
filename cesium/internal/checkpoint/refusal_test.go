@@ -42,7 +42,7 @@ func table(b []byte) uint64                { return binary.LittleEndian.Uint64(b
 // at returns the file offset of field of record of section kind of head b.
 func at(b []byte, kind int, record, field uint64) uint64 {
 	off, _ := section(b, kind)
-	size := []uint64{0, 48, 1, 24, 20, 32, 36, 80, 4, 4}[kind]
+	size := []uint64{0, 48, 1, 24, 20, 32, 36, 96, 4, 4}[kind]
 	return off + record*size + field
 }
 

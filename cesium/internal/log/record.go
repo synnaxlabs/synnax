@@ -41,8 +41,8 @@ const (
 	headerSize      = 8
 	commitBaseSize  = 32
 	slotSize        = 16
-	tombstoneSize   = 72
-	cutSize         = 24
+	tombstoneSize   = 88
+	cutSize         = 32
 	replaceBaseSize = 32
 	pointerSize     = 40
 
@@ -122,8 +122,12 @@ type Cut struct {
 	Segment uint64
 	// Offset is the stream offset of the cut.
 	Offset uint32
-	// Alignment is the alignment of the sample at the cut.
+	// Alignment is the alignment of the sample at the cut: the first dead sample of a
+	// left cut, or the first live sample of a right cut.
 	Alignment uint64
+	// Stamp is the last live stamp before a left cut, or the stamp of the first live
+	// sample of a right cut.
+	Stamp int64
 }
 
 // Tombstone deletes a time range of a key.
@@ -298,7 +302,7 @@ func appendCut(dst []byte, c *Cut) []byte {
 	if c == nil {
 		return append(dst, make([]byte, cutSize)...)
 	}
-	return le64(le32(le64(dst, c.Segment), c.Offset, 0), c.Alignment)
+	return le64(le32(le64(dst, c.Segment), c.Offset, 0), c.Alignment, uint64(c.Stamp))
 }
 
 func (r *Tombstone) append(dst []byte) []byte {
@@ -324,6 +328,7 @@ func decodeCut(b []byte, set bool, c *Cut) (*Cut, error) {
 		Segment:   binary.LittleEndian.Uint64(b),
 		Offset:    binary.LittleEndian.Uint32(b[8:]),
 		Alignment: binary.LittleEndian.Uint64(b[16:]),
+		Stamp:     int64(binary.LittleEndian.Uint64(b[24:])),
 	}
 	return c, zeros("tombstone", b[12:16])
 }
@@ -348,7 +353,7 @@ func (r *Tombstone) decode(b []byte) error {
 	if r.Left, err = decodeCut(b[24:], flags&flagLeftCut != 0, &r.left); err != nil {
 		return err
 	}
-	r.Right, err = decodeCut(b[48:], flags&flagRightCut != 0, &r.right)
+	r.Right, err = decodeCut(b[24+cutSize:], flags&flagRightCut != 0, &r.right)
 	return err
 }
 

@@ -147,8 +147,8 @@ var (
 		Key:   4,
 		Start: 100,
 		End:   200,
-		Left:  &log.Cut{Segment: 2, Offset: 16, Alignment: 5<<32 | 2},
-		Right: &log.Cut{Segment: 3, Offset: 8, Alignment: 6<<32 | 1},
+		Left:  &log.Cut{Segment: 2, Offset: 16, Alignment: 5<<32 | 2, Stamp: 99},
+		Right: &log.Cut{Segment: 3, Offset: 8, Alignment: 6<<32 | 1, Stamp: 200},
 	}
 	replace = log.Replace{
 		Old:     2,
@@ -255,12 +255,12 @@ var _ = Describe("Record", func() {
 			&tombstone,
 			concat(
 				[]byte{5, 0, 0, 0},
-				le32(72, 4, 3),
+				le32(88, 4, 3),
 				le64(100, 200, 2),
 				le32(16, 0),
-				le64(5<<32|2, 3),
+				le64(5<<32|2, 99, 3),
 				le32(8, 0),
-				le64(6<<32|1),
+				le64(6<<32|1, 200),
 			),
 		),
 		Entry(
@@ -268,12 +268,12 @@ var _ = Describe("Record", func() {
 			&log.Tombstone{Key: 4, Start: 1, End: 2, Right: tombstone.Right},
 			concat(
 				[]byte{5, 0, 0, 0},
-				le32(72, 4, 2),
+				le32(88, 4, 2),
 				le64(1, 2),
-				make([]byte, 24),
+				make([]byte, 32),
 				le64(3),
 				le32(8, 0),
-				le64(6<<32|1),
+				le64(6<<32|1, 200),
 			),
 		),
 		Entry(
