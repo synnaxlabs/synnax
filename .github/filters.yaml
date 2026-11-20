@@ -368,6 +368,54 @@ codeql_cpp:
   - *driver
   - .github/workflows/codeql.yaml
 
+# Every path that changes a Go CodeQL analysis.
+codeql_go:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+  - "**/go.work"
+  - "**/go.work.sum"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a JavaScript and TypeScript CodeQL analysis.
+codeql_ts:
+  - "**/*.astro"
+  - "**/*.cjs"
+  - "**/*.cts"
+  - "**/*.htm"
+  - "**/*.html"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.mjs"
+  - "**/*.mts"
+  - "**/*.svelte"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.vue"
+  - "**/.npmrc"
+  - "**/package.json"
+  - "**/pnpm-lock.yaml"
+  - "**/pnpm-workspace.yaml"
+  - "**/tsconfig*.json"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a Python CodeQL analysis.
+codeql_python:
+  - "**/*.py"
+  - "**/*.pyi"
+  - "**/pyproject.toml"
+  - "**/requirements*.txt"
+  - "**/setup.cfg"
+  - "**/uv.lock"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a GitHub Actions CodeQL analysis.
+codeql_actions:
+  - "**/action.yaml"
+  - "**/action.yml"
+  - .github/actions/**
+  - .github/workflows/**
+
 # Every path that changes a Rust CodeQL analysis.
 codeql_rust:
   - "**/*.rs"

@@ -19,9 +19,9 @@ import { value } from "@/vis/value/aether";
 // Stands in for the worker component and reports its source as stale.
 class StaleValue extends aether.Leaf<typeof value.Value.z> {
   static readonly TYPE = value.Value.TYPE;
-  schema = value.Value.z;
+  override schema = value.Value.z;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
   }
 }

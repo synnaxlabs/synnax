@@ -8,7 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Image, type ImageProps, Video } from "@/components/media/Media";
+import type { ComponentProps } from "astro/types";
+
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 
 interface Rect {
     x: number;
@@ -93,7 +96,7 @@ interface ImageMediaProps extends BaseProps {
     /** A docs image id, for a picture that Studio did not capture. */
     image: string;
     themed?: boolean;
-    extension?: ImageProps["extension"];
+    extension?: ComponentProps<typeof Image>["extension"];
     layout: MediaLayout;
 }
 
@@ -127,6 +130,9 @@ if ("still" in props) {
     if (layout === "layered" && props.inset === true)
         throw new Error(`the ${props.still} hero cannot be both layered and inset`);
 }
+// The window is at most 960 of the hero's 792 units wide, and the toolbar still is 1280.
+const WINDOW_SIZES = "min(122vw, 960px)";
+const TOOLBAR_SIZES = "min(162vw, 1300px)";
 const style = [
     `--from: ${from}`,
     `--to: ${to}`,
@@ -152,13 +158,14 @@ const style = [
 >
     <div class="window">
         {still != null ? (
-            <Image id={still} extension="webp" alt={alt} />
+            <Image id={still} extension="webp" alt={alt} sizes={WINDOW_SIZES} />
         ) : "image" in props ? (
             <Image
                 id={props.image}
                 themed={props.themed}
                 extension={props.extension}
                 alt={alt}
+                sizes={WINDOW_SIZES}
             />
         ) : (
             "video" in props && (
@@ -168,7 +175,7 @@ const style = [
     </div>
     {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={still} extension="webp" alt="" />
+            <Image id={still} extension="webp" alt="" sizes={TOOLBAR_SIZES} />
         </div>
     )}
 </div>

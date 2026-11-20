@@ -62,9 +62,9 @@ SampleValue: TypeAlias = (
 )
 """A sample of a series whose data type is known only at runtime."""
 
+# Series and MultiSeries are covariant in T, which a PEP 695 type parameter cannot
+# declare.
 T = TypeVar("T", bound=SampleValue, covariant=True, default=SampleValue)
-U = TypeVar("U", bound=SampleValue)
-_N = TypeVar("_N", bound=np.number | np.bool_)
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -114,17 +114,15 @@ class _Codec(Protocol[T]):
     def iter(self, data: bytes) -> Iterator[T]: ...
 
 
-class _NumericCodec(Generic[_N]):
-    def __init__(self, scalar: type[_N]) -> None:
+class _NumericCodec[N: np.number | np.bool_]:
+    def __init__(self, scalar: type[N]) -> None:
         self._scalar = scalar
 
-    def get(self, data: bytes, index: int) -> _N:
+    def get(self, data: bytes, index: int) -> N:
         return self._scalar(np.frombuffer(data, self._scalar)[index])
 
-    def iter(self, data: bytes) -> Iterator[_N]:
-        samples: np.ndarray[tuple[int], np.dtype[_N]] = np.frombuffer(
-            data, self._scalar
-        )
+    def iter(self, data: bytes) -> Iterator[N]:
+        samples: np.ndarray[tuple[int], np.dtype[N]] = np.frombuffer(data, self._scalar)
         return iter(samples)
 
 
@@ -156,7 +154,7 @@ class _UUIDCodec:
         )
 
 
-class _VariableCodec(Generic[U]):
+class _VariableCodec[U: SampleValue]:
     def __init__(self, decode: Callable[[bytes], U]) -> None:
         self._decode = decode
 
@@ -223,7 +221,7 @@ _SAMPLE_TYPES: dict[DataType, type] = {
 }
 
 
-def _holds(series: Series, sample_type: type[U]) -> TypeIs[Series[U]]:
+def _holds[U: SampleValue](series: Series, sample_type: type[U]) -> TypeIs[Series[U]]:
     held = _SAMPLE_TYPES.get(series.data_type)
     return held is not None and issubclass(held, sample_type)
 
@@ -425,7 +423,7 @@ class Series(ArrayOperators, Generic[T]):
             check, validation, serialization=serialization
         )
 
-    def as_(self, sample_type: type[U]) -> Series[U]:
+    def as_[U: SampleValue](self, sample_type: type[U]) -> Series[U]:
         """Narrows the sample type of the Series.
 
         :param sample_type: The type of each sample, such as np.float64, TimeStamp,
@@ -463,9 +461,9 @@ class Series(ArrayOperators, Generic[T]):
         return arr
 
     @overload
-    def to_numpy(
-        self: Series[_N], dtype: None = None, *, copy: bool | None = None
-    ) -> npt.NDArray[_N]: ...
+    def to_numpy[N: np.number | np.bool_](
+        self: Series[N], dtype: None = None, *, copy: bool | None = None
+    ) -> npt.NDArray[N]: ...
 
     @overload
     def to_numpy(
@@ -666,7 +664,7 @@ class MultiSeries(ArrayOperators, Generic[T]):
                     {first_dt} and {data_types}.
                     """)
 
-    def as_(self, sample_type: type[U]) -> MultiSeries[U]:
+    def as_[U: SampleValue](self, sample_type: type[U]) -> MultiSeries[U]:
         """Narrows the sample type of the MultiSeries.
 
         :param sample_type: The type of each sample, such as np.float64, TimeStamp,
