@@ -20,9 +20,9 @@ const providerStateZ = z.object({ colors: z.array(color.colorZ) });
 export class SeriesProvider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE = "color.SeriesProvider";
   static readonly z = providerStateZ;
-  schema = SeriesProvider.z;
+  override schema = SeriesProvider.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     ctx.set(CONTEXT_KEY, this.state.colors);
   }
 }

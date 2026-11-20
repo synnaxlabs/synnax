@@ -23,9 +23,11 @@ jobs:
   ci:
     name: CI
     # A called workflow gets no more than its caller grants. In CI, the fail-fast job
-    # asks for actions: write and the paths filter for pull-requests: read.
+    # asks for actions: write and checks: read, and the paths filter asks for
+    # pull-requests: read.
     permissions:
       actions: write
+      checks: read
       contents: write
       packages: write
       pull-requests: read

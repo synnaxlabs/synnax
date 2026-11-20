@@ -30,15 +30,15 @@ const CANVASES: render.CanvasVariant[] = ["gl", "lower2d", "upper2d"];
  */
 export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   static readonly TYPE = "eraser";
-  schema = eraserStateZ;
+  override schema = eraserStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     if (this.deleted) return;
     this.internal.renderCtx = render.Context.useOptional(ctx);
     this.renderOnLifecycleChange();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.renderOnLifecycleChange();
   }
 
