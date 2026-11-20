@@ -893,17 +893,19 @@ on the same event counter, decoder fuzz tests, and an invariants build. Phase 5 
 §4 on the old layout, except that `CreateChannel` stays, `OpenWriter` keeps the key set
 of today, and a writer that opens inside a live claim joins it, as today, with no
 authority in Cesium: the framer gates each session per channel. `Write` and `Commit`
-take the keys that the session lacks, and the framer names to `EndDomain` only the
-indexes whose groups it fully controls, so a write or a commit never reaches a channel
-that another session controls; Phase 6 drops the keys. One clock per writer and the
-refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the log,
-heads, `Sync` and the framer's call to it, recovery, the state owner, the handle budget,
-version 1 segments, and replay from a run key, behind a Cesium open option that keeps
-the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
-compaction, the conversion with a crash test at each of its steps, the backup change,
-and `synnax repair` (§6.1), and makes the new layout the only one that opens. RFC 0117
-Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase 5
-comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
+take a predicate over the keys that the session lacks, which Cesium calls under each
+channel's claim lock, so a write never lands after a new holder's, and the framer names
+to `EndDomain` only the indexes whose groups it fully controls, so a write or a commit
+never reaches a channel that another session controls; Phase 6 drops the keys. One clock
+per writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6
+builds the log, heads, `Sync` and the framer's call to it, recovery, the state owner,
+the handle budget, version 1 segments, and replay from a run key, behind a Cesium open
+option that keeps the old layout the default. Phase 7 builds parts, versions 0 and 2,
+tombstones, compaction, the conversion with a crash test at each of its steps, the
+backup change, and `synnax repair` (§6.1), and makes the new layout the only one that
+opens. RFC 0117 Phase 8 deletes the old code, except the old-layout reader of the
+conversion. Phase 5 comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come
+after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                     | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
