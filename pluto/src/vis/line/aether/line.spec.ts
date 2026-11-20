@@ -689,11 +689,13 @@ describe("line", () => {
         expect(m.line.findByXValue(PROPS, 30).value.x).toBeNaN();
       });
 
-      it("should return a sample before the data within 12 pixels of the target", () => {
+      it("should return a sample within 12 pixels of either end of the data", () => {
         // PROPS draws one unit of x across 800 pixels.
         const m = mount([X1], [Y1]);
         expect(m.line.findByXValue(PROPS, -6 / 800).value).toEqual({ x: 0, y: 10 });
         expect(m.line.findByXValue(PROPS, -13 / 800).value.x).toBeNaN();
+        expect(m.line.findByXValue(PROPS, 2 + 6 / 800).value).toEqual({ x: 2, y: 30 });
+        expect(m.line.findByXValue(PROPS, 2 + 13 / 800).value.x).toBeNaN();
       });
 
       it("should return the exact value of a float64 sample", () => {

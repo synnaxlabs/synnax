@@ -427,6 +427,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (valid) [index, series] = [v, i];
       return valid;
     });
+    // A target past every sample takes the last one, and reaches decides.
+    if (index === -1) {
+      series = xData.series.findLastIndex((x) => x.length > 0);
+      if (series !== -1) index = xData.series[series].length - 1;
+    }
     const { key } = this;
     const { color, label } = this.state;
     const result = {
