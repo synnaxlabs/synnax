@@ -26,8 +26,12 @@ When CI failed on the head:
 1. Read the failed jobs: `gh run view <run> --log-failed`.
 2. Find the cause and fix it in one place. Run the failed check locally when you can.
 3. When the failure does not come from this pull request (a flake, an outage, a break on
-   `main`), change nothing. For a flake, put the line `<!-- agent:rerun -->` in your
-   last message. The workflow then reruns the failed jobs.
+   `main`), change no code. A rerun tests the same merge commit again, so it never sees
+   a fix that landed on the base branch after the run started. When
+   `git log origin/<base> --since=<the run's createdAt>` shows commits, merge the base
+   branch as in step 1 and push: the push runs CI on the current base. Otherwise, for a
+   flake, put the line `<!-- agent:rerun -->` in your last message. The workflow then
+   reruns the failed jobs.
 
 ## 3. Fix CodeQL alerts
 
