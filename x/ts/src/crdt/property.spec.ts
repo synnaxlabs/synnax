@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { crdt } from "@/crdt";
+import { assertDefined } from "@/testutil";
 
 const mulberry32 = (seed: number): (() => number) => {
   let s = seed;
@@ -60,17 +61,20 @@ describe("convergence property", () => {
           }),
         );
       }
-      const want = docs[0].toString();
-      for (const d of docs.slice(1)) expect(d.toString()).toEqual(want);
+      const [first, ...rest] = docs;
+      assertDefined(first);
+      const want = first.toString();
+      for (const d of rest) expect(d.toString()).toEqual(want);
 
       const boot = new crdt.Text(1234);
-      boot.load(docs[0].snapshot());
+      boot.load(first.snapshot());
       expect(boot.toString()).toEqual(want);
 
       const shuffled = [...allEdits];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(rng() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        // i and j stay below shuffled.length.
+        [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
       }
       const fresh = new crdt.Text(999);
       for (const e of shuffled) e(fresh);

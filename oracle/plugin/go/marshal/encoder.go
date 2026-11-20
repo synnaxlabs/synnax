@@ -136,8 +136,7 @@ func renderEncoderCodecFile(
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
 			aliases:     aliases,
-			pins:        pins,
-			owner:       e.Type.QualifiedName,
+			scope:       pinScope{pins: pins, owners: []string{e.Type.QualifiedName}},
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
 			if err := fo.addUnionCodec(e, uform, b); err != nil {
@@ -310,12 +309,8 @@ type encoderBuilder struct {
 	parentPath  string
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
-	aliases map[string]string
-	// pins resolves a stored reference to the dependency version that owner's version
-	// file imports.
-	pins versioning.Pins
-	// owner is the qualified name of the type whose fields the builder is processing.
-	owner         string
+	aliases       map[string]string
+	scope         pinScope
 	encodeLines   []string
 	decodeLines   []string
 	needsMath     bool
@@ -545,9 +540,7 @@ func (b *encoderBuilder) processStruct(
 			substituted[i] = f
 			substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 		}
-		prev := b.owner
-		b.owner = actual.QualifiedName
-		defer func() { b.owner = prev }()
+		defer b.scope.enter(actual.QualifiedName)()
 		return b.processFields(substituted, getPath, setPath)
 	}
 
@@ -781,8 +774,10 @@ func (b *encoderBuilder) inlineVariantLines(
 		parentPath:  b.parentPath,
 		imports:     b.imports,
 		aliases:     b.aliases,
-		pins:        b.pins,
-		owner:       b.owner,
+		scope: pinScope{
+			pins:   b.scope.pins,
+			owners: slices.Clone(b.scope.owners),
+		},
 	}
 	if err := fb.processFields(fields, "v", "v"); err != nil {
 		return nil, nil, err
@@ -1358,7 +1353,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
 	}
-	if p, ok := b.pins.Path(b.owner, typ); ok {
+	if p, ok := b.scope.path(typ); ok {
 		goPath = p
 	}
 	importPath := resolveGoImportPath(goPath, b.repoRoot)
