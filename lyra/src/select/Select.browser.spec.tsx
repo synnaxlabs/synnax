@@ -1171,6 +1171,26 @@ describe("Select", () => {
         .toHaveBeenCalledWith("key-51", expect.anything());
     });
 
+    it("should move on from the choice after a hover in an earlier open", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={onChange}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      await openDialog(trigger);
+      // A hover moves only once the pointer moves between two places.
+      for (const name of ["key-47", "key-48"])
+        await userEvent.hover(page.getByRole("option", { name, exact: true }));
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector("[role='dialog']")).toBeNull();
+      await openDialog(trigger);
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith("key-51", expect.anything());
+    });
+
     it("should not scroll to the choice of a list outside a select dialog", async () => {
       const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
       onTestFinished(() => scroll.mockRestore());
