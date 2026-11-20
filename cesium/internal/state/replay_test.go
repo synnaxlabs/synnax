@@ -65,6 +65,7 @@ var _ = Describe("Config", func() {
 			"versions"),
 		Entry("append", func(c *state.Config) { c.Append = nil }, "append"),
 		Entry("executor", func(c *state.Config) { c.Executor = nil }, "executor"),
+		Entry("on head", func(c *state.Config) { c.OnHead = nil }, "on_head"),
 	)
 })
 

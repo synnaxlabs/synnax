@@ -22,16 +22,110 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// appended holds the entries that a state appends to its log.
+// appended holds the entries that a state appends to its log, and the snapshots that
+// it hands to its OnHead hook. Once s is set, it acts as the log for Reserves: it hands
+// s each one as durable at the next sequence, or as refused with refusal when that is
+// set.
 type appended struct {
 	mu      sync.Mutex
 	entries [][]byte
+	heads   []*state.Snapshot
+	s       *state.State
+	seq     uint64
+	refusal error
+}
+
+// durable hands a.s records as durable at the next sequence.
+func (a *appended) durable(records []log.Record) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.seq++
+	return a.s.Durable(a.seq, records)
+}
+
+// last returns the last sequence that a handed to a.s.
+func (a *appended) last() uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.seq
+}
+
+// refuse makes a refuse each later Reserve with err.
+func (a *appended) refuse(err error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.refusal = err
+}
+
+func (a *appended) onHead(_ uint64, s *state.Snapshot) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.heads = append(a.heads, s)
+}
+
+// switched returns the snapshots of the switches so far.
+func (a *appended) switched() []*state.Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]*state.Snapshot(nil), a.heads...)
+}
+
+// seals returns the Seal records of the appended entries, in order.
+func (a *appended) seals() []log.Seal {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	var out []log.Seal
+	for _, b := range a.entries {
+		var d log.Decoder
+		MustSucceed(d.Reset(b))
+		for {
+			r, ok := MustSucceed2(d.Next())
+			if !ok {
+				break
+			}
+			if v, ok := r.(*log.Seal); ok {
+				out = append(out, *v)
+			}
+		}
+	}
+	return out
 }
 
 func (a *appended) append(e *log.Entry) {
+	defer GinkgoRecover()
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.entries = append(a.entries, append([]byte(nil), e.Bytes()...))
+	b := append([]byte(nil), e.Bytes()...)
+	a.entries = append(a.entries, b)
+	if a.s == nil {
+		return
+	}
+	records := decode(b)
+	if _, ok := records[0].(*log.Reserve); !ok {
+		return
+	}
+	if a.refusal != nil {
+		Expect(a.s.Refused(records, a.refusal)).To(Succeed())
+		return
+	}
+	a.seq++
+	Expect(a.s.Durable(a.seq, records)).To(Succeed())
+}
+
+// decode returns the records of the entry b.
+func decode(b []byte) []log.Record {
+	var (
+		d   log.Decoder
+		out []log.Record
+	)
+	MustSucceed(d.Reset(b))
+	for {
+		r, ok := MustSucceed2(d.Next())
+		if !ok {
+			return out
+		}
+		out = append(out, r)
+	}
 }
 
 // reserves returns the Reserve records of the appended entries, in order.
@@ -61,6 +155,7 @@ func config(a *appended) state.Config {
 		Version:  1,
 		Append:   a.append,
 		Executor: func(f func()) { go f() },
+		OnHead:   a.onHead,
 	}
 }
 

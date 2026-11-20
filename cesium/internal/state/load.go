@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// load sets c to the durable state s of a head, in replay mode. It returns an error
+// load sets c to the durable state s of a head. It returns an error
 // that wraps ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a
 // segment format version that this binary does not read.
 func (c *core) load(s *Snapshot) error {
@@ -30,7 +30,7 @@ func (c *core) load(s *Snapshot) error {
 			telem.LeadingDomain,
 		)
 	}
-	c.sequence, c.limits, c.reserved, c.replaying = s.Sequence, s.Limits, s.Limits, true
+	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits
 	for _, ch := range s.Channels {
 		cs := c.channel(ch.Key)
 		for _, seg := range ch.Segments {
@@ -125,8 +125,8 @@ func checkApart(ch *Channel) error {
 	return nil
 }
 
-// endReplay makes the visible view of every segment its durable view, publishes each
-// key, and ends replay mode.
+// endReplay makes the visible view of every segment its durable view, and publishes
+// each key.
 func (c *core) endReplay() {
 	for _, s := range c.segments {
 		s.vis.Sealed, s.vis.Length, s.vis.TailCRC = s.dur.sealed, s.dur.length,
@@ -139,7 +139,6 @@ func (c *core) endReplay() {
 	for _, ch := range c.channels {
 		ch.publish()
 	}
-	c.replaying = false
 }
 
 // snapshot returns the durable state. A segment that a durable Create made is in it,

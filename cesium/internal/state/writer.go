@@ -11,6 +11,7 @@ package state
 
 import (
 	"cmp"
+	"maps"
 	"math"
 	"slices"
 
@@ -62,7 +63,7 @@ type claim struct {
 	w          *Writer
 	start, end telem.TimeStamp
 	bounded    bool
-	pin        bool
+	pinned     bool
 }
 
 func (c *claim) reaches(first, last telem.TimeStamp) bool {
@@ -91,6 +92,8 @@ func (w *Writer) call(r request) error {
 }
 
 type openRequest struct{ w *Writer }
+
+func (r *openRequest) fail(err error) { r.w.done <- err }
 
 func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w) }
 
@@ -138,7 +141,7 @@ func (s *State) openWriter(w *Writer) error {
 		for _, o := range ch.claims {
 			refused := false
 			switch {
-			case o.pin:
+			case o.pinned:
 			case w.cfg.Bounded:
 				refused = o.reaches(start, start)
 			default:
@@ -154,17 +157,31 @@ func (s *State) openWriter(w *Writer) error {
 	if w.cfg.Bounded {
 		end = start
 	}
-	keys := append(slices.Collect(mapsKeys(w.types)), w.cfg.Clock)
+	keys := append(slices.Collect(maps.Keys(w.types)), w.cfg.Clock)
 	for _, key := range keys {
 		if _, ok := w.claims[key]; ok {
 			continue
 		}
 		_, written := w.types[key]
-		c := &claim{w: w, start: start, end: end, bounded: w.cfg.Bounded, pin: !written}
+		c := &claim{
+			w:       w,
+			start:   start,
+			end:     end,
+			bounded: w.cfg.Bounded,
+			pinned:  !written,
+		}
 		w.claims[key] = c
 		ch := s.core.channel(key)
 		ch.claims = append(ch.claims, c)
 	}
+	s.takeOver(w)
+	s.storeKeysIfChanged()
+	return nil
+}
+
+// takeOver gives w, for each key it writes, the first open segment that no writer holds
+// and whose commits are all durable, with the clock, data type, and version of w.
+func (s *State) takeOver(w *Writer) {
 	for key, t := range w.types {
 		for _, seg := range s.core.channels[key].segs {
 			if seg.holder == nil && !seg.vis.Sealed && seg.vis.Clock == w.cfg.Clock &&
@@ -172,30 +189,20 @@ func (s *State) openWriter(w *Writer) error {
 				seg.dur.created && seg.dur.length == seg.vis.Length {
 				seg.holder = w
 				w.held[key] = seg
-			}
-		}
-	}
-	s.storeKeysIfChanged()
-	return nil
-}
-
-func mapsKeys[V any](m map[uint32]V) func(func(uint32) bool) {
-	return func(yield func(uint32) bool) {
-		for k := range m {
-			if !yield(k) {
-				return
+				break
 			}
 		}
 	}
 }
 
-// Held returns the open segment that w holds for key, and false when it holds none.
-func (w *Writer) Held(key uint32) (Segment, bool) {
+// Held returns the open segment that w holds for key, and false when it holds none. It
+// returns the error of a failed or closed state.
+func (w *Writer) Held(key uint32) (Segment, bool, error) {
 	r := &heldRequest{w: w, key: key}
 	if err := w.call(r); err != nil {
-		return Segment{}, false
+		return Segment{}, false, err
 	}
-	return r.seg, r.ok
+	return r.seg, r.ok, nil
 }
 
 type heldRequest struct {
@@ -205,6 +212,8 @@ type heldRequest struct {
 	ok  bool
 }
 
+func (r *heldRequest) fail(err error) { r.w.done <- err }
+
 func (r *heldRequest) run(*State) {
 	if seg, ok := r.w.held[r.key]; ok {
 		r.seg, r.ok = seg.vis, true
@@ -212,34 +221,61 @@ func (r *heldRequest) run(*State) {
 	r.w.done <- nil
 }
 
-type valueRequest struct {
-	w     *Writer
-	key   uint32
-	value uint64
-	align bool
+type segmentRequest struct {
+	w        *Writer
+	key      uint32
+	dataType uint8
+	id       uint64
 }
 
-func (r *valueRequest) run(s *State) {
-	if r.align {
-		var err error
-		r.value, err = s.giveAlignment()
+func (r *segmentRequest) fail(err error) { r.w.done <- err }
+
+func (r *segmentRequest) run(s *State) {
+	if err := s.checkSegment(r); err != nil {
 		r.w.done <- err
 		return
 	}
-	r.w.done <- s.newSegment(r)
+	if s.nextID >= s.core.limits.Segments {
+		s.park(r)
+		return
+	}
+	s.newSegment(r)
+	s.reserveAhead()
+	r.w.done <- nil
+}
+
+type alignmentRequest struct {
+	w      *Writer
+	number uint64
+}
+
+func (r *alignmentRequest) fail(err error) { r.w.done <- err }
+
+func (r *alignmentRequest) run(s *State) {
+	switch {
+	case s.nextAlign < s.core.limits.Alignments:
+		r.number = s.nextAlign
+		s.nextAlign++
+		s.reserveAhead()
+		r.w.done <- nil
+	case s.core.limits.Alignments >= uint64(telem.LeadingDomain):
+		r.w.done <- ErrExhausted
+	default:
+		s.park(r)
+	}
 }
 
 // NewSegment gives out a segment identity, registers a new open segment of key that w
 // holds, and returns its identity. The caller logs its Create.
 func (w *Writer) NewSegment(key uint32) (uint64, error) {
-	r := &valueRequest{w: w, key: key}
+	r := &segmentRequest{w: w, key: key}
 	if err := w.call(r); err != nil {
 		return 0, err
 	}
-	return r.value, nil
+	return r.id, nil
 }
 
-func (s *State) newSegment(r *valueRequest) error {
+func (s *State) checkSegment(r *segmentRequest) error {
 	t, ok := r.w.types[r.key]
 	switch {
 	case !ok:
@@ -251,17 +287,18 @@ func (s *State) newSegment(r *valueRequest) error {
 			r.key,
 		)
 	}
-	if s.nextID >= s.core.reserved.Segments {
-		s.idBlocks++
-		s.reserve(block(s.idBlocks)+s.nextID, s.core.reserved.Alignments)
-	}
+	r.dataType = t
+	return nil
+}
+
+func (s *State) newSegment(r *segmentRequest) {
 	id := s.nextID
 	s.nextID++
 	seg := &segState{key: r.key, holder: r.w, vis: Segment{
 		ID:       id,
 		Clock:    r.w.cfg.Clock,
 		Version:  s.cfg.Version,
-		DataType: t,
+		DataType: r.dataType,
 	}}
 	s.core.segments[id] = seg
 	ch := s.core.channel(r.key)
@@ -269,8 +306,7 @@ func (s *State) newSegment(r *valueRequest) error {
 	ch.publish()
 	s.storeKeysIfChanged()
 	r.w.held[r.key] = seg
-	r.value = id
-	return nil
+	r.id = id
 }
 
 func block(n int) uint64 {
@@ -280,42 +316,106 @@ func block(n int) uint64 {
 	return laterBlock
 }
 
-// reserve raises the reserved limits and appends their Reserve to the log.
-func (s *State) reserve(segments, alignments uint64) {
-	s.core.reserved = Limits{Segments: segments, Alignments: alignments}
+// room returns how many values from next are below limit.
+func room(next, limit uint64) uint64 {
+	if next >= limit {
+		return 0
+	}
+	return limit - next
+}
+
+// reserveAhead appends a Reserve when none is in flight and a kind of value has at most
+// half a block left below its durable limit.
+func (s *State) reserveAhead() {
+	l := s.core.limits
+	if s.core.reserved != l {
+		return
+	}
+	next, blocks := l, [2]int{s.idBlocks, s.alignBlocks}
+	if room(s.nextID, l.Segments) <= block(s.idBlocks)/2 {
+		s.idBlocks++
+		next.Segments = max(l.Segments, s.nextID) + block(s.idBlocks)
+	}
+	zero := uint64(telem.LeadingDomain)
+	if l.Alignments < zero &&
+		room(s.nextAlign, l.Alignments) <= block(s.alignBlocks)/2 {
+		s.alignBlocks++
+		next.Alignments = min(max(l.Alignments, s.nextAlign)+block(s.alignBlocks), zero)
+	}
+	if next == l {
+		return
+	}
+	s.core.reserved, s.refusedBlocks = next, blocks
 	s.entry.Reset()
-	s.entry.Add(&log.Reserve{Segments: segments, Alignments: alignments})
+	s.entry.Add(&log.Reserve{Segments: next.Segments, Alignments: next.Alignments})
 	s.cfg.Append(&s.entry)
+}
+
+// park holds r until a durable Reserve raises the limit that it needs, or the log
+// refuses the Reserve.
+func (s *State) park(r request) {
+	s.parked = append(s.parked, r)
+	s.reserveAhead()
+}
+
+// unpark runs the parked requests again.
+func (s *State) unpark() {
+	parked := s.parked
+	s.parked = nil
+	for _, r := range parked {
+		r.run(s)
+	}
+}
+
+// failParked fails every parked request with err.
+func (s *State) failParked(err error) {
+	for _, r := range s.parked {
+		r.fail(err)
+	}
+	s.parked = nil
+}
+
+type refusedRequest struct {
+	records []log.Record
+	err     error
+}
+
+func (*refusedRequest) fail(error) {}
+
+func (r *refusedRequest) run(s *State) {
+	for _, rec := range r.records {
+		if _, ok := rec.(*log.Reserve); ok {
+			s.core.reserved = s.core.limits
+			s.idBlocks, s.alignBlocks = s.refusedBlocks[0], s.refusedBlocks[1]
+			s.failParked(r.err)
+			return
+		}
+	}
+}
+
+// Refused queues the refusal of an entry of records by the log, with the error err that
+// refused it. A refused Reserve fails every request that waits for its values, with
+// err. Refused returns at once.
+func (s *State) Refused(records []log.Record, err error) error {
+	return s.enqueue(&refusedRequest{records: records, err: err})
 }
 
 // NewAlignment gives out the alignment number of a new stretch. It returns
 // ErrExhausted when every number below the numbers of unstored data is given out.
 func (w *Writer) NewAlignment() (uint32, error) {
-	r := &valueRequest{w: w, align: true}
+	r := &alignmentRequest{w: w}
 	if err := w.call(r); err != nil {
 		return 0, err
 	}
-	return uint32(r.value), nil
-}
-
-func (s *State) giveAlignment() (uint64, error) {
-	if s.nextAlign >= s.core.reserved.Alignments {
-		if s.core.reserved.Alignments >= uint64(telem.LeadingDomain) {
-			return 0, ErrExhausted
-		}
-		s.alignBlocks++
-		limit := min(s.nextAlign+block(s.alignBlocks), uint64(telem.LeadingDomain))
-		s.reserve(s.core.reserved.Segments, limit)
-	}
-	n := s.nextAlign
-	s.nextAlign++
-	return n, nil
+	return uint32(r.number), nil
 }
 
 type commitRequest struct {
 	w *Writer
 	c *log.Commit
 }
+
+func (r *commitRequest) fail(err error) { r.w.done <- err }
 
 func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c) }
 
@@ -328,20 +428,10 @@ func (w *Writer) Commit(c *log.Commit) error {
 }
 
 func (s *State) checkVisible(w *Writer, c *log.Commit) error {
-	a := telem.Alignment(c.Alignment)
-	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
-	switch {
-	case len(c.Slots) == 0:
-		return refuse("commit with no slot")
-	case c.Samples == 0 || first > last || (c.Samples == 1 && first != last):
-		return refuse("commit of %d samples from %d to %d", c.Samples, first, last)
-	case a.DomainIndex() == 0 || uint64(a.DomainIndex()) >= s.core.reserved.Alignments:
-		return refuse("commit of alignment number %d, which the state did not give out",
-			a.DomainIndex())
-	case uint64(a.SampleIndex())+uint64(c.Samples)-1 > math.MaxUint32:
-		return refuse("commit of %d samples from sample index %d", c.Samples,
-			a.SampleIndex())
+	if err := s.core.checkCommit(c); err != nil {
+		return err
 	}
+	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
 	for i, slot := range c.Slots {
 		seg := s.core.segments[slot.Segment]
 		switch {
@@ -361,7 +451,7 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 				"its stored data from %d to %d", seg.key, first, last, p.First, p.Last)
 		}
 		for _, o := range ch.claims {
-			if o.w != w && !o.pin && o.reaches(first, last) {
+			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
 					ErrConflict,
 					"commit of key %d from %d to %d reaches "+
@@ -384,7 +474,7 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 	first, last := telem.TimeStamp(c.First), telem.TimeStamp(c.Last)
 	for _, cl := range w.claims {
 		cl.start = min(cl.start, first)
-		if cl.bounded || cl.pin {
+		if cl.bounded || cl.pinned {
 			cl.end = max(cl.end, last)
 		}
 	}
@@ -399,19 +489,26 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 }
 
 type sealRequest struct {
+	w    *Writer
+	key  uint32
+	seal log.Seal
+}
+
+func (r *sealRequest) fail(err error) { r.w.done <- err }
+
+type takeBackRequest struct {
 	w     *Writer
-	key   uint32
-	seal  log.Seal
 	seals []log.Seal
-	back  bool
+}
+
+func (r *takeBackRequest) fail(err error) { r.w.done <- err }
+
+func (r *takeBackRequest) run(s *State) {
+	r.seals = s.takeBack(r.w)
+	r.w.done <- nil
 }
 
 func (r *sealRequest) run(s *State) {
-	if r.back {
-		r.seals = s.takeBack(r.w)
-		r.w.done <- nil
-		return
-	}
 	seg, ok := r.w.held[r.key]
 	if !ok {
 		r.w.done <- errors.Newf("writer holds no open segment of key %d", r.key)
@@ -447,7 +544,7 @@ func (w *Writer) Seal(key uint32) (log.Seal, error) {
 // every segment that w holds, seals each at its durable length, and returns their
 // Seals, which the caller logs. A writer calls it after a failed sync.
 func (w *Writer) TakeBack() ([]log.Seal, error) {
-	r := &sealRequest{w: w, back: true}
+	r := &takeBackRequest{w: w}
 	if err := w.call(r); err != nil {
 		return nil, err
 	}
@@ -473,41 +570,59 @@ func sortSeals(seals []log.Seal) {
 	)
 }
 
-type unheldRequest struct {
-	seals []log.Seal
-	done  chan error
-}
+type switchRequest struct{ generation uint64 }
 
-func (r *unheldRequest) run(s *State) {
-	for _, seg := range s.core.segments {
-		if seg.holder == nil && !seg.vis.Sealed {
-			seg.vis.Sealed = true
-			r.seals = append(r.seals, log.Seal{
-				Segment: seg.vis.ID,
-				Length:  seg.vis.Length,
-				TailCRC: seg.vis.TailCRC,
-			})
-			s.core.channels[seg.key].publish()
+// run seals each open segment that no writer holds, takes the durable snapshot that the
+// head of the new log holds, appends the Seals, and hands the snapshot over. An unheld
+// open segment that no durable Create made has no durable byte, so it leaves the state
+// for the database to unlink.
+func (r *switchRequest) run(s *State) {
+	var seals []log.Seal
+	for id, seg := range s.core.segments {
+		if seg.holder != nil || seg.vis.Sealed {
+			continue
 		}
+		if !seg.dur.created {
+			s.core.channels[seg.key].remove(id)
+			delete(s.core.segments, id)
+			s.core.dead = append(s.core.dead, id)
+			s.core.channels[seg.key].publish()
+			continue
+		}
+		seg.vis.Sealed = true
+		seals = append(seals, log.Seal{
+			Segment: id,
+			Length:  seg.vis.Length,
+			TailCRC: seg.vis.TailCRC,
+		})
+		s.core.channels[seg.key].publish()
 	}
-	sortSeals(r.seals)
-	r.done <- nil
+	sortSeals(seals)
+	snap := s.core.snapshot()
+	if len(seals) > 0 {
+		var e log.Entry
+		for i := range seals {
+			e.Add(&seals[i])
+		}
+		s.cfg.Append(&e)
+	}
+	s.cfg.OnHead(r.generation, snap)
 }
 
-// SealUnheld seals every open segment that no writer holds, and returns their Seals in
-// rising order of identity, which the log owner logs at a switch.
-func (s *State) SealUnheld() ([]log.Seal, error) {
-	r := &unheldRequest{done: make(chan error, 1)}
-	if err := s.enqueue(r); err != nil {
-		return nil, err
-	}
-	if err := wait(s, r.done); err != nil {
-		return nil, err
-	}
-	return r.seals, nil
+func (*switchRequest) fail(error) {}
+
+// Switch queues the switch of the state to the log of generation, which the log owner
+// asks for right after the last entry of the log before it went to Durable. The owner
+// takes the durable snapshot there, so it covers exactly the entries before the
+// switch, and hands it to the OnHead hook. It seals every open segment that no writer
+// holds, and appends their Seals to the new log. Switch returns at once.
+func (s *State) Switch(generation uint64) error {
+	return s.enqueue(&switchRequest{generation: generation})
 }
 
 type closeRequest struct{ w *Writer }
+
+func (r *closeRequest) fail(err error) { r.w.done <- err }
 
 func (r *closeRequest) run(s *State) {
 	for key, c := range r.w.claims {

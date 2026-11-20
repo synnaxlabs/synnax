@@ -134,7 +134,8 @@ func batchOf(r *rand.Rand, c segment.Config, at int, n *int) ([]byte, []int64) {
 
 var _ = Describe("Write model check", func() {
 	DescribeTable(
-		"Should write the reference bytes over random writes, commits, and short writes",
+		"Should write the reference bytes over random writes, commits, and short "+
+			"writes",
 		func(c segment.Config) {
 			for runKey := range uint64(48) {
 				r := rand.New(rand.NewPCG(runKey, 1))

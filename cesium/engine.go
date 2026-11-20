@@ -57,6 +57,12 @@ type engine struct {
 	ready    chan struct{}
 	shutdown sync.Once
 	closeErr error
+	// keys holds the key of each segment that the state may give back as dead, so
+	// that reap can name its file.
+	keys struct {
+		sync.Mutex
+		of map[uint64]ChannelKey
+	}
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -78,6 +84,7 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	e := &engine{fs: o.fs, exec: o.executor, ready: make(chan struct{})}
+	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -89,6 +96,7 @@ func openEngine(o *options) (*engine, error) {
 		Version:  segmentVersion,
 		Append:   e.append,
 		Executor: e.exec,
+		OnHead:   e.onHead,
 	}, snapshot); err != nil {
 		return nil, err
 	}
@@ -163,8 +171,8 @@ func (e *engine) recover(r *recovery) (err error) {
 		FS:         e.fs,
 		Executor:   e.exec,
 		OnDurable:  e.durable,
+		OnRefused:  e.refused,
 		Prepare:    e.prepare,
-		Seals:      e.seals,
 		Switched:   e.switchedTo,
 		DB:         r.db,
 		Generation: r.gen,
@@ -182,7 +190,6 @@ func (e *engine) recover(r *recovery) (err error) {
 		FS:       e.fs,
 		DB:       r.db,
 		LogSize:  log.FileSize,
-		Snapshot: e.state.Snapshot,
 		Prepared: e.log.Prepared,
 		Executor: e.exec,
 	})
@@ -197,20 +204,51 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 	_ = e.state.Durable(sequence, records)
 }
 
+// refused hands an entry that the log refused to the state. The state fails the
+// requests that wait for it, and returns no error of its own.
+func (e *engine) refused(records []log.Record, err error) {
+	_ = e.state.Refused(records, err)
+}
+
 func (e *engine) prepare(next uint64) { e.ckpt.Prepare(next) }
 
-func (e *engine) switchedTo(generation uint64) { e.ckpt.Switched(generation) }
+// switchedTo hands a switch of the log to the state, which takes the snapshot of the
+// head there. The state fails itself on an error, and its later calls return it.
+func (e *engine) switchedTo(generation uint64) { _ = e.state.Switch(generation) }
 
-func (e *engine) seals() ([]log.Record, error) {
-	seals, err := e.state.SealUnheld()
+func (e *engine) onHead(
+	generation uint64,
+	s *state.Snapshot,
+) {
+	e.ckpt.Head(generation, s)
+}
+
+// named records the key of segment id, so that reap can name its file.
+func (e *engine) named(id uint64, key ChannelKey) {
+	e.keys.Lock()
+	e.keys.of[id] = key
+	e.keys.Unlock()
+}
+
+// reap unlinks the file of each segment that left the state.
+func (e *engine) reap() error {
+	ids, err := e.state.TakeDead()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	records := make([]log.Record, len(seals))
-	for i := range seals {
-		records[i] = &seals[i]
+	e.keys.Lock()
+	defer e.keys.Unlock()
+	for _, id := range ids {
+		key, ok := e.keys.of[id]
+		if !ok {
+			return errors.Newf("no key of dead segment %d", id)
+		}
+		delete(e.keys.of, id)
+		if err = e.fs.Remove(segmentName(key, id)); err != nil {
+			return err
+		}
 	}
-	return records, nil
+	return nil
 }
 
 // run runs the owners until ctx is done, then closes them in order: the log, so that
@@ -223,7 +261,7 @@ func (e *engine) run(ctx context.Context) error {
 	owners.Go(e.log.Run)
 	owners.Go(e.ckpt.Run)
 	if e.switched != 0 {
-		e.ckpt.Switched(e.switched)
+		e.switchedTo(e.switched)
 	}
 	err := e.orphans()
 	close(e.ready)
@@ -261,6 +299,7 @@ func (e *engine) orphans() error {
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
 			named[segmentName(ch.Key, seg.ID)] = seg
+			e.named(seg.ID, ch.Key)
 		}
 	}
 	infos, err := e.fs.List("")

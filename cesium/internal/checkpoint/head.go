@@ -61,7 +61,7 @@ func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generatio
 // Encode returns the bytes of the head of generation in database db that holds s. The
 // bytes depend on db, generation, and s alone.
 func Encode(db, generation uint64, s *state.Snapshot) []byte {
-	clocks := Clocks(s)
+	clocks := clocksOf(s)
 	var l layout
 	l.counts[sectionChans] = uint64(len(s.Channels))
 	for _, c := range s.Channels {
@@ -162,9 +162,9 @@ func putSector(b []byte, l *layout, db, generation uint64, s *state.Snapshot) {
 	binary.LittleEndian.PutUint32(h[sectorCRC:], sum)
 }
 
-// Clocks returns the distinct clock keys that the data segments of s name, in rising
+// clocksOf returns the distinct clock keys that the data segments of s name, in rising
 // order.
-func Clocks(s *state.Snapshot) []uint32 {
+func clocksOf(s *state.Snapshot) []uint32 {
 	var clocks []uint32
 	for _, c := range s.Channels {
 		for _, seg := range c.Segments {

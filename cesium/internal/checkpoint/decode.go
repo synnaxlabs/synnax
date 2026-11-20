@@ -13,16 +13,20 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ErrIncomplete is the error of a head whose header sector is zero: its switch never
-// reached its commit point.
-var ErrIncomplete = errors.New("head is not complete")
+var (
+	// ErrIncomplete is the error of a head whose header sector is zero: its switch
+	// never reached its commit point.
+	ErrIncomplete = errors.New("head is not complete")
+	// ErrUnknown is the error of a head format that this binary does not know. A newer
+	// binary wrote it.
+	ErrUnknown = errors.New("unknown head format")
+)
 
 // Header is the header sector of a head.
 type Header struct {
@@ -37,27 +41,6 @@ type Header struct {
 	Length uint64
 	table  uint64
 	chunks uint64
-}
-
-// Decode decodes and checks the head in b. It reads no byte between the header sector
-// and the body, which no checksum covers. It returns ErrIncomplete for a zero header
-// sector, an error that wraps log.ErrUnknown for a format this binary does not know,
-// and an error that wraps place.ErrCorrupt for any other check that fails.
-func Decode(b []byte) (Header, *state.Snapshot, error) {
-	h, err := decodeSector(b)
-	if err != nil {
-		return h, nil, err
-	}
-	if err = checkChunkTable(b, h); err != nil {
-		return h, nil, err
-	}
-	for i := range chunkCount(h) {
-		if err = checkChunk(b, h, i); err != nil {
-			return h, nil, err
-		}
-	}
-	s, err := parse(b, h)
-	return h, s, err
 }
 
 func corrupt(format string, args ...any) error {
@@ -90,13 +73,13 @@ func decodeSector(b []byte) (Header, error) {
 		return h, corrupt("header sector fails its check")
 	}
 	if v := binary.LittleEndian.Uint16(s[8:]); v != formatVersion {
-		return h, errors.Wrapf(log.ErrUnknown, "head format version %d", v)
+		return h, errors.Wrapf(ErrUnknown, "head format version %d", v)
 	}
 	if s[10] != kindHead {
 		return h, corrupt("header sector has kind %d, not a head", s[10])
 	}
 	if n := binary.LittleEndian.Uint32(s[80:]); n != sectionCount {
-		return h, errors.Wrapf(log.ErrUnknown, "head with %d sections", n)
+		return h, errors.Wrapf(ErrUnknown, "head with %d sections", n)
 	}
 	if !allZero(s[11:16]) || !allZero(s[84:88]) || !allZero(s[100:sectorCRC]) {
 		return h, corrupt("header sector has a set reserved byte")
@@ -104,9 +87,9 @@ func decodeSector(b []byte) (Header, error) {
 	if h.Length != uint64(len(b)) {
 		return h, corrupt("file is %d bytes, but its header says %d", len(b), h.Length)
 	}
-	if h.table < BodyStart ||
+	if h.table < BodyStart || h.table > h.Length || h.chunks > h.Length ||
 		h.chunks != h.table+sectionCount*tableEntry ||
-		h.chunks+4*chunkCount(h) != h.Length {
+		h.Length-h.chunks != 4*chunkCount(h) {
 		return h, corrupt("section table at %d and chunk table at %d do not fit a "+
 			"file of %d bytes", h.table, h.chunks, h.Length)
 	}
@@ -160,7 +143,7 @@ func sections(b []byte, h Header) ([sectionCount + 1]section, error) {
 		}
 		if v := binary.LittleEndian.Uint16(e[2:]); v != recordVersion {
 			return out, errors.Wrapf(
-				log.ErrUnknown,
+				ErrUnknown,
 				"head section %d version %d",
 				kind,
 				v,
@@ -196,7 +179,7 @@ func sections(b []byte, h Header) ([sectionCount + 1]section, error) {
 	}
 	for _, kind := range []int{sectionParts, sectionDead, sectionKills, sectionTombs} {
 		if out[kind].count != 0 {
-			return out, errors.Wrapf(log.ErrUnknown, "head with parts or tombstones "+
+			return out, errors.Wrapf(ErrUnknown, "head with parts or tombstones "+
 				"(section %d)", kind)
 		}
 	}
@@ -212,7 +195,7 @@ func parse(b []byte, h Header) (*state.Snapshot, error) {
 	if s.Channels, err = parseChannels(b, secs); err != nil {
 		return nil, err
 	}
-	clocks := Clocks(s)
+	clocks := clocksOf(s)
 	cs := secs[sectionClocks]
 	if cs.count != uint64(len(clocks)) {
 		return nil, corrupt(

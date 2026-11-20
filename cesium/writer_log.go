@@ -136,7 +136,11 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 	}
 	w.st = st
 	for _, lk := range w.keys {
-		if _, held := st.Held(lk.ch.Key); !held {
+		_, held, err := st.Held(lk.ch.Key)
+		if err != nil {
+			return errors.Join(err, st.Close())
+		}
+		if !held {
 			continue
 		}
 		seal, err := st.Seal(lk.ch.Key)
@@ -289,6 +293,7 @@ func (w *logWriter) append(lk *logKey, p []byte) error {
 		if err != nil {
 			return err
 		}
+		w.e.named(id, lk.ch.Key)
 		w.entry.Add(&log.Create{
 			Segment:  id,
 			Key:      lk.ch.Key,
@@ -463,5 +468,5 @@ func (w *logWriter) close() error {
 			err = errors.Join(err, lk.h.Close())
 		}
 	}
-	return err
+	return errors.Join(err, w.e.reap())
 }

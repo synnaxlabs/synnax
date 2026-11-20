@@ -72,14 +72,16 @@ type Config struct {
 	// synced, in log order and before the entry's ack, on the step of the owner. It
 	// must not block on the log.
 	OnDurable func(sequence uint64, records []Record)
+	// OnRefused gets the records of each entry that the log refuses and the error that
+	// refuses it, before the entry's ack. The log calls it on its step, or on the
+	// caller of Append for an entry refused at once. It must return at once.
+	OnRefused func(records []Record, err error)
 	// Prepare asks for the file of the log of generation next and returns at once. The
 	// caller of Prepare later calls Log.Prepared.
 	Prepare func(next uint64)
-	// Seals returns the records that the first entry of a new log holds: a Seal for
-	// each open segment that no writer holds.
-	Seals func() ([]Record, error)
-	// Switched reports that the log of generation is live, so its head can be written.
-	// It must return at once.
+	// Switched reports that the log of generation is live, after every entry of the log
+	// before it went to OnDurable and before any entry of it does. It must return at
+	// once.
 	Switched func(generation uint64)
 	// DB is the identity of the database.
 	DB uint64
@@ -98,8 +100,8 @@ func (c Config) Validate() error {
 	v.NotNil("fs", c.FS)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_durable", c.OnDurable)
+	v.NotNil("on_refused", c.OnRefused)
 	v.NotNil("prepare", c.Prepare)
-	v.NotNil("seals", c.Seals)
 	v.NotNil("switched", c.Switched)
 	v.Positive("generation", c.Generation)
 	v.Positive("sequence", c.Sequence)
@@ -140,7 +142,6 @@ type Log struct {
 		// asked again after a failure.
 		asked bool
 	}
-	ready sync.Cond
 	// The fields below belong to the steps of the owner.
 	step     func()
 	stepped  chan bool
@@ -209,7 +210,6 @@ func newLog(cfg Config) (*Log, error) {
 		seq:     cfg.Sequence,
 		prevCRC: cfg.PrevCRC,
 	}
-	l.ready.L = &l.mu.Mutex
 	l.step = l.run
 	return l, nil
 }
@@ -285,6 +285,7 @@ func (l *Log) Append(e *Entry) Ack {
 	l.mu.Lock()
 	if err := l.refusal(); err != nil {
 		l.mu.Unlock()
+		l.cfg.OnRefused(e.records, err)
 		a.done <- result{err: err}
 		return a
 	}
@@ -297,6 +298,12 @@ func (l *Log) Append(e *Entry) Ack {
 	l.mu.Unlock()
 	l.signal()
 	return a
+}
+
+// refuse reports the refusal of p with err to OnRefused, then to the ack of p.
+func (l *Log) refuse(p pending, err error) {
+	l.cfg.OnRefused(p.records, err)
+	p.done <- result{err: err}
 }
 
 // refusal returns the error that refuses a new entry. The caller holds l.mu.
@@ -383,7 +390,7 @@ func (l *Log) write(queue []pending) {
 		l.frame.Entries = l.buf
 		if failed = l.writeFrame(start); failed != nil {
 			for _, p := range batch {
-				p.done <- result{err: failed}
+				l.refuse(p, failed)
 			}
 		} else {
 			for i, p := range batch {
@@ -399,7 +406,7 @@ func (l *Log) write(queue []pending) {
 	}
 	for _, p := range queue {
 		if failed != nil {
-			p.done <- result{err: failed}
+			l.refuse(p, failed)
 			continue
 		}
 		size := int64(FrameHeaderSize + len(l.buf) + len(p.entry))
@@ -410,13 +417,13 @@ func (l *Log) write(queue []pending) {
 		if start+size > l.size/4*3 && size <= MaxFrame {
 			flush()
 			if failed = l.advance(); failed != nil {
-				p.done <- result{err: failed}
+				l.refuse(p, failed)
 				continue
 			}
-			start = l.nextStart()
+			start, size = l.nextStart(), int64(FrameHeaderSize+len(p.entry))
 		}
 		if err := l.fits(p, start, size); err != nil {
-			p.done <- result{err: err}
+			l.refuse(p, err)
 			continue
 		}
 		l.buf = append(l.buf, p.entry...)
@@ -504,10 +511,9 @@ func (l *Log) fail(err error) {
 	}
 	failed, queue := l.mu.err, l.mu.queue
 	l.mu.queue = nil
-	l.ready.Broadcast()
 	l.mu.Unlock()
 	for _, p := range queue {
-		p.done <- result{err: failed}
+		l.refuse(p, failed)
 	}
 }
 
@@ -517,7 +523,6 @@ func (l *Log) fail(err error) {
 func (l *Log) Close() error {
 	l.mu.Lock()
 	l.mu.closing = true
-	l.ready.Broadcast()
 	l.mu.Unlock()
 	l.signal()
 	<-l.exit

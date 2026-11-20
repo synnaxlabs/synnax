@@ -33,16 +33,17 @@ type core struct {
 	intents  set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
-	// limits are the durable limits, and reserved the limits below which the state
-	// gives out values. reserved is at least limits.
+	// limits are the durable limits, below which the state gives out values. reserved
+	// holds the limits of the last Reserve appended, above limits while that Reserve
+	// waits for its frame.
 	limits, reserved Limits
-	// replaying is true while the state replays the log at open, when every record
-	// changes the visible view as well as the durable one.
-	replaying bool
 	// keysChanged is true when a key joined or left channels since the owner last
 	// published the keys.
 	keysChanged bool
-	keys        set.Set[uint32]
+	// dead holds the segments that left the state with a file left to unlink once no
+	// reader pins it.
+	dead []uint64
+	keys set.Set[uint32]
 }
 
 func newCore(versions set.Set[uint16]) *core {
