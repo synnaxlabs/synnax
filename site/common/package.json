@@ -6,6 +6,7 @@
     "./Analytics.astro": "./src/Analytics.astro",
     "./analytics": "./src/analytics.ts",
     "./cdn": "./src/cdn.ts",
+    "./CdnPicture.astro": "./src/CdnPicture.astro",
     "./consent": "./src/consent.ts",
     "./contact": "./src/contact.ts",
     "./Drawer.astro": "./src/Drawer.astro",
@@ -20,7 +21,8 @@
     "./shiki": "./src/shiki.ts",
     "./sitemap": "./src/sitemap.ts",
     "./integrations/*": "./src/integrations/*",
-    "./routes/consent": "./src/routes/consent.ts"
+    "./routes/consent": "./src/routes/consent.ts",
+    "./testutil/image": "./src/testutil/image.ts"
   },
   "scripts": {
     "check-types": "astro check",

@@ -463,7 +463,7 @@ var _ = Describe("BindTo", func() {
 			return iter.SeekFirst()
 		}
 		Expect(hasData()).To(BeTrue())
-		Expect(post("/api/v1/frame/delete", apiframer.DeleteRequest{
+		Expect(post(rootToken, "/api/v1/frame/delete", apiframer.DeleteRequest{
 			Names:  []string{index.Name, data.Name},
 			Bounds: telem.TimeRangeMax,
 		}, nil)).To(Succeed())
@@ -492,11 +492,13 @@ var _ = Describe("BindTo", func() {
 			Args: msgpack.EncodedJSON{"host": "plc"},
 		}
 		var res apisecret.GrantCreateResponse
-		Expect(post("/api/v1/secret/grant/create", apisecret.GrantCreateRequest{
-			Subject: rk.ResourceID(),
-			Secrets: []secret.Key{s.Base().Key},
-			Command: cmd,
-		}, &res)).To(Succeed())
+		Expect(
+			post(rootToken, "/api/v1/secret/grant/create", apisecret.GrantCreateRequest{
+				Subject: rk.ResourceID(),
+				Secrets: []secret.Key{s.Base().Key},
+				Command: cmd,
+			}, &res),
+		).To(Succeed())
 		spent, values := MustSucceed2(
 			svc.Secret.Resolve(ctx, rk.ResourceID(), t.Key, res.Grant),
 		)

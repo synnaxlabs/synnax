@@ -99,20 +99,18 @@ The `with` block closes the writer, also when the code raises an error.
   <Fragment slot="typescript">
 
 ```typescript
-const writer = await client.openWriter({
+await using writer = await client.openWriter({
   channels: ["time", "temperature"],
 });
-try {
-  for (let i = 0; i < 100; i++) {
-    await writer.write({ time: TimeStamp.now(), temperature: 20 + i * 0.1 });
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-} finally {
-  await writer.close();
+for (let i = 0; i < 100; i++) {
+  await writer.write({ time: TimeStamp.now(), temperature: 20 + i * 0.1 });
+  await new Promise((resolve) => setTimeout(resolve, 100));
 }
 ```
 
-The `finally` block closes the writer, also when the code throws an error.
+`await using` closes the writer when the block ends, also when the code throws an error.
+It needs Node.js 24, Chrome 134, Firefox 141, Safari 27.3, or later, unless your build
+tool compiles it to older JavaScript. Elsewhere, call `close` in a `finally` block.
 
   </Fragment>
 
@@ -281,17 +279,13 @@ with client.open_writer(
   <Fragment slot="typescript">
 
 ```typescript
-const writer = await client.openWriter({
+await using writer = await client.openWriter({
   channels: ["time", "temperature"],
   enableAutoCommit: false,
 });
-try {
-  for (const path of files) {
-    for await (const frame of readChunks(path)) await writer.write(frame);
-    await writer.commit();
-  }
-} finally {
-  await writer.close();
+for (const path of files) {
+  for await (const frame of readChunks(path)) await writer.write(frame);
+  await writer.commit();
 }
 ```
 
@@ -383,15 +377,11 @@ With no `start`, the Core uses the current time.
   <Fragment slot="typescript">
 
 ```typescript
-const writer = await client.openWriter({
+await using writer = await client.openWriter({
   channels: ["temperature"],
   autoIndex: true,
 });
-try {
-  await writer.write("temperature", 22.5);
-} finally {
-  await writer.close();
-}
+await writer.write("temperature", 22.5);
 ```
 
 With no `start`, the Core uses the current time.
