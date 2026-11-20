@@ -42,6 +42,10 @@ func commandNames(b symbol.Builtin) []string {
 }
 
 var _ = Describe("Builtins", func() {
+	everyBuiltin := lo.Map(symbol.Builtins(), func(b symbol.Builtin, _ int) TableEntry {
+		return Entry(b.Name, b)
+	})
+
 	It("Should name each built-in once", func() {
 		names := lo.Map(symbol.Builtins(), func(b symbol.Builtin, _ int) string {
 			return b.Name
@@ -50,9 +54,10 @@ var _ = Describe("Builtins", func() {
 		Expect(lo.Uniq(names)).To(HaveLen(len(names)))
 	})
 
-	It("Should keep every rule of the symbol model", func(ctx SpecContext) {
-		tx := DeferClose(db.OpenTx())
-		for _, b := range symbol.Builtins() {
+	DescribeTable(
+		"Should keep every rule of the symbol model",
+		func(ctx SpecContext, b symbol.Builtin) {
+			tx := DeferClose(db.OpenTx())
 			sym := symbol.Symbol{Name: b.Name, Data: symbol.Spec{
 				Drawing:  svg(`<svg/>`),
 				Variant:  "static",
@@ -60,23 +65,26 @@ var _ = Describe("Builtins", func() {
 				States:   b.States,
 				Commands: b.Commands,
 			}}
-			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed(), b.Name)
-		}
-	})
+			Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
+		},
+		everyBuiltin,
+	)
 
-	It("Should give each state a built-in enumeration", func() {
-		keys := lo.Map(
-			enumeration.Builtins(),
-			func(e enumeration.Enumeration, _ int) enumeration.Key { return e.Key },
-		)
-		for _, b := range symbol.Builtins() {
+	DescribeTable(
+		"Should give each state a built-in enumeration",
+		func(b symbol.Builtin) {
+			keys := lo.Map(
+				enumeration.Builtins(),
+				func(e enumeration.Enumeration, _ int) enumeration.Key { return e.Key },
+			)
 			for _, st := range b.States {
 				enum := enumerationOf(st)
-				Expect(enum).ToNot(BeNil(), b.Name)
-				Expect(keys).To(ContainElement(*enum), b.Name)
+				Expect(enum).ToNot(BeNil())
+				Expect(keys).To(ContainElement(*enum))
 			}
-		}
-	})
+		},
+		everyBuiltin,
+	)
 
 	DescribeTable(
 		"Should name the commands of each family",
