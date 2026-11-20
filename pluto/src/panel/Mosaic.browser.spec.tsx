@@ -856,8 +856,15 @@ describe("Panel.Mosaic", () => {
     // A browser builds a drag event with no DataTransfer unless one is given.
     const dragStart = (el: Element): boolean =>
       fireEvent.dragStart(el, { dataTransfer: new DataTransfer() });
-    const drop = (el: Element): boolean =>
-      fireEvent.drop(el, { clientX: 0, clientY: 0, dataTransfer: new DataTransfer() });
+    // A drop at the leaf's center lands in the leaf, where an edge would split it.
+    const drop = (el: Element): boolean => {
+      const b = el.getBoundingClientRect();
+      return fireEvent.drop(el, {
+        clientX: b.left + b.width / 2,
+        clientY: b.top + b.height / 2,
+        dataTransfer: new DataTransfer(),
+      });
+    };
 
     // Two mosaics under one Haul.Provider stand in for two windows: drift mirrors
     // the dragging state across real windows, so both see the same haul.
