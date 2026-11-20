@@ -316,6 +316,24 @@ describe("FileBrowser.useModal", () => {
       expect(await findEntry("notes.txt")).toBeDefined();
     });
 
+    it("should not show the top level while the home folder loads", async () => {
+      const files = await createFileRack(client);
+      const served = await serveListings(client, files, [HOME_TOP, HOME]);
+      served.hold();
+      await renderModalOpener(FileBrowser.useModal, [{ rack: files.rack.key }], {
+        client,
+      });
+      await waitFor(() => expect(served.paths).toContain(""));
+      const released = served.release();
+      served.hold();
+      await released;
+      await waitFor(() => expect(served.paths).toContain("/home/op"));
+      expect(screen.getByText("Listing files")).toBeDefined();
+      expect(screen.queryByRole("option")).toBeNull();
+      await served.release();
+      expect(await findEntry("notes.txt")).toBeDefined();
+    });
+
     it("should open the home folder for a file that is not absolute", async () => {
       await openBrowser([HOME_TOP, HOME], "certs/client.crt");
       expect(await findEntry("notes.txt")).toBeDefined();
@@ -757,6 +775,18 @@ describe("FileBrowser.useModal", () => {
       fireEvent.doubleClick(await findEntry("hosts"));
       await expect(result()).resolves.toEqual(
         expect.objectContaining({ path: "/etc/hosts" }),
+      );
+    });
+
+    it("should pick any file in the secrets folder under Certificates", async () => {
+      const { result } = await openBrowser([...LISTINGS, SECRETS]);
+      fireEvent.click(await screen.findByText("Secrets folder"));
+      fireEvent.click(await findEntry("ca.crt"));
+      await findEntry("ca.crt", true);
+      expect(findButton("Select").getAttribute("aria-disabled")).not.toBe("true");
+      fireEvent.click(findButton("Select"));
+      await expect(result()).resolves.toEqual(
+        expect.objectContaining({ path: `${SECRETS_DIR}/ca.crt` }),
       );
     });
 
