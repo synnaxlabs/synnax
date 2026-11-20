@@ -397,29 +397,38 @@ func (r *registry) plan(
 	limit int,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
-	if w.plan.changes() > limit {
-		return nil, w.tooLarge()
-	}
-	for len(w.queue) > 0 {
-		target := w.queue[0]
-		w.queue = w.queue[1:]
-		for _, ref := range r.referencesTo(target.Table) {
-			deps, err := ref.dependentsOf(ctx, tx, target)
-			if err != nil {
-				return nil, err
-			}
-			for _, k := range deps {
-				dep := Target{Table: ref.ownerTable(), Key: k}
-				if err := w.visit(ref, dep, target); err != nil {
-					return nil, err
-				}
-			}
-		}
+	if err := r.walk(ctx, tx, w); err != nil {
+		return nil, err
 	}
 	if err := w.checkRestrictions(); err != nil {
 		return nil, err
 	}
 	return w.plan, nil
+}
+
+// walk visits, breadth-first, each entry that holds an entry the delete of w removes,
+// as seen by snap.
+func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
+	if w.plan.changes() > w.limit {
+		return w.tooLarge()
+	}
+	for len(w.queue) > 0 {
+		target := w.queue[0]
+		w.queue = w.queue[1:]
+		for _, ref := range r.referencesTo(target.Table) {
+			deps, err := ref.dependentsOf(ctx, snap, target)
+			if err != nil {
+				return err
+			}
+			for _, k := range deps {
+				dep := Target{Table: ref.ownerTable(), Key: k}
+				if err := w.visit(ref, dep, target); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // restriction is a Restrict reference through which dependent holds target.
@@ -445,6 +454,18 @@ type planWalk struct {
 	queue        []Target
 	restrictions []restriction
 	restricted   set.Set[Target]
+	// effects holds, by OnDelete, the effect of the walk on each entry it meets, for
+	// PlanDelete. It is nil for a delete.
+	effects map[OnDelete][]DeleteEffect
+}
+
+// record adds the effect of the delete of target on dep, which holds it through ref,
+// when the walk is for PlanDelete.
+func (w *planWalk) record(ref registeredReference, dep, target Target) {
+	if w.effects != nil {
+		p := ref.onDeletePolicy()
+		w.effects[p] = append(w.effects[p], newDeleteEffect(ref, dep, target))
+	}
 }
 
 func newPlanWalk(table string, keys []string, limit int) *planWalk {
@@ -488,6 +509,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		if !w.plan.cascade(dep) {
 			return nil
 		}
+		w.record(ref, dep, target)
 		w.queue = append(w.queue, dep)
 	case Restrict:
 		if w.plan.contains(dep) || w.restricted.Contains(dep) {
@@ -502,10 +524,14 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		// dependent stays outside it.
 		if len(w.restrictions) > w.limit {
 			if err := w.checkRestrictions(); err != nil {
+				if w.effects != nil {
+					return w.tooLarge()
+				}
 				return err
 			}
 		}
 	case Weak:
+		w.record(ref, dep, target)
 		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {
@@ -515,6 +541,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 			w.plan.detaches[dep],
 			detachOp{ref: ref.index(), target: target},
 		)
+		w.record(ref, dep, target)
 	}
 	if w.plan.changes() > w.limit {
 		return w.tooLarge()
