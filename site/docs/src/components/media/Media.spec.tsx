@@ -29,7 +29,7 @@ const sources = (): [string | null, string | null][] =>
 describe("Media", () => {
   describe("Video", () => {
     it("should offer the dark and light versions by color scheme", () => {
-      show(renderToString(<Media.Video id={ID} />));
+      show(renderToString(<Media.Video id={ID} label="A video" />));
       expect(sources()).toEqual([
         [
           "(prefers-color-scheme: dark)",
@@ -40,24 +40,33 @@ describe("Media", () => {
     });
 
     it("should offer one version when not themed", () => {
-      show(renderToString(<Media.Video id={ID} themed={false} />));
+      show(renderToString(<Media.Video id={ID} label="A video" themed={false} />));
       expect(sources()).toEqual([[null, `${CDN.ROOT}/${ID}/${VERSION}.mp4#t=0.001`]]);
     });
 
     it("should throw for a video with no uploaded version", () => {
-      expect(() => renderToString(<Media.Video id="console/missing" />)).toThrow(
+      expect(() =>
+        renderToString(<Media.Video id="console/missing" label="A video" />),
+      ).toThrow(
         "no version of video console/missing: add an entry to studio/videos.ts, then run pnpm upload console/missing in studio/",
       );
     });
 
     it("should render a muted looping video that loads only its metadata", () => {
-      show(renderToString(<Media.Video id={ID} />));
+      show(renderToString(<Media.Video id={ID} label="A video" />));
       const video = document.querySelector(".docs-video > video") as HTMLVideoElement;
       expect(video.loop).toBe(true);
       expect(video.hasAttribute("muted")).toBe(true);
       expect(video.hasAttribute("playsinline")).toBe(true);
       expect(video.getAttribute("preload")).toBe("metadata");
       expect(document.querySelector(".docs-video__play")).not.toBeNull();
+    });
+
+    it("should name the video with its label", () => {
+      show(renderToString(<Media.Video id={ID} label="Create a line plot" />));
+      expect(document.querySelector("video")?.getAttribute("aria-label")).toBe(
+        "Create a line plot",
+      );
     });
   });
 
@@ -74,7 +83,9 @@ describe("Media", () => {
     });
 
     it("should render a plain image when not themed", () => {
-      show(renderToString(<Media.Image id="logo" extension="svg" themed={false} />));
+      show(
+        renderToString(<Media.Image id="logo" alt="" extension="svg" themed={false} />),
+      );
       expect(document.querySelector("picture")).toBeNull();
       expect(document.querySelector("img")?.getAttribute("src")).toBe(
         `${CDN.ROOT}/logo.svg`,

@@ -125,7 +125,7 @@ interface CreateTabProps {
  * selection head re-renders the button alone: focus moving between leaves must not
  * re-render either leaf's tabs.
  */
-const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
+const CreateTab = ({ selected, onAdd }: CreateTabProps): ReactElement => {
   // Create acts on the panel's focused tab, so only the leaf holding that tab may
   // advertise the shortcut. An empty leaf holds none, and "" matches no tab.
   const { head } = Select.useItemState(selected ?? "");
@@ -141,7 +141,7 @@ const CreateTab = memo(({ selected, onAdd }: CreateTabProps): ReactElement => {
       <Icon.Add color={9} />
     </Button.Button>
   );
-});
+};
 CreateTab.displayName = "Panel.Mosaic.CreateTab";
 
 const Leaf = memo(
@@ -330,20 +330,20 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // Content renders into portaled elements hosted from each leaf, so moving a tab around
 // the mosaic does not remount it: the destination leaf's Out re-parents the same
 // element, preserving DOM state and expensive resources like WebGL contexts.
-const PortaledContents = memo(
-  ({ children }: Pick<MosaicProps, "children">): ReactElement => {
-    const keys = useTabKeys();
-    return (
-      <>
-        {keys.map((key) => (
-          <PortalIn key={key} itemKey={key}>
-            {children}
-          </PortalIn>
-        ))}
-      </>
-    );
-  },
-);
+const PortaledContents = ({
+  children,
+}: Pick<MosaicProps, "children">): ReactElement => {
+  const keys = useTabKeys();
+  return (
+    <>
+      {keys.map((key) => (
+        <PortalIn key={key} itemKey={key}>
+          {children}
+        </PortalIn>
+      ))}
+    </>
+  );
+};
 PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({

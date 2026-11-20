@@ -14,7 +14,6 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep, id, primitive } from "@synnaxlabs/x";
@@ -22,7 +21,7 @@ import { type FC, useState } from "react";
 
 import { use, useFromConfig } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
+import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
@@ -42,14 +41,12 @@ import {
   type SparkplugTag,
   type SparkplugWriteTarget,
   WRITE_SCHEMAS,
-  WRITE_TYPE,
   type WriteSchemas,
   type WriteTarget,
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -334,15 +331,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "MQTT write task", type: WRITE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -394,16 +382,3 @@ export const Write = Task.wrapForm({
   type: "mqtt_write",
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "MQTT write task",
-  label: "Write",
-  icon: <Icon.Logo.MQTT />,
-  useOnSelect: useCreateWrite,
-};

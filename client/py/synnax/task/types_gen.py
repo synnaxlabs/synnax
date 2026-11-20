@@ -11,14 +11,7 @@
 
 from __future__ import annotations
 
-from typing import (
-    Annotated,
-    Any,
-    Literal,
-    TypeAlias,
-    TypedDict,
-    override as _override,
-)
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
