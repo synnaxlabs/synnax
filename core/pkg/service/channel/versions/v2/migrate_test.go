@@ -26,6 +26,10 @@ import (
 )
 
 var _ = Describe("Migration", func() {
+	It("Should keep its key, which the applied set holds forever", func() {
+		Expect(v2.Migration.Key()).To(Equal("v63_drop_internal"))
+	})
+
 	It("Should drop the internal flag and log each channel that held it", func(
 		ctx SpecContext,
 	) {

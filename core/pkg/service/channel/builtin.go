@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // IsBuiltIn reports whether a Core service declared the channel with key k for its own
@@ -38,8 +39,15 @@ func (s *Service) BuiltIns() Keys {
 // data type and virtual flag of ch, becomes the built-in. Declare renames any other
 // channel of that name with the first free suffix (_2, _3) and writes a warning status
 // for it. Declare fills ch with the stored channel. It returns an error when another
-// built-in holds the name.
+// built-in holds the name, or when ch is calculated.
 func (w Writer) Declare(ctx context.Context, ch *Channel) error {
+	if ch.IsCalculated() {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"built-in channel %q can't be calculated",
+			ch.Name,
+		)
+	}
 	var holders []Channel
 	if err := w.svc.newRetrieve().
 		Where(MatchNames(ch.Name)).
