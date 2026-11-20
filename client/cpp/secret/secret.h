@@ -18,8 +18,11 @@
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/secret/proto.gen.h"
 #include "client/cpp/secret/types.gen.h"
+#include "client/cpp/task/proto.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/secret/pb/secret.pb.h"
 #include "core/pkg/transport/grpc/secret/secret.pb.h"
@@ -39,8 +42,12 @@ using Values = std::unordered_map<Key, std::string>;
 
 /// @brief what a spent grant gives a rack.
 struct Grant {
+    /// @brief the command to run in place of the command that carried the grant.
+    synnax::task::Command command;
     /// @brief the keys of the secrets that the grant names, file secrets included.
     std::vector<Key> secrets;
+    /// @brief the keys of the file certificates that the grant names.
+    std::vector<x::uuid::UUID> certificates;
     /// @brief the values of the secrets that the grant names, except a file secret of
     /// a rack that is not the Core's, which the rack reads from its own secrets folder.
     Values values;
@@ -65,6 +72,14 @@ public:
     /// @returns the secrets for the keys that exist.
     [[nodiscard]] std::pair<std::vector<Secret>, x::errors::Error>
     retrieve(const std::vector<Key> &keys) const;
+
+    /// @brief spends a grant and returns its command, the secrets it names, and their
+    /// values. Only a rack may call it, for a grant to that rack.
+    /// @param grant the key of the grant.
+    /// @param task the task that runs the command. A grant for another task fails, and
+    /// is spent.
+    [[nodiscard]] std::pair<Grant, x::errors::Error>
+    resolve(const x::uuid::UUID &grant, const synnax::task::Key &task) const;
 
     /// @brief returns the values of the stored secrets with the given keys. Only a rack
     /// may call it, and a device or task on the rack must use each secret.

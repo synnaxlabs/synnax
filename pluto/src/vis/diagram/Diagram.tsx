@@ -471,6 +471,7 @@ export const create = ({
       fitViewOptions,
       viewportMode,
       onViewportModeChange,
+      triggers,
     };
 
     const defautlViewport = translateViewportForward(viewport);
