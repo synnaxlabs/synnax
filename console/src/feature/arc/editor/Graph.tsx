@@ -9,7 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { ContextMenu } from "@/platform/context-menu";

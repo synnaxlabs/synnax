@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Arc } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";

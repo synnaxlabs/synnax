@@ -14,11 +14,11 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 
-import {
-  type Activation,
-  type Event,
-  type License as LicenseRecord,
-  type Organization,
+import type {
+  Activation,
+  Event,
+  License as LicenseRecord,
+  Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";

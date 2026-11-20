@@ -18,7 +18,7 @@ import {
   WRITE_TYPE,
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({

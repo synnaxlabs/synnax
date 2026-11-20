@@ -14,13 +14,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";

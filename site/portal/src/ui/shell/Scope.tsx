@@ -14,7 +14,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
-import { type OrganizationKind } from "@/server/db/schema";
+import type { OrganizationKind } from "@/server/db/schema";
 
 export interface ScopeOption {
   key: string;

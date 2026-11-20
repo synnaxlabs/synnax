@@ -10,7 +10,7 @@
 import { type Config, defaultConfig } from "@/arc/graph/node/stable/config";
 import { Form } from "@/arc/graph/node/stable/Form";
 import { StableFor } from "@/arc/graph/node/stable/StableFor";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import type { Spec } from "@/arc/graph/node/types/spec";
 
 export { configZ } from "@/arc/graph/node/stable/config";
 

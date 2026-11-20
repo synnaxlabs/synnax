@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tree } from "@synnaxlabs/lyra/tree";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
@@ -48,7 +48,7 @@ import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
-import { type Leaf } from "@/feature/mqtt/task/leaves";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   sparkplugChannelName,

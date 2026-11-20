@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DebouncedFn } from "@/scheduler/debounce";
+import type { DebouncedFn } from "@/scheduler/debounce";
 import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
 
 /** The function returned by throttle. It carries the same handles as a debounce. */

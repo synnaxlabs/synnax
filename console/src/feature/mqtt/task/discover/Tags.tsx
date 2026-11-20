@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type Tree } from "@synnaxlabs/lyra/tree";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { id, map } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useState } from "react";
@@ -20,7 +20,7 @@ import {
   browseSparkplug,
   LISTENING,
 } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import {
   type BrowsedSparkplugNode,
   type BrowsedSparkplugTag,
