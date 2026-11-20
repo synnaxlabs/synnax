@@ -17,6 +17,17 @@ import (
 )
 
 var _ = Describe("Document", func() {
+	DescribeTable(
+		"CharacterToByte",
+		func(line string, character uint32, expected int) {
+			Expect(lsp.CharacterToByte(line, character)).To(Equal(expected))
+		},
+		Entry("an ASCII column", "abc", uint32(2), 2),
+		Entry("a column after a two-byte rune", "°C", uint32(1), 2),
+		Entry("a column after a surrogate pair", "😀x", uint32(2), 4),
+		Entry("a column past the line end", "hi", uint32(5), 2),
+	)
+
 	Describe("PositionToOffset", func() {
 		It("Should convert a position on the first line", func() {
 			Expect(
@@ -40,6 +51,36 @@ var _ = Describe("Document", func() {
 		It("Should clamp character beyond line length", func() {
 			Expect(
 				lsp.PositionToOffset("hi", protocol.Position{Line: 0, Character: 100}),
+			).To(Equal(2))
+		})
+
+		It("Should count characters in UTF-16 code units", func() {
+			Expect(
+				lsp.PositionToOffset("é = x", protocol.Position{Line: 0, Character: 2}),
+			).To(Equal(3))
+		})
+
+		It("Should count a character outside the BMP as two code units", func() {
+			Expect(
+				lsp.PositionToOffset("😀x", protocol.Position{Line: 0, Character: 2}),
+			).To(Equal(4))
+		})
+
+		It("Should clamp a character past the line end to the line end", func() {
+			Expect(
+				lsp.PositionToOffset(
+					"hi\nthere",
+					protocol.Position{Line: 0, Character: 5},
+				),
+			).To(Equal(2))
+		})
+
+		It("Should clamp a character past a CRLF line end before the CR", func() {
+			Expect(
+				lsp.PositionToOffset(
+					"hi\r\nthere",
+					protocol.Position{Line: 0, Character: 5},
+				),
 			).To(Equal(2))
 		})
 
@@ -125,6 +166,17 @@ var _ = Describe("Document", func() {
 			Expect(lsp.ApplyIncrementalChange("", change)).To(Equal("new content"))
 		})
 
+		It("Should apply an insertion after a non-ASCII character", func() {
+			change := &protocol.TextDocumentContentChangePartial{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 0, Character: 3},
+					End:   protocol.Position{Line: 0, Character: 3},
+				},
+				Text: "!",
+			}
+			Expect(lsp.ApplyIncrementalChange("°C x", change)).To(Equal("°C !x"))
+		})
+
 		It("Should handle cross-line replacement", func() {
 			content := "line1\nline2\nline3"
 			change := &protocol.TextDocumentContentChangePartial{
@@ -206,6 +258,15 @@ var _ = Describe("Document", func() {
 			).To(Equal(""))
 		})
 
+		It("Should extract a word after a non-ASCII character", func() {
+			Expect(
+				lsp.GetWordAtPosition(
+					"°C temp",
+					protocol.Position{Line: 0, Character: 3},
+				),
+			).To(Equal("temp"))
+		})
+
 		It("Should extract word from multi-line content", func() {
 			Expect(
 				lsp.GetWordAtPosition(
@@ -242,6 +303,8 @@ var _ = Describe("Document", func() {
 				"now()", uint32(1), "now"),
 			Entry("returns empty when past end of line",
 				"hi", uint32(10), ""),
+			Entry("on a word after a non-ASCII character",
+				"°C time.now", uint32(8), "time.now"),
 			Entry("on a word touching the start of the line",
 				"math.pow(2, 3)", uint32(0), "math"),
 		)
@@ -256,6 +319,16 @@ var _ = Describe("Document", func() {
 			Expect(r).ToNot(BeNil())
 			Expect(r.Start.Character).To(Equal(uint32(6)))
 			Expect(r.End.Character).To(Equal(uint32(11)))
+		})
+
+		It("Should return the range in UTF-16 code units", func() {
+			r := lsp.GetWordRangeAtPosition(
+				"°C temp",
+				protocol.Position{Line: 0, Character: 4},
+			)
+			Expect(r).ToNot(BeNil())
+			Expect(r.Start.Character).To(Equal(uint32(3)))
+			Expect(r.End.Character).To(Equal(uint32(7)))
 		})
 
 		It("Should return nil for empty content", func() {
