@@ -191,7 +191,7 @@ func (s *session) write(
 	if s.autoIndex != nil {
 		st = s.autoIndex.stamp(st)
 	}
-	written, refused, err := s.w.WriteExcept(ctx, st, s.lacks)
+	written, refused, err := s.w.Write(ctx, st, s.lacks)
 	if err != nil {
 		return false, s.fail(err)
 	}
@@ -210,7 +210,7 @@ func (s *session) write(
 // the persist rule asks, also after a commit refused for no control. It returns true
 // when the session lacked control of a channel with samples to commit.
 func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
-	end, refused, err := s.w.CommitExcept(ctx, s.lacks)
+	end, refused, err := s.w.Commit(ctx, s.lacks)
 	if err != nil {
 		return 0, false, s.fail(err)
 	}
@@ -226,7 +226,7 @@ func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
 	ended, skip, refusal := s.gates.endDomain(indexes)
 	if skip != nil {
-		if _, _, err := s.w.CommitExcept(ctx, skip.Contains); err != nil {
+		if _, _, err := s.w.Commit(ctx, skip.Contains); err != nil {
 			return s.fail(err)
 		}
 	}

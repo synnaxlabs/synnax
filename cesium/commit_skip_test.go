@@ -21,7 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Writer CommitExcept", func() {
+var _ = Describe("Writer Commit with a skip", func() {
 	It(
 		"Should commit every data channel that skip does not name",
 		func(ctx SpecContext) {
@@ -54,12 +54,13 @@ var _ = Describe("Writer CommitExcept", func() {
 				for range data {
 					series = append(series, telem.NewSeriesV[int64](1, 2, 3, 4))
 				}
-				MustSucceed(w.Write(ctx, telem.MultiFrame(
+				mustWrite(ctx, w, telem.MultiFrame(
 					append([]cesium.ChannelKey{index}, data...),
 					series,
-				)))
+				))
+
 				skipped := data[0]
-				end, refused := MustSucceed2(w.CommitExcept(
+				end, refused := MustSucceed2(w.Commit(
 					ctx,
 					func(k cesium.ChannelKey) bool { return k == skipped },
 				))

@@ -62,10 +62,10 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	b.ReportAllocs()
 	start := telem.SecondTS
 	for b.Loop() {
-		if _, err := w.Write(b.Context(), benchFrame(keys, start)); err != nil {
+		if _, _, err := w.Write(b.Context(), benchFrame(keys, start), nil); err != nil {
 			b.Fatal(err)
 		}
-		if _, err := w.Commit(b.Context()); err != nil {
+		if _, _, err := w.Commit(b.Context(), nil); err != nil {
 			b.Fatal(err)
 		}
 		start += benchFrameSamples
@@ -126,10 +126,14 @@ func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
 		for i := 0; i < len(series); i += perIndex + 1 {
 			series[i] = time
 		}
-		if _, err := w.Write(b.Context(), telem.MultiFrame(keys, series)); err != nil {
+		if _, _, err := w.Write(
+			b.Context(),
+			telem.MultiFrame(keys, series),
+			nil,
+		); err != nil {
 			b.Fatal(err)
 		}
-		if _, err := w.Commit(b.Context()); err != nil {
+		if _, _, err := w.Commit(b.Context(), nil); err != nil {
 			b.Fatal(err)
 		}
 		if err := w.Sync(); err != nil {
@@ -237,7 +241,7 @@ func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func(
 				return
 			default:
 			}
-			if _, _, err := w.WriteExcept(b.Context(), f, skip.Contains); err != nil {
+			if _, _, err := w.Write(b.Context(), f, skip.Contains); err != nil {
 				b.Error(err)
 				return
 			}

@@ -98,8 +98,8 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if err != nil {
 		return span.Error(err)
 	}
-	if _, err = w.Write(ctx, frame); err == nil {
-		_, err = w.Commit(ctx)
+	if _, _, err = w.Write(ctx, frame, nil); err == nil {
+		_, _, err = w.Commit(ctx, nil)
 	}
 	return span.Error(errors.Join(err, w.Close()))
 }
