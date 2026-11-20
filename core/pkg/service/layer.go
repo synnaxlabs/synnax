@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
+	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -283,6 +284,8 @@ type Layer struct {
 	MQTT *mqtt.Service
 	// Sift owns the stored configuration records of the Sift task types.
 	Sift *sift.Service
+	// File owns the stored configuration records of the file browser task type.
+	File *file.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels.
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel
@@ -973,10 +976,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Sift) {
 		return nil, err
 	}
+	if l.File, err = file.OpenService(ctx, file.ServiceConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.File) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
+		l.File.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -1195,6 +1205,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, siftFactory) {
 		return nil, err
 	}
+	fileFactory, err := file.NewFactory(file.FactoryConfig{
+		Instrumentation: cfg.Child("file"),
+		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		SecretsDir:      cfg.SecretsDir,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -1210,6 +1229,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			kafkaFactory,
 			mqttFactory,
 			siftFactory,
+			fileFactory,
 		},
 		HostKey: cfg.Distribution.Identity.HostKey,
 	}); !ok(err, l.Driver) {
