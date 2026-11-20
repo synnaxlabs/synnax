@@ -21,7 +21,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { type Reader, type Store, type Tx } from "@/server/db/db";
+import type { Reader, Store, Tx } from "@/server/db/db";
 import {
   event,
   invitation,

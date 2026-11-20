@@ -12,7 +12,7 @@ import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 

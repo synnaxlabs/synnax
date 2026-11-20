@@ -9,7 +9,7 @@
 
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import type { Store } from "@/server/db/db";
 import {
   activation,
   type Edition,

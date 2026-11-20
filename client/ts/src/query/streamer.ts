@@ -12,7 +12,7 @@ import { type breaker, caseconv, DataType, errors, zod } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 
 /**

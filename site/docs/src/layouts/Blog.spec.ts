@@ -10,7 +10,7 @@
 // @vitest-environment node
 
 import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
-import { type Element, type Root } from "hast";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { beforeEach, describe, expect, it } from "vitest";
 

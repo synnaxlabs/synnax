@@ -14,7 +14,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 import { Nebula } from "@synnaxlabs/lyra/nebula";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Root } from "@/ui/Root";
 

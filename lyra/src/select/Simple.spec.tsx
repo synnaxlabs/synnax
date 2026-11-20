@@ -15,7 +15,7 @@ import { renderToString } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
-import { type Input } from "@/input";
+import type { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { disableActEnvironment } from "@/testutil/act";

@@ -11,10 +11,10 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Task } from "@/feature/ni/task";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 
 export const RackMenuItems = ({
   rackKey,

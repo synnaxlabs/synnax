@@ -26,7 +26,7 @@ import {
   zod,
 } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";

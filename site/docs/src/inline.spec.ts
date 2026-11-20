@@ -11,7 +11,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { hash, LOADER } from "@synnaxlabs/site-common/csp";
-import { type experimental_AstroContainer as AstroContainer } from "astro/container";
+import type { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
