@@ -11,14 +11,14 @@ import { randomBytes } from "node:crypto";
 
 import { and, desc, eq, isNull, lt, notExists, or } from "drizzle-orm";
 
-import { type Analytics, type Capture } from "@/server/analytics";
-import { type Reader, type Store } from "@/server/db/db";
+import type { Analytics, Capture } from "@/server/analytics";
+import type { Reader, Store } from "@/server/db/db";
 import { type Referral, referral } from "@/server/db/schema";
-import { type Account, type Directory } from "@/server/directory";
+import type { Account, Directory } from "@/server/directory";
 import { badRequest, HTTPError, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { type Mailer, type Message } from "@/server/mail";
-import { type Session } from "@/server/session";
+import type { Mailer, Message } from "@/server/mail";
+import type { Session } from "@/server/session";
 import { NONE, type Usage } from "@/server/usage";
 import { usageOf } from "@/server/user";
 import { referralPath } from "@/shell";

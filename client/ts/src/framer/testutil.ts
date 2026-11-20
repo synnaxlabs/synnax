@@ -9,7 +9,7 @@
 
 import { DataType, TimeRange } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { Codec } from "@/framer/codec";
 import { Frame, type Payload } from "@/framer/frame";
 

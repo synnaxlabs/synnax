@@ -11,7 +11,7 @@ import "@synnaxlabs/lyra/dist/base.css";
 import "@/index.css";
 import "@/main.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import ReactDOM from "react-dom/client";
 
 import { Pluto } from "@/pluto";

@@ -10,7 +10,7 @@
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/access";

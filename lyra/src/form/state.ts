@@ -10,8 +10,8 @@
 import { deep, type destructor, errors, map, observe, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Entry, type Store } from "@/form/store";
-import { type Status } from "@/status";
+import type { Entry, Store } from "@/form/store";
+import type { Status } from "@/status";
 
 export interface FieldState<V = unknown> {
   value: V;

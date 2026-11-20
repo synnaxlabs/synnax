@@ -11,11 +11,11 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Organization } from "@/server/db/schema";
-import { type Invited } from "@/server/invitation";
-import { type Held } from "@/server/license/list";
+import type { Organization } from "@/server/db/schema";
+import type { Invited } from "@/server/invitation";
+import type { Held } from "@/server/license/list";
 import { statusOf } from "@/server/license/status";
 import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";

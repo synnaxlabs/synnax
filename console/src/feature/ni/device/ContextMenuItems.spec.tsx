@@ -15,7 +15,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import {

@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type text } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { FC } from "react";
 
 interface TextFactoryProps {
   level: text.Level;

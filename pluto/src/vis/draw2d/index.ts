@@ -22,9 +22,9 @@ import {
 } from "@synnaxlabs/x";
 
 import { text as aetherText } from "@/text/aether";
-import {
-  type FillTextOptions,
-  type SugaredOffscreenCanvasRenderingContext2D,
+import type {
+  FillTextOptions,
+  SugaredOffscreenCanvasRenderingContext2D,
 } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {

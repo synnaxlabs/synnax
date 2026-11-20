@@ -18,7 +18,7 @@ import { useState } from "react";
 import { TAB_TYPE } from "@/feature/status/explorer/external";
 import { contextMenu } from "@/feature/status/list/ContextMenu";
 import { Label } from "@/platform/label";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 

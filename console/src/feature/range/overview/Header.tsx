@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Color, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type query, resource, type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, type record } from "@synnaxlabs/x";
+import type { destructor, record } from "@synnaxlabs/x";
 
-import { type Resource } from "@/platform/tree/types";
+import type { Resource } from "@/platform/tree/types";
 
 /** What a child list of a tree node holds now. */
 export interface Window {

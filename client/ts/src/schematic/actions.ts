@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 
 import { actions } from "@/actions";
 import {

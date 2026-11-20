@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type table } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import type { channel, table } from "@synnaxlabs/client";
+import type { Locator } from "playwright";
 
 import { capture, fixtures } from "@/index";
 

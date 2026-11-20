@@ -9,7 +9,7 @@
 
 import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useOpen } from "@/app/settings/tab";
 

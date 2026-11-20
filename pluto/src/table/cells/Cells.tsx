@@ -13,7 +13,7 @@ import { table } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { type border, box, color, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";

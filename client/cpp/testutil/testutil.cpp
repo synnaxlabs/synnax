@@ -29,6 +29,16 @@ synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config());
 }
 
+synnax::Config
+rack_client_config(const synnax::Synnax &client, const synnax::rack::Key key) {
+    const auto api_key = ASSERT_NIL_P(
+        client.api_keys.create("test rack", {"rack", std::to_string(key)})
+    );
+    auto cfg = test_client_config();
+    cfg.api_key = api_key.token;
+    return cfg;
+}
+
 std::mt19937 random_generator(const std::string &suite_name) {
     std::random_device rd;
     const auto rand_seed = rd();
