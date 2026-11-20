@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer } from "@synnaxlabs/client";
-import { type SyntheticCore } from "@synnaxlabs/client/testutil";
+import type { framer } from "@synnaxlabs/client";
+import type { SyntheticCore } from "@synnaxlabs/client/testutil";
 import { onTestFinished } from "vitest";
 
 import { type Client, RemoteFactory } from "@/telem/aether/remote";

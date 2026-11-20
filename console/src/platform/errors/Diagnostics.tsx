@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type ComponentType, type ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 
 import { Disconnected, isConnectionError } from "@/platform/errors/Disconnected";
 import { Session } from "@/session";

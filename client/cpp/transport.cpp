@@ -16,6 +16,8 @@
 #include "core/pkg/transport/grpc/arc/arc.pb.h"
 #include "core/pkg/transport/grpc/auth/auth.grpc.pb.h"
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
+#include "core/pkg/transport/grpc/certificate/certificate.grpc.pb.h"
+#include "core/pkg/transport/grpc/certificate/certificate.pb.h"
 #include "core/pkg/transport/grpc/channel/channel.grpc.pb.h"
 #include "core/pkg/transport/grpc/channel/channel.pb.h"
 #include "core/pkg/transport/grpc/connectivity/connectivity.grpc.pb.h"
@@ -34,6 +36,8 @@
 #include "core/pkg/transport/grpc/ranger/kv/kv.pb.h"
 #include "core/pkg/transport/grpc/ranger/ranger.grpc.pb.h"
 #include "core/pkg/transport/grpc/ranger/ranger.pb.h"
+#include "core/pkg/transport/grpc/secret/secret.grpc.pb.h"
+#include "core/pkg/transport/grpc/secret/secret.pb.h"
 #include "core/pkg/transport/grpc/status/status.grpc.pb.h"
 #include "core/pkg/transport/grpc/status/status.pb.h"
 #include "core/pkg/transport/grpc/task/task.grpc.pb.h"
@@ -182,6 +186,26 @@ Transport::Transport(
         grpc::status::SetByKeyOrNameRequest,
         grpc::status::SetByKeyOrNameResponse,
         grpc::status::StatusSetByKeyOrNameService>>(pool, base_target);
+    this->secret_retrieve = std::make_shared<freighter::grpc::UnaryClient<
+        ::api::secret::pb::RetrieveRequest,
+        ::api::secret::pb::RetrieveResponse,
+        grpc::secret::SecretRetrieveService>>(pool, base_target);
+    this->secret_resolve = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::secret::ResolveRequest,
+        grpc::secret::ResolveResponse,
+        grpc::secret::SecretResolveService>>(pool, base_target);
+    this->certificate_retrieve = std::make_shared<freighter::grpc::UnaryClient<
+        ::api::certificate::pb::RetrieveRequest,
+        ::api::certificate::pb::RetrieveResponse,
+        grpc::certificate::CertificateRetrieveService>>(pool, base_target);
+    this->certificate_set = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::certificate::SetRequest,
+        grpc::certificate::SetResponse,
+        grpc::certificate::CertificateSetService>>(pool, base_target);
+    this->certificate_refresh = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::certificate::RefreshRequest,
+        google::protobuf::Empty,
+        grpc::certificate::CertificateRefreshService>>(pool, base_target);
     this->arc_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::CreateRequest,
         grpc::arc::CreateResponse,
@@ -239,6 +263,11 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     status_set->use(mw);
     status_delete->use(mw);
     status_set_by_key_or_name->use(mw);
+    secret_retrieve->use(mw);
+    secret_resolve->use(mw);
+    certificate_retrieve->use(mw);
+    certificate_set->use(mw);
+    certificate_refresh->use(mw);
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);

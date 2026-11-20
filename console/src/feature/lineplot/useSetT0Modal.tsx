@@ -13,7 +13,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
-import { type TimeRange } from "@synnaxlabs/x";
+import type { TimeRange } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Modals } from "@/platform/modals";

@@ -11,7 +11,7 @@ import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import fs from "fs";
 import path from "path";
 
-import { type Page, type Source } from "@/util/checks/check";
+import type { Page, Source } from "@/util/checks/check";
 
 const PAGES_DIR = "./src/pages";
 const DOCS_DIR = "./src/docs";

@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Ranger } from "@synnaxlabs/pluto";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Framer } from "@/platform/framer";

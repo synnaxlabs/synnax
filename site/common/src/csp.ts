@@ -9,11 +9,7 @@
 
 import { createHash } from "node:crypto";
 
-import {
-  type AstroIntegration,
-  type AstroUserConfig,
-  type HookParameters,
-} from "astro";
+import type { AstroIntegration, AstroUserConfig, HookParameters } from "astro";
 
 import { API_HOST } from "./analytics";
 

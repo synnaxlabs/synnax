@@ -9,11 +9,11 @@
 
 import { panel, type project, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
-import { type Flux } from "@synnaxlabs/pluto";
+import type { Status } from "@synnaxlabs/lyra/status";
+import type { Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { assert } from "vitest";
 
 import { Range } from "@/feature/range";

@@ -9,7 +9,7 @@
 
 import "@/input/Auto.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Badge } from "@/badge";
 import { Button } from "@/button";

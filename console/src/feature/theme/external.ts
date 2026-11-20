@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { SelectCommand } from "@/feature/theme/commands";
-import { type Command } from "@/platform/command";
+import type { Command } from "@/platform/command";
 
 export const COMMANDS: Command.Command[] = [SelectCommand];
 

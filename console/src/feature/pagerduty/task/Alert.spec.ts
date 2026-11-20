@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import { findOption } from "@/platform/picker/testutil";

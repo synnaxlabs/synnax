@@ -11,7 +11,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, useState } from "react";
 
 import { DeferredScene } from "@/components/DeferredScene";
-import { type SystemLayer } from "@/components/IndustrialScene";
+import type { SystemLayer } from "@/components/IndustrialScene";
 
 const loadScene = () =>
   import("@/components/IndustrialScene").then(({ IndustrialScene }) => ({

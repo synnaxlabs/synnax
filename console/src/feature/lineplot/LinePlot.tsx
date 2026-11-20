@@ -22,7 +22,7 @@ import {
   Ranger,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
+import type { lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
 import {
   box,
   type color,
@@ -54,7 +54,7 @@ import {
 import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";

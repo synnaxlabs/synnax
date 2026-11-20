@@ -2128,7 +2128,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 })
 
-var _ = Describe("OpenService with a store that hashes used records", func() {
+var _ = Describe("SyncHashes", func() {
 	It("Should store the current config hash of each task", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
@@ -2167,6 +2167,7 @@ var _ = Describe("OpenService with a store that hashes used records", func() {
 			To(Succeed())
 		Expect(first.Close()).To(Succeed())
 		second := MustOpen(open())
+		Expect(second.SyncHashes(ctx)).To(Succeed())
 		var res task.Task
 		Expect(second.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).

@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+    timeout-minutes: 10
     steps:
       - name: Delete older browser caches
         env:

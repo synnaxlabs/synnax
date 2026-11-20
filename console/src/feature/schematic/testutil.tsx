@@ -18,7 +18,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen, within } from "@testing-library/react";

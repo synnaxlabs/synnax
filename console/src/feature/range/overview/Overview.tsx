@@ -20,7 +20,7 @@ import { MetaData } from "@/feature/range/overview/MetaData";
 import { AddLine } from "@/feature/range/overview/Section";
 import { Sift } from "@/feature/sift";
 import { CSS } from "@/platform/css";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 const NO_PAIRS: ranger.kv.Pair[] = [];

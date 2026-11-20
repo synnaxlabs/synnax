@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";

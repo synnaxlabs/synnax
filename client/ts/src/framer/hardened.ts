@@ -23,7 +23,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   AuthError,
   ExpiredTokenError,
@@ -31,13 +31,13 @@ import {
   LicenseError,
   SessionEndedError,
 } from "@/errors";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { isDefinitive } from "@/framer/retry";
-import {
-  type Streamer,
-  type StreamerConfig,
-  type StreamerUpdateOptions,
-  type StreamOpener,
+import type {
+  Streamer,
+  StreamerConfig,
+  StreamerUpdateOptions,
+  StreamOpener,
 } from "@/framer/streamer";
 
 type NormalizedStreamerConfig = Extract<StreamerConfig, { channels: unknown }>;

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
-import { type destructor, type record } from "@synnaxlabs/x";
+import type { Action } from "@reduxjs/toolkit";
+import type { Synnax } from "@synnaxlabs/client";
+import type { destructor, record } from "@synnaxlabs/x";
 
 /**
  * The store surface a synchronizer needs. Narrower than a Redux store, whose

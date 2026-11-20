@@ -14,7 +14,7 @@ import { selectIsClusterOrphaned, selectSelected } from "@/session/core/selector
 import { type Action, setClusterKey, type StoreState } from "@/session/core/slice";
 import { Modals } from "@/session/modals";
 import { Persist } from "@/session/persist";
-import { type Synchronizer } from "@/session/synchronizer";
+import type { Synchronizer } from "@/session/synchronizer";
 
 interface RequiredStoreState extends StoreState, Drift.StoreState {}
 type RequiredAction = Action | Drift.Action | Persist.Action;

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot as client } from "@synnaxlabs/client";
+import type { lineplot as client } from "@synnaxlabs/client";
 import { LinePlot, type Viewport } from "@synnaxlabs/pluto";
-import { type lineplot } from "@synnaxlabs/pluto/ether";
-import { type record } from "@synnaxlabs/x";
+import type { lineplot } from "@synnaxlabs/pluto/ether";
+import type { record } from "@synnaxlabs/x";
 
 import {
   type ControlState,
