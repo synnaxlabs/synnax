@@ -15,12 +15,13 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
 	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
@@ -82,7 +83,7 @@ func EncodeBundle(p Panel, refs map[resource.ID]string) (imex.Envelope, error) {
 		Type:    string(resource.TypePanel),
 		Name:    p.Name,
 	}
-	body := bundleBody[color.Color]{Root: node, Icon: p.Icon, Color: p.Color}
+	body := bundleBody[color.Ref]{Root: node, Icon: p.Icon, Color: p.Color}
 	if err := env.Encode(body); err != nil {
 		return imex.Envelope{}, err
 	}
@@ -124,26 +125,46 @@ func DecodeBundle(
 	return Panel{Name: env.Name, Root: root, Icon: body.Icon, Color: body.Color}, nil
 }
 
-// decodeBundleBody decodes the body of env. A member from before panel v5 holds a color
-// with a 0-1 alpha, which it migrates to a byte alpha.
+// decodeBundleBody decodes the body of env. A member from before panel v6 holds a plain
+// color, which it migrates to a fixed color.
 func decodeBundleBody(
 	ctx context.Context,
 	env imex.Envelope,
-) (bundleBody[color.Color], error) {
+) (bundleBody[color.Ref], error) {
+	if env.Version >= v6.Version {
+		return env.Decode[bundleBody[color.Ref]]()
+	}
+	old, err := decodeV5BundleBody(ctx, env)
+	if err != nil {
+		return bundleBody[color.Ref]{}, err
+	}
+	body := bundleBody[color.Ref]{Root: old.Root, Icon: old.Icon}
+	if old.Color != nil {
+		body.Color = &color.Ref{Variant: color.FixedRef{Value: *old.Color}}
+	}
+	return body, nil
+}
+
+// decodeV5BundleBody decodes the body of a member from before panel v6. A member from
+// before panel v5 holds a color with a 0-1 alpha, which it migrates to a byte alpha.
+func decodeV5BundleBody(
+	ctx context.Context,
+	env imex.Envelope,
+) (bundleBody[colorv2.Color], error) {
 	if env.Version >= v5.Version {
-		return env.Decode[bundleBody[color.Color]]()
+		return env.Decode[bundleBody[colorv2.Color]]()
 	}
 	old, err := env.Decode[bundleBody[colorv1.Color]]()
 	if err != nil {
-		return bundleBody[color.Color]{}, err
+		return bundleBody[colorv2.Color]{}, err
 	}
-	body := bundleBody[color.Color]{Root: old.Root, Icon: old.Icon}
+	body := bundleBody[colorv2.Color]{Root: old.Root, Icon: old.Icon}
 	if old.Color == nil {
 		return body, nil
 	}
 	c, err := colorv2.MigrateColor(ctx, *old.Color)
 	if err != nil {
-		return bundleBody[color.Color]{}, err
+		return bundleBody[colorv2.Color]{}, err
 	}
 	body.Color = &c
 	return body, nil

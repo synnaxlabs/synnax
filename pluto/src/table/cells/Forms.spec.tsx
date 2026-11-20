@@ -227,7 +227,9 @@ describe("ValueForm", () => {
     it("should show the fill below the lowest band once one is set", () => {
       const { getByText } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
-      act(() => methods.set(path.fillColor, [0, 255, 0, 255]));
+      act(() =>
+        methods.set(path.fillColor, { type: "fixed", value: [0, 255, 0, 255] }),
+      );
       expect(getByText("Fill")).toBeDefined();
     });
   });
@@ -236,7 +238,10 @@ describe("ValueForm", () => {
 describe("TextForm", () => {
   const TextWrapper = ({ children }: PropsWithChildren): ReactElement => {
     const textMethods = Form.use<typeof table.textCellConfigZ>({
-      values: table.textCellConfigZ.parse({ variant: "text", fillColor: "#00ff00" }),
+      values: table.textCellConfigZ.parse({
+        variant: "text",
+        fillColor: { type: "fixed", value: "#00ff00" },
+      }),
       schema: table.textCellConfigZ,
     });
     return (

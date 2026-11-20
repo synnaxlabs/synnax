@@ -10,12 +10,14 @@
 import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
+import { color } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import type { aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
+import { color as aetherColor } from "@/color/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -60,6 +62,18 @@ const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
 
+const SERIES_COLORS = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.construct(c));
+
+// Fixed series colors, so a spec never depends on the colors stored in the Core.
+const FixedSeries = ({ children }: PropsWithChildren): ReactElement => {
+  const { path } = Aether.useLifecycle({
+    type: aetherColor.SeriesProvider.TYPE,
+    schema: aetherColor.SeriesProvider.z,
+    initialState: { colors: SERIES_COLORS },
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};
+
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
   /** Extra aether components merged into the test render registry. */
@@ -98,6 +112,7 @@ export const createSynnaxWrapper = ({
       ...status.REGISTRY,
       ...alamos.REGISTRY,
       ...theming.REGISTRY,
+      ...aetherColor.REGISTRY,
       ...staleness.REGISTRY,
       ...(renderContext != null
         ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
@@ -128,7 +143,9 @@ export const createSynnaxWrapper = ({
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
-                <ThemingSeed>{inner}</ThemingSeed>
+                <ThemingSeed>
+                  <FixedSeries>{inner}</FixedSeries>
+                </ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>

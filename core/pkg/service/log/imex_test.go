@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -25,7 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -75,7 +76,7 @@ var _ = Describe("ImEx", func() {
 					Channels: []log.ChannelEntry{
 						{
 							Channel: ch1,
-							Color:   new(MustSucceed(color.Parse("#ff0000"))),
+							Color:   fixedColor("#ff0000"),
 						},
 					},
 					TimestampPrecision: 2,
@@ -235,9 +236,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.TimestampsHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(ch1))
-				Expect(
-					res.Channels[0].Color,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+				Expect(res.Channels[0].Color).To(Equal(fixedColor("#ff0000")))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
@@ -280,9 +279,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(ch1))
-				Expect(
-					res.Channels[0].Color,
-				).To(HaveValue(Equal(MustSucceed(color.Parse("#7f1d1d")))))
+				Expect(res.Channels[0].Color).To(Equal(fixedColor("#7f1d1d")))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
@@ -495,6 +492,48 @@ var _ = Describe("ImEx", func() {
 				original.Key = res.Key
 				Expect(res).To(Equal(original))
 			},
+		)
+
+		DescribeTable(
+			"Should keep a channel's named color only when the Core holds it",
+			func(ctx SpecContext, held bool) {
+				named := color.Named{
+					Name:  "Custom",
+					Light: MustSucceed(xcolor.Parse("#123456")),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &named)
+				})).To(Succeed())
+				ref := &color.Ref{Variant: color.NamedRef{Key: named.Key}}
+				original := createLog(ctx, defaults.Fill(log.Log{
+					Name:     "colored",
+					Channels: []log.ChannelEntry{{Channel: ch1, Color: ref}},
+				}))
+				env := MustSucceed(imexSvc.Export(ctx, db, original.ResourceID()))
+				if !held {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return colorSvc.NewWriter(tx).Delete(ctx, named.Key)
+					})).To(Succeed())
+				}
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
+				var res log.Log
+				Expect(svc.NewRetrieve().
+					Where(log.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				if held {
+					Expect(res.Channels[0].Color).To(Equal(ref))
+				} else {
+					Expect(res.Channels[0].Color).To(BeNil())
+				}
+			},
+			Entry("held", true),
+			Entry("missing", false),
 		)
 	})
 })
