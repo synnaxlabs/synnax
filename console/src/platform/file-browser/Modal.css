@@ -50,7 +50,10 @@
     }
 
     &.console--active {
-        background: var(--pluto-gray-l4);
+        --pluto-bg: var(--pluto-fill-hover);
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+
         color: var(--pluto-gray-l11);
 
         & svg {
@@ -222,6 +225,7 @@
 .console-file-browser__numeric {
     justify-content: flex-end;
     text-align: right;
+    font-variant-numeric: tabular-nums;
 
     & > * {
         flex-grow: 0;

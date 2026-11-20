@@ -8,8 +8,27 @@
 // included in the file licenses/APL.txt.
 
 /** @returns the separator of a path on the Driver: a backslash for a Windows path. */
-export const separatorOf = (path: string): string =>
+const separatorOf = (path: string): string =>
   path.includes("\\") && !path.includes("/") ? "\\" : "/";
+
+/**
+ * @returns the absolute path in the form that the Driver lists it: a Windows path with
+ * backslashes, and no `.`, `..`, or repeated separators. Returns an empty string for a
+ * path that is not absolute.
+ */
+export const normalize = (path: string): string => {
+  let root: string;
+  if (/^[A-Za-z]:[\\/]/.test(path)) root = `${path.slice(0, 2)}\\`;
+  else if (path.startsWith("\\\\")) root = "\\\\";
+  else if (path.startsWith("/")) root = "/";
+  else return "";
+  const sep = root === "/" ? "/" : "\\";
+  const parts: string[] = [];
+  for (const part of path.slice(root.length).split(sep === "/" ? "/" : /[\\/]/))
+    if (part === "..") parts.pop();
+    else if (part !== "" && part !== ".") parts.push(part);
+  return `${root}${parts.join(sep)}`;
+};
 
 /** @returns the folder that holds the path, or an empty string for a relative name. */
 export const dirnameOf = (path: string): string => {
