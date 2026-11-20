@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Reads a comment for a deliberate request for a Sedosaur review.
+"""Reads a comment for a deliberate request for a Sedosaur review. Only the relay of a
+release branch cut from 0.62.0 or older runs it.
 
     BODY=<comment> python3 sedosaur_request.py
 
