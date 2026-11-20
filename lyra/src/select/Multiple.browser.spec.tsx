@@ -178,6 +178,29 @@ describe("Select.Multiple", () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
+  it("should not remove the last tag when allowNone is false", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    const c = render(<SelectMultiple allowNone={false} />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByLabelText("Remove First Item"));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(["1"]);
+  });
+
+  it("should remove only the tag's item when replaceOnSingle is set", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    const c = render(<SelectMultiple replaceOnSingle />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.keyDown(c.container, { code: "Control" });
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("Second Item Option"));
+    fireEvent.keyUp(c.container, { code: "Control" });
+    expect(onChange).toHaveBeenLastCalledWith(["1", "2"]);
+    fireEvent.click(c.getByLabelText("Remove First Item"));
+    expect(onChange).toHaveBeenLastCalledWith(["2"]);
+  });
+
   it("should toggle the selection dialog when the user clicks a tag", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
