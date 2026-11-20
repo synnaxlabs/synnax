@@ -516,7 +516,7 @@ describe("Swatch", () => {
       const swatches = [
         ...c.container.querySelectorAll<HTMLElement>(`.${CSS.B("color-swatch")}`),
       ];
-      fireEvent.dragStart(swatches[0]);
+      fireEvent.dragStart(swatches[0], { dataTransfer: new DataTransfer() });
       return swatches;
     };
 
@@ -538,7 +538,7 @@ describe("Swatch", () => {
         <Color.Swatch value={`#${BLUE}`} onChange={onChange} disabled />,
       );
       expect(target.className).not.toContain(CSS.B("haul-drop-region"));
-      fireEvent.drop(target);
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
       expect(onChange).not.toHaveBeenCalled();
     });
 
@@ -547,7 +547,7 @@ describe("Swatch", () => {
       const [, target] = renderPair(
         <Color.Swatch value={`#${BLUE}`} onChange={onChange} />,
       );
-      fireEvent.drop(target);
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
       expect(onChange).toHaveBeenCalledWith(color.construct(RED));
     });
 
@@ -573,21 +573,23 @@ describe("Swatch", () => {
           </Haul.Provider>,
           { wrapper: Wrapper },
         );
-        fireEvent.dragStart(c.getByTestId("source"));
+        fireEvent.dragStart(c.getByTestId("source"), {
+          dataTransfer: new DataTransfer(),
+        });
         return c;
       };
 
       it("should take the color from a drag that mixes in other items", () => {
         const onChange = vi.fn();
         const c = renderSource([OTHER, COLOR], onChange);
-        fireEvent.drop(swatchOf(c));
+        fireEvent.drop(swatchOf(c), { dataTransfer: new DataTransfer() });
         expect(onChange).toHaveBeenCalledWith(color.construct(RED));
       });
 
       it("should reject a drag without a color", () => {
         const onChange = vi.fn();
         const c = renderSource([OTHER], onChange);
-        fireEvent.drop(swatchOf(c));
+        fireEvent.drop(swatchOf(c), { dataTransfer: new DataTransfer() });
         expect(onChange).not.toHaveBeenCalled();
       });
     });
