@@ -108,12 +108,12 @@ describe("grid", () => {
         [[9, 90]],
       );
       expect(dimensions).toEqual({ width: 2, height: 2 });
-      expect(writes[0].position).toEqual({ x: 0, y: 1 });
+      expect(writes[0]?.position).toEqual({ x: 0, y: 1 });
     });
 
     it("should clamp a negative anchor", () => {
       const { writes } = grid.plan(DIMS, { x: -1, y: -2 }, [[1]]);
-      expect(writes[0].position).toEqual({ x: 0, y: 0 });
+      expect(writes[0]?.position).toEqual({ x: 0, y: 0 });
     });
 
     it("should plan nothing for an empty block", () => {
@@ -125,7 +125,7 @@ describe("grid", () => {
 
     it("should carry any value type", () => {
       const { writes } = grid.plan({ width: 1, height: 1 }, { x: 0, y: 0 }, [["a"]]);
-      expect(writes[0].value).toBe("a");
+      expect(writes[0]?.value).toBe("a");
     });
   });
 });

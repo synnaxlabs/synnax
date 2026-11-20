@@ -17,6 +17,10 @@ import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 /** The root credentials of the test Core. */
 export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
 
+/**
+ * @returns the params of a client that signs in to the test Core as root.
+ * @throws where there is no `process`, as {@link testCoreAddress} does.
+ */
 export const testClientParams = (): SynnaxParams => ({
   ...testCoreAddress(),
   ...TEST_CREDENTIALS,

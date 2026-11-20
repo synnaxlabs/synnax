@@ -136,12 +136,15 @@ type Config struct {
 	KeyDirname string `json:"-"`
 	// RackKey is the key of the rack that the Driver logs in as.
 	RackKey rack.Key `json:"rack_key"`
+	// SecretsDir is the absolute path of the secrets folder of the rack, which the
+	// Driver reads file secrets from. Empty for none.
+	SecretsDir string `json:"secrets_dir"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
 func (c Config) format(apiKey string) map[string]any {
-	return map[string]any{
+	formatted := map[string]any{
 		"connection": map[string]any{
 			"host":    c.Address.Host(),
 			"port":    c.Address.Port(),
@@ -162,6 +165,10 @@ func (c Config) format(apiKey string) map[string]any {
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
 	}
+	if c.SecretsDir != "" {
+		formatted["secrets_dir"] = c.SecretsDir
+	}
+	return formatted
 }
 
 // ErrNotLoaded marks the error of a Driver that exited before any of its processes
@@ -170,10 +177,12 @@ func (c Config) format(apiKey string) map[string]any {
 var ErrNotLoaded = errors.New("embedded Driver did not load")
 
 var (
-	_               config.Config[Config] = Config{}
-	AllIntegrations                       = []string{
+	_ config.Config[Config] = Config{}
+	// AllIntegrations are the integrations that the embedded Driver runs by default.
+	AllIntegrations = []string{
 		"arc",
 		"ethercat",
+		"file",
 		"http",
 		"labjack",
 		"modbus",
@@ -210,6 +219,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.License = override.Nil(c.License, other.License)
 	c.KeyDirname = override.String(c.KeyDirname, other.KeyDirname)
+	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
@@ -257,6 +267,11 @@ func (c Config) Validate() error {
 	v.NotEmptyString("binary_dirname", c.BinaryDirname)
 	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
+	v.Ternary(
+		"secrets_dir",
+		c.SecretsDir != "" && !filepath.IsAbs(c.SecretsDir),
+		"must be an absolute path",
+	)
 	return v.Error()
 }
 

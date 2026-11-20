@@ -108,9 +108,9 @@ const MAX_DELAY = 2 ** 31 - 1;
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   static readonly stateZ = providerStateZ;
-  schema = providerStateZ;
+  override schema = providerStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
@@ -135,7 +135,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.retrieve.close();
     this.internal.colors.close();
     clearTimeout(this.internal.timer);

@@ -14,7 +14,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { framer } from "@/framer";
 import {
@@ -29,6 +29,29 @@ const client = createTestClient();
 const MAX_FACTOR = 2 ** 32 - 1;
 
 describe("Iterator", () => {
+  describe("dispose", () => {
+    test("should close the iterator once at the end of an await using block", async () => {
+      const channels = await newIndexedPair(client);
+      const iter = await client.openIterator(TimeRange.MAX, channels);
+      const close = vi.spyOn(iter, "close");
+      {
+        await using _ = iter;
+      }
+      expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    test("should dispose an iterator that was closed explicitly", async () => {
+      const channels = await newIndexedPair(client);
+      const iter = await client.openIterator(TimeRange.MAX, channels);
+      const close = vi.spyOn(iter, "close");
+      {
+        await using i = iter;
+        await i.close();
+      }
+      expect(close).toHaveBeenCalledTimes(2);
+    });
+  });
+
   test("happy path", async () => {
     const channels = await newIndexedPair(client);
     const writer = await client.openWriter({
@@ -54,23 +77,18 @@ describe("Iterator", () => {
       await writer.close();
     }
 
-    const iter = await client.openIterator(
+    await using iter = await client.openIterator(
       new TimeRange(TimeStamp.seconds(1), TimeSpan.seconds(30)),
       channels,
     );
-
-    try {
-      expect(await iter.seekFirst()).toBe(true);
-      let c = 0;
-      while (await iter.next(TimeSpan.seconds(1))) {
-        c++;
-        expect(iter.value.get(idx_ch.key)).toHaveLength(1);
-        expect(iter.value.get(data_ch.key)).toHaveLength(1);
-      }
-      expect(c).toEqual(29);
-    } finally {
-      await iter.close();
+    expect(await iter.seekFirst()).toBe(true);
+    let c = 0;
+    while (await iter.next(TimeSpan.seconds(1))) {
+      c++;
+      expect(iter.value.get(idx_ch.key)).toHaveLength(1);
+      expect(iter.value.get(data_ch.key)).toHaveLength(1);
     }
+    expect(c).toEqual(29);
   });
   test("chunk size", async () => {
     const channels = await newIndexedPair(client);
@@ -84,30 +102,27 @@ describe("Iterator", () => {
       [data_ch.key]: randomSeries(10, data_ch.dataType),
     });
     await writer.close();
-    const iter = await client.openIterator(TimeRange.MAX, channels, { chunkSize: 4 });
+    await using iter = await client.openIterator(TimeRange.MAX, channels, {
+      chunkSize: 4,
+    });
+    expect(await iter.seekFirst()).toBe(true);
 
-    try {
-      expect(await iter.seekFirst()).toBe(true);
+    expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+    expect(iter.value.get(idx_ch.key).data).toEqual(
+      new BigInt64Array(secondsLinspace(1, 4).map((v) => v.valueOf())),
+    );
 
-      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-      expect(iter.value.get(idx_ch.key).data).toEqual(
-        new BigInt64Array(secondsLinspace(1, 4).map((v) => v.valueOf())),
-      );
+    expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+    expect(iter.value.get(idx_ch.key).data).toEqual(
+      new BigInt64Array(secondsLinspace(5, 4).map((v) => v.valueOf())),
+    );
 
-      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-      expect(iter.value.get(idx_ch.key).data).toEqual(
-        new BigInt64Array(secondsLinspace(5, 4).map((v) => v.valueOf())),
-      );
+    expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+    expect(iter.value.get(idx_ch.key).data).toEqual(
+      new BigInt64Array(secondsLinspace(9, 2).map((v) => v.valueOf())),
+    );
 
-      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-      expect(iter.value.get(idx_ch.key).data).toEqual(
-        new BigInt64Array(secondsLinspace(9, 2).map((v) => v.valueOf())),
-      );
-
-      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
-    } finally {
-      await iter.close();
-    }
+    expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
   });
   describe("stride", () => {
     test("should keep every second sample under a factor of 2", async () => {
@@ -119,20 +134,15 @@ describe("Iterator", () => {
         [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
       });
       await writer.close();
-      const iter = await client.openIterator(TimeRange.MAX, channels, {
+      await using iter = await client.openIterator(TimeRange.MAX, channels, {
         reduction: { variant: "stride", factor: 2 },
       });
-
-      try {
-        expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-        const series = iter.value.get(data_ch.key);
-        expect(series.data).toEqual(new Float64Array([1, 3, 5, 7]));
-        expect(series.series[0].alignmentMultiple).toEqual(2n);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
-      } finally {
-        await iter.close();
-      }
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+      const series = iter.value.get(data_ch.key);
+      expect(series.data).toEqual(new Float64Array([1, 3, 5, 7]));
+      expect(series.series[0].alignmentMultiple).toEqual(2n);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
     });
     test("should keep every third sample under a factor of 3", async () => {
       const channels = await newIndexedPair(client);
@@ -143,18 +153,13 @@ describe("Iterator", () => {
         [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
       });
       await writer.close();
-      const iter = await client.openIterator(TimeRange.MAX, channels, {
+      await using iter = await client.openIterator(TimeRange.MAX, channels, {
         reduction: { variant: "stride", factor: 3 },
       });
-
-      try {
-        expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-        expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 4, 7]));
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
-      } finally {
-        await iter.close();
-      }
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+      expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 4, 7]));
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
     });
     test("should keep every sample under a factor of 1", async () => {
       const channels = await newIndexedPair(client);
@@ -165,19 +170,13 @@ describe("Iterator", () => {
         [data_ch.key]: new Float64Array([1, 2, 3, 4]),
       });
       await writer.close();
-      const iter = await client.openIterator(TimeRange.MAX, channels, {
+      await using iter = await client.openIterator(TimeRange.MAX, channels, {
         reduction: { variant: "stride", factor: 1 },
       });
-      try {
-        expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-        expect(iter.value.get(data_ch.key).data).toEqual(
-          new Float64Array([1, 2, 3, 4]),
-        );
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
-      } finally {
-        await iter.close();
-      }
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+      expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 2, 3, 4]));
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
     });
 
     describe("config", () => {
@@ -212,19 +211,15 @@ describe("Iterator", () => {
         [data_ch.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
       });
       await writer.close();
-      const iter = await client.openIterator(TimeRange.MAX, channels, {
+      await using iter = await client.openIterator(TimeRange.MAX, channels, {
         reduction: { variant: "limit", aggregation, pointLimit },
       });
-      try {
-        expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
-        const data = iter.value.get(data_ch.key).series[0];
-        expect(iter.value.get(idx_ch.key).series[0].alignment).toEqual(data.alignment);
-        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
-        return data;
-      } finally {
-        await iter.close();
-      }
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+      const data = iter.value.get(data_ch.key).series[0];
+      expect(iter.value.get(idx_ch.key).series[0].alignment).toEqual(data.alignment);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
+      return data;
     };
 
     test("min_max keeps the extremes of each group in order", async () => {
