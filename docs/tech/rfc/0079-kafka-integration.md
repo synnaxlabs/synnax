@@ -304,10 +304,10 @@ records after the cluster returns write "Reconnected to cluster".
 - Registration in `feature/task/{types,external,tab,Selector}.tsx`,
   `feature/device/{make,external}.ts[x]`, and `Icon.Logo.Kafka` in Lyra.
 
-`FLAGS.kafka` in `console/src/flags.ts` gates the device and task commands and
-selectables through their `useVisible` hooks. The flag is on in dev and Desktop builds
-and off in the Console build, and its entry names the owner, SY-5105 as the umbrella
-issue, and the release that removes it, per `CONTRIBUTING.md`.
+`FLAGS.kafka`, an `export const` in `console/src/flags/flags.ts`, gates the device and
+task commands and selectables through their `useVisible` hooks. The flag is on in dev
+and Desktop builds and off in the Console build, and its entry names the owner, SY-5105
+as the umbrella issue, and the release that removes it, per `CONTRIBUTING.md`.
 
 ### 4.7 Clients and documentation
 
