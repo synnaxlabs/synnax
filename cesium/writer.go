@@ -43,6 +43,8 @@ type Writer struct {
 	// excluded holds the keys that a Write leaves out, kept between calls so that a
 	// write that skips allocates nothing.
 	excluded []ChannelKey
+	// log is the writer of the pointer log layout, and nil on the old layout.
+	log *logWriter
 }
 
 // ErrWriterClosed is returned by a call to a Writer that is closed.
@@ -72,6 +74,9 @@ func (w *Writer) fail(err error) error {
 func (w *Writer) Sync() error {
 	if err := w.check(); err != nil {
 		return err
+	}
+	if w.log != nil {
+		return w.fail(w.log.sync())
 	}
 	return w.fail(w.persist())
 }
@@ -105,6 +110,10 @@ func (w *Writer) Close() error {
 		return w.err
 	}
 	w.closed = true
+	if w.log != nil {
+		w.err = errors.Join(w.err, w.log.close())
+		return w.err
+	}
 	err := w.persist()
 	for _, idx := range w.internal {
 		err = errors.Join(err, idx.Close())
@@ -128,6 +137,13 @@ func (w *Writer) Write(
 	if err := w.check(); err != nil {
 		return Frame{}, false, err
 	}
+	if w.log != nil {
+		fr, skipped, err := w.log.write(fr, skip)
+		if err != nil {
+			return Frame{}, false, w.fail(err)
+		}
+		return fr, skipped, nil
+	}
 	var err error
 	w.excluded = w.excluded[:0]
 	for _, idx := range w.internal {
@@ -149,6 +165,13 @@ func (w *Writer) Commit(
 ) (telem.TimeStamp, bool, error) {
 	if err := w.check(); err != nil {
 		return 0, false, err
+	}
+	if w.log != nil {
+		end, skipped, err := w.log.commit(skip)
+		if err != nil {
+			return 0, false, w.fail(err)
+		}
+		return end, skipped, nil
 	}
 	var (
 		maxTS   = telem.TimeStampMin
@@ -177,6 +200,12 @@ func (w *Writer) Commit(
 func (w *Writer) EndDomain(ctx context.Context, indexes ...ChannelKey) error {
 	if err := w.check(); err != nil {
 		return err
+	}
+	if w.log != nil {
+		if !slices.Contains(indexes, w.log.clock) {
+			return nil
+		}
+		return w.fail(w.log.endStretch())
 	}
 	for _, idx := range w.internal {
 		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {

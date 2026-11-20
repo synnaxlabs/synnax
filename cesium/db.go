@@ -83,6 +83,8 @@ type DB struct {
 			// record and no intent. Writers and iterators cannot open on them.
 			hidden map[ChannelKey]unary.DB
 		}
+		// channels is the channel list of the pointer log layout.
+		channels map[ChannelKey]Channel
 		// virtualDirs holds the keys of the directories whose metadata names a virtual
 		// channel. A Core older than this Cesium wrote them, and an undo to it reads
 		// them, so Open leaves them in place.

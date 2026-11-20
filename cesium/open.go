@@ -46,12 +46,16 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &DB{
+		db := &DB{
 			options:        o,
 			closed:         &atomic.Bool{},
 			historyChanges: observe.New[HistoryChange](),
 			engine:         e,
-		}, nil
+		}
+		if db.mu.channels, err = loadChannels(ctx, o); err != nil {
+			return nil, errors.Join(err, db.Close())
+		}
+		return db, nil
 	}
 
 	info, err := o.fs.List("")

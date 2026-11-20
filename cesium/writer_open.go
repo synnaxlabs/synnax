@@ -112,6 +112,13 @@ func (db *DB) newWriter(
 	if err != nil {
 		return nil, err
 	}
+	if db.engine != nil {
+		lw, err := db.openLogWriter(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return &Writer{WriterConfig: cfg, log: lw}, nil
+	}
 	var (
 		domainWriters = make(map[ChannelKey]*idxWriter)
 		keyToIdx      = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
