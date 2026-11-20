@@ -49,6 +49,13 @@ TICK_TYPE_TIME: Literal["time"] = "time"
 
 TickType = Literal["linear", "time"]
 
+TIME_MODE_ABSOLUTE: Literal["absolute"] = "absolute"
+
+TIME_MODE_RELATIVE: Literal["relative"] = "relative"
+
+
+TimeMode = Literal["absolute", "relative"]
+
 Y_AXIS_KEY_Y1: Literal["y1"] = "y1"
 
 Y_AXIS_KEY_Y2: Literal["y2"] = "y2"
@@ -304,6 +311,7 @@ class Axis(BaseModel):
         tick_spacing: Is the target pixel distance between adjacent tick marks.
         type: Selects the tick label style. Null means default (linear). X-axes
             typically carry "time" when bound to a timestamp channel.
+        time_mode: Selects where an x axis draws the ranges. Null is absolute.
     """
 
     key: AxisKey
@@ -316,6 +324,7 @@ class Axis(BaseModel):
     manual_bounds: ManualBounds = Field(default_factory=lambda: ManualBounds())
     tick_spacing: float = 75
     type: TickType | None = None
+    time_mode: TimeMode | None = None
 
 
 class RetrieveRequest(BaseModel):

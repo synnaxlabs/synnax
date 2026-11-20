@@ -16,7 +16,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import label
+from synnax import color as color__, label
 from synnax.resource import ID
 from x import color as color_, filter, telem
 from x.filter import shorthand
@@ -61,6 +61,8 @@ class Payload(BaseModel):
     Attributes:
         key: Is the unique identifier for this range.
         name: Is a human-readable name for the range.
+        has_children: Is true when a range is nested in the range, derived on read and
+            not persisted.
         time_range: Is the temporal extent of the range, defining its start and end
             timestamps.
         color: Is an optional display color for visual identification of the range in
@@ -68,17 +70,15 @@ class Payload(BaseModel):
         labels: Are the keys of the labels attached to the range.
         parent: Is the key of the range this range is nested in. Empty for a top-level
             range.
-        has_children: Is true when a range is nested in the range, derived on read and
-            not persisted.
     """
 
     key: Key
     name: str = Field(min_length=1)
+    has_children: bool = False
     time_range: telem.TimeRange
     color: color_.Color | None = None
     labels: list[label.Key] = Field(default_factory=list)
     parent: Key | None = None
-    has_children: bool = False
 
     @_override
     def __hash__(self) -> int:
@@ -179,6 +179,10 @@ class KeyRef(BaseModel):
 
     variant: Literal["key"] = "key"
     key: Key
+    t0: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+    color: color__.Ref | None = None
 
 
 class WindowRef(BaseModel):
@@ -186,6 +190,7 @@ class WindowRef(BaseModel):
 
     variant: Literal["window"] = "window"
     window: telem.Window
+    color: color__.Ref | None = None
 
 
 # Is the range a visualization shows: a range saved in the Core, or an inline

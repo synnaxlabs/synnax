@@ -49,6 +49,23 @@ var recentRef = ranger.Ref{Variant: ranger.WindowRef{
 	Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: 30 * telem.Second}},
 }}
 
+// uncolored returns rs with the color of each reference cleared, so a spec can compare
+// references without the series colors that writes give them.
+func uncolored(rs []ranger.Ref) []ranger.Ref {
+	out := make([]ranger.Ref, len(rs))
+	for i, r := range rs {
+		switch v := r.Variant.(type) {
+		case ranger.KeyRef:
+			v.Color = nil
+			out[i] = ranger.Ref{Variant: v}
+		case ranger.WindowRef:
+			v.Color = nil
+			out[i] = ranger.Ref{Variant: v}
+		}
+	}
+	return out
+}
+
 func refs(keys ...string) []ranger.Ref {
 	out := make([]ranger.Ref, len(keys))
 	for i, k := range keys {
@@ -962,7 +979,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).
 					To(Succeed())
-				Expect(res.Ranges).To(Equal(refs(r2)))
+				Expect(uncolored(res.Ranges)).To(Equal(refs(r2)))
 			})
 
 			It(
@@ -994,7 +1011,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(res.Ranges).To(Equal(refs(r2, r3)))
+					Expect(uncolored(res.Ranges)).To(Equal(refs(r2, r3)))
 				},
 			)
 
@@ -1062,7 +1079,9 @@ var _ = Describe("Writer", func() {
 							Entry(&res).
 							Exec(ctx, db),
 					).To(Succeed())
-					Expect(res.Ranges).To(Equal([]ranger.Ref{window(telem.Hour)}))
+					Expect(
+						uncolored(res.Ranges),
+					).To(Equal([]ranger.Ref{window(telem.Hour)}))
 					Expect(res.Lines).To(Equal(plot.Lines))
 				},
 			)
@@ -1092,7 +1111,7 @@ var _ = Describe("Writer", func() {
 							Entry(&res).
 							Exec(ctx, db),
 					).To(Succeed())
-					Expect(res.Ranges).To(Equal(refs(rk1)))
+					Expect(uncolored(res.Ranges)).To(Equal(refs(rk1)))
 				},
 			)
 
@@ -1474,7 +1493,7 @@ var _ = Describe("Writer", func() {
 				).
 					To(Succeed())
 				Expect(res.Channels.X1).To(Equal(ch1))
-				Expect(res.Ranges).To(Equal(refs(r)))
+				Expect(uncolored(res.Ranges)).To(Equal(refs(r)))
 				Expect(res.Channels.Y1).To(ConsistOf(ch10))
 			})
 
@@ -1747,4 +1766,405 @@ var _ = Describe("Line colors", func() {
 			}))
 		},
 	)
+})
+
+var _ = Describe("Range compare", func() {
+	var series []color.Key
+	BeforeEach(func(ctx SpecContext) {
+		series = MustSucceed(colorSvc.Series(ctx, db))
+	})
+	named := func(k color.Key) *color.Ref {
+		return &color.Ref{Variant: color.NamedRef{Key: k}}
+	}
+	fixed := func(c xcolor.Color) *color.Ref {
+		return &color.Ref{Variant: color.FixedRef{Value: c}}
+	}
+	// orange is apart from the first two series colors in every kind of vision.
+	orange := xcolor.Color{R: 255, G: 128, A: 255}
+	retrieve := func(ctx SpecContext, key lineplot.Key) lineplot.LinePlot {
+		GinkgoHelper()
+		var res lineplot.LinePlot
+		Expect(svc.NewRetrieve().
+			Where(lineplot.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res
+	}
+	create := func(ctx SpecContext, p lineplot.LinePlot) lineplot.LinePlot {
+		GinkgoHelper()
+		p = defaults.Fill(p)
+		p.Project, p.Name = &proj.Key, "compare"
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
+		return p
+	}
+	createRange := func(ctx SpecContext, c *xcolor.Color) ranger.Ref {
+		GinkgoHelper()
+		r := ranger.Range{
+			Key:       uuid.New(),
+			Name:      "range",
+			TimeRange: telem.TimeRange{Start: 1, End: 2},
+			Color:     c,
+		}
+		Expect(gorp.NewCreate[ranger.Key, ranger.Range]().
+			Entry(&r).Exec(ctx, db)).To(Succeed())
+		return ranger.Ref{Variant: ranger.KeyRef{Key: r.Key}}
+	}
+	colored := func(r ranger.Ref, c *color.Ref) ranger.Ref {
+		GinkgoHelper()
+		k, ok := r.Variant.(ranger.KeyRef)
+		Expect(ok).To(BeTrue())
+		k.Color = c
+		return ranger.Ref{Variant: k}
+	}
+	t0Of := func(r ranger.Ref) *telem.TimeStamp {
+		GinkgoHelper()
+		k, ok := r.Variant.(ranger.KeyRef)
+		Expect(ok).To(BeTrue())
+		return k.T0
+	}
+	refColors := func(p lineplot.LinePlot) []*color.Ref {
+		return lo.Map(p.Ranges, func(r ranger.Ref, _ int) *color.Ref {
+			switch v := r.Variant.(type) {
+			case ranger.KeyRef:
+				return v.Color
+			case ranger.WindowRef:
+				return v.Color
+			}
+			return nil
+		})
+	}
+
+	Describe("Colors", func() {
+		It("Should give each range with no color of its own a series color",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{createRange(ctx, nil), recentRef},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), named(series[1]),
+				}))
+			})
+
+		It("Should give a range its own color when it is apart from the other colors",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						createRange(ctx, nil),
+						createRange(ctx, &orange),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(series[0]), fixed(orange),
+				}))
+			})
+
+		It("Should give a series color to a range whose own color another range uses",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						createRange(ctx, &orange),
+						createRange(ctx, &orange),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					fixed(orange), named(series[0]),
+				}))
+			})
+
+		It("Should give a series color to an added range near the color of another",
+			func(ctx SpecContext) {
+				p := create(
+					ctx,
+					lineplot.LinePlot{Ranges: []ranger.Ref{createRange(ctx, nil)}},
+				)
+				// The first series color is 0xDC136C.
+				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
+				added := createRange(ctx, &near)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewAddRangeAction(lineplot.AddRangePayload{Range: added}),
+				})).To(Succeed())
+				Expect(refColors(retrieve(ctx, p.Key))).To(Equal([]*color.Ref{
+					named(series[0]), named(series[1]),
+				}))
+			})
+
+		It("Should compare the colors of ranges only inside one theme",
+			func(ctx SpecContext) {
+				// The dark value is the light value of the third series color, which
+				// no theme shows next to it.
+				custom := color.Named{
+					Name:  "Custom",
+					Light: xcolor.Color{R: 0x40, G: 0x40, B: 0x40, A: 255},
+					Dark:  &xcolor.Color{R: 0x45, G: 0xA7, B: 0x3A, A: 255},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &custom)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(series[0])),
+						colored(createRange(ctx, nil), named(series[1])),
+						colored(createRange(ctx, nil), named(custom.Key)),
+						createRange(ctx, nil),
+					},
+				})
+				Expect(refColors(p)[3]).To(Equal(named(series[2])))
+			})
+
+		It("Should skip a series color close to the own color of another range",
+			func(ctx SpecContext) {
+				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						createRange(ctx, &near),
+						createRange(ctx, nil),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					fixed(near), named(series[1]),
+				}))
+			})
+
+		It("Should give a series color to a range that no longer exists",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+				Expect(refColors(p)).To(Equal([]*color.Ref{named(series[0])}))
+			})
+
+		It("Should give an added range the series color that no other range uses",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				add := lineplot.NewAddRangeAction(
+					lineplot.AddRangePayload{Range: keyRef(rk2)},
+				)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{add})).
+					To(Succeed())
+				Expect(refColors(retrieve(ctx, p.Key))).To(Equal([]*color.Ref{
+					named(series[0]), named(series[1]),
+				}))
+				Expect(rec.Snapshot()[0].Actions).To(Equal([]lineplot.Action{
+					add,
+					lineplot.NewSetRangeColorAction(lineplot.SetRangeColorPayload{
+						Range: keyRef(rk2), Color: *named(series[1]),
+					}),
+				}))
+			})
+
+		It("Should give a series color to a range near the dark value of another",
+			func(ctx SpecContext) {
+				blue := xcolor.Color{B: 255, A: 255}
+				dark := color.Named{Name: "Signal", Light: blue, Dark: &orange}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &dark)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(dark.Key)),
+						createRange(ctx, &orange),
+					},
+				})
+				Expect(refColors(p)).To(Equal([]*color.Ref{
+					named(dark.Key), named(series[0]),
+				}))
+			})
+
+		It("Should set the color of a window", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{Ranges: []ranger.Ref{recentRef}})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetRangeColorAction(lineplot.SetRangeColorPayload{
+					Range: recentRef, Color: *fixed(orange),
+				}),
+			})).To(Succeed())
+			Expect(
+				refColors(retrieve(ctx, p.Key)),
+			).To(Equal([]*color.Ref{fixed(orange)}))
+		})
+
+		It("Should set the color of a range by its key", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetRangeColorAction(lineplot.SetRangeColorPayload{
+					Range: keyRef(rk1), Color: *fixed(orange),
+				}),
+			})).To(Succeed())
+			Expect(
+				refColors(retrieve(ctx, p.Key)),
+			).To(Equal([]*color.Ref{fixed(orange)}))
+		})
+	})
+
+	Describe("Identity", func() {
+		It("Should ignore an AddRange for a range the plot holds with another T0",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+				t0 := telem.TimeStamp(5)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
+						Range: ranger.Ref{Variant: ranger.KeyRef{
+							Key: uuid.MustParse(rk1), T0: &t0,
+						}},
+					}),
+				})).To(Succeed())
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(refs(rk1)))
+			})
+
+		It("Should drop a repeated range reference from SetRanges",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{})
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						Ranges: []ranger.Ref{
+							keyRef(rk1), recentRef, keyRef(rk1), recentRef,
+						},
+					}),
+				})).To(Succeed())
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(
+					[]ranger.Ref{keyRef(rk1), recentRef},
+				))
+			})
+
+		It("Should drop a repeated range reference when it creates a plot",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2, rk1)})
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(refs(rk1, rk2)))
+			})
+
+		It("Should keep the T0 and color of a range that SetRanges keeps",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})
+				t0 := telem.TimeStamp(5)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangeT0Action(lineplot.SetRangeT0Payload{
+						Range: uuid.MustParse(rk1), T0: &t0,
+					}),
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						Ranges: []ranger.Ref{
+							keyRef(rk1), colored(keyRef(rk2), fixed(orange)),
+						},
+					}),
+				})).To(Succeed())
+				res := retrieve(ctx, p.Key)
+				Expect(t0Of(res.Ranges[0])).To(HaveValue(Equal(t0)))
+				Expect(refColors(res)).To(Equal([]*color.Ref{
+					named(series[0]), fixed(orange),
+				}))
+			})
+
+		It("Should remove a range by its key whatever its color",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewRemoveRangeAction(
+						lineplot.RemoveRangePayload{Range: keyRef(rk1)},
+					),
+				})).To(Succeed())
+				Expect(uncolored(retrieve(ctx, p.Key).Ranges)).To(Equal(refs(rk2)))
+			})
+	})
+
+	Describe("T0", func() {
+		keyRef := func(r ranger.Ref) ranger.KeyRef {
+			k, ok := r.Variant.(ranger.KeyRef)
+			Expect(ok).To(BeTrue())
+			return k
+		}
+
+		It("Should leave the plot alone on a T0 for a range it does not show",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1)})
+				t0 := telem.TimeStamp(5)
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangeT0Action(lineplot.SetRangeT0Payload{
+						Range: uuid.MustParse(rk2), T0: &t0,
+					}),
+				})).To(Succeed())
+				Expect(retrieve(ctx, p.Key).Ranges).To(Equal(p.Ranges))
+			})
+
+		It("Should set and reset the T0 of a saved range", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{Ranges: refs(rk1, rk2)})
+			t0 := telem.TimeStamp(5)
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetRangeT0Action(lineplot.SetRangeT0Payload{
+					Range: uuid.MustParse(rk1), T0: &t0,
+				}),
+			})).To(Succeed())
+			res := retrieve(ctx, p.Key)
+			Expect(
+				keyRef(res.Ranges[0]).T0,
+			).To(HaveValue(Equal(t0)))
+			Expect(keyRef(res.Ranges[1]).T0).To(BeNil())
+			Expect(keyRef(res.Ranges[0]).Color).ToNot(BeNil())
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetRangeT0Action(
+					lineplot.SetRangeT0Payload{Range: uuid.MustParse(rk1)},
+				),
+			})).To(Succeed())
+			res = retrieve(ctx, p.Key)
+			Expect(keyRef(res.Ranges[0]).T0).To(BeNil())
+		})
+	})
+
+	Describe("Time mode", func() {
+		It("Should set the time mode of an x axis", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{})
+			mode := lineplot.TimeModeRelative
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetAxisTimeModeAction(lineplot.SetAxisTimeModePayload{
+					Key: lineplot.XAxisKeyX1, TimeMode: &mode,
+				}),
+			})).To(Succeed())
+			res := retrieve(ctx, p.Key)
+			Expect(res.Axes.X1.TimeMode).To(HaveValue(Equal(mode)))
+			Expect(res.Axes.X2.TimeMode).To(BeNil())
+		})
+
+		It(
+			"Should return the bounds to auto on a change of mode",
+			func(ctx SpecContext) {
+				p := create(ctx, lineplot.LinePlot{})
+				relative := lineplot.TimeModeRelative
+				absolute := lineplot.TimeModeAbsolute
+				manual := lineplot.ManualBounds{Lower: true, Upper: true}
+				setBounds := lineplot.NewSetAxisBoundsAction(
+					lineplot.SetAxisBoundsPayload{
+						Key:          lineplot.AxisKeyX1,
+						Bounds:       spatial.Bounds{Lower: 10, Upper: 20},
+						ManualBounds: manual,
+					},
+				)
+				setMode := func(m *lineplot.TimeMode) lineplot.Action {
+					return lineplot.NewSetAxisTimeModeAction(
+						lineplot.SetAxisTimeModePayload{
+							Key: lineplot.XAxisKeyX1, TimeMode: m,
+						},
+					)
+				}
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					setBounds,
+					setMode(&absolute),
+				})).To(Succeed())
+				Expect(retrieve(ctx, p.Key).Axes.X1.ManualBounds).To(Equal(manual))
+				Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+					setMode(&relative),
+				})).To(Succeed())
+				x1 := retrieve(ctx, p.Key).Axes.X1
+				Expect(x1.Bounds).To(Equal(spatial.Bounds{}))
+				Expect(x1.ManualBounds).To(Equal(lineplot.ManualBounds{}))
+			},
+		)
+
+		It("Should reject a time mode for an unknown x axis", func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetAxisTimeModeAction(lineplot.SetAxisTimeModePayload{
+					Key: lineplot.XAxisKey("y1"),
+				}),
+			})).Error().To(MatchError(ContainSubstring(`unknown x-axis "y1"`)))
+		})
+	})
 })

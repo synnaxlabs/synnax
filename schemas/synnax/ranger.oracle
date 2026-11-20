@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/color"
 import "schemas/synnax/label"
 import "schemas/x/color"
 import "schemas/x/filter"
@@ -35,6 +36,13 @@ Range struct {
         @patch
         @search
         @validate min_length 1
+    }
+    has_children bool = false {
+        @doc value  """
+            is true when a range is nested in the range, derived on read and not
+            persisted.
+        """
+        @go marshal omit
     }
     time_range   telem.TimeRange {
         @doc value    """
@@ -65,13 +73,6 @@ Range struct {
         @ref acyclic
         @ref kind      place
         @ref on_delete cascade
-    }
-    has_children bool = false {
-        @doc value  """
-            is true when a range is nested in the range, derived on read and not
-            persisted.
-        """
-        @go marshal omit
     }
 
     action Create {
@@ -163,8 +164,21 @@ Stage enum {
 
 Ref union on variant {
     key {
-        key Key {
+        key   Key              {
             @doc value "is the key of a range saved in the Core."
+        }
+        t0    telem.TimeStamp? {
+            @doc value """
+                is the zero of the range on a relative time axis. Null is the range
+                start.
+            """
+        }
+        color color.Ref?       {
+            @doc value """
+                is the color that a relative time axis draws the range in. A line plot
+                write with no color gets the range's own color when it is clearly apart
+                from the other colors of the plot, else a series color.
+            """
         }
 
         @doc value "is a range saved in the Core."
@@ -172,6 +186,12 @@ Ref union on variant {
     window {
         window telem.Window {
             @doc value "is the window the reference resolves to."
+        }
+        color  color.Ref?   {
+            @doc value """
+                is the color that a relative time axis draws the window in. A line plot
+                write with no color gets a series color.
+            """
         }
 
         @doc value "is a window carried inline: rolling or fixed."

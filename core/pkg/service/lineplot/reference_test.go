@@ -23,9 +23,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -172,7 +174,7 @@ var _ = Describe("Channel references", func() {
 
 var _ = Describe("Color references", func() {
 	It(
-		"Should inline a deleted named color into the lines and rules that use it",
+		"Should inline a deleted named color wherever the plot uses it",
 		func(ctx SpecContext) {
 			gone := color.Named{
 				Name:  "Fault",
@@ -192,6 +194,7 @@ var _ = Describe("Color references", func() {
 			named := func(n color.Named) *color.Ref {
 				return &color.Ref{Variant: color.NamedRef{Key: n.Key}}
 			}
+			window := telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.Second}}
 			plot := defaults.Fill(lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "colored",
@@ -203,6 +206,9 @@ var _ = Describe("Color references", func() {
 				Rules: []lineplot.Rule{
 					{Key: "r", Axis: lineplot.AxisKeyY1, Color: named(gone)},
 				},
+				Ranges: []ranger.Ref{{Variant: ranger.WindowRef{
+					Window: window, Color: named(gone),
+				}}},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
@@ -229,6 +235,9 @@ var _ = Describe("Color references", func() {
 			Expect(res.Lines[0].Color).To(Equal(fixed("#ff0000")))
 			Expect(res.Lines[1].Color).To(Equal(named(kept)))
 			Expect(res.Rules[0].Color).To(Equal(fixed("#ff0000")))
+			Expect(res.Ranges).To(Equal([]ranger.Ref{{Variant: ranger.WindowRef{
+				Window: window, Color: fixed("#ff0000"),
+			}}}))
 			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(plot.Key))

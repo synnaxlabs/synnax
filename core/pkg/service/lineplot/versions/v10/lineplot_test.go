@@ -16,8 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/defaults"
-	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
 var _ = Describe("LinePlot", func() {
@@ -34,68 +32,6 @@ var _ = Describe("LinePlot", func() {
 			Expect(v10.LinePlot{Key: k}.ResourceID()).To(Equal(resource.ID{
 				Type: resource.TypeLineplot, Key: k.String(),
 			}))
-		})
-	})
-
-	Describe("Defaults", func() {
-		It("Should fill schema-declared defaults", func() {
-			lp := v10.LinePlot{Lines: []v10.Line{{}}, Rules: []v10.Rule{{}}}
-			lp = defaults.Fill(lp)
-			Expect(lp.Title.Level).To(Equal(text.LevelH4))
-			Expect(lp.Axes.X1.Key).To(Equal(v10.AxisKeyX1))
-			Expect(lp.Axes.X1.TickSpacing).To(Equal(75.0))
-			Expect(lp.Lines[0].StrokeWidth).To(Equal(2.0))
-			Expect(lp.Lines[0].Aggregation).To(Equal(v10.AggregationMinMax))
-			Expect(lp.Lines[0].Detail).To(Equal(v10.DetailMedium))
-			Expect(lp.Rules[0].LineWidth).To(Equal(1.0))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should accept a defaulted plot", func() {
-			lp := v10.LinePlot{
-				Name:  "valid",
-				Lines: []v10.Line{{YAxis: v10.YAxisKeyY1}},
-				Rules: []v10.Rule{{Axis: v10.AxisKeyY1}},
-			}
-			lp = defaults.Fill(lp)
-			Expect(lp.Validate()).To(Succeed())
-		})
-
-		It("Should reject a line without a y-axis", func() {
-			lp := v10.LinePlot{Name: "valid", Lines: []v10.Line{{}}}
-			lp = defaults.Fill(lp)
-			Expect(lp.Validate()).
-				To(MatchError(ContainSubstring("lines.0.y_axis: invalid y_axis")))
-		})
-
-		It("Should reject a line stroke width below 1", func() {
-			lp := v10.LinePlot{
-				Name:  "valid",
-				Lines: []v10.Line{{YAxis: v10.YAxisKeyY1, StrokeWidth: 0.5}},
-			}
-			lp = defaults.Fill(lp)
-			Expect(lp.Validate()).
-				To(MatchError(ContainSubstring("lines.0.stroke_width")))
-		})
-
-		It("Should reject an empty name", func() {
-			lp := v10.LinePlot{}
-			lp = defaults.Fill(lp)
-			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
-		})
-
-		It("Should path errors to the offending line and rule", func() {
-			lp := v10.LinePlot{
-				Name:  "valid",
-				Lines: []v10.Line{{YAxis: v10.YAxisKeyY1, Detail: "bogus"}},
-				Rules: []v10.Rule{{Axis: "bogus"}},
-			}
-			lp = defaults.Fill(lp)
-			Expect(lp.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("lines.0")),
-				MatchError(ContainSubstring("rules.0")),
-			))
 		})
 	})
 })

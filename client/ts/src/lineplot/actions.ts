@@ -26,6 +26,7 @@ import {
   setAxisLabelDirection,
   setAxisLabelLevel,
   setAxisTickSpacing,
+  setAxisTimeMode,
   setAxisType,
   setChannels,
   setLegendHidden,
@@ -36,6 +37,8 @@ import {
   setLineDetail,
   setLineLabel,
   setLineStrokeWidth,
+  setRangeColor,
+  setRangeT0,
   setRule,
   setRuleAxis,
   setRuleColor,
@@ -61,12 +64,42 @@ const applyPath = (state: Draft<LinePlot>, action: patch.Action): HandlerResult 
 // the plot key itself, and a path action targets its path. Everything else targets the
 // specific channel/range/axis/line/rule so concurrent edits to distinct resources
 // neither coalesce nor invalidate each other's undoables.
+
+// AnyRef is a range reference or a draft of one.
+type AnyRef = ranger.Ref | Draft<ranger.Ref>;
+
+// plainRef returns a snapshot of a drafted reference. Immer does not draft the T0
+// TimeStamp, but its types say it does, so the snapshot needs the cast.
+const plainRef = (r: Draft<ranger.Ref>): ranger.Ref =>
+  actions.snapshotDraft(r) as ranger.Ref;
+
 // rangeTarget names a range reference in undo targets: a saved range by its key, and a
 // window by its value, because windows carry no key.
-const rangeTarget = (range: ranger.Ref): string =>
+const rangeTarget = (range: AnyRef): string =>
   range.variant === "key"
     ? `range:${range.key}`
     : `range:${JSON.stringify(range.window)}`;
+
+// sameRange reports whether a and b refer to the same saved range or the same window,
+// ignoring the T0 and color of each.
+const sameRange = (a: AnyRef, b: AnyRef): boolean => {
+  if (a.variant === "key") return b.variant === "key" && a.key === b.key;
+  return b.variant === "window" && deep.equal(a.window, b.window);
+};
+
+// sameSettings reports whether a and b, which refer to the same range or window, have
+// the same T0 and color.
+const sameSettings = (a: ranger.Ref, b: ranger.Ref): boolean =>
+  deep.equal(a.color, b.color) &&
+  deep.equal(a.variant === "key" ? a.t0 : null, b.variant === "key" ? b.t0 : null);
+
+// keepSettings returns next with the T0 and color of prev in each field next leaves
+// unset. prev and next refer to the same range or window.
+const keepSettings = (prev: ranger.Ref, next: ranger.Ref): ranger.Ref => {
+  const kept = { ...next, color: next.color ?? prev.color };
+  if (kept.variant === "key" && prev.variant === "key") kept.t0 ??= prev.t0;
+  return kept;
+};
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -195,40 +228,75 @@ const handlers: Handlers = {
   // channels, so they are unaffected.
   addRange: (state, payload) => {
     const { range } = payload;
-    if (state.ranges.some((r) => deep.equal(r, range))) return actions.NO_OP_RESULT;
+    if (state.ranges.some((r) => sameRange(r, range))) return actions.NO_OP_RESULT;
     state.ranges.push(range);
     return { inverse: [removeRange({ range })], targets: [rangeTarget(range)] };
   },
 
-  // removeRange drops the reference equal to the payload's. addRange is its inverse.
+  // removeRange drops the reference to the same range or window as the payload's.
+  // addRange, with the removed T0 and color, is its inverse.
   removeRange: (state, payload) => {
-    const { range } = payload;
-    const idx = state.ranges.findIndex((r) => deep.equal(r, range));
+    const idx = state.ranges.findIndex((r) => sameRange(r, payload.range));
     if (idx === -1) return actions.NO_OP_RESULT;
+    const range = plainRef(state.ranges[idx]);
     state.ranges.splice(idx, 1);
     return { inverse: [addRange({ range })], targets: [rangeTarget(range)] };
   },
 
   // setRanges replaces the whole set of range references in one edit, such as when
-  // the user edits a window. The inverse and the targets cover only the references that
-  // changed, so undo leaves another user's later edits in place. Undo appends a
-  // restored reference at the end of the set.
+  // the user edits a window. It drops each reference to a range or window that an
+  // earlier one names. A reference to a range or window the plot already shows keeps
+  // its T0 and color unless the new reference sets them. The inverse and the targets
+  // cover only the references that changed, a new T0 or color included, so undo leaves
+  // another user's later edits in place. Undo appends a restored reference at the end
+  // of the set.
   setRanges: (state, payload) => {
-    const removed = state.ranges.filter(
-      (r) => !payload.ranges.some((n) => deep.equal(n, r)),
-    );
-    const added = payload.ranges.filter(
-      (n) => !state.ranges.some((r) => deep.equal(n, r)),
-    );
+    const prev = state.ranges.map(plainRef);
+    const next = payload.ranges
+      .filter((n, i) => payload.ranges.findIndex((o) => sameRange(o, n)) === i)
+      .map((n) => {
+        const p = prev.find((r) => sameRange(r, n));
+        return p == null ? n : keepSettings(p, n);
+      });
+    const kept = (r: ranger.Ref, refs: ranger.Ref[]): boolean =>
+      refs.some((o) => sameRange(o, r) && sameSettings(o, r));
+    const removed = prev.filter((p) => !kept(p, next));
+    const added = next.filter((n) => !kept(n, prev));
     if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
-    const restored = removed.map(actions.snapshotDraft);
-    state.ranges = [...payload.ranges];
+    state.ranges = next;
     return {
       inverse: [
         ...added.map((range) => removeRange({ range })),
-        ...restored.map((range) => addRange({ range })),
+        ...removed.map((range) => addRange({ range })),
       ],
-      targets: [...removed, ...added].map(rangeTarget),
+      targets: [...new Set([...removed, ...added].map(rangeTarget))],
+    };
+  },
+
+  setRangeT0: (state, payload) => {
+    const ref = state.ranges.find(
+      (r): r is Draft<ranger.KeyRef> => r.variant === "key" && r.key === payload.range,
+    );
+    if (ref == null) return actions.NO_OP_RESULT;
+    const prev = plainRef(ref);
+    if (prev.variant !== "key" || deep.equal(prev.t0, payload.t0))
+      return actions.NO_OP_RESULT;
+    ref.t0 = payload.t0;
+    return {
+      inverse: [setRangeT0({ range: payload.range, t0: prev.t0 })],
+      targets: [rangeTarget(ref)],
+    };
+  },
+
+  setRangeColor: (state, payload) => {
+    const ref = state.ranges.find((r) => sameRange(r, payload.range));
+    if (ref == null) return actions.NO_OP_RESULT;
+    const prev = ref.color == null ? undefined : actions.snapshotDraft(ref.color);
+    ref.color = payload.color;
+    return {
+      inverse:
+        prev == null ? [] : [setRangeColor({ range: payload.range, color: prev })],
+      targets: [rangeTarget(payload.range)],
     };
   },
 
@@ -277,6 +345,28 @@ const handlers: Handlers = {
       setAxisTickSpacing({ key: payload.key, tickSpacing: axis.tickSpacing }),
     ];
     axis.tickSpacing = payload.tickSpacing;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  // A change of mode returns the bounds to auto: bounds in one mode mean nothing in the
+  // other.
+  setAxisTimeMode: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse: Action[] = [
+      setAxisTimeMode({ key: payload.key, timeMode: axis.timeMode }),
+    ];
+    if ((axis.timeMode === "relative") !== (payload.timeMode === "relative")) {
+      inverse.push(
+        setAxisBounds({
+          key: payload.key,
+          bounds: actions.snapshotDraft(axis.bounds),
+          manualBounds: actions.snapshotDraft(axis.manualBounds),
+        }),
+      );
+      axis.bounds = { lower: 0, upper: 0 };
+      axis.manualBounds = { lower: false, upper: false };
+    }
+    axis.timeMode = payload.timeMode;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
@@ -471,6 +561,12 @@ export const kindOf = (actions: Action[]): string => {
       return `axis:${a.setAxisTickSpacing.key}`;
     case "set_axis_type":
       return `axis:${a.setAxisType.key}`;
+    case "set_axis_time_mode":
+      return `axis:${a.setAxisTimeMode.key}`;
+    case "set_range_color":
+      return rangeTarget(a.setRangeColor.range);
+    case "set_range_t0":
+      return `range:${a.setRangeT0.range}`;
     case "set_line_label":
       return `line:${a.setLineLabel.key}`;
     case "set_line_color":

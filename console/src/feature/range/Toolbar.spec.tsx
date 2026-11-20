@@ -672,10 +672,9 @@ describe("range/Toolbar", () => {
       fireEvent.dragStart(await findLine("Favorites", rng.name));
       fireEvent.drop(await screen.findByLabelText("Ranges"));
       await waitFor(async () =>
-        expect((await reader.lineplots.retrieve(key)).ranges).toContainEqual({
-          variant: "key",
-          key: rng.key,
-        }),
+        expect((await reader.lineplots.retrieve(key)).ranges).toContainEqual(
+          expect.objectContaining({ variant: "key", key: rng.key }),
+        ),
       );
     });
   });

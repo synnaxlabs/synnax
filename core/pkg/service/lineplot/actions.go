@@ -10,17 +10,21 @@
 package lineplot
 
 import (
-	"reflect"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+	v11 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -177,11 +181,11 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle appends the range reference to the plot's ranges. No-op when an equal
-// reference is already present.
+// Handle appends the range reference to the plot's ranges. No-op when a reference to
+// the same range or window is already present.
 func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if slices.ContainsFunc(state.Ranges, func(r ranger.Ref) bool {
-		return reflect.DeepEqual(r, p.Range)
+		return v11.SameRange(r, p.Range)
 	}) {
 		return state, nil
 	}
@@ -189,20 +193,90 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle removes the reference equal to Range from the plot's ranges. No-op when no
-// reference is equal.
+// Handle removes the reference to the same range or window as Range from the plot's
+// ranges. No-op when there is none.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Ranges = slices.DeleteFunc(
 		slices.Clone(state.Ranges),
-		func(r ranger.Ref) bool { return reflect.DeepEqual(r, p.Range) },
+		func(r ranger.Ref) bool { return v11.SameRange(r, p.Range) },
 	)
 	return state, nil
 }
 
-// Handle replaces the plot's range references. Lines style channels, so they are
-// unaffected.
+// Handle replaces the plot's range references, dropping each reference to a range or
+// window that an earlier one names. A reference to a range or window the plot already
+// shows keeps its T0 and color unless the new reference sets them. Lines style
+// channels, so they are unaffected.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Ranges = slices.Clone(p.Ranges)
+	next := v11.UniqueRanges(p.Ranges)
+	for i, r := range next {
+		idx := slices.IndexFunc(state.Ranges, func(o ranger.Ref) bool {
+			return v11.SameRange(o, r)
+		})
+		if idx != -1 {
+			next[i] = keepSettings(state.Ranges[idx], r)
+		}
+	}
+	state.Ranges = next
+	return state, nil
+}
+
+// keepSettings returns next with the T0 and color of prev in each field next leaves
+// unset.
+func keepSettings(prev, next ranger.Ref) ranger.Ref {
+	t0, c := settings(prev)
+	switch n := next.Variant.(type) {
+	case ranger.KeyRef:
+		n.T0 = lo.CoalesceOrEmpty(n.T0, t0)
+		n.Color = lo.CoalesceOrEmpty(n.Color, c)
+		return ranger.Ref{Variant: n}
+	case ranger.WindowRef:
+		n.Color = lo.CoalesceOrEmpty(n.Color, c)
+		return ranger.Ref{Variant: n}
+	}
+	return next
+}
+
+// settings returns the T0 and color of r. A window has no T0.
+func settings(r ranger.Ref) (*telem.TimeStamp, *color.Ref) {
+	switch v := r.Variant.(type) {
+	case ranger.KeyRef:
+		return v.T0, v.Color
+	case ranger.WindowRef:
+		return nil, v.Color
+	}
+	return nil, nil
+}
+
+// Handle sets the zero of the saved range on a relative time axis. A nil T0 resets it
+// to the range start.
+func (p SetRangeT0Payload) Handle(state LinePlot) (LinePlot, error) {
+	state.Ranges = slices.Clone(state.Ranges)
+	for i, r := range state.Ranges {
+		if k, ok := r.Variant.(ranger.KeyRef); ok && k.Key == p.Range {
+			k.T0 = p.T0
+			state.Ranges[i].Variant = k
+		}
+	}
+	return state, nil
+}
+
+// Handle sets the color of the reference to the same range or window as Range.
+func (p SetRangeColorPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Ranges = slices.Clone(state.Ranges)
+	for i, r := range state.Ranges {
+		if !v11.SameRange(r, p.Range) {
+			continue
+		}
+		switch v := r.Variant.(type) {
+		case ranger.KeyRef:
+			v.Color = &p.Color
+			state.Ranges[i].Variant = v
+		case ranger.WindowRef:
+			v.Color = &p.Color
+			state.Ranges[i].Variant = v
+		}
+	}
 	return state, nil
 }
 
@@ -266,6 +340,32 @@ func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
 	axis.Type = p.Type
 	return state, nil
 }
+
+// Handle sets where the x axis named by Key draws the ranges. A nil mode is absolute. A
+// change of mode resets the axis bounds to auto, as they mean nothing in another mode.
+func (p SetAxisTimeModePayload) Handle(state LinePlot) (LinePlot, error) {
+	var axis *Axis
+	switch p.Key {
+	case XAxisKeyX1:
+		axis = &state.Axes.X1
+	case XAxisKeyX2:
+		axis = &state.Axes.X2
+	default:
+		return LinePlot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"unknown x-axis %q",
+			p.Key,
+		)
+	}
+	if isRelative(axis.TimeMode) != isRelative(p.TimeMode) {
+		axis.Bounds = spatial.Bounds{}
+		axis.ManualBounds = ManualBounds{}
+	}
+	axis.TimeMode = p.TimeMode
+	return state, nil
+}
+
+func isRelative(m *TimeMode) bool { return m != nil && *m == TimeModeRelative }
 
 func unknownAxisKey(k AxisKey) error {
 	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)

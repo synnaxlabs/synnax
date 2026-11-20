@@ -1,0 +1,62 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/group/v1"
+import "schemas/synnax/versions/project/v3"
+import "schemas/synnax/versions/ranger/v4"
+import "schemas/x/versions/spatial/v0"
+import "schemas/x/versions/text/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+Aggregation = v7.Aggregation
+
+Detail = v7.Detail
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+ManualBounds = v5.ManualBounds
+
+TimeMode enum {
+    absolute = "absolute" {
+        @doc value "draws each range at its real time."
+    }
+    relative = "relative" {
+        @doc value "draws each range from its zero, its start or a custom T0."
+    }
+
+    @doc value "selects where an x axis draws the ranges of a line plot."
+}
+
+Axis struct extends v5.Axis {
+    type
+    time_mode TimeMode? {
+        @doc value "selects where an x axis draws the ranges. Null is absolute."
+    }
+}
+
+Axes struct extends v5.Axes {}
+
+Line = v10.Line
+
+Rule = v10.Rule
+
+LinePlot struct extends v10.LinePlot {}

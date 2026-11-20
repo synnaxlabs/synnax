@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { lineplot } from "@synnaxlabs/client";
+import type { lineplot, ranger } from "@synnaxlabs/client";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { useEffect, useRef } from "react";
 
 import { Session } from "@/session";
@@ -18,7 +17,13 @@ export interface UseResetZoomOnRangeChangeProps {
   key: lineplot.Key;
 }
 
-/** Resets the plot's zoom in this window when the plot's ranges change. */
+const sameRanges = (a: ranger.Ref[], b: ranger.Ref[]): boolean =>
+  a.length === b.length && a.every((r, i) => Session.Range.refsEqual(r, b[i]));
+
+/**
+ * Resets the plot's zoom in this window when the plot shows other ranges. A change to
+ * the T0 or color of a range keeps the zoom.
+ */
 export const useResetZoomOnRangeChange = ({
   key,
 }: UseResetZoomOnRangeChangeProps): void => {
@@ -26,7 +31,7 @@ export const useResetZoomOnRangeChange = ({
   const dispatch = Session.useDispatch();
   const shown = useRef(ranges);
   useEffect(() => {
-    if (deep.equal(shown.current, ranges)) return;
+    if (sameRanges(shown.current, ranges)) return;
     shown.current = ranges;
     dispatch(Session.LinePlot.setViewport({ key }));
   }, [ranges, dispatch, key]);

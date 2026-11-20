@@ -15,6 +15,10 @@ import "schemas/x/versions/telem/v0"
 Key = v0.Key
 
 Range struct extends v2.Range {
+    name         string {
+        @doc value           "is a human-readable name for the range."
+        @validate min_length 1
+    }
     has_children bool = false {
         @doc value  """
             is true when a range is nested in the range, derived on read and not

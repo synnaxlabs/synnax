@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
@@ -35,7 +35,7 @@ const roundTrip = (
   return lineplot.reduceAll(next, inverse).next;
 };
 
-const fixed = (hex: string): lineplot.Line["color"] => ({
+const fixed = (hex: string): NonNullable<lineplot.Line["color"]> => ({
   type: "fixed",
   value: color.construct(hex),
 });
@@ -267,6 +267,88 @@ describe("lineplot reducer", () => {
     });
   });
 
+  describe("range T0 and color", () => {
+    const r1 = "00000000-0000-4000-8000-000000000001";
+    const r2 = "00000000-0000-4000-8000-000000000002";
+    const red = fixed("#FF0000");
+    const t0 = new TimeStamp(5);
+    const styled: ranger.Ref = { variant: "key", key: r1, t0, color: red };
+
+    it("should not add a second reference to a range with another T0 or color", () => {
+      const state = createEmpty({ ranges: [keyRef(r1)] });
+      const { next, inverse } = lineplot.reduceAll(state, [
+        lineplot.addRange({ range: styled }),
+      ]);
+      expect(next.ranges).toEqual([keyRef(r1)]);
+      expect(inverse).toEqual([]);
+    });
+
+    it("should remove a reference whatever its T0 and color, and restore both on undo", () => {
+      const state = createEmpty({ ranges: [styled] });
+      const action = lineplot.removeRange({ range: keyRef(r1) });
+      expect(apply(state, action).ranges).toEqual([]);
+      expect(roundTrip(state, action).ranges).toEqual(state.ranges);
+    });
+
+    it("should keep the T0 and color of a range that setRanges keeps", () => {
+      const state = createEmpty({ ranges: [styled] });
+      const out = apply(
+        state,
+        lineplot.setRanges({ ranges: [keyRef(r1), keyRef(r2)] }),
+      );
+      expect(out.ranges).toEqual([state.ranges[0], keyRef(r2)]);
+    });
+
+    it("should set a new T0 and color on a range that setRanges keeps, and undo it", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const action = lineplot.setRanges({ ranges: [styled, keyRef(r2)] });
+      const { next, targets } = lineplot.reduceAll(state, [action]);
+      expect(next.ranges).toEqual([styled, keyRef(r2)]);
+      expect(targets).toEqual([`range:${r1}`]);
+      expect(roundTrip(state, action).ranges).toEqual([keyRef(r2), keyRef(r1)]);
+    });
+
+    it("should set, reset, and round-trip the T0 of a saved range", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const action = lineplot.setRangeT0({ range: r1, t0 });
+      const out = apply(state, action);
+      expect(out.ranges).toEqual([{ ...keyRef(r1), t0 }, keyRef(r2)]);
+      expect(apply(out, lineplot.setRangeT0({ range: r1 })).ranges).toEqual(
+        state.ranges,
+      );
+      expect(roundTrip(state, action).ranges).toEqual(state.ranges);
+    });
+
+    it("should not set the T0 of a range the plot does not show", () => {
+      const { next, inverse } = lineplot.reduceAll(
+        createEmpty({ ranges: [keyRef(r1)] }),
+        [lineplot.setRangeT0({ range: r2, t0 })],
+      );
+      expect(next.ranges).toEqual([keyRef(r1)]);
+      expect(inverse).toEqual([]);
+    });
+
+    it("should set and round-trip the color of a range", () => {
+      const state = createEmpty({ ranges: [styled] });
+      const blue = fixed("#0000FF");
+      const action = lineplot.setRangeColor({ range: keyRef(r1), color: blue });
+      expect(apply(state, action).ranges[0].color).toEqual(blue);
+      expect(roundTrip(state, action).ranges).toEqual(state.ranges);
+    });
+
+    it.each([
+      [
+        "color",
+        (k: string) => lineplot.setRangeColor({ range: keyRef(k), color: red }),
+      ],
+      ["T0", (k: string) => lineplot.setRangeT0({ range: k, t0 })],
+    ])("should coalesce %s edits to one range, and not across ranges", (_, edit) => {
+      const kind = (k: string): string => lineplot.kindOf([edit(k)]);
+      expect(kind(r1)).toEqual(`range:${r1}`);
+      expect(kind(r2)).not.toEqual(kind(r1));
+    });
+  });
+
   describe("setChannels", () => {
     it("should replace the whole channel set on the named y-axis", () => {
       const state = createEmpty({
@@ -359,6 +441,15 @@ describe("lineplot reducer", () => {
         lineplot.setRanges({ ranges: [keyRef(r2), keyRef(r3)] }),
       );
       expect(out.ranges).toEqual([keyRef(r2), keyRef(r3)]);
+    });
+
+    it("should drop a reference to a range that an earlier one names", () => {
+      const state = createEmpty({ ranges: [keyRef(r1)] });
+      const { next, inverse } = lineplot.reduceAll(state, [
+        lineplot.setRanges({ ranges: [keyRef(r2), keyRef(r1), keyRef(r2)] }),
+      ]);
+      expect(next.ranges).toEqual([keyRef(r2), keyRef(r1)]);
+      expect(inverse).toEqual([lineplot.removeRange({ range: keyRef(r2) })]);
     });
 
     it("should be a no-op when the set is unchanged", () => {
@@ -553,6 +644,38 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, lineplot.setAxisType({ key: "x1" })).axes.x1).toEqual(
         state.axes.x1,
       );
+    });
+
+    it("setAxisTimeMode sets the time mode, clears it with null, and round-trips", () => {
+      const state = createEmpty();
+      const action = lineplot.setAxisTimeMode({ key: "x1", timeMode: "relative" });
+      const out = apply(state, action);
+      expect(out.axes.x1.timeMode).toEqual("relative");
+      expect(
+        apply(out, lineplot.setAxisTimeMode({ key: "x1" })).axes.x1.timeMode,
+      ).toBeUndefined();
+      expect(roundTrip(state, action).axes.x1).toEqual(state.axes.x1);
+      expect(lineplot.kindOf([action])).toEqual("axis:x1");
+    });
+
+    it("setAxisTimeMode returns the bounds to auto on a change of mode", () => {
+      const manual = apply(
+        createEmpty(),
+        lineplot.setAxisBounds({
+          key: "x1",
+          bounds: { lower: 10, upper: 20 },
+          manualBounds: { lower: true, upper: true },
+        }),
+      );
+      const absolute = lineplot.setAxisTimeMode({ key: "x1", timeMode: "absolute" });
+      expect(apply(manual, absolute).axes.x1.manualBounds).toEqual(
+        manual.axes.x1.manualBounds,
+      );
+      const relative = lineplot.setAxisTimeMode({ key: "x1", timeMode: "relative" });
+      const out = apply(manual, relative).axes.x1;
+      expect(out.bounds).toEqual({ lower: 0, upper: 0 });
+      expect(out.manualBounds).toEqual({ lower: false, upper: false });
+      expect(roundTrip(manual, relative).axes.x1).toEqual(manual.axes.x1);
     });
 
     it("targets the edited axis so distinct axes are independent", () => {

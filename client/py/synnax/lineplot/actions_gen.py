@@ -25,10 +25,11 @@ from synnax.lineplot.types_gen import (
     ManualBounds,
     Rule,
     TickType,
+    TimeMode,
     XAxisKey,
     YAxisKey,
 )
-from x import patch, spatial, text
+from x import patch, spatial, telem, text
 
 
 class CreatePayload(BaseModel):
@@ -100,16 +101,16 @@ class SetXChannelPayload(BaseModel):
 
 
 class AddRangePayload(BaseModel):
-    """Appends the range reference to the plot's ranges. No-op when an equal reference
-    is already present.
+    """Appends the range reference to the plot's ranges. No-op when a reference to the
+    same range or window is already present.
     """
 
     range: ranger.Ref
 
 
 class RemoveRangePayload(BaseModel):
-    """Removes the reference equal to range from the plot's ranges. No-op when no
-    reference is equal.
+    """Removes the reference to the same range or window as range from the plot's
+    ranges. No-op when there is none.
     """
 
     range: ranger.Ref
@@ -117,10 +118,41 @@ class RemoveRangePayload(BaseModel):
 
 class SetRangesPayload(BaseModel):
     """Replaces the plot's range references with ranges, such as when the user edits a
-    window. Lines style channels, so they are unaffected.
+    window. A reference to a range or window the plot already shows keeps its T0 and
+    color unless the new reference sets them. Lines style channels, so they are
+    unaffected.
     """
 
     ranges: list[ranger.Ref] = Field(default_factory=list)
+
+
+class SetRangeT0Payload(BaseModel):
+    """Sets the zero of the saved range on a relative time axis. Null resets it to the
+    range start. No-op when the plot does not show the range.
+    """
+
+    range: ranger.Key
+    t0: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class SetRangeColorPayload(BaseModel):
+    """Sets the color that a relative time axis draws the reference to the same range or
+    window as range in. No-op when there is none.
+    """
+
+    range: ranger.Ref
+    color: color_.Ref
+
+
+class SetAxisTimeModePayload(BaseModel):
+    """Sets where the x axis named by key draws the ranges. A change of mode returns the
+    axis bounds to auto.
+    """
+
+    key: XAxisKey
+    time_mode: TimeMode | None = None
 
 
 class SetAxisLabelPayload(BaseModel):
@@ -361,6 +393,21 @@ class SetRangesAction(BaseModel):
     set_ranges: SetRangesPayload
 
 
+class SetRangeT0Action(BaseModel):
+    type: Literal["set_range_t0"] = "set_range_t0"
+    set_range_t0: SetRangeT0Payload
+
+
+class SetRangeColorAction(BaseModel):
+    type: Literal["set_range_color"] = "set_range_color"
+    set_range_color: SetRangeColorPayload
+
+
+class SetAxisTimeModeAction(BaseModel):
+    type: Literal["set_axis_time_mode"] = "set_axis_time_mode"
+    set_axis_time_mode: SetAxisTimeModePayload
+
+
 class SetAxisLabelAction(BaseModel):
     type: Literal["set_axis_label"] = "set_axis_label"
     set_axis_label: SetAxisLabelPayload
@@ -500,6 +547,9 @@ Action = Annotated[
     | AddRangeAction
     | RemoveRangeAction
     | SetRangesAction
+    | SetRangeT0Action
+    | SetRangeColorAction
+    | SetAxisTimeModeAction
     | SetAxisLabelAction
     | SetAxisLabelDirectionAction
     | SetAxisLabelLevelAction
@@ -575,6 +625,18 @@ def remove_range(payload: RemoveRangePayload) -> RemoveRangeAction:
 
 def set_ranges(payload: SetRangesPayload) -> SetRangesAction:
     return SetRangesAction(set_ranges=payload)
+
+
+def set_range_t0(payload: SetRangeT0Payload) -> SetRangeT0Action:
+    return SetRangeT0Action(set_range_t0=payload)
+
+
+def set_range_color(payload: SetRangeColorPayload) -> SetRangeColorAction:
+    return SetRangeColorAction(set_range_color=payload)
+
+
+def set_axis_time_mode(payload: SetAxisTimeModePayload) -> SetAxisTimeModeAction:
+    return SetAxisTimeModeAction(set_axis_time_mode=payload)
 
 
 def set_axis_label(payload: SetAxisLabelPayload) -> SetAxisLabelAction:

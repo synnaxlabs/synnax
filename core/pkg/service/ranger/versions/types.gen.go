@@ -11,49 +11,49 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
 
 // Key is a unique identifier for a range, represented as a UUID.
-type Key = v3.Key
+type Key = v4.Key
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
-type Range = v3.Range
+type Range = v4.Range
 
 // Where is a filter that selects ranges.
-type Where = v3.Where
+type Where = v4.Where
 
 // Stage is where a range stands against the current time.
-type Stage = v3.Stage
+type Stage = v4.Stage
 
 const (
 	// StageToDo is a range that has not started.
-	StageToDo Stage = v3.StageToDo
+	StageToDo Stage = v4.StageToDo
 	// StageInProgress is a range that has started and not ended.
-	StageInProgress Stage = v3.StageInProgress
+	StageInProgress Stage = v4.StageInProgress
 	// StageCompleted is a range that has ended.
-	StageCompleted Stage = v3.StageCompleted
+	StageCompleted Stage = v4.StageCompleted
 )
 
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
-type Ref = v3.Ref
+type Ref = v4.Ref
 
 // RefVariant is implemented by every Ref variant.
-type RefVariant = v3.RefVariant
+type RefVariant = v4.RefVariant
 
 // RefType is the "variant" value that selects a variant of Ref.
-type RefType = v3.RefType
+type RefType = v4.RefType
 
 const (
 	// KeyRefType is a range saved in the Core.
-	KeyRefType RefType = v3.KeyRefType
+	KeyRefType RefType = v4.KeyRefType
 	// WindowRefType is a window carried inline: rolling or fixed.
-	WindowRefType RefType = v3.WindowRefType
+	WindowRefType RefType = v4.WindowRefType
 )
 
 // KeyRef is a range saved in the Core.
-type KeyRef = v3.KeyRef
+type KeyRef = v4.KeyRef
 
 // WindowRef is a window carried inline: rolling or fixed.
-type WindowRef = v3.WindowRef
+type WindowRef = v4.WindowRef
