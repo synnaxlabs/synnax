@@ -296,9 +296,18 @@ times.
 | `4b`   | 4    | `uint32` | CRC of old file bytes `65,536 b` to `min(65,536 (b + 1), len) - 1`. Place: kind 1, version 0, file offset `65,536 b` |
 | `4n`   | 4    | `uint32` | CRC of the `n` entries. Place: kind 2, version 1, file offset 0                                                      |
 
-Compaction and progression encoding skip a version 0 file: only a delete that leaves it
-with nothing live unlinks it. A binary refuses to open on a format version it does not
-know.
+While an undo can restore the old layout, compaction and progression encoding skip a
+version 0 file, and only a delete that leaves it with nothing live unlinks it. An undo
+restores the old layout only from an update backup taken from `core/v0.62.0` or older
+(RFC 0102 §3.1, which keeps the newest 3). So at each start the Core lists its backups
+and passes `Version0Rewritable` (NEW, false by default) to `Open` when none of them is
+that old. Nothing stores it: the backup list is the fact. From then, compaction and
+progression encoding treat a version 0 segment that has its check file as a sealed
+version 1 segment: they copy its live ranges, checked, to a new segment, and the old
+file and its check file go when their pins drop. A site that runs with
+`--no-update-backup` has no such backup and restores its own snapshot of the whole data
+directory, so its files are rewritable from the first start. A binary refuses to open on
+a format version it does not know.
 
 ### 5.2 Pointer log
 
@@ -543,8 +552,8 @@ then has no head, the older head and its logs stay, and the next switch writes h
   `GCConfig`, `cesium/delete.go:32`), the compactor copies the live ranges to a new
   segment, syncs the file and its directory, and logs a Create and a Replace in one
   entry. Time ranges and alignments do not change. Progression encoding is the same copy
-  and Replace. Both skip version 0 segments, pick only a segment whose sealing entry is
-  acked, and rewrite one segment to one segment.
+  and Replace. Both skip version 0 segments unless `Version0Rewritable` (§5.1), pick
+  only a segment whose sealing entry is acked, and rewrite one segment to one segment.
 
 ### 5.7 Alignment
 
@@ -785,7 +794,9 @@ commit point and the identity write converts again with nothing lost, since the 
 serves only after the write. Telemetry that the new binary wrote is lost, and the new
 binary's undo warns before it runs. An update that keeps the Cesium formats backs up and
 restores no Cesium file: its undo leaves the live state, and `Sweep` handles the keys
-that the restored channel table does not hold.
+that the restored channel table does not hold. No background work rewrites a version 0
+file while a backup from `core/v0.62.0` or older exists (§5.1), so every undo finds the
+old files that it needs.
 
 ### 9.1 What is owed
 
