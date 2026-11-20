@@ -12,6 +12,7 @@ export class RequestError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "RequestError";
@@ -20,14 +21,17 @@ export class RequestError extends Error {
 
 const readError = async (res: Response): Promise<RequestError> => {
   let message = res.statusText || "Request failed";
+  let code: string | undefined;
   try {
     const body: unknown = await res.json();
-    if (body != null && typeof body === "object" && "error" in body)
-      message = String(body.error);
+    if (body != null && typeof body === "object") {
+      if ("error" in body) message = String(body.error);
+      if ("code" in body && typeof body.code === "string") code = body.code;
+    }
   } catch {
     // A non-JSON body keeps the status text.
   }
-  return new RequestError(res.status, message);
+  return new RequestError(res.status, message, code);
 };
 
 /** post sends JSON to a portal route and returns its JSON body, or nothing on 204. */

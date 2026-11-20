@@ -71,6 +71,19 @@ describe("respond", () => {
       expect(await body(res)).toEqual({ error: "Logged out.", code: "unlinked" });
     });
 
+    it("should log the cause of a 5xx HTTP error", () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const cause = new Error("mail: down");
+      toResponse(new HTTPError(502, "Mail failed.", undefined, { cause }));
+      expect(log).toHaveBeenCalledExactlyOnceWith(cause);
+    });
+
+    it("should not log the cause of a 4xx HTTP error", () => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      toResponse(badRequest("Bad input.", { cause: new Error("parse") }));
+      expect(log).not.toHaveBeenCalled();
+    });
+
     it("should hide a value that is not an error", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const res = toResponse("boom");

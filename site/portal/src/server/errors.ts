@@ -38,11 +38,13 @@ export const tooMany = (): HTTPError =>
  * or `{ error, code }` when the error has a code.
  */
 export const toResponse = (err: unknown): Response => {
-  if (err instanceof HTTPError)
+  if (err instanceof HTTPError) {
+    if (err.status >= 500 && err.cause != null) console.error(err.cause);
     return Response.json(
       { error: err.message, code: err.code },
       { status: err.status },
     );
+  }
   console.error(err);
   return Response.json({ error: "Internal error" }, { status: 500 });
 };

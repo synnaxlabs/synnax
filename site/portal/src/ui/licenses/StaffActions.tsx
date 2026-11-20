@@ -11,12 +11,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
+import { errors } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import type { License } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
-import { navigate, post, postFile, reload, save } from "@/ui/api";
+import { navigate, post, postFile, reload, RequestError, save } from "@/ui/api";
 import { EditDialog } from "@/ui/licenses/EditDialog";
 import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
@@ -28,6 +29,26 @@ export interface StaffActionsProps {
   back: string;
 }
 
+/**
+ * MAIL_PARAM is the query parameter that is "failed" on a license page opened after a
+ * revoke or restore saved but its email failed.
+ */
+export const MAIL_PARAM = "mail";
+
+const change = async (key: string, action: "revoke" | "restore"): Promise<void> => {
+  try {
+    await post(`/api/licenses/${key}/${action}`);
+  } catch (err) {
+    if (!(err instanceof RequestError) || err.code !== "mail_failed")
+      throw errors.fromUnknown(err);
+    const url = new URL(window.location.href);
+    url.searchParams.set(MAIL_PARAM, "failed");
+    navigate(url.href);
+    return;
+  }
+  reload();
+};
+
 /** StaffActions are the license actions only Synnax Labs staff can take. */
 export const StaffActions = ({
   license: lic,
@@ -38,10 +59,7 @@ export const StaffActions = ({
     const blob = await postFile(`/api/licenses/${lic.key}/floating`);
     save(blob, filename(lic.label));
   });
-  const restore = useAction(async () => {
-    await post(`/api/licenses/${lic.key}/restore`);
-    reload();
-  });
+  const restore = useAction(async () => await change(lic.key, "restore"));
   const enterprise = lic.edition === "enterprise";
   const error = floating.error ?? restore.error;
   return (
@@ -87,10 +105,7 @@ export const StaffActions = ({
             question={`Revoke "${lic.label}"?`}
             confirm="Revoke"
             delay={1500}
-            onConfirm={async () => {
-              await post(`/api/licenses/${lic.key}/revoke`);
-              reload();
-            }}
+            onConfirm={async () => await change(lic.key, "revoke")}
           >
             No machine can activate it or download its license key. A Core checks its
             license offline, so a Core that already holds it keeps running as its terms
