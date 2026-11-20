@@ -39,6 +39,7 @@ jobs:
       actions: read
     outputs:
       skip: ${{ steps.check.outputs.skip }}
+    timeout-minutes: 10
     steps:
       # A skipped attempt also ends in success, so only a passed test job counts.
       - name: Check for a passed run
@@ -254,6 +255,7 @@ jobs:
       || github.event.schedule == '0 10 * * *')
     runs-on: ubuntu-latest
     permissions: {}
+    timeout-minutes: 10
     steps:
       - name: Post the failure to Slack
         env:

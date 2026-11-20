@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { Portal } from "@/portal";
 import { Tooltip } from "@/tooltip";
@@ -42,6 +42,10 @@ const ZERO_RECT = {
 const getFrame = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".lyra-tooltip");
 
+// The left edge that centers the tooltip's real width on x.
+const centeredLeft = (tip: HTMLElement, x: number): string =>
+  `${Math.round(x - tip.offsetWidth / 2)}px`;
+
 const createAnchor = (rect: DOMRect = ANCHOR_RECT): HTMLElement => {
   const el = document.createElement("div");
   el.getBoundingClientRect = () => rect;
@@ -54,10 +58,11 @@ describe("Tooltip.Frame", () => {
     const anchor = createAnchor();
     render(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
     const frame = getFrame();
-    expect(frame?.getAttribute("role")).toBe("tooltip");
-    expect(frame?.textContent).toBe("Tip");
-    expect(frame?.style.left).toBe("150px");
-    expect(frame?.style.top).toBe("94px");
+    assert(frame != null);
+    expect(frame.getAttribute("role")).toBe("tooltip");
+    expect(frame.textContent).toBe("Tip");
+    expect(frame.style.left).toBe(centeredLeft(frame, 150));
+    expect(frame.style.top).toBe(`${94 - frame.offsetHeight}px`);
   });
 
   it("should honor the preferred location", () => {
@@ -67,8 +72,10 @@ describe("Tooltip.Frame", () => {
         Tip
       </Tooltip.Frame>,
     );
-    expect(getFrame()?.style.left).toBe("150px");
-    expect(getFrame()?.style.top).toBe("146px");
+    const frame = getFrame();
+    assert(frame != null);
+    expect(frame.style.left).toBe(centeredLeft(frame, 150));
+    expect(frame.style.top).toBe("146px");
   });
 
   it("should apply the id and class name", () => {
@@ -88,7 +95,9 @@ describe("Tooltip.Frame", () => {
     const { rerender } = render(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
     anchor.getBoundingClientRect = () => MOVED_RECT;
     rerender(<Tooltip.Frame anchor={anchor}>Tip</Tooltip.Frame>);
-    expect(getFrame()?.style.left).toBe("350px");
+    const frame = getFrame();
+    assert(frame != null);
+    expect(frame.style.left).toBe(centeredLeft(frame, 350));
   });
 
   it("should keep the tooltip inside the window's right edge", () => {
