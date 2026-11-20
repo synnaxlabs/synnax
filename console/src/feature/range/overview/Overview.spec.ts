@@ -13,7 +13,7 @@ import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, describe, expect, it, onTestFinished } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { CORE, renderOverview } from "@/feature/range/overview/testutil";
@@ -44,7 +44,7 @@ const createChildAt = async (
   parent: ranger.Range,
   start: TimeStamp,
 ): Promise<ranger.Range> =>
-  await client.ranges.create({
+  await createTestRange(client, {
     name: uniqueName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
     parent: parent.key,
@@ -335,12 +335,10 @@ describe("range/overview", () => {
 
     it("should show the children of a range that has not started on a timeline", async () => {
       const now = TimeStamp.now();
-      const parent = await client.ranges.create({
+      const parent = await createTestRange(client, {
         name: uniqueName("planned"),
         timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
       });
-      // A range that has not started sorts above every other in the explorer.
-      onTestFinished(async () => await client.ranges.delete(parent.key));
       const child = await createChildAt(parent, now);
       await renderOverview(parent.key, createTestClient());
       await screen.findByRole("listitem", { name: child.name });
@@ -349,7 +347,7 @@ describe("range/overview", () => {
 
     it("should list the children of an open child newest first in the tree", async () => {
       const end = TimeStamp.now();
-      const parent = await client.ranges.create({
+      const parent = await createTestRange(client, {
         name: uniqueName("campaign"),
         timeRange: new TimeRange(end.sub(TimeSpan.days(2)), end),
       });

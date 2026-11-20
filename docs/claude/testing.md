@@ -16,7 +16,9 @@ in `tests/` (Python).
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
 connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_TEST_HOST` and
-`SYNNAX_TEST_PORT`, and default to `localhost:9090`.
+`SYNNAX_TEST_PORT`, and default to `localhost:9090`. A browser has no environment, so a
+browser project passes that address to its specs as `synnaxTestCore` (Vitest `provide`),
+as `console/vite.config.ts` does.
 
 Parallel sessions share this machine. Build a Core from your worktree and run it on a
 free port. Never use, stop, or replace a Core that you did not start.
