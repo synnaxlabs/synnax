@@ -15,7 +15,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreEmbedded?: boolean }
   coreEmbedded: true,
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
