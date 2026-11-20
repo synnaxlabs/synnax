@@ -17,8 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rangerv3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v4"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions/v3"
@@ -77,7 +76,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("range variant", v3.View{Variant: v3.RangeView{
 				Base: fullyPopulatedBase,
-				Where: new(rangerv3.Where{
+				Where: new(ranger.Where{
 					And: []ranger.Where{
 						{
 							And:       []ranger.Where{{}},
@@ -218,7 +217,7 @@ func BenchmarkEncodeDecodeBase(b *testing.B) {
 func BenchmarkEncodeDecodeView(b *testing.B) {
 	seed := v3.View{Variant: v3.RangeView{
 		Base: fullyPopulatedBase,
-		Where: new(rangerv3.Where{
+		Where: new(ranger.Where{
 			And: []ranger.Where{
 				{
 					And:       []ranger.Where{{}},
@@ -355,7 +354,7 @@ func FuzzDecodeView(f *testing.F) {
 	{
 		seed := v3.View{Variant: v3.RangeView{
 			Base: fullyPopulatedBase,
-			Where: new(rangerv3.Where{
+			Where: new(ranger.Where{
 				And: []ranger.Where{
 					{
 						And:       []ranger.Where{{}},
