@@ -38,28 +38,64 @@ export const inModal = (el: Element): boolean =>
 interface ModalProps extends PropsWithChildren {
   /** The id of the frame, so a click or focus in the modal counts as inside it. */
   owner: string;
-  onCancel: (e: SyntheticEvent<HTMLDialogElement>) => void;
+  /** Called on a `cancel` event of this dialog, whose default is always prevented. */
+  onCancel: () => void;
+  /** Called when the browser closes this dialog. */
   onClose: () => void;
   onKeyDown: (e: KeyboardEvent<HTMLDialogElement>) => void;
 }
 
 /**
- * The native modal dialog, which overlays in it portal into. Its children mount only
- * after `showModal()`, so the browser keeps the opener to give the focus back to, and
- * a field with autoFocus can take the focus.
+ * The native modal dialog. Overlays in the modal portal into it. Its children mount
+ * only after `showModal()`, so the browser keeps the opener to give the focus back to,
+ * and a field with autoFocus can take the focus.
  */
-const Modal = ({ children, owner, ...rest }: ModalProps): ReactElement => {
+const Modal = ({
+  children,
+  owner,
+  onCancel,
+  onClose,
+  ...rest
+}: ModalProps): ReactElement => {
   const ref = useRef<HTMLDialogElement>(null);
   const [shown, setShown] = useState<HTMLDialogElement | null>(null);
+  const [nativeCloses, setNativeCloses] = useState(0);
   // React runs this cleanup before it removes the dialog, so close() gives the focus
   // back to the opener.
   useLayoutEffect(() => {
     const dialog = ref.current;
     if (dialog == null) return;
+    // Triggers handles an Escape from inside the modal that reaches the window. The
+    // browser must not also send cancel, since Chromium closes the dialog on a
+    // repeated cancel.
+    const handleKeyDown = (e: globalThis.KeyboardEvent): void => {
+      if (e.key === "Escape" && e.target instanceof Node && dialog.contains(e.target))
+        e.preventDefault();
+    };
+    window.addEventListener("keydown", handleKeyDown);
     dialog.showModal();
     setShown(dialog);
-    return () => dialog.close();
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      dialog.close();
+    };
   }, []);
+  // The owner kept the frame open after the browser closed the dialog.
+  useLayoutEffect(() => {
+    const dialog = ref.current;
+    if (nativeCloses > 0 && dialog != null && !dialog.open) dialog.showModal();
+  }, [nativeCloses]);
+  // React passes cancel and close up through a nested modal, so each modal acts only
+  // on its own.
+  const handleCancel = (e: SyntheticEvent<HTMLDialogElement>): void => {
+    e.preventDefault();
+    if (e.target === e.currentTarget) onCancel();
+  };
+  const handleClose = (e: SyntheticEvent<HTMLDialogElement>): void => {
+    if (e.target !== e.currentTarget) return;
+    setNativeCloses((n) => n + 1);
+    onClose();
+  };
   return (
     <Flex.Box<"dialog">
       el="dialog"
@@ -68,6 +104,8 @@ const Modal = ({ children, owner, ...rest }: ModalProps): ReactElement => {
       empty
       align="center"
       tabIndex={-1}
+      onCancel={handleCancel}
+      onClose={handleClose}
       {...rest}
       {...{ [PORTAL_OWNER_ATTR]: owner }}
     >
@@ -82,8 +120,8 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
 /**
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
  * into the nearest `Portal.Target`, or the document root outside one. A modal renders
- * in a native modal `<dialog>`, which overlays in it portal into. Any other dialog
- * takes the place right after its trigger in the tab order.
+ * in a native modal `<dialog>`, and the overlays in the modal portal into it. Any other
+ * dialog takes the place right after its trigger in the tab order.
  */
 export const Dialog = ({
   ref: propsRef,
