@@ -231,6 +231,20 @@ describe("AnalogRead", () => {
     await waitFor(() => expect(screen.getAllByText("°C")).toHaveLength(2));
   });
 
+  it("should show the range of a voltage scaled by excitation as a ratio", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [
+        createChannel("ai_voltage_with_excit", 0, {
+          name: "chan_ratio",
+          scaledByExcitation: true,
+        }),
+      ],
+    });
+    fireEvent.click(await findChannelListItem("chan_ratio"));
+    await waitFor(() => expect(screen.getAllByText("V/V")).toHaveLength(2));
+  });
+
   it("should render the scale form matching each channel's custom scale", async () => {
     const cases = [
       ["linear", "Slope"],

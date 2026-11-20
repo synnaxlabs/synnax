@@ -356,6 +356,9 @@ const rangeUnits = (channel: AIChannel): string | undefined => {
   if ("customScale" in channel && channel.customScale.type !== "none")
     return channel.customScale.scaledUnits;
   if ("units" in channel) return MEASURE_UNIT_SYMBOLS[channel.units];
+  // DAQmx divides the reading by the excitation, so the range is a ratio.
+  if (channel.type === "ai_voltage_with_excit" && channel.scaledByExcitation)
+    return "V/V";
   return FIXED_UNIT_SYMBOLS[channel.type];
 };
 
