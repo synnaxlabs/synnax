@@ -42,6 +42,13 @@ const clickText = (text: string): void => {
   fireEvent.click(el);
 };
 
+/** @returns true when the element is the topmost one at its own center. */
+const onTop = (el: Element): boolean => {
+  const { left, top, width, height } = el.getBoundingClientRect();
+  const hit = document.elementFromPoint(left + width / 2, top + height / 2);
+  return hit != null && el.contains(hit);
+};
+
 describe("Stack", () => {
   it("should render nothing when no modals are open", () => {
     renderWithModals(<Opener text="A" />);
@@ -61,6 +68,31 @@ describe("Stack", () => {
       expect(screen.getByText("A")).toBeTruthy();
       expect(screen.getByText("B")).toBeTruthy();
     });
+  });
+
+  it("should paint the newest modal above the older modal and the page", async () => {
+    const Framed: Modals.Content<OpenerProps, void> = ({ text }) => (
+      <Modal.Frame>
+        <span>framed-{text}</span>
+      </Modal.Frame>
+    );
+    const useOpenFramed = Modals.create(Framed);
+    const FramedOpener = ({ text }: OpenerProps): ReactElement => {
+      const open = useOpenFramed();
+      return <Button.Button onClick={() => open({ text })}>open-{text}</Button.Button>;
+    };
+    renderWithModals(
+      <>
+        <FramedOpener text="A" />
+        <FramedOpener text="B" />
+      </>,
+    );
+    const opener = screen.getByText("open-A");
+    clickText("open-A");
+    clickText("open-B");
+    expect(onTop(await screen.findByText("framed-B"))).toBe(true);
+    expect(onTop(screen.getByText("framed-A"))).toBe(false);
+    expect(onTop(opener)).toBe(false);
   });
 
   it("should remove only the dismissed modal from the DOM", async () => {
