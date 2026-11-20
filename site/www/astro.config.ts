@@ -10,30 +10,23 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { CDN } from "@synnaxlabs/site-common/cdn";
-import { HASHES, POSTHOG, VERCEL_LIVE } from "@synnaxlabs/site-common/csp";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  integrations: [integration(), react()],
+  integrations: [integration(), react(), jitless()],
   adapter: vercel(),
   security: {
-    csp: {
-      directives: [
-        "default-src 'self'",
-        `connect-src 'self' ${POSTHOG} https://formspree.io ${VERCEL_LIVE}`,
-        `img-src 'self' data: ${VERCEL_LIVE} https://vercel.com`,
-        `media-src 'self' ${CDN}`,
-        `frame-src ${VERCEL_LIVE}`,
-        "object-src 'none'",
-        "base-uri 'self'",
-      ],
-      scriptDirective: { resources: ["'self'", POSTHOG, VERCEL_LIVE], hashes: HASHES },
-      // Shiki colors code with style attributes.
-      styleDirective: {
-        resources: ["'self'", { resource: "'unsafe-inline'", kind: "attribute" }],
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", "https://formspree.io"],
+        "img-src": ["'self'", "data:"],
+        "media-src": ["'self'", CDN],
       },
-    },
+      posthog: true,
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
   },
   // Pictures from the CDN are fetched and re-encoded at build time.
   image: { domains: [new URL(CDN).hostname] },
