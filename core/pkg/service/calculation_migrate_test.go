@@ -104,7 +104,9 @@ var _ = Describe("Calculation grants upgrade", func() {
 		))
 		Expect(objectsOf(byKey.Key)).To(ConsistOf(
 			channel.ResourceID(doubled.Key()),
-			calculation.ResourceID(calculation.MigratedKey(doubled.Key())),
+			calculation.ResourceID(
+				calculationOf(ctx, n, l.Calculation, doubled.Key()).Key,
+			),
 		))
 	})
 })
@@ -213,12 +215,28 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 		Expect(bind.Write(binder, apiCalculations.Dispatch)(
 			authed,
 			apicalculation.DispatchRequest{
-				Key:     calculation.MigratedKey(doubled.Key()),
+				Key:     calculationOf(ctx, n, l.Calculation, doubled.Key()).Key,
 				Actions: []calculation.Action{set},
 			},
 		)).Error().To(Succeed())
 	})
 })
+
+// calculationOf returns the calculation that writes the channel with key output.
+func calculationOf(
+	ctx context.Context,
+	n testutil.Node,
+	calculations *calculation.Service,
+	output channel.Key,
+) calculation.Calculation {
+	GinkgoHelper()
+	var c calculation.Calculation
+	Expect(calculations.NewRetrieve().
+		Where(calculation.MatchOutputs(output)).
+		Entry(&c).
+		Exec(ctx, n.DB)).To(Succeed())
+	return c
+}
 
 // openUpgraded runs create on a node, then returns a node over the same storage, so
 // that each key create allocates counts as issued when the Core opens, as on a store
@@ -252,8 +270,8 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(byOutput).To(HaveKey(doubled.Key()))
 		Expect(byOutput).To(HaveKey(windowed.Key()))
 		Expect(byOutput).ToNot(HaveKey(plain.Key()))
-		Expect(byOutput[doubled.Key()].Key).
-			To(Equal(calculation.MigratedKey(doubled.Key())))
+		// A UUIDv5 of the channel key names each record.
+		Expect(byOutput[doubled.Key()].Key[6] >> 4).To(Equal(byte(5)))
 		Expect(byOutput[doubled.Key()].Expression).To(Equal("return 2"))
 		Expect(byOutput[doubled.Key()].Operations).To(BeEmpty())
 		Expect(byOutput[windowed.Key()].Operations).To(Equal([]calculation.Operation{
@@ -295,18 +313,13 @@ var _ = Describe("Calculation records upgrade", func() {
 
 		l := MustOpen(svctestutil.OpenLayer(ctx, n))
 
-		key := calculation.MigratedKey(untyped.Key())
-		var c calculation.Calculation
-		Expect(l.Calculation.NewRetrieve().
-			Where(calculation.MatchKeys(key)).
-			Entry(&c).
-			Exec(ctx, n.DB)).To(Succeed())
+		c := calculationOf(ctx, n, l.Calculation, untyped.Key())
 		Expect(c.Operations).To(Equal([]calculation.Operation{
 			{Variant: calculation.MaxOperation{}},
 		}))
 		var warning status.Status[any]
 		Expect(l.Status.NewRetrieve[any]().
-			Where(status.MatchOwners[any](calculation.ResourceID(key))).
+			Where(status.MatchOwners[any](calculation.ResourceID(c.Key))).
 			Entry(&warning).
 			Exec(ctx, n.DB)).To(Succeed())
 		Expect(warning.Variant).To(Equal(status.VariantWarning))

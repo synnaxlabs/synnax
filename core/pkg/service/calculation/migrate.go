@@ -28,17 +28,18 @@ import (
 // calculation of a channel.
 var migrationNamespace = uuid.MustParse("3d7c1f2a-9e44-4c1b-8a55-2f6b0e9d4c71")
 
-// MigratedKey returns the key that Migration gives the calculation of the channel with
+// migratedKey returns the key that Migration gives the calculation of the channel with
 // key.
-func MigratedKey(key channel.Key) Key {
+func migratedKey(key channel.Key) Key {
 	return xuuid.NewV5(migrationNamespace, key.String())
 }
 
 // Migration returns the migration that builds the calculation record of each stored
-// channel with an expression, keyed by MigratedKey, and deletes the status of each
-// one. A reset channel that issuedAtOpen says the Core never issued becomes absent. An
-// operation of no type is dropped, and the calculation gets a warning status that names
-// it. Migration reads the channel and status tables, so it runs after both open.
+// channel with an expression, keyed by a UUIDv5 of the channel key, and deletes the
+// status of each one. A reset channel that issuedAtOpen says the Core never issued
+// becomes absent. An operation of no type is dropped, and the calculation gets a
+// warning status that names it. Migration reads the channel and status tables, so it
+// runs after both open.
 func (s *Service) Migration(
 	statuses *status.Service,
 	issuedAtOpen func(channel.Key) bool,
@@ -59,7 +60,7 @@ func (s *Service) Migration(
 				owners[i] = channel.ResourceID(ch.Key())
 				ops, dropped := storedOperations(ch.Operations, issuedAtOpen)
 				c := Calculation{
-					Key:        MigratedKey(ch.Key()),
+					Key:        migratedKey(ch.Key()),
 					Output:     ch.Key(),
 					Expression: ch.Expression,
 					Operations: FromChannelOperations(ops),
