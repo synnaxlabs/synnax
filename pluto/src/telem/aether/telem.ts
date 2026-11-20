@@ -255,7 +255,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return { ...result, data: this.transform(result.data) };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });
@@ -301,7 +301,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return { data: this.transform(data), status: worst, time, appended };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     const destructors = Object.values(this.sources).map((source) =>
       source.onChange(() => {
         if (this.shouldNotify()) handler();

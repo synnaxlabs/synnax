@@ -6,7 +6,8 @@ breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import { Image, Video } from "@/components/media/Media";
+import Image from "@/components/media/Image.astro";
+import { Video } from "@/components/media/Media";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -97,7 +98,7 @@ your schematic.
   extension="webp"
   themed={false}
   style={{
-    maxWidth: 200,
+    maxWidth: "200px",
     position: "relative",
     left: "50%",
     transform: "translateX(-50%)",
