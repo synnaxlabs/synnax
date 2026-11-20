@@ -363,9 +363,6 @@ catalogs:
     '@types/node':
       specifier: ^26.6.6
       version: 26.6.6
-    '@types/offscreencanvas':
-      specifier: ^2019.7.3
-      version: 2019.7.3
     '@types/pluralize':
       specifier: ^0.0.33
       version: 0.0.33
@@ -378,9 +375,6 @@ catalogs:
     '@types/use-sync-external-store':
       specifier: ^1.7.0
       version: 1.7.0
-    '@types/webgl2':
-      specifier: ^0.0.12
-      version: 0.0.12
     '@types/ws':
       specifier: ^8.18.2
       version: 8.18.2
@@ -400,8 +394,8 @@ catalogs:
       specifier: ^4.0.0
       version: 4.0.0
     '@xyflow/react':
-      specifier: ^12.12.0
-      version: 12.12.0
+      specifier: ^13.0.2
+      version: 13.0.2
     algoliasearch:
       specifier: ^5.60.0
       version: 5.60.0
@@ -597,9 +591,6 @@ catalogs:
     typescript-eslint:
       specifier: ^8.71.2
       version: 8.71.2
-    undici:
-      specifier: ^8.12.2
-      version: 8.12.2
     use-sync-external-store:
       specifier: ^1.7.0
       version: 1.7.0
@@ -799,6 +790,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      undici:
+        specifier: catalog:node22
+        version: 7.30.2
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -1395,7 +1389,7 @@ importers:
         version: link:../x/ts
       '@xyflow/react':
         specifier: 'catalog:'
-        version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.1.21)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 13.0.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.1.21)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
       vscode-languageclient:
         specifier: 'catalog:'
         version: 10.1.2(patch_hash=74d13898b06255f2c71b3977d414305354240178fdc2b87d92328486777b214b)
@@ -1448,9 +1442,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      '@types/offscreencanvas':
-        specifier: 'catalog:'
-        version: 2019.7.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -1460,9 +1451,6 @@ importers:
       '@types/use-sync-external-store':
         specifier: 'catalog:'
         version: 1.7.0
-      '@types/webgl2':
-        specifier: 'catalog:'
-        version: 0.0.12
       '@types/ws':
         specifier: 'catalog:'
         version: 8.18.2
@@ -1544,6 +1532,9 @@ importers:
       '@synnaxlabs/lyra':
         specifier: 'catalog:'
         version: link:../../lyra
+      '@synnaxlabs/vite-plugin':
+        specifier: 'catalog:'
+        version: link:../../configs/vite
       astro:
         specifier: 'catalog:'
         version: 7.4.12(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.14.1(supports-color@10.2.2))(@types/node@26.6.6)(@vercel/functions@3.10.1(@aws-sdk/credential-provider-web-identity@3.972.80)(ws@8.22.0))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -1672,9 +1663,6 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
-      '@types/offscreencanvas':
-        specifier: 'catalog:'
-        version: 2019.7.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -1756,9 +1744,6 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.4.12(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.14.1(supports-color@10.2.2))(@types/node@26.6.6)(@vercel/functions@3.10.1(@aws-sdk/credential-provider-web-identity@3.972.80)(ws@8.22.0))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
-      astro-seo:
-        specifier: 'catalog:'
-        version: 1.2.0
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -1781,9 +1766,6 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
-      '@synnaxlabs/vite-plugin':
-        specifier: 'catalog:'
-        version: link:../../configs/vite
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1966,9 +1948,6 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
-      '@synnaxlabs/vite-plugin':
-        specifier: 'catalog:'
-        version: link:../../configs/vite
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
@@ -2115,9 +2094,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
-      undici:
-        specifier: 'catalog:'
-        version: 8.12.2
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -5283,9 +5259,6 @@ packages:
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
 
-  '@types/offscreencanvas@2019.7.3':
-    resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
-
   '@types/pluralize@0.0.33':
     resolution: {integrity: sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg==}
 
@@ -5317,9 +5290,6 @@ packages:
 
   '@types/vscode@1.138.0':
     resolution: {integrity: sha512-DhlvrucJa8n6EHst7qQcXOcjLKs/VRTQy55plLO+RN74jonYsr/t9dd66zBnAyz1tpDig0okQAxuoPHpVNje2g==}
-
-  '@types/webgl2@0.0.12':
-    resolution: {integrity: sha512-42qYzEoJ1yQlDNWSwtJmQKUKAoYv25mjsxKXhwn4/1qlG3Xlr8t8EK/2771dVi5ytw/KX5XwwG5L8lNxLf6qSQ==}
 
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
@@ -5834,21 +5804,23 @@ packages:
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
 
-  '@xyflow/react@12.12.0':
-    resolution: {integrity: sha512-74oXI0Rgm1Eu33cHQAd74J6oVgCH9mbFyTVQbsGgp2kmWwh0HdtBr2VP04z8mbPD+M/xO69nqG5dDEt7/EN2rQ==}
+  '@xyflow/react@13.0.2':
+    resolution: {integrity: sha512-dURQCKhz4TEYc43pp9yY4LeEvC7rmHLPeit396VKA9wSNjda245nA4JTZV3ieekB2dx7kwGjvXQELmsZ0FpVAA==}
+    engines: {node: '>=20'}
     peerDependencies:
-      '@types/react': '>=17'
-      '@types/react-dom': '>=17'
-      react: '>=17'
-      react-dom: '>=17'
+      '@types/react': '>=18'
+      '@types/react-dom': '>=18'
+      react: '>=18'
+      react-dom: '>=18'
     peerDependenciesMeta:
       '@types/react':
         optional: true
       '@types/react-dom':
         optional: true
 
-  '@xyflow/system@0.0.83':
-    resolution: {integrity: sha512-a//eDjez3WZF47aaPTfVUDD0OINOq+WVwBZCRTqG+m0a5euX8EwlJ4jMY1Wxz0Ocj4xOeekJ70V22Pq0ll8RJw==}
+  '@xyflow/system@1.0.0':
+    resolution: {integrity: sha512-mOeG0ZIkEUY5V5XQS+LE3QKlJqL7gu5ukqxAniuDDpfxtkA4uagOmBiWKh3w59wZ5nBC7ojBcNrBukM3hUJBKg==}
+    engines: {node: '>=20'}
 
   abbrev@3.0.1:
     resolution: {integrity: sha512-AO2ac6pjRB3SJmGJo+v5/aK6Omggp6fsLrs6wN9bd35ulu4cCwaAU9+7ZhXjeqHVkaHThLuzH0nZr0YpCDhygg==}
@@ -8415,6 +8387,11 @@ packages:
   radix3@1.1.2:
     resolution: {integrity: sha512-b484I/7b8rDEdSDKckSSBA8knMpcdsXudlE/LNL639wFoHKwLbEkQFZHWEYwDC0wa0FKUcCY+GAF73Z7wxNVFA==}
 
+  react-compiler-runtime@1.0.0:
+    resolution: {integrity: sha512-rRfjYv66HlG8896yPUDONgKzG5BxZD1nV9U6rkm+7VCuvQc903C4MjcoZR4zPw53IKSOX9wMQVpA1IAbRtzQ7w==}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0 || ^0.0.0-experimental
+
   react-dom@19.3.1:
     resolution: {integrity: sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==}
     peerDependencies:
@@ -9726,19 +9703,22 @@ packages:
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
-  zustand@4.5.7:
-    resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
-    engines: {node: '>=12.7.0'}
+  zustand@5.1.0:
+    resolution: {integrity: sha512-ciJZlP48M1PTQbVQq81CGVFxHTLpZNrFjKqwjtCU34AWuXTZT/jrF3p9+fI84Cf1eSCMLapxqBy/SNTfwOBuqA==}
+    engines: {node: '>=12.20.0'}
     peerDependencies:
-      '@types/react': '>=16.8'
+      '@types/react': '>=18.0.0'
       immer: '>=9.0.6'
-      react: '>=16.8'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
     peerDependenciesMeta:
       '@types/react':
         optional: true
       immer:
         optional: true
       react:
+        optional: true
+      use-sync-external-store:
         optional: true
 
   zwitch@2.0.4:
@@ -12792,8 +12772,6 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/offscreencanvas@2019.7.3': {}
-
   '@types/pluralize@0.0.33': {}
 
   '@types/react-dom@19.3.0(@types/react@19.3.0)':
@@ -12819,8 +12797,6 @@ snapshots:
   '@types/use-sync-external-store@1.7.0': {}
 
   '@types/vscode@1.138.0': {}
-
-  '@types/webgl2@0.0.12': {}
 
   '@types/ws@8.18.2':
     dependencies:
@@ -13447,20 +13423,22 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
-  '@xyflow/react@12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.1.21)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@xyflow/react@13.0.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(immer@11.1.21)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))':
     dependencies:
-      '@xyflow/system': 0.0.83
+      '@xyflow/system': 1.0.0
       classcat: 5.0.5
       react: 19.3.1
+      react-compiler-runtime: 1.0.0(react@19.3.1)
       react-dom: 19.3.1(react@19.3.1)
-      zustand: 4.5.7(@types/react@19.3.0)(immer@11.1.21)(react@19.3.1)
+      zustand: 5.1.0(@types/react@19.3.0)(immer@11.1.21)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1))
     optionalDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
     transitivePeerDependencies:
       - immer
+      - use-sync-external-store
 
-  '@xyflow/system@0.0.83':
+  '@xyflow/system@1.0.0':
     dependencies:
       '@types/d3-drag': 3.0.7
       '@types/d3-interpolate': 3.0.4
@@ -16394,6 +16372,10 @@ snapshots:
 
   radix3@1.1.2: {}
 
+  react-compiler-runtime@1.0.0(react@19.3.1):
+    dependencies:
+      react: 19.3.1
+
   react-dom@19.3.1(react@19.3.1):
     dependencies:
       react: 19.3.1
@@ -17855,12 +17837,11 @@ snapshots:
 
   zod@4.6.7: {}
 
-  zustand@4.5.7(@types/react@19.3.0)(immer@11.1.21)(react@19.3.1):
-    dependencies:
-      use-sync-external-store: 1.7.0(react@19.3.1)
+  zustand@5.1.0(@types/react@19.3.0)(immer@11.1.21)(react@19.3.1)(use-sync-external-store@1.7.0(react@19.3.1)):
     optionalDependencies:
       '@types/react': 19.3.0
       immer: 11.1.21
       react: 19.3.1
+      use-sync-external-store: 1.7.0(react@19.3.1)
 
   zwitch@2.0.4: {}
