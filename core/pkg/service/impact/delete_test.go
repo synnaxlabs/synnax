@@ -28,8 +28,10 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Delete", Ordered, func() {
@@ -130,6 +132,17 @@ var _ = Describe("Delete", Ordered, func() {
 		GinkgoHelper()
 		return MustSucceed(layer.Impact.Plan(ctx, db, deleteOf(keys...)))
 	}
+	apply := func(
+		ctx SpecContext,
+		opts impact.ApplyOptions,
+		keys ...channel.Key,
+	) (applied impact.Plan, err error) {
+		err = db.WithTx(ctx, func(tx gorp.Tx) error {
+			applied, err = layer.Impact.Apply(ctx, tx, deleteOf(keys...), opts)
+			return err
+		})
+		return applied, err
+	}
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
 		e := impact.Entry{ID: id.String(), Record: id, Effect: effect}
 		if effect == impact.EffectRestrict {
@@ -175,4 +188,134 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(exists(ctx, ch.Key())).To(BeTrue())
 		},
 	)
+
+	It(
+		"Should refuse a delete with no picks and no token with today's restrict error",
+		func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			Expect(apply(ctx, impact.ApplyOptions{}, ch.Key())).Error().
+				To(MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("channel", ch.Key()),
+					Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
+					Reference: "channels.channel",
+				}))
+			Expect(exists(ctx, ch.Key())).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should apply the defaults with no token when nothing restricts the delete",
+		func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			plot := createPlot(ctx, ch.Key())
+			sch := createSchematic(ctx, ch.Key())
+			applied := MustSucceed(apply(ctx, impact.ApplyOptions{}, ch.Key()))
+			Expect(applied.Entries).To(HaveLen(1))
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
+			var stored lineplot.LinePlot
+			Expect(layer.LinePlot.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Channels.Y1).To(BeEmpty())
+			var kept schematic.Schematic
+			Expect(layer.Schematic.NewRetrieve().
+				Where(schematic.MatchKeys(sch.Key)).
+				Entry(&kept).
+				Exec(ctx, db)).To(Succeed())
+			value, ok := kept.Nodes[0].Config.Variant.(schematic.ValueNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(value.Channel).To(Equal(ch.Key()))
+		},
+	)
+
+	It(
+		"Should delete a task picked for delete with the channel in one transaction",
+		func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			p := plan(ctx, ch.Key())
+			id := task.ResourceID(tsk.Key).String()
+			Expect(apply(ctx, impact.ApplyOptions{
+				Token: p.Token,
+				Picks: map[string]impact.Choice{id: impact.ChoiceDelete},
+			}, ch.Key())).Error().ToNot(HaveOccurred())
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(tsk.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		},
+	)
+
+	It("Should delete a data channel picked for delete with its index", func(
+		ctx SpecContext,
+	) {
+		index := createChannel(
+			ctx,
+			channel.Channel{IsIndex: true, DataType: telem.TimestampT},
+		)
+		data := createChannel(ctx, channel.Channel{
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		})
+		p := plan(ctx, index.Key())
+		Expect(p.Entries).To(Equal([]impact.Entry{
+			entry(channel.ResourceID(data.Key()), impact.EffectRestrict),
+		}))
+		Expect(apply(ctx, impact.ApplyOptions{
+			Token: p.Token,
+			Picks: map[string]impact.Choice{
+				channel.ResourceID(data.Key()).String(): impact.ChoiceDelete,
+			},
+		}, index.Key())).Error().ToNot(HaveOccurred())
+		Expect(exists(ctx, index.Key())).To(BeFalse())
+		Expect(exists(ctx, data.Key())).To(BeFalse())
+	})
+
+	It("Should refuse a token whose plan changed and carry the new plan", func(
+		ctx SpecContext,
+	) {
+		ch := createChannel(ctx, channel.Channel{})
+		p := plan(ctx, ch.Key())
+		plot := createPlot(ctx, ch.Key())
+		_, err := apply(ctx, impact.ApplyOptions{Token: p.Token}, ch.Key())
+		Expect(err).To(MatchError(impact.ErrPlanChanged))
+		changed, ok := errors.AsType[impact.PlanChangedError](err)
+		Expect(ok).To(BeTrue())
+		Expect(changed.Plan.Entries).To(Equal([]impact.Entry{
+			entry(lineplot.ResourceID(plot.Key), impact.EffectDetach),
+		}))
+		Expect(exists(ctx, ch.Key())).To(BeTrue())
+	})
+
+	It("Should refuse a pick for no entry", func(ctx SpecContext) {
+		ch := createChannel(ctx, channel.Channel{})
+		Expect(apply(ctx, impact.ApplyOptions{
+			Picks: map[string]impact.Choice{"task:none": impact.ChoiceDelete},
+		}, ch.Key())).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("no entry is task:none")),
+		))
+		Expect(exists(ctx, ch.Key())).To(BeTrue())
+	})
+
+	It("Should refuse a pick that its entry does not allow", func(ctx SpecContext) {
+		ch := createChannel(ctx, channel.Channel{})
+		plot := createPlot(ctx, ch.Key())
+		id := lineplot.ResourceID(plot.Key).String()
+		Expect(apply(ctx, impact.ApplyOptions{
+			Picks: map[string]impact.Choice{id: impact.ChoiceDelete},
+		}, ch.Key())).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("entry "+id+" cannot take delete")),
+		))
+		Expect(exists(ctx, ch.Key())).To(BeTrue())
+	})
 })

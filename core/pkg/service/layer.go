@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"time"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/parser"
@@ -1199,6 +1200,22 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		Channel:  l.Channel,
 		RecordOf: taskconfig.RecordOf,
+		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
+			w := l.Task.NewWriter(tx)
+			for _, r := range records {
+				if r.Type != resource.TypeTask {
+					return errors.Newf("impact cannot delete %s", r)
+				}
+				k, err := uuid.Parse(r.Key)
+				if err != nil {
+					return err
+				}
+				if err = w.Delete(ctx, k, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	}); err != nil {
 		return nil, err
 	}
