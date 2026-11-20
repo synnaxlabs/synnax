@@ -218,7 +218,7 @@ func (t *heardTopic) infer() {
 	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
 		return f.Pointer == index
 	}) {
-		t.Index = &index
+		t.Index = index
 	}
 }
 
