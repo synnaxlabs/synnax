@@ -124,6 +124,16 @@ func (l *changeList) find(
 	return s, nil
 }
 
+// links returns the links of the record of s at the write of s, and false when the
+// record does not exist then.
+func (l *changeList) links(s slot) ([]Link, bool) {
+	if s.at >= 0 {
+		e := l.entries[s.at]
+		return e.after, e.present
+	}
+	return s.before, s.existed
+}
+
 // present reports whether the record of s exists at the write of s.
 func (l *changeList) present(s slot) bool {
 	if s.at >= 0 {

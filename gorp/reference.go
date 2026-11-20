@@ -106,6 +106,9 @@ type Reference[K Key, E Entry[K]] interface {
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	// links appends the links that e holds to out.
 	links(out []Link, e *E) []Link
+	// current reports whether the index holds the targets of e for its entry, with the
+	// changes of tx applied.
+	current(tx Tx, e *E) bool
 	// indexedLinks appends to out the links that the index holds for the entry with key
 	// k, with the changes of tx applied. It reports false when the index has not
 	// loaded.
@@ -416,6 +419,10 @@ func (r *reference[K, E, T]) links(out []Link, e *E) []Link {
 		out = append(out, Link{Target: r.format(t), Kind: r.kind})
 	}
 	return out
+}
+
+func (r *reference[K, E, T]) current(tx Tx, e *E) bool {
+	return r.store.Current(scopeOf(tx), (*e).GorpKey(), r.targetsOf(e))
 }
 
 func (r *reference[K, E, T]) indexedLinks(out []Link, tx Tx, k K) ([]Link, bool) {

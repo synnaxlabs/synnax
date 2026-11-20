@@ -178,7 +178,11 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
-	changes.set(s, data, w.links(&entry), w.derived)
+	links, kept := w.keptLinks(changes, s, &entry)
+	if !kept {
+		links = w.links(&entry)
+	}
+	changes.set(s, data, links, w.derived)
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
@@ -254,6 +258,21 @@ func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, error) {
 		links = r.links(links, e)
 	}
 	return links, nil
+}
+
+// keptLinks returns the links of the record of s when e holds the targets that every
+// index holds for it, so that the write changes no link. It formats no link.
+func (w *Writer[K, E]) keptLinks(changes *changeList, s slot, e *E) ([]Link, bool) {
+	links, ok := changes.links(s)
+	if !ok {
+		return nil, false
+	}
+	for _, r := range w.references {
+		if !r.current(w.tx, e) {
+			return nil, false
+		}
+	}
+	return links, true
 }
 
 // links returns the links that e holds.
