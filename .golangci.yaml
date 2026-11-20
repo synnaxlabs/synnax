@@ -125,13 +125,11 @@ linters:
         - teh
     recvcheck:
       # Decode and patch methods write to their receiver, so they take a pointer even
-      # on a value type. EncodeMsgpack takes a pointer so that msgpack calls it with no
-      # copy. MarshalJSONTo takes a value even on a pointer type, as the built-in rule
-      # allows for MarshalJSON, so that it also runs on a value.
+      # on a value type. MarshalJSONTo takes a value even on a pointer type, as the
+      # built-in rule allows for MarshalJSON, so that it also runs on a value.
       exclusions:
         - "*.DecodeMsgpack"
         - "*.DecodeOrc"
-        - "*.EncodeMsgpack"
         - "*.MarshalJSONTo"
         - "*.Patch"
         - "*.UnmarshalJSON"
