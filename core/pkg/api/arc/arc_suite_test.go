@@ -108,10 +108,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = svc.Arc
 	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
-		DB:      db,
-		RBAC:    rbacSvc,
-		Channel: channelSvc,
-		Status:  svc.Status,
+		DB:          db,
+		RBAC:        rbacSvc,
+		Channel:     channelSvc,
+		Status:      svc.Status,
+		Calculation: svc.Calculation,
 	}))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,

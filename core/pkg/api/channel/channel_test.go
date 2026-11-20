@@ -115,6 +115,14 @@ var _ = Describe("Service", func() {
 				[]access.Action{access.ActionCreate},
 				resource.ID{Type: resource.TypeChannel},
 			)
+			// The old API writes the calculation record of each calculated channel, so
+			// the subject may act on calculations and a refusal comes from the reads.
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				access.AllActions,
+				resource.ID{Type: resource.TypeCalculation},
+			)
 			grantOn(
 				ctx,
 				u.ResourceID(),

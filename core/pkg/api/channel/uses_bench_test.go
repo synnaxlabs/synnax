@@ -83,10 +83,11 @@ func benchRetrieve(
 ) freighter.UnaryHandler[apichannel.RetrieveRequest, apichannel.RetrieveResponse] {
 	b.Helper()
 	svc, err := apichannel.NewService(apichannel.ServiceConfig{
-		DB:      db,
-		RBAC:    layer.RBAC,
-		Channel: layer.Channel,
-		Status:  layer.Status,
+		DB:          db,
+		RBAC:        layer.RBAC,
+		Channel:     layer.Channel,
+		Status:      layer.Status,
+		Calculation: layer.Calculation,
 	})
 	if err != nil {
 		b.Fatalf("failed to open the API service: %v", err)

@@ -84,10 +84,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		layer.RBAC
 	userSvc = layer.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
-		DB:      db,
-		RBAC:    rbacSvc,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		DB:          db,
+		RBAC:        rbacSvc,
+		Channel:     channelSvc,
+		Status:      statusSvc,
+		Calculation: layer.Calculation,
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{

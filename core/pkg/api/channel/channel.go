@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -52,6 +53,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Calculation stores the calculation of each channel that the API gives an
+	// expression.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 }
 
 var (
@@ -66,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	return c
 }
 
@@ -76,15 +83,17 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
+	v.NotNil("calculation", c.Calculation)
 	return v.Error()
 }
 
 // Service is the central service for all things Channel related.
 type Service struct {
-	db       *gorp.DB
-	access   *rbac.Service
-	internal *channel.Service
-	status   *status.Service
+	db           *gorp.DB
+	access       *rbac.Service
+	internal     *channel.Service
+	status       *status.Service
+	calculations *calculation.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -93,10 +102,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.DB,
-		access:   cfg.RBAC,
-		internal: cfg.Channel,
-		status:   cfg.Status,
+		db:           cfg.DB,
+		access:       cfg.RBAC,
+		internal:     cfg.Channel,
+		status:       cfg.Status,
+		calculations: cfg.Calculation,
 	}, nil
 }
 
@@ -190,6 +200,9 @@ func (s *Service) Create(
 	}
 	if err := s.internal.NewWriter(tx).
 		CreateMany(ctx, &translated, opts...); err != nil {
+		return CreateResponse{}, err
+	}
+	if err := s.syncCalculations(ctx, tx, translated); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{
@@ -449,5 +462,94 @@ func (s *Service) Dispatch(
 	if err != nil {
 		return DispatchResponse{}, err
 	}
+	var ch channel.Channel
+	if err = s.internal.NewRetrieve().
+		Where(channel.MatchKeys(req.Key)).
+		Entry(&ch).
+		Exec(ctx, tx); err != nil {
+		return DispatchResponse{}, err
+	}
+	if err = s.syncCalculations(ctx, tx, []channel.Channel{ch}); err != nil {
+		return DispatchResponse{}, err
+	}
 	return DispatchResponse{Actions: computed}, nil
+}
+
+// syncCalculations writes the calculation record of each channel from its expression
+// and operations: it creates or updates the record of a channel with an expression,
+// and deletes the record of a channel without one.
+func (s *Service) syncCalculations(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []channel.Channel,
+) error {
+	keys := make([]channel.Key, len(channels))
+	for i, ch := range channels {
+		keys[i] = ch.Key()
+	}
+	var stored []calculation.Calculation
+	if err := s.calculations.NewRetrieve().
+		Where(calculation.MatchOutputs(keys...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	byOutput := make(map[channel.Key]calculation.Calculation, len(stored))
+	for _, c := range stored {
+		byOutput[c.Output] = c
+	}
+	w := s.calculations.NewWriter(tx)
+	for _, ch := range channels {
+		c, ok := byOutput[ch.Key()]
+		switch {
+		case ch.Expression == "" && ok:
+			if err := w.Delete(ctx, c.Key); err != nil {
+				return err
+			}
+		case ch.Expression == "":
+		case ok:
+			c.Expression = ch.Expression
+			c.Operations = calculationOperations(ch.Operations)
+			if err := w.Update(ctx, c); err != nil {
+				return err
+			}
+		default:
+			c = calculation.Calculation{
+				Output:     ch.Key(),
+				Expression: ch.Expression,
+				Operations: calculationOperations(ch.Operations),
+			}
+			if err := w.Create(ctx, &c); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// calculationOperations returns the calculation form of the operations of the channel
+// API. A none operation has no calculation form, and a reset channel of 0 is absent.
+func calculationOperations(ops []channel.Operation) []calculation.Operation {
+	out := make([]calculation.Operation, 0, len(ops))
+	for _, op := range ops {
+		w := calculation.Window{Duration: op.Duration}
+		if op.ResetChannel != 0 {
+			w.Reset = new(op.ResetChannel)
+		}
+		var variant calculation.OperationVariant
+		switch op.Type {
+		case channel.OperationTypeMin:
+			variant = calculation.MinOperation{Window: w}
+		case channel.OperationTypeMax:
+			variant = calculation.MaxOperation{Window: w}
+		case channel.OperationTypeAvg:
+			variant = calculation.AvgOperation{Window: w}
+		case channel.OperationTypeDerivative:
+			variant = calculation.DerivativeOperation{}
+		case channel.OperationTypeNone:
+			continue
+		}
+		out = append(out, calculation.Operation{Variant: variant})
+	}
+	return out
 }

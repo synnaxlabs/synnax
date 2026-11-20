@@ -986,10 +986,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
-		DB:      cfg.Distribution.DB,
-		RBAC:    cfg.Service.RBAC,
-		Channel: cfg.Service.Channel,
-		Status:  cfg.Service.Status,
+		DB:          cfg.Distribution.DB,
+		RBAC:        cfg.Service.RBAC,
+		Channel:     cfg.Service.Channel,
+		Status:      cfg.Service.Status,
+		Calculation: cfg.Service.Calculation,
 	}); err != nil {
 		return nil, err
 	}
