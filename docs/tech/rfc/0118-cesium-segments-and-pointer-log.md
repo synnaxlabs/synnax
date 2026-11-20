@@ -648,19 +648,19 @@ call returns `ErrFatal`, and the Core shuts down through `DB.Run` (`cesium/db.go
 `storage.Layer.Run` (`core/pkg/storage/layer.go:303-308`), and the lifetime stack.
 Cesium does not panic.
 
-| Fault                                                                                         | What the engine sees                                                                             | What it does                                                                                                                                                                   |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                            | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                          |
-| 2 Partial survival of unsynced blocks and names                                               | Any mix. All of it is past a committed length or in a file that no record names                  | The same cut. A named segment and its directory entry were synced before its entry was written                                                                                 |
-| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                         |
-| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back      | The orphan pass removes it. A log or part that a head names and that is missing refuses the open. A missing segment fails its reads with `ErrCorrupt`                          |
-| 5a One-time read fault                                                                        | The second read passes                                                                           | No loss and no refusal                                                                                                                                                         |
-| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head             | Log: refuses to open with `ErrCorrupt` and drops nothing. Newest head: opens from the head before it and replays its logs. Both heads: refuses to open                         |
-| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                  | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                 |
-| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                  | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                    |
-| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be              | As 5b, 5c, or 5d, by position                                                                                                                                                  |
-| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                 | Segment: the clock write fails (§5.4), and the file is never synced or written again. Log or directory: no ack, and the fatal path above. Head or part: the attempt is removed |
-| 8 Full disk                                                                                   | A write fails with no space                                                                      | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Reads go on. The log is already written, and its last 1 MiB takes deletes                    |
+| Fault                                                                                         | What the engine sees                                                                             | What it does                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                            | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                                             |
+| 2 Partial survival of unsynced blocks and names                                               | Any mix. All of it is past a committed length or in a file that no record names                  | The same cut. A named segment and its directory entry were synced before its entry was written                                                                                                    |
+| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                            |
+| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back      | The orphan pass removes it. A log or part that a head names and that is missing refuses the open. A missing segment fails its reads with `ErrCorrupt`                                             |
+| 5a One-time read fault                                                                        | The second read passes                                                                           | No loss and no refusal                                                                                                                                                                            |
+| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head             | Log: refuses to open with `ErrCorrupt` and drops nothing. Newest head: opens from the head before it and replays its logs. Both heads: refuses to open. `synnax repair` (§6.1) is the way forward |
+| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                  | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                    |
+| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                  | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                       |
+| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be              | As 5b, 5c, or 5d, by position                                                                                                                                                                     |
+| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                 | Segment: the clock write fails (§5.4), and the file is never synced or written again. Log or directory: no ack, and the fatal path above. Head or part: the attempt is removed                    |
+| 8 Full disk                                                                                   | A write fails with no space                                                                      | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Reads go on. The log is already written, and its last 1 MiB takes deletes                                       |
 
 **The metadata store**: Gorp runs on Pebble, the only channel registry, and its bounds
 are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the last 32
@@ -672,6 +672,56 @@ that does not keep directory operations in order, a crash while Pebble moves its
 manifest marker can leave a store that does not open; ext4, XFS, APFS, and NTFS keep
 that order. Pebble reads MANIFEST and OPTIONS once, so a one-time read fault there fails
 one start, and the next start opens.
+
+### 6.1 Repair
+
+`synnax repair` (NEW) gives a refused open (fault 5b) a way forward. It runs with the
+Core stopped, under the directory lock, as `synnax purge` does (§4.1). As `pg_resetwal`
+does, it cuts the log at the damage; as RocksDB `RepairDB` does, it rebuilds what the
+files allow; as SQLite `.recover` does, it lists what it cannot save. The log holds
+pointers, not samples, so repair works from the segment files.
+
+| A pointer needs     | Repair finds it in                                                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key                 | The directory name                                                                                                                                                                           |
+| Segment, version    | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                |
+| Data type and clock | The Create record or the segment record of a head or part only. A segment that neither names has none                                                                                        |
+| Alignment           | The Commit record only. A rebuilt commit continues the stretch of the pointer before it                                                                                                      |
+| Time range          | The stamps of the clock segment, read from checked blocks                                                                                                                                    |
+| Committed length    | The Commit record only. A rebuilt commit ends at the last full block that passes its check in the clock segment and in every data segment of the clock write, whichever holds fewest samples |
+
+1. Find the damage as recovery does (§5.5 steps 1 to 7). When an open would pass, say so
+   and stop.
+2. Build the base state. Log damage: the head in use and every frame before the bad
+   frame. Both heads bad: every part whose header sector and chunks pass (a segment in
+   two parts takes the record of the newer switch), then each log from the oldest
+   generation whose header passes, up to its first bad frame. The dead marks, kills, and
+   tombstones of the lost heads are gone.
+3. Rebuild. For each clock with an open clock write in the base state, read the clock
+   segment and each of its data segments past their committed lengths, keeping full
+   blocks whose check passes, and add one commit of the sample count that all of them
+   hold. Seal every segment at its new length.
+4. List, with key, segment, bytes, and the time range where it is known:
+   - the tail block of each open segment, at most 64 KiB, whose `tail_crc` was only in
+     the lost records;
+   - each segment file that the base state does not name, which a write after the damage
+     created: it is renamed `<S>.seg.unrecovered` in its directory, never removed;
+   - data written against stored stamps after the damage, which has no clock slot;
+   - each segment that the base state names and whose file a compaction or a drop after
+     the damage removed: its pointers leave the state;
+   - the records after the damage that touch no sample: a lost Tombstone brings deleted
+     data back, a lost Replace keeps the old segment, a lost Drop or Intent leaves the
+     key to `Sweep`, and a lost Check makes the check pass run again;
+   - each rebuilt commit that may join two stretches, since a lost stretch end is not in
+     any file.
+5. Ask. On yes, write the head of the next generation from the rebuilt state and a new
+   log that starts with a Restart, rename the damaged log or heads with the suffix
+   `.damaged`, and sync each file and the root. The header sector of the new head is the
+   commit point, so a crash during repair leaves the old files, and repair runs again.
+
+Repair rebuilds every commit on a segment that the base state names, up to its last
+checked full block. It rebuilds nothing on a segment made after the damage, because the
+data type and the clock key of a segment live only in the log and the checkpoint.
 
 ## 7 Determinism
 
@@ -842,10 +892,10 @@ refusal of an overlapping writer (§5.8) arrive with Phase 6. Phase 6 builds the
 heads, `Sync` and the framer's call to it, recovery, the state owner, the handle budget,
 version 1 segments, and replay from a run key, behind a Cesium open option that keeps
 the old layout the default. Phase 7 builds parts, versions 0 and 2, tombstones,
-compaction, the conversion with a crash test at each of its steps, and the backup
-change, and makes the new layout the only one that opens. RFC 0117 Phase 8 deletes the
-old code, except the old-layout reader of the conversion. Phase 5 comes after RFC 0117
-Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
+compaction, the conversion with a crash test at each of its steps, the backup change,
+and `synnax repair` (§6.1), and makes the new layout the only one that opens. RFC 0117
+Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase 5
+comes after RFC 0117 Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
 
 | Phase | Scope                                                      | Touches                                                                                                                                     | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -855,7 +905,7 @@ Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                   | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `x/go/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp` | -          |
 | 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                             | 3, 4, 5    |
-| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`                                               | 6          |
+| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`                            | 6          |
 
 ## 13 Resolved decisions
 
