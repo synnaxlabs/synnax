@@ -386,7 +386,7 @@ describe("Menu.Sub", () => {
   const SWAP = "lyra-menu-dialog--swap";
   const LIT = "lyra-menu-sub__trigger--lit";
 
-  /** jsdom lays nothing out, so a spec places the submenu beside the menu by hand. */
+  /** A fixed spot beside the menu, so the pointer moves of a spec aim at a submenu. */
   const BESIDE: DOMRect = {
     left: 150,
     top: 0,
