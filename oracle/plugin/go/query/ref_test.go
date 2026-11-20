@@ -1026,6 +1026,7 @@ var _ = Describe("@ref", func() {
 			`).
 				ToContain(
 					`Name:     "entries.channel",`,
+					"targets := make([]channel.Key, 0, len(e.Entries))",
 					"for _, v1 := range e.Entries {",
 					"if v1.Channel != 0 {",
 					"for i2 := range e.Entries {",
@@ -1115,6 +1116,7 @@ var _ = Describe("@ref", func() {
 				axes Axes
 			`).
 				ToContain(
+					"var targets []channel.Key",
 					"for _, k1 := range e.Axes.Y1 {",
 					"e.Axes.Y1 = slices.DeleteFunc(e.Axes.Y1, func(k2 channel.Key) bool {",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/channel"`,

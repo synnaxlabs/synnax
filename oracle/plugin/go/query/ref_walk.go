@@ -537,7 +537,16 @@ func (rd *renderer) walk(
 
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
+	if arr, ok := sharedArray(ref.sites); ok {
+		fmt.Fprintf(
+			&b,
+			"targets := make([]%s, 0, len(%s))\n",
+			rd.info.TargetType(),
+			arr,
+		)
+	} else {
+		fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
+	}
 	steps := make([][]refStep, len(ref.sites))
 	for i, s := range ref.sites {
 		steps[i] = s.steps
@@ -575,6 +584,32 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 	})
 	b.WriteString("return targets")
 	return b.String()
+}
+
+// sharedArray returns the expression of the array that every site of a reference
+// ranges over first, through fields that are not optional, so that the targets can hold
+// one element of it each without growing.
+func sharedArray(sites []refSite) (string, bool) {
+	shared := ""
+	for _, site := range sites {
+		fields, found := []string{"e"}, false
+		for _, st := range site.steps {
+			if st.kind == stepArray {
+				found = true
+				break
+			}
+			if st.kind != stepField || st.optional {
+				break
+			}
+			fields = append(fields, st.field)
+		}
+		expr := strings.Join(fields, ".")
+		if !found || (shared != "" && expr != shared) {
+			return "", false
+		}
+		shared = expr
+	}
+	return shared, shared != ""
 }
 
 // detachBody returns the code that removes the target t from e, or nothing when the
