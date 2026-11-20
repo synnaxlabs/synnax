@@ -52,6 +52,8 @@ type agreement struct {
 	typesDeclared bool
 	// dropped is true once a frame of the state failed to decode.
 	dropped bool
+	// variable is true when the agreed type of a requested key is variable.
+	variable bool
 	// dataTypes holds the agreed type of each requested key, in key order.
 	dataTypes []telem.DataType
 	// clocks holds the agreed clock of each requested key, in key order. Zero is no
@@ -90,6 +92,7 @@ func newState(keys channel.Keys, dataTypes []telem.DataType) *state {
 	for i, key := range keys {
 		s.enc.dataTypes[s.index[key]] = dataTypes[i]
 	}
+	s.enc.variable = slices.ContainsFunc(s.enc.dataTypes, telem.DataType.IsVariable)
 	return s
 }
 
@@ -143,6 +146,19 @@ func (c *Codec) codeOf(
 	return byte(code), nil
 }
 
+// frameDiff holds what the series of a frame change in the agreement of its state.
+type frameDiff struct {
+	// clocks is not zero when a series has a clock other than its key's agreed clock.
+	clocks uint32
+	// types is true when a series needs a type override.
+	types bool
+	// declared is true when the frame holds a declared clock.
+	declared bool
+}
+
+// steady returns true when the frame needs no override.
+func (d frameDiff) steady() bool { return d.clocks == 0 && !d.types }
+
 // plan returns the extension flags of the next frame of ag, and fills c.codes, c.kinds,
 // and c.clocks with its type codes, its override kinds, and the agreed clocks it
 // leaves. It does not change ag.
@@ -151,6 +167,7 @@ func (c *Codec) plan(
 	merged []mergedSeriesInfo,
 	keys channel.Keys,
 	ag *agreement,
+	diff frameDiff,
 ) (byte, error) {
 	var ext byte
 	c.codes = c.codes[:0]
@@ -164,30 +181,16 @@ func (c *Codec) plan(
 			c.codes = append(c.codes, code)
 		}
 	}
-	var (
-		clockDiff   uint32
-		typesDiffer bool
-	)
-	declaredInFrame := false
-	for _, msi := range merged {
-		if msi.index < 0 {
-			declaredInFrame = true
-			continue
-		}
-		clockDiff |= msi.series.Clock ^ ag.clocks[msi.index]
-		typesDiffer = typesDiffer ||
-			needsTypeOverride(ag.dataTypes[msi.index], msi.series.DataType)
-	}
 	c.kinds = c.kinds[:0]
 	clocks := ag.clocks
-	if clockDiff != 0 || typesDiffer {
+	if !diff.steady() {
 		var err error
 		if ext, err = c.planOverrides(ctx, merged, ag, ext); err != nil {
 			return 0, err
 		}
 		clocks = c.clocks
 	}
-	if declaredInFrame || len(ag.declared) > 0 {
+	if diff.declared || len(ag.declared) > 0 {
 		c.planDeclared(merged, clocks, ag)
 		if !slices.Equal(c.declared, ag.declared) {
 			ext = clocksDeclaredFlagPos.Set(ext, true)
@@ -300,7 +303,7 @@ func (c *Codec) nextOverride(ordinal int) uint32 {
 
 // writeOverride writes the override of the series at ordinal, if it has one.
 func (c *Codec) writeOverride(ordinal int, s telem.Series) {
-	if ordinal >= len(c.kinds) || c.kinds[ordinal] == 0 {
+	if c.kinds[ordinal] == 0 {
 		return
 	}
 	kinds := c.kinds[ordinal]

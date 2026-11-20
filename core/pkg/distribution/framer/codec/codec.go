@@ -82,7 +82,7 @@ type sorter struct {
 	keys       []channel.Key
 	// positions holds the position of each key in the requested keys of the state, or
 	// -1 for a declared clock.
-	positions []int
+	positions []int32
 	offset    int
 }
 
@@ -91,11 +91,11 @@ func (s *sorter) reset(size int) {
 	if cap(s.rawIndices) < size {
 		s.rawIndices = make([]int, size)
 		s.keys = make([]channel.Key, size)
-		s.positions = make([]int, size)
+		s.positions = make([]int32, size)
 	}
 }
 
-func (s *sorter) insert(key channel.Key, rawIndex, position int) {
+func (s *sorter) insert(key channel.Key, rawIndex int, position int32) {
 	s.keys[s.offset] = key
 	s.rawIndices[s.offset] = rawIndex
 	s.positions[s.offset] = position
@@ -401,13 +401,14 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 	}
 }
 
-// mergeable returns true when s2 can join s1 in one series: both have the same clock,
-// data type, and alignment multiple, and s2 starts at the alignment where s1 ends.
+// mergeable returns true when s2 can join s1 in one series: both have the same
+// alignment multiple, clock, and data type, and s2 starts at the alignment where s1
+// ends.
 func mergeable(s1, s2 telem.Series) bool {
-	return s1.Clock == s2.Clock &&
-		s1.DataType == s2.DataType &&
-		s1.Multiple() == s2.Multiple() &&
-		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower
+	return s1.Multiple() == s2.Multiple() &&
+		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower &&
+		s1.Clock == s2.Clock &&
+		s1.DataType == s2.DataType
 }
 
 // mergedSeriesInfo holds information about a series that may be merged or original.
@@ -416,7 +417,7 @@ type mergedSeriesInfo struct {
 	key    channel.Key
 	// index is the position of key in the requested keys of the state, or -1 for a
 	// declared clock.
-	index int
+	index int32
 }
 
 // mergeContiguousSeries processes sorted series and merges the adjacent series of each
@@ -563,20 +564,24 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.panicIfNotUpdated("Encode")
 	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
-	c.sortSeries(src, currState)
+	diff := c.sortSeries(src, currState)
 	mergedSeries := c.mergeContiguousSeries(
 		c.encodeSorter.keys,
 		c.encodeSorter.rawIndices,
 		src,
 		c.encodeSorter.offset,
 	)
-	ext, err := c.plan(ctx, mergedSeries, currState.keys, &currState.enc)
+	ext, err := c.plan(ctx, mergedSeries, currState.keys, &currState.enc, diff)
 	if err != nil {
 		return err
 	}
 	h := newEncodeHeader(
 		mergedSeries,
 		c.frameKeys(ext, currState.keys, &currState.enc),
+		(currState.enc.variable || diff.types) && slices.ContainsFunc(
+			mergedSeries,
+			func(msi mergedSeriesInfo) bool { return msi.series.DataType.IsVariable() },
+		),
 	)
 	h.fgs.extended = ext != 0
 	c.buf.Resize(h.byteArraySize + c.planSize(ext))
@@ -604,30 +609,46 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	}
 	if overridesPresentFlagPos.Get(ext) {
 		c.buf.Uint32(c.nextOverride(0))
-	}
-	for i, msi := range mergedSeries {
-		c.writeSeries(h.fgs, i, msi)
+		for i, msi := range mergedSeries {
+			c.writeKey(h.fgs, msi.key)
+			c.writeOverride(i, msi.series)
+			c.writeSeries(h.fgs, msi.series)
+		}
+	} else {
+		for _, msi := range mergedSeries {
+			c.writeKey(h.fgs, msi.key)
+			c.writeSeries(h.fgs, msi.series)
+		}
 	}
 	c.commit(ext, &currState.enc)
 	return nil
 }
 
 // sortSeries sorts the series in src that currState requests, and the time series under
-// their own clocks, by key and raw index into c.encodeSorter. It drops the series of
-// other keys.
-func (c *Codec) sortSeries(src framer.Frame, currState *state) {
+// their own clocks, by key and raw index into c.encodeSorter, and returns what they
+// change in the agreement. It drops the series of other keys.
+func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
+	var (
+		ag   = &currState.enc
+		diff frameDiff
+	)
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
 		}
 		key := src.RawKeyAt(rawI)
 		if position, ok := currState.index[key]; ok {
-			c.encodeSorter.insert(key, rawI, position)
+			c.encodeSorter.insert(key, rawI, int32(position))
+			diff.clocks |= s.Clock ^ ag.clocks[position]
+			diff.types = diff.types ||
+				needsTypeOverride(ag.dataTypes[position], s.DataType)
 		} else if isOwnClock(key, s) {
 			c.encodeSorter.insert(key, rawI, -1)
+			diff.declared = true
 		}
 	}
 	c.encodeSorter.sort()
+	return diff
 }
 
 // encodeHeader holds the flags, the shared reference values, and the total byte size
@@ -640,13 +661,20 @@ type encodeHeader struct {
 	byteArraySize int
 }
 
-func newEncodeHeader(mergedSeries []mergedSeriesInfo, keys channel.Keys) encodeHeader {
+// newEncodeHeader returns the header of the merged series of a frame whose keys are
+// keys. variable is true when one of the series has a variable data type.
+func newEncodeHeader(
+	mergedSeries []mergedSeriesInfo,
+	keys channel.Keys,
+	variable bool,
+) encodeHeader {
 	h := encodeHeader{
 		dataSize:      -1,
 		tr:            telem.TimeRangeZero,
 		byteArraySize: flagsSize + seqNumSize,
 		fgs:           newFlags(),
 	}
+	h.fgs.equalLens = !variable
 	// allChannelsPresent is true only when the merged series form a 1-to-1
 	// correspondence with keys (each key has exactly one series in the same order).
 	// Multi-domain frames that produce multiple series for the same key
@@ -682,9 +710,6 @@ func newEncodeHeader(mergedSeries []mergedSeriesInfo, keys channel.Keys) encodeH
 func (h *encodeHeader) addSeries(s telem.Series) {
 	sLen := int(s.Len())
 	h.byteArraySize += wireSize(s)
-	if s.DataType.IsVariable() {
-		h.fgs.equalLens = false
-	}
 	if h.dataSize == -1 {
 		h.dataSize = sLen
 		h.tr = s.TimeRange
@@ -731,12 +756,15 @@ func (h *encodeHeader) metadataSize(count int) int {
 	return size
 }
 
-func (c *Codec) writeSeries(fgs flags, ordinal int, msi mergedSeriesInfo) {
-	s := msi.series
+// writeKey writes the key of a series when the frame does not hold every key.
+func (c *Codec) writeKey(fgs flags, key channel.Key) {
 	if !fgs.allChannelsPresent {
-		c.buf.Uint32(uint32(msi.key))
+		c.buf.Uint32(uint32(key))
 	}
-	c.writeOverride(ordinal, s)
+}
+
+// writeSeries writes the length, data, and metadata of s that the flags do not share.
+func (c *Codec) writeSeries(fgs flags, s telem.Series) {
 	if !fgs.equalLens {
 		if s.DataType.IsVariable() {
 			c.buf.Uint32(uint32(s.Size()))
