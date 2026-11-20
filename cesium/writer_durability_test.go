@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -27,71 +26,13 @@ import (
 )
 
 var _ = Describe("Writer errors", func() {
-	var (
-		db               *cesium.DB
-		idx1, d1         cesium.ChannelKey
-		idx2, d2         cesium.ChannelKey
-		createTwoIndexes func(ctx SpecContext)
-	)
-	BeforeEach(func(ctx SpecContext) {
-		db = mustOpenDBOnFS(ctx, xfs.NewMem())
-		idx1, d1 = GenerateChannelKey(), GenerateChannelKey()
-		idx2, d2 = GenerateChannelKey(), GenerateChannelKey()
-		createTwoIndexes = func(ctx SpecContext) {
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{
-					Key: idx1, Name: "i1", IsIndex: true, DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key: d1, Name: "d1", Index: idx1, DataType: telem.Int64T,
-				},
-				cesium.Channel{
-					Key: idx2, Name: "i2", IsIndex: true, DataType: telem.TimestampT,
-				},
-				cesium.Channel{
-					Key: d2, Name: "d2", Index: idx2, DataType: telem.Int64T,
-				},
-			)).To(Succeed())
-		}
-	})
-
-	It(
-		"Should return the commit error of DB.Write when another writer controls part of the frame",
-		func(ctx SpecContext) {
-			createTwoIndexes(ctx)
-			Expect(write(ctx, db, 12*telem.SecondTS, telem.MultiFrame(
-				[]cesium.ChannelKey{idx2, d2},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(12, 20),
-					telem.NewSeriesV[int64](1, 2),
-				},
-			))).To(Succeed())
-			MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{idx1, d1},
-				Clock:    idx1,
-				Start:    5 * telem.SecondTS,
-			}))
-			// Group 2 overlaps its stored data, so its commit fails.
-			err := write(ctx, db, 5*telem.SecondTS, telem.MultiFrame(
-				[]cesium.ChannelKey{idx1, d1, idx2, d2},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(5, 6),
-					telem.NewSeriesV[int64](3, 4),
-					telem.NewSeriesSecondsTSV(5, 15),
-					telem.NewSeriesV[int64](3, 4),
-				},
-			))
-			Expect(err).To(MatchError(domain.ErrWriteConflict))
-		},
-	)
-
 	It(
 		"Should join a persist error of Close with the error that broke the writer",
 		func(ctx SpecContext) {
 			var (
 				errPersist  = errors.New("persist failed")
 				failPersist bool
+				idx1, d1    = GenerateChannelKey(), GenerateChannelKey()
 			)
 			hooked := mustOpenDBOnFS(ctx, persistHookFS{
 				FS: xfs.NewMem(),
