@@ -1,0 +1,33 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.icd;
+
+import "core/pkg/api/icd/pb/icd.proto";
+import "core/pkg/service/icd/pb/icd.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd";
+
+service ICDCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service ICDRetrieveService {
+  rpc Exec(api.icd.pb.RetrieveRequest) returns (api.icd.pb.RetrieveResponse);
+}
+
+message CreateRequest {
+  repeated service.icd.pb.ICD icds = 1;
+}
+
+message CreateResponse {
+  repeated service.icd.pb.ICD icds = 1;
+}

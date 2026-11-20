@@ -9,30 +9,14 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { CDN } from "@synnaxlabs/site-common/cdn";
 import { integration } from "@synnaxlabs/site-common/integration";
-import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
-import path from "path";
 
 export default defineConfig({
   integrations: [integration(), react()],
   adapter: vercel(),
   // Pictures from the CDN are fetched and re-encoded at build time.
-  image: { domains: ["synnax.nyc3.cdn.digitaloceanspaces.com"] },
-  vite: {
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
-    // SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
-    css: {
-      postcss: {
-        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
-      },
-    },
-    // An inlined font ships in the render-blocking stylesheet whether or not a page
-    // needs its characters.
-    build: {
-      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
-    },
-  },
+  image: { domains: [new URL(CDN).hostname] },
   site: "https://www.synnaxlabs.com",
 });
