@@ -670,7 +670,9 @@ func (s *Symbol) ResolveMember(
 		return sym, err
 	}
 	if sym.Kind != KindModule && sym.Kind != KindModuleAlias {
-		return nil, &UndefinedSymbolError{ctx: ctx, Name: head + "." + tail, scope: s}
+		return nil, codes.SymbolUndefined.Mark(
+			&UndefinedSymbolError{ctx: ctx, Name: head + "." + tail, scope: s},
+		)
 	}
 	return sym.Resolve(ctx, tail)
 }
