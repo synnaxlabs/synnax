@@ -32,7 +32,10 @@ import { Synnax } from "@/synnax";
 /** The part of a domain client that a document form reads and edits through. */
 export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
   watch: (key: Key) => query.Live<Doc>;
-  /** Begins a transaction of actions on the cached document, with camelCase keys. */
+  /**
+   * Begins a transaction of actions on the cached document, with camelCase keys.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
 }
 
@@ -189,9 +192,10 @@ class DocumentStore<
   readonly query: Query;
   private readonly key: Key;
   private readonly params: StoreParams<Key, Doc, Query, V>;
-  private doc: Doc;
+  /** The cached document the values show, undefined while none is cached. */
+  private doc?: Doc;
   private values: V;
-  /** Whether the cached document no longer holds the edited part. */
+  /** Whether the document left the cache or no longer holds the edited part. */
   private removed = false;
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
@@ -215,9 +219,12 @@ class DocumentStore<
 
   get = (): V => {
     const cached = this.params.domain.watch(this.key).getCached();
-    // A deleted document, or one whose edited part another client removed, keeps its
-    // last values and takes no edits.
-    if (query.isLive(cached) && cached !== this.doc) {
+    // A document that left the cache, as on a delete, or one whose edited part another
+    // client removed, keeps its last values and takes no edits.
+    if (!query.isLive(cached)) {
+      this.doc = undefined;
+      this.removed = true;
+    } else if (cached !== this.doc) {
       this.doc = cached;
       const next = this.params.toValues(cached, this.query);
       this.removed = next === undefined;
@@ -292,6 +299,10 @@ class DocumentStore<
       return;
     }
     void this.takeValid();
+    if (this.removed) {
+      fn();
+      return;
+    }
     const tx = this.params.domain.beginTransaction(this.key);
     this.batched = tx;
     try {
@@ -361,9 +372,15 @@ class DocumentStore<
       // The Core applies each action of a dispatch, so a replaced value that fails its
       // schema would fail the dispatch.
       for (const p of replaced) edit.writes.delete(p);
+      // The edit leaves the store until it holds an open transaction again, so a throw
+      // drops it.
+      const i = this.edits.indexOf(edit);
+      this.edits.splice(i, 1);
+      clearTimeout(edit.timer);
       edit.tx.abort();
       edit.tx = this.params.domain.beginTransaction(this.key);
       edit.tx.add([...edit.writes.values()].map(({ action }) => action));
+      this.edits.splice(i, 0, edit);
     }
     // The guards read the document without the replaced writes.
     const action = this.setAction(path, value);

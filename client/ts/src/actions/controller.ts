@@ -110,7 +110,10 @@ export interface Reversal<Action> {
  * staged state and rethrows.
  */
 export interface Transaction<Action> {
-  /** @throws {NotCachedError} if the doc is no longer cached. */
+  /**
+   * @throws {NotCachedError} if the doc is no longer cached, after it aborts the
+   * transaction.
+   */
   add: (actions: Action | Action[]) => void;
   commit: () => Promise<boolean>;
   abort: () => void;
@@ -153,6 +156,7 @@ export interface Options<State, Action> {
 
 /** The action-dispatch surface a document domain client exposes. */
 export interface Domain<Key extends record.Key, State extends query.Data, Action> {
+  /** @throws {NotCachedError} if the document is not cached, before any change. */
   dispatch(
     key: Key,
     actions: Action | Action[],
@@ -163,6 +167,7 @@ export interface Domain<Key extends record.Key, State extends query.Data, Action
   hasUndo(key: Key): boolean;
   hasRedo(key: Key): boolean;
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
+  /** @throws {NotCachedError} if the document is not cached. */
   beginTransaction(key: Key, kind?: string): Transaction<Action>;
 }
 
@@ -941,8 +946,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   private cached(key: Key): State {
     const doc = this.docs.get(key);
-    if (doc == null) throw new NotCachedError(`Document ${key} is not cached`);
+    if (doc == null) throw this.notCached(key);
     return doc;
+  }
+
+  private notCached(key: Key): NotCachedError {
+    return new NotCachedError(`Document ${key} is not cached`);
   }
 
   /** Encodes each action against the doc that the actions before it produce. */
@@ -1045,10 +1054,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const initial = this.cached(key);
     const entry = this.createPending(id.create());
     let done = false;
+    const abort = (): void => {
+      if (done) return;
+      done = true;
+      this.discard(key, entry.dispatchKey);
+    };
     return {
       add: (actions) => {
         if (done) throw new Error("transaction finalized");
-        const current = this.cached(key);
+        const current = this.docs.get(key);
+        if (current == null) {
+          abort();
+          throw this.notCached(key);
+        }
         const arr = this.encode(current, array.toArray(actions));
         const { next } = this.params.reduce(current, arr);
         entry.actions.push(...arr);
@@ -1074,11 +1092,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         );
         return true;
       },
-      abort: () => {
-        if (done) return;
-        done = true;
-        this.discard(key, entry.dispatchKey);
-      },
+      abort,
     };
   }
 

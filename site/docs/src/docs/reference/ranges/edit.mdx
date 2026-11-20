@@ -98,15 +98,15 @@ client.ranges.set_parent(my_range.key, None)
 Call `client.ranges.dispatch` with a `ranger.set` action for each field to change. You
 can change `timeRange`, `color`, and `parent`. Set `color` to `null` to clear it.
 
-`dispatch` applies only to a range that the client holds in its cache. It returns
-`false` and sends nothing when the range is not in the cache, so retrieve the range
-first:
+`dispatch` applies only to a range that the client holds in its cache. It throws a
+`NotCachedError` and sends nothing when the range is not in the cache, so retrieve the
+range first:
 
 ```typescript
 import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 
 const myRange = await client.ranges.retrieve("My Range");
-const sent = await client.ranges.dispatch(myRange.key, [
+await client.ranges.dispatch(myRange.key, [
   ranger.set({
     path: ["timeRange"],
     value: new TimeRange(
@@ -116,7 +116,6 @@ const sent = await client.ranges.dispatch(myRange.key, [
   }),
   ranger.set({ path: ["color"], value: "#00FF00" }),
 ]);
-if (!sent) throw new Error("My Range is not in the client cache");
 ```
 
   </Fragment>

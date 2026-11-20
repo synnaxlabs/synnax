@@ -947,14 +947,18 @@ describe("actions.Controller", () => {
       expect(() => controller.transaction("missing")).toThrow(NotCachedError);
     });
 
-    it("throws from add when the doc is no longer cached", async () => {
+    it("aborts the transaction when an add finds the doc no longer cached", async () => {
       const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
       const tx = controller.transaction("k");
+      tx.add(set("a", 1));
       docs.delete("k");
-      expect(() => tx.add(set("a", 1))).toThrow(NotCachedError);
+      expect(() => tx.add(set("b", 2))).toThrow(NotCachedError);
       expect(await tx.commit()).toBe(false);
       expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBeUndefined();
+      expect(controller.hasPending("k")).toBe(false);
+      expect(controller.hasUndo("k")).toBe(false);
     });
 
     it("subsequent commits return false and do not re-send", async () => {
