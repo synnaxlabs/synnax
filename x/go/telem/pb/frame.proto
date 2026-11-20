@@ -25,6 +25,7 @@ message Series {
   bytes data = 3;
   uint64 alignment = 4;
   uint32 alignment_multiple = 5;
+  uint32 clock = 6;
 }
 
 message Frame {

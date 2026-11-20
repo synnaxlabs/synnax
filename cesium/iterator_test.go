@@ -172,6 +172,24 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 
 				Context("Basic", func() {
+					It(
+						"Should stamp each series with the clock of its channel",
+						func() {
+							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{index1Key, data1Key},
+							}))
+							Expect(i.SeekFirst()).To(BeTrue())
+							Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+							f := i.Value()
+							for _, key := range []cesium.ChannelKey{index1Key, data1Key} {
+								for _, s := range f.Get(key).Series {
+									Expect(s.Clock).To(Equal(index1Key))
+								}
+							}
+							Expect(i.Close()).To(Succeed())
+						},
+					)
 					Specify("SeekLast", func() {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:   telem.TimeRangeMax,
