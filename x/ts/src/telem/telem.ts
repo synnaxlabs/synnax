@@ -583,9 +583,11 @@ export class TimeStamp
       return new TimeStamp(new Date(ms)).add(new TimeSpan(sub));
     }
     const [datePart, ...timeParts] = trimmed.split(/[T ]/);
-    const date = DATE_RE.exec(datePart);
+    const date = datePart == null ? null : DATE_RE.exec(datePart);
     if (date == null) return null;
-    const [year, month, day] = date.slice(1).map(Number);
+    const year = Number(date[1]);
+    const month = Number(date[2]);
+    const day = Number(date[3]);
     let [hour, minute, second, fraction] = [0, 0, 0, 0n];
     if (timeParts.length > 0) {
       const time = TIME_OF_DAY_RE.exec(timeParts.join(" "));
@@ -747,7 +749,11 @@ export class TimeSpan
       const match = UNIT_RUN_RE.exec(rest);
       if (match == null) return null;
       const [whole, amount, unit] = match;
-      const span = CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()];
+      const span =
+        unit == null
+          ? undefined
+          : (CASED_SPAN_UNITS[unit] ?? SPAN_UNITS[unit.toLowerCase()]);
+      if (span == null) return null;
       total = total.add(span.mult(Number(amount)));
       rest = rest.slice(whole.length);
     }

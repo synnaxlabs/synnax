@@ -11,6 +11,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
+  type AstroUserConfig,
   type ClientDirectiveConfig,
   type InjectedRoute,
   type InjectedType,
@@ -23,12 +24,14 @@ describe("integration", () => {
   const routes: InjectedRoute[] = [];
   const directives: ClientDirectiveConfig[] = [];
   const types: InjectedType[] = [];
+  const configs: Pick<AstroUserConfig, "vite">[] = [];
 
   beforeAll(() => {
     const { hooks } = integration();
     hooks["astro:config:setup"]({
       injectRoute: (route) => routes.push(route),
       addClientDirective: (directive) => directives.push(directive),
+      updateConfig: (config) => configs.push(config),
     });
     hooks["astro:config:done"]({
       injectTypes: (type) => {
@@ -67,5 +70,29 @@ describe("integration", () => {
   it("should declare the interaction directive for type checks", () => {
     expect(types).toHaveLength(1);
     expect(types[0].content).toContain('"client:interaction"');
+  });
+
+  describe("Vite options", () => {
+    const vite = () => configs[0].vite;
+
+    it("should bundle Lyra and the shared components for SSR", () => {
+      expect(vite()?.ssr?.noExternal).toEqual([
+        "@synnaxlabs/lyra",
+        "@synnaxlabs/site-common",
+      ]);
+    });
+
+    it("should sort the Lyra styles into cascade layers", () => {
+      const { postcss } = vite()?.css ?? {};
+      expect(typeof postcss === "object" ? postcss.plugins : []).toHaveLength(1);
+    });
+
+    it("should never inline a font", () => {
+      const limit = vite()?.build?.assetsInlineLimit;
+      if (typeof limit !== "function") throw new Error("no inline limit function");
+      expect(limit("inter.woff2", Buffer.from(""))).toBe(false);
+      expect(limit("inter.woff", Buffer.from(""))).toBe(false);
+      expect(limit("logo.svg", Buffer.from(""))).toBeUndefined();
+    });
   });
 });

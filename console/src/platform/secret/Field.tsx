@@ -7,184 +7,100 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/secret/Field.css";
-
-import { NotFoundError, secret } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { type rack, secret } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
-import { List } from "@synnaxlabs/lyra/list";
-import { Select } from "@synnaxlabs/lyra/select";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Secret } from "@synnaxlabs/pluto";
+import { Access, Secret } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
+import { Picker } from "@/platform/picker";
 import { useCreateModal } from "@/platform/secret/useCreateModal";
 import { Validity } from "@/platform/secret/validity";
 
-const ListItem = (props: List.ItemRenderProps<secret.Key>): ReactElement | null => {
-  const s = List.useItem<secret.Key, secret.Secret>(props.itemKey);
-  if (s == null) return null;
-  return (
-    <Select.Item {...props} align="center" gap="medium">
-      <Icon.Secret className={CSS.BE("secret-field", "icon")} />
-      <Flex.Box y empty grow className={CSS.BE("secret-field", "text")}>
-        <Text.Text overflow="fade">{s.name}</Text.Text>
-        <Text.Text level="tiny" color={9} overflow="fade">
-          {Validity.describeSecret(s)}
-        </Text.Text>
-      </Flex.Box>
-    </Select.Item>
-  );
+const describe = (s: secret.Secret): Picker.Description => ({
+  text: Validity.describeSecret(s),
+});
+
+/** Describes a held file item of another rack, which the device cannot read. */
+export const OTHER_RACK_DESCRIPTION: Picker.Description = {
+  text: "File on another Driver",
+  status: "error",
 };
 
-const listItem = Component.renderProp(ListItem);
+const STORED: secret.Where = { source: { eq: "stored" } };
 
-interface TriggerProps {
-  value: secret.Key;
+/**
+ * Matches stored items and the file items of a rack, the only file items its devices
+ * can read. A zero rack matches only stored items.
+ */
+export const whereOnRack = (rack: rack.Key): secret.Where =>
+  primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
+
+interface ControlProps extends Input.Control<secret.Key> {
+  defaultName: string;
+  rack: rack.Key;
   preview?: boolean;
 }
 
-// The text of a trigger with no secret to name. It is empty while the secret loads.
-const placeholderOf = (
-  result: Flux.Result<secret.Secret>,
-  preview?: boolean,
-): string => {
-  if (result.variant === "disabled")
-    return preview === true ? "None" : "Select a secret";
-  if (result.variant !== "error") return "";
-  const { error } = result.status.details;
-  return Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause)
-    ? "Secret not found"
-    : "Unavailable secret";
-};
-
-const Trigger = ({ value, preview }: TriggerProps): ReactElement => {
+const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
+  const list = Secret.useList({ query: { where: whereOnRack(rack) } });
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
-  const itemStatus = Input.useItemStatus({});
-  return (
-    <Dialog.Trigger
-      variant="outlined"
-      gap="small"
-      grow
-      preview={preview}
-      className={CSS.BE("secret-field", "trigger")}
-      {...itemStatus}
-    >
-      <Icon.Secret className={CSS.BE("secret-field", "icon")} />
-      {result.variant !== "success" ? (
-        <Text.Text el="span" color={8} className={CSS.BE("secret-field", "text")}>
-          {placeholderOf(result, preview)}
-        </Text.Text>
-      ) : (
-        <>
-          <Text.Text
-            el="span"
-            overflow="fade"
-            className={CSS.BE("secret-field", "text")}
-          >
-            {result.data.name}
-          </Text.Text>
-          <Text.Text
-            el="span"
-            level="tiny"
-            color={9}
-            className={CSS.BE("secret-field", "date")}
-          >
-            {Validity.describeSecret(result.data)}
-          </Text.Text>
-        </>
-      )}
-    </Dialog.Trigger>
-  );
-};
-
-interface CreateButtonProps {
-  defaultName: string;
-  onCreate: (key: secret.Key) => void;
-}
-
-const CreateButton = ({ defaultName, onCreate }: CreateButtonProps): ReactElement => {
-  const openCreate = useCreateModal();
-  const { close } = Dialog.useContext();
-  const handleClick = async () => {
-    close();
-    const key = await openCreate({ name: defaultName });
-    if (key != null) onCreate(key);
-  };
-  return (
-    <Button.CreateListItem size="small" onClick={() => void handleClick()}>
-      New secret
-    </Button.CreateListItem>
-  );
-};
-
-interface PickerProps extends Input.Control<secret.Key> {
-  defaultName: string;
-  preview?: boolean;
-}
-
-const Picker = ({
-  value,
-  onChange,
-  defaultName,
-  preview,
-}: PickerProps): ReactElement => {
-  const { data, getItem, subscribe, status, more, search } = Secret.useList();
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
+  const openCreate = useCreateModal();
+  const onOtherRack =
+    result.variant === "success" &&
+    result.data.source === "file" &&
+    result.data.rack !== rack;
   return (
-    <Dialog.Frame variant="connected" grow>
-      <Select.Frame<secret.Key, secret.Secret | undefined>
-        data={data}
-        getItem={getItem}
-        subscribe={subscribe}
-        onFetchMore={more}
+    <Flex.Box y gap="small" grow>
+      <Picker.Select<secret.Key, secret.Secret>
         value={value}
-        onChange={onChange}
-        closeDialogOnSelect
-      >
-        <Trigger value={value} preview={preview} />
-        <Select.Dialog className={CSS.BE("secret-field", "dialog")}>
-          <Select.Body<secret.Key>
-            resourceName="secret"
-            onSearch={search}
-            status={status}
-            footer={
-              canCreate && (
-                <CreateButton defaultName={defaultName} onCreate={onChange} />
-              )
-            }
-          >
-            {listItem}
-          </Select.Body>
-        </Select.Dialog>
-      </Select.Frame>
-    </Dialog.Frame>
+        resourceName="secret"
+        icon={Icon.Secret}
+        describe={describe}
+        list={list}
+        result={result}
+        onCreate={
+          canCreate
+            ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
+            : undefined
+        }
+        {...rest}
+      />
+      {onOtherRack && (
+        <Picker.Line>
+          <Text.Text level="small" status={OTHER_RACK_DESCRIPTION.status}>
+            {OTHER_RACK_DESCRIPTION.text}
+          </Text.Text>
+        </Picker.Line>
+      )}
+    </Flex.Box>
   );
 };
 
 export interface FieldProps extends Omit<Form.FieldProps<secret.Key>, "children"> {
   /** The name a created secret starts with, such as "Line 2 alerts routing key". */
   defaultName: string;
+  /** The rack of the device. The field lists only the file items of this rack. */
+  rack: rack.Key;
 }
 
 /**
  * A form field that holds the key of a secret. It selects a secret, or creates one that
  * starts with the default name and selects it.
  */
-export const Field = ({ defaultName, ...rest }: FieldProps): ReactElement => (
+export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement => (
   <Form.Field<secret.Key> {...rest}>
     {({ value, onChange, preview }) => (
-      <Picker
+      <Control
         value={value}
         onChange={onChange}
         defaultName={defaultName}
+        rack={rack}
         preview={preview}
       />
     )}
