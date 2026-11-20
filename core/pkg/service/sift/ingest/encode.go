@@ -40,10 +40,9 @@ func newColumn(series []telem.Series, ch, index channel.Channel) (*column, error
 	for _, s := range series {
 		if s.Clock != clock {
 			return nil, errors.Newf(
-				"channel %s has samples on clock %d, not on clock %d of %s",
+				"channel %s has samples that do not pair with the time of its index "+
+					"channel %s",
 				ch.Name,
-				s.Clock,
-				clock,
 				index.Name,
 			)
 		}
@@ -54,9 +53,8 @@ func newColumn(series []telem.Series, ch, index channel.Channel) (*column, error
 // encode calls send with one request per timestamp of f in fr at or after from that has
 // a value. A data sample pairs with a timestamp of the same alignment, on the flow's
 // clock, and a sample on another clock fails the encode. It returns the timestamp after
-// the last one it read and the number of values
-// it sent. It sets each element of last that has a value to the time after the last
-// value of its channel.
+// the last one it read and the number of values it sent. It sets each element of last
+// that has a value to the time after the last value of its channel.
 func encode(
 	configID string,
 	f flow,

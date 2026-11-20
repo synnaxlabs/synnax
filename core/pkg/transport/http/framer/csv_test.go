@@ -713,10 +713,9 @@ var _ = Describe("CSV", func() {
 				),
 			).Error().
 				To(MatchError(fmt.Sprintf(
-					"[api.Read] channel %s has samples on clock %d, not on clock %d of %s",
+					"[api.Read] channel %s has samples that do not pair with the time of "+
+						"its index channel %s",
 					misindexed.Name,
-					otherIndex.Key(),
-					index.Key(),
 					index.Name,
 				)))
 		})

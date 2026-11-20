@@ -15,7 +15,6 @@ import { alignmentOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
-import { ValidationError } from "@/index";
 
 const INDEX = 1;
 const DATA = 2;
@@ -302,10 +301,40 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
-    // D-111, amended: a series on another clock fails, and the error names the
-    // channel and both clock keys.
+    // D-111 as amended and D-141: a series on another clock fails, and the status
+    // names the channels and no clock key.
+    const unpaired = {
+      variant: "error",
+      name: "pressure",
+      message: "Samples do not pair with time",
+      description:
+        "Channel pressure has samples that do not pair with the time of its index " +
+        "channel pressure_time.",
+    };
+
+    // Records the names of DATA and INDEX in the store.
+    const name = (store: Store): void => {
+      store.setChannel(
+        new channel.Channel({
+          key: INDEX,
+          name: "pressure_time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      store.setChannel(
+        new channel.Channel({
+          key: DATA,
+          name: "pressure",
+          dataType: DataType.FLOAT32,
+          index: INDEX,
+        }).payload,
+      );
+    };
+
     it("should throw on a data series whose clock is not its index", () => {
-      const { joins } = createJoined();
+      const { store, joins } = createJoined();
+      name(store);
       const other = new Series({
         data: new Float32Array([30]),
         alignment: 2n,
@@ -315,15 +344,28 @@ describe("Joins", () => {
         joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other])),
       ).toThrow(
         expect.objectContaining({
-          message: expect.stringMatching(
-            new RegExp(`(?=.*${DATA})(?=.*${INDEX + 10})(?=.*${INDEX})`),
-          ),
+          message: unpaired.message,
+          description: unpaired.description,
         }),
       );
     });
 
     it("should give a stray clock to the fail callback and keep its samples out", () => {
       const { store, joins } = createJoined();
+      name(store);
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      const fail = vi.fn();
+      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
+      expect(fail).toHaveBeenCalledWith(DATA, expect.objectContaining(unpaired));
+      expect(streamed(store, DATA)).toEqual([10, 20]);
+    });
+
+    it("should name a channel the store has no record of by its key", () => {
+      const { joins } = createJoined();
       const other = new Series({
         data: new Float32Array([30]),
         alignment: 2n,
@@ -333,11 +375,11 @@ describe("Joins", () => {
       joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
       expect(fail).toHaveBeenCalledWith(
         DATA,
-        new ValidationError(
-          `channel ${DATA} has samples on clock ${INDEX + 10}, not on clock ${INDEX} of its index`,
-        ),
+        expect.objectContaining({
+          name: `${DATA}`,
+          description: `Channel ${DATA} has samples that do not pair with the time of its index channel.`,
+        }),
       );
-      expect(streamed(store, DATA)).toEqual([10, 20]);
     });
 
     it("should place data written in the same frame ahead of its index", () => {
