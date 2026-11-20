@@ -20,7 +20,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 import { server } from "vitest/browser";
 
 import { Enumeration } from "@/feature/enumeration";
@@ -48,10 +48,10 @@ const createEnumeration = async (
 ): Promise<enumeration.Enumeration> =>
   await client.enumerations.create({ name: uniqueName("enumeration"), entries });
 
-/** Returns the nth built-in from the end, which no other spec edits. */
 // Chromium and WebKit can run at once against one Core, so each edits its own built-in.
 const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
 
+/** Returns the nth built-in from the end, which no other spec edits. */
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   const shipped = (await client.enumerations.retrieveBuiltins()).at(-n);
   if (shipped == null) throw new Error("the Core ships no enumerations");
@@ -404,11 +404,21 @@ describe("Enumeration.Settings", () => {
       );
     });
     await renderEnumerations();
-    expect(await screen.findByText("Edited")).toBeTruthy();
+    // The other browser's run can mark its own built-in edited on the same page.
+    const heading = async (): Promise<HTMLElement> => {
+      const el = (await screen.findByText(shipped.name)).closest<HTMLElement>(
+        "[data-menu-key]",
+      );
+      assert(el != null);
+      return el;
+    };
+    expect(await within(await heading()).findByText("Edited")).toBeTruthy();
     await openContextMenu(shipped.name);
     await clickAndSettle("Restore default");
     await expect.poll(async () => await stored(shipped.key)).toEqual(shipped.entries);
-    await waitFor(() => expect(screen.queryByText("Edited")).toBeNull());
+    await waitFor(async () =>
+      expect(within(await heading()).queryByText("Edited")).toBeNull(),
+    );
   });
 
   it("should not offer to delete a built-in", async () => {
