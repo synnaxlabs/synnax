@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -59,6 +60,19 @@ type Snapshot struct {
 
 // Allowed reports whether the subject of the request can retrieve the record with id.
 func (s Snapshot) Allowed(id resource.ID) bool { return s.allowed(id) }
+
+// Visible returns the records of ids that the subject of the request can retrieve. A
+// config record of a task appears as its task.
+func (s Snapshot) Visible(ids []resource.ID) []resource.ID {
+	return lo.FilterMap(ids, func(id resource.ID, _ int) (resource.ID, bool) {
+		if task, ok := taskconfig.TaskOf(
+			gorp.Target{Table: string(id.Type), Key: id.Key},
+		); ok {
+			id = task
+		}
+		return id, s.allowed(id)
+	})
+}
 
 // Enforce returns an error that wraps access.ErrDenied and names the first of ids that
 // the subject of the request cannot retrieve.

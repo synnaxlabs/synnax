@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -39,8 +40,9 @@ var _ = Describe("OpenService", func() {
 			Key:  "cmd",
 			Args: msgpack.EncodedJSON{"host": "plc"},
 		}
-		grant := MustSucceed(svc.Grant(ctx, db, r, cmd, s.Base().Key))
-		spent, values := MustSucceed2(svc.Resolve(ctx, r, cmd.Task, grant))
+		g := grant.Grant{Subject: r, Command: cmd, Secrets: []secret.Key{s.Base().Key}}
+		key := MustSucceed(svc.Grant(ctx, db, g))
+		spent, values := MustSucceed2(svc.Resolve(ctx, r, cmd.Task, key))
 		Expect(spent.Command).To(Equal(cmd))
 		Expect(values).To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("hunter2")}))
 	})
