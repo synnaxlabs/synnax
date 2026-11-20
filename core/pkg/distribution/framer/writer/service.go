@@ -535,13 +535,27 @@ func (s *Service) resolve(
 	if records, err = (*rp).Resolve(ctx, unresolved); err != nil {
 		return nil, nil, nil, err
 	}
+	if virtual, err = virtualOf(unresolved, records); err != nil {
+		return nil, nil, nil, err
+	}
+	return stored, virtual, records, nil
+}
+
+// virtualOf returns the Cesium channel of each key of unresolved that is not free, from
+// its record. Such a key must be a leased virtual channel, since Cesium does not hold
+// it.
+func virtualOf(
+	unresolved channel.Keys,
+	records map[channel.Key]channel.Channel,
+) ([]cesium.Channel, error) {
+	var virtual []cesium.Channel
 	for _, k := range unresolved {
 		if k.Free() {
 			continue
 		}
 		r, ok := records[k]
 		if !ok || !r.Virtual {
-			return nil, nil, nil, errors.Wrapf(
+			return nil, errors.Wrapf(
 				cesium.ErrChannelNotFound,
 				"channel with key %d not found",
 				k,
@@ -555,7 +569,7 @@ func (s *Service) resolve(
 			Concurrency: cesium.Concurrency(r.Concurrency),
 		})
 	}
-	return stored, virtual, records, nil
+	return virtual, nil
 }
 
 // freeIndexesOf returns the index of each free channel in keys whose record has one.

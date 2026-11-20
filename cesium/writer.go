@@ -309,13 +309,9 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		var keySkipped bool
-		if _, keySkipped, err = uWriter.WriteAtUnless(
-			series,
-			alignment,
-			skip,
-		); err != nil {
-			return fr, err
+		_, keySkipped, wErr := uWriter.WriteAtUnless(series, alignment, skip)
+		if wErr != nil {
+			return fr, wErr
 		}
 		if keySkipped {
 			*excluded = append(*excluded, key)

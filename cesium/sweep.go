@@ -82,12 +82,8 @@ func (db *DB) Sweep(
 			delete(db.mu.dbs.unary, k)
 		}
 	}
-	if unintended := slices.DeleteFunc(slices.Clone(drop), db.intents.has); len(
-		unintended,
-	) > 0 {
-		if err := db.intents.add(unintended); err != nil {
-			return nil, 0, err
-		}
+	if err := db.intendDrops(drop); err != nil {
+		return nil, 0, err
 	}
 	err := errors.Join(db.dropLocked(drop), db.removeOrphanIntents(records, hidden))
 	if err == nil {
@@ -97,13 +93,29 @@ func (db *DB) Sweep(
 	if err != nil {
 		return nil, 0, err
 	}
+	return db.keptChannels(kept), db.highestKey(), nil
+}
+
+// keptChannels returns the hidden channels of kept, in rising order of key. The caller
+// must hold db.mu.
+func (db *DB) keptChannels(kept set.Set[ChannelKey]) []KeptChannel {
 	out := make([]KeptChannel, 0, len(kept))
 	for k := range kept {
 		u := db.mu.dbs.hidden[k]
 		out = append(out, KeptChannel{Key: k, Index: u.Channel().Index, Size: u.Size()})
 	}
 	slices.SortFunc(out, func(a, b KeptChannel) int { return int(a.Key) - int(b.Key) })
-	return out, db.highestKey(), nil
+	return out
+}
+
+// intendDrops makes an intent durable for each key of drop that has none, so every drop
+// is an intent first. The caller must hold db.mu.
+func (db *DB) intendDrops(drop []ChannelKey) error {
+	unintended := slices.DeleteFunc(slices.Clone(drop), db.intents.has)
+	if len(unintended) == 0 {
+		return nil
+	}
+	return db.intents.add(unintended)
 }
 
 // highestKey returns the highest key that the DB holds: open, kept, with an intent, or
