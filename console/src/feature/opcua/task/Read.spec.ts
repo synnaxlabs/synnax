@@ -55,7 +55,10 @@ const client = createTestClient();
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(OPCUA.Task.Read, options);
+  const rendered = await renderTaskFormTab(
+    OPCUA.Task.FORMS[OPCUA.Task.READ_TYPE],
+    options,
+  );
   await awaitEditableForm();
   return rendered;
 };
