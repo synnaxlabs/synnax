@@ -19,5 +19,5 @@ setupBrowser();
 // Testing Library unmounts each spec in an afterEach hook, which must run before the
 // pointer reset of setupBrowser. Hooks run last-in first-out, so it loads after.
 const { configure } = await import("@testing-library/react");
-// Live-Core round-trips share the test Core with the rest of the suite.
+// Waits allow 5 s, as in the jsdom setup.
 configure({ asyncUtilTimeout: 5000 });
