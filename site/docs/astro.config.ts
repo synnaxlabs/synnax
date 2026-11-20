@@ -12,7 +12,7 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { policy } from "@synnaxlabs/site-common/csp";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
@@ -67,7 +67,7 @@ const SECRET = envField.string({
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [integration(), react(), mdx()],
+  integrations: [integration(), react(), mdx(), jitless()],
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
   image: { domains: IMAGES.domains },
   security: {

@@ -122,10 +122,7 @@ const FOOTER_COLUMNS = [
         import { start as startTabs } from "@/components/tabs/sync";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        import { z } from "zod";
 
-        // Zod otherwise probes for eval, which the policy refuses.
-        z.config({ jitless: true });
         startSidebar();
         startCollapse();
         startVideos();
