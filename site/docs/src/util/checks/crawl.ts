@@ -13,30 +13,41 @@ import path from "path";
 
 import { type Page, type Source } from "@/util/checks/check";
 
-export const PAGES_DIR = "./src/pages";
+const PAGES_DIR = "./src/pages";
+const DOCS_DIR = "./src/docs";
 const CONCURRENCY = 4;
 
-/** Lists every file under src/pages, as paths relative to it. */
-export const pageFiles = (): string[] => {
+const listFiles = (root: string): string[] => {
   const files: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const child = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(child);
-      else files.push(path.relative(PAGES_DIR, child));
+      else files.push(path.relative(root, child));
     }
   };
-  walk(PAGES_DIR);
+  walk(root);
   return files;
 };
+
+/** Returns true if Astro routes the page file: its name has no leading underscore. */
+const routed = (f: string): boolean => !path.basename(f).startsWith("_");
+
+/** Lists every file under src/pages, as paths relative to it. */
+const pageFiles = (): string[] => listFiles(PAGES_DIR);
+
+/** Lists every docs page file under src/docs, as paths relative to it. */
+export const docFiles = (): string[] =>
+  listFiles(DOCS_DIR).filter((f) => f.endsWith(".mdx") && routed(f));
 
 // Maps a route back to the page source file that renders it.
 const routeSource = (route: string): string | null => {
   const rel = route === "/" ? "index" : route.replace(/^\//, "");
-  for (const suffix of [".mdx", "/index.mdx", ".astro", "/index.astro"]) {
-    const file = path.join(PAGES_DIR, `${rel}${suffix}`);
-    if (fs.existsSync(file)) return file;
-  }
+  for (const suffix of [".mdx", "/index.mdx", ".astro", "/index.astro"])
+    for (const dir of [DOCS_DIR, PAGES_DIR]) {
+      const file = path.join(dir, `${rel}${suffix}`);
+      if (fs.existsSync(file)) return file;
+    }
   return null;
 };
 
@@ -66,20 +77,18 @@ export const locate = (route: string, needle: string): string => {
   return source == null ? route : `${route}:${source.line}`;
 };
 
-/** Returns true if Astro routes the page file: its name has no leading underscore. */
-export const routed = (f: string): boolean => !path.basename(f).startsWith("_");
-
-/** Returns the route of a page file, given relative to src/pages. */
+/** Returns the route of a page file, given relative to src/pages or src/docs. */
 export const toRoute = (f: string): string =>
   `/${f.replace(/\.(mdx|astro)$/, "").replace(/(^|\/)index$/, "$1")}`;
 
 /**
- * Derives every route from the src/pages file tree. Dynamic routes are left out, since
- * they serve pages that have files of their own.
+ * Derives every route from the src/pages and src/docs file trees. Dynamic routes are
+ * left out, since they serve pages that have files of their own.
  */
 export const enumerateRoutes = (): string[] => {
   const routes = pageFiles()
-    .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f) && !f.includes("["))
+    .filter((f) => f.endsWith(".astro") && routed(f) && !f.includes("["))
+    .concat(docFiles())
     .map(toRoute);
   return unique.unique(routes);
 };
