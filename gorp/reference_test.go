@@ -503,12 +503,13 @@ var _ = Describe("Reference", func() {
 					Key:    "a",
 					Labels: []string{"gone", "l1"},
 				})).To(Succeed())
-				createLabels(ctx, "l1", "l2")
+				createLabels(ctx, "l1", "l2", "l3")
 				Expect(createDevice(ctx, refDevice{Key: "a", Labels: labels})).
 					To(Succeed())
 			},
 			Entry("at its position", []string{"gone", "l1", "l2"}),
 			Entry("at a moved position", []string{"l2", "gone", "l1"}),
+			Entry("two positions away", []string{"l2", "l3", "gone", "l1"}),
 		)
 
 		It("Should index the last of two target changes in one transaction",
