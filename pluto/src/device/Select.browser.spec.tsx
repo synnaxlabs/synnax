@@ -10,9 +10,10 @@
 import { device, status } from "@synnaxlabs/client";
 import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
+import { render } from "vitest-browser-react";
 
 import { Device } from "@/device";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -51,12 +52,12 @@ describe("Device select", () => {
 
   it("should show the selected device's status at the trigger's end", async () => {
     const dev = await createDevice();
-    const c = render(<Device.SelectSingle value={dev.key} onChange={vi.fn()} />, {
+    const c = await render(<Device.SelectSingle value={dev.key} onChange={vi.fn()} />, {
       wrapper,
     });
-    const badge = await c.findByText("Connected");
-    expect(badge.classList).toContain("lyra--status-error");
-    expect(badge.closest(`.${END_CLASS}`)).not.toBeNull();
+    const badge = c.getByText("Connected");
+    await expect.element(badge).toHaveClass("lyra--status-error");
+    expect(badge.element().closest(`.${END_CLASS}`)).not.toBeNull();
   });
 
   it("should list each device with its location in the given format", async () => {
@@ -71,7 +72,7 @@ describe("Device select", () => {
       model: "test",
       properties: {},
     });
-    const c = render(
+    const c = await render(
       <Device.SelectSingle
         value={undefined}
         onChange={vi.fn()}
@@ -81,10 +82,10 @@ describe("Device select", () => {
       />,
       { wrapper },
     );
-    fireEvent.click(c.getByRole("button", { name: "Device" }));
-    expect(await c.findByText(dev.name)).toBeTruthy();
-    expect(c.getByText("10.0.0.5")).toBeTruthy();
-    expect(c.queryByText(/opc\.tcp/)).toBeNull();
+    await c.getByRole("button", { name: "Device" }).click();
+    await expect.element(page.getByText(dev.name)).toBeInTheDocument();
+    await expect.element(page.getByText("10.0.0.5")).toBeInTheDocument();
+    await expect.element(page.getByText(/opc\.tcp/)).not.toBeInTheDocument();
   });
 
   it("should read the devices again when the dialog reopens after a failed read", async () => {
@@ -105,7 +106,7 @@ describe("Device select", () => {
       (target) => target === "/device/retrieve",
       new Error("boom"),
     );
-    const c = render(
+    const c = await render(
       <Device.SelectSingle
         value={undefined}
         onChange={vi.fn()}
@@ -115,24 +116,27 @@ describe("Device select", () => {
       { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
     );
     const trigger = c.getByRole("button", { name: "Device" });
-    fireEvent.click(trigger);
-    expect(await c.findByText("boom")).toBeTruthy();
-    fireEvent.click(trigger);
+    await trigger.click();
+    await expect.element(page.getByText("boom")).toBeInTheDocument();
+    await trigger.click();
     reject.mockRestore();
-    fireEvent.click(trigger);
-    expect(await c.findByText(dev.name)).toBeTruthy();
+    await trigger.click();
+    await expect.element(page.getByText(dev.name)).toBeInTheDocument();
   });
 
   it("should show no status without a selected device", async () => {
-    const c = render(<Device.SelectSingle value={undefined} onChange={vi.fn()} />, {
-      wrapper,
-    });
-    await c.findByRole("button", { name: "Device" });
+    const c = await render(
+      <Device.SelectSingle value={undefined} onChange={vi.fn()} />,
+      {
+        wrapper,
+      },
+    );
+    await expect.element(c.getByRole("button", { name: "Device" })).toBeInTheDocument();
     expect(c.container.querySelector(`.${END_CLASS}`)).toBeNull();
   });
 
   it("should call a device by the given resource name", async () => {
-    const c = render(
+    const c = await render(
       <Device.SelectSingle
         value={undefined}
         onChange={vi.fn()}
@@ -140,13 +144,15 @@ describe("Device select", () => {
       />,
       { wrapper },
     );
-    fireEvent.click(await c.findByRole("button", { name: "Connection" }));
-    expect(await c.findByPlaceholderText("Search connections...")).toBeTruthy();
+    await c.getByRole("button", { name: "Connection" }).click();
+    await expect
+      .element(page.getByPlaceholder("Search connections..."))
+      .toBeInTheDocument();
   });
 
   it("should keep the status beside the caller's trigger props", async () => {
     const dev = await createDevice();
-    const c = render(
+    const c = await render(
       <Device.SelectSingle
         value={dev.key}
         onChange={vi.fn()}
@@ -154,7 +160,8 @@ describe("Device select", () => {
       />,
       { wrapper },
     );
-    const badge = await c.findByText("Connected");
-    expect(badge.closest(".custom")).not.toBeNull();
+    const badge = c.getByText("Connected");
+    await expect.element(badge).toBeInTheDocument();
+    expect(badge.element().closest(".custom")).not.toBeNull();
   });
 });

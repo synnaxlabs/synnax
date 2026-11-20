@@ -14,6 +14,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { Rack } from "@/feature/rack";
 import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
+import { FileBrowser } from "@/platform/file-browser";
 import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
@@ -28,7 +29,7 @@ const RULES: Notifications.Rules = {
   channel: Channel.NOTIFICATION_RULE,
   device: Device.NOTIFICATION_RULE,
   rack: Rack.NOTIFICATION_RULE,
-  task: Task.createNotificationRule(Device.INTEGRATIONS),
+  task: Task.createNotificationRule(Device.INTEGRATIONS, [FileBrowser.TASK_TYPE]),
 };
 
 const KEY_RULES: Notifications.KeyRules = Sift.NOTIFICATION_KEY_RULES;

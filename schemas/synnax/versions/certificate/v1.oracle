@@ -8,13 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/resource/v0"
 import "schemas/synnax/versions/secret/v1"
 
 Key = v0.Key
 
 Details = v0.Details
 
-Base = v0.Base
+Base struct extends v0.Base {
+    uses resource.ID[]? {
+        @doc value  """
+            are the resources that use the certificate and that the caller can read,
+            filled only when a retrieve request asks for them.
+        """
+        @go marshal omit
+    }
+}
 
 Certificate union on source secret.Source extends v0.Certificate {
     file {

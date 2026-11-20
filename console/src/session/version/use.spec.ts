@@ -17,7 +17,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; tauriVersion: string } =
   tauriVersion: "9.9.9",
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });

@@ -23,6 +23,7 @@ import { Window } from "@/app/window";
 import { Embedded } from "@/feature/embedded";
 import { Core } from "@/platform/core";
 import { Errors } from "@/platform/errors";
+import { FileBrowser } from "@/platform/file-browser";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
@@ -51,15 +52,17 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
               {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}
               <Session.SettledProvider>
                 <Errors.OverlayWithStore>
-                  <Panel.Context>
-                    <Tree.Context>
-                      <Task.Context>
-                        <Vis.Canvas>
-                          <Window.Window />
-                        </Vis.Canvas>
-                      </Task.Context>
-                    </Tree.Context>
-                  </Panel.Context>
+                  <FileBrowser.Provider>
+                    <Panel.Context>
+                      <Tree.Context>
+                        <Task.Context>
+                          <Vis.Canvas>
+                            <Window.Window />
+                          </Vis.Canvas>
+                        </Task.Context>
+                      </Tree.Context>
+                    </Panel.Context>
+                  </FileBrowser.Provider>
                 </Errors.OverlayWithStore>
               </Session.SettledProvider>
             </Pluto.Context>
