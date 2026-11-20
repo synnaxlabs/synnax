@@ -8848,6 +8848,121 @@ time.wait(duration=500ms) -> output`
 			)
 		})
 
+		Context("Implicit Call Triggers", func() {
+			resolver := []symbol.Symbol{
+				{
+					Name: "start",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   10160,
+				},
+				{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10161,
+				},
+				{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10162,
+				},
+			}
+			analyze := func(ctx SpecContext, fn, call string) ir.IR {
+				GinkgoHelper()
+				source := fn + `
+				sequence main {
+					stage run {
+						` + call + `
+					}
+				}
+				start => main`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+
+			DescribeTable(
+				"Should activate a head call on each channel it reads",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					trigger := findNodeByKey(inter.Nodes, "on_sensor_0")
+					Expect(trigger.Channels.Read).To(Equal(
+						map[uint32]string{10161: "sensor"},
+					))
+					Expect(inter.Edges).To(ContainElement(ir.Edge{
+						Source: ir.Handle{
+							Node:  "on_sensor_0",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{
+							Node:  "check_0",
+							Param: ir.DefaultInputParam,
+						},
+						Kind: ir.EdgeKindContinuous,
+					}))
+				},
+				Entry(
+					"in its body",
+					`func check() f32 { return sensor }`,
+					`check() -> out`,
+				),
+				Entry(
+					"in a function its body calls",
+					`func read() f32 { return sensor }
+				func check() f32 { return read() }`,
+					`check() -> out`,
+				),
+				Entry(
+					"through a named channel input",
+					`func check(x chan f32) f32 { return x }`,
+					`check(x=sensor) -> out`,
+				),
+				Entry(
+					"through a positional channel input",
+					`func check(gain f32, x chan f32) f32 { return x * gain }`,
+					`check(2.0, sensor) -> out`,
+				),
+				Entry(
+					"as a bare call",
+					`func check() { out = sensor }`,
+					`check()`,
+				),
+				Entry(
+					"without feeding its declared trigger",
+					`func check() {x f32 = 1.0} f32 { return x + sensor }`,
+					`check() -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not activate a head call that reads no channel",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1))
+					Expect(findNodeByType(inter.Nodes, "on").Channels.Read).To(Equal(
+						map[uint32]string{10160: "start"},
+					))
+				},
+				Entry(
+					"a channel input it only writes",
+					`func set(x chan f32) { x = 1.0 }`,
+					`set(out)`,
+				),
+				Entry(
+					"a built-in function with a channel input",
+					"import control\n",
+					`control.set_authority(value=220, channel=out)`,
+				),
+			)
+		})
+
 		Context("Implicit Expression Triggers", func() {
 			It(
 				"Should inject implicit trigger for expression as first flow node",

@@ -10013,6 +10013,79 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Head call that reads a channel", func() {
+		DescribeTable(
+			"runs on each new value of the channel and on no other cycle",
+			func(ctx SpecContext, fn, call string) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 420},
+					"cpu":       {types.F32(), 421},
+					"log":       {types.String(), 422},
+					"other":     {types.F32(), 423},
+					"other_out": {types.F32(), 424},
+				})
+				h := newRuntimeHarness(ctx, fn+`
+    sequence main {
+        stage s1 {
+            `+call+`
+            other -> other_out
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 420, DataType: telem.Uint8T},
+					channels.Digest{Key: 421, DataType: telem.Float32T},
+					channels.Digest{Key: 422, DataType: telem.StringT},
+					channels.Digest{Key: 423, DataType: telem.Float32T},
+					channels.Digest{Key: 424, DataType: telem.Float32T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 420)
+				h.Flush()
+				h.Ingest(421, telem.NewSeriesV[float32](1))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(423, telem.NewSeriesV[float32](9))
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(421, telem.NewSeriesV[float32](2))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 422)).To(Equal([]string{"S1: 1.0", "S1: 2.0"}))
+				Expect(out.Get(424).Series).To(HaveLen(1))
+			},
+			Entry(
+				"no inputs",
+				`func check() { log = f"S1: {cpu:.1f}" }`,
+				`check()`,
+			),
+			Entry(
+				"a literal input",
+				`func check(prefix str) { log = f"{prefix}: {cpu:.1f}" }`,
+				`check("S1")`,
+			),
+			Entry(
+				"a named channel input",
+				`func check(prefix str, x chan f32) { log = f"{prefix}: {x:.1f}" }`,
+				`check(prefix="S1", x=cpu)`,
+			),
+			Entry(
+				"a positional channel input",
+				`func check(prefix str, x chan f32) { log = f"{prefix}: {x:.1f}" }`,
+				`check("S1", cpu)`,
+			),
+			Entry(
+				"a declared trigger that keeps its default",
+				`func check() {offset f32 = 0.0} { log = f"S1: {cpu + offset:.1f}" }`,
+				`check()`,
+			),
+			Entry(
+				"a channel that a called function reads",
+				`func read() f32 { return cpu }
+    func check() { log = f"S1: {read():.1f}" }`,
+				`check()`,
+			),
+		)
+	})
+
 	// An entry node (no incoming edges, no channel reads) fires once per activation.
 	Describe("Entry node one-shot", func() {
 		It(

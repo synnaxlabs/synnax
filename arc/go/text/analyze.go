@@ -1973,7 +1973,8 @@ func headVarReads[T antlr.ParserRuleContext](
 }
 
 // headChannelReads returns the channels a flow head reads, through its own
-// expression or through a call's computed inputs. A constant reads none.
+// expression, a call's computed inputs, or the body of the function it calls. A
+// constant reads none.
 func headChannelReads[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	head antlr.ParserRuleContext,
@@ -1990,9 +1991,56 @@ func headChannelReads[T antlr.ParserRuleContext](
 	if !ok {
 		return reads
 	}
-	for _, arg := range symbol.FunctionArguments(fn) {
+	args := symbol.FunctionArguments(fn)
+	for _, arg := range args {
 		if synth, err := root.GetChildByParserRule(arg.Expr); err == nil {
 			maps.Copy(reads, synth.Channels.Read)
+		}
+	}
+	maps.Copy(reads, calleeChannelReads(ctx, fn, args))
+	return reads
+}
+
+// calleeChannelReads returns the channels that the body of the function fn calls
+// reads. A read through a channel input resolves to the channel its argument names.
+func calleeChannelReads[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fn parser.IFunctionContext,
+	args []symbol.Argument,
+) map[uint32]string {
+	callee, err := ctx.ResolveQualified(parser.FunctionNameParts(fn))
+	if err != nil {
+		return nil
+	}
+	positional := slices.DeleteFunc(
+		slices.Clone(callee.Type.Inputs),
+		func(p types.Param) bool { return p.Name == callee.Trigger.Target },
+	)
+	exprs := make(map[string]parser.IExpressionContext, len(args))
+	for _, arg := range args {
+		if arg.Name != "" {
+			exprs[arg.Name] = arg.Expr
+		} else if arg.Index < len(positional) {
+			exprs[positional[arg.Index].Name] = arg.Expr
+		}
+	}
+	children := callee.Children()
+	reads := make(map[uint32]string, len(callee.Channels.Read))
+	for id, name := range callee.Channels.Read {
+		i := slices.IndexFunc(children, func(c *symbol.Symbol) bool {
+			return c.Kind == symbol.KindInput && uint32(c.ID) == id
+		})
+		if i < 0 {
+			reads[id] = name
+			continue
+		}
+		expr, ok := exprs[children[i].Name]
+		if !ok {
+			continue
+		}
+		argName := parser.GetExpressionText(expr)
+		if arg, err := ctx.Scope.Resolve(ctx, argName); err == nil {
+			reads[channelKey(arg)] = argName
 		}
 	}
 	return reads
@@ -2003,8 +2051,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	isLast := p.currentIndex == p.totalFlowNodes
 	isSink := isLast && flowNode.Identifier() != nil
 
-	// Inject implicit triggers for an expression as the first node. A function
-	// node only has a synthetic when its callee is WASM-only.
+	implicit := false
 	if p.currentIndex == 1 && p.prevNode == nil {
 		var head antlr.ParserRuleContext
 		if expr := flowNode.Expression(); expr != nil {
@@ -2015,6 +2062,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		if head != nil && !p.injectImplicitTriggers(head) {
 			return false
 		}
+		implicit = p.prevNode != nil
 	}
 
 	isFirst := p.prevNode == nil
@@ -2023,6 +2071,10 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	)
 	if !ok {
 		return false
+	}
+	// An implicit trigger activates the head and never feeds a declared trigger.
+	if implicit {
+		result.node.input.Param = ir.DefaultInputParam
 	}
 
 	if result.inlineScope != nil {
@@ -3092,7 +3144,8 @@ func analyzeSingleInvocation(
 		if !ok {
 			return nil, false
 		}
-		targets := []ir.Handle{result.input}
+		// An implicit trigger activates the call and never feeds a declared trigger.
+		targets := []ir.Handle{{Node: result.node.Key, Param: ir.DefaultInputParam}}
 		for _, arg := range result.args {
 			targets = append(targets, ir.Handle{
 				Node:  arg.Key,

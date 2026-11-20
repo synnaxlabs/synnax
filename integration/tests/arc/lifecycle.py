@@ -87,6 +87,37 @@ start_lifecycle_cmd -> positional_after(3.0, lifecycle_pos_after)
 start_lifecycle_cmd -> positional_before(lifecycle_pos_before, 4.0)
 start_lifecycle_cmd -> positional_between(2.0, lifecycle_pos_between, 3.0)
 
+// Calls with no trigger run on each new value of a channel they read.
+func reactive_body() f32 {
+    return lifecycle_react_in
+}
+
+func reactive_literal(gain f32) f32 {
+    return lifecycle_react_in * gain
+}
+
+func reactive_chan(gain f32, src chan f32) f32 {
+    return src * gain
+}
+
+func reactive_bare(gain f32, src chan f32) {
+    lifecycle_react_bare = src * gain
+}
+
+reactive_body() -> lifecycle_react_body
+reactive_literal(2.0) -> lifecycle_react_literal
+reactive_chan(gain=3.0, src=lifecycle_react_in) -> lifecycle_react_named
+reactive_chan(4.0, lifecycle_react_in) -> lifecycle_react_positional
+
+start_lifecycle_cmd => reactive_main
+
+sequence reactive_main {
+    stage run {
+        1 -> lifecycle_react_ready
+        reactive_bare(5.0, lifecycle_react_in)
+    }
+}
+
 sequence main {
     stage press {
         SOME_CONST_1 => const_output
@@ -149,6 +180,15 @@ POSITIONAL_OUTPUTS = {
     "lifecycle_pos_between": 5.0,
 }
 
+# The gain each reactive call applies to lifecycle_react_in, by output channel.
+REACTIVE_GAINS = {
+    "lifecycle_react_body": 1.0,
+    "lifecycle_react_literal": 2.0,
+    "lifecycle_react_named": 3.0,
+    "lifecycle_react_positional": 4.0,
+    "lifecycle_react_bare": 5.0,
+}
+
 
 class Lifecycle(ArcCase, ConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
@@ -166,6 +206,7 @@ class Lifecycle(ArcCase, ConsoleCase):
        yield activation (regression for source node watermark bug)
     9. An Arc reads its own first write on every start
     10. A flow passes a channel to a function by position, alone or among literals
+    11. A call with no trigger runs on each new value of a channel it reads
     """
 
     arc_source = ARC_LIFECYCLE_SOURCE
@@ -181,6 +222,8 @@ class Lifecycle(ArcCase, ConsoleCase):
         "lifecycle_log",
         "signal_stage_log",
         *POSITIONAL_OUTPUTS,
+        *REACTIVE_GAINS,
+        "lifecycle_react_ready",
     ]
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
     collect_notifications = True
@@ -205,6 +248,11 @@ class Lifecycle(ArcCase, ConsoleCase):
             create_virtual_channel(self.client, ch, data_type=sy.DataType.UINT8)
         for ch in POSITIONAL_OUTPUTS:
             create_virtual_channel(self.client, ch)
+        for ch in ("lifecycle_react_in", *REACTIVE_GAINS):
+            create_virtual_channel(self.client, ch)
+        create_virtual_channel(
+            self.client, "lifecycle_react_ready", data_type=sy.DataType.UINT8
+        )
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
@@ -264,6 +312,14 @@ class Lifecycle(ArcCase, ConsoleCase):
         # --- 2a. Verify global constant changed in vent stage ---
         self.log("Verifying SOME_CONST_2 *2 (-99.0) => const_output during vent stage")
         self.wait_for_near("const_output", -99.0, tolerance=0.01)
+
+        # --- 2b. Verify calls with no trigger run on each new value they read ---
+        self.log("Verifying reactive calls with no trigger")
+        self.wait_for_eq("lifecycle_react_ready", 1)
+        for value in (1.0, 2.0):
+            self.writer.write("lifecycle_react_in", value)
+            for channel, gain in REACTIVE_GAINS.items():
+                self.wait_for_near(channel, value * gain, tolerance=0.01)
 
         # --- 3. Regression: stale virtual channel must not trigger re-entry ---
         # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
