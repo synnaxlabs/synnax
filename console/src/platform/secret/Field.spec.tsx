@@ -34,7 +34,7 @@ import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
-import { createSecret } from "@/platform/secret/testutil";
+import { createFileSecret, createSecret } from "@/platform/secret/testutil";
 import { Validity } from "@/platform/secret/validity";
 import {
   awaitGranted,
@@ -355,13 +355,7 @@ describe("Secret.Field", () => {
       client.racks.create({ name: uniqueName("rack") }),
       client.racks.create({ name: uniqueName("rack") }),
     ]);
-    const s = await client.secrets.set({
-      name: uniqueName("file"),
-      source: "file",
-      fileName: "token",
-      rack: own.key,
-    });
-    created.push(s.key);
+    const s = await createFileSecret(client, created, own.key);
     const { setRack } = await renderField(s.key, { rack: own.key });
     const trigger = await findDialogTriggerByText(s.name);
     expect(screen.queryByText("File on another Driver")).toBeNull();
@@ -434,18 +428,13 @@ describe("Secret.Field", () => {
       client.racks.create({ name: uniqueName("rack") }),
     ]);
     const prefix = uniqueName("rack secret");
-    const createFile = async (r: rack.Rack, name: string): Promise<secret.Secret> => {
-      const s = await client.secrets.set({
-        name: `${prefix} ${name}`,
-        source: "file",
-        fileName: "token",
-        rack: r.key,
-      });
-      created.push(s.key);
-      return s;
-    };
-    const onRack = await createFile(own, "own");
-    const offRack = await createFile(other, "other");
+    const onRack = await createFileSecret(client, created, own.key, `${prefix} own`);
+    const offRack = await createFileSecret(
+      client,
+      created,
+      other.key,
+      `${prefix} other`,
+    );
     const stored = await createSecret(client, created);
     await renderField("", { rack: own.key });
     await open("Select a secret");
