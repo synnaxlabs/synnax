@@ -31,7 +31,7 @@ const openModal = async (
   const handle = await renderModalOpener(Channel.useCalculatedModal, [params ?? {}], {
     client,
     analytics,
-    // Monaco cannot run in jsdom, so the expression editor's boundary catches.
+    // The expression editor's boundary catches a Monaco that fails to load.
     onCaughtError: () => {},
   });
   await screen.findByPlaceholderText("Channel name");

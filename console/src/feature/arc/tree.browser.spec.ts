@@ -81,7 +81,7 @@ describe("arc/tree", () => {
       await waitFor(() =>
         expect(row.querySelector(".lyra-icon--module")).not.toBeNull(),
       );
-      fireEvent.dragStart(row);
+      fireEvent.dragStart(row, { dataTransfer: new DataTransfer() });
       const layer = document.querySelector(".lyra-haul__layer");
       expect(layer?.querySelector(".lyra-icon--module")).not.toBeNull();
       expect(layer?.textContent).toBe(`${mod.name}Arc`);
@@ -94,7 +94,9 @@ describe("arc/tree", () => {
         name: uniqueName("sub"),
       });
       await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
-      fireEvent.dragStart(await findTreeRow(sub.name));
+      fireEvent.dragStart(await findTreeRow(sub.name), {
+        dataTransfer: new DataTransfer(),
+      });
       const layer = document.querySelector(".lyra-haul__layer");
       expect(layer?.textContent).toBe(`${sub.name}Directory`);
     });
@@ -124,8 +126,10 @@ describe("arc/tree", () => {
       });
       await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       await findTreeRow(sub.name);
-      fireEvent.dragStart(await findTreeRow(arc.name));
-      fireEvent.drop(getTreeRow(sub.name));
+      fireEvent.dragStart(await findTreeRow(arc.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(sub.name), { dataTransfer: new DataTransfer() });
       await waitFor(async () => {
         const res = await client.arcs.retrieve({ key: arc.key });
         expect(res.directory).toBe(sub.key);
