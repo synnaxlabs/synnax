@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -179,6 +180,29 @@ var _ = Describe("Service", func() {
 				MustSucceed(login(ctx, username, "p"))
 			},
 		)
+		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
+			other := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(other.Run)
+			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: other,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodAPIKey: passwordSvc,
+				},
+			}))
+			noPasswords := MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
+				DB:       db,
+				RBAC:     rbacSvc,
+				User:     userSvc,
+				Password: passwordSvc,
+				Auth:     keysOnly,
+			}))
+			username := "should-not-exist-" + uuid.New().String()
+			Expect(noPasswords.PrepareCreate(rootCtx(ctx), apiuser.CreateRequest{
+				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
+			})).Error().To(MatchError(validate.ErrValidation))
+			Expect(login(ctx, username, "p")).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
 		It("Should name a user after its username by default", func(ctx SpecContext) {
 			username := uuid.New().String()
 			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{

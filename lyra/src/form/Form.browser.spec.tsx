@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { fireEvent, render } from "@testing-library/react";
+import type { PropsWithChildren, ReactElement } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { loadLanguage } from "@/input/time/suggest";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
@@ -261,6 +265,69 @@ describe("Form", () => {
         resolve("var(--pluto-gray-l6)"),
       );
       expect(computed(sections[0], "border-left-style")).toBe("none");
+    });
+  });
+});
+
+describe("Form", () => {
+  describe("TimeSpanField", () => {
+    beforeAll(loadLanguage);
+    const spanSchema = z.object({
+      timeoutMs: z.number(),
+      keepAlive: z.number().optional(),
+    });
+    const span = deep.path<z.infer<typeof spanSchema>>();
+    const SpanForm = (props: PropsWithChildren): ReactElement => {
+      const methods = Form.use<typeof spanSchema>({
+        values: { timeoutMs: 1500, keepAlive: 30 },
+        schema: spanSchema,
+      });
+      return <Form.Form<typeof spanSchema> {...methods}>{props.children}</Form.Form>;
+    };
+    const edit = (input: HTMLElement, value: string): void => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+
+    it("should show and store the number in its unit", () => {
+      const c = render(
+        <Form.TimeSpanField path={span.timeoutMs} unit={TimeSpan.MILLISECOND} />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      edit(input, "250");
+      expect(c.getByDisplayValue("250ms")).toBeTruthy();
+    });
+
+    it("should name the bound a span crosses", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.timeoutMs}
+          label="Timeout"
+          unit={TimeSpan.MILLISECOND}
+          bounds={{ upper: TimeSpan.MINUTE }}
+        />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "5min" } });
+      expect(c.getByText("Timeout must be 1min or less")).toBeTruthy();
+    });
+
+    it("should store undefined when an emptiable field is emptied", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.keepAlive}
+          unit={TimeSpan.SECOND}
+          emptiable
+          inputProps={{ placeholder: "30s" }}
+        />,
+        { wrapper: SpanForm },
+      );
+      edit(c.getByDisplayValue("30s"), "");
+      expect(c.getByPlaceholderText("30s")).toHaveProperty("value", "");
     });
   });
 });

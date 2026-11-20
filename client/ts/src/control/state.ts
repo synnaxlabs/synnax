@@ -10,7 +10,7 @@
 import { control } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { keyZ } from "@/channel/types.gen";
 
 /** How strongly a writer claims a channel. The highest authority holds control. */

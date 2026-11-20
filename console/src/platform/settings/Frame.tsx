@@ -20,7 +20,7 @@ import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { useCardBackground } from "@/platform/settings/background";
-import { type Group } from "@/platform/settings/section";
+import type { Group } from "@/platform/settings/section";
 import { Session } from "@/session";
 
 const useVisibleGroups = (groups: Group[]): Group[] => {

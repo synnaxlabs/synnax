@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux, ICD as PICD } from "@synnaxlabs/pluto";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useSyncExternalStore } from "react";
 
-import { type ReadSource } from "@/platform/icd/read";
+import type { ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>

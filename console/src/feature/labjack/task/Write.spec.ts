@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import type { Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
 import {
@@ -45,10 +45,13 @@ const chooseType = async (index: number, type: "Analog" | "Digital") => {
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(LabJack.Task.Write, {
-    task: ZERO_DRAFT,
-    ...options,
-  });
+  const rendered = await renderTaskFormTab(
+    LabJack.Task.FORMS[LabJack.Task.WRITE_TYPE],
+    {
+      task: ZERO_DRAFT,
+      ...options,
+    },
+  );
   await awaitEditableForm();
   return rendered;
 };

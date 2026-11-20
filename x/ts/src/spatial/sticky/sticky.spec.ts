@@ -10,9 +10,9 @@
 import { describe, expect, test } from "vitest";
 
 import { box } from "@/spatial/box";
-import { type location } from "@/spatial/location";
+import type { location } from "@/spatial/location";
 import { sticky } from "@/spatial/sticky";
-import { type xy } from "@/spatial/xy";
+import type { xy } from "@/spatial/xy";
 
 describe("sticky", () => {
   describe("toCSS", () => {

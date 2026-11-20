@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource } from "@synnaxlabs/client";
+import type { resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as Base } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Resource } from "@synnaxlabs/pluto";
 import { record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Palette } from "@/platform/palette";
-import { type Search } from "@/platform/search";
+import type { Search } from "@/platform/search";
 
 const emptyContent = (
   <Text.Text status="disabled" center level="h4">

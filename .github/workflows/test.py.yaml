@@ -82,6 +82,13 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 # The test services pull their images from GHCR.
 permissions:
   contents: read
@@ -113,12 +120,15 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.directory }}
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -193,9 +203,10 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Only the Linux runners start a Core, so the others skip the tests that need one.
+      # Only the Linux runners start a Core, and not for a fork, so the others skip the
+      # tests that need one.
       - name: Skip the tests that need a Core
-        if: runner.os != 'Linux' && inputs.core_image != ''
+        if: inputs.core_image != '' && (runner.os != 'Linux' || env.FORK == 'true')
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
 

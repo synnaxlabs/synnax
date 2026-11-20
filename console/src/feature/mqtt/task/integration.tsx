@@ -9,10 +9,12 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { EdgeSelectable } from "@/feature/mqtt/task/Edge";
-import { ReadSelectable } from "@/feature/mqtt/task/Read";
+import {
+  EdgeSelectable,
+  ReadSelectable,
+  WriteSelectable,
+} from "@/feature/mqtt/task/create";
 import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/mqtt/task/types";
-import { WriteSelectable } from "@/feature/mqtt/task/Write";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>

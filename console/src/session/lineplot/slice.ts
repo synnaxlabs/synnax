@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type lineplot } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { lineplot } from "@synnaxlabs/client";
+import type { Drift } from "@synnaxlabs/drift";
 import { Viewport } from "@synnaxlabs/pluto";
 import { lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { array, box, deep, dimensions, xy } from "@synnaxlabs/x";
@@ -180,7 +180,7 @@ export const { actions, reducer } = createSlice({
     ),
     setControlHold: withSelectedState<SetControlHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
-        state.control.hold = hold !== undefined ? hold : !state.control.hold;
+        state.control.hold = hold ?? !state.control.hold;
       },
     ),
     toggleControlClickMode: withSelectedState<
@@ -193,8 +193,7 @@ export const { actions, reducer } = createSlice({
       SetControlEnableTooltipPayload,
       SliceState
     >((state, { payload: { enabled } }) => {
-      state.control.enableTooltip =
-        enabled !== undefined ? enabled : !state.control.enableTooltip;
+      state.control.enableTooltip = enabled ?? !state.control.enableTooltip;
     }),
     setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
       (state, { payload: { mode } }) => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -27,6 +27,7 @@ import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
+import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
   isIndexable,
@@ -36,7 +37,6 @@ import {
   reindex,
   type TreeField,
   treeFieldOf,
-  variableAmongFixed,
 } from "@/platform/icd/read";
 import {
   fieldKey,
@@ -173,13 +173,20 @@ const FieldItem = ({
   const bindingsPath = path.messages[read].bindings;
   const bindings = PForm.useFieldValue(bindingsPath);
   const sourceOff = PForm.useFieldValue(path.disabled);
+  const plan = usePlan(path, read);
   const i = bindings.findIndex(({ field: key }) => key === field.key);
+  const replaced =
+    i >= 0 &&
+    bindings[i].channel !== 0 &&
+    plan != null &&
+    Task.newChannelName(plan.channels, field.key) != null;
   return (
     <Task.Views.TreeFieldItem
       {...props}
       label={field.name}
       emptyLabel="Unnamed field"
       channel={i < 0 ? null : bindingsPath[i].channel}
+      replaced={replaced}
       off={i < 0}
       skipped={i < 0 || sourceOff}
     >
@@ -323,7 +330,6 @@ export const use = <S extends Source>({
     if (source.icd === icdKey && prior.message === message.key) return;
     const fields = jsonFields(message);
     const readable = fields.filter(isReadable);
-    const mixed = new Set(variableAmongFixed(readable));
     const timestamps = fields.filter(({ type }) => type === "timestamp");
     const index =
       timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
@@ -346,8 +352,7 @@ export const use = <S extends Source>({
     ctx.batch(() => {
       ctx.set(path.icd, icdKey);
       ctx.set(path.messages, [{ message: message.key, bindings: [] }]);
-      for (const field of readable)
-        if (!mixed.has(field)) read(sourceKey, 0, treeFieldOf(field), true);
+      for (const field of readable) read(sourceKey, 0, treeFieldOf(field), true);
       if (index != null)
         ctx.set(
           path.messages[0],

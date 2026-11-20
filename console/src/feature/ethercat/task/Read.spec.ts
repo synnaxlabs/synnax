@@ -19,12 +19,12 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -89,14 +89,17 @@ const createDraft = async (
 const renderRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
-  const rendered = await renderTaskFormTab(EtherCAT.Task.Read, {
-    client,
-    taskKey: draft.key,
-    onStatuses: (next) => {
-      statuses.length = 0;
-      statuses.push(...next);
+  const rendered = await renderTaskFormTab(
+    EtherCAT.Task.FORMS[EtherCAT.Task.READ_TYPE],
+    {
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => {
+        statuses.length = 0;
+        statuses.push(...next);
+      },
     },
-  });
+  );
   await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
@@ -2915,7 +2918,11 @@ describe("Read channel usage", () => {
         group.TYPE_RESOURCE_ID,
       ],
     });
-    await renderTaskFormTab(EtherCAT.Task.Read, { client, as, taskKey: draft.key });
+    await renderTaskFormTab(EtherCAT.Task.FORMS[EtherCAT.Task.READ_TYPE], {
+      client,
+      as,
+      taskKey: draft.key,
+    });
     expect(
       await screen.findByText("Start creates 2 channels and 1 time channel."),
     ).toBeTruthy();

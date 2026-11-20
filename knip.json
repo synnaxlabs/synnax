@@ -67,15 +67,20 @@
         "src/cli/{batch,clean,film,gallery,mail,produce,upload}.ts!",
         "src/remotion/entry.ts!"
       ],
-      "project": ["{src,scripts,films}/**/*.{ts,tsx}!"],
-      "ignoreBinaries": ["uv"]
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}!"]
     },
     "site/common": {
       "entry": ["src/**/*.{astro,ts}!"],
       "project": ["src/**/*.{ts,astro}!"]
     },
     "site/docs": {
-      "entry": ["src/**/*.astro!", "src/**/*.tsx!", "src/**/*.ts!"],
+      "entry": [
+        "src/**/*.astro!",
+        "src/**/*.tsx!",
+        "src/**/*.ts!",
+        "src/docs/**/*.mdx!",
+        "src/releases/*.mdx!"
+      ],
       "project": ["src/**/*.{ts,tsx,astro,mdx}!"]
     },
     "site/foundation": {

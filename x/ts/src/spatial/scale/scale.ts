@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { math } from "@/math";
-import { type numeric } from "@/numeric";
+import type { numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
-import { type dimensions } from "@/spatial/dimensions";
+import type { dimensions } from "@/spatial/dimensions";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
 
@@ -241,8 +241,7 @@ export class Scale<T extends numeric.Value = number> {
       swaps.push([i, nextScale]);
     });
     swaps.forEach(([low, high]) => {
-      const s = ops.slice(low, high);
-      s.unshift(ops[high]);
+      const s = [...ops.slice(high, high + 1), ...ops.slice(low, high)];
       ops.splice(low, high - low + 1, ...s);
     });
     return new Scale<T>(ops, !this.reversed);

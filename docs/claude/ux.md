@@ -68,6 +68,9 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+A user adds a series color in Settings, where they set its value. The Series palette in
+a color picker has no "+".
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -279,6 +282,11 @@ bound, a log precision, or the line plot X channel.
 - Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
   next to the start button. Each shows its icon and "On" or "Off", and its tooltip names
   the setting. They stay, read-only, when the footer hides the start button.
+- A deploy that fails before its start command goes out shows in the task footer, not
+  only in a toast, until the next deploy or a new task status. On a running task the
+  message is "Failed to deploy changes", and the footer description starts with "The
+  task still runs its last deployed config." Rejected: "Failed to start task" there,
+  which reads as if the task stopped.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as
@@ -334,6 +342,26 @@ bound, a log precision, or the line plot X channel.
   confirmations, errors, and tooltips.
 - A number never clips, because a clipped number reads as a different valid number.
 - A flex child that holds cut text needs `min-width: 0`.
+
+### Shared items
+
+- A shared item is a record that many places use: a named color, an enumeration, a
+  label, or an ICD message.
+- A user never needs to leave the field to create or edit a shared item. Settings is
+  still a full editor for every type: create, edit, find, and delete, and, where the
+  type supports them, see what uses an item and Replace with.
+- Each type has one editor. The field and Settings open the same editor.
+- The field's picker creates in place, as every select of things users make does. A
+  group in the picker, such as a palette, ends with a "+" text button that adds an item
+  to that group. The Series palette is the one exception: it has no "+", because a user
+  adds a series color in Settings.
+- A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
+  key open it on a focused item. Edit opens the type's editor in place. A picker has no
+  hover edit button.
+- A user without create access sees no create item and no "+". A user without update
+  access gets no menu.
+- An edit reaches every user of the item. When other places use the item and the Core
+  can list them, the editor shows "Used by N".
 
 ### Pickers
 
@@ -519,12 +547,19 @@ bound, a log precision, or the line plot X channel.
 
 - An explorer has two bars. The first holds the search, then the views. The second holds
   Filter and its chips on the left, and the sort, layouts, and Create on the right.
-- The search is 270 px wide. A hairline that runs the full height of the bar separates
-  it from the views. Its icon is above the Filter icon.
+- The search is 40% of the bar, from 156 to 270 px. A hairline that runs the full height
+  of the bar separates it from the views. Its icon is above the Filter icon. While it
+  holds a term, a close button ends it, and so does Esc.
 - Both bars sit in one island: an l1 card with an l5 border and the large radius, inset
   6 px from the top and 9 px from the sides of the panel. An l4 line separates the two
   bars. The second bar's controls are 28 px with 13 px text.
 - Each bar is 42 px (7rem) tall. The filter bar grows when its chips wrap.
+- A narrow explorer never pushes a control out of the island. Below 900 px the chips
+  take their own line under Filter and the actions. A chip wider than its line cuts its
+  value first, then its other parts, and fades each cut. Below 528 px the layouts show
+  only their icons, below 372 px the sort does, and below 282 px Filter does. Each one
+  is then a square with a tooltip that names it. Below 420 px the search folds to its
+  icon, and a press opens it over the views until it loses the focus with no term.
 - The bars have no edit toggle. The search shows on every view. On a static view, and on
   a saved view that the user may update, the user changes the filters, the sort, and the
   layout. Other saved views show the filter chips, the sort, and the layout read-only.
@@ -605,6 +640,13 @@ bound, a log precision, or the line plot X channel.
 - A button beside a field, such as a create button or "Set password", goes under the
   field when the field has less than 30rem.
 - The Profile name field is at most 50rem wide. The license stats stack below 96rem.
+
+### Carets
+
+- A caret at the start of an item opens the item's own content in place, such as a
+  range's children or an enumeration's entries.
+- A caret at the end of a bar opens or closes a group of items, such as a palette
+  (`Header.Group`).
 
 ### Group headings
 
@@ -699,6 +741,9 @@ bound, a log precision, or the line plot X channel.
 - A channel that deploying will create shows the name deploying gives it, from the
   function that deploy uses. "No channel" in gray is only for a channel whose name
   cannot be known yet.
+- A typed channel name that deploying will number, because another channel holds it,
+  keeps its text. The field's help text gives the name that deploying uses: "Saves as
+  pressure_2". A free typed name shows no help text.
 - A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
   list, its tooltip says that deploying skips it.
 - A missing channel shows the name deploying will use, and a rename edits that name. Its
@@ -739,6 +784,11 @@ bound, a log precision, or the line plot X channel.
 
 ### Table input
 
+- A table input holds plain values that belong to one record or field: an open list in a
+  few short columns, such as headers, enumeration entries, or scale points.
+- A record, with its own name, menu, or uses, goes in a record table. A fixed set of
+  values is a set of fields on one line, such as host and port. A value with more fields
+  than fit in a cell goes in a list with a details pane, as in MQTT read.
 - A ruled grid: the cells join into one box with shared lines, and headings sit in the
   box. Row labels and remove buttons sit outside it. A cell draws its border on the grid
   line, so focus and hover frame the whole cell.
@@ -854,6 +904,8 @@ says why in a sentence, then gives the raw error.
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,
   focus goes back to where it was.
+- In a field that commits on blur, Enter or a blur commits the typed text. Esc discards
+  it and puts back the stored value.
 - Dialogs, drawers, and dropdown lists set `overscroll-behavior: contain`.
 - An empty state has one primary action, named as a verb and a noun ("Create channel").
 

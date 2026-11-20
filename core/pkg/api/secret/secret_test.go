@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -34,18 +33,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
 	secretType      = resource.ID{Type: resource.TypeSecret}
 	deviceType      = resource.ID{Type: resource.TypeDevice}
 	certificateType = resource.ID{Type: resource.TypeCertificate}
+	rackType        = resource.ID{Type: resource.TypeRack}
 	all             = access.AllActions
 )
 
@@ -110,6 +113,9 @@ var _ = Describe("ServiceConfig", func() {
 		return apisecret.ServiceConfig{
 			Secret: &secret.Service{},
 			RBAC:   &rbac.Service{},
+			Task:   &task.Service{},
+			Rack:   &rack.Service{},
+			DB:     &gorp.DB{},
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
@@ -122,6 +128,12 @@ var _ = Describe("ServiceConfig", func() {
 			"secret: must be non-nil"),
 		Entry("rbac", func(c *apisecret.ServiceConfig) { c.RBAC = nil },
 			"rbac: must be non-nil"),
+		Entry("task", func(c *apisecret.ServiceConfig) { c.Task = nil },
+			"task: must be non-nil"),
+		Entry("rack", func(c *apisecret.ServiceConfig) { c.Rack = nil },
+			"rack: must be non-nil"),
+		Entry("db", func(c *apisecret.ServiceConfig) { c.DB = nil },
+			"db: must be non-nil"),
 	)
 	It("Should take the other config's services when set", func() {
 		cfg := full()
@@ -129,6 +141,9 @@ var _ = Describe("ServiceConfig", func() {
 		merged := apisecret.ServiceConfig{}.Override(cfg)
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+		Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+		Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
+		Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 	})
 })
 
@@ -138,6 +153,12 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
+				allow(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					rackType,
+				)
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apisecret.SetRequest{Secrets: []apisecret.Input{
 						{
@@ -145,13 +166,20 @@ var _ = Describe("Service", func() {
 							Name:   "Password",
 							Value:  "hunter2",
 						},
-						{Source: secret.SourceFile, Name: "Key", FileName: "k.pem"},
+						{
+							Source:   secret.SourceFile,
+							Name:     "Key",
+							FileName: "k.pem",
+							Rack:     svc.Rack.EmbeddedKey,
+						},
 					}},
 				))
 				Expect(res.Secrets).To(HaveLen(2))
 				Expect(res.Secrets[0].Base().Key).ToNot(Equal(uuid.Nil()))
-				Expect(retrieveSecret(ctx, res.Secrets[1].Base().Key).Variant).
-					To(BeAssignableToTypeOf(secret.FileSecret{}))
+				file, ok := retrieveSecret(ctx, res.Secrets[1].Base().Key).
+					Variant.(secret.FileSecret)
+				Expect(ok).To(BeTrue())
+				Expect(file.Rack).To(Equal(svc.Rack.EmbeddedKey))
 				encoded := string(MustSucceed(json.Marshal(res)))
 				Expect(encoded).ToNot(ContainSubstring("value"))
 				Expect(encoded).ToNot(ContainSubstring("hunter2"))
@@ -198,6 +226,16 @@ var _ = Describe("Service", func() {
 				"file_name: must be empty for a stored secret",
 			),
 			Entry(
+				"a stored secret with a rack",
+				apisecret.Input{
+					Source: secret.SourceStored,
+					Name:   "A",
+					Value:  "v",
+					Rack:   1,
+				},
+				"rack: must be empty for a stored secret",
+			),
+			Entry(
 				"a file secret with a value",
 				apisecret.Input{
 					Source:   secret.SourceFile,
@@ -208,6 +246,24 @@ var _ = Describe("Service", func() {
 				"value: must be empty for a file secret",
 			),
 		)
+		It("Should deny a file secret on a rack the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			allow(ctx, u.ResourceID(), all, secretType)
+			Expect(set(AuthedCtx(ctx, u),
+				apisecret.SetRequest{Secrets: []apisecret.Input{{
+					Source:   secret.SourceFile,
+					Name:     "Key",
+					FileName: "k.pem",
+					Rack:     svc.Rack.EmbeddedKey,
+				}}},
+			)).Error().To(MatchError(
+				u.ResourceID().String() + " cannot retrieve " +
+					svc.Rack.EmbeddedKey.ResourceID().String() +
+					": access denied: auth error",
+			))
+		})
 		It("Should deny a user without create access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			Expect(set(AuthedCtx(ctx, u),
@@ -250,6 +306,12 @@ var _ = Describe("Service", func() {
 			It(
 				"Should let a user without update access create new secrets",
 				func(ctx SpecContext) {
+					allow(
+						ctx,
+						u.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						rackType,
+					)
 					key := uuid.New()
 					res := MustSucceed(set(AuthedCtx(ctx, u),
 						apisecret.SetRequest{Secrets: []apisecret.Input{
@@ -259,6 +321,7 @@ var _ = Describe("Service", func() {
 								Source:   secret.SourceFile,
 								Name:     "Keyed",
 								FileName: "k",
+								Rack:     svc.Rack.EmbeddedKey,
 							},
 						}},
 					))
@@ -560,7 +623,34 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Grants and Resolve", func() {
-		rk := rack.Key(7)
+		var (
+			rk  rack.Key
+			t   task.Task
+			cmd task.Command
+		)
+		createTask := func(ctx SpecContext, rk rack.Key) task.Task {
+			GinkgoHelper()
+			t := task.Task{
+				Type:   sift.ScanTaskType,
+				Rack:   rk,
+				Name:   "Scanner",
+				Config: msgpack.EncodedJSON{"rate": 1},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			return t
+		}
+		BeforeEach(func(ctx SpecContext) {
+			rk = svc.Rack.EmbeddedKey
+			t = createTask(ctx, rk)
+			cmd = task.Command{
+				Task: t.Key,
+				Type: "test_connection",
+				Key:  "cmd",
+				Args: msgpack.EncodedJSON{"host": "plc"},
+			}
+		})
 		allowGrants := func(ctx SpecContext, u user.User) {
 			GinkgoHelper()
 			allow(ctx, u.ResourceID(), []access.Action{access.ActionCreate}, deviceType)
@@ -571,66 +661,114 @@ var _ = Describe("Service", func() {
 				secretType,
 			)
 		}
-		grant := func(
-			ctx freighter.Context,
-			keys ...secret.Key,
-		) apisecret.GrantCreateResponse {
+		grantReq := func(keys ...secret.Key) apisecret.GrantCreateRequest {
+			return apisecret.GrantCreateRequest{
+				Subject: rk.ResourceID(),
+				Secrets: keys,
+				Command: cmd,
+			}
+		}
+		grantSecrets := func(ctx SpecContext, keys ...secret.Key) grant.Key {
 			GinkgoHelper()
-			return MustSucceed(
-				createGrant(ctx, apisecret.GrantCreateRequest{
-					Subject: rk.ResourceID(),
-					Secrets: keys,
-				}),
-			)
+			u := createUser(ctx)
+			allowGrants(ctx, u)
+			uCtx := SubjectCtx(ctx, u.ResourceID())
+			return MustSucceed(createGrant(uCtx, grantReq(keys...))).Grant
 		}
 
-		It("Should let the rack resolve the granted secrets in request order",
+		It("Should return the stored command and the values of the granted secrets",
 			func(ctx SpecContext) {
-				u := createUser(ctx)
-				allowGrants(ctx, u)
 				a := createSecret(ctx, "A", "first")
 				b := createSecret(ctx, "B", "second")
-				keys := []secret.Key{b.Base().Key, a.Base().Key}
-				uCtx := SubjectCtx(ctx, u.ResourceID())
-				res := grant(uCtx, keys...)
-				values := MustSucceed(resolve(SubjectCtx(ctx, rk.ResourceID()),
-					apisecret.ResolveRequest{Keys: keys, Grant: res.Grant},
+				g := grantSecrets(ctx, a.Base().Key, b.Base().Key)
+				res := MustSucceed(resolve(SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{Grant: g, Task: t.Key},
 				))
-				Expect(values.Values).To(Equal([]apisecret.Value{
-					{Key: b.Base().Key, Value: "second"},
-					{Key: a.Base().Key, Value: "first"},
-				}))
+				Expect(res.Command).To(Equal(cmd))
+				Expect(res.Secrets).To(Equal([]secret.Key{a.Base().Key, b.Base().Key}))
+				Expect(res.Values).To(ConsistOf(
+					apisecret.Value{Key: a.Base().Key, Value: "first"},
+					apisecret.Value{Key: b.Base().Key, Value: "second"},
+				))
 			},
 		)
 		It("Should let the rack resolve a grant only once", func(ctx SpecContext) {
-			u := createUser(ctx)
-			allowGrants(ctx, u)
-			s := createSecret(ctx, "A", "v")
-			uCtx := SubjectCtx(ctx, u.ResourceID())
-			res := grant(uCtx, s.Base().Key)
-			req := apisecret.ResolveRequest{
-				Keys:  []secret.Key{s.Base().Key},
-				Grant: res.Grant,
-			}
+			g := grantSecrets(ctx, createSecret(ctx, "A", "v").Base().Key)
+			req := apisecret.ResolveRequest{Grant: g, Task: t.Key}
 			rCtx := SubjectCtx(ctx, rk.ResourceID())
 			MustSucceed(resolve(rCtx, req))
 			Expect(resolve(rCtx, req)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring(
-					"grant "+res.Grant.String()+" has ended or does not exist",
+					"grant "+g.String()+" has ended or does not exist",
 				)),
 			))
 		})
+		It("Should deny a resolve for another task and spend the grant",
+			func(ctx SpecContext) {
+				g := grantSecrets(ctx, createSecret(ctx, "A", "v").Base().Key)
+				rCtx := SubjectCtx(ctx, rk.ResourceID())
+				other := createTask(ctx, rk)
+				Expect(resolve(rCtx, apisecret.ResolveRequest{
+					Grant: g,
+					Task:  other.Key,
+				})).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"grant is not for task "+other.Key.String(),
+					)),
+				))
+				Expect(resolve(rCtx, apisecret.ResolveRequest{
+					Grant: g,
+					Task:  t.Key,
+				})).Error().To(MatchError(ContainSubstring(
+					"grant " + g.String() + " has ended or does not exist",
+				)))
+			},
+		)
+		It("Should refuse a grant whose task is on another rack",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				cmd.Task = createTask(ctx, other.Key).Key
+				u := createUser(ctx)
+				allowGrants(ctx, u)
+				s := createSecret(ctx, "A", "v")
+				Expect(createGrant(
+					SubjectCtx(ctx, u.ResourceID()),
+					grantReq(s.Base().Key),
+				)).Error().To(SatisfyAll(
+					BeAssignableToTypeOf(validate.PathError{}),
+					MatchError(ContainSubstring("command.task: ")),
+					MatchError(ContainSubstring(
+						"is not on "+rk.ResourceID().String(),
+					)),
+				))
+			},
+		)
+		It("Should return not found for a grant to a missing task",
+			func(ctx SpecContext) {
+				cmd.Task = uuid.New()
+				u := createUser(ctx)
+				allowGrants(ctx, u)
+				s := createSecret(ctx, "A", "v")
+				Expect(createGrant(
+					SubjectCtx(ctx, u.ResourceID()),
+					grantReq(s.Base().Key),
+				)).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 		It("Should deny a grant to a user who cannot create devices",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
 				s := createSecret(ctx, "A", "v")
-				uCtx := SubjectCtx(ctx, u.ResourceID())
-				Expect(createGrant(uCtx, apisecret.GrantCreateRequest{
-					Subject: rk.ResourceID(),
-					Secrets: []secret.Key{s.Base().Key},
-				})).Error().To(MatchError(access.ErrDenied))
+				Expect(createGrant(
+					SubjectCtx(ctx, u.ResourceID()),
+					grantReq(s.Base().Key),
+				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It("Should deny a grant of a secret the user cannot retrieve",
@@ -643,20 +781,17 @@ var _ = Describe("Service", func() {
 					deviceType,
 				)
 				s := createSecret(ctx, "A", "v")
-				uCtx := SubjectCtx(ctx, u.ResourceID())
-				Expect(createGrant(uCtx, apisecret.GrantCreateRequest{
-					Subject: rk.ResourceID(),
-					Secrets: []secret.Key{s.Base().Key},
-				})).Error().To(MatchError(access.ErrDenied))
+				Expect(createGrant(
+					SubjectCtx(ctx, u.ResourceID()),
+					grantReq(s.Base().Key),
+				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It("Should deny a grant to a rack", func(ctx SpecContext) {
 			s := createSecret(ctx, "A", "v")
-			Expect(createGrant(SubjectCtx(ctx, rk.ResourceID()),
-				apisecret.GrantCreateRequest{
-					Subject: rk.ResourceID(),
-					Secrets: []secret.Key{s.Base().Key},
-				},
+			Expect(createGrant(
+				SubjectCtx(ctx, rk.ResourceID()),
+				grantReq(s.Base().Key),
 			)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring("only a user can grant secrets")),
@@ -667,23 +802,116 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
-				s := createSecret(ctx, "A", "v")
 				Expect(resolve(AuthedCtx(ctx, u),
-					apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
+					apisecret.ResolveRequest{Grant: uuid.New(), Task: t.Key},
 				)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
 					MatchError(ContainSubstring("only a rack can resolve secrets")),
 				))
 			},
 		)
-		It("Should deny resolve without a grant", func(ctx SpecContext) {
-			s := createSecret(ctx, "A", "v")
-			Expect(resolve(SubjectCtx(ctx, rk.ResourceID()),
-				apisecret.ResolveRequest{Keys: []secret.Key{s.Base().Key}},
-			)).Error().To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring("has ended or does not exist")),
-			))
+		DescribeTable("Should refuse a wrong mix of grant, task, and secrets",
+			func(ctx SpecContext, req apisecret.ResolveRequest, msg string) {
+				Expect(resolve(SubjectCtx(ctx, rk.ResourceID()), req)).Error().
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError(ContainSubstring(msg)),
+					))
+			},
+			Entry("a grant without a task",
+				apisecret.ResolveRequest{Grant: uuid.New()},
+				"task: required with a grant",
+			),
+			Entry("a grant with secrets",
+				apisecret.ResolveRequest{
+					Grant:   uuid.New(),
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"secrets: must be empty with a grant",
+			),
+			Entry("no grant and no secrets",
+				apisecret.ResolveRequest{},
+				"secrets: required without a grant",
+			),
+			Entry("a task without a grant",
+				apisecret.ResolveRequest{
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"task: must be empty without a grant",
+			),
+		)
+	})
+
+	Describe("Resolve without a grant", func() {
+		var routingKey secret.Secret
+		BeforeEach(func(ctx SpecContext) {
+			routingKey = createSecret(ctx, "Routing key", "rk")
+			t := task.Task{
+				Type: pagerduty.AlertTaskType,
+				Rack: svc.Rack.EmbeddedKey,
+				Name: "Alerts",
+				Config: msgpack.EncodedJSON{
+					"routing_key": routingKey.Base().Key.String(),
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 		})
+		It("Should return the value of a secret that a task on the rack uses",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				res := MustSucceed(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				))
+				Expect(res.Command).To(Equal(task.Command{}))
+				Expect(res.Values).To(Equal([]apisecret.Value{
+					{Key: routingKey.Base().Key, Value: "rk"},
+				}))
+			},
+		)
+		It("Should deny a secret that only a task on another rack uses",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Expect(resolve(
+					SubjectCtx(ctx, other.Key.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"no device or task on "+other.Key.ResourceID().String()+
+							" uses secret "+routingKey.Base().Key.String(),
+					)),
+				))
+			},
+		)
+		It("Should deny a secret that nothing uses, with the used one",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				unused := createSecret(ctx, "Unused", "u")
+				Expect(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{Secrets: []secret.Key{
+						routingKey.Base().Key,
+						unused.Base().Key,
+					}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"uses secret "+unused.Base().Key.String(),
+					)),
+				))
+			},
+		)
 	})
 })

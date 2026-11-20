@@ -18,7 +18,7 @@ import {
   mockLogSourceSpec,
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
-import { type LogEntry } from "@/log/aether/telem/types";
+import type { LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { render } from "@/vis/render";

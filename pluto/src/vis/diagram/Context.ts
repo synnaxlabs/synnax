@@ -9,7 +9,7 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
 
 export interface ContextValue {

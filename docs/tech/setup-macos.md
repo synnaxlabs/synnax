@@ -148,7 +148,7 @@ curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12 sh -
 Open a new shell, then install Node.js with
 
 ```zsh
-pnpm runtime set node 24 -g
+pnpm runtime set node 26 -g
 ```
 
 Verify both installations by running
@@ -160,8 +160,8 @@ pnpm --version && node --version
 The output should look something like
 
 ```text
-12.14.0
-v24.22.0
+12.21.0
+v26.13.1
 ```
 
 pnpm reads the versions this repository needs from the `devEngines` field in the root

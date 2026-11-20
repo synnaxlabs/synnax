@@ -19,6 +19,7 @@ import { aether } from "@/aether/aether";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 // React Flow resizes a node by pointer drags that jsdom cannot run, so the spec calls
@@ -47,7 +48,7 @@ const state = z.object({}).loose();
 // Stands in for the state indicator worker component.
 class StubStateIndicator extends aether.Leaf<typeof state> {
   static readonly TYPE = "StateIndicator";
-  schema = state;
+  override schema = state;
 }
 
 describe("StateIndicator.Symbol", () => {
@@ -86,19 +87,12 @@ describe("StateIndicator.Symbol", () => {
   });
 });
 
-// Stands in for the state indicator worker component and reports its source as stale.
-class StaleStateIndicator extends aether.Leaf<typeof stateIndicator.stateZ> {
-  static readonly TYPE = stateIndicator.StateIndicator.TYPE;
-  schema = stateIndicator.stateZ;
-
-  afterUpdate(): void {
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
-
 const StaleWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { [StaleStateIndicator.TYPE]: StaleStateIndicator },
+  additionalRegistry: stalenessTest.createRegistry(
+    stateIndicator.StateIndicator.TYPE,
+    stateIndicator.stateZ,
+  ),
   telemFactories: [],
 });
 

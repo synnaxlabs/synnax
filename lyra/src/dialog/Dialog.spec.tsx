@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { PORTAL_ID_ATTR, PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
+import { Portal } from "@/portal";
 import { Triggers } from "@/triggers";
 
 const rect = (left: number, top: number, width: number, height: number) =>
@@ -270,6 +271,41 @@ describe("Dialog", () => {
         expect(c.getByText("Content")).toBeTruthy();
         expect(c.getByRole("dialog")).toBeTruthy();
         expect(c.getByRole("dialog").classList).toContain(`lyra--${variant}`);
+      });
+    });
+  });
+  describe("portal target", () => {
+    const VARIANTS: Dialog.Variant[] = ["floating", "modal"];
+    VARIANTS.forEach((variant) => {
+      it(`should portal a ${variant} dialog into the root element by default`, () => {
+        const root = document.createElement("div");
+        root.id = "root";
+        document.body.appendChild(root);
+        const c = render(
+          <Triggers.Provider>
+            <Dialog.Frame variant={variant} initialVisible>
+              <Dialog.Dialog>Content</Dialog.Dialog>
+            </Dialog.Frame>
+          </Triggers.Provider>,
+        );
+        expect(root.contains(c.getByRole("dialog"))).toBe(true);
+        root.remove();
+      });
+
+      it(`should portal a ${variant} dialog into a Portal.Target`, () => {
+        const target = document.createElement("div");
+        document.body.appendChild(target);
+        const c = render(
+          <Triggers.Provider>
+            <Portal.Target element={target}>
+              <Dialog.Frame variant={variant} initialVisible>
+                <Dialog.Dialog>Content</Dialog.Dialog>
+              </Dialog.Frame>
+            </Portal.Target>
+          </Triggers.Provider>,
+        );
+        expect(target.contains(c.getByRole("dialog"))).toBe(true);
+        target.remove();
       });
     });
   });

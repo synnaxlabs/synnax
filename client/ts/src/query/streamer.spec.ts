@@ -8,17 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import { DataType, disposable, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
 class MockHardenedStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
   readonly closeVi = vi.fn();

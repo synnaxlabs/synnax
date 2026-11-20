@@ -16,18 +16,17 @@ import copy
 import json
 import sys
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from datetime import datetime
 from itertools import islice
 from types import UnionType
 from typing import (
     Any,
-    Generic,
+    Final,
     NoReturn,
     Protocol,
     TypeAlias,
     TypeIs,
-    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -61,10 +60,6 @@ SampleValue: TypeAlias = (
     np.number | np.bool_ | uuid.UUID | TimeStamp | bytes | JsonValue
 )
 """A sample of a series whose data type is known only at runtime."""
-
-T = TypeVar("T", bound=SampleValue, covariant=True, default=SampleValue)
-U = TypeVar("U", bound=SampleValue)
-_N = TypeVar("_N", bound=np.number | np.bool_)
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -108,23 +103,21 @@ def _iter_variable(data: bytes) -> Iterator[bytes]:
     return (data[start:end] for start, end in _variable_spans(data))
 
 
-class _Codec(Protocol[T]):
+class _Codec[T](Protocol):
     def get(self, data: bytes, index: int) -> T: ...
 
     def iter(self, data: bytes) -> Iterator[T]: ...
 
 
-class _NumericCodec(Generic[_N]):
-    def __init__(self, scalar: type[_N]) -> None:
+class _NumericCodec[N: np.number | np.bool_]:
+    def __init__(self, scalar: type[N]) -> None:
         self._scalar = scalar
 
-    def get(self, data: bytes, index: int) -> _N:
+    def get(self, data: bytes, index: int) -> N:
         return self._scalar(np.frombuffer(data, self._scalar)[index])
 
-    def iter(self, data: bytes) -> Iterator[_N]:
-        samples: np.ndarray[tuple[int], np.dtype[_N]] = np.frombuffer(
-            data, self._scalar
-        )
+    def iter(self, data: bytes) -> Iterator[N]:
+        samples: np.ndarray[tuple[int], np.dtype[N]] = np.frombuffer(data, self._scalar)
         return iter(samples)
 
 
@@ -156,7 +149,7 @@ class _UUIDCodec:
         )
 
 
-class _VariableCodec(Generic[U]):
+class _VariableCodec[U: SampleValue]:
     def __init__(self, decode: Callable[[bytes], U]) -> None:
         self._decode = decode
 
@@ -223,7 +216,7 @@ _SAMPLE_TYPES: dict[DataType, type] = {
 }
 
 
-def _holds(series: Series, sample_type: type[U]) -> TypeIs[Series[U]]:
+def _holds[U: SampleValue](series: Series, sample_type: type[U]) -> TypeIs[Series[U]]:
     held = _SAMPLE_TYPES.get(series.data_type)
     return held is not None and issubclass(held, sample_type)
 
@@ -269,7 +262,7 @@ def _to_payload(s: Series) -> _Payload:
     )
 
 
-class Series(ArrayOperators, Generic[T]):
+class Series[T: SampleValue = SampleValue](ArrayOperators):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -305,7 +298,6 @@ class Series(ArrayOperators, Generic[T]):
     alignment_multiple: int
     """The number of alignment steps between consecutive samples. Above one when the
     Core reduced the Series from a longer one."""
-    _codec: _Codec[T]
     _len_cache: int | None
 
     def __len__(self) -> int:
@@ -389,7 +381,7 @@ class Series(ArrayOperators, Generic[T]):
         self.alignment_multiple = (
             1 if alignment_multiple is None else alignment_multiple
         )
-        self._codec = _CODECS[data_type]
+        self._codec: Final[_Codec[T]] = _CODECS[data_type]
         self._len_cache = None
 
     @classmethod
@@ -425,7 +417,7 @@ class Series(ArrayOperators, Generic[T]):
             check, validation, serialization=serialization
         )
 
-    def as_(self, sample_type: type[U]) -> Series[U]:
+    def as_[U: SampleValue](self, sample_type: type[U]) -> Series[U]:
         """Narrows the sample type of the Series.
 
         :param sample_type: The type of each sample, such as np.float64, TimeStamp,
@@ -463,9 +455,9 @@ class Series(ArrayOperators, Generic[T]):
         return arr
 
     @overload
-    def to_numpy(
-        self: Series[_N], dtype: None = None, *, copy: bool | None = None
-    ) -> npt.NDArray[_N]: ...
+    def to_numpy[N: np.number | np.bool_](
+        self: Series[N], dtype: None = None, *, copy: bool | None = None
+    ) -> npt.NDArray[N]: ...
 
     @overload
     def to_numpy(
@@ -651,11 +643,11 @@ def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
     return (d - d[:1]) / TimeSpan.SECOND
 
 
-class MultiSeries(ArrayOperators, Generic[T]):
-    series: list[Series[T]]
+class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
+    _series: tuple[Series[T], ...]
 
-    def __init__(self, series: list[Series[T]]):
-        self.series = series
+    def __init__(self, series: Sequence[Series[T]]):
+        self._series = tuple(series)
         if len(series) > 0:
             first_dt = series[0].data_type
             same_dt = all(s.data_type == first_dt for s in series)
@@ -666,7 +658,12 @@ class MultiSeries(ArrayOperators, Generic[T]):
                     {first_dt} and {data_types}.
                     """)
 
-    def as_(self, sample_type: type[U]) -> MultiSeries[U]:
+    @property
+    def series(self) -> tuple[Series[T], ...]:
+        """The series that make up the MultiSeries, in order."""
+        return self._series
+
+    def as_[U: SampleValue](self, sample_type: type[U]) -> MultiSeries[U]:
         """Narrows the sample type of the MultiSeries.
 
         :param sample_type: The type of each sample, such as np.float64, TimeStamp,
