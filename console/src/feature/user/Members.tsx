@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, User } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
@@ -27,7 +27,7 @@ import { Settings as PlatformSettings } from "@/platform/settings";
 import { User as PlatformUser } from "@/platform/user";
 
 const COLUMNS: List.Column[] = [
-  { name: "Name", width: "1fr" },
+  { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Role", width: "30rem", field: true },
 ];
 

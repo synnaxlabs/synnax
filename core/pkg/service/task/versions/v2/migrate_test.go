@@ -60,6 +60,7 @@ var _ = Describe("Migrations", func() {
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))
@@ -123,6 +124,7 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -348,6 +350,7 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
+				Rack:   secrettestutil.CoreRack,
 			}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
@@ -371,8 +374,9 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Stored PD Task")).
 				Entry(&migratedPD).
 				Exec(ctx, db)).To(Succeed())
-			Expect(migratedPD.Config["routing_key"]).To(BeAssignableToTypeOf(""))
-			routingKey := uuid.MustParse(migratedPD.Config["routing_key"].(string))
+			rawKey, ok := migratedPD.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-stored")))
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
@@ -487,6 +491,7 @@ var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v2.Task) v2.Task {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&in).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

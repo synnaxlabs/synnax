@@ -9,13 +9,13 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type DragEvent, type RefObject } from "react";
+import type { DragEvent, RefObject } from "react";
 
-import { type Item } from "@/platform/tree/item";
+import type { Item } from "@/platform/tree/item";
 import { isMoreKey, type Store } from "@/platform/tree/store";
-import { type GetResource } from "@/platform/tree/types";
+import type { GetResource } from "@/platform/tree/types";
 
 export interface UseDragAndDropProps {
   client: Client;
@@ -31,7 +31,7 @@ export interface UseDragAndDropProps {
 export interface DragAndDrop {
   /** Moves the dropped items under the item of the key. Returns the items it moves. */
   onDrop: (key: string, props: Haul.OnDropProps) => Haul.Item[];
-  onDragStart: (key: string) => void;
+  onDragStart: (key: string, event: DragEvent) => void;
   onDragEnd: (e: DragEvent) => void;
 }
 
@@ -74,20 +74,21 @@ export const useDragAndDrop = ({
     return haulMoved;
   };
 
-  const onDragStart = (key: string): void => {
-    if (selectedRef.current.includes(key)) {
-      const dragged = selectedRef.current.filter((k) => !isMoreKey(k));
-      const selectedItems = getResource(dragged).flatMap((res) => [
-        Base.createHaulItem(resource.idToString(res.id)),
-        ...resolveItem(res.id.type).haulItems(res, client),
-      ]);
-      return startDrag(selectedItems);
-    }
-    const haulItems = resolveItem(resource.parseID(key).type).haulItems(
-      getResource(key),
+  const onDragStart = (key: string, event: DragEvent): void => {
+    const dragged = selectedRef.current.includes(key)
+      ? selectedRef.current.filter((k) => !isMoreKey(k))
+      : [key];
+    const items = getResource(dragged).flatMap((res) => [
+      Base.createHaulItem(resource.idToString(res.id)),
+      ...resolveItem(res.id.type).haulItems(res, client),
+    ]);
+    const pressed = getResource(key);
+    const preview = resolveItem(pressed.id.type).haulPreview({
+      resource: pressed,
       client,
-    );
-    startDrag([Base.createHaulItem(key), ...haulItems]);
+      count: dragged.length,
+    });
+    startDrag({ event, items, preview });
   };
 
   return { onDrop, onDragStart, onDragEnd };

@@ -13,7 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 import PanelTab from "@/components/common/PanelTab.astro";
-import CdnPicture from "@/components/common/CdnPicture.astro";
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { cdn } from "@/cdn";
 import LazyVideo from "@/components/common/LazyVideo.astro";
 ---
 
@@ -82,7 +83,7 @@ import LazyVideo from "@/components/common/LazyVideo.astro";
             <div class="visualize-lineplot-detail-image-area">
                 <CdnPicture
                     class="visualize-lineplot-detail"
-                    path="images/lineplot-detail.png"
+                    src={cdn("images/lineplot-detail.png")}
                     sizes="440px"
                     alt="Line plot measurement detail showing slope, delta X, and delta Y"
                 />

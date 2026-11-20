@@ -14,7 +14,8 @@ import {
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -25,22 +26,18 @@ import {
   createServerPanel,
   primePanel,
 } from "@/platform/panel/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createTestClientWithGrants,
   resolveFocusedTab,
-  uniqueName,
   waitForFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
 
 const createRangeID = async () => {
-  const start = TimeStamp.now();
-  const { key } = await client.ranges.create({
-    name: uniqueName("range"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-  });
+  const { key } = await createTestRange(client, { name: uniqueName("range") });
   return ranger.resourceID(key);
 };
 const roles = new RoleClients(client);
@@ -262,6 +259,38 @@ describe("Panel.useOpenTab", () => {
       );
       const doc = await client.panels.retrieve(existing.key);
       expect(leafTabs(doc.root)).toHaveLength(1);
+    });
+
+    it("focuses the first tab that matches focus instead of opening one", async () => {
+      const otherTabKey = uuid.create();
+      const matchTabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          { variant: "view", key: otherTabKey, type: "other" },
+          { variant: "view", key: matchTabKey, type: "match" },
+        ],
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: otherTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "range_explorer" },
+          { focus: (tab) => tab.variant === "view" && tab.type === "match" },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(matchTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(2);
     });
 
     it("focuses a new keyless resource tab opened beside the current tab", async () => {

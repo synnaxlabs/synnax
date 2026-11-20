@@ -11,14 +11,15 @@ import { project, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 

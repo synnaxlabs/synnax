@@ -19,6 +19,13 @@ pnpm check-site:build && pnpm check-site # static build + link and media crawler
 because the cause can be the host. With `--strict`, which the nightly run and the CI of
 a release set, a broken external link fails too.
 
+## Pages
+
+The pages live in `src/docs`: the reference under `reference/` and the blog under
+`blog/`. The `reference` and `blog` collections in `src/content.config.ts` set the
+frontmatter fields of each, and `src/pages/[...slug].astro` renders every page at its
+path. A file that starts with an underscore is a partial, not a page.
+
 ## Release lookups
 
 Download links and the version in the header read the per-product GitHub releases
@@ -26,13 +33,25 @@ Download links and the version in the header read the per-product GitHub release
 `src/util/releases.ts`, so a release shows on the site after the next deploy. The
 release workflows redeploy the docs after each stable release. The updater routes under
 `/releases/` read the releases per request, and a warm function caches the listing for
-five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
-limit; the site works without it.
+five minutes. `DOCS_GITHUB_APP_ID` and `DOCS_GITHUB_APP_PRIVATE_KEY` in the Vercel
+project hold the ID and the PEM private key of the "Synnax Docs" GitHub App. The site
+makes installation tokens from them, which raise the GitHub API rate limit. The site
+works without them at a lower rate limit. Set both or neither. Without the App, the site
+uses `GITHUB_TOKEN` if set, as CI does. Keep `DOCS_GITHUB_TOKEN` in the Vercel project:
+older trains build from release refs whose code reads only that variable.
 
-The release notes in `src/releases` take their date from the same listing: the day, in
-Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with no stable
-Core release show "Unreleased" and no links. Never pass a `date` to the notes of 0.59 or
-later. Earlier notes keep the prop, because their tags are `synnax-v*`.
+Each file in `src/releases` holds the notes of one version. Its frontmatter sets the
+`title`, `version`, and the other fields of the `releases` collection in
+`src/content.config.ts`, and `/releases` lists the notes newest first. The notes take
+their date from the release listing above: the day, in Mountain Time, that the stable
+`core/vX.Y.0` release was published. Notes with no stable Core release show "Unreleased"
+and no links. Never set a `date` in the notes of 0.59 or later. Earlier notes keep it,
+because their tags are `synnax-v*`.
+
+Draft notes for an unreleased version go in `src/releases/X-Y-Z.draft.md`. The site, the
+search index, and the redirects read only `.mdx` files, so a draft is not served. To
+publish a draft, rename it to `.mdx` and copy the imports, export, and frontmatter of
+the newest `.mdx` notes.
 
 ## Versions
 
@@ -62,4 +81,6 @@ To fix the docs of a released train, merge the fix into `main`, cherry-pick it o
 train's release branch (`release/docs-X.Y` for 0.60 and 0.61), and deploy the train. If
 a patch of the train shipped from `main`, first merge its tag into the branch. A 0.60 or
 0.61 release deploys its `release/docs-X.Y` branch as it is, so pick the docs of a patch
-onto that branch before the release.
+onto that branch before the release. Only the root serves release notes, so a note for a
+patch of an older train also goes onto the newest train's branch. From 0.62 on, if that
+branch does not exist, first cut `release/X.Y` from the train's newest stable Core tag.

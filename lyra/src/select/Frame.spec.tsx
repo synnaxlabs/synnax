@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { record } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -96,5 +97,64 @@ describe("Select.Frame nested in a list", () => {
     reset();
     c.rerender(<Outer data={["a", "b", "c"]} />);
     expect(Object.fromEntries(counts)).toEqual({});
+  });
+});
+
+interface OrderedProps {
+  selectedFirst?: boolean;
+  visible?: boolean;
+  getItem?: List.GetItem<string, record.Keyed<string>>;
+}
+
+const Ordered = ({
+  selectedFirst,
+  visible = true,
+  getItem,
+}: OrderedProps): ReactElement => (
+  <Triggers.Provider>
+    <Dialog.Frame visible={visible} onVisibleChange={vi.fn()}>
+      <Select.Frame
+        multiple
+        data={["a", "b"]}
+        value={["b", "none"]}
+        onChange={vi.fn()}
+        getItem={getItem}
+        selectedFirst={selectedFirst}
+      >
+        <Select.List>
+          <Select.Item itemKey="none">None</Select.Item>
+          <Select.Items<string>>{row}</Select.Items>
+        </Select.List>
+      </Select.Frame>
+    </Dialog.Frame>
+  </Triggers.Provider>
+);
+
+describe("Select.Frame selectedFirst", () => {
+  const options = (c: ReturnType<typeof render>): string[] =>
+    c.getAllByRole("option").map((option) => option.textContent ?? "");
+
+  it("should keep the order of its data when unset", () => {
+    expect(options(render(<Ordered />))).toEqual(["None", "a", "b"]);
+  });
+
+  it("should read each entry again when the dialog opens again", () => {
+    const readable = new Set<string>();
+    const getOne = (key: string): record.Keyed<string> | undefined =>
+      readable.has(key) ? { key } : undefined;
+    const getItem = ((keys: string | string[]) =>
+      Array.isArray(keys)
+        ? keys.flatMap((key) => getOne(key) ?? [])
+        : getOne(keys)) as List.GetItem<string, record.Keyed<string>>;
+    const c = render(<Ordered selectedFirst getItem={getItem} />);
+    expect(options(c)).toEqual(["None", "a", "b"]);
+    readable.add("b");
+    c.rerender(<Ordered selectedFirst getItem={getItem} visible={false} />);
+    c.rerender(<Ordered selectedFirst getItem={getItem} />);
+    expect(options(c)).toEqual(["None", "b", "a"]);
+  });
+
+  it("should list the selected entries of its data first", () => {
+    expect(options(render(<Ordered selectedFirst />))).toEqual(["None", "b", "a"]);
   });
 });

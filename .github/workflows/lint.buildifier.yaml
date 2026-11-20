@@ -13,7 +13,9 @@ on:
   workflow_call:
   workflow_dispatch:
 concurrency:
-  group: buildifier-${{ github.workflow }}-${{ github.ref }}
+  group:
+    buildifier-${{ github.workflow }}-${{ github.event.merge_group.head_sha ||
+    github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,10 +29,13 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: stable
 

@@ -29,8 +29,9 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   afterEach,
@@ -62,8 +63,8 @@ import {
   createSelectedPanel,
   createTaskStatus,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditing,
   CaptureStatuses,
   type CaptureStatusesProps,
@@ -72,7 +73,7 @@ import {
   getIconButton,
   openContextMenu,
   queryIconButton,
-  uniqueName,
+  resolveFocusedTab,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -754,6 +755,48 @@ describe("task/Toolbar", () => {
       );
       await openContextMenu(t.name);
       expect(await screen.findByText("Start")).toBeTruthy();
+    });
+  });
+
+  describe("plot", () => {
+    const createValue = async () =>
+      await client.channels.create({
+        name: uniqueName("value"),
+        dataType: "float32",
+        virtual: true,
+      });
+
+    it("plots the enabled channels of a read task", async () => {
+      const [shown, skipped] = await Promise.all([createValue(), createValue()]);
+      const t = await createTask({
+        config: {
+          channels: [
+            { ...NI.Task.createAIChannel(), channel: shown.key, disabled: false },
+            { ...NI.Task.createAIChannel(), channel: skipped.key, disabled: true },
+          ],
+        },
+      });
+      const { store } = await renderToolbar();
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      store.dispatch(Session.Project.select(proj.key));
+      await openContextMenuUntil(t.name, "Plot");
+      fireEvent.click(screen.getByText("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (tab) => tab.variant === "resource" && tab.resource.type === "lineplot",
+      );
+      assert(tab.variant === "resource", "the plot did not open in a resource tab");
+      const plot = await client.lineplots.retrieve(tab.resource.key);
+      expect(plot.name).toBe(`Plot for ${t.name}`);
+      expect(plot.channels.y1).toEqual([shown.key]);
+    });
+
+    it("offers no Plot for a write task", async () => {
+      const t = await createTask({ type: NI.Task.ANALOG_WRITE_TYPE });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Edit configuration");
+      expect(screen.queryByText("Plot")).toBeNull();
     });
   });
 });

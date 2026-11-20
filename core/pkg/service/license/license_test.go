@@ -181,9 +181,14 @@ var _ = Describe("License", func() {
 	Describe("ServiceConfig", func() {
 		DescribeTable(
 			"should reject a missing field",
-			func(field string, clear func(c *license.ServiceConfig)) {
-				c := license.DefaultServiceConfig.Override(cfg)
-				clear(&c)
+			func(field string, unset func(c *license.ServiceConfig)) {
+				c := cfg
+				c.CheckInterval = time.Hour
+				c.WarningTime = time.Hour
+				c.Grace = time.Hour
+				c.Rollback = time.Hour
+				c.Loopback = new(false)
+				unset(&c)
 				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry("db", "db", func(c *license.ServiceConfig) { c.DB = nil }),
@@ -205,11 +210,11 @@ var _ = Describe("License", func() {
 			Entry("loopback", "loopback",
 				func(c *license.ServiceConfig) { c.Loopback = nil }),
 		)
-		It("should keep defaults the override leaves zero", func() {
-			c := license.DefaultServiceConfig.Override(cfg)
-			Expect(c.Grace).To(Equal(license.DefaultServiceConfig.Grace))
-			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig.Rollback))
-			Expect(c.Validate()).To(Succeed())
+		It("should keep the values the override leaves zero", func() {
+			base := license.ServiceConfig{Grace: time.Hour, Rollback: time.Minute}
+			c := base.Override(cfg)
+			Expect(c.Grace).To(Equal(time.Hour))
+			Expect(c.Rollback).To(Equal(time.Minute))
 		})
 	})
 
@@ -537,7 +542,7 @@ var _ = Describe("License", func() {
 		state := func(svc *license.Service) func() license.State {
 			return func() license.State { return svc.Retrieve().State }
 		}
-		mark := func(ctx SpecContext) func() int64 {
+		mark := func() func() int64 {
 			return func() int64 {
 				GinkgoHelper()
 				raw, closer := MustSucceed2(db.Get([]byte("highWater")))
@@ -572,9 +577,9 @@ var _ = Describe("License", func() {
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
-			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
+			Expect(mark()()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
-			Consistently(mark(ctx)).
+			Consistently(mark()).
 				WithTimeout(100 * time.Millisecond).
 				Should(Equal(now.UnixNano()))
 			Expect(svc.Close()).To(Succeed())
@@ -859,13 +864,14 @@ var _ = Describe("License", func() {
 			lic := newLicense()
 			lic.Channels = 10
 			MustSucceed(svc.Activate(ctx, sign(lic)))
-			pld := errors.Encode(svc.CheckChannelLimit(11), false)
+			codec := errors.NewCodec(license.ErrorProvider())
+			pld := codec.Encode(svc.CheckChannelLimit(11), false)
 			Expect(pld.Type).To(Equal("sy.license.too_many"))
 			Expect(pld.Data).To(Equal(
 				"limit is 10 channels: using more channels than allowed by the " +
 					"license: license error",
 			))
-			Expect(errors.Decode(pld)).To(And(
+			Expect(codec.Decode(pld)).To(And(
 				MatchError(license.ErrTooMany),
 				MatchError(ContainSubstring("limit is 10 channels")),
 			))

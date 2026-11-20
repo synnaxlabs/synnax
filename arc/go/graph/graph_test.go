@@ -778,11 +778,12 @@ var _ = Describe("Graph", func() {
 						ctx, g, NewGraphRoot(nil, resolver...),
 					)
 					Expect(diagnostics.Ok()).To(BeFalse())
-					Expect(diagnostics.String()).To(HavePrefix("error: type mismatch"))
+					Expect(
+						diagnostics.String(),
+					).To(HavePrefix("error [E2001]: type mismatch"))
 					Expect(diagnostics.String()).To(ContainSubstring(
-						"type mismatch in edge from 'on' output 'output' " +
-							"to 'select' input 'output': " + t.String() +
-							" is not compatible with bool",
+						"type mismatch: " + t.String() + " is not compatible with bool " +
+							"in edge from 'on' output 'output' to 'select' input 'output'",
 					))
 					Expect(diagnostics.String()).To(note)
 				},

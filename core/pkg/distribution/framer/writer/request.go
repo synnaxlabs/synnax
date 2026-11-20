@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-//go:generate stringer -type=Command
+//go:generate go tool stringer -type=Command
 
 // Command is an operation that can be executed on a Writer.
 type Command uint8
@@ -27,7 +27,7 @@ const (
 	CommandWrite
 	// CommandCommit represents a call to Writer.Commit.
 	CommandCommit
-	// CommandSetAuthority represents a call to Writer.SetAuthority
+	// CommandSetAuthority represents a call to Writer.SetAuthority.
 	CommandSetAuthority
 	// CommandEndDomain represents a call to Writer.EndDomain.
 	CommandEndDomain

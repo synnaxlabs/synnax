@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, math, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -650,7 +650,7 @@ describe("Reader", () => {
           await writer.close();
         }),
       );
-      const totalSamples = samplesPerGroup.reduce((a, b) => a + b, 0);
+      const totalSamples = math.sum(samplesPerGroup);
 
       const stream = await client.readCSV(
         {

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type theme } from "@synnaxlabs/lyra/theme";
-import { type color, type xy } from "@synnaxlabs/x";
-import { type FC, type ReactNode } from "react";
+import type { schematic } from "@synnaxlabs/client";
+import type { theme } from "@synnaxlabs/lyra/theme";
+import type { color, xy } from "@synnaxlabs/x";
+import type { FC, ReactNode } from "react";
 
-import { type Properties } from "@/vis/properties";
+import type { Properties } from "@/vis/properties";
 
 export interface FormProps extends Properties.SelectionProps {
   /** actions render at the foot of the form's tab rail. */
@@ -56,6 +56,8 @@ export interface Spec<
   name: string;
   /** The text written into the symbol's label on creation. Defaults to name. */
   label?: string;
+  /** The text written into the symbol's value field on creation, if it has one. */
+  value?: string;
   Form: FC<FormProps>;
   Node: Node<Config>;
   Preview: FC<PreviewProps<Config>>;

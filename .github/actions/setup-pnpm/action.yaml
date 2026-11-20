@@ -15,6 +15,10 @@ inputs:
     description: Whether to restore the pnpm store from the Actions cache
     required: false
     default: "true"
+  node:
+    description: The Node.js version to install, or empty for the one in devEngines
+    required: false
+    default: ""
   dest:
     description: Where to store pnpm files
     required: false
@@ -30,13 +34,14 @@ runs:
     # pnpm/setup saves a new store under a unique key from every job, about 8 GB per
     # CI run, which evicts every other cache in the repository within minutes.
     - name: Set up pnpm and Node.js
-      uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3
+      uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
       with:
         # Without the path, pnpm/setup finds no lockfile on Windows and skips the cache
         # that lets pnpm install reuse a past supply-chain check.
         cache-dependency-path: pnpm-lock.yaml
         dest: ${{ inputs.dest }}
         install: false
+        runtime: ${{ inputs.node && format('node@{0}', inputs.node) || '' }}
 
     - name: Key the pnpm store
       id: key
@@ -69,7 +74,7 @@ runs:
         key: ${{ steps.key.outputs.key }}
         restore-keys: ${{ steps.key.outputs.prefix }}
 
-    # pnpm/setup already installed the runtime from devEngines.
+    # pnpm/setup already installed the runtime.
     - name: Install dependencies
       if: inputs.install == 'true'
       shell: bash

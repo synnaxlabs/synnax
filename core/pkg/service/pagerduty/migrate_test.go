@@ -42,6 +42,7 @@ var _ = Describe("SecretMigration", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names, asked = map[uuid.UUID]string{}, nil
 		lookup = func(
 			_ context.Context,
@@ -67,7 +68,11 @@ var _ = Describe("SecretMigration", func() {
 		GinkgoHelper()
 		MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		secrets = secrettestutil.OpenService(ctx, db)
-		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{DB: db, Secret: secrets}))
+		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+			DB:     db,
+			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
+		}))
 	}
 	run := func(ctx SpecContext) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -76,7 +81,7 @@ var _ = Describe("SecretMigration", func() {
 	}
 
 	// expectStaged asserts whether the plain routing key of the config is staged.
-	expectStaged := func(ctx SpecContext, key uuid.UUID, staged bool) {
+	expectStaged := func(key uuid.UUID, staged bool) {
 		GinkgoHelper()
 		kvKey := v2.PlainRoutingKeyKVKey(key)
 		if !staged {
@@ -94,7 +99,7 @@ var _ = Describe("SecretMigration", func() {
 		withKey := store(ctx, "Pump alerts", plainKey)
 		withoutKey := store(ctx, "Draft", "")
 		open(ctx)
-		expectStaged(ctx, withKey, true)
+		expectStaged(withKey, true)
 		Expect(run(ctx)).To(Succeed())
 		Expect(asked).To(Equal([][]uuid.UUID{{withKey}}))
 		expectSecret(
@@ -104,7 +109,7 @@ var _ = Describe("SecretMigration", func() {
 			routingKeyOf(MustSucceed(svc.Alert.Read(ctx, db, withKey))),
 			"Pump alerts routing key",
 		)
-		expectStaged(ctx, withKey, false)
+		expectStaged(withKey, false)
 		Expect(MustSucceed(svc.Alert.Read(ctx, db, withoutKey))).
 			ToNot(HaveKey("routing_key"))
 	})
@@ -139,7 +144,7 @@ var _ = Describe("SecretMigration", func() {
 		})).To(Succeed())
 		Expect(run(ctx)).To(Succeed())
 		Expect(asked).To(BeEmpty())
-		expectStaged(ctx, key, false)
+		expectStaged(key, false)
 		Expect(secrets.NewRetrieve().Count(ctx, db)).To(Equal(0))
 	})
 
@@ -156,7 +161,7 @@ var _ = Describe("SecretMigration", func() {
 			return nil, errors.New("no task")
 		}
 		Expect(run(ctx)).To(MatchError("tasks of PagerDuty configs: no task"))
-		expectStaged(ctx, key, true)
+		expectStaged(key, true)
 		Expect(MustSucceed(svc.Alert.Read(ctx, db, key))).ToNot(HaveKey("routing_key"))
 		Expect(secrets.NewRetrieve().Count(ctx, db)).To(Equal(0))
 	})

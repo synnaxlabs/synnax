@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, changes, and deletes named colors in a transaction.
@@ -42,7 +44,7 @@ func (w Writer) Create(ctx context.Context, n *Named) error {
 	if n.Key == uuid.Nil() {
 		n.Key = uuid.New()
 	}
-	if err := n.Validate(); err != nil {
+	if err := check(*n); err != nil {
 		return err
 	}
 	if err := group.CheckMember(
@@ -59,6 +61,16 @@ func (w Writer) Create(ctx context.Context, n *Named) error {
 	}
 	w.dispatcher.Attach(w.tx, n.Key, NewCreateAction(CreatePayload{Named: *n}))
 	return nil
+}
+
+func check(n Named) error {
+	if err := n.Validate(); err != nil {
+		return err
+	}
+	if n.Position == nil {
+		return nil
+	}
+	return validatePosition(*n.Position)
 }
 
 // CreateMany creates the named colors as Create does, stopping at the first error.
@@ -92,7 +104,7 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 			if err != nil {
 				return Named{}, err
 			}
-			if err = next.Validate(); err != nil {
+			if err = check(next); err != nil {
 				return Named{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(n.Group) {
@@ -113,9 +125,20 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 }
 
 // Delete deletes the named colors with the given keys. A key with no named color is not
-// an error.
+// an error. It returns an error wrapping validate.ErrValidation for a built-in named
+// color, and then deletes none of them.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Named](keys...)).
+		Guard(func(_ gorp.Context, n Named) error {
+			if isBuiltin(n.Key) {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"cannot delete built-in color %s",
+					n.Name,
+				)
+			}
+			return nil
+		}).
 		Exec(ctx, w.tx)
 }

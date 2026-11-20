@@ -741,14 +741,14 @@ var _ = Describe("Retrieve", func() {
 			upper := child("Alpha", 10, 50)
 			gamma := child("Gamma", 20, 25)
 			lower := child("alpha", 40, 41)
-			tie := []ranger.Key{upper, lower}
+			byName = []ranger.Key{upper, lower, beta, gamma}
+			tie := byName[:2]
 			// Gorp orders equal names by the trailing bytes of the key.
 			slices.SortFunc(tie, func(a, b ranger.Key) int {
 				slices.Reverse(a[:])
 				slices.Reverse(b[:])
 				return bytes.Compare(a[:], b[:])
 			})
-			byName = append(tie, beta, gamma)
 			byStart = []ranger.Key{lower, beta, gamma, upper}
 			byEnd = []ranger.Key{gamma, beta, lower, upper}
 		})

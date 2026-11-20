@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
-import { type batch } from "@/batch";
+import type { batch } from "@/batch";
 import { createOf, reduceAll } from "@/group/actions";
 import {
   type Action,
@@ -22,7 +22,7 @@ import {
   set,
   setParent,
 } from "@/group/actions.gen";
-import { type MemberType } from "@/group/members.gen";
+import type { MemberType } from "@/group/members.gen";
 import { isMember } from "@/group/move";
 import {
   type Group,
@@ -156,23 +156,19 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Builds one batch entry per group that moves it under the parent, or to the top
-   * level when the parent is null or undefined. The cache write of each entry moves its
-   * cached group.
+   * level when the parent is null or undefined. The group's controller holds each move
+   * as pending until its echo arrives.
    */
   setParentRequest(
     keys: Key | Key[],
     parent?: resource.ID | null,
-  ): batch.Request<actions.DispatchPayload<Key, Action>>[] {
+  ): batch.Request<Required<actions.DispatchPayload<Key, Action>>>[] {
     const action = setParent({ parent: parent ?? undefined });
-    return array.toArray(keys).map((key) => ({
-      endpoint: "/group/dispatch",
-      payload: { key, actions: [action] },
-      apply: () => {
-        const prev = this.store.get(key)?.parent;
-        query.partialUpdate(this.store, key, { parent: parent ?? undefined });
-        return () => query.partialUpdate(this.store, key, { parent: prev });
-      },
-    }));
+    return array
+      .toArray(keys)
+      .map((key) =>
+        this.dispatcher.request("/group/dispatch", key, [action], dispatchResZ),
+      );
   }
 
   /**
@@ -183,12 +179,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * @throws {Error} if a resource is of a type that cannot sit in a group.
    */
   moveRequests(ids: resource.ID[], parent?: resource.ID): batch.Request[] {
-    const byType = new Map<resource.Type, string[]>();
-    ids.forEach(({ type, key }) =>
-      byType.set(type, [...(byType.get(type) ?? []), key]),
-    );
+    const byType = Map.groupBy(ids, ({ type }) => type);
     const to = parent?.type === "group" ? parent.key : undefined;
-    return [...byType].flatMap(([type, keys]) => {
+    return [...byType].flatMap(([type, members]) => {
+      const keys = members.map(({ key }) => key);
       if (type === "group") return this.setParentRequest(keys, parent);
       if (!isMember(type)) throw new Error(`a ${type} cannot sit in a group`);
       return this.cfg.setGroup[type](keys, to);

@@ -9,12 +9,13 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/platform/group";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 import {
   createScopeTree,
   getTreeRow,
@@ -25,7 +26,6 @@ import {
   awaitTextEditingElement,
   awaitTextEditingExit,
   commitTextEdit,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

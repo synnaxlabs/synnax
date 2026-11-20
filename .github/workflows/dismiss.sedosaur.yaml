@@ -7,12 +7,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Answers a reply that mentions Sedosaur on the thread of one of its findings, or a
-# comment that dismisses a finding outside the diff, as the sedosaur GitHub App. An
-# `@sedosaur dismiss` from someone with write access to the repository dismisses the
-# finding, and later reviews of the pull request do not report it. When no finding of
-# the head's review is left, a new check run scores the head 5/5. The scripts come from
-# the default branch, never from the pull request.
+# Answers a reply on the thread of a Sedosaur finding, as the sedosaur GitHub App, or
+# dismisses the finding that a dispatch names by its title. A finding outside the diff
+# has no thread, so only a dispatch can dismiss it. An `@sedosaur dismiss` reply from
+# someone with write access to the repository, or a dispatch, dismisses the finding, and
+# later reviews of the pull request do not report it. A rebuttal from such a person or
+# an agent goes to Sedosaur on a review runner: Claude Code checks its evidence against
+# the head, then Sedosaur withdraws the finding until its file changes, or replies why
+# it holds. Any other reply gets the usage. When no finding of the head's review is
+# left, a new check run scores the head 5/5. The scripts and the policy come from the
+# default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}
@@ -25,25 +29,38 @@ on:
         type: number
         required: true
       comment:
-        description: "Reply or comment that mentions Sedosaur about the finding"
+        description: "Reply on the thread of the finding"
         type: string
-        required: true
+        required: false
+      finding:
+        description: "Title of the finding to dismiss, with path:<file> if two share it"
+        type: string
+        required: false
+      reason:
+        description: "Why the finding does not apply, with a finding"
+        type: string
+        required: false
 
 permissions: {}
 
-# A run that waits is canceled when another one queues. The next run answers its work.
-concurrency:
-  group: dismiss-sedosaur-${{ inputs.pr }}
-  cancel-in-progress: false
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
 
+# Each job has its own group, so a dismissal does not wait behind a judgment. A job that
+# waits is canceled when another one queues. The next one answers its work. A dispatch
+# that names a title records it outside the group, so the next one finds the record.
 jobs:
-  dismiss:
-    name: Answer the reply
+  record:
+    if: inputs.finding != ''
+    name: Record the dismissal
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pull-requests: read
     steps:
-      - name: Read the pull request
+      - &read
+        name: Read the pull request
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,24 +71,73 @@ jobs:
             "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
           ' >> "$GITHUB_OUTPUT"
 
-      - name: Check out the scripts
+      - &checkout
+        name: Check out the scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
 
-      - name: Mint the GitHub App token
+      - &app
+        name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           # resolveReviewThread needs contents: write, not only pull-requests: write.
           permission-contents: write
           permission-pull-requests: write
 
+      - name: Record the dismissal
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          COMMENT: ${{ inputs.comment }}
+          FINDING: ${{ inputs.finding }}
+          REASON: ${{ inputs.reason }}
+          ACTOR: ${{ github.triggering_actor }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          if [ -n "$COMMENT" ]; then
+            echo "::error::Give a comment or a finding, not both."
+            exit 1
+          fi
+          python3 -m review dismiss-title
+
+  dismiss:
+    needs: record
+    if: ${{ !failure() && !cancelled() }}
+    name: Answer the reply
+    concurrency:
+      group: dismiss-sedosaur-${{ inputs.pr }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      head: ${{ steps.pr.outputs.head }}
+      base: ${{ steps.pr.outputs.base }}
+      key: ${{ steps.pr.outputs.key }}
+      bot: ${{ steps.app.outputs.app-slug }}
+      judge: ${{ steps.answer.outputs.judge }}
+    timeout-minutes: 10
+    steps:
+      - *read
+      - *checkout
+      - *app
+
       - name: Answer the reply
+        id: answer
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -84,4 +150,128 @@ jobs:
           RUN_URL:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
-        run: python3 -m review dismiss
+        run: |
+          judge=$(python3 -m review dismiss)
+          echo "judge=$judge" >> "$GITHUB_OUTPUT"
+
+  # Claude Code gets only read tools, a checkout of the head, and its OAuth token, as in
+  # a review. The App token that posts is minted after it exits.
+  judge:
+    needs: dismiss
+    # A thread reply skips the record job, and a skipped job up the chain fails the
+    # implicit success() check.
+    if: ${{ !failure() && !cancelled() && needs.dismiss.outputs.judge == 'true' }}
+    name: Judge the rebuttals
+    concurrency:
+      group: judge-sedosaur-${{ inputs.pr }}
+      cancel-in-progress: false
+    runs-on: [self-hosted, review]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PR: ${{ inputs.pr }}
+      HEAD_SHA: ${{ needs.dismiss.outputs.head }}
+      BASE_SHA: ${{ needs.dismiss.outputs.base }}
+      KEY: ${{ needs.dismiss.outputs.key }}
+      RUN_URL:
+        ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id
+        }}
+    steps:
+      - name: Check out the scripts and the policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # The runner empties its temporary directory after each job, so prune drops the
+      # checkout of the last job.
+      - name: Check out the head
+        run: |
+          git worktree prune
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git worktree add --detach "$RUNNER_TEMP/head" "$HEAD_SHA"
+
+      - name: Install Claude Code
+        run: |
+          cp -R .github/agents/cli "$RUNNER_TEMP/claude"
+          npm ci --prefix "$RUNNER_TEMP/claude"
+          echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
+
+      # The fleet controller started the runner on a shared Claude login, which only
+      # this runner's machine may read.
+      - name: Read the Claude login
+        run: |
+          imds=http://169.254.169.254/latest
+          imds_token=$(curl -fsS -X PUT "$imds/api/token" \
+            -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          login=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
+            "$imds/meta-data/tags/instance/login")
+          token=$(uvx --from awscli==1.46.2 aws secretsmanager get-secret-value \
+            --region us-east-1 --secret-id "synnax-agents/logins/$login" \
+            --query SecretString --output text)
+          echo "::add-mask::$token"
+          echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
+
+      - name: Judge the rebuttals
+        id: judge
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOT: ${{ needs.dismiss.outputs.bot }}
+          POLICY_DIR: ${{ github.workspace }}
+          HEAD_DIR: ${{ runner.temp }}/head
+        run: python3 -m review judge "$RUNNER_TEMP/judgments.json"
+
+      # A usage limit or a rejected token stops every job of the seat. The seat leaves
+      # the pool, and Agent - Requeue runs this job again on a seat with a usable login.
+      - name: Leave the pool until the usage limit resets
+        if: failure() && steps.judge.outputs.limited-until != ''
+        env:
+          UNTIL: ${{ steps.judge.outputs.limited-until }}
+        run: scripts/agent/leave.sh limited-until "$UNTIL"
+
+      - name: Leave the pool until a person renews the login
+        if: failure() && steps.judge.outputs.login-broken != ''
+        env:
+          AT: ${{ steps.judge.outputs.login-broken }}
+        run: |
+          scripts/agent/leave.sh login-broken "$AT"
+          echo "::error::Claude rejected the token of the seat's login. Store a new" \
+            "one with infra/agent-runner/seat.sh token <login>."
+
+      # A rebuttal that could not be judged fails the job, but the judgments of the
+      # others still post.
+      - name: Mint the GitHub App token
+        id: app
+        if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          # resolveReviewThread needs contents: write, not only pull-requests: write.
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Post the judgments
+        if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+        run: |
+          if [ -f "$RUNNER_TEMP/judgments.json" ]; then
+            python3 -m review rule "$RUNNER_TEMP/judgments.json"
+          fi
+
+  relay-failure:
+    name: Relay the failure
+    needs: [record, dismiss, judge]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

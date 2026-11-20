@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type status, type Synnax as Client } from "@synnaxlabs/client";
+import type { query, status, Synnax as Client } from "@synnaxlabs/client";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type CrudeTimeSpan, type destructor, state, type verbs } from "@synnaxlabs/x";
@@ -167,11 +167,13 @@ const run = async <
 ): Promise<boolean> => {
   const rollbacks: destructor.Destructor[] = [];
   const runRollbacks = () => {
-    try {
-      rollbacks.reverse().forEach((rollback) => rollback());
-    } catch (error) {
-      console.error(`failed to rollback changes to ${name}`, error);
-    }
+    rollbacks.reverse().forEach((rollback) => {
+      try {
+        rollback();
+      } catch (error) {
+        console.error(`failed to rollback changes to ${name}`, error);
+      }
+    });
   };
 
   if (client == null) {
@@ -206,7 +208,7 @@ const run = async <
 
     const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
       onChange((p) => {
-        const nextStatus = state.executeSetter(setter, p.status);
+        const nextStatus = state.resolve(setter, p.status);
         return {
           ...p,
           status: nextStatus,

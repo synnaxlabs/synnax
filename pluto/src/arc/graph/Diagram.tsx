@@ -9,8 +9,8 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Node } from "@/arc/graph/node";
 import { useNodeConfig, useSingleDispatch } from "@/arc/queries";
@@ -28,6 +28,9 @@ export const nodeChangesToActions = (changes: Base.NodeChange[]): arc.Action[] =
         return;
       case "remove":
         actions.push(arc.removeNode({ key: ch.key }));
+        break;
+      case "select":
+        break;
     }
   });
   return actions;

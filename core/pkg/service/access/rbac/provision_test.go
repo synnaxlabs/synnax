@@ -199,7 +199,7 @@ var _ = Describe("Provision", func() {
 		It(
 			"Should produce the same role keys when opened again",
 			func(ctx SpecContext) {
-				cfg := newRolesConfig(ctx)
+				cfg := newRolesConfig()
 				svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 				var ownerBefore role.Role
 				Expect(
@@ -225,7 +225,7 @@ var _ = Describe("Provision", func() {
 
 	Describe("Renames", func() {
 		It("Should rename a stored Host role to Driver", func(ctx SpecContext) {
-			cfg := newRolesConfig(ctx)
+			cfg := newRolesConfig()
 			svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 			var driver role.Role
 			Expect(svc1.Role.NewRetrieve().
@@ -275,7 +275,7 @@ var _ = Describe("Provision", func() {
 
 	Describe("Custom roles", func() {
 		It("Should not take over a custom role named Driver", func(ctx SpecContext) {
-			cfg := newRolesConfig(ctx)
+			cfg := newRolesConfig()
 			svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 			custom := role.Role{Name: "Driver", Description: "custom"}
 			Expect(cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -299,7 +299,7 @@ var _ = Describe("Provision", func() {
 		It(
 			"Should update existing policy objects on re-provision",
 			func(ctx SpecContext) {
-				cfg := newRolesConfig(ctx)
+				cfg := newRolesConfig()
 				svc1 := MustSucceed(rbac.OpenRoles(ctx, cfg))
 				var ownerPolicy policy.Policy
 				Expect(svc1.Policy.NewRetrieve().

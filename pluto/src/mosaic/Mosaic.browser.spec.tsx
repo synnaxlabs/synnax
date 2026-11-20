@@ -10,7 +10,7 @@
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";

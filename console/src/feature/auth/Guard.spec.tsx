@@ -14,9 +14,10 @@ import {
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -42,7 +43,6 @@ import {
   renderSuspended,
   renderWithConsole,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const LOCAL = createCore("Local", { username: "", password: "" });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Element, type ElementContent, type Nodes, type Properties } from "hast";
+import type { Element, ElementContent, Nodes, Properties } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { toMdast } from "hast-util-to-mdast";
 import { gfmToMarkdown } from "mdast-util-gfm";

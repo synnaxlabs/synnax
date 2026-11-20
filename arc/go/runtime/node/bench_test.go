@@ -21,8 +21,16 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+func newProgramState(b *testing.B, g graph.Graph) *node.ProgramState {
+	b.Helper()
+	inter, diagnostics := graph.Analyze(context.Background(), g, nil)
+	if !diagnostics.Ok() {
+		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
+	}
+	return node.New(inter)
+}
+
 func BenchmarkRefreshInputsSingleInput(b *testing.B) {
-	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{
 			{Key: "source"},
@@ -53,11 +61,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			},
 		},
 	}
-	inter, diagnostics := graph.Analyze(ctx, g, nil)
-	if !diagnostics.Ok() {
-		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
-	}
-	s := node.New(inter)
+	s := newProgramState(b, g)
 	sourceNode := s.Node("source")
 	targetNode := s.Node("target")
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
@@ -74,7 +78,6 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 }
 
 func BenchmarkRefreshInputsStaleInput(b *testing.B) {
-	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{{Key: "fresh"}, {Key: "stale"}, {Key: "target"}},
 		Inputs: map[string]msgpack.EncodedJSON{
@@ -114,11 +117,7 @@ func BenchmarkRefreshInputsStaleInput(b *testing.B) {
 			},
 		},
 	}
-	inter, diagnostics := graph.Analyze(ctx, g, nil)
-	if !diagnostics.Ok() {
-		b.Fatalf("Failed to analyze graph: %s", diagnostics.String())
-	}
-	s := node.New(inter)
+	s := newProgramState(b, g)
 	freshNode, staleNode := s.Node("fresh"), s.Node("stale")
 	targetNode := s.Node("target")
 	*freshNode.Output(0) = telem.NewSeriesV[float32](0)

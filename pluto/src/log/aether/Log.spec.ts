@@ -18,7 +18,7 @@ import {
   mockLogSourceSpec,
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
-import { type LogEntry } from "@/log/aether/telem/types";
+import type { LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { render } from "@/vis/render";
@@ -1905,6 +1905,18 @@ describe("log/aether/Log", () => {
       const thumb = findThumb(recorder);
       assert(thumb != null);
       expect(thumb.height).toBe(32);
+    });
+
+    it("should keep the thumb inside a region shorter than its minimum height", () => {
+      const region = box.construct({ x: 0, y: 0 }, { width: 400, height: 30 });
+      const entries = Array.from({ length: 5000 }, (_, i) => makeEntry(i));
+      const { log, recorder, updateState } = setup(entries, region);
+      scrollTo(updateState, 0);
+      recorder.clear();
+      log.render();
+      const thumb = findThumb(recorder);
+      assert(thumb != null);
+      expect(thumb.height).toBeLessThanOrEqual(30);
     });
 
     it("should pin the thumb to the bottom of the region at the newest entry", () => {

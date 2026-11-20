@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device, http } from "@synnaxlabs/client";
-import { json, TimeSpan } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { json, TimeSpan, zod } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export const MAKE = "http";
 
@@ -81,33 +81,21 @@ export const ZERO_AUTH_CONFIGS: Record<AuthType, AuthConfig> = {
   basic: { type: "basic", username: "", password: "" },
 };
 
-export const checkDuplicateKeys =
-  (keyField: string, label: string) =>
-  (ctx: { value: Record<string, unknown>[] | undefined; issues: unknown[] }) => {
-    if (ctx.value == null) return;
-    const seen = new Set<unknown>();
-    ctx.value.forEach((entry, i) => {
-      const k = entry[keyField];
-      if (k === "") return;
-      if (seen.has(k))
-        ctx.issues.push({
-          continue: true,
-          code: "custom",
-          input: ctx.value,
-          message: `Duplicate ${label} "${String(k)}"`,
-          path: [i, keyField],
-        });
-      else seen.add(k);
-    });
-  };
+export const headersZ = http.headerZ.array().check(
+  zod.uniqueBy<http.Header, "name">(
+    "name",
+    (name) => `Duplicate header "${name}"`,
+    ({ name }) => name === "",
+  ),
+);
 
-export const headersZ = http.headerZ
-  .array()
-  .check(checkDuplicateKeys("name", "header"));
-
-export const queryParamsZ = http.queryParamZ
-  .array()
-  .check(checkDuplicateKeys("parameter", "query parameter"));
+export const queryParamsZ = http.queryParamZ.array().check(
+  zod.uniqueBy<http.QueryParam, "parameter">(
+    "parameter",
+    (parameter) => `Duplicate query parameter "${parameter}"`,
+    ({ parameter }) => parameter === "",
+  ),
+);
 
 const sharedHealthCheckZ = z.object({
   path: z.string(),

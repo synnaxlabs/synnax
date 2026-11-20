@@ -34,9 +34,14 @@ func Type(t types.Type) string {
 			return "series " + Type(*t.Elem)
 		}
 		return "series"
-	default:
-		return t.String()
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindString, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
+	return t.String()
 }
 
 func constraint(c types.Type) string {
@@ -49,7 +54,11 @@ func constraint(c types.Type) string {
 		return "numeric"
 	case types.KindExactIntegerFloatConstant:
 		return "numeric"
-	default:
-		return c.String()
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return c.String()
 }

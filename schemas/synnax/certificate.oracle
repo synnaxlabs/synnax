@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
 
-@go output "core/pkg/service/certificate"
-@py output "client/py/synnax/certificate"
-@ts output "client/ts/src/certificate"
+@cpp output "client/cpp/certificate"
+@go output  "core/pkg/service/certificate"
+@pb
+@py output  "client/py/synnax/certificate"
+@ts output  "client/ts/src/certificate"
 
 Key = uuid {
     @doc value "is a unique identifier for a certificate."
@@ -91,6 +94,12 @@ Certificate union on source secret.Source extends Base {
         details          Details? {
             @doc value "describes the leaf, as the file browser read it."
         }
+        rack             rack.Key {
+            @doc value         "is the rack that reads the files."
+            @ref kind          use
+            @ref on_delete     cascade
+            @validate required
+        }
 
         @doc value "is a certificate in files on the computer that uses it."
     }
@@ -125,6 +134,10 @@ Certificate union on source secret.Source extends Base {
 Where filter Certificate {
     key
     name
+    source
+    racks  rack.Key[] {
+        @doc value "matches the file certificates on any of the given racks."
+    }
 
     @doc value         "is a filter that selects certificates."
     @go request_output "core/pkg/api/certificate"

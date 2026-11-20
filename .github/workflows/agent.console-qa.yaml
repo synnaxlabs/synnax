@@ -36,11 +36,13 @@ jobs:
       contents: read
     outputs:
       prompt: ${{ steps.prompt.outputs.prompt }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -75,9 +77,7 @@ jobs:
       timeout-minutes: 120
       licensed: true
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
@@ -90,6 +90,7 @@ jobs:
       issues: read
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+    timeout-minutes: 10
     steps:
       - name: Post the issue link
         if: env.SLACK_WEBHOOK_URL != ''
@@ -106,3 +107,13 @@ jobs:
           text="Console QA: ${issue:-the run filed no issue. <$RUN_URL|Run>}"
           jq -n --arg text "$text" '{text: $text}' | curl --fail --silent \
             --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [prompt, agent, slack]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

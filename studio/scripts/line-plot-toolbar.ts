@@ -24,6 +24,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-line-plot").first());
     await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
     await capture.hideBottomToolbar(session);
+    // Samples start with the fixture, so the 30-second window fills on wall time.
+    await session.settleWall(20000);
     // Off the plot, so no hover tooltip covers it.
     await session.moveTo(capture.PARK);
 
@@ -32,12 +34,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.showVisualizationToolbar(session);
     await session.hold(400);
-    await capture.zoomCenter(
-      session,
-      page.locator(".console-nav__drawer.lyra--location-bottom").first(),
-      1.4,
-    );
-    await session.moveTo(page.locator("label").filter({ hasText: "Y1" }).first());
+    // The header's actions and tabs sit at its right end.
+    const tabs = page
+      .locator(".console-nav__drawer.lyra--location-bottom .lyra-tabs__selector")
+      .first();
+    await capture.zoomCenter(session, tabs, 1.5);
+    await session.moveTo(tabs.getByText("Axes", { exact: true }).first(), {
+      text: true,
+    });
     await session.hold(2000);
     session.endZoom();
     await session.moveTo(capture.PARK);

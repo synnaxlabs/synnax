@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -39,6 +39,6 @@ describe("EtherCAT.Device.HARDWARE", () => {
 
   it("should show the location of a slave from a Driver that names no network", async () => {
     await find({ position: 3 });
-    expect(screen.getByText("test-location")).toBeTruthy();
+    expect(screen.getByText("soem:eth0.Slot 3")).toBeTruthy();
   });
 });

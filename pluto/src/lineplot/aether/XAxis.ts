@@ -7,18 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import {
+  type AxisRenderProps,
+  BaseAxis,
+  baseAxisStateZ,
+  newestSample,
+} from "@/lineplot/aether/axis";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
   render(props: AxisRenderProps): void {
     if (this.deleted) return;
@@ -113,19 +118,21 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   private renderRanges(props: AxisRenderProps, xDataToDecimalScale: scale.Scale): void {
     const bound = this.bounds(props.hold);
-    const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
+    const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
+    const newest = newestSample(this.dataBounds());
     this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,
         timeRange,
+        newest: newest == null ? undefined : new TimeStamp(newest),
       }),
     );
   }
 
   private dataBounds(): line.DataBounds[] {
-    return this.yAxes.map((el) => el.xBounds());
+    return this.yAxes.flatMap((el) => el.xBounds());
   }
 }

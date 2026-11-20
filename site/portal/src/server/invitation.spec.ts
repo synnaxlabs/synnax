@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import type { Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { addressedTo, linked, list, retrieve } from "@/server/invitation";
 import { NOW } from "@/server/license/testutil";
@@ -49,7 +50,7 @@ describe("invitation", () => {
     });
 
     it("should return null for an unknown or malformed key", async () => {
-      expect(await retrieve(store.query, crypto.randomUUID())).toBeNull();
+      expect(await retrieve(store.query, uuid.create())).toBeNull();
       expect(await retrieve(store.query, "inv_1")).toBeNull();
     });
   });

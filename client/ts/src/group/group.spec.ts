@@ -14,8 +14,8 @@ import { channel } from "@/channel";
 import { group } from "@/group";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
-import { type resource } from "@/resource";
-import { createTestClient, newVirtualChannel } from "@/testutil";
+import type { resource } from "@/resource";
+import { createTestClient, expectLive, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 
@@ -85,13 +85,23 @@ describe("Group", () => {
       expect(client.groups.setParentRequest([KEY, KEY2], RACK)).toEqual([
         {
           endpoint: "/group/dispatch",
-          payload: { key: KEY, actions: [group.setParent({ parent: RACK })] },
+          payload: {
+            key: KEY,
+            dispatchKey: expect.any(String),
+            actions: [group.setParent({ parent: RACK })],
+          },
           apply: expect.any(Function),
+          applyResponse: expect.any(Function),
         },
         {
           endpoint: "/group/dispatch",
-          payload: { key: KEY2, actions: [group.setParent({ parent: RACK })] },
+          payload: {
+            key: KEY2,
+            dispatchKey: expect.any(String),
+            actions: [group.setParent({ parent: RACK })],
+          },
           apply: expect.any(Function),
+          applyResponse: expect.any(Function),
         },
       ]);
     });
@@ -323,9 +333,9 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
-      expect(client.groups.watch(parent.key).getCached()).toEqual(
-        expect.objectContaining({ parent: undefined }),
-      );
+      expect(
+        expectLive(client.groups.watch(parent.key).getCached()).parent,
+      ).toBeUndefined();
     });
   });
   describe("moveRequests", () => {

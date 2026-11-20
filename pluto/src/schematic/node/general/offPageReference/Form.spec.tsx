@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
@@ -183,7 +183,7 @@ describe("OffPageReferenceForm", () => {
     const before = getColor();
     fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
-      expect(getMethods().get(path.page, { optional: true })?.value).toBeUndefined(),
+      expect(getMethods().get(path.page).value).toEqual({ type: "lineplot", key: "" }),
     );
     expect(getColor()).toBe(before);
   });

@@ -10,8 +10,8 @@
 import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
-import { type control } from "@/control";
+import type { channel } from "@/channel";
+import type { control } from "@/control";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createTestClient } from "@/testutil";

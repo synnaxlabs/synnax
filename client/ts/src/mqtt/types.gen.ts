@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { device } from "@/device";
+import { icd } from "@/icd";
 import { task } from "@/task";
 
 export const SPARKPLUG_DATA_TYPES = [
@@ -37,33 +38,6 @@ export type SparkplugDataType = z.infer<typeof sparkplugDataTypeZ>;
 export const QO_S = ["at_most_once", "at_least_once", "exactly_once"] as const;
 export const qoSZ = z.enum(QO_S);
 export type QoS = z.infer<typeof qoSZ>;
-
-/** ReadField is a single value extracted from the JSON payload of a topic. */
-export const readFieldZ = z.object({
-  /** key uniquely identifies the field within the entry. */
-  key: z.string().default(id.create),
-  /** name is the human-readable field name. */
-  name: z.string().default(""),
-  /** disabled is true when the field is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /** channel is the Synnax channel the extracted value is written to. */
-  channel: channel.keyZ.default(0),
-  /**
-   * pointer is the JSON Pointer to the value within the payload. An empty pointer takes
-   * the whole payload.
-   */
-  pointer: z.string().default(""),
-  /** dataType is the data type of the extracted value. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the encoding of the JSON value when the target channel holds
-   * timestamps. Required for timestamp channels.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /** enumValues maps string labels in the payload to numeric channel values. */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ReadField extends z.infer<typeof readFieldZ> {}
 
 /** BaseReadEntry carries the fields every read entry shares. */
 export const baseReadEntryZ = z.object({
@@ -149,7 +123,7 @@ export const edgeTagZ = z.object({
 });
 export interface EdgeTag extends z.infer<typeof edgeTagZ> {}
 
-/** PlainReadEntry reads JSON payloads from one topic. */
+/** PlainReadEntry reads the JSON payloads of one topic as the messages of an ICD. */
 export const plainReadEntryZ = baseReadEntryZ.extend({
   type: z.literal("plain"),
   /** topic is the topic to subscribe to. It holds no wildcards. */
@@ -161,13 +135,13 @@ export const plainReadEntryZ = baseReadEntryZ.extend({
    * sends on subscribe.
    */
   retainedIgnored: z.boolean().default(false),
-  /** fields contains the values to extract from each payload. */
-  fields: readFieldZ.array().default(() => []),
+  /** icd is the key of the ICD that holds the messages of the topic. */
+  icd: icd.keyZ,
   /**
-   * index is the key of the field whose channel indexes the others. Empty when the task
-   * stamps samples on arrival.
+   * messages are the messages the topic carries. Each payload is read as the message
+   * whose match rule it meets.
    */
-  index: z.string().default(""),
+  messages: icd.readMessageZ.array().default(() => []),
 });
 export interface PlainReadEntry extends z.infer<typeof plainReadEntryZ> {}
 

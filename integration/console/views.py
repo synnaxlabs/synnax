@@ -9,6 +9,8 @@
 
 """View strip helper for Console UI automation."""
 
+import re
+
 from playwright.sync_api import Locator, expect
 
 from console.base import ResourceClient
@@ -25,6 +27,8 @@ class ViewsClient(ResourceClient):
 
     search_placeholder: str
     static_view_name: str
+    tab_name: str
+    tab_prefix: str
 
     def __init__(
         self,
@@ -32,6 +36,8 @@ class ViewsClient(ResourceClient):
         layout: LayoutClient,
         search_placeholder: str,
         static_view_name: str,
+        tab_name: str,
+        tab_prefix: str,
     ):
         """Initialize the views client.
 
@@ -40,10 +46,16 @@ class ViewsClient(ResourceClient):
             "Search ranges...").
         :param static_view_name: Name of the built-in view the explorer opens on
             (e.g. "All ranges").
+        :param tab_name: Name of the explorer's tab while it shows the built-in view
+            (e.g. "Range explorer").
+        :param tab_prefix: What the tab name puts before a saved view's name (e.g.
+            "Ranges").
         """
         super().__init__(layout)
         self.search_placeholder = search_placeholder
         self.static_view_name = static_view_name
+        self.tab_name = tab_name
+        self.tab_prefix = tab_prefix
 
     # ── Private Helpers ───────────────────────────────────────────────────
 
@@ -58,6 +70,52 @@ class ViewsClient(ResourceClient):
     def _search_input(self) -> Locator:
         """Return the explorer search input locator."""
         return self.page.get_by_placeholder(self.search_placeholder)
+
+    # ── Explorer Tab ──────────────────────────────────────────────────────
+
+    def _saved_tab_name(self, view: str) -> str:
+        """Return a pattern for the tab name on a saved view. The view's name is a
+        part of its own, so the tab's text has no space before it."""
+        return f"{re.escape(self.tab_prefix)} \u203a\\s*{view}"
+
+    def _tab_name(self, view: str) -> re.Pattern[str]:
+        """Return a pattern for the explorer's tab name while it shows the view."""
+        if view == self.static_view_name:
+            return re.compile(f"^{re.escape(self.tab_name)}$")
+        return re.compile(f"^{self._saved_tab_name(re.escape(view))}$")
+
+    def _any_tab_name(self) -> re.Pattern[str]:
+        """Return a pattern for the explorer's tab name, whichever view it shows."""
+        saved = self._saved_tab_name(".+")
+        return re.compile(f"^({re.escape(self.tab_name)}|{saved})$")
+
+    def get_tab(self, view: str | None = None) -> Locator:
+        """Return the explorer's tab, whichever view it shows.
+
+        :param view: Only match a tab that shows this view.
+        """
+        return self.layout.get_tab(
+            self._any_tab_name() if view is None else self._tab_name(view)
+        )
+
+    def close_tab(self, view: str | None = None) -> None:
+        """Close the explorer's tab, whichever view it shows.
+
+        :param view: Only close a tab that shows this view.
+        """
+        self.layout.close_tab(
+            self._any_tab_name() if view is None else self._tab_name(view)
+        )
+
+    def open_in_new_tab(self, name: str) -> None:
+        """Open a view in a new explorer tab via its context menu.
+
+        :param name: Exact name of the view.
+        """
+        item = self.get_view_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.layout.ctx_menu.action(item, "Open in new tab")
+        self.get_tab(name).wait_for(state="visible", timeout=5000)
 
     # ── View Items ────────────────────────────────────────────────────────
 

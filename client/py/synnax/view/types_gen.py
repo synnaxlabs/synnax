@@ -77,7 +77,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     icon: str | None = None
     color: color_.Color | None = None
 

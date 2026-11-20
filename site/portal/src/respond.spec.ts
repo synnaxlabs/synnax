@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type Portal } from "@/portal";
+import type { Portal } from "@/portal";
 import { download, form, handle } from "@/respond";
 import { badRequest, HTTPError, toResponse } from "@/server/errors";
 import { body, createAPIContext } from "@/testutil";

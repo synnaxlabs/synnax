@@ -10,12 +10,12 @@
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 const path = deep.path<{ config: { name: string } }>();
 
@@ -39,6 +39,18 @@ describe("ChannelNameField", () => {
     );
     const icon = await screen.findByRole("img", { name: "New channel" });
     expect(await hoverTip(icon)).toBe("New channelDeploying the task creates it.");
+  });
+
+  it("should show the default name of a new channel that the form names nowhere", async () => {
+    await renderInTaskForm(
+      <Task.ChannelNameField channel={0} defaultName="dev_value" />,
+      {
+        values: { config: { name: "" } },
+      },
+    );
+    const input = await screen.findByDisplayValue<HTMLInputElement>("dev_value");
+    expect(input.disabled).toBe(true);
+    expect(stateIcon("New channel")).toBeTruthy();
   });
 
   it("should not mark a skipped channel as new", async () => {

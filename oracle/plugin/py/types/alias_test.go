@@ -11,6 +11,7 @@ package types_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -70,12 +71,11 @@ Ident Key
 
 var _ = Describe("Python aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, use string, expected ...string) {
+		func(use string, expected ...string) {
 			loader := NewMockFileLoader().
 				Add("schemas/x/telem", aliasTelem).
 				Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,
@@ -171,4 +171,21 @@ var _ = Describe("Python aliases", func() {
 			}
 		`, "class Panel(BaseModel):\n    item: str\n"),
 	)
+
+	It("Should reject same-named alias type params with different defaults", func() {
+		loader := NewMockFileLoader().
+			Add("schemas/x/telem", aliasTelem).
+			Add("schemas/base", aliasBase)
+		req := MustGenerateRequest(`
+			import "schemas/base"
+
+			@py output "client/py/synnax/test"
+
+			Required<T> = base.Box<T>
+			Optional<T?> = base.Box<T>
+		`, "test", loader)
+		Expect(types.New(types.DefaultOptions()).Generate(req)).Error().To(MatchError(
+			ContainSubstring("type parameter T of Optional conflicts"),
+		))
+	})
 })

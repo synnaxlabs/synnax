@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, zod } from "@synnaxlabs/x";
+import { narrow, type record, unique, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
-import { type Cache } from "@/query/cache";
-import { type List, type ListQuery, type Lists } from "@/query/list";
-import { type Live, type Retrieves, type Trigger } from "@/query/query";
-import { type Keyed, type Table } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Cache } from "@/query/cache";
+import type { List, ListQuery, Lists } from "@/query/list";
+import type { Live, Retrieves, Trigger } from "@/query/query";
+import type { Keyed, Table } from "@/query/table";
+import type { Data, FetchOptions, Params } from "@/query/types";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "after"] as const;
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** @returns the one member of value that is not nullish, or null. */
 const soleMember = (value: Record<string, unknown>): [string, unknown] | null => {
@@ -32,9 +29,9 @@ const soleMember = (value: Record<string, unknown>): [string, unknown] | null =>
 
 /** @returns the value of a filter that only applies op to field, or undefined. */
 const whereOp = (where: unknown, field: string, op: string): unknown => {
-  if (!isObject(where)) return undefined;
+  if (!narrow.isObject(where)) return undefined;
   const line = soleMember(where);
-  if (line?.[0] !== field || !isObject(line[1])) return undefined;
+  if (line?.[0] !== field || !narrow.isObject(line[1])) return undefined;
   const member = soleMember(line[1]);
   return member?.[0] === op ? member[1] : undefined;
 };
@@ -47,7 +44,7 @@ const whereIn = (where: unknown, field: string): unknown[] | null => {
 
 /** @returns the keys of a request whose only field is a `where` on keys, or null. */
 const whereKeys = (query: unknown): unknown[] | null => {
-  if (!isObject(query)) return null;
+  if (!narrow.isObject(query)) return null;
   const field = soleMember(query);
   return field?.[0] === "where" ? whereIn(field[1], "key") : null;
 };
@@ -56,7 +53,7 @@ const whereKeys = (query: unknown): unknown[] | null => {
  * @returns the key of a request whose only field is a `where` on one key, or undefined.
  */
 const whereKey = (query: unknown): unknown => {
-  if (!isObject(query)) return undefined;
+  if (!narrow.isObject(query)) return undefined;
   const field = soleMember(query);
   return field?.[0] === "where" ? whereOp(field[1], "key", "eq") : undefined;
 };
@@ -69,7 +66,7 @@ const whereKey = (query: unknown): unknown => {
  */
 const keysOnly = (query: unknown): unknown[] | null => {
   const keys = whereKeys(query);
-  if (keys != null || !isObject(query)) return keys;
+  if (keys != null || !narrow.isObject(query)) return keys;
   const field = soleMember(query);
   if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
     return null;
@@ -148,7 +145,7 @@ const isBareKey = (params: unknown): params is record.Key =>
  */
 export const addressesOne = (params: unknown): boolean =>
   isBareKey(params) ||
-  (isObject(params) &&
+  (narrow.isObject(params) &&
     (params.one === true || isBareKey(params.key) || typeof params.name === "string"));
 
 /**
@@ -156,7 +153,8 @@ export const addressesOne = (params: unknown): boolean =>
  * @throws {ValidationError} if params return one record beside a limit or a cursor.
  */
 export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : never => {
-  if (!isObject(params)) return params as P extends unknown ? Omit<P, "one"> : never;
+  if (!narrow.isObject(params))
+    return params as P extends unknown ? Omit<P, "one"> : never;
   if (addressesOne(params) && (params.limit != null || params.after != null))
     throw new ValidationError(
       "a query for one record takes no limit or cursor, since a page could hide a " +
@@ -169,7 +167,7 @@ export const dropOne = <P>(params: P): P extends unknown ? Omit<P, "one"> : neve
 
 /** True for params that are a bare key or an object with a plain `key` value. */
 const addressesKey = (params: unknown): boolean =>
-  isBareKey(params) || (isObject(params) && isBareKey(params.key));
+  isBareKey(params) || (narrow.isObject(params) && isBareKey(params.key));
 
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
@@ -404,10 +402,15 @@ export abstract class Retriever<
                 ? undefined
                 : (query) => serverComputed(query as z.output<Z>),
             cursor: list.cursor,
-            triggers: triggers?.map(({ attach, version, contentOnly }) => ({
-              attach: (query, onEvent) => attach(query as z.output<Z>, onEvent),
+            triggers: triggers?.map(({ attach, version, contentOnly, covers }) => ({
+              attach: (query, onEvent, members) =>
+                attach(query as z.output<Z>, onEvent, members),
               version,
               contentOnly,
+              covers:
+                covers == null
+                  ? undefined
+                  : (query, members) => covers(query as z.output<Z>, members),
             })),
             compare: list.compare,
           });
@@ -420,11 +423,11 @@ export abstract class Retriever<
           table.ingest(records, { since });
           return records;
         });
-        const { where, searchTerm } = isObject(query) ? query : {};
+        const { where, searchTerm } = narrow.isObject(query) ? query : {};
         checkForMultipleOrNoResults(
           name,
           {
-            where: isObject(where) ? where : undefined,
+            where: narrow.isObject(where) ? where : undefined,
             searchTerm: typeof searchTerm === "string" ? searchTerm : undefined,
           },
           records,
@@ -486,7 +489,7 @@ export abstract class Retriever<
       this.singleSpace = singleSpace as Retrieves<Params, D | D[]>;
       this.trySingle = (p) => {
         if (isBareKey(p)) return { query: p as Params as SingleQuery };
-        if (!isObject(p) || !isBareKey(p.key) || soleMember(p)?.[0] !== "key")
+        if (!narrow.isObject(p) || !isBareKey(p.key) || soleMember(p)?.[0] !== "key")
           return null;
         return { query: p.key as Params as SingleQuery };
       };
@@ -557,13 +560,13 @@ export abstract class Retriever<
 
   private inKeyOrder(keys: K[], records: D[]): D[] {
     const byKey = new Map<K, D>(records.map((r) => [r.key, r]));
-    const unique = [...new Set(keys)];
-    const missing = unique.filter((k) => !byKey.has(k));
+    const distinct = unique.unique(keys);
+    const missing = distinct.filter((k) => !byKey.has(k));
     if (missing.length === 1)
       throw new NotFoundError(`${this.name} with key ${missing[0]} not found`);
     if (missing.length > 1)
       throw new NotFoundError(`${this.name} with keys ${missing.join(", ")} not found`);
-    return unique.map((k) => byKey.get(k) as D);
+    return distinct.map((k) => byKey.get(k) as D);
   }
 
   /**

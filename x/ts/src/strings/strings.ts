@@ -29,11 +29,12 @@ export const naturalLanguageJoin = (
   zeroLength: string = "",
 ): string => {
   if (typeof strings === "string") return strings;
-  const length = strings.length;
-  if (length === 0) return zeroLength;
-  if (length === 1) return strings[0];
-  if (length === 2) return `${strings[0]} and ${strings[1]}`;
-  return `${strings.slice(0, -1).join(", ")}, and ${strings[length - 1]}`;
+  const [first, second, ...rest] = strings;
+  if (first == null) return zeroLength;
+  if (second == null) return first;
+  const last = rest.pop();
+  if (last == null) return `${first} and ${second}`;
+  return `${[first, second, ...rest].join(", ")}, and ${last}`;
 };
 
 /**
@@ -107,3 +108,79 @@ export const escapeHTML = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+/** Capitalizes the first character of the given string. */
+export const capitalize = (str: string): string => {
+  if (str.length === 0) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/** Converts a string to kebab-case, splitting on spaces, camelCase, and capitals. */
+export const toKebab = (str: string): string =>
+  str
+    .replace(/[\s_]+/g, "-")
+    .replace(
+      /([a-z0-9])([A-Z])/g,
+      (_, p1: string, p2: string) => `${p1}-${p2.toLowerCase()}`,
+    )
+    .toLowerCase();
+
+/** Splits snake_case, kebab-case, camelCase, and PascalCase into spaced words. */
+const splitWords = (str: string): string => {
+  let result = str.replace(/[_-]/g, " ");
+
+  // Insert spaces before capital letters (for camelCase/PascalCase)
+  // but not at the start or when there are consecutive capitals
+  result = result.replace(
+    /([a-z0-9])([A-Z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`,
+  );
+
+  // Handle consecutive capitals (e.g., "XMLParser" -> "XML Parser")
+  result = result.replace(
+    /([A-Z]+)([A-Z][a-z])/g,
+    (_, p1: string, p2: string) => `${p1} ${p2}`,
+  );
+
+  return result.replace(/\s+/g, " ").trim();
+};
+
+/** Converts a string to proper noun format, capitalizing every word. */
+export const toProperNoun = (str: string): string => {
+  if (str.length === 0) return str;
+  return splitWords(str).replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const ACRONYM_REGEX = /^[A-Z0-9]{2,}$/;
+
+/** Converts a string to sentence case. Acronyms keep their casing. */
+export const toSentence = (str: string): string => {
+  const spaced = splitWords(str);
+  if (spaced.length === 0) return spaced;
+  const words = spaced.split(" ");
+  return words
+    .map((word, i) => {
+      if (ACRONYM_REGEX.test(word)) return word;
+      const lower = word.toLowerCase();
+      return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+    })
+    .join(" ");
+};
+
+/**
+ * Formats a count with a noun that agrees with it.
+ *
+ * @param n - The count.
+ * @param noun - The singular noun.
+ * @param plural - The plural noun. Defaults to the noun with an "s" added.
+ * @returns the count followed by the noun, singular only when the count is 1.
+ *
+ * @example
+ * ```typescript
+ * count(1, "cell"); // "1 cell"
+ * count(3, "cell"); // "3 cells"
+ * count(0, "entry", "entries"); // "0 entries"
+ * ```
+ */
+export const count = (n: number, noun: string, plural: string = `${noun}s`): string =>
+  `${n} ${n === 1 ? noun : plural}`;

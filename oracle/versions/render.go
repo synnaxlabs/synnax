@@ -48,6 +48,9 @@ type RenderOptions struct {
 	// ExtraValueLines returns extra domain-expression lines appended to the
 	// named enum value's domain body. Nil appends nothing.
 	ExtraValueLines func(typeName, valueName string) []string
+	// ExtraVariantLines returns extra domain-expression lines appended to the
+	// named union variant's domain body. Nil appends nothing.
+	ExtraVariantLines func(typeName, variantName string) []string
 	// ExtraBodyBlocks returns verbatim multi-line blocks (live-owned action
 	// definitions) rendered inside the named struct's body, between its fields
 	// and its domains. Nil renders nothing.
@@ -139,6 +142,14 @@ func (r *renderer) extraValueLines(typeName, valueName string) []string {
 		return nil
 	}
 	return r.opts.ExtraValueLines(typeName, valueName)
+}
+
+// extraVariantLines returns the caller-injected extra lines for a union variant.
+func (r *renderer) extraVariantLines(typeName, variantName string) []string {
+	if r.opts.ExtraVariantLines == nil {
+		return nil
+	}
+	return r.opts.ExtraVariantLines(typeName, variantName)
 }
 
 func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
@@ -298,7 +309,10 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 // synthetic struct's fields; named payloads reference their type. Either form
 // carries a domain body when variant domains survive filtering.
 func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
-	exprs := r.keptExpressions(v.Domains)
+	exprs := append(
+		r.keptExpressions(v.Domains),
+		r.extraVariantLines(typeName, v.Name)...,
+	)
 	if v.Inline && r.opts.Resolve != nil {
 		if t, ok := r.opts.Resolve(v.Type.Name); ok {
 			if sf, isStruct := t.Form.(resolution.StructForm); isStruct {
@@ -440,7 +454,11 @@ func (r *renderer) value(v resolution.ExpressionValue) string {
 	case resolution.ValueKindFloat:
 		// The schema grammar has no exponent form, so 'f' keeps tiny magnitudes
 		// like 0.000006 parseable where 'g' would emit 6e-06.
-		return strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		s := strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		if !strings.Contains(s, ".") {
+			s += ".0"
+		}
+		return s
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindIdent:

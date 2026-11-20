@@ -53,11 +53,13 @@ jobs:
     permissions:
       actions: read
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       - name: Download the results
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -78,9 +80,9 @@ jobs:
 
       - name: Create an App token
         id: token
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
-          app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
+          client-id: ${{ vars.CLAUDE_CODE_CLIENT_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
           permission-contents: read
           permission-issues: write
@@ -91,4 +93,5 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ inputs.head_sha }}
           PR: ${{ inputs.pr }}
+          REVIEWER: ${{ vars.AGENT_REVIEWER || 'pjdotson' }}
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"

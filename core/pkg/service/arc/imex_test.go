@@ -60,7 +60,8 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("arc-automation"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(WireRoundTrip(env).Decode[arc.Base]())
+			wire := WireRoundTrip(env)
+			decoded := MustSucceed(wire.Decode[arc.Base]())
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Source.Mode()).To(Equal(arc.ModeText))
 		})

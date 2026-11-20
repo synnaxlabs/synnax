@@ -13,21 +13,12 @@
 #[cfg(feature = "desktop")]
 mod install;
 mod keychain;
+#[cfg(target_os = "macos")]
+mod mouse;
 #[cfg(feature = "desktop")]
 mod supervisor;
 #[cfg(not(feature = "desktop"))]
 mod updater;
-#[cfg(target_os = "linux")]
-mod webgl;
-
-#[cfg(target_os = "macos")]
-use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
-#[cfg(target_os = "macos")]
-use std::thread;
-#[cfg(target_os = "macos")]
-use std::time::Duration;
-#[cfg(target_os = "macos")]
-use tauri::Emitter;
 
 use tauri::Manager;
 
@@ -51,6 +42,8 @@ fn main() {
         keychain::keychain_get,
         keychain::keychain_set,
         keychain::keychain_delete,
+        #[cfg(target_os = "macos")]
+        mouse::mouse_release,
         updater::updater_check,
     ]);
     #[cfg(feature = "desktop")]
@@ -58,6 +51,8 @@ fn main() {
         keychain::keychain_get,
         keychain::keychain_set,
         keychain::keychain_delete,
+        #[cfg(target_os = "macos")]
+        mouse::mouse_release,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
@@ -71,10 +66,12 @@ fn main() {
         supervisor::commands::supervisor_export_diagnostics,
         supervisor::commands::supervisor_api_key,
         supervisor::commands::supervisor_save_api_key,
+        supervisor::commands::supervisor_forget_legacy_api_key,
+        supervisor::commands::supervisor_legacy_api_key,
         install::install_info,
     ]);
     #[cfg(target_os = "linux")]
-    let builder = builder.plugin(webgl::init());
+    let builder = builder.plugin(desktop::webkit::init());
     builder
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
@@ -127,23 +124,6 @@ fn main() {
                     );
                 }
             }
-            #[cfg(target_os = "macos")]
-            let app_handle = app.handle().clone();
-            #[cfg(target_os = "macos")]
-            thread::spawn(move || {
-                let app_handle = app_handle.clone();
-                let handler = DeviceEventsHandler::new(Duration::from_millis(10))
-                    .expect("Failed to create device events handler");
-                let _guard = handler.on_mouse_up(move |_button| {
-                    let state: MouseState = DeviceState::new().get_mouse();
-                    app_handle
-                        .emit("mouse_up", state.coords)
-                        .expect("Failed to emit event");
-                });
-                loop {
-                    thread::sleep(Duration::from_secs(1));
-                }
-            });
             Ok(())
         })
         .build(tauri::generate_context!())

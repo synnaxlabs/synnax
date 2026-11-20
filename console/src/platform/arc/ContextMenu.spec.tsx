@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, type Synnax as Client } from "@synnaxlabs/client";
+import type { arc, Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { array } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
 import { Modals } from "@/platform/modals";
 import { reportTaskRunning } from "@/platform/task/testutil";
-import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
+import { createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -41,6 +42,7 @@ const renderMenu = async (a: arc.Arc, as: Client = client): Promise<void> => {
         visible
         position={{ x: 0, y: 0 }}
         cursor={{ x: 0, y: 0 }}
+        target={null}
       />
       <Modals.Stack />
     </>,

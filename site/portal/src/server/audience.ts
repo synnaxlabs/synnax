@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import { Resend } from "resend";
 
-import { type Directory } from "@/server/directory";
+import type { Directory } from "@/server/directory";
 
 /**
  * Audience is the release notes list. Resend keeps it, with the people added by hand
@@ -259,7 +259,7 @@ export const memory = (
       const { unsubscribed = false, segments = [] } = contacts.get(email) ?? {};
       contacts.set(email, {
         unsubscribed,
-        segments: [...new Set([...segments, "accounts", "everyone"])],
+        segments: unique.unique([...segments, "accounts", "everyone"]),
       });
     },
     remove: async (email) => {

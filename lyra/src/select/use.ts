@@ -274,7 +274,7 @@ export const useMultiple = <K extends record.Key>({
     const value = array.toArray(valueRef.current).filter((v) => v != null);
     // If the control key is held, we can still allow multiple selection.
     if (ctrl.current.held && replaceOnSingle)
-      if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
     else if (shift.current.held && shiftValue !== null) {
       const order = getOrder();
@@ -296,7 +296,7 @@ export const useMultiple = <K extends record.Key>({
       shiftValueRef.current = key;
       if (replaceOnSingle)
         nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
-      else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      else if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
     }
     const v = unique.unique(nextSelected);

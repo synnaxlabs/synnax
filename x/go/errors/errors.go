@@ -13,6 +13,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -54,7 +55,7 @@ func Is(err, ref error) bool { return errors.Is(err, ref) }
 //
 // As in the Go standard library, an error is considered to match a reference error if
 // it is equal to that target or if it implements a method Is(error) bool such that
-// Is(reference) returns true
+// Is(reference) returns true.
 func IsAny(err error, refs ...error) bool {
 	for _, e := range refs {
 		if Is(err, e) {
@@ -64,7 +65,7 @@ func IsAny(err error, refs ...error) bool {
 	return false
 }
 
-// Wrap wraps an error with a message prefix. A stack trace is retained
+// Wrap wraps an error with a message prefix. A stack trace is retained.
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
 // Mark returns err marked so that Is matches it against reference, with the message of
@@ -74,7 +75,7 @@ func Mark(err, reference error) error { return errors.Mark(err, reference) }
 
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
-// processed for reportable strings
+// processed for reportable strings.
 func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
@@ -148,6 +149,7 @@ func (t joinText) SafeFormatError(p errors.Printer) error {
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
+	joinType       = reflect.TypeFor[*joinError]()
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
@@ -158,13 +160,23 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	if join, ok := bare.(*joinError); ok {
-		return join.members
-	}
-	if reflect.TypeOf(bare) == stdlibJoinType {
-		return bare.(multiCause).Unwrap()
+	if members, ok := joinMembers(bare); ok {
+		return members
 	}
 	return []error{err}
+}
+
+// joinMembers returns the members of err if err is a Join or a standard library join.
+func joinMembers(err error) ([]error, bool) {
+	joined, ok := err.(multiCause)
+	if !ok {
+		return nil, false
+	}
+	switch reflect.TypeOf(err) {
+	case joinType, stdlibJoinType:
+		return joined.Unwrap(), true
+	}
+	return nil, false
 }
 
 // multiCause is implemented by errors that carry more than one cause, such as the
@@ -184,6 +196,52 @@ func UnwrapMulti(err error) []error {
 	}
 	return nil
 }
+
+// MessageWithout returns the message of err without the message of ref or the ": "
+// before it. A join drops each member left with no message. A wrapper whose message
+// does not end with the message of its cause keeps its whole message. A nil ref removes
+// nothing. A panic in the Error method of err or a cause shows as text, as it does in
+// the message of a join.
+func MessageWithout(err, ref error) string {
+	if err == nil {
+		return ""
+	}
+	// Identity, not Is: a wrapper of ref keeps its own text.
+	if ref != nil && reflect.TypeOf(ref).Comparable() &&
+		reflect.ValueOf(err).Equal(reflect.ValueOf(ref)) {
+		return ""
+	}
+	if members, ok := joinMembers(err); ok {
+		messages := make([]string, 0, len(members))
+		for _, member := range members {
+			msg := messageOf(member)
+			if CheapIs(member, ref) {
+				msg = MessageWithout(member, ref)
+			}
+			if msg != "" {
+				messages = append(messages, msg)
+			}
+		}
+		return strings.Join(messages, "\n")
+	}
+	msg := messageOf(err)
+	cause := errors.UnwrapOnce(err)
+	if cause == nil {
+		return msg
+	}
+	prefix, ok := strings.CutSuffix(msg, messageOf(cause))
+	if !ok || (prefix != "" && !strings.HasSuffix(prefix, ": ")) {
+		return msg
+	}
+	causeMsg := MessageWithout(cause, ref)
+	if causeMsg == "" {
+		return strings.TrimSuffix(prefix, ": ")
+	}
+	return prefix + causeMsg
+}
+
+// messageOf returns the message of err through the formatter, which recovers a panic.
+func messageOf(err error) string { return joinText{err}.Error() }
 
 // Combine returns:
 //  1. err if otherErr is nil.
@@ -210,6 +268,14 @@ func Newf(format string, args ...any) error { return errors.Newf(format, args...
 // The As method should set the target to its value and return true if err matches the
 // type to which target points.
 func As(err error, target any) bool { return errors.As(err, target) }
+
+// AsType finds the first error in err's chain that matches E, by the same rules as As,
+// and returns it. It returns the zero value of E and false if no error matches.
+func AsType[E error](err error) (E, bool) {
+	var target E
+	ok := errors.As(err, &target)
+	return target, ok
+}
 
 // CheapIs is a zero-allocation alternative to Is for cases where the reference error is
 // a known sentinel value (package-level var). It uses the standard library's errors.Is

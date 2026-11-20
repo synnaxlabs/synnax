@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,7 +28,7 @@ import {
   findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
@@ -61,7 +62,7 @@ const renderCounterRead = async (
   config: task.Payload<NI.Task.CounterReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.CounterRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.COUNTER_READ_TYPE], {
     client,
     taskKey: draft.key,
   });
@@ -278,6 +279,19 @@ describe("CounterRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+
+  it("should create the task with a channel on each of the given devices", async () => {
+    const devices = [await createNIDevice(client), await createNIDevice(client)];
+    const keys = devices.map((d) => d.key);
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+      {
+        deviceKeys: keys,
+      },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual(keys);
   });
 });
 

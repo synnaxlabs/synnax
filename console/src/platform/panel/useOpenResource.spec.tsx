@@ -9,10 +9,11 @@
 
 import { resource, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/platform/panel";
@@ -21,7 +22,6 @@ import {
   createConsoleWrapper,
   resolveFocusedTab,
   selectTestProject,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

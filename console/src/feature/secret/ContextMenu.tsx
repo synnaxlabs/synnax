@@ -14,12 +14,12 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { usedByDialogID } from "@/feature/secret/UsedBy";
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
 import { Secret as PlatformSecret } from "@/platform/secret";
+import { Settings as PlatformSettings } from "@/platform/settings";
 
 const rename = (key: string): void => Text.edit(List.itemNameID(key));
 
@@ -41,7 +41,7 @@ export const SecretsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
       {single != null && (
         <Menu.Item
           itemKey="usedBy"
-          onClick={() => Dialog.open(usedByDialogID(single.key))}
+          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
         >
           <Icon.Link />
           Used by

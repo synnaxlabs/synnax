@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { breaker, errors } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Unreachable } from "@/errors";
-import { type Middleware } from "@/middleware";
-import { type Transport } from "@/transport";
+import type { Middleware } from "@/middleware";
+import type { Transport } from "@/transport";
 
 /**
  * An interface for an entity that implements a simple request-response transport
@@ -36,7 +36,8 @@ export interface UnaryClient extends Transport {
 }
 
 /**
- * Wraps a unary client so it retries requests that fail on an unreachable target.
+ * Wraps a unary client so it retries requests that fail on an unreachable target
+ * before the target receives them.
  * @param onRetry - Receives each failure the breaker retries. Defaults to console.warn.
  */
 export const unaryWithBreaker = (
@@ -68,7 +69,7 @@ export const unaryWithBreaker = (
           return await this.wrapped.send(target, req, reqSchema, resSchema, params);
         } catch (err) {
           const e = errors.fromUnknown(err);
-          if (!Unreachable.matches(e) || !brk.canRetry) throw e;
+          if (!(e instanceof Unreachable) || e.delivered || !brk.canRetry) throw e;
           onRetry(new Error(brk.retryMessage, { cause: e }));
           await brk.wait();
         }

@@ -7,12 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { type bounds, box, color, location, xy } from "@synnaxlabs/x";
+import {
+  type bounds,
+  box,
+  color,
+  location,
+  TimeSpan,
+  TimeStamp,
+  xy,
+} from "@synnaxlabs/x";
 
-import { legible, withLightness } from "@/lineplot/range/aether/legible";
-import { type Draw2D } from "@/vis/draw2d";
+import type { Draw2D } from "@/vis/draw2d";
+
+/** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
+const withLightness = (c: color.Color, l: number, alpha = 255): color.Color => {
+  const [, ch, h] = color.oklch(c);
+  return color.fromOKLCH([l, ch, h, alpha / 255]);
+};
 
 /** A range's bar in the annotation strip, in canvas pixels. */
 export interface Bar {
@@ -20,7 +33,7 @@ export interface Bar {
   color: color.Color;
   /** color with its lightness clamped to read on the theme. */
   display: color.Color;
-  /** The range's true start and end, past the plot edges. */
+  /** The range's start and end, past the plot edges. */
   start: number;
   end: number;
   /** The drawn bounds, clamped to the plot. */
@@ -29,6 +42,8 @@ export interface Bar {
   lane: number;
   /** True when the range holds another range, so a fill would tint its children. */
   enclosing: boolean;
+  /** True when the range started and has not ended. */
+  running: boolean;
 }
 
 const MIN_WIDTH = 4;
@@ -48,6 +63,15 @@ const HOVERED_FILL_SCALE = 1.6;
 const TOOLTIP_NAME_WIDTH = 240;
 const SWATCH_SIZE = 8;
 const SWATCH_INDENT = 14;
+const FADE_WIDTH = 40;
+const PULSE_PERIOD = 1600;
+const TIME_GAP = 6;
+const TIME_ALPHA = 0.7;
+const MIN_NAME_WIDTH = 40;
+const HEAD_WIDTH = 2;
+const HEAD_GLOW = 24;
+const HEAD_GLOW_ALPHA = 0.35;
+const HEAD_SPACE = 6;
 
 interface Shades {
   fill: number;
@@ -105,19 +129,28 @@ export interface Layout {
  * never moves a range to another lane. Ranges past the last thin lane share it. Ranges
  * with no color get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
+ * @param now - A range runs when now is inside it.
+ * @param newest - The newest sample of a live plot. A running range's bar ends there,
+ * or at now when it is undefined.
  */
 export const layout = (
   ranges: ranger.Range[],
   region: box.Box,
   position: (value: number) => number,
   t: theme.Theme,
+  now: TimeStamp,
+  newest?: TimeStamp,
 ): Layout => {
   const bars = ranges.flatMap((range): Bar[] => {
     const parsed = color.colorZ.safeParse(range.color);
     if (!parsed.success) return [];
     const c = parsed.data;
     const start = position(Number(range.timeRange.start.valueOf()));
-    const end = position(Number(range.timeRange.end.valueOf()));
+    const running =
+      !now.before(range.timeRange.start) && now.before(range.timeRange.end);
+    let end = position(Number(range.timeRange.end.valueOf()));
+    if (running)
+      end = Math.max(start, Math.min(end, position(Number((newest ?? now).valueOf()))));
     const [x0, x1] = widen(
       Math.max(start, box.left(region)),
       Math.min(end, box.right(region)),
@@ -126,13 +159,14 @@ export const layout = (
       {
         range,
         color: c,
-        display: legible(c, t),
+        display: theme.legible(c, t),
         start,
         end,
         x0,
         x1,
         lane: 0,
         enclosing: false,
+        running,
       },
     ];
   });
@@ -230,13 +264,17 @@ export const drawFills = (
   });
 };
 
-/** Draws the strip's bars above the plot. A hovered bar dims the others. */
+/**
+ * Draws the strip's bars above the plot. A hovered bar dims the others. A side cut by
+ * the plot edge fades out. A running bar whose end is in view ends in a pulsing head.
+ */
 export const drawBars = (
   draw: Draw2D,
   bars: Bar[],
   region: box.Box,
   lanes: number,
   hovered: Bar | null,
+  now: TimeStamp,
 ): void => {
   const t = draw.theme;
   const ctx = draw.canvas;
@@ -252,14 +290,19 @@ export const drawBars = (
       ctx.fillRect(box.left(b), box.top(b), box.width(b), box.height(b));
       return;
     }
-    // A side cut by the plot edge gets square corners.
-    const left = bar.start < box.left(region) ? 0 : radius;
-    const right = bar.end > box.right(region) ? 0 : radius;
+    const cutLeft = bar.start < box.left(region);
+    const cutRight = bar.end > box.right(region);
+    const left = cutLeft ? 0 : radius;
+    const right = cutRight ? 0 : radius;
     const radii = [left, right, right, left];
+    const tint = hovered === bar ? s.hoveredBar : s.bar;
+    const fill = color.over(bar.color, t.colors.gray.l0, tint);
+    const stroke = color.setOpacity(bar.display, s.stroke);
+    const paint = (c: color.Color): string | CanvasGradient =>
+      cutLeft || cutRight ? fadeEdges(ctx, b, c, cutLeft, cutRight) : color.hex(c);
     ctx.beginPath();
     ctx.roundRect(box.left(b), box.top(b), box.width(b), box.height(b), radii);
-    const tint = hovered === bar ? s.hoveredBar : s.bar;
-    ctx.fillStyle = color.hex(color.over(bar.color, t.colors.gray.l0, tint));
+    ctx.fillStyle = paint(fill);
     ctx.fill();
     ctx.beginPath();
     ctx.roundRect(
@@ -269,23 +312,135 @@ export const drawBars = (
       box.height(b) - 1,
       radii,
     );
-    ctx.strokeStyle = color.hex(color.setOpacity(bar.display, s.stroke));
+    ctx.strokeStyle = paint(stroke);
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     ctx.stroke();
-    const labelWidth = box.width(b) - 2 * LABEL_PADDING;
-    if (labelWidth < MIN_LABEL_WIDTH) return;
-    draw.text({
-      text: bar.range.name,
-      position: { x: box.left(b) + LABEL_PADDING, y: box.center(b).y },
-      level: "small",
-      align: "center",
-      color: withLightness(bar.display, s.label),
-      maxWidth: labelWidth,
-      fade: LABEL_FADE,
-    });
+    let x1 = box.right(b) - LABEL_PADDING;
+    if (bar.running && !cutRight) {
+      drawHead(ctx, b, radii, bar.display, now);
+      x1 -= HEAD_SPACE;
+    }
+    drawLabel(
+      draw,
+      bar.range.name,
+      timeOf(bar, now),
+      box.left(b) + LABEL_PADDING,
+      x1,
+      box.center(b).y,
+      withLightness(bar.display, s.label),
+    );
   });
   ctx.globalAlpha = 1;
+};
+
+// Draws the name from x0, and the time against x1 when both fit.
+const drawLabel = (
+  draw: Draw2D,
+  name: string,
+  time: string,
+  x0: number,
+  x1: number,
+  y: number,
+  c: color.Color,
+): void => {
+  const width = x1 - x0;
+  if (width < MIN_LABEL_WIDTH) return;
+  const ctx = draw.canvas;
+  ctx.font = theme.fontString(draw.theme, { level: "small", code: true });
+  const timeWidth = ctx.textDimensions(time).width;
+  ctx.font = theme.fontString(draw.theme, { level: "small" });
+  const nameWidth = ctx.textDimensions(name).width;
+  const room = width - TIME_GAP - timeWidth;
+  const timed = room >= Math.min(nameWidth, MIN_NAME_WIDTH);
+  if (timed)
+    draw.text({
+      text: time,
+      position: { x: x1, y },
+      justify: "right",
+      level: "small",
+      align: "center",
+      code: true,
+      color: color.setOpacity(c, TIME_ALPHA),
+    });
+  draw.text({
+    text: name,
+    position: { x: x0, y },
+    level: "small",
+    align: "center",
+    color: c,
+    maxWidth: timed ? Math.min(nameWidth, room) : width,
+    fade: LABEL_FADE,
+  });
+};
+
+// Returns the time a running range has run as T+h:mm:ss, or the length of any other.
+const timeOf = (bar: Bar, now: TimeStamp): string => {
+  const { start, span } = bar.range.timeRange;
+  if (!bar.running) return span.toString("semantic");
+  return `T+${clockOf(new TimeSpan(now.valueOf() - start.valueOf()))}`;
+};
+
+// Returns the span as h:mm:ss, with a day count first from one day on.
+const clockOf = (span: TimeSpan): string => {
+  const total = Math.floor(span.seconds);
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  const h = Math.floor(total / 3600);
+  const clock = `${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+  return h < 24 ? `${h}:${clock}` : `${Math.floor(h / 24)}d ${pad(h % 24)}:${clock}`;
+};
+
+// Returns a fill that fades out over each cut end of the box.
+const fadeEdges = (
+  ctx: Draw2D["canvas"],
+  b: box.Box,
+  c: color.Color,
+  cutLeft: boolean,
+  cutRight: boolean,
+): CanvasGradient => {
+  const gradient = ctx.createLinearGradient(box.left(b), 0, box.right(b), 0);
+  const f = Math.min(0.5, FADE_WIDTH / box.width(b));
+  const solid = color.hex(c);
+  const clear = color.hex(color.setOpacity(c, 0));
+  gradient.addColorStop(0, cutLeft ? clear : solid);
+  gradient.addColorStop(f, solid);
+  gradient.addColorStop(1 - f, solid);
+  gradient.addColorStop(1, cutRight ? clear : solid);
+  return gradient;
+};
+
+// Draws a bright cap that bends around the right corners of the box, with a glow inside
+// the bar that pulses.
+const drawHead = (
+  ctx: Draw2D["canvas"],
+  b: box.Box,
+  radii: number[],
+  c: color.Color,
+  now: TimeStamp,
+): void => {
+  const x = box.right(b);
+  const phase = (now.milliseconds % PULSE_PERIOD) / PULSE_PERIOD;
+  const alpha = HEAD_GLOW_ALPHA * (0.5 + 0.5 * Math.cos(2 * Math.PI * phase));
+  const glow = ctx.createLinearGradient(x - HEAD_GLOW, 0, x, 0);
+  glow.addColorStop(0, color.hex(color.setOpacity(c, 0)));
+  glow.addColorStop(1, color.hex(color.setOpacity(c, alpha)));
+  ctx.beginPath();
+  ctx.roundRect(box.left(b), box.top(b), box.width(b), box.height(b), radii);
+  ctx.fillStyle = glow;
+  ctx.fill();
+  const radius = radii[1];
+  const corner = Math.max(0, radius - HEAD_WIDTH / 2);
+  const r = x - HEAD_WIDTH / 2;
+  const top = box.top(b) + HEAD_WIDTH / 2;
+  const bottom = box.bottom(b) - HEAD_WIDTH / 2;
+  ctx.beginPath();
+  ctx.moveTo(r - radius, top);
+  ctx.arcTo(r, top, r, bottom, corner);
+  ctx.arcTo(r, bottom, r - radius, bottom, corner);
+  ctx.lineTo(r - radius, bottom);
+  ctx.strokeStyle = color.hex(c);
+  ctx.lineWidth = HEAD_WIDTH;
+  ctx.stroke();
 };
 
 const DAY = 86_400_000_000_000n;
@@ -296,14 +451,27 @@ export const drawTooltip = (
   bar: Bar,
   cursor: xy.XY,
   region: box.Box,
+  now: TimeStamp,
 ): void => {
   const t = draw.theme;
   const ctx = draw.canvas;
   const { name, timeRange } = bar.range;
-  const format = timeRange.span.valueOf() > DAY ? "dateTime" : "preciseTime";
-  const start = timeRange.start.toString(format, "local");
-  const end = timeRange.end.toString(format, "local");
-  const details = [`${start} to ${end}`, timeRange.span.toString()];
+  let details: string[];
+  if (bar.running) {
+    const ran = new TimeSpan(now.valueOf() - timeRange.start.valueOf());
+    const format = ran.valueOf() > DAY ? "dateTime" : "preciseTime";
+    details = [
+      `Started ${timeRange.start.toString(format, "local")}`,
+      `Running for ${ran.toString("semantic")}`,
+    ];
+    if (timeRange.end.before(TimeStamp.MAX))
+      details.push(`Ends ${timeRange.end.toString("dateTime", "local")}`);
+  } else {
+    const format = timeRange.span.valueOf() > DAY ? "dateTime" : "preciseTime";
+    const start = timeRange.start.toString(format, "local");
+    const end = timeRange.end.toString(format, "local");
+    details = [`${start} to ${end}`, timeRange.span.toString()];
+  }
   ctx.font = theme.fontString(t, { level: "small", weight: 400, code: true });
   const detailWidth = Math.max(...details.map((d) => ctx.measureText(d).width));
   ctx.font = theme.fontString(t, { level: "small", weight: 500 });

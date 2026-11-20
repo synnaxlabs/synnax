@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import {
   createDummyToggle,
@@ -16,7 +16,7 @@ import {
   withoutToggleConfig,
 } from "@/schematic/node/common/create";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/Angled";
 import { AngledRelief } from "@/schematic/node/valves/AngledRelief";
 import { AngledSpringLoadedRelief } from "@/schematic/node/valves/AngledSpringLoadedRelief";

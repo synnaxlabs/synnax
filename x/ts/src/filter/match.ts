@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type Contains, type Ordered, type Set, type String } from "@/filter/types.gen";
-import { primitive } from "@/primitive";
+import type { Contains, Ordered, Set, String } from "@/filter/types.gen";
+import { ValueExtension } from "@/telem";
 
 type Ordinal = number | bigint;
 
-type Orderable = Ordinal | primitive.ValueExtension<Ordinal>;
+type Orderable = Ordinal | ValueExtension<Ordinal>;
 
 const unwrap = (value: unknown): unknown =>
-  value instanceof primitive.ValueExtension ? value.valueOf() : value;
+  value instanceof ValueExtension ? value.valueOf() : value;
 
 const ordinal = (value: Orderable): Ordinal =>
-  value instanceof primitive.ValueExtension ? value.valueOf() : value;
+  value instanceof ValueExtension ? value.valueOf() : value;
 
 const equal = (a: unknown, b: unknown): boolean => unwrap(a) === unwrap(b);
 

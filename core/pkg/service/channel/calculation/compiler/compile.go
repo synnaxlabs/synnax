@@ -134,6 +134,88 @@ func Compile(ctx context.Context, db *gorp.DB, cfgs ...Config) (Module, error) {
 	})
 }
 
+func addNode(g *arc.Graph, key, typ string, inputs xmsgpack.EncodedJSON) {
+	g.Nodes = append(g.Nodes, graph.Node{Key: key})
+	if inputs == nil {
+		inputs = xmsgpack.EncodedJSON{}
+	}
+	inputs["type"] = typ
+	g.Inputs[key] = inputs
+}
+
+func addEdge(g *arc.Graph, source, target ir.Handle) {
+	g.Edges = append(g.Edges, graph.Edge{Source: source, Target: target})
+}
+
+// addOperations chains ops between the calculation and write nodes of g, or connects
+// the two nodes directly when ops is empty.
+func addOperations(g *arc.Graph, ops []channel.Operation) {
+	if len(ops) == 0 {
+		addEdge(
+			g,
+			ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
+		)
+		return
+	}
+	for i, o := range ops {
+		key := fmt.Sprintf("op_%d", i)
+		addNode(g, key, string(o.Type), xmsgpack.EncodedJSON{"duration": o.Duration})
+		if o.ResetChannel != 0 {
+			resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
+			addNode(g, resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
+			addEdge(
+				g,
+				ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
+				ir.Handle{Node: key, Param: "reset"},
+			)
+		}
+		if i == 0 {
+			addEdge(
+				g,
+				ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
+				ir.Handle{Node: key, Param: ir.DefaultInputParam},
+			)
+		}
+		nextKey := fmt.Sprintf("op_%d", i+1)
+		if i == len(ops)-1 {
+			nextKey = writeKey
+		}
+		addEdge(
+			g,
+			ir.Handle{Node: key, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
+		)
+	}
+}
+
+// addReads adds an input to the calculation function of g for each channel in reads,
+// fed by a node that reads the channel.
+func addReads(
+	ctx context.Context,
+	g *arc.Graph,
+	resolver arc.SymbolResolver,
+	reads map[uint32]string,
+) error {
+	for k, v := range reads {
+		sym, err := resolver.Resolve(ctx, v)
+		if err != nil {
+			return err
+		}
+		g.Functions[0].Inputs = append(
+			g.Functions[0].Inputs,
+			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
+		)
+		addNode(g, sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
+		addEdge(
+			g,
+			ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
+			ir.Handle{Node: calculationKey, Param: sym.Name},
+		)
+	}
+	return nil
+}
+
 func compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -155,79 +237,18 @@ func compile(
 		},
 		Inputs: map[string]xmsgpack.EncodedJSON{},
 	}
-	addNode := func(key, typ string, inputs xmsgpack.EncodedJSON) {
-		g.Nodes = append(g.Nodes, graph.Node{Key: key})
-		if inputs == nil {
-			inputs = xmsgpack.EncodedJSON{}
-		}
-		inputs["type"] = typ
-		g.Inputs[key] = inputs
-	}
-	addNode(calculationKey, calculationKey, nil)
-	addNode(writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
+	addNode(&g, calculationKey, calculationKey, nil)
+	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	cfg.Channel.Operations = lo.Filter(
 		cfg.Channel.Operations,
 		func(item channel.Operation, _ int) bool {
 			return item.Type != "none"
 		},
 	)
-	if len(cfg.Channel.Operations) == 0 {
-		g.Edges = graph.Edges{{
-			Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
-			Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-		}}
-	} else {
-		for i, o := range cfg.Channel.Operations {
-			key := fmt.Sprintf("op_%d", i)
-			nextKey := fmt.Sprintf("op_%d", i+1)
-			addNode(key, string(o.Type), xmsgpack.EncodedJSON{"duration": o.Duration})
-			if o.ResetChannel != 0 {
-				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
-				addNode(resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
-				g.Edges = append(g.Edges, graph.Edge{
-					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: key, Param: "reset"},
-				})
-			}
-			if i == 0 {
-				g.Edges = append(g.Edges, graph.Edge{
-					Source: ir.Handle{
-						Node:  calculationKey,
-						Param: ir.DefaultOutputParam,
-					},
-					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
-				})
-			}
-			if i == len(cfg.Channel.Operations)-1 {
-				g.Edges = append(g.Edges, graph.Edge{
-					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: writeKey, Param: ir.DefaultInputParam},
-				})
-			} else {
-				g.Edges = append(g.Edges, graph.Edge{
-					Source: ir.Handle{Node: key, Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: nextKey, Param: ir.DefaultInputParam},
-				})
-			}
-		}
+	addOperations(&g, cfg.Channel.Operations)
+	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read); err != nil {
+		return Module{}, err
 	}
-
-	for k, v := range calcFn.Channels.Read {
-		sym, err := resolver.Resolve(ctx, v)
-		if err != nil {
-			return Module{}, err
-		}
-		g.Functions[0].Inputs = append(
-			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
-		)
-		addNode(sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
-		g.Edges = append(g.Edges, graph.Edge{
-			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
-			Target: ir.Handle{Node: calculationKey, Param: sym.Name},
-		})
-	}
-
 	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
 		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
 	if err != nil {

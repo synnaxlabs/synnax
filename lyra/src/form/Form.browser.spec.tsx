@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { deep, TimeSpan } from "@synnaxlabs/x";
+import { fireEvent, render } from "@testing-library/react";
+import type { PropsWithChildren, ReactElement } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { loadLanguage } from "@/input/time/suggest";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderSections = async (
@@ -176,6 +182,27 @@ describe("Form", () => {
         );
       });
 
+      it("should keep the width of a number field in the control of another", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Units")}
+              <Input.Item label="Scale">
+                <Flex.Box x align="center">
+                  <Input.Numeric value={1} onChange={() => {}} />
+                  {field("Offset")}
+                </Flex.Box>
+              </Input.Item>
+              {field("Retries")}
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const offset = rect("Offset");
+        expect(offset.control.width).toBe(rect("Retries").control.width);
+        expect(offset.control.width).toBeLessThan(rect("Units").control.width);
+        expect(offset.control.left).toBeGreaterThan(offset.label.right);
+      });
+
       it("should keep the first control when the later fields do not fit", async () => {
         await renderThemed(
           <div style={{ width: "60rem" }}>
@@ -195,6 +222,38 @@ describe("Form", () => {
         expect(rect("Retries").label.left).toBeGreaterThan(timeout.right);
       });
     });
+
+    it("should keep a multiple select of many tags inside the sections", async () => {
+      const names = Array.from(
+        { length: 8 },
+        (_, i) => `sy_node_1_metrics_${i}_percent`,
+      );
+      const { container } = await renderThemed(
+        <div style={{ width: "80rem" }}>
+          <Form.Sections>
+            <Form.Section>
+              <Input.Item label="Channels">
+                <Dialog.Frame>
+                  <Select.Frame<string, undefined>
+                    multiple
+                    value={names}
+                    onChange={() => {}}
+                  >
+                    <Select.MultipleTrigger />
+                  </Select.Frame>
+                </Dialog.Frame>
+              </Input.Item>
+            </Form.Section>
+          </Form.Sections>
+        </div>,
+      );
+      const sections = container.querySelector(`.${CSS.B("form-sections")}`)!;
+      const tags = container.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
+      await expect.poll(() => tags.hasAttribute("data-stacked")).toBe(true);
+      expect(tags.getBoundingClientRect().right).toBeLessThanOrEqual(
+        sections.getBoundingClientRect().right,
+      );
+    });
   });
 
   describe("side by side sections", () => {
@@ -206,6 +265,69 @@ describe("Form", () => {
         resolve("var(--pluto-gray-l6)"),
       );
       expect(computed(sections[0], "border-left-style")).toBe("none");
+    });
+  });
+});
+
+describe("Form", () => {
+  describe("TimeSpanField", () => {
+    beforeAll(loadLanguage);
+    const spanSchema = z.object({
+      timeoutMs: z.number(),
+      keepAlive: z.number().optional(),
+    });
+    const span = deep.path<z.infer<typeof spanSchema>>();
+    const SpanForm = (props: PropsWithChildren): ReactElement => {
+      const methods = Form.use<typeof spanSchema>({
+        values: { timeoutMs: 1500, keepAlive: 30 },
+        schema: spanSchema,
+      });
+      return <Form.Form<typeof spanSchema> {...methods}>{props.children}</Form.Form>;
+    };
+    const edit = (input: HTMLElement, value: string): void => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+
+    it("should show and store the number in its unit", () => {
+      const c = render(
+        <Form.TimeSpanField path={span.timeoutMs} unit={TimeSpan.MILLISECOND} />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      edit(input, "250");
+      expect(c.getByDisplayValue("250ms")).toBeTruthy();
+    });
+
+    it("should name the bound a span crosses", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.timeoutMs}
+          label="Timeout"
+          unit={TimeSpan.MILLISECOND}
+          bounds={{ upper: TimeSpan.MINUTE }}
+        />,
+        { wrapper: SpanForm },
+      );
+      const input = c.getByDisplayValue("1s 500ms");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "5min" } });
+      expect(c.getByText("Timeout must be 1min or less")).toBeTruthy();
+    });
+
+    it("should store undefined when an emptiable field is emptied", () => {
+      const c = render(
+        <Form.TimeSpanField
+          path={span.keepAlive}
+          unit={TimeSpan.SECOND}
+          emptiable
+          inputProps={{ placeholder: "30s" }}
+        />,
+        { wrapper: SpanForm },
+      );
+      edit(c.getByDisplayValue("30s"), "");
+      expect(c.getByPlaceholderText("30s")).toHaveProperty("value", "");
     });
   });
 });

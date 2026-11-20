@@ -10,6 +10,7 @@
 // @vitest-environment jsdom
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { uuid } from "@synnaxlabs/x";
 import {
   act,
   cleanup,
@@ -20,12 +21,12 @@ import {
 } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type License, type Organization } from "@/server/db/schema";
+import type { License, Organization } from "@/server/db/schema";
 import { NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 
 const ACME: Organization = {
-  key: crypto.randomUUID(),
+  key: uuid.create(),
   kind: "team",
   name: "Acme",
   clerkOrgID: "org_acme",
@@ -35,7 +36,7 @@ const ACME: Organization = {
 };
 
 const LICENSE: License = {
-  key: crypto.randomUUID(),
+  key: uuid.create(),
   organization: ACME.key,
   edition: "enterprise",
   term: "subscription",
@@ -51,7 +52,7 @@ const LICENSE: License = {
 
 const RENAMED = {
   event: {
-    key: crypto.randomUUID(),
+    key: uuid.create(),
     at: NOW.toISOString(),
     kind: "amend",
     actor: "user_ada",

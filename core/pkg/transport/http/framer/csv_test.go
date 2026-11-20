@@ -424,15 +424,14 @@ var _ = Describe("CSV", func() {
 		It("Should order the rows of groups that advance at different rates", func(
 			ctx SpecContext,
 		) {
-			var (
-				channels []svcchannel.Channel
-				indexes  []svcchannel.Channel
-			)
-			for _, seconds := range [][]float64{
+			rates := [][]float64{
 				{1, 2, 3, 4, 5, 6},
 				{1.5, 3.5, 5.5},
 				{0.5, 6.5},
-			} {
+			}
+			channels := make([]svcchannel.Channel, 0, len(rates))
+			indexes := make([]svcchannel.Channel, 0, len(rates))
+			for _, seconds := range rates {
 				index, group := createIndexed(ctx, telem.Float32T)
 				timestamps := make([]telem.TimeStamp, len(seconds))
 				values := make([]float32, len(seconds))

@@ -21,6 +21,7 @@ or generator logic and schemas disagree.
 
 - Never sync on `main` — sync writes generated files repo-wide. Sync only on the branch
   owning the schema changes.
+- CI pins buf 1.75.0 and `buf.gen.yaml` pins its plugins. Use the same buf locally.
 - `oracle check` verifies generated files match schemas — read-only, safe anywhere.
 - Confirm with the user before `oracle migrate` (version-affecting: scaffolds the next
   version file).
@@ -265,6 +266,14 @@ when most types need it, declare it file-level and omit the exceptions.
 - Go has no field-level omit. `@go marshal omit` keeps a field out of the codec;
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
+
+## Protobuf field numbers
+
+A message numbers its fields by position. To change a field's wire type, give it a new
+number with `@pb number N` and reserve the old one with `@pb reserved N` on the struct
+or inline union variant, so old and new readers skip each other's field. One
+`@pb reserved` line lists every reserved number. A number two fields share, or a field
+on a reserved number, fails generation.
 
 ## Path actions
 

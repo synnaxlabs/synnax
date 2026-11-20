@@ -11,6 +11,7 @@ package v1_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,8 +65,8 @@ var _ = Describe("ParentMigration", func() {
 		db       *gorp.DB
 		channels = uuid.New()
 		users    = uuid.New()
-		a        = uuid.New()
-		b        = uuid.New()
+		a        = uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff")
+		b        = uuid.MustParse("00000000-0000-4000-8000-000000000001")
 		inUsers  = uuid.New()
 		ranges   = uuid.New()
 		inRanges = uuid.New()
@@ -91,6 +92,7 @@ var _ = Describe("ParentMigration", func() {
 		rootTask = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 		task     = resource.ID{Type: resource.TypeTask, Key: uuid.New().String()}
 		rng      = resource.ID{Type: resource.TypeRange, Key: uuid.New().String()}
+		subProj  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		members  = []ontology.Relationship{
 			parentOf(groupID(channels), channel),
 			parentOf(groupID(inImpl), channel),
@@ -104,6 +106,8 @@ var _ = Describe("ParentMigration", func() {
 			parentOf(groupID(tasks), rootTask),
 			parentOf(groupID(inTasks), task),
 			parentOf(groupID(inRanges), rng),
+			parentOf(groupID(nested), subProj),
+			parentOf(groupID(ofWs), subProj),
 		}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
 		rack     = resource.ID{Type: resource.TypeRack, Key: "65537"}
@@ -116,6 +120,7 @@ var _ = Describe("ParentMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		names := map[uuid.UUID]string{
 			channels: "Channels", users: "Users", a: "A", b: "B", inUsers: "In Users",
 			inProj: "In Project", inRack: "In Rack", nested: "Nested", orphan: "Orphan",
@@ -227,30 +232,97 @@ var _ = Describe("ParentMigration", func() {
 				"member":     member.String(),
 			}
 		}
-		second, secondName := b, "B"
-		if groupID(b).String() < groupID(a).String() {
-			second, secondName = a, "A"
-		}
-		var got []map[string]any
-		for _, e := range logs.FilterMessage(
+		logged := logs.FilterMessage(
 			"dropped a member from a group that cannot hold it",
-		).All() {
-			got = append(got, e.ContextMap())
+		).All()
+		got := make([]map[string]any, len(logged))
+		for i, e := range logged {
+			got[i] = e.ContextMap()
 		}
 		Expect(got).To(ConsistOf(
 			dropped(mixed, "Mixed", channel),
 			dropped(mixed, "Mixed", schem),
 			dropped(inProj, "In Project", channel),
-			dropped(second, secondName, twoGrps),
+			dropped(b, "B", twoGrps),
 			dropped(inTasks, "Task Folder", task),
 		))
 	})
 
 	It(
-		"Should delete the parent edges into groups and keep the rest",
+		"Should keep a member of several groups only in the first group by name",
 		func(ctx SpecContext) {
-			Expect(edges(ctx, db)).To(ConsistOf(
-				append([]ontology.Relationship{toProj, toRanges, inRange}, members...),
+			Expect(edges(ctx, db)).To(ContainElement(parentOf(groupID(a), twoGrps)))
+			Expect(edges(ctx, db)).ToNot(ContainElement(parentOf(groupID(b), twoGrps)))
+		},
+	)
+
+	It(
+		"Should keep a pinned group out of the pick by name",
+		func(ctx SpecContext) {
+			Expect(edges(ctx, db)).To(ContainElements(
+				parentOf(groupID(nested), subProj),
+				parentOf(groupID(ofWs), subProj),
+			))
+		},
+	)
+
+	It("Should stage each removal with the name of its group", func(ctx SpecContext) {
+		var removals []v1.Removal
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			removals, err = v1.RetrieveRemovals(ctx, tx)
+			return err
+		})).To(Succeed())
+		Expect(removals).To(ConsistOf(
+			v1.Removal{
+				Group:     mixed,
+				GroupName: "Mixed",
+				Member:    channel,
+				Reason:    v1.RemovedWithGroup,
+			},
+			v1.Removal{
+				Group:     mixed,
+				GroupName: "Mixed",
+				Member:    schem,
+				Reason:    v1.RemovedWithGroup,
+			},
+			v1.Removal{
+				Group:     inProj,
+				GroupName: "In Project",
+				Member:    channel,
+				Reason:    v1.RemovedUnheld,
+			},
+			v1.Removal{
+				Group:     b,
+				GroupName: "B",
+				Member:    twoGrps,
+				Reason:    v1.RemovedDuplicate,
+			},
+			v1.Removal{
+				Group:     inTasks,
+				GroupName: "Task Folder",
+				Member:    task,
+				Reason:    v1.RemovedWithGroup,
+			},
+		))
+	})
+
+	It(
+		"Should delete the parent edges into groups and the overruled memberships",
+		func(ctx SpecContext) {
+			var parentEdges []ontology.Relationship
+			for _, e := range edges(ctx, db) {
+				if e.Type == ontology.RelationshipTypeParentOf {
+					parentEdges = append(parentEdges, e)
+				}
+			}
+			kept := slices.DeleteFunc(
+				slices.Clone(members),
+				func(e ontology.Relationship) bool {
+					return e == parentOf(groupID(b), twoGrps)
+				},
+			)
+			Expect(parentEdges).To(ConsistOf(
+				append([]ontology.Relationship{toProj, toRanges, inRange}, kept...),
 			))
 		},
 	)
@@ -259,8 +331,6 @@ var _ = Describe("ParentMigration", func() {
 var _ = Describe("MembersMigration", func() {
 	var (
 		db       *gorp.DB
-		holds    func(*log.Log, *resource.ID) bool
-		dropped  *observer.ObservedLogs
 		root     = v1.Group{Key: uuid.New(), Name: "Logs", Scope: resource.TypeBuiltin}
 		top      = v1.Group{Key: uuid.New(), Name: "Top", Scope: resource.TypeProject}
 		project  = resource.ID{Type: resource.TypeProject, Key: uuid.New().String()}
@@ -279,22 +349,15 @@ var _ = Describe("MembersMigration", func() {
 		}
 		migrate = func(ctx context.Context, projectOwned bool) []log.Log {
 			GinkgoHelper()
-			var core zapcore.Core
-			core, dropped = observer.New(zapcore.WarnLevel)
-			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-				ZapLogger: zap.New(core),
-			}))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				DB:              db,
-				Namespace:       "log",
+				DB:        db,
+				Namespace: "log",
 				Migrations: []gorp.Migration{
 					v1.NewMembersMigration(v1.MembersConfig[log.Key, log.Log]{
 						Name:         "members",
 						Type:         resource.TypeLog,
 						SetGroup:     func(l *log.Log, g v1.Key) { l.Group = &g },
 						ProjectOwned: projectOwned,
-						Holds:        holds,
 					}),
 				},
 			})).To(Succeed())
@@ -311,7 +374,7 @@ var _ = Describe("MembersMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		holds = nil
+		StartRun(db.Run)
 		projTop.Parent = &project
 		projLeaf.Parent = new(groupID(projTop.Key))
 		groups := []v1.Group{root, top, projTop, projLeaf, chans}
@@ -352,26 +415,54 @@ var _ = Describe("MembersMigration", func() {
 	)
 
 	It(
-		"Should leave a member with no group when its group breaks the pin",
+		"Should move a rack from a group under a rack to its other group",
 		func(ctx SpecContext) {
-			holds = func(_ *log.Log, top *resource.ID) bool {
-				return top != nil && top.Type == resource.TypeProject
+			rack := resource.ID{Type: resource.TypeRack, Key: "65537"}
+			bench := v1.Group{
+				Key:    uuid.New(),
+				Name:   "Bench",
+				Scope:  resource.TypeDevice,
+				Parent: &rack,
 			}
-			out := migrate(ctx, false)
-			Expect(out[1].Group).To(BeNil())
-			Expect(out[2].Group).To(Equal(&projLeaf.Key))
-			var got []map[string]any
-			for _, e := range dropped.FilterMessage(
-				"dropped a member from a group outside its pinned parent",
-			).All() {
-				got = append(got, e.ContextMap())
+			loose := v1.Group{
+				Key:   uuid.New(),
+				Name:  "Loose",
+				Scope: resource.TypeDevice,
 			}
-			Expect(got).To(ConsistOf(map[string]any{
-				"group":      top.Key.String(),
-				"group_name": top.Name,
-				"member":     logID(1).String(),
-			}))
-			Expect(edges(ctx, db)).To(ConsistOf(parentOf(project, logID(3))))
+			Expect(gorp.NewCreate[v1.Key, v1.Group]().
+				Entries(&[]v1.Group{bench, loose}).
+				Exec(ctx, db)).To(Succeed())
+			member := resource.ID{Type: resource.TypeRack, Key: logs[0].Key.String()}
+			createEdges(ctx, db,
+				parentOf(groupID(bench.Key), member),
+				parentOf(groupID(loose.Key), member),
+			)
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "rack",
+				Migrations: []gorp.Migration{
+					v1.NewMembersMigration(v1.MembersConfig[log.Key, log.Log]{
+						Name:     "members",
+						Type:     resource.TypeRack,
+						SetGroup: func(l *log.Log, g v1.Key) { l.Group = &g },
+					}),
+				},
+			})).To(Succeed())
+			var l log.Log
+			Expect(gorp.NewRetrieve[log.Key, log.Log]().
+				Where(gorp.MatchKeys[log.Key, log.Log](logs[0].Key)).
+				Entry(&l).
+				Exec(ctx, db)).To(Succeed())
+			Expect(l.Group).To(HaveValue(Equal(loose.Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(v1.RetrieveRemovals(ctx, tx)).To(ConsistOf(v1.Removal{
+					Group:     bench.Key,
+					GroupName: "Bench",
+					Member:    member,
+					Reason:    v1.RemovedPinned,
+				}))
+				return nil
+			})).To(Succeed())
 		},
 	)
 

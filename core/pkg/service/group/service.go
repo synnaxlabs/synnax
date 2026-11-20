@@ -363,6 +363,17 @@ func (w Writer) parentScope(
 			return "", err
 		}
 		return p.Scope, nil
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+		resource.TypeDevice, resource.TypeFramer, resource.TypeLabel,
+		resource.TypeLineplot, resource.TypeLog, resource.TypeNode, resource.TypePanel,
+		resource.TypePolicy, resource.TypeRange, resource.TypeRangeAlias,
+		resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
+		resource.TypeStatus, resource.TypeTable, resource.TypeTask, resource.TypeUser,
+		resource.TypeView, resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
+		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return "", validate.PathedError(errors.Wrapf(
 		validate.ErrValidation,

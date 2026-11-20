@@ -12,8 +12,9 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/platform/tree";
@@ -29,7 +30,6 @@ import {
   createConsoleWrapper,
   createTestStore,
   findEditableText,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

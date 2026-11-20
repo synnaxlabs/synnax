@@ -32,9 +32,9 @@ var _ = Describe("Config", func() {
 
 	DescribeTable(
 		"Should require each field",
-		func(clear func(*bundle.Config), msg string) {
+		func(unset func(*bundle.Config), msg string) {
 			cfg := full()
-			clear(&cfg)
+			unset(&cfg)
 			Expect(cfg.Validate()).To(MatchError(msg))
 		},
 		Entry(

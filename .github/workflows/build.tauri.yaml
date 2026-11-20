@@ -96,14 +96,16 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag }}
       APP: ${{ inputs.desktop && 'Synnax Desktop' || 'Synnax' }}
       PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
-      OS_NAME:
-        ${{ startsWith(matrix.os, 'macos') && 'macos' || startsWith(matrix.os, 'ubuntu')
-        && 'linux' || 'windows' }}
+      OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
       EXECUTABLE: ${{ startsWith(matrix.os, 'windows') && '.exe' || '' }}
+      POSTHOG_CLI_VERSION: 0.18.9
       BINARY_DIR: console/src-tauri/target/release
       BUNDLE_DIR: console/src-tauri/target/release/bundle
-      # The bundle stage has the compiled app, so it only bundles.
-      TAURI: ${{ inputs.stage == 'bundle' && 'pnpm exec tauri bundle' || 'pnpm build' }}
+      # The bundle stage has the compiled app, so it only bundles. tauri bundle takes no
+      # features from the config, and without desktop it leaves out the key helper.
+      TAURI:
+        ${{ inputs.stage == 'bundle' && format('pnpm exec tauri bundle{0}',
+        inputs.desktop && ' --features desktop' || '') || 'pnpm build' }}
       # The name must not start with synnax-desktop-, which release.yaml downloads as
       # the bundles.
       BINARY_ARTIFACT:
@@ -117,9 +119,12 @@ jobs:
     defaults:
       run:
         shell: bash
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Import Apple Developer Certificate
         if:
@@ -131,13 +136,6 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: .github/scripts/import_apple_certificate.sh
-
-      - name: Install Linux build dependencies
-        if: env.OS_NAME == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            librsvg2-dev patchelf file
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -175,10 +173,6 @@ jobs:
           if [ "$PRODUCT" = desktop ]; then
             BASE="$(cat src-tauri/tauri.desktop.conf.json)"
           fi
-          if [ "$PRODUCT" = desktop ] && [ "$OS_NAME" = linux ]; then
-            BASE="$(jq -s '.[0] * .[1]' - src-tauri/tauri.desktop.linux.conf.json \
-              <<< "$BASE")"
-          fi
           # A Desktop release sends its source maps to PostHog, which resolves exception
           # stacks with them. The chunk IDs go in after the frontend builds and before
           # tauri build bundles it.
@@ -201,6 +195,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          rust-src-dir: console/src-tauri
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
 
@@ -249,11 +244,43 @@ jobs:
         if: inputs.stage != 'bundle'
         run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
 
-      - name: Install PostHog CLI
-        if: inputs.stage != 'bundle' && steps.config.outputs.release == 'true'
-        run: npm install -g @posthog/cli@0.18.9
+      - name: Install PostHog CLI (macOS)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'macos')
+        env:
+          ASSET: posthog-cli-aarch64-apple-darwin
+          SHA256: 831d3a8f16f95fc7cdbff7c9e83a32f012e8bd5af983646582f52e3ca4221d01
+        run: |
+          base=https://github.com/PostHog/posthog/releases/download
+          curl -fsSLo "$RUNNER_TEMP/$ASSET.tar.gz" \
+            "$base/posthog-cli/v$POSTHOG_CLI_VERSION/$ASSET.tar.gz"
+          echo "$SHA256  $RUNNER_TEMP/$ASSET.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/$ASSET.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$ASSET" >> "$GITHUB_PATH"
+
+      - name: Install PostHog CLI (Windows)
+        if:
+          inputs.stage != 'bundle' && steps.config.outputs.release == 'true' &&
+          startsWith(matrix.os, 'windows')
+        shell: powershell
+        env:
+          ASSET: posthog-cli-x86_64-pc-windows-msvc
+          SHA256: fec1624f8a8d232ae314a9391e266884e8cacb238719262e652696a1f96708b2
+        run: |
+          $base = "https://github.com/PostHog/posthog/releases/download"
+          $zip = "$env:RUNNER_TEMP\$env:ASSET.zip"
+          $url = "$base/posthog-cli/v$env:POSTHOG_CLI_VERSION/$env:ASSET.zip"
+          Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
+          if ((Get-FileHash -Algorithm SHA256 $zip).Hash -ne $env:SHA256) {
+            throw "$zip does not match its checksum"
+          }
+          $dir = "$env:RUNNER_TEMP\posthog-cli"
+          Expand-Archive -Force $zip $dir
+          Add-Content $env:GITHUB_PATH $dir
 
       - name: Set up trusted-signing-cli
+        id: signer
         if:
           matrix.os == 'windows-latest' && inputs.sign_binaries && inputs.stage !=
           'compile'
@@ -274,7 +301,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ env.BINARY_ARTIFACT }}
-          path: ${{ env.BINARY_DIR }}/synnax-console${{ env.EXECUTABLE }}
+          # Only Desktop builds the key helper.
+          path: |
+            ${{ env.BINARY_DIR }}/synnax-console${{ env.EXECUTABLE }}
+            ${{ env.BINARY_DIR }}/synnax-desktop-key${{ env.EXECUTABLE }}
           retention-days: 7
           if-no-files-found: error
 
@@ -286,9 +316,13 @@ jobs:
           path: ${{ env.BINARY_DIR }}
 
       # An artifact does not keep the executable bit.
-      - name: Make app binary executable
+      - name: Make app binaries executable
         if: inputs.stage == 'bundle'
-        run: chmod +x "$BINARY_DIR/synnax-console$EXECUTABLE"
+        run: |
+          chmod +x "$BINARY_DIR/synnax-console$EXECUTABLE"
+          if [ "$PRODUCT" = desktop ]; then
+            chmod +x "$BINARY_DIR/synnax-desktop-key$EXECUTABLE"
+          fi
 
       - name: Build app (signed)
         if: inputs.sign_binaries && inputs.stage != 'compile'
@@ -302,6 +336,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          # Read by src-tauri/scripts/Sign.ps1.
+          SIGNER: ${{ steps.signer.outputs.path }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
@@ -341,11 +377,6 @@ jobs:
             if [ -f "$BUNDLE_DIR/macos/${APP}.app.tar.gz" ]; then
               stage "macos/${APP}.app.tar.gz" "${NAME}.app.tar.gz"
             fi
-          elif [ "$OS_NAME" = "linux" ]; then
-            stage "appimage/${APP}_${APP_VERSION}_amd64.AppImage" \
-              "${NAME}_${APP_VERSION}_amd64.AppImage"
-            stage "deb/${APP}_${APP_VERSION}_amd64.deb" \
-              "${NAME}_${APP_VERSION}_amd64.deb"
           else
             stage "msi/${APP}_${APP_VERSION}_x64_en-US.msi" \
               "${NAME}_${APP_VERSION}_x64_en-US.msi"

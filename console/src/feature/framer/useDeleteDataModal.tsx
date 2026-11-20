@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
@@ -175,15 +175,11 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   );
 };
 
-const channelSelectRenderProp = Component.renderProp(
-  (p: Channel.SelectMultipleProps) => (
-    <Channel.SelectMultiple
-      triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
-      full="x"
-      {...p}
-    />
-  ),
+const SelectChannels = (p: Channel.SelectMultipleProps) => (
+  <Channel.SelectMultiple triggerProps={CHANNEL_SELECT_TRIGGER_PROPS} full="x" {...p} />
 );
+
+const channelSelectRenderProp = Component.renderProp(SelectChannels);
 
 const formatTimeRange = (start: number, end: number): string => {
   const startStr =

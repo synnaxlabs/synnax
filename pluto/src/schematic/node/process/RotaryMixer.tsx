@@ -7,15 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/process/RotaryMixer.svg?raw";
+
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 50, height: 33 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.02, y: 0.484849 }, orientation: "left" },
+    { key: "2", position: { x: 0.975, y: 0.484849 }, orientation: "right" },
+  ],
+});
 
 export const RotaryMixer = ({
   strokeColor,
@@ -29,38 +38,12 @@ export const RotaryMixer = ({
     className={CSS.cls(CSS.B("rotary-mixer"), className)}
     orientation={orientation}
   >
-    <Handle.Linear orientation={orientation} left={2} right={97.5} top={48.4849} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
-      <Primitive.Line
-        x1="32"
-        y1="16"
-        x2="40"
-        y2="16"
-        strokeLinecap="round"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-      <Primitive.Line
-        x1="32"
-        y1="16"
-        x2="28"
-        y2="22.9282"
-        strokeLinecap="round"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-      <Primitive.Line
-        x1="32"
-        y1="16"
-        x2="28"
-        y2="9.0717"
-        strokeLinecap="round"
-        className={CSS.cls(CSS.M("detail"), className)}
-      />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );

@@ -8,18 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
+import { disposable, sleep, TimeSpan } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 
 /** A change stream that delivers the frames a spec pushes, in push order. */
 export class PushStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[] = [];
   private done = false;
+  private dropped = false;
 
   push(frame: framer.Frame): void {
     this.frames.push(frame);
+  }
+
+  /** Fails the read after the pushed frames, so the cache opens a new stream. */
+  drop(): void {
+    this.dropped = true;
   }
 
   async update(): Promise<void> {}
@@ -32,7 +45,8 @@ export class PushStreamer implements framer.Streamer {
     while (!this.done) {
       const frame = this.frames.shift();
       if (frame != null) return { done: false, value: frame };
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      if (this.dropped) throw new Error("stream dropped");
+      await sleep.sleep(TimeSpan.milliseconds(5));
     }
     return { done: true, value: undefined };
   }

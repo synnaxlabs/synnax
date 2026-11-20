@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { allowRequest } from "@/access/enforce";
-import { type GrantedQuery } from "@/access/granted";
+import type { GrantedQuery } from "@/access/granted";
 import { ranger } from "@/ranger";
 import {
   createTestClient,
@@ -27,8 +27,6 @@ vi.mock("@/access/enforce", async (importOriginal) => {
     allowRequest: vi.fn(actual.allowRequest as typeof allowRequest),
   };
 });
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const client = createTestClient();
 
@@ -158,7 +156,7 @@ describe("Granted", () => {
       objects: [user.TYPE_RESOURCE_ID],
       actions: ["create"],
     });
-    await wait(500);
+    await sleep.sleep(TimeSpan.milliseconds(500));
     expect(handler.mock.calls.length).toBe(settled);
     await client.access.policies.delete(p.key);
     await expect.poll(() => handler.mock.lastCall?.[0], { timeout: 5000 }).toBe(false);

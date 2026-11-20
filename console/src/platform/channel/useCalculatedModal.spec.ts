@@ -9,13 +9,13 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
-import { uniqueChannelName } from "@/platform/channel/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -68,7 +68,7 @@ describe("useCalculatedModal", () => {
 
   describe("reset channel picker", () => {
     it("should list boolean channels and exclude other data types", async () => {
-      const base = uniqueChannelName("reset");
+      const base = uniqueName("reset");
       await client.channels.create({
         name: `${base}_bool`,
         dataType: DataType.BOOLEAN,
@@ -111,7 +111,7 @@ describe("useCalculatedModal", () => {
 
   describe("edit mode", () => {
     it("should prefill the form from the existing channel and persist edits on save", async () => {
-      const name = uniqueChannelName("calc");
+      const name = uniqueName("calc");
       const ch = await client.channels.create({
         name,
         dataType: DataType.FLOAT32,
@@ -124,7 +124,7 @@ describe("useCalculatedModal", () => {
           screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
         ).toBe(name),
       );
-      const next = uniqueChannelName("calc_renamed");
+      const next = uniqueName("calc_renamed");
       fireEvent.change(screen.getByPlaceholderText("Channel name"), {
         target: { value: next },
       });
@@ -143,7 +143,7 @@ describe("useCalculatedModal", () => {
 
     it("should not report an edited channel as created", async () => {
       const ch = await client.channels.create({
-        name: uniqueChannelName("calc"),
+        name: uniqueName("calc"),
         dataType: DataType.FLOAT32,
         virtual: true,
         expression: "return 2",
@@ -156,7 +156,7 @@ describe("useCalculatedModal", () => {
         ).toBe(ch.name),
       );
       fireEvent.change(screen.getByPlaceholderText("Channel name"), {
-        target: { value: uniqueChannelName("calc_renamed") },
+        target: { value: uniqueName("calc_renamed") },
       });
       await act(async () => {
         fireEvent.click(findButton("Save"));

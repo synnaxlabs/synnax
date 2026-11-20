@@ -51,7 +51,7 @@ inline Task Task::parse(x::json::Parser parser) {
     return Task{
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack", ::synnax::rack::Key(0)),
-        .name = parser.field<std::string>("name"),
+        .name = parser.required_field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json::object_t>("config"),
         .config_hash = parser.field<std::string>("config_hash", ""),

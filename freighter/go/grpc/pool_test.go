@@ -110,8 +110,11 @@ var _ = Describe("Pool", func() {
 				}
 			}()
 			DeferCleanup(srv.GracefulStop)
-			port := lis.Addr().(*net.TCPAddr).Port
-			conn := MustSucceed(pool.Acquire(address.Newf("localhost:%d", port)))
+			tcpAddr, ok := lis.Addr().(*net.TCPAddr)
+			Expect(ok).To(BeTrue())
+			conn := MustSucceed(
+				pool.Acquire(address.Newf("localhost:%d", tcpAddr.Port)),
+			)
 			// An Unimplemented status can only come from the server, so reaching it
 			// means the handshake verified the certificate.
 			Expect(conn.Invoke(

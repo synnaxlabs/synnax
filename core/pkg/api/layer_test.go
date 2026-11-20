@@ -17,24 +17,35 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	apisecret "github.com/synnaxlabs/synnax/pkg/api/secret"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -392,4 +403,106 @@ var _ = Describe("Layer", func() {
 			Expect(stored.Labels).To(Equal([]label.Key{l.Key}))
 		},
 	)
+})
+
+var _ = Describe("NewLayer", func() {
+	It("Should reject a config without an error codec", func() {
+		Expect(api.NewLayer(api.LayerConfig{
+			Service:      svc,
+			Distribution: node.Layer,
+		})).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+	})
+
+	It("Should return the configured error codec", func() {
+		codec := api.NewErrorCodec()
+		l := MustSucceed(api.NewLayer(api.LayerConfig{
+			Service:      svc,
+			Distribution: node.Layer,
+			Errors:       codec,
+		}))
+		Expect(l.Errors()).To(BeIdenticalTo(codec))
+	})
+})
+
+var _ = Describe("BindTo", func() {
+	It("Should delete the data of channels through the frame delete route", func(
+		ctx SpecContext,
+	) {
+		index := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &index)
+		})).To(Succeed())
+		data := channel.Channel{
+			Name:       UniqueChannelName(),
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
+		keys := channel.Keys{index.Key(), data.Key()}
+		w := MustSucceed(svc.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Start: telem.SecondTS,
+			Keys:  keys,
+		}))
+		Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](1, 2, 3),
+		}))).To(BeTrue())
+		Expect(w.Close()).To(Succeed())
+		hasData := func() bool {
+			GinkgoHelper()
+			iter := MustOpen(svc.Framer.OpenIterator(ctx, framer.IteratorConfig{
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+			}))
+			return iter.SeekFirst()
+		}
+		Expect(hasData()).To(BeTrue())
+		Expect(post(rootToken, "/api/v1/frame/delete", apiframer.DeleteRequest{
+			Names:  []string{index.Name, data.Name},
+			Bounds: telem.TimeRangeMax,
+		}, nil)).To(Succeed())
+		Expect(hasData()).To(BeFalse())
+	})
+
+	It("Should create a grant through the secret grant route", func(ctx SpecContext) {
+		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "A"}}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("value"))
+		})).To(Succeed())
+		rk := svc.Rack.EmbeddedKey
+		t := task.Task{
+			Type:   sift.ScanTaskType,
+			Rack:   rk,
+			Name:   "Scanner",
+			Config: msgpack.EncodedJSON{"rate": 1},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Task.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		cmd := task.Command{
+			Task: t.Key,
+			Type: "test_connection",
+			Key:  "cmd",
+			Args: msgpack.EncodedJSON{"host": "plc"},
+		}
+		var res apisecret.GrantCreateResponse
+		Expect(
+			post(rootToken, "/api/v1/secret/grant/create", apisecret.GrantCreateRequest{
+				Subject: rk.ResourceID(),
+				Secrets: []secret.Key{s.Base().Key},
+				Command: cmd,
+			}, &res),
+		).To(Succeed())
+		spent, values := MustSucceed2(
+			svc.Secret.Resolve(ctx, rk.ResourceID(), t.Key, res.Grant),
+		)
+		Expect(spent.Command).To(Equal(cmd))
+		Expect(values).To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("value")}))
+	})
 })

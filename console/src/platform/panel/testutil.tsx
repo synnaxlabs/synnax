@@ -7,30 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type panel,
-  type project,
-  type resource,
-  type Synnax,
-} from "@synnaxlabs/client";
+import type { panel, project, resource, Synnax } from "@synnaxlabs/client";
 import { createPanelProject } from "@synnaxlabs/client/testutil";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { renderHook, waitFor } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  getBySelector,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, getBySelector, type TestStore } from "@/testutil";
 
 /** The rendered mosaic leaf: the drop target for both tabs and OS files. */
 export const getMosaicLeaf = (): HTMLElement =>

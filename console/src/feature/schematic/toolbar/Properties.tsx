@@ -27,7 +27,6 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   box,
-  color,
   deep,
   type dimensions,
   type direction,
@@ -35,7 +34,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import { type FC, memo, type ReactElement, type ReactNode } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -48,7 +47,7 @@ const path = deep.path<{
   specKey?: schematic.symbol.Key;
 }>();
 
-export const Properties = memo((): ReactElement => {
+export const Properties = (): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
   const configByKey = Schematic.useConfigs({ keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
@@ -66,7 +65,7 @@ export const Properties = memo((): ReactElement => {
       : "";
   // A symbol's form holds that symbol's config, so a change remounts it.
   return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
-});
+};
 Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
@@ -157,11 +156,15 @@ const selectionColorRefs = (
   key: string,
   cfg: Schematic.ElementConfig,
 ): MultiEdit.ColorRef[] => {
-  const refs = MultiEdit.colorRefs(key, cfg, COLOR_FIELDS);
+  const refs = MultiEdit.fixedColorRefs(key, cfg, COLOR_FIELDS);
   if (cfg.variant === "state_indicator")
     cfg.options.forEach((o, i) => {
       if (o.color != null)
-        refs.push({ key, path: `options.${i}.color`, value: color.construct(o.color) });
+        refs.push({
+          key,
+          path: `options.${i}.color`,
+          value: MultiEdit.fixedRef(o.color),
+        });
     });
   return refs;
 };
@@ -203,7 +206,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
-  for (const cfg of configByKey.values()) {
+  for (const cfg of editableByKey.values()) {
     if (!("label" in cfg)) continue;
     firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
@@ -227,7 +230,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
     return Array.from(handleEls).map((el) => {
       const pos = box.center(box.construct(el));
-      const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
+      const dist = xy.scale(xy.sub(pos, box.topLeft(nodeElBox)), 1 / zoom);
       const match = el.className.match(/react-flow__handle-(\w+)/);
       if (match == null) throw new Error("Cannot find the handle orientation.");
       const orientation = location.outerZ.parse(match[1]);
@@ -497,67 +500,97 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           {hasStroke && (
             <MultiEdit.ColorField
               label="Stroke"
-              values={selection.colors("strokeColor", (c) =>
-                Schematic.colorFallback("strokeColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("strokeColor", (c) =>
+                  Schematic.colorFallback("strokeColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("strokeColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "strokeColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           {hasFill && (
             <MultiEdit.ColorField
               label="Fill"
-              values={selection.colors("fillColor", (c) =>
-                Schematic.colorFallback("fillColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("fillColor", (c) =>
+                  Schematic.colorFallback("fillColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("fillColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "fillColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           {hasText && (
             <MultiEdit.ColorField
               label="Text"
-              values={selection.colors("textColor", (c) =>
-                Schematic.colorFallback("textColor", c.variant, theme),
+              values={MultiEdit.fixedValues(
+                selection.colors("textColor", (c) =>
+                  Schematic.colorFallback("textColor", c.variant, theme),
+                ),
               )}
-              onChange={(c) => selection.set("textColor", c)}
+              onChange={(c) =>
+                selection.set(
+                  "textColor",
+                  c == null ? undefined : MultiEdit.fixedColor(c),
+                )
+              }
+              palettesHidden
             />
           )}
           <MultiEdit.SelectionColors
             refs={selectionRefs}
-            onChange={selection.setColors}
+            onChange={(holders, c) =>
+              selection.setColors(holders, MultiEdit.fixedColor(c))
+            }
+            palettesHidden
           />
         </MultiEdit.ColorsSection>
       )}
-      {selection.has("label") && (
+      {firstNodeLabel != null && (
         <Form.Section title="Label">
           <Input.Item label="Wrap width">
             <Input.Numeric
-              value={firstNodeLabel?.maxInlineSize ?? 150}
+              value={firstNodeLabel.maxInlineSize}
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
               endContent="px"
+              bounds={Schematic.Node.Label.WRAP_WIDTH_BOUNDS}
+              integer
+              dragScale={Schematic.Node.Label.WRAP_WIDTH_DRAG_SCALE}
             />
           </Input.Item>
           <Input.Item label="Size">
             <Select.Text.Level
-              value={firstNodeLabel?.level ?? "p"}
+              value={firstNodeLabel.level}
               onChange={(v: text.Level) => handleLabelProp("level", v)}
             />
           </Input.Item>
           <Input.Item label="Alignment">
             <Select.Flex.Alignment
-              value={firstNodeLabel?.align ?? "center"}
+              value={firstNodeLabel.align}
               onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
             />
           </Input.Item>
           <Input.Item label="Direction">
             <Direction.Select
-              value={firstNodeLabel?.direction ?? "x"}
+              value={firstNodeLabel.direction}
               onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
               yDirection="down"
             />
           </Input.Item>
           <Input.Item label="Location">
             <Schematic.Node.Orientation.Select
-              value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+              value={{ inner: "top", outer: firstNodeLabel.orientation }}
               onChange={(v) =>
                 v.outer !== "center" && handleLabelProp("orientation", v.outer)
               }
@@ -580,12 +613,20 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       )}
       {selection.has("stalenessTimeout") && (
         <MultiEdit.StalenessSection
-          colors={selection.colors("stalenessColor", () =>
-            Staleness.resolveColor(undefined, theme),
+          colors={MultiEdit.fixedValues(
+            selection.colors("stalenessColor", () =>
+              Staleness.resolveColor(undefined, theme),
+            ),
           )}
           timeout={selection.first("stalenessTimeout")}
-          onColorChange={(c) => selection.set("stalenessColor", c)}
+          onColorChange={(c) =>
+            selection.set(
+              "stalenessColor",
+              c == null ? undefined : MultiEdit.fixedColor(c),
+            )
+          }
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}
+          palettesHidden
         />
       )}
       {selection.has("precision") && (

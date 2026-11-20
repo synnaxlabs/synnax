@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,9 @@ from review import (
     Doc,
     Finding,
     Lens,
+    LoginRejected,
     PullRequest,
+    UsageLimit,
     Window,
     load,
     render,
@@ -64,6 +67,7 @@ def config(**kw: Any) -> Config:
         "diff_chars": 100_000,
         "caps": {"P0": 2, "P1": 4},
         "prompt": "Review the pull request.",
+        "judge": "Judge the rebuttal.",
         "docs": [
             Doc(path="AGENTS.md", description="Rules", text="Every rule."),
             Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
@@ -122,6 +126,7 @@ class FakeClaude:
                 "verdict": "Safe to merge.",
                 "summary": ["Fixes A."],
                 "findings": findings or [],
+                "fixed": [],
             },
         }
         self.limits: list[dict[str, Any]] = [
@@ -226,6 +231,7 @@ class TestLoad:
             "diff_chars = 1\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         (home / "rules" / "go.md").write_text(
             '+++\ndescription = "Go"\npaths = ["**/*.go"]\n+++\n\nNo panics.\n'
         )
@@ -243,6 +249,7 @@ class TestLoad:
             '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
     def test_should_load_the_lenses_of_the_repository(self) -> None:
@@ -255,6 +262,7 @@ class TestLoad:
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text("context = []\ncolour = 1\n")
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         with pytest.raises(TypeError, match="unexpected keyword argument 'colour'"):
             load(tmp_path)
 
@@ -318,6 +326,20 @@ class TestPrompt:
             "findings. Do not report them again in any form, and do not let them lower "
             "the score.\n\n"
             "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_list_the_withdrawn_findings_apart(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant."),
+            Dismissal(path="b.go", title="Nit", reason="Checked.", withdrawn=True),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert "\n\n- `a.go`: Old bug. Reason: Meant.\n\n# Withdrawn" in stdin
+        assert (
+            "# Withdrawn findings\n\nYou withdrew each of these findings after a "
+            "rebuttal on its thread, and its file has not changed since. Do not report "
+            "them again in any form, and do not let them lower the score.\n\n"
+            "- `b.go`: Nit. Reason: Checked."
         ) in stdin
 
     def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
@@ -451,6 +473,24 @@ class TestScore:
             RuntimeError, match=r"claude exited with status 2 after no message"
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_the_usage_limit_that_stopped_claude(self) -> None:
+        claude = FakeClaude()
+        claude.limits = [{"status": "rejected", "resetsAt": 1_795_266_000}]
+        claude.out = {"is_error": True, "subtype": "success", "result": "Limit."}
+        with pytest.raises(UsageLimit) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert e.value.until == 1_795_266_000
+
+    def test_should_raise_a_rejected_token_when_claude_exits(self) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield json.dumps({"type": "assistant", "error": "authentication_failed"})
+            raise subprocess.CalledProcessError(1, args)
+
+        before = int(time.time())
+        with pytest.raises(LoginRejected) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert before <= e.value.started <= int(time.time())
 
 
 class TestLenses:
@@ -675,6 +715,23 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [(f.severity, f.line) for f in got.findings] == [("P1", 50), ("P2", 10)]
 
+    def test_should_keep_each_fix_that_any_pass_marks(self) -> None:
+        fix = {"path": "a.go", "title": "T", "reason": "b.go locks it."}
+        races, edges = FakeClaude(5), FakeClaude(4)
+        races.out["structured_output"]["fixed"] = [fix]
+        edges.out["structured_output"]["fixed"] = [fix, fix | {"title": "U"}]
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.fixed] == ["T", "U"]
+
+    def test_should_drop_a_fix_that_another_pass_reports_again(self) -> None:
+        races = FakeClaude(5, [at("P2", 10) | {"title": "T"}])
+        edges = FakeClaude(4, [at("P1", 10) | {"title": "T was renamed"}])
+        edges.out["structured_output"]["fixed"] = [
+            {"path": "a.go", "title": "T", "reason": "b.go locks it."}
+        ]
+        _, (got, _) = self.lenses(races, edges)
+        assert got.fixed == []
+
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."
@@ -833,6 +890,7 @@ class TestMain:
             "diff_chars = 1000\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Use the trusted policy.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         head = tmp_path / "head"
         head.mkdir()
         git(head, "init", "-q")
@@ -863,7 +921,8 @@ class TestMain:
             " 'usage': {'input_tokens': 3,"
             " 'output_tokens': 4, 'cache_read_input_tokens': 5,"
             " 'cache_creation_input_tokens': 6}, 'structured_output': {"
-            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
+            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': [],"
+            " 'fixed': []}}))\n",
         )
         env = {
             "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
@@ -914,6 +973,24 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_write_the_reset_of_a_usage_limit_and_fail(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        limit = {"status": "rejected", "resetsAt": 1_795_266_000}
+        stream = [
+            {"type": "rate_limit_event", "rate_limit_info": limit},
+            {"type": "result", "is_error": True, "subtype": "success"},
+        ]
+        monkeypatch.setattr(
+            "review.__main__.claude",
+            lambda args, stdin, cwd: iter(json.dumps(m) for m in stream),
+        )
+        with pytest.raises(ExceptionGroup):
+            main(["run", str(tmp_path / "review.json")])
+        assert output.read_text() == "limited-until=1795266000\n"
 
     def test_should_show_the_open_and_dismissed_findings(
         self, tmp_path: Path, env: dict[str, str]

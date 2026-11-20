@@ -10,6 +10,7 @@
 import { panel, type project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -18,14 +19,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { type TestStore, uniqueName } from "@/testutil";
+import type { TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -96,8 +97,9 @@ const createHarness = async (): Promise<Harness> => {
 describe("Panel.MovePicker", () => {
   it("should move the tab into the panel the user picks", async () => {
     const { store, source, tab, destination } = await createHarness();
+    const target = await screen.findByText(destination.name);
     await act(async () => {
-      fireEvent.click(await screen.findByText(destination.name));
+      fireEvent.click(target);
     });
     await waitFor(async () => {
       const [srcDoc, dstDoc] = await Promise.all([
@@ -114,8 +116,9 @@ describe("Panel.MovePicker", () => {
 
   it("should mint a panel holding the tab when New panel is picked", async () => {
     const { store, source, tab } = await createHarness();
+    const item = await screen.findByText("New panel");
     await act(async () => {
-      fireEvent.click(await screen.findByText("New panel"));
+      fireEvent.click(item);
     });
     await waitFor(() => {
       const selected = Session.Panel.selectSelected(store.getState());

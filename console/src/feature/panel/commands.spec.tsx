@@ -15,6 +15,7 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,7 +31,6 @@ import { Panel } from "@/feature/panel";
 import { Command } from "@/platform/command";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
 
 // Proves the list rendered before the window command is missed.
 const SentinelCommand = Command.create({
@@ -114,8 +114,9 @@ describe("Panel Commands", () => {
       await screen.findByText(pan.name);
       await openCommandPalette();
       await selectCommand(CHANGE_ICON);
+      const valve = await screen.findByLabelText("Valve");
       await act(async () => {
-        fireEvent.click(await screen.findByLabelText("Valve"));
+        fireEvent.click(valve);
       });
       await waitFor(async () =>
         expect((await client.panels.retrieve({ key: pan.key })).icon).toEqual("valve"),

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, type patch, type record } from "@synnaxlabs/x";
+import { array, type patch, type record } from "@synnaxlabs/x";
 
-import { type actions } from "@/actions";
-import { type batch } from "@/batch";
-import { type Key } from "@/group/types.gen";
-import { query } from "@/query";
+import type { actions } from "@/actions";
+import type { batch } from "@/batch";
+import type { Key } from "@/group/types.gen";
 
 /** A record that can sit in a group. */
 export interface Member {
@@ -38,48 +37,30 @@ export interface MovePayload<K extends record.Key> extends actions.DispatchPaylo
 
 /**
  * Builds one batch entry per record that moves it into the group, or out of its group
- * when the group is null or undefined. The cache write of each entry moves its cached
- * record.
+ * when the group is null or undefined.
  */
 export interface MoveRequest<K extends record.Key> {
   (keys: K | K[], to?: Key | null): batch.Request<MovePayload<K>>[];
 }
 
 /**
- * Returns a builder of move entries for the dispatch endpoint of a record type. The
- * cache write of an entry calls move with its key and group, and move returns the
- * rollback.
+ * Builds the batch entry that sends actions to one record, such as
+ * `actions.Controller.request` bound to the dispatch endpoint of its type.
  */
-export const createMoveRequest =
-  <K extends record.Key>(
-    endpoint: string,
-    move: (keys: K[], group?: Key) => destructor.Destructor,
-  ): MoveRequest<K> =>
-  (keys, to) =>
-    array.toArray(keys).map((key) => ({
-      endpoint,
-      payload: {
-        key,
-        actions: [
-          { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
-        ],
-      },
-      apply: () => move([key], to ?? undefined),
-    }));
+export interface EntryBuilder<K extends record.Key> {
+  (key: K, actions: patch.Action[]): batch.Request<MovePayload<K>>;
+}
 
 /**
- * Sets the group of each cached record under keys, skipping keys the table does not
- * hold. Returns a rollback that restores only the group field.
+ * Returns the actions that move a record into the group, or out of its group when the
+ * group is null or undefined.
  */
-export const moveCached = <K extends record.Key, V extends Member>(
-  table: query.Table<K, V>,
-  keys: K[],
-  group?: Key,
-): destructor.Destructor => {
-  const prev = keys.map((key) => [key, table.get(key)?.group] as const);
-  keys.forEach((key) => query.partialUpdate(table, key, { group } as Partial<V>));
-  return () =>
-    prev.forEach(([key, g]) =>
-      query.partialUpdate(table, key, { group: g } as Partial<V>),
-    );
-};
+export const moveActions = (to?: Key | null): patch.Action[] => [
+  { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
+];
+
+/** Returns a builder of move entries that builds each entry with build. */
+export const createMoveRequest =
+  <K extends record.Key>(build: EntryBuilder<K>): MoveRequest<K> =>
+  (keys, to) =>
+    array.toArray(keys).map((key) => build(key, moveActions(to)));

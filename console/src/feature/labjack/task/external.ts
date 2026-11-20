@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read } from "@/feature/labjack/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
-import { Write } from "@/feature/labjack/task/Write";
-import { type Task } from "@/platform/task";
+import { Panel } from "@/platform/panel";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/labjack/task/commands";
+export * from "@/feature/labjack/task/create";
 export * from "@/feature/labjack/task/integration";
-export * from "@/feature/labjack/task/Read";
 export * from "@/feature/labjack/task/SelectReadChannelTypeField";
 export * from "@/feature/labjack/task/SelectWriteChannelType";
 export * from "@/feature/labjack/task/types";
-export * from "@/feature/labjack/task/Write";
 
 export const FORMS: Task.Forms = {
-  [READ_TYPE]: Read,
-  [WRITE_TYPE]: Write,
+  [READ_TYPE]: Panel.lazyComponent(() => import("@/feature/labjack/task/Read"), "Read"),
+  [WRITE_TYPE]: Panel.lazyComponent(
+    () => import("@/feature/labjack/task/Write"),
+    "Write",
+  ),
 };

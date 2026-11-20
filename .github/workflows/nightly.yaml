@@ -23,9 +23,11 @@ jobs:
   ci:
     name: CI
     # A called workflow gets no more than its caller grants. In CI, the fail-fast job
-    # asks for actions: write and the paths filter for pull-requests: read.
+    # asks for actions: write and checks: read, and the paths filter asks for
+    # pull-requests: read.
     permissions:
       actions: write
+      checks: read
       contents: write
       packages: write
       pull-requests: read
@@ -53,6 +55,45 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  # Not in PR CI, so a date change never fails every open PR.
+  typescript-window:
+    name: Check the TypeScript support window
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Check the oldest supported TypeScript
+        run: scripts/check_declarations_ts.sh --window
+
+  # Outside CI, so a new Deno or Bun release fails neither PRs nor a Release that reuses
+  # this run.
+  latest-runtimes:
+    name: Smoke-test the client on the latest Deno and Bun
+    needs: ci
+    if: ${{ !cancelled() && needs.ci.outputs.core_image != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      core_image: ${{ needs.ci.outputs.core_image }}
+      directory: client/ts
+      latest_runtimes: true
+      lint: false
+      package: client
+      runtimes: true
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   # Only this run saves the Go caches of most modules, and a failed run saves some.
   prune:
     name: Prune older caches
@@ -71,11 +112,13 @@ jobs:
       contents: read
     outputs:
       prompt: ${{ steps.prompt.outputs.prompt }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
+          persist-credentials: false
 
       - name: Write the prompt
         id: prompt
@@ -111,8 +154,50 @@ jobs:
       labels: review/bot
       timeout-minutes: 90
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  triage-report:
+    name: Post the triage
+    needs: triage
+    if: always() && needs.triage.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 10
+    steps:
+      - name: Post the triage to Slack
+        env:
+          PR_URL: ${{ needs.triage.outputs.pr-url }}
+          RESULT: ${{ needs.triage.result }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+        run: |
+          if [ -n "$PR_URL" ]; then
+            REPORT="Opened <$PR_URL|a fix> for the failed run."
+          else
+            REPORT="Opened no fix ($RESULT)."
+          fi
+          printf '*Nightly triage*\n%s\n<%s|Run>\n' "$REPORT" \
+            "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" |
+            jq --raw-input --slurp '{text: .}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" \
+              --data @- "$SLACK_WEBHOOK_URL"
+
+  relay-failure:
+    name: Relay the failure
+    needs:
+      - ci
+      - typescript-window
+      - latest-runtimes
+      - prune
+      - triage-prompt
+      - triage
+      - triage-report
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true
+      report: true

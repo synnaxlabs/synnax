@@ -14,8 +14,8 @@ run-name:
   }}
 
 on:
-  # Windows is the default because it is more prevalent in the wild than Ubuntu.
-  # It also frees the saturated Ubuntu build bots while the Windows ones sit idle.
+  # Windows is the default because it is more prevalent in the wild than Ubuntu. CI
+  # picks the platforms itself.
   workflow_call:
     inputs:
       ubuntu:
@@ -102,7 +102,9 @@ on:
         default: true
 
 concurrency:
-  group: integration-${{ github.workflow }}-${{ github.ref }}
+  group:
+    integration-${{ github.workflow }}-${{ github.event.merge_group.head_sha ||
+    github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -125,12 +127,12 @@ jobs:
       TEST_MATRIX:
         ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
         steps.test-matrix.outputs.TEST_MATRIX }}
-      BOT_MATRIX:
-        ${{ steps.set-outputs.outputs.CUSTOM_MATRIX ||
-        steps.test-matrix.outputs.BOT_MATRIX }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set outputs
         id: set-outputs
@@ -217,17 +219,17 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  # A free test bot takes the oldest queued job, so in a merge group the Windows test
-  # bot jobs wait here until the groups ahead queued theirs.
+  # A free test bot takes the oldest queued job, so in a merge group the Ubuntu test bot
+  # jobs wait here until the groups ahead queued theirs.
   turn:
     name: Wait for turn
     needs: [setup, build]
     if:
-      ${{ github.event_name == 'merge_group' && inputs.windows && !cancelled() &&
+      ${{ github.event_name == 'merge_group' && inputs.ubuntu && !cancelled() &&
       needs.setup.result == 'success' && (needs.build.result == 'success' ||
       needs.build.result == 'skipped') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 60
     permissions:
       actions: read
       contents: read
@@ -236,11 +238,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/scripts
+          persist-credentials: false
 
       - name: Wait for the groups ahead
         env:
           GH_TOKEN: ${{ github.token }}
-          TEST_BOTS: ${{ vars.WINDOWS_TEST_BOTS }}
+          TEST_BOTS: ${{ vars.UBUNTU_TEST_BOTS }}
           TEST_MATRIX: ${{ needs.setup.outputs.TEST_MATRIX }}
         run: |
           JOBS=$(jq '[.include[] | select(.hosted != true)] | length' \
@@ -250,14 +253,13 @@ jobs:
 
   test-windows:
     name: Test (windows)
-    needs: [setup, build, turn]
+    needs: [setup, build]
     permissions:
       actions: read
       contents: read
     if:
       ${{ inputs.windows && !cancelled() && needs.setup.result == 'success' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
-      (needs.turn.result == 'success' || needs.turn.result == 'skipped') }}
+      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
@@ -272,18 +274,20 @@ jobs:
 
   test-ubuntu:
     name: Test (ubuntu)
-    needs: [setup, build]
+    needs: [setup, build, turn]
     permissions:
       actions: read
       contents: read
     if:
       ${{ inputs.ubuntu && !cancelled() && needs.setup.result == 'success' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.turn.result == 'success' || needs.turn.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
-      test_matrix: ${{ needs.setup.outputs.BOT_MATRIX }}
+      test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: ubuntu-test-bot
+      hosted_os: ubuntu-24.04
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets:
       PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
@@ -311,6 +315,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: integration/scripts
+          persist-credentials: false
 
       - name: Download Core artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8

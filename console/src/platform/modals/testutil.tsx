@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
   act,
@@ -21,12 +21,7 @@ import {
   type RenderResult,
   screen,
 } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 import { Provider } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";
@@ -102,6 +97,12 @@ export const renderModalHook = <T,>(
 ): RenderHookResult<ModalHookHandle<T>, undefined> => {
   const useHandle = () => ({ hook: useHook(), store: Session.Modals.useStore("test") });
   return renderHook(useHandle, { wrapper: Wrapper });
+};
+
+/** Presses and releases Escape on the window, where the trigger provider listens. */
+export const pressEscape = (): void => {
+  fireEvent.keyDown(window, { code: "Escape" });
+  fireEvent.keyUp(window, { code: "Escape" });
 };
 
 /**
@@ -249,7 +250,7 @@ export const findLastButton = (text: string): HTMLButtonElement => {
     .getAllByText(text)
     .map((el) => el.closest<HTMLButtonElement>("button"))
     .filter((b) => b != null);
-  const btn = buttons[buttons.length - 1];
+  const btn = buttons.at(-1);
   if (btn == null) throw new Error(`button with text ${text} not found`);
   return btn;
 };

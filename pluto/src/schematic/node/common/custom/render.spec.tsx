@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color, deep, type location } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { act, render, renderHook } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
@@ -82,9 +82,7 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec: undefined,
         },
         container,
@@ -97,9 +95,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({ svg: "<svg><rect></svg>" });
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -113,22 +109,18 @@ describe("Custom.useRender", () => {
         (props: Custom.UseRenderParams) => Custom.useRender(props),
         {
           initialProps: {
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec: createMockSpec({ svg: "<svg><rect></svg>" }),
           },
         },
       );
       result.current(container);
-      expect(container.querySelector("svg")).toBeNull();
+      expect(container.children.length).toBe(0);
       rerender({
-        orientation: "top",
         activeState: "inactive",
-        externalScale: 1,
         spec: createMockSpec(),
       });
-      expect(container.querySelector("svg")).not.toBeNull();
+      expect(container.querySelector(".main")).not.toBeNull();
     });
 
     it("should not mount anything when svg is empty", () => {
@@ -136,9 +128,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({ svg: "" });
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -149,9 +139,7 @@ describe("Custom.useRender", () => {
     it("should return a stable ref callback even when ref never attaches", () => {
       const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec: createMockSpec(),
         }),
       );
@@ -162,24 +150,22 @@ describe("Custom.useRender", () => {
     });
   });
 
-  describe("SVG mounting", () => {
-    it("should mount SVG to container", () => {
+  describe("mounting", () => {
+    it("should mount the drawing into the container as one g", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
       );
 
       expect(container.children.length).toBe(1);
-      const svg = container.children[0] as SVGSVGElement;
-      expect(svg.tagName.toLowerCase()).toBe("svg");
-      expect(svg.querySelector(".main")).toBeTruthy();
+      const drawing = container.children[0];
+      expect(drawing.tagName).toBe("g");
+      expect(drawing.querySelector(".main")).toBeTruthy();
     });
 
     it("should mount a symbol without its scripts or event handlers", () => {
@@ -187,26 +173,31 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect class="main" onclick="alert(1)" /><script>alert(1)</script></svg>',
       });
-      renderAttached(
-        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
-        container,
-      );
-      const svg = container.querySelector("svg");
-      expect(svg?.getAttribute("onload")).toBeNull();
-      expect(svg?.querySelector(".main")?.getAttribute("onclick")).toBeNull();
-      expect(svg?.querySelector("script")).toBeNull();
+      renderAttached({ activeState: "inactive", spec }, container);
+      const drawing = container.querySelector("g");
+      expect(drawing?.getAttribute("onload")).toBeNull();
+      expect(drawing?.querySelector(".main")?.getAttribute("onclick")).toBeNull();
+      expect(drawing?.querySelector("script")).toBeNull();
     });
 
-    it("should call onMount callback with SVG element", () => {
+    it("should mount built-in markup without the sanitizer", () => {
+      const container = document.createElement("div");
+      const href = "https://example.com/a.svg#a";
+      const spec = createMockSpec({
+        svg: `<svg xmlns="http://www.w3.org/2000/svg"><use class="main" href="${href}" /></svg>`,
+      });
+      renderAttached({ activeState: "inactive", spec, builtIn: true }, container);
+      expect(container.querySelector(".main")?.getAttribute("href")).toBe(href);
+    });
+
+    it("should call onMount with the drawing", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
       const onMount = vi.fn();
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
           onMount,
         },
@@ -214,152 +205,59 @@ describe("Custom.useRender", () => {
       );
 
       expect(onMount).toHaveBeenCalledTimes(1);
-      const svgElement = container.querySelector("svg");
-      expect(onMount).toHaveBeenCalledWith(svgElement);
+      expect(onMount).toHaveBeenCalledWith(container.querySelector("g"));
     });
 
-    it("should wrap SVG content in g element if not present", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="50"/><circle r="10"/></svg>',
-      });
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg");
-      const g = svg?.querySelector("g");
-      expect(g).toBeTruthy();
-      expect(g?.children.length).toBe(2);
-    });
-
-    it("should wrap SVG content that has a g element in a new g element", () => {
+    it("should keep the groups of the markup inside the drawing", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g><circle r="10"/></svg>',
       });
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg");
-      expect(svg?.children.length).toBe(1);
-      const g = svg?.children[0];
-      expect(g?.tagName).toBe("g");
-      expect(Array.from(g?.children ?? [], (child) => child.tagName)).toEqual([
+      renderAttached({ activeState: "inactive", spec }, container);
+      const drawing = container.children[0];
+      expect(Array.from(drawing.children, (child) => child.tagName)).toEqual([
         "g",
         "circle",
       ]);
     });
-  });
 
-  describe("hold fill", () => {
-    const HOLD_FILL = ".pluto-symbol-hold__fill";
-
-    it("should add and remove the hold fill as delayed changes", () => {
-      const container = document.createElement("div");
-      const params: Custom.UseRenderParams = {
-        orientation: "top",
-        activeState: "inactive",
-        externalScale: 1,
-        spec: createMockSpec(),
-      };
-      const { rerender } = renderAttached(params, container);
-      expect(container.querySelector(HOLD_FILL)).toBeNull();
-      rerender({ ...params, delayed: true });
-      expect(container.querySelector(HOLD_FILL)).not.toBeNull();
-      const main = container.querySelector<SVGElement>(".main");
-      expect(main?.style.getPropertyValue(Primitive.SYMBOL_COLOR)).toBe(
-        rgba("#333333"),
-      );
-      rerender({ ...params, delayed: false });
-      expect(container.querySelector(HOLD_FILL)).toBeNull();
-    });
-
-    it("should keep region colors off the hold fill", () => {
+    it("should give the drawing the root attributes other than size and paint", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="50" stroke="black"/></svg>',
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: ["rect:nth-of-type(1)"],
-                strokeColor: color.construct("#333333"),
-              },
-            ],
-          },
-        ],
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" width="100" height="100" fill="none" stroke="#000000" stroke-width="2"><rect width="50" height="50"/></svg>',
       });
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-          strokeColor: color.construct("#ff0000"),
-          delayed: true,
-        },
-        container,
-      );
-      const [shape, fill] = container.querySelectorAll<SVGElement>("rect");
-      expect(fill.classList.contains("pluto-symbol-hold__fill")).toBe(true);
-      expect(strokeColor(shape)).toBe(rgba("#ff0000"));
-      expect(strokeColor(fill)).toBe("");
+      renderAttached({ activeState: "inactive", spec }, container);
+      const drawing = container.children[0];
+      expect(Array.from(drawing.attributes, ({ name }) => name)).toEqual([
+        "stroke-width",
+      ]);
+      expect(drawing.getAttribute("stroke-width")).toBe("2");
     });
   });
 
   describe("auto-heal", () => {
-    it("should mount SVG when ref attaches after the resolving render", () => {
+    it("should mount the drawing when ref attaches after the resolving render", () => {
       const container = document.createElement("div");
+      const initialProps: Custom.UseRenderParams = { activeState: "inactive" };
       const { result, rerender } = renderHook(
         (props: Custom.UseRenderParams) => Custom.useRender(props),
-        {
-          initialProps: {
-            orientation: "top",
-            activeState: "inactive",
-            externalScale: 1,
-            spec: undefined,
-          },
-        },
+        { initialProps },
       );
       expect(container.children.length).toBe(0);
 
       rerender({
-        orientation: "top",
         activeState: "inactive",
-        externalScale: 1,
         spec: createMockSpec(),
       });
       result.current(container);
       expect(container.children.length).toBe(1);
     });
 
-    it("should re-mount SVG after detach and re-attach with the same spec", () => {
+    it("should re-mount the drawing after a detach and a re-attach", () => {
       const spec = createMockSpec();
       const { result } = renderHook(() =>
         Custom.useRender({
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         }),
       );
@@ -384,9 +282,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -403,9 +299,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "active",
-          externalScale: 1,
           spec,
         },
         container,
@@ -422,9 +316,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -443,9 +335,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            orientation: "top",
             activeState,
-            externalScale: 1,
             spec,
           }),
         {
@@ -498,9 +388,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -513,212 +401,6 @@ describe("Custom.useRender", () => {
     });
   });
 
-  describe("scaling", () => {
-    it("should apply internal scale", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec({ scale: 2 });
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("200");
-      expect(svg.getAttribute("height")).toBe("200");
-    });
-
-    it("should apply external scale", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec();
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 3,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("300");
-      expect(svg.getAttribute("height")).toBe("300");
-    });
-
-    // A zero scale would size the symbol to nothing.
-    it("should render an internal scale that is not positive at 1", () => {
-      const container = document.createElement("div");
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec: createMockSpec({ scale: 0 }),
-        },
-        container,
-      );
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("100");
-    });
-
-    it("should render an external scale that is not positive at 1", () => {
-      const container = document.createElement("div");
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: -1,
-          spec: createMockSpec(),
-        },
-        container,
-      );
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("100");
-    });
-
-    it("should combine internal and external scale", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec({ scale: 2 });
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1.5,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("300");
-      expect(svg.getAttribute("height")).toBe("300");
-    });
-
-    it("should update dimensions when scale changes", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec();
-
-      const { result, rerender } = renderHook(
-        ({ externalScale }) =>
-          Custom.useRender({
-            orientation: "top",
-            activeState: "inactive",
-            externalScale,
-            spec,
-          }),
-        {
-          initialProps: { externalScale: 1 },
-        },
-      );
-      result.current(container);
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-
-      rerender({ externalScale: 2 });
-      expect(svg.getAttribute("width")).toBe("200");
-    });
-  });
-
-  describe("orientation", () => {
-    it("should maintain dimensions for horizontal orientations", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec();
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("100");
-      expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
-    });
-
-    it("should swap dimensions for vertical orientations", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec({
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
-      });
-
-      renderAttached(
-        {
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        },
-        container,
-      );
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("200");
-      expect(svg.getAttribute("viewBox")).toBe("0 0 100 200");
-    });
-
-    it("should handle orientation changes", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec();
-
-      const { result, rerender } = renderHook(
-        ({ orientation }) =>
-          Custom.useRender({
-            orientation,
-            activeState: "inactive",
-            externalScale: 1,
-            spec,
-          }),
-        {
-          initialProps: { orientation: "left" as location.Outer },
-        },
-      );
-      result.current(container);
-
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("100");
-
-      rerender({ orientation: "top" as location.Outer });
-      expect(svg.getAttribute("width")).toBe("100");
-      expect(svg.getAttribute("height")).toBe("100");
-      expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
-    });
-
-    it("should keep only the location class of the current orientation", () => {
-      const container = document.createElement("div");
-      const params: Custom.UseRenderParams = {
-        orientation: "top",
-        activeState: "inactive",
-        externalScale: 1,
-        spec: createMockSpec(),
-      };
-      const { rerender } = renderAttached(params, container);
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.classList.contains("lyra--location-top")).toBe(true);
-
-      rerender({ ...params, orientation: "bottom" });
-      expect(svg.classList.contains("lyra--location-bottom")).toBe(true);
-      expect(svg.classList.contains("lyra--location-top")).toBe(false);
-    });
-  });
-
   describe("stroke scaling", () => {
     it("should add non-scaling-stroke when strokeScaled is false", () => {
       const container = document.createElement("div");
@@ -726,9 +408,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -744,9 +424,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -773,9 +451,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -799,9 +475,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            orientation: "top",
             activeState,
-            externalScale: 1,
             spec,
             onMount,
           }),
@@ -812,12 +486,11 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       expect(onMount).toHaveBeenCalledTimes(1);
-      const svgBefore = container.querySelector("svg");
+      const before = container.querySelector("g");
 
       rerender({ activeState: "active" });
-      const svgAfter = container.querySelector("svg");
 
-      expect(svgBefore).toBe(svgAfter);
+      expect(container.querySelector("g")).toBe(before);
       expect(onMount).toHaveBeenCalledTimes(1);
     });
 
@@ -826,8 +499,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
-          Custom.useRender({ orientation: "top", activeState, externalScale: 1, spec }),
+        ({ activeState }) => Custom.useRender({ activeState, spec }),
         { initialProps: { activeState: "inactive" } },
       );
       result.current(container);
@@ -844,9 +516,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
             onMount,
           }),
@@ -874,9 +544,7 @@ describe("Custom.useRender", () => {
 
       const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         }),
       );
@@ -899,9 +567,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           }),
         {
@@ -933,9 +599,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const { result } = renderHook(() =>
         Custom.useRender({
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         }),
       );
@@ -957,9 +621,7 @@ describe("Custom.useRender", () => {
       expect(() => {
         renderAttached(
           {
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           },
           container,
@@ -998,9 +660,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -1046,9 +706,7 @@ describe("Custom.useRender", () => {
       expect(() => {
         renderAttached(
           {
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           },
           container,
@@ -1063,9 +721,7 @@ describe("Custom.useRender", () => {
       expect(() => {
         renderAttached(
           {
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           },
           container,
@@ -1092,9 +748,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec,
         },
         container,
@@ -1140,9 +794,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            orientation: "top",
             activeState,
-            externalScale: 1,
             spec,
           }),
         {
@@ -1198,9 +850,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            orientation: "top",
             activeState,
-            externalScale: 1,
             spec,
           }),
         {
@@ -1267,9 +917,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            orientation: "top",
             activeState,
-            externalScale: 1,
             spec,
           }),
         {
@@ -1295,29 +943,14 @@ describe("Custom.useRender", () => {
   describe("spec changes", () => {
     const renderSpec = (spec: schematic.symbol.Spec) => {
       const container = document.createElement("div");
-      const utils = renderAttached(
-        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
-        container,
-      );
+      const utils = renderAttached({ activeState: "inactive", spec }, container);
       const rerender = (next: schematic.symbol.Spec) =>
         utils.rerender({
-          orientation: "top",
           activeState: "inactive",
-          externalScale: 1,
           spec: next,
         });
       return { container, rerender };
     };
-
-    it("should update dimensions when the internal scale changes", () => {
-      const spec = createMockSpec();
-      const { container, rerender } = renderSpec(spec);
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("width")).toBe("100");
-      rerender({ ...spec, scale: 2 });
-      expect(svg.getAttribute("width")).toBe("200");
-      expect(svg.getAttribute("height")).toBe("200");
-    });
 
     it("should apply region color changes when a state changes", () => {
       const spec = createMockSpec();
@@ -1352,9 +985,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           }),
         { initialProps: { spec: createMockSpec() } },
@@ -1381,9 +1012,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            orientation: "top",
             activeState: "inactive",
-            externalScale: 1,
             spec,
           }),
         { initialProps: { spec: createMockSpec({ strokeScaled: false }) } },
@@ -1435,9 +1064,7 @@ const editorInitialValues = (): SymbolValues => ({
 const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
   const spec = Form.useFieldValue(path.data);
   const setContainer = Custom.useRender({
-    orientation: "left",
     activeState,
-    externalScale: 1,
     spec,
   });
   return <div data-testid="container" ref={setContainer} />;

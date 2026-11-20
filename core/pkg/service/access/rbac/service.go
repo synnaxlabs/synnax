@@ -241,13 +241,24 @@ func (s *Service) roleOf(
 			return uuid.Nil(), err
 		}
 		return r.Role, nil
-	default:
-		return uuid.Nil(), errors.Wrapf(
-			validate.ErrValidation,
-			"%s cannot hold roles",
-			subject,
-		)
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+		resource.TypeDevice, resource.TypeFramer, resource.TypeGroup,
+		resource.TypeLabel, resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
+		resource.TypePanel, resource.TypePolicy, resource.TypeProject,
+		resource.TypeRange, resource.TypeRangeAlias, resource.TypeRole,
+		resource.TypeSchematic, resource.TypeSchematicSymbol, resource.TypeStatus,
+		resource.TypeTable, resource.TypeTask, resource.TypeView,
+		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
+		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
+	return uuid.Nil(), errors.Wrapf(
+		validate.ErrValidation,
+		"%s cannot hold roles",
+		subject,
+	)
 }
 
 // NewPolicyRetrieve opens a policy retrieve whose [policy.MatchSubjects] filters read

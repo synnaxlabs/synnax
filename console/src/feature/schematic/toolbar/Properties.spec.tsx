@@ -13,19 +13,20 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, location, uuid } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { client, renderSchematic } from "@/feature/schematic/testutil";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { findButton } from "@/platform/modals/testutil";
+import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   CaptureStatuses,
   getIconButton,
   getInputByItemLabel,
@@ -86,33 +87,18 @@ const RED = "#ff0000";
 const GREEN = "#00ff00";
 const BLUE = "#0000ff";
 
-// The role control's hex box, labeled with the role name.
-const roleInput = (label: string): HTMLInputElement => {
-  const input = screen
-    .getAllByLabelText(label)
-    .find((el): el is HTMLInputElement => el instanceof HTMLInputElement);
-  assertDefined(input);
-  return input;
-};
-
 const setRoleColor = (label: string, hex: string): void => {
-  fireEvent.change(roleInput(label), { target: { value: hex.slice(1) } });
+  fireEvent.change(getHexInput(label), { target: { value: hex.slice(1) } });
 };
 
 // Picks Auto in the role control's picker.
 const clearRoleColor = (label: string): void => {
-  const swatch = roleInput(label)
+  const swatch = getHexInput(label)
     .closest(".lyra-color-input")
     ?.querySelector<HTMLElement>(".lyra-color-swatch");
   assertDefined(swatch);
   fireEvent.click(swatch);
   fireEvent.click(screen.getByLabelText("Auto"));
-};
-
-const selectionSwatches = (): HTMLElement[] => {
-  const item = screen.getByText("Selection").closest(".lyra-input__item");
-  assertDefined(item);
-  return Array.from(item.querySelectorAll<HTMLElement>(".lyra-color-swatch"));
 };
 
 const hexOf = (value: unknown): string | undefined =>
@@ -303,6 +289,17 @@ describe("Schematic toolbar Properties", () => {
       });
     });
 
+    it("hides the label section when every labeled symbol is locked", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        parents,
+        sessionState: { selected: ["g1", "n1", "n2"] },
+      });
+      await screen.findByText("Align");
+      expect(screen.queryByText("Wrap width")).toBeNull();
+    });
+
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,
@@ -334,7 +331,7 @@ describe("Schematic toolbar Properties", () => {
     it("sets a stroke on every selected symbol whose stroke is auto", async () => {
       const { key } = await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").placeholder).toBe("Auto");
+      expect(getHexInput("Stroke").placeholder).toBe("Auto");
       setRoleColor("Stroke", RED);
       await expect
         .poll(async () =>
@@ -371,8 +368,8 @@ describe("Schematic toolbar Properties", () => {
             : createValveConfig(),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").placeholder).toBe("Mixed");
-      expect(roleInput("Stroke").value).toBe("");
+      expect(getHexInput("Stroke").placeholder).toBe("Mixed");
+      expect(getHexInput("Stroke").value).toBe("");
     });
 
     it("shows the shared stroke when every selected symbol has it", async () => {
@@ -381,7 +378,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: () => ({ ...createValveConfig(), strokeColor: RED }),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Stroke").value).toBe("ff0000");
+      expect(getHexInput("Stroke").value).toBe("ff0000");
     });
 
     it("clears the stroke on every selected symbol with Auto", async () => {
@@ -409,8 +406,8 @@ describe("Schematic toolbar Properties", () => {
         createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Fill").placeholder).toBe("Auto");
-      const swatch = roleInput("Fill")
+      expect(getHexInput("Fill").placeholder).toBe("Auto");
+      const swatch = getHexInput("Fill")
         .closest(".lyra-color-input")
         ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
@@ -428,7 +425,7 @@ describe("Schematic toolbar Properties", () => {
             : createBoxConfig(),
       });
       await screen.findByText("Colors");
-      expect(roleInput("Fill").placeholder).toBe("Mixed");
+      expect(getHexInput("Fill").placeholder).toBe("Mixed");
     });
 
     it("writes a fill only to the symbols that have one", async () => {
@@ -467,8 +464,8 @@ describe("Schematic toolbar Properties", () => {
         },
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
-      expect(selectionSwatches()).toHaveLength(2);
+      const [red] = getSwatches("Selection");
+      expect(getSwatches("Selection")).toHaveLength(2);
       fireEvent.click(red);
       fireEvent.change(screen.getByLabelText("Hex"), {
         target: { value: BLUE.slice(1) },
@@ -493,7 +490,7 @@ describe("Schematic toolbar Properties", () => {
             : { ...createBoxConfig(), strokeColor: GREEN },
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
+      const [red] = getSwatches("Selection");
       const strokes = async (): Promise<Array<string | undefined>> =>
         await Promise.all(
           ["n1", "n2"].map(async (k) =>
@@ -520,7 +517,7 @@ describe("Schematic toolbar Properties", () => {
             : createValveConfig(),
       });
       await screen.findByText("Selection");
-      const [red] = selectionSwatches();
+      const [red] = getSwatches("Selection");
       fireEvent.click(red);
       fireEvent.change(screen.getByLabelText("Hex"), {
         target: { value: BLUE.slice(1) },
@@ -655,6 +652,37 @@ describe("Schematic toolbar Properties", () => {
       await expect
         .poll(async () => (await retrieveConfig(key, "n1")).label)
         .toMatchObject({ maxInlineSize: 200 });
+    });
+
+    it("shows the default wrap width until a symbol has one", async () => {
+      const { result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "button" }),
+      });
+      await screen.findByText("Align");
+      expect(getInputByItemLabel(result.container, "Wrap width").value).toBe("150");
+    });
+
+    it("keeps the wrap width of every selected symbol when cleared", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "tank",
+            label: { maxInlineSize: 80 },
+          }),
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Wrap width");
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.blur(input);
+      await expect.poll(() => input.value).toBe("80");
+      expect((await retrieveConfig(key, "n1")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
+      expect((await retrieveConfig(key, "n2")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
     });
 
     it("rotates the whole selection, still rotating orientations when layout fails", async () => {

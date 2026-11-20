@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Stream,
-  type StreamClient,
-  type UnaryClient,
-} from "@synnaxlabs/freighter";
+import type { Stream, StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { actions } from "@/actions";
 import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
@@ -50,11 +46,11 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/where.gen";
-import { type batch } from "@/batch";
+import type { batch } from "@/batch";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
-import { type status } from "@/status";
+import type { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -412,7 +408,7 @@ export class Client extends query.Retriever<
     const arcs = await this.execRetrieve({ where, includeChanges: true });
     checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     const a = arcs[0];
-    return a.type === "automation" ? (a.changes ?? []) : [];
+    return a.type === "automation" ? a.changes : [];
   }
 
   private async execRetrieve(

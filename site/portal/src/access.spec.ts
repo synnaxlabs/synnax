@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activationFor, licenseFor, requireStaff } from "@/access";
-import { type Portal } from "@/portal";
-import { type License, type Organization } from "@/server/db/schema";
+import type { Portal } from "@/portal";
+import type { License, Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A, HASH_B, HASH_C } from "@/server/license/testutil";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import {
   createActivation,
   createHarness,
@@ -107,9 +108,10 @@ describe("access", () => {
     });
 
     it("should throw a 404 for an unknown license", async () => {
-      await expect(
-        licenseFor(portal, STAFF, crypto.randomUUID()),
-      ).rejects.toMatchObject({ status: 404, message: "License not found" });
+      await expect(licenseFor(portal, STAFF, uuid.create())).rejects.toMatchObject({
+        status: 404,
+        message: "License not found",
+      });
     });
   });
 
@@ -137,9 +139,10 @@ describe("access", () => {
     });
 
     it("should throw a 404 for an unknown machine", async () => {
-      await expect(
-        activationFor(portal, STAFF, crypto.randomUUID()),
-      ).rejects.toMatchObject({ status: 404, message: "Activation not found" });
+      await expect(activationFor(portal, STAFF, uuid.create())).rejects.toMatchObject({
+        status: 404,
+        message: "Activation not found",
+      });
     });
   });
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, rack, task } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -134,6 +135,7 @@ export const EL3102: SimulatedDevice = {
     serial: 0,
     name: "EL3102",
     network: "en5",
+    network_name: "en5",
     position: 2,
     input_bits: 48,
     output_bits: 0,
@@ -179,6 +181,7 @@ export const EL2004: SimulatedDevice = {
     serial: 0,
     name: "EL2004",
     network: "en5",
+    network_name: "en5",
     position: 3,
     input_bits: 0,
     output_bits: 4,
@@ -245,21 +248,18 @@ export const taskStatus = (
 });
 
 export interface DriverOptions extends ConnectionOptions {
-  /** Devices to create on the embedded rack, with a status for each. */
+  /** Devices to create on the Driver's rack, with a status for each. */
   devices?: SimulatedDevice[];
-  /**
-   * Integrations the embedded rack claims. Saving them clears the rack's embedded flag,
-   * so a later `racks.retrieve({ embedded: true })` finds nothing.
-   */
+  /** Integrations the Driver's rack claims. */
   integrations?: string[];
-  /** Types of the scanner tasks to create on the embedded rack. */
+  /** Types of the scanner tasks to create on the Driver's rack. */
   scanners?: string[];
   /** Interval between "Driver is running" heartbeats. */
   periodMs?: number;
 }
 
 export interface DriverFixture {
-  /** The embedded rack the devices and tasks live on. */
+  /** The Driver's rack, which the devices and tasks live on. */
   rack: rack.Key;
   /** Stops the heartbeat and the command loop and closes the client. */
   stop: () => Promise<void>;
@@ -267,11 +267,12 @@ export interface DriverFixture {
 
 /**
  * simulatedDriver stands in for the Driver on a capture core started with
- * `--no-driver`. It creates the devices on the embedded rack, writes the rack's "Driver
- * is running" status every `periodMs`, and answers each start and stop command with the
- * status the real Driver writes on success. Nothing reads or writes hardware, so read
- * tasks produce no samples. The connect dialogs find no Driver for an integration that
- * the rack does not claim.
+ * `--no-driver`. Such a Core has no Driver rack, so it creates one with the Driver's
+ * name. It creates the devices on that rack, writes the rack's "Driver is running"
+ * status every `periodMs`, and answers each start and stop command with the status the
+ * real Driver writes on success. Nothing reads or writes hardware, so read tasks
+ * produce no samples. The connect dialogs find no Driver for an integration that the
+ * rack does not claim.
  */
 export const simulatedDriver = async ({
   devices = [],
@@ -281,13 +282,10 @@ export const simulatedDriver = async ({
   ...opts
 }: DriverOptions = {}): Promise<DriverFixture> => {
   const client = connect(opts);
-  const [embedded] = await client.racks.retrieve({ embedded: true });
-  if (integrations.length > 0)
-    await client.racks.create({
-      key: embedded.key,
-      name: embedded.name,
-      integrations,
-    });
+  const embedded = await client.racks.create({
+    name: "Node 1 Embedded Driver",
+    integrations,
+  });
   await client.statuses.set(rackStatus(embedded));
 
   if (scanners.length > 0)
@@ -325,7 +323,7 @@ export const simulatedDriver = async ({
   let running = true;
   const heartbeat = (async () => {
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, periodMs));
+      await sleep.sleep(TimeSpan.milliseconds(periodMs));
       if (running) await client.statuses.set(rackStatus(embedded));
     }
   })();

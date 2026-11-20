@@ -144,12 +144,19 @@ describe("releases", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should send the token", async () => {
+    it("should send the token from the source", async () => {
       const fetch = vi.fn<typeof globalThis.fetch>(async () => respond(RELEASES));
-      await new Releases({ fetch, token: "abc" }).latest("core");
+      const token = async (): Promise<string> => "abc";
+      await new Releases({ fetch, token }).latest("core");
       expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
         Authorization: "Bearer abc",
       });
+    });
+
+    it("should send no authorization without a token source", async () => {
+      const fetch = vi.fn<typeof globalThis.fetch>(async () => respond(RELEASES));
+      await new Releases({ fetch }).latest("core");
+      expect(fetch.mock.calls[0]?.[1]?.headers).not.toHaveProperty("Authorization");
     });
 
     it("should throw on an API error and retry on the next lookup", async () => {

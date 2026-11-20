@@ -17,6 +17,7 @@ import (
 	"uuid"
 
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -118,6 +119,9 @@ func (c *checker) checkMessage(path []string, m Message) {
 			}
 		}
 	case JSONPayload:
+		if p.Match != nil {
+			c.checkMatch(pathOf(path, "match"), *p.Match)
+		}
 		c.checkJSONFields(pathOf(path, "fields"), p, untyped, unscaled)
 	case nil:
 		return
@@ -163,10 +167,11 @@ func (c *checker) checkJSONFields(
 		case nil:
 			untyped.Add(i)
 			continue
-		case NumberJSONField:
+		case FloatJSONField, IntegerJSONField, UnsignedJSONField:
 		default:
 			unscaled.Add(i)
 		}
+		c.checkEnumLabels(fieldPath, f)
 		b := f.Base()
 		pointer, err := xjson.ParsePointer(b.Pointer)
 		if err != nil {
@@ -180,6 +185,57 @@ func (c *checker) checkJSONFields(
 			}
 		}
 		reads = append(reads, read{name: b.Name, pointer: pointer})
+	}
+}
+
+// checkEnumLabels finds each enum label that is empty or that an earlier entry of the
+// field uses.
+func (c *checker) checkEnumLabels(path []string, f JSONField) {
+	var labels []string
+	switch v := f.Variant.(type) {
+	case FloatJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case IntegerJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case UnsignedJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case StringJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	case BooleanJSONField:
+		for _, e := range v.EnumValues {
+			labels = append(labels, e.Label)
+		}
+	}
+	seen := make(set.Set[string], len(labels))
+	for i, label := range labels {
+		labelPath := pathOf(path, "enum_values", strconv.Itoa(i), "label")
+		if label == "" {
+			c.Addf(labelPath, "enum label is required")
+			continue
+		}
+		if seen.Contains(label) {
+			c.Addf(labelPath, "duplicate enum label %q", label)
+		}
+		seen.Add(label)
+	}
+}
+
+func (c *checker) checkMatch(path []string, m JSONMatch) {
+	pointer := m.Base().Pointer
+	if _, err := xjson.ParsePointer(pointer); err != nil {
+		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
+	}
+	if f, ok := m.Variant.(FloatJSONMatch); ok &&
+		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
+		c.Addf(pathOf(path, "value"), "value must be finite")
 	}
 }
 
@@ -244,7 +300,7 @@ func (c *checker) checkMultiplexor(
 		c.Addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
 	case !ok:
 		c.Addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
-	case mux.Float:
+	case !integral(mux):
 		c.Addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
 	case inCycle(b.Key, binary):
 		c.Addf(pathOf(path, "multiplexor"), "multiplexors form a cycle")
@@ -255,7 +311,7 @@ func (c *checker) checkMultiplexor(
 			"at least one value is required when the field has a multiplexor",
 		)
 	}
-	if !ok || mux.Float || !validBitLength(mux.BitLength) {
+	if !ok || !integral(mux) || !validBitLength(mux.BitLength) {
 		return
 	}
 	for i, v := range b.MultiplexValues {
@@ -331,7 +387,7 @@ func (c *checker) checkIdentifier(
 				pathOf(idPath, "field"),
 				"the identifier field is not in this message",
 			)
-		case f.Float:
+		case !integral(f):
 			c.Addf(pathOf(idPath, "field"), "the identifier must be an integer field")
 		case validBitLength(f.BitLength) && !fits(id.Value, f):
 			c.Addf(
@@ -345,14 +401,17 @@ func (c *checker) checkIdentifier(
 }
 
 func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField) {
+	if f.Kind != payload.KindFloat && !integral(f) {
+		c.Addf(
+			pathOf(path, "kind"),
+			"a binary field must be a float, an integer, or an unsigned integer",
+		)
+	}
 	if !validBitLength(f.BitLength) {
 		return
 	}
-	if f.Float && f.BitLength != 32 && f.BitLength != 64 {
+	if f.Kind == payload.KindFloat && f.BitLength != 32 && f.BitLength != 64 {
 		c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
-	}
-	if f.Float && f.Signed {
-		c.Addf(pathOf(path, "signed"), "a float field cannot also be signed")
 	}
 	if p.Length != nil {
 		if lastByte(f) >= int(*p.Length) {
@@ -506,10 +565,15 @@ func canLength(id CanIdentifier) uint16 {
 	return maxCANLength
 }
 
+// integral reports whether the binary field f holds an integer.
+func integral(f BinaryField) bool {
+	return f.Kind == payload.KindInteger || f.Kind == payload.KindUnsigned
+}
+
 // fits reports whether the integer field f can hold v.
 func fits(v int32, f BinaryField) bool {
 	n := int64(f.BitLength)
-	if !f.Signed {
+	if f.Kind == payload.KindUnsigned {
 		return v >= 0 && (n >= 31 || int64(v) < int64(1)<<n)
 	}
 	if n >= 32 {

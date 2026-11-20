@@ -21,7 +21,7 @@ actionlint:
 
 bazel: &bazel
   - .bazelignore
-  - .bazeliskrc
+  - .bazelversion
   - .bazelrc
   - .gitmodules
   - MODULE.bazel
@@ -106,7 +106,6 @@ gorp: &gorp
 freighter_go: &freighter_go
   - *alamos_go
   - *go
-  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -248,6 +247,13 @@ www:
   - .github/workflows/build.site.yaml
   - site/www/**
 
+studio:
+  - *client_ts
+  - *lyra
+  - *ts
+  - *x_ts
+  - studio/**
+
 knip:
   - *arc_ts
   - *console
@@ -297,8 +303,10 @@ exports_py:
 
 py_packages:
   - *client_py
+  - .github/scripts/build_py.sh
   - .github/scripts/pin_internal_deps.sh
   - .github/workflows/test.py.packages.yaml
+  - scripts/check_wheels_py.sh
 
 lint_integration:
   - *client_py
@@ -347,6 +355,7 @@ driver: &driver
   - *cpp
   - *freighter_cpp
   - *x_cpp
+  - core/pkg/service/icd/testdata/decode/**
   - driver/**
   - vendor/**
 
@@ -359,6 +368,54 @@ soem:
 codeql_cpp:
   - *driver
   - .github/workflows/codeql.yaml
+
+# Every path that changes a Go CodeQL analysis.
+codeql_go:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+  - "**/go.work"
+  - "**/go.work.sum"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a JavaScript and TypeScript CodeQL analysis.
+codeql_ts:
+  - "**/*.astro"
+  - "**/*.cjs"
+  - "**/*.cts"
+  - "**/*.htm"
+  - "**/*.html"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.mjs"
+  - "**/*.mts"
+  - "**/*.svelte"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.vue"
+  - "**/.npmrc"
+  - "**/package.json"
+  - "**/pnpm-lock.yaml"
+  - "**/pnpm-workspace.yaml"
+  - "**/tsconfig*.json"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a Python CodeQL analysis.
+codeql_python:
+  - "**/*.py"
+  - "**/*.pyi"
+  - "**/pyproject.toml"
+  - "**/requirements*.txt"
+  - "**/setup.cfg"
+  - "**/uv.lock"
+  - .github/workflows/codeql.yaml
+
+# Every path that changes a GitHub Actions CodeQL analysis.
+codeql_actions:
+  - "**/action.yaml"
+  - "**/action.yml"
+  - .github/actions/**
+  - .github/workflows/**
 
 # Every path that changes a Rust CodeQL analysis.
 codeql_rust:
@@ -409,6 +466,7 @@ ci_scripts:
   - .github/scripts/**
   - .github/workflows/**
   - deploy/preview/**
+  - scripts/agent/**
   - scripts/common/**
 
 scripts:
@@ -416,9 +474,17 @@ scripts:
   - client/py/**
   - scripts/**
 
+suppressions_py:
+  - "**/*.py"
+
 runners:
   - *py
   - scripts/runners/**
+
+console_deps:
+  - console/src-tauri/.cargo/audit.toml
+  - console/src-tauri/Cargo.lock
+  - console/src-tauri/Cargo.toml
 
 console_build: &console_build
   - *console

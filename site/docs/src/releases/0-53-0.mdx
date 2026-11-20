@@ -1,18 +1,13 @@
 ---
-title: "Version 0.53 release notes"
+title: "HTTP write tasks"
+version: "0.53.0"
+date: "Mar 13, 2026"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
-
-<Release
-    version="0.53.0"
-    date="Mar 13, 2026"
-    title="HTTP write tasks"
->
 
 <Hero.Hero
   image="releases/0-53-0/http-write-task"
@@ -21,6 +16,7 @@ export const components = mdxOverrides;
   layout="bleed"
   tone="soft"
   palette="green-teal"
+  alt="The configuration of an HTTP write task"
 />
 
 Synnax v0.53 completes the HTTP driver with write task support and adds Python client
@@ -107,5 +103,3 @@ larger deployment workflows.
 
 - Fixed schematic writes failing after an Arc task took and released control when
   multiple index channel groups were involved.
-
-</Release>

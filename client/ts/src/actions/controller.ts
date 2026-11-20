@@ -7,22 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
-  compare,
   deep,
   destructor,
   errors,
   id,
+  map,
   type record,
   TimeSpan,
   TimeStamp,
+  zod,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
+import type { DispatchPayload } from "@/actions/actions";
+import type { batch } from "@/batch";
 import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
-import { type query } from "@/query";
+import type { query } from "@/query";
 import { keyedZ, Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
@@ -59,14 +62,14 @@ const pushOnto = <A>(
   cap: number,
   remade: boolean,
 ): StackEntry<A>[] => {
-  const top = stack[stack.length - 1];
+  const top = stack.at(-1);
   const mergeable =
     top != null &&
     (remade
       ? top.key === next.key
       : top.kind === next.kind &&
         next.ts.span(top.ts).lessThanOrEqual(window) &&
-        compare.unorderedPrimitiveArrays(top.targets, next.targets) === compare.EQUAL);
+        array.equalUnordered(top.targets, next.targets));
   const merged = mergeable
     ? {
         key: top.key,
@@ -415,11 +418,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * the cached doc until their echo arrives. Unlike dispatch, it sends when the doc is
    * not cached and records no undo entry. When nothing is in flight for the document,
    * the actions go out at once. Otherwise they join the batch that goes out as one
-   * dispatch when the in-flight send settles.
+   * dispatch when the in-flight send settles. When the send resolves, the cached doc
+   * also holds the actions that the Core added. Sends nothing for no actions.
    * @throws {Error} if the cached doc cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the actions roll back.
    */
   async send(key: Key, actions: Action[]): Promise<void> {
+    if (actions.length === 0) return;
     const made = (): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
@@ -601,11 +606,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * applies the entry's latest actions last.
    */
   private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
-    let r = this.rebases.get(key);
-    if (r == null) {
-      r = { base: current, pending: [] };
-      this.rebases.set(key, r);
-    }
+    const r = map.getOrInsert(this.rebases, key, () => ({
+      base: current,
+      pending: [],
+    }));
     const i = r.pending.indexOf(entry);
     if (i === -1) r.pending.push(entry);
     if (i === -1 || i === r.pending.length - 1) {
@@ -667,13 +671,26 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (r.pending.length === 0) this.release(key);
   }
 
-  /** Marks a pending entry as applied by the Core, which added the given actions. */
+  /**
+   * Marks a pending entry as applied by the Core, and writes the actions that the Core
+   * added to the cached doc.
+   */
   private accept(key: Key, dispatchKey: string, added: Action[]): void {
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
     const echo = [...p.actions, ...added];
     p.echo = echo;
+    if (added.length > 0) {
+      const sent = p.actions;
+      p.actions = [...echo];
+      try {
+        this.write(key, r);
+      } catch {
+        // The settle of the echo reports the error and fetches the doc again.
+        p.actions = sent;
+      }
+    }
     // No echo arrives while the stream is down. The echo may also have been lost when
     // the epoch changed during the send.
     if (!this.live || p.epoch !== this.epoch) {
@@ -966,6 +983,46 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
+   * Builds a batch request that sends actions to the document at the endpoint. Like a
+   * dispatch, the cached doc holds them as pending until their echo arrives, but no
+   * undo entry records them. When the batch commits, the cached doc also holds the
+   * actions that the Core added.
+   * @param resZ - The schema of the endpoint's response.
+   */
+  request<A extends Action>(
+    endpoint: string,
+    key: Key,
+    actions: A[],
+    resZ: z.ZodType<{ actions: Action[] }>,
+  ): Required<batch.Request<Required<DispatchPayload<Key, A>>>> {
+    const entry = this.createPending(id.create(), [...actions]);
+    let applied = false;
+    return {
+      endpoint,
+      payload: { key, dispatchKey: entry.dispatchKey, actions },
+      apply: () => {
+        // The batch applies again when it commits, after the echo may have settled.
+        // Only the first apply tracks, so a doc cached mid-batch never waits on an
+        // echo that already passed.
+        if (applied) return destructor.NOOP;
+        applied = true;
+        const current = this.docs.get(key);
+        if (current == null) return destructor.NOOP;
+        entry.epoch = this.epoch;
+        this.track(key, current, entry, this.params.reduce(current, actions).next);
+        return () => {
+          applied = false;
+          this.discard(key, entry.dispatchKey);
+        };
+      },
+      applyResponse: (res) => {
+        const added = zod.parse(resZ, res, { label: "dispatch response" }).actions;
+        this.accept(key, entry.dispatchKey, added);
+      },
+    };
+  }
+
+  /**
    * Stage actions committed atomically as one undoable entry. Each add applies to the
    * cached doc at once, and the staged actions stay pending until the commit settles.
    */
@@ -1021,7 +1078,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   markRemoteTouched(key: Key, targets: readonly string[]): destructor.Destructor {
-    if (targets.length === 0) return destructor.NOOP;
+    // A touch matters only to existing entries, and writing a state would pin the doc.
+    if (targets.length === 0 || !this.undos.has(key)) return destructor.NOOP;
     const tick = ++this.tick;
     return this.updateUndo(key, (s) => {
       const remoteTouched = { ...s.remoteTouched };
@@ -1047,9 +1105,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   async settled(key: Key): Promise<void> {
     if (!this.rebases.has(key)) return;
     await new Promise<void>((resolve) => {
-      const waiting = this.settling.get(key);
-      if (waiting == null) this.settling.set(key, [resolve]);
-      else waiting.push(resolve);
+      map.getOrInsert(this.settling, key, () => []).push(resolve);
     });
   }
 

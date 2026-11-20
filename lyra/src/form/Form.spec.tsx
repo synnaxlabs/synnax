@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type record, TimeSpan } from "@synnaxlabs/x";
+import { compare, deep, type record } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
 import { createLocalStore } from "@/form/store";
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
-import { mockBoundingClientRect } from "@/testutil/dom";
 
 const basicFormSchema = z
   .object({
@@ -933,70 +931,6 @@ describe("Form", () => {
     });
   });
 
-  describe("TimeSpanField", () => {
-    beforeAll(loadLanguage);
-    beforeAll(() => {
-      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-    });
-    const spanSchema = z.object({
-      timeoutMs: z.number(),
-      keepAlive: z.number().optional(),
-    });
-    const span = deep.path<z.infer<typeof spanSchema>>();
-    const SpanForm = (props: PropsWithChildren): ReactElement => {
-      const methods = Form.use<typeof spanSchema>({
-        values: { timeoutMs: 1500, keepAlive: 30 },
-        schema: spanSchema,
-      });
-      return <Form.Form<typeof spanSchema> {...methods}>{props.children}</Form.Form>;
-    };
-    const edit = (input: HTMLElement, value: string): void => {
-      fireEvent.focus(input);
-      fireEvent.change(input, { target: { value } });
-      fireEvent.blur(input);
-    };
-
-    it("should show and store the number in its unit", () => {
-      const c = render(
-        <Form.TimeSpanField path={span.timeoutMs} unit={TimeSpan.MILLISECOND} />,
-        { wrapper: SpanForm },
-      );
-      const input = c.getByDisplayValue("1s 500ms");
-      edit(input, "250");
-      expect(c.getByDisplayValue("250ms")).toBeTruthy();
-    });
-
-    it("should name the bound a span crosses", () => {
-      const c = render(
-        <Form.TimeSpanField
-          path={span.timeoutMs}
-          label="Timeout"
-          unit={TimeSpan.MILLISECOND}
-          bounds={{ upper: TimeSpan.MINUTE }}
-        />,
-        { wrapper: SpanForm },
-      );
-      const input = c.getByDisplayValue("1s 500ms");
-      fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "5min" } });
-      expect(c.getByText("Timeout must be 1min or less")).toBeTruthy();
-    });
-
-    it("should store undefined when an emptiable field is emptied", () => {
-      const c = render(
-        <Form.TimeSpanField
-          path={span.keepAlive}
-          unit={TimeSpan.SECOND}
-          emptiable
-          inputProps={{ placeholder: "30s" }}
-        />,
-        { wrapper: SpanForm },
-      );
-      edit(c.getByDisplayValue("30s"), "");
-      expect(c.getByPlaceholderText("30s")).toHaveProperty("value", "");
-    });
-  });
-
   describe("CheckboxField", () => {
     const flagsSchema = z.object({
       enabled: z.boolean(),
@@ -1190,7 +1124,7 @@ describe("Form", () => {
         ]);
       });
       rerender();
-      act(() => result.current.utils.sort?.((a, b) => a.name.localeCompare(b.name)));
+      act(() => result.current.utils.sort?.(compare.by((v) => v.name)));
       rerender();
       expect(result.current.field?.[0].name).toBe("Alice");
       expect(result.current.field?.[1].name).toBe("John Doe");
@@ -1199,8 +1133,7 @@ describe("Form", () => {
   });
 
   describe("fieldListUtils over a store", () => {
-    const byName = (a: record.KeyedNamed, b: record.KeyedNamed) =>
-      a.name.localeCompare(b.name);
+    const byName = compare.by((v: record.KeyedNamed) => v.name);
     const renderOverStore = () => {
       const store = createLocalStore({
         ...deep.copy(initialFormValues),

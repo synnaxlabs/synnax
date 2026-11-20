@@ -36,7 +36,9 @@ var _ = Describe("Default groups", func() {
 		func(in string, expected v2.MinMaxVal) {
 			var ch v2.AIChannel
 			Expect(json.Unmarshal([]byte(in), &ch)).To(Succeed())
-			Expect(ch.Variant.(v2.AIVoltageChannel).MinMaxVal).To(Equal(expected))
+			v, ok := ch.Variant.(v2.AIVoltageChannel)
+			Expect(ok).To(BeTrue())
+			Expect(v.MinMaxVal).To(Equal(expected))
 		},
 		Entry(
 			"an omitted range takes the defaults",
@@ -59,7 +61,9 @@ var _ = Describe("Default groups", func() {
 		func(in string, expected v2.MinMaxVal) {
 			var ch v2.CIChannel
 			Expect(json.Unmarshal([]byte(in), &ch)).To(Succeed())
-			Expect(ch.Variant.(v2.CIFrequencyChannel).MinMaxVal).To(Equal(expected))
+			v, ok := ch.Variant.(v2.CIFrequencyChannel)
+			Expect(ok).To(BeTrue())
+			Expect(v.MinMaxVal).To(Equal(expected))
 		},
 		Entry(
 			"an omitted range takes the variant's defaults",

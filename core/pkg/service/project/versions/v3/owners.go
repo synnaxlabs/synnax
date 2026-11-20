@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -44,7 +44,8 @@ type OwnersConfig[K gorp.Key, E gorp.Entry[K]] struct {
 // A project edge wins over a range edge, and an edge from an owner that is not stored
 // counts as no edge. The migration deletes the converted edges, then deletes each
 // visualization with no owner along with its ontology resource and edges, and logs a
-// warning for each. It reads the project and range tables, so they must open and
+// warning for each. It checks only that a project or range key is stored, so it is
+// correct for any stored shape of either. The project and range tables must open and
 // migrate first.
 func NewOwnersMigration[K gorp.Key, E gorp.Entry[K]](
 	cfg OwnersConfig[K, E],

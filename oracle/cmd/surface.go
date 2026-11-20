@@ -47,7 +47,8 @@ func runSurface(cmd *cobra.Command) error {
 		return err
 	}
 	if res.Resolutions == nil {
-		return errors.Wrap(res.Diagnostics.Flat(), "analysis failed")
+		flat := res.Diagnostics.Flat()
+		return errors.Wrap(&flat, "analysis failed")
 	}
 	return surface.Write(cmd.OutOrStdout(), res.Resolutions)
 }

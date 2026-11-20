@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  compare,
+  array,
   type destructor,
   errors,
+  map,
   primitive,
   type record,
   type state,
@@ -26,7 +27,7 @@ import {
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { isChange, type Table, type TableEvent } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Data, FetchOptions, Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
 
@@ -123,9 +124,15 @@ export interface Retrieves<P extends Params, D extends Data> {
  * events onto the space's primary keys. Build with {@link trigger}.
  */
 export interface Trigger<P extends Params, K extends record.Key> {
+  /**
+   * Starts delivering the table's events to a maintained answer.
+   * @param members - Returns the current members of the answer.
+   * @returns a destructor that stops delivery when the answer stops being maintained.
+   */
   attach: (
     params: P,
     onEvent: (result: K[] | "refetch") => void,
+    members: () => readonly K[],
   ) => destructor.Destructor;
   /** The foreign table's {@link Table.version}. */
   version: () => number;
@@ -134,6 +141,12 @@ export interface Trigger<P extends Params, K extends record.Key> {
    * change composes the members again instead of fetching the matches.
    */
   contentOnly?: boolean;
+  /**
+   * Whether the table holds what an answer with the given members composes. Defaults
+   * to true. A cached answer that a trigger does not cover is not served, so its query
+   * fetches.
+   */
+  covers?: (params: P, members: readonly K[]) => boolean;
 }
 
 /**
@@ -312,6 +325,12 @@ type QueryState<K extends record.Key, D extends Data> =
   | { variant: "error"; error: Error }
   | { variant: "deleted"; key: K };
 
+const membersOf = <K extends record.Key>({
+  state,
+}: {
+  state: QueryState<K, Data>;
+}): readonly K[] => (state.variant === "ready" ? state.keys : []);
+
 interface Query<
   P extends Params,
   K extends record.Key,
@@ -334,6 +353,9 @@ interface Query<
   vacated?: boolean;
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
+  /** Set when the stream reconnected during a fetch in flight. The fetch may predate
+   *  the reconnect, so the query refetches on settle, even when the fetch failed. */
+  reconnected?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
   /** When the last subscriber left; the sweep tears the query down once this
    *  outlives the grace window. Cleared on resubscribe. */
@@ -345,11 +367,11 @@ interface Query<
    *  starts after it clears it. Until then, reads fetch instead of trusting the
    *  answer, and a new subscriber refetches. */
   stale?: number;
-  /** Answer interned against the records it was composed from, so repeated
-   *  reads stay referentially stable for useSyncExternalStore consumers. A
-   *  table replaces an entry only when its content changes, so a surviving entry
-   *  set means a surviving answer. */
-  composed?: { records: V[]; value: D };
+  /** Answer interned against the records and trigger table versions it was composed
+   *  from, so repeated reads stay referentially stable for useSyncExternalStore
+   *  consumers. A table replaces an entry only when its content changes, so a
+   *  surviving entry set means a surviving answer. */
+  composed?: { records: V[]; versions: number[]; value: D };
 }
 
 /**
@@ -396,7 +418,9 @@ export class Space<
       // epoch bump refetches, not the reset itself.
       if (epoch === 0) return;
       this.queries.forEach((query) => {
-        if (query.teardown != null) void this.refetch(query);
+        if (query.teardown == null) return;
+        if (query.state.variant === "loading") query.reconnected = true;
+        else void this.refetch(query);
       });
     });
   }
@@ -423,6 +447,9 @@ export class Space<
           return Promise.resolve(this.composedOf(query, state.keys));
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.config.name} was deleted`));
+        case "error":
+        case "unfetched":
+          break;
       }
     void startStreaming(this.hooks, (exc) => this.report(exc));
     return this.fetch(query, options);
@@ -430,15 +457,19 @@ export class Space<
 
   /**
    * Returns the cached answer without touching the network: the current data,
-   * the corpse of a deleted record, or undefined when nothing is cached.
-   * Exact-key queries also resolve from a table entry cached by any other
-   * query. May be stale for queries nothing subscribes to.
+   * the corpse of a deleted record, or undefined when nothing is cached or a trigger
+   * does not cover the answer. Exact-key queries also resolve from a table entry cached
+   * by any other query. May be stale for queries nothing subscribes to.
    */
   getCached(params: P): Cached<D> | undefined {
     const query = this.queries.get(hash(params));
     if (query != null) {
       const cached = this.cachedOf(query);
-      if (cached != null) return cached;
+      if (cached != null)
+        return query.state.variant !== "ready" ||
+          this.triggersCover(params, query.state.keys)
+          ? cached
+          : undefined;
     }
     // Rule-1 queries read straight through to the table: an entry (or tombstone)
     // answers the query even before any fetch or subscription exists.
@@ -447,7 +478,7 @@ export class Space<
       const { table } = this.config;
       const entry = table.get(key);
       if (entry != null)
-        return this.covers(entry, params)
+        return this.covers(entry, params) && this.triggersCover(params, [key])
           ? this.entryAnswerOf(entry, params)
           : undefined;
       const tombstone = table.getTombstone(key);
@@ -459,7 +490,7 @@ export class Space<
     const keys = this.config.keysOf?.(params);
     if (keys == null) return undefined;
     const members = this.composableMembersOf(keys);
-    if (members == null) return undefined;
+    if (members == null || !this.triggersCover(params, members)) return undefined;
     return this.composedOf(this.ensure(params), members);
   }
 
@@ -589,6 +620,7 @@ export class Space<
     query.teardown = undefined;
     query.pendingRechecks = undefined;
     query.refetchOnSettle = false;
+    query.reconnected = false;
     if (query.refetchTimer != null) {
       clearTimeout(query.refetchTimer);
       query.refetchTimer = undefined;
@@ -624,17 +656,12 @@ export class Space<
 
   private ensure(params: P): Query<P, K, D, V> {
     const hashed = hash(params);
-    let query = this.queries.get(hashed);
-    if (query == null) {
-      query = {
-        params,
-        state: { variant: "unfetched" },
-        handlers: new Set(),
-        generation: 0,
-      };
-      this.queries.set(hashed, query);
-    }
-    return query;
+    return map.getOrInsert(this.queries, hashed, (): Query<P, K, D, V> => ({
+      params,
+      state: { variant: "unfetched" },
+      handlers: new Set(),
+      generation: 0,
+    }));
   }
 
   private report(
@@ -644,14 +671,23 @@ export class Space<
     this.hooks.onError(new Error(message, { cause: exc }));
   }
 
-  /** Composes a ready answer, interned against the records it was built from. */
+  /**
+   * Composes a ready answer, interned against the records and the trigger tables it was
+   * built from. A kept answer gets no trigger events, so only the versions tell it that
+   * a trigger table changed.
+   */
   private composedOf(query: Query<P, K, D, V>, keys: K[]): D {
     const records = this.config.table.get(keys);
+    const versions = (this.config.triggers ?? []).map((t) => t.version());
     const { composed } = query;
-    if (composed != null && compare.arraysEqual(composed.records, records))
+    if (
+      composed != null &&
+      array.equal(composed.records, records) &&
+      array.equal(composed.versions, versions)
+    )
       return composed.value;
     const value = this.config.compose(records, query.params);
-    query.composed = { records, value };
+    query.composed = { records, versions, value };
     return value;
   }
 
@@ -668,6 +704,12 @@ export class Space<
 
   private covers(entry: V, params: P): boolean {
     return this.config.covers?.(entry, params) !== false;
+  }
+
+  private triggersCover(params: P, members: readonly K[]): boolean {
+    return (this.config.triggers ?? []).every(
+      (t) => t.covers?.(params, members) !== false,
+    );
   }
 
   /** Composes a rule-1 answer for a read with no live query, interned per entry
@@ -695,15 +737,15 @@ export class Space<
       perTombstone = new Map();
       this.corpses.set(tombstone, perTombstone);
     }
-    let deleted = perTombstone.get(hashed);
-    if (deleted == null) {
-      deleted = new Deleted(
-        this.config.compose([tombstone.corpse], params),
-        tombstone.deletedAt,
-      );
-      perTombstone.set(hashed, deleted);
-    }
-    return deleted;
+    return map.getOrInsert(
+      perTombstone,
+      hashed,
+      () =>
+        new Deleted(
+          this.config.compose([tombstone.corpse], params),
+          tombstone.deletedAt,
+        ),
+    );
   }
 
   /** Notifies subscribers when any of the keys is a member of the ready
@@ -741,11 +783,14 @@ export class Space<
     if (query.state !== expected) return;
     this.confirm(query, next, basis);
     this.drainRechecks(query);
+    const { reconnected } = query;
+    query.reconnected = false;
     if (next.variant === "error") {
       query.refetchOnSettle = false;
+      if (reconnected === true && query.teardown != null) this.scheduleRefetch(query);
       return;
     }
-    if (query.refetchOnSettle === true) {
+    if (query.refetchOnSettle === true || reconnected === true) {
       query.refetchOnSettle = false;
       if (query.teardown != null) this.scheduleRefetch(query);
     }
@@ -909,9 +954,7 @@ export class Space<
     if (basis == null || basis.epoch == null || this.staleFor(query, basis))
       return true;
     const now = this.basis();
-    return (
-      basis.epoch !== now.epoch || !compare.arraysEqual(basis.versions, now.versions)
-    );
+    return basis.epoch !== now.epoch || !array.equal(basis.versions, now.versions);
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {
@@ -1004,11 +1047,15 @@ export class Space<
       );
       triggers?.forEach((t) =>
         teardown.push(
-          t.attach(params, (result) => {
-            if (result === "refetch") return this.scheduleRefetch(query);
-            if (t.contentOnly !== true) this.scheduleRefetch(query);
-            this.touchMembers(query, result);
-          }),
+          t.attach(
+            params,
+            (result) => {
+              if (result === "refetch") return this.scheduleRefetch(query);
+              if (t.contentOnly !== true) this.scheduleRefetch(query);
+              this.touchMembers(query, result);
+            },
+            () => membersOf(query),
+          ),
         ),
       );
       return;
@@ -1052,11 +1099,15 @@ export class Space<
       );
       triggers?.forEach((t) =>
         teardown.push(
-          t.attach(params, (result) => {
-            if (result === "refetch") return this.scheduleRefetch(query);
-            if (result.includes(key) && query.state.variant === "ready")
-              this.touch(query);
-          }),
+          t.attach(
+            params,
+            (result) => {
+              if (result === "refetch") return this.scheduleRefetch(query);
+              if (result.includes(key) && query.state.variant === "ready")
+                this.touch(query);
+            },
+            () => membersOf(query),
+          ),
         ),
       );
       return;
@@ -1073,10 +1124,14 @@ export class Space<
     );
     triggers?.forEach((t) =>
       teardown.push(
-        t.attach(params, (result) => {
-          if (result === "refetch") return this.scheduleRefetch(query);
-          void this.recheckMany(query, result);
-        }),
+        t.attach(
+          params,
+          (result) => {
+            if (result === "refetch") return this.scheduleRefetch(query);
+            void this.recheckMany(query, result);
+          },
+          () => membersOf(query),
+        ),
       ),
     );
   }

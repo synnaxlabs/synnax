@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { type Action } from "@/access/action/types.gen";
+import type { Action } from "@/access/action/types.gen";
 import { role } from "@/access/role";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/index";
@@ -151,7 +151,7 @@ describe("role", () => {
       await expect(client.access.roles.delete(held.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete role ${held.name} because user ${u.name} ` +
-            "uses it as its role: validation error",
+            "uses it as its role",
         ),
       );
       expect(expectLive(client.access.roles.watch(held.key).getCached()).key).toEqual(

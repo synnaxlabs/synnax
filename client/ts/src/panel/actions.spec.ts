@@ -11,7 +11,7 @@ import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 const a = uuid.create();
 const b = uuid.create();
@@ -91,6 +91,19 @@ describe("reduceAll", () => {
       expect(root.direction).toEqual("x");
       expect(tabKeys(root.first)).toEqual([a]);
       expect(tabKeys(root.last)).toEqual([b]);
+    });
+
+    it("should not split the target leaf when the moved tab is missing", () => {
+      const initial = state(leaf(a, b));
+      const { next, targets } = panel.reduceAll(initial, [
+        panel.moveTab({
+          key: missing,
+          targetLeaf: panel.ROOT_NODE_KEY,
+          location: "right",
+        }),
+      ]);
+      expect(next).toBe(initial);
+      expect(targets).toEqual([]);
     });
 
     it("should place the new sibling first for a top location", () => {

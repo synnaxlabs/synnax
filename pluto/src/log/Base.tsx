@@ -10,7 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -189,7 +189,7 @@ export const Base = ({
           }),
         ]);
       const { length } = await lines;
-      const message = `Copied ${length} ${length === 1 ? "line" : "lines"} to clipboard`;
+      const message = `Copied ${strings.count(length, "line")} to clipboard`;
       if ((await selection).partial)
         addStatus({ variant: "warning", message, description: PARTIAL_DESCRIPTION });
       else addStatus({ variant: "success", message });

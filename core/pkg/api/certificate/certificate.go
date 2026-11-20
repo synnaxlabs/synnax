@@ -13,12 +13,16 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -92,6 +96,8 @@ type Input struct {
 	CertificatePath string `json:"certificate_path" msgpack:"certificate_path"`
 	// Key selects the certificate to replace. A zero key creates a new certificate.
 	Key Key `json:"key" msgpack:"key"`
+	// Rack is the rack that reads the files of a file certificate.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 func (in Input) certificate() (Certificate, error) {
@@ -103,6 +109,7 @@ func (in Input) certificate() (Certificate, error) {
 		const msg = "must be empty for a stored certificate"
 		v.Ternary("certificate_path", in.CertificatePath != "", msg)
 		v.Ternary("private_key_file", in.PrivateKeyFile != nil, msg)
+		v.Ternary("rack", in.Rack != 0, msg)
 		c.Variant = certificate.StoredCertificate{Base: base, Pem: in.Pem}
 	case secret.SourceFile:
 		v.Ternary("pem", in.Pem != "", "must be empty for a file certificate")
@@ -111,6 +118,7 @@ func (in Input) certificate() (Certificate, error) {
 			CertificatePath: in.CertificatePath,
 			PrivateKeyFile:  in.PrivateKeyFile,
 			Details:         in.Details,
+			Rack:            in.Rack,
 		}
 	default:
 		v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
@@ -216,4 +224,64 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// RefreshRequest holds the details that a rack read from the file of a file
+// certificate.
+type RefreshRequest struct {
+	// Details describes the leaf that the rack read.
+	Details certificate.Details `json:"details" msgpack:"details"`
+	// Key is the key of the file certificate.
+	Key Key `json:"key" msgpack:"key"`
+}
+
+var errRefreshSubject = errors.Wrap(
+	access.ErrDenied,
+	"only a rack can refresh a certificate",
+)
+
+// Refresh saves the details that a rack read from the file of a file certificate, and
+// writes its expiry status. Only the rack that the certificate names may call it. Any
+// other subject gets an error that wraps access.ErrDenied. It returns
+// query.ErrNotFound when the certificate does not exist, and a validation error for a
+// stored certificate.
+func (s *Service) Refresh(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RefreshRequest,
+) (struct{}, error) {
+	subject := auth.GetSubject(ctx)
+	if subject.Type != resource.TypeRack {
+		return struct{}{}, errRefreshSubject
+	}
+	var c Certificate
+	if err := s.internal.NewRetrieve().
+		Where(certificate.MatchKeys(req.Key)).
+		Entry(&c).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	file, ok := c.Variant.(certificate.FileCertificate)
+	if !ok {
+		v := validate.New("refresh")
+		v.Ternaryf(
+			"key",
+			true,
+			"certificate %q is stored, so the Core reads its details",
+			c.Base().Name,
+		)
+		return struct{}{}, v.Error()
+	}
+	if file.Rack.ResourceID() != subject {
+		return struct{}{}, errors.Wrapf(
+			access.ErrDenied,
+			"certificate %q is read by %s, not %s",
+			file.Name,
+			file.Rack.ResourceID(),
+			subject,
+		)
+	}
+	file.Details = &req.Details
+	c.Variant = file
+	return struct{}{}, s.internal.NewWriter(tx).Set(ctx, &c, nil)
 }

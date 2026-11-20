@@ -21,7 +21,7 @@ def is_websocket_error(error: BaseException) -> bool:
 
 
 @contextlib.contextmanager
-def suppress_websocket_errors() -> Generator[None, None, None]:
+def suppress_websocket_errors() -> Generator[None]:
     """Suppress dropped WebSocket connections, re-raising everything else."""
     try:
         yield

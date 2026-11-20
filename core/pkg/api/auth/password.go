@@ -47,12 +47,15 @@ type PasswordSetResponse struct {
 // password that req carries when the caller sets its own, and update on the user when
 // the caller sets another's. It returns [auth.ErrInvalidCredentials] for a wrong
 // current password, access.ErrDenied when the caller cannot update the user, a
-// validation error when the subject is not a user, and an error wrapping
-// query.ErrNotFound when the caller has no password.
+// validation error when the password method is off or the subject is not a user, and
+// an error wrapping query.ErrNotFound when the caller has no password.
 func (s *Service) PrepareSetPassword(
 	ctx context.Context,
 	req PasswordSetRequest,
 ) (password.Hash, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return password.Hash{}, err
+	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != resource.TypeUser {

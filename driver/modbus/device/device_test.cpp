@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <future>
 #include <map>
 #include <optional>
@@ -1051,6 +1053,34 @@ TEST(DeviceTest, DiscardsLateReply) {
     slave.stop();
 }
 
+/// @brief it should fail a reply that goes silent between two bytes for longer than
+/// the byte timeout as timed out, and serve the next request on the same connection.
+TEST(DeviceTest, TimesOutReplyThatPausesMidway) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1695;
+    slave_config.holding_registers[1] = static_cast<uint16_t>(22);
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto cfg = unit(1695, 1);
+    cfg.timeout = x::telem::SECOND * 2;
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    std::vector<uint8_t> raw{1, 0x03, 20};
+    raw.resize(raw.size() + 20, 0);
+    slave.answer_next(1, raw, 0, std::chrono::milliseconds(700));
+    std::array<uint16_t, 10> regs{};
+    const auto err = dev->read_registers(HoldingRegister, 0, 10, regs.data());
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 1, 1, &reg));
+    EXPECT_EQ(reg, 22);
+    EXPECT_EQ(slave.connections(), 1);
+    slave.stop();
+}
+
 /// @brief it should wait for the late reply of a timed-out request before it retries,
 /// so the retry reads its own reply on the same socket.
 TEST(DeviceTest, RetriesAfterLateReply) {
@@ -1426,32 +1456,128 @@ TEST(DeviceTest, InterruptEndsWaitForBusyConnection) {
     slave.stop();
 }
 
-/// @brief it should make no more retries of a request that holds the turn after its
-/// device is interrupted.
-TEST(DeviceTest, InterruptStopsRetriesOfHeldTurn) {
+namespace {
+/// @brief runs a read on the device in a thread, interrupts the device once ready
+/// returns, and checks that the read ends with INTERRUPTED soon after.
+void expect_interrupt_ends_read(Device &dev, const std::function<void()> &ready) {
+    x::errors::Error err;
+    std::thread reading([&] {
+        uint16_t reg = 0;
+        err = dev.read_registers(HoldingRegister, 0, 1, &reg);
+    });
+    ready();
+    const auto start = std::chrono::steady_clock::now();
+    dev.interrupt();
+    reading.join();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_OCCURRED_AS(err, INTERRUPTED);
+}
+}
+
+/// @brief it should end a request that waits for its reply soon after its device is
+/// interrupted, make no retry, and count no timeout against the unit.
+TEST(DeviceTest, InterruptEndsWaitForReply) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1686;
+    slave_config.silent_units = {1};
     testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     Manager manager;
-    ConnectionConfig cfg{"127.0.0.1", 1686};
-    cfg.timeout = x::telem::MILLISECOND * 200;
+    auto cfg = unit(1686, 1);
+    cfg.timeout = x::telem::SECOND * 5;
     cfg.retries = 3;
     auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    expect_interrupt_ends_read(*dev, [&] {
+        ASSERT_EVENTUALLY_EQ(slave.unit_requests(1), 1);
+    });
+    EXPECT_EQ(dev->stats().retries, 0);
+    EXPECT_EQ(dev->stats().timeouts, 0);
+    slave.stop();
+}
+
+/// @brief it should end a request that waits for the late reply of an earlier request
+/// soon after its device is interrupted, before it sends.
+TEST(DeviceTest, InterruptEndsWaitForLateReply) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1691;
+    slave_config.silent_units = {1};
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto silent_cfg = unit(1691, 1);
+    silent_cfg.timeout = x::telem::SECOND;
+    silent_cfg.retries = 0;
+    auto silent = ASSERT_NIL_P(manager.acquire(silent_cfg));
+    auto waiting = ASSERT_NIL_P(manager.acquire(unit(1691, 2)));
+    uint16_t reg = 0;
+    ASSERT_OCCURRED_AS(
+        silent->read_registers(HoldingRegister, 0, 1, &reg),
+        UNREACHABLE
+    );
+
+    expect_interrupt_ends_read(*waiting, [] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
+    EXPECT_EQ(slave.unit_requests(2), 0);
+    slave.stop();
+}
+
+/// @brief it should end a request that waits out the device's delay soon after its
+/// device is interrupted, before it sends.
+TEST(DeviceTest, InterruptEndsDelayBeforeRequest) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1692;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    RequestConfig requests;
+    requests.delay = x::telem::SECOND * 5;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1692}, requests));
     uint16_t reg = 0;
     ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
 
-    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(500));
-    x::errors::Error err;
-    std::thread holding([&] {
-        err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+    expect_interrupt_ends_read(*dev, [] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    dev->interrupt();
-    holding.join();
-    ASSERT_OCCURRED_AS(err, UNREACHABLE);
-    EXPECT_EQ(dev->stats().retries, 0);
+    EXPECT_EQ(slave.unit_requests(MODBUS_TCP_SLAVE), 1);
     slave.stop();
+}
+
+/// @brief it should end a request that waits for its connect soon after its device is
+/// interrupted, and count no timeout against the unit.
+TEST(DeviceTest, InterruptEndsConnect) {
+#ifdef __APPLE__
+    GTEST_SKIP() << "macOS resets a connect to a full accept queue";
+#endif
+    // A full accept queue drops new connects, so they wait.
+    auto *listener = modbus_new_tcp("127.0.0.1", 1693);
+    const int fd = modbus_tcp_listen(listener, 1);
+    ASSERT_NE(fd, -1);
+    modbus_set_socket(listener, fd);
+    std::vector<modbus_t *> queued;
+    for (int i = 0; i < 8; i++) {
+        auto *ctx = modbus_new_tcp("127.0.0.1", 1693);
+        modbus_set_response_timeout(ctx, 0, 100000);
+        modbus_connect(ctx);
+        queued.push_back(ctx);
+    }
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1693};
+    cfg.timeout = x::telem::SECOND * 5;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    expect_interrupt_ends_read(*dev, [] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    });
+    EXPECT_EQ(dev->stats().timeouts, 0);
+
+    for (auto *ctx: queued) {
+        modbus_close(ctx);
+        modbus_free(ctx);
+    }
+    modbus_close(listener);
+    modbus_free(listener);
 }
 
 /// @brief it should fail a request that waits for its turn only after the request that
@@ -1465,10 +1591,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
     ConnectionConfig cfg{"127.0.0.1", 1687};
     cfg.timeout = x::telem::MILLISECOND * 100;
     cfg.retries = 0;
-    const auto read = [](modbus_t *ctx) {
-        uint16_t reg = 0;
-        return modbus_read_registers(ctx, 0, 1, &reg);
-    };
+    const auto read = Request::read(MODBUS_FC_READ_HOLDING_REGISTERS, 0, 1);
     const std::atomic<bool> interrupted = false;
     std::promise<void> held;
     // One attempt holds the turn for up to 3 timeouts plus ATTEMPT_SLACK: 1.3 s.
@@ -1479,7 +1602,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
             false,
             [&](const auto &send) {
                 held.set_value();
-                const auto err = send(read);
+                const auto err = send(read).second;
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 return err;
             },
@@ -1489,7 +1612,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
     });
     held.get_future().wait();
     const auto start = std::chrono::steady_clock::now();
-    const auto err = conn.exec(
+    const auto [_, err] = conn.exec(
         cfg,
         x::telem::TimeSpan(0),
         false,
@@ -1524,15 +1647,12 @@ TEST(DeviceTest, TurnWaitCountsLateReplyOfEarlierRequest) {
     ConnectionConfig fast{"127.0.0.1", 1689};
     fast.timeout = x::telem::MILLISECOND * 50;
     fast.retries = 0;
-    const auto read = [](modbus_t *ctx) {
-        uint16_t reg = 0;
-        return modbus_read_registers(ctx, 0, 1, &reg);
-    };
+    const auto read = Request::read(MODBUS_FC_READ_HOLDING_REGISTERS, 0, 1);
     const std::atomic<bool> interrupted = false;
     // The slow request times out at 2 s, and its reply comes at 3.5 s. The fast request
     // then waits 1.5 s for that reply, past its own limit of 1.15 s.
     slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(3500));
-    ASSERT_OCCURRED_AS(
+    ASSERT_OCCURRED_AS_P(
         conn.exec(slow, x::telem::TimeSpan(0), false, read, std::nullopt, interrupted),
         UNREACHABLE
     );
@@ -1544,14 +1664,14 @@ TEST(DeviceTest, TurnWaitCountsLateReplyOfEarlierRequest) {
             false,
             [&](const auto &send) {
                 held.set_value();
-                return send(read);
+                return send(read).second;
             },
             std::nullopt,
             interrupted
         ));
     });
     held.get_future().wait();
-    const auto err = conn.exec(
+    const auto reply = conn.exec(
         fast,
         x::telem::TimeSpan(0),
         false,
@@ -1560,7 +1680,7 @@ TEST(DeviceTest, TurnWaitCountsLateReplyOfEarlierRequest) {
         interrupted
     );
     holding.join();
-    ASSERT_NIL(err);
+    ASSERT_NIL_P(reply);
     slave.stop();
 }
 
@@ -1679,6 +1799,82 @@ INSTANTIATE_TEST_SUITE_P(
         },
         ProbeCase{"Silent", {.silent_units = {3}}, UNREACHABLE, ETIMEDOUT},
         ProbeCase{"Gateway", {.gateway_failed_units = {3}}, TEMPORARY_ERROR, EMBXGTAR}
+    ),
+    [](const auto &info) { return info.param.name; }
+);
+
+struct ReplyCase {
+    std::string name;
+    /// @brief the unit and PDU that answer a read of holding register 0.
+    std::vector<uint8_t> raw;
+    int tid_offset = 0;
+    /// @brief the error of the read, or NIL when the read takes the reply.
+    x::errors::Error expected;
+    /// @brief the error number whose message the expected error carries.
+    int errnum = 0;
+};
+
+class ReplyTest : public ::testing::TestWithParam<ReplyCase> {};
+
+/// @brief it should take a reply only if it answers the request.
+TEST_P(ReplyTest, ChecksReply) {
+    const auto &param = GetParam();
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1694;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto cfg = unit(1694, 1);
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    slave.answer_next(1, param.raw, param.tid_offset);
+    uint16_t reg = 0;
+    const auto err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+    if (!param.expected) {
+        ASSERT_NIL(err);
+        EXPECT_EQ(reg, 0x1234);
+    } else {
+        ASSERT_OCCURRED_AS(err, param.expected);
+        EXPECT_EQ(err.data, modbus_strerror(param.errnum));
+    }
+    slave.stop();
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Replies,
+    ReplyTest,
+    ::testing::Values(
+        ReplyCase{"Answers", {1, 0x03, 0x02, 0x12, 0x34}, 0, x::errors::NIL},
+        ReplyCase{
+            "OtherTransaction",
+            {1, 0x03, 0x02, 0x12, 0x34},
+            1,
+            UNREACHABLE,
+            EMBBADDATA
+        },
+        ReplyCase{
+            "OtherFunction",
+            {1, 0x04, 0x02, 0x12, 0x34},
+            0,
+            UNREACHABLE,
+            EMBBADDATA
+        },
+        ReplyCase{
+            "OtherByteCount",
+            {1, 0x03, 0x04, 0x12, 0x34, 0x00, 0x00},
+            0,
+            UNREACHABLE,
+            EMBBADDATA
+        },
+        ReplyCase{"Exception", {1, 0x83, 0x02}, 0, CRITICAL_ERROR, EMBXILADD},
+        ReplyCase{
+            "ExceptionOfOtherFunction",
+            {1, 0x84, 0x02},
+            0,
+            UNREACHABLE,
+            EMBBADEXC
+        },
+        ReplyCase{"UnknownException", {1, 0x83, 0x20}, 0, UNREACHABLE, EMBBADEXC}
     ),
     [](const auto &info) { return info.param.name; }
 );

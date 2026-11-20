@@ -47,26 +47,14 @@ func runSync(cmd *cobra.Command) error {
 		return errors.Wrap(err, "sync must be run within a git repository")
 	}
 
-	schemas, err := pipeline.DiscoverSchemas(repoRoot)
+	schemas, err := discoverSchemas(repoRoot)
 	if err != nil {
 		return err
-	}
-	if len(schemas) == 0 {
-		return errors.New("no schema files found")
 	}
 	printSchemaCount(len(schemas))
-
-	registry, err := buildPluginRegistry()
+	result, err := runPipeline(ctx, repoRoot, schemas)
 	if err != nil {
 		return err
-	}
-	result, err := pipeline.Run(ctx, pipeline.Options{
-		RepoRoot: repoRoot,
-		Schemas:  schemas,
-		Plugins:  registry,
-	})
-	if err != nil {
-		return errors.Wrap(err, "pipeline")
 	}
 	if !result.Diagnostics.Ok() {
 		printDiagnostics(result.Diagnostics.String())
@@ -84,14 +72,9 @@ func runSync(cmd *cobra.Command) error {
 		printPluginDone(name, len(files))
 	}
 
-	// buf generate rewrites these without a header before they are formatted.
-	pbFiles, err := codegen.FindPbGoFiles(repoRoot)
+	formatters, err := buildSyncFormatters(repoRoot)
 	if err != nil {
-		return errors.Wrap(err, "find buf outputs")
-	}
-	formatters, err := format.Default(repoRoot, time.Now().Year(), pbFiles)
-	if err != nil {
-		return errors.Wrap(err, "build formatter registry")
+		return err
 	}
 	cache := format.LoadCache(repoRoot)
 
@@ -102,21 +85,58 @@ func runSync(cmd *cobra.Command) error {
 	if err := cache.Save(); err != nil {
 		printDim(fmt.Sprintf("save cache: %v", err))
 	}
-
-	if verbose && len(syncResult.Written) > 0 {
-		pluginByPath := make(map[string]string, len(syncResult.Written))
-		for name, files := range syncResult.ByPlugin {
-			for _, f := range files {
-				pluginByPath[f] = name
-			}
-		}
-		writtenSorted := append([]string(nil), syncResult.Written...)
-		sort.Strings(writtenSorted)
-		for _, f := range writtenSorted {
-			printFileWritten(pluginByPath[f], f)
-		}
+	if verbose {
+		printWrittenFiles(syncResult)
+	}
+	removeDeletions(result, repoRoot)
+	changedProtos := syncResult.ByPlugin["pb/types"]
+	if err := generateBuf(ctx, repoRoot, changedProtos, formatters, cache); err != nil {
+		return err
 	}
 
+	printSyncedCount(
+		len(syncResult.Written),
+		len(syncResult.Unchanged)+len(syncResult.Skipped),
+	)
+	return nil
+}
+
+// buildSyncFormatters builds the formatter registry for generated files and buf
+// outputs.
+func buildSyncFormatters(repoRoot string) (*format.Registry, error) {
+	// buf generate rewrites these without a header before they are formatted.
+	pbFiles, err := codegen.FindPbGoFiles(repoRoot)
+	if err != nil {
+		return nil, errors.Wrap(err, "find buf outputs")
+	}
+	formatters, err := format.Default(repoRoot, time.Now().Year(), pbFiles)
+	if err != nil {
+		return nil, errors.Wrap(err, "build formatter registry")
+	}
+	return formatters, nil
+}
+
+// printWrittenFiles prints each written file with its plugin, sorted by path.
+func printWrittenFiles(r *syncResult) {
+	if len(r.Written) == 0 {
+		return
+	}
+	pluginByPath := make(map[string]string, len(r.Written))
+	for name, files := range r.ByPlugin {
+		for _, f := range files {
+			pluginByPath[f] = name
+		}
+	}
+	writtenSorted := append([]string(nil), r.Written...)
+	sort.Strings(writtenSorted)
+	for _, f := range writtenSorted {
+		printFileWritten(pluginByPath[f], f)
+	}
+}
+
+// removeDeletions removes the files the plugins asked to delete. It prints a failed
+// removal and continues.
+func removeDeletions(result *pipeline.Result, repoRoot string) {
 	for _, files := range result.Deletions {
 		for _, deletePath := range files {
 			abs := filepath.Join(repoRoot, deletePath)
@@ -125,8 +145,16 @@ func runSync(cmd *cobra.Command) error {
 			}
 		}
 	}
+}
 
-	changedProtos := syncResult.ByPlugin["pb/types"]
+// generateBuf runs buf generate for changedProtos and formats its outputs.
+func generateBuf(
+	ctx context.Context,
+	repoRoot string,
+	changedProtos []string,
+	formatters *format.Registry,
+	cache *format.Cache,
+) error {
 	printBufGenerateStart(len(changedProtos))
 	bufStart := time.Now()
 	bufResult, err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache)
@@ -143,21 +171,12 @@ func runSync(cmd *cobra.Command) error {
 	// plugin outputs use so the header is added and gofmt is applied. Idempotent on
 	// cached / unchanged files because the license formatter no-ops when a header is
 	// already present and gofmt is stable.
-	if !bufResult.Cached {
-		if _, err := codegen.FormatBufOutputs(
-			ctx,
-			repoRoot,
-			formatters,
-			0,
-		); err != nil {
-			return errors.Wrap(err, "format buf outputs")
-		}
+	if bufResult.Cached {
+		return nil
 	}
-
-	printSyncedCount(
-		len(syncResult.Written),
-		len(syncResult.Unchanged)+len(syncResult.Skipped),
-	)
+	if _, err := codegen.FormatBufOutputs(ctx, repoRoot, formatters, 0); err != nil {
+		return errors.Wrap(err, "format buf outputs")
+	}
 	return nil
 }
 
@@ -200,44 +219,69 @@ func syncOutputs(
 		Skipped:   make([]string, 0),
 		ByPlugin:  make(map[string][]string),
 	}
-
-	type pending struct {
-		Plugin   string
-		RelPath  string
-		AbsPath  string
-		Raw      []byte
-		RawHash  string
-		Existing []byte
+	toFormat, err := planOutputs(result, repoRoot, cache, r)
+	if err != nil {
+		return nil, err
+	}
+	if len(toFormat) == 0 {
+		printFormatPlan(0, len(r.Skipped))
+		return r, nil
 	}
 
+	printFormatPlan(len(toFormat), len(r.Skipped))
+	batch, err := stageOutputs(toFormat)
+	if err != nil {
+		return nil, err
+	}
+	formatStart := time.Now()
+	formatted, err := formatters.FormatBatch(ctx, batch, workers)
+	if err != nil {
+		return nil, err
+	}
+	printFormatDone(time.Since(formatStart))
+
+	if err := writeOutputs(ctx, toFormat, formatted, cache, r, workers); err != nil {
+		return nil, err
+	}
+	printWritePlan(len(r.Written), len(r.Unchanged))
+	return r, nil
+}
+
+// pendingOutput is a generated file that the cache cannot skip.
+type pendingOutput struct {
+	Plugin   string
+	RelPath  string
+	AbsPath  string
+	Raw      []byte
+	RawHash  string
+	Existing []byte
+}
+
+// planOutputs returns the generated files to format, adds cache hits to r.Skipped, and
+// prunes the cache to the current outputs.
+func planOutputs(
+	result *pipeline.Result,
+	repoRoot string,
+	cache *format.Cache,
+	r *syncResult,
+) ([]pendingOutput, error) {
 	keep := set.New[string]()
-	var toFormat []pending
+	var toFormat []pendingOutput
 	for pluginName, files := range result.Outputs {
 		for _, f := range files {
 			absPath := filepath.Join(repoRoot, f.Path)
 			rawHash := format.Hash(f.Content)
 			keep.Add(f.Path)
 
-			existing, err := os.ReadFile(absPath)
+			existing, err := paths.ReadFile(f.Path, repoRoot)
 			if err != nil && !os.IsNotExist(err) {
 				return nil, errors.Wrapf(err, "read existing %s", absPath)
 			}
-
-			// Skip the format + write only when the cache says BOTH the raw plugin
-			// output is unchanged AND the on-disk file still matches the canonical
-			// bytes the previous run wrote. The second check is what makes the cache
-			// safe across formatter upgrades and hand edits: if anything drifts, fall
-			// through and re-format.
-			if existing != nil {
-				if entry, hit := cache.Lookup(f.Path); hit &&
-					entry.Raw == rawHash &&
-					entry.Canonical == format.Hash(existing) {
-					r.Skipped = append(r.Skipped, f.Path)
-					continue
-				}
+			if cacheHit(cache, f.Path, rawHash, existing) {
+				r.Skipped = append(r.Skipped, f.Path)
+				continue
 			}
-
-			toFormat = append(toFormat, pending{
+			toFormat = append(toFormat, pendingOutput{
 				Plugin:   pluginName,
 				RelPath:  f.Path,
 				AbsPath:  absPath,
@@ -247,32 +291,48 @@ func syncOutputs(
 			})
 		}
 	}
-
 	cache.PruneTo(keep)
+	return toFormat, nil
+}
 
-	if len(toFormat) == 0 {
-		printFormatPlan(0, len(r.Skipped))
-		return r, nil
+// cacheHit reports whether the cache says BOTH the raw plugin output is unchanged AND
+// the on-disk file still matches the canonical bytes the previous run wrote. The second
+// check is what makes the cache safe across formatter upgrades and hand edits.
+func cacheHit(cache *format.Cache, relPath, rawHash string, existing []byte) bool {
+	if existing == nil {
+		return false
 	}
+	entry, hit := cache.Lookup(relPath)
+	return hit && entry.Raw == rawHash && entry.Canonical == format.Hash(existing)
+}
 
-	printFormatPlan(len(toFormat), len(r.Skipped))
+// stageOutputs returns the format batch for toFormat. It writes the raw bytes of each
+// new file to disk first, because ESLint's TypeScript project service lints only files
+// on disk.
+func stageOutputs(toFormat []pendingOutput) ([]format.File, error) {
 	batch := make([]format.File, len(toFormat))
 	for i, p := range toFormat {
 		batch[i] = format.File{Path: p.AbsPath, Content: p.Raw}
-		// ESLint's TypeScript project service lints only files on disk.
 		if p.Existing == nil {
 			if err := writeFile(p.AbsPath, p.Raw); err != nil {
 				return nil, err
 			}
 		}
 	}
-	formatStart := time.Now()
-	formatted, err := formatters.FormatBatch(ctx, batch, workers)
-	if err != nil {
-		return nil, err
-	}
-	printFormatDone(time.Since(formatStart))
+	return batch, nil
+}
 
+// writeOutputs writes each formatted file whose bytes differ from the file on disk,
+// records the outcome in r, and updates the cache. It runs on workers goroutines, or
+// GOMAXPROCS when workers is not positive.
+func writeOutputs(
+	ctx context.Context,
+	toFormat []pendingOutput,
+	formatted []format.File,
+	cache *format.Cache,
+	r *syncResult,
+	workers int,
+) error {
 	var mu sync.Mutex
 	eg, gctx := errgroup.WithContext(ctx)
 	if workers <= 0 {
@@ -285,33 +345,26 @@ func syncOutputs(
 				return err
 			}
 			canonical := formatted[i].Content
-			canonicalHash := format.Hash(canonical)
+			entry := format.Entry{Raw: p.RawHash, Canonical: format.Hash(canonical)}
 			if p.Existing != nil && string(p.Existing) == string(canonical) {
 				mu.Lock()
+				defer mu.Unlock()
 				r.Unchanged = append(r.Unchanged, p.RelPath)
-				cache.Put(
-					p.RelPath,
-					format.Entry{Raw: p.RawHash, Canonical: canonicalHash},
-				)
-				mu.Unlock()
+				cache.Put(p.RelPath, entry)
 				return nil
 			}
 			if err := writeFile(p.AbsPath, canonical); err != nil {
 				return err
 			}
 			mu.Lock()
+			defer mu.Unlock()
 			r.Written = append(r.Written, p.RelPath)
 			r.ByPlugin[p.Plugin] = append(r.ByPlugin[p.Plugin], p.RelPath)
-			cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
-			mu.Unlock()
+			cache.Put(p.RelPath, entry)
 			return nil
 		})
 	}
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	printWritePlan(len(r.Written), len(r.Unchanged))
-	return r, nil
+	return eg.Wait()
 }
 
 func writeFile(path string, content []byte) error {

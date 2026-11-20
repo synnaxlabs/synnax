@@ -43,7 +43,7 @@ import { Export } from "@/platform/export";
 import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { type Nav } from "@/platform/nav";
+import type { Nav } from "@/platform/nav";
 import { Panel } from "@/platform/panel";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
@@ -493,6 +493,12 @@ const ContextMenu = ({
   onDisableDataSaving,
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
+  const plot = PlatformTask.usePlot();
+  const { getPlotChannels } = PlatformTask.useRegistry();
+  const plotTasks = selectedTasks.flatMap(({ name, type, config }) => {
+    const plotChannels = getPlotChannels(type);
+    return plotChannels == null ? [] : [{ name, config, plotChannels }];
+  });
   const resourceIDs = task.resourceID(keys);
   // Deleting the row of an Arc deletes the Arc.
   const arcIDs = arc.resourceID(
@@ -607,6 +613,12 @@ const ContextMenu = ({
             </Menu.Item>
           )}
         </>
+      )}
+      {plotTasks.length > 0 && (
+        <Menu.Item itemKey="plot" onClick={() => plot(plotTasks)}>
+          <Icon.LinePlot />
+          Plot
+        </Menu.Item>
       )}
       <Menu.Divider />
       {isSingle && (

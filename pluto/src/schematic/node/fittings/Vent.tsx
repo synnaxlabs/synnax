@@ -7,15 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/Vent.svg?raw";
 
 export interface VentProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const DIMENSIONS = { width: 22, height: 32 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.227273, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.8, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const Vent = ({
   className,
@@ -25,17 +32,12 @@ export const Vent = ({
   ...rest
 }: VentProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("vent"), className)} {...rest}>
-    <Handle.Linear orientation={orientation} left={22.7273} right={80} />
-    <Primitive.SVG
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
-      dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path
-        d="M5 3L16.6325 13.8016C17.9107 14.9885 17.9107 17.0115 16.6325 18.1984L5 29"
-        strokeLinecap="round"
-      />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

@@ -23,7 +23,7 @@ import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
+import { SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
   fromSparkplugDataType,
@@ -34,7 +34,6 @@ import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
   deployEdgeConfigZ,
   EDGE_SCHEMAS,
-  EDGE_TYPE,
   type EdgeSchemas,
   type EdgeTag,
 } from "@/feature/mqtt/task/types";
@@ -42,7 +41,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<EdgeSchemas>>();
@@ -64,9 +62,11 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
+const SelectChannel = (p: PChannel.SelectSingleProps) => (
   <PChannel.SelectSingle {...p} location="bottom" />
-));
+);
+
+const renderSelectChannel = Component.renderProp(SelectChannel);
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -144,7 +144,11 @@ const isWritable = ({ commandChannel, commandChannelName }: EdgeTag): boolean =>
 const deriveCommandChannelName = ({ name }: EdgeTag): string =>
   channel.escapeInvalidName(`${name}_cmd`);
 
-const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
+const ContextMenuItem = ({
+  channels,
+  keys,
+  target,
+}: Task.ContextMenuItemProps<EdgeTag>) => {
   const handleError = Status.useErrorHandler();
   const { set } = PForm.useContext();
   const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
@@ -171,7 +175,7 @@ const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>)
       set(tag.commandChannelName, undefined);
     });
 
-  const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(keys[0], "cmd"), target);
 
   return (
     <>
@@ -226,15 +230,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = EDGE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Sparkplug edge node", type: EDGE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   const before = deep.copy(dev.properties);
@@ -272,15 +267,3 @@ export const Edge = Task.wrapForm({
   type: "mqtt_sparkplug_edge",
   onConfigure,
 });
-
-export const useCreateEdge = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const EdgeSelectable: Selector.Selectable = {
-  type: EDGE_TYPE,
-  title: "Sparkplug edge node",
-  icon: <Icon.Logo.MQTT />,
-  useOnSelect: useCreateEdge,
-};

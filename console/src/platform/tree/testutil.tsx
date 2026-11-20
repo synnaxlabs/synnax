@@ -10,10 +10,11 @@
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -27,12 +28,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 import {
   CaptureStatuses,
   type ConsolePreloadedState,
@@ -43,7 +44,6 @@ import {
   renderWithConsole,
   selectTestProject,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 
@@ -552,12 +552,15 @@ export interface RenderTreeContextMenuOptions extends Pick<
 export interface TreeContextMenuHandle {
   store: TestStore;
   props: Tree.ContextMenuProps;
+  /** The console wrapper backing the render, for hooks that share its queries. */
+  wrapper: FC<PropsWithChildren>;
 }
 
 /**
  * Renders a domain's TreeContextMenu against the full console provider stack with a
- * live modal stack, backed by the given resources and selection. Returns the store and
- * the exact props handed to the menu so specs can re-invoke handlers or inspect state.
+ * live modal stack, backed by the given resources and selection. Returns the store, the
+ * wrapper, and the exact props handed to the menu so specs can re-invoke handlers or
+ * inspect state.
  */
 export const renderTreeContextMenu = async (
   TreeContextMenu: Tree.ContextMenu,
@@ -600,7 +603,7 @@ export const renderTreeContextMenu = async (
     </Tree.Provider>,
     { wrapper, onCaughtError },
   );
-  return { store: resolvedStore, props };
+  return { store: resolvedStore, props, wrapper };
 };
 
 export interface RenderToolbarOptions extends Pick<RenderOptions, "onCaughtError"> {

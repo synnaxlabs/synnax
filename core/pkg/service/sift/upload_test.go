@@ -59,13 +59,13 @@ var _ = Describe("Upload", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		f = MustOpen(sift.OpenFactory(factoryConfig()))
-		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
+		server = MustOpen(fake.Open(fake.Config{APIKey: fakeKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
-			APIKey: createAPIKey(ctx, apiKey),
+			APIKey: createAPIKey(ctx, fakeKey),
 		})
 		idx = createIndex(ctx)
 		ch = createData(ctx, idx)
@@ -86,7 +86,9 @@ var _ = Describe("Upload", func() {
 			"asset":    "stand",
 		})
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		return stat.Details.Data["status"].(string)
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
+		return key
 	}
 
 	statusOf := func(ctx context.Context, key status.Key) AsyncAssertion {
@@ -125,7 +127,8 @@ var _ = Describe("Upload", func() {
 			"asset":      "stand",
 		})
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		key := stat.Details.Data["status"].(string)
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
 		statusOf(ctx, key).Should(SatisfyAll(
 			HaveField("Name", "stand"),
 			HaveField("Variant", status.VariantSuccess),
@@ -203,7 +206,7 @@ var _ = Describe("Upload", func() {
 	It("Should start the waiting uploads of a device oldest first",
 		func(ctx SpecContext) {
 			server.Pause()
-			want := []string{rng.Name}
+			want := append(make([]string, 0, 4), rng.Name)
 			upload(ctx)
 			Eventually(server.Streams).Should(Equal(1))
 			for range 3 {
@@ -213,9 +216,10 @@ var _ = Describe("Upload", func() {
 			}
 			server.Resume()
 			Eventually(func() []string {
-				var names []string
-				for _, r := range server.Runs() {
-					names = append(names, r.Name)
+				runs := server.Runs()
+				names := make([]string, len(runs))
+				for i, r := range runs {
+					names[i] = r.Name
 				}
 				return names
 			}).WithTimeout(10 * time.Second).Should(Equal(want))

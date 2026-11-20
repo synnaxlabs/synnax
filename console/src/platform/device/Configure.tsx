@@ -18,13 +18,14 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { deep, type record, strings, verbs } from "@synnaxlabs/x";
-import { type ComponentType, type ReactElement } from "react";
+import { deep, type record, verbs } from "@synnaxlabs/x";
+import type { ComponentType, ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import { type Hardware } from "@/platform/device/integration";
+import type { Hardware } from "@/platform/device/integration";
+import { LocationBadge } from "@/platform/device/LocationBadge";
 import {
   type ConfigureParams,
   type ConfigureProps,
@@ -40,6 +41,7 @@ interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
   icon: Icon.ReactElement;
   device: device.Device;
   initialProperties: record.Unknown;
+  suggestIdentifiers: (device: device.Device) => string[];
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
@@ -71,6 +73,7 @@ const Internal = ({
   close,
   icon,
   initialProperties,
+  suggestIdentifiers,
   onCreateReadTask,
   onBack,
 }: InternalProps) => {
@@ -81,7 +84,9 @@ const Internal = ({
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
   const { updateAsync, variant } = useSave();
-  const suggestions = strings.createShortIdentifiers(currentName);
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
+  const suggestions = suggestIdentifiers({ ...device, name: currentName });
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
@@ -105,7 +110,14 @@ const Internal = ({
 
   return (
     <Modal.Frame className={CSS.B("configure")}>
-      <Modal.Header icon={icon}>{name ? [name] : "Device.Configure"}</Modal.Header>
+      <Modal.Header
+        icon={icon}
+        badge={
+          device.location === "" ? undefined : <LocationBadge value={device.location} />
+        }
+      >
+        {name ? ["Configure", name] : "Device.Configure"}
+      </Modal.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Modal.Body align="stretch" gap="large">
           <Form.TextField
@@ -141,7 +153,7 @@ const Internal = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>
@@ -176,12 +188,18 @@ export interface CreateConfigureArgs {
   icon: Icon.ReactElement;
   /** The properties a device starts with when the user configures it. */
   zeroProperties: record.Unknown;
+  /**
+   * @returns the identifiers that the form suggests for the device, which holds the
+   * name that the user entered.
+   */
+  suggestIdentifiers: (device: device.Device) => string[];
 }
 
 /** Creates the form that names a found device and sets its identifier. */
 export const createConfigure = ({
   icon,
   zeroProperties,
+  suggestIdentifiers,
 }: CreateConfigureArgs): ComponentType<ConfigureProps> => {
   const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
     const device = Device.use({ key: deviceKey });
@@ -190,6 +208,7 @@ export const createConfigure = ({
         device={device}
         icon={icon}
         initialProperties={zeroProperties}
+        suggestIdentifiers={suggestIdentifiers}
         {...rest}
       />
     );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import {
@@ -219,12 +219,8 @@ describe("version useInfoModal", () => {
       );
 
     it("should keep the update open until it installs", async () => {
-      let finish = (): void => {};
-      const { ipc, rid } = await startInstall(
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-      );
+      const { promise, resolve: finish } = Promise.withResolvers<void>();
+      const { ipc, rid } = await startInstall(promise);
       expect(closed(ipc)).not.toContain(rid);
       finish();
       await waitFor(() => expect(restarted(ipc)).toBe(true));

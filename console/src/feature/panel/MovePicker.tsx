@@ -9,15 +9,16 @@
 
 import "@/feature/panel/MovePicker.css";
 
-import { type panel } from "@synnaxlabs/client";
+import type { panel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { array } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import {
   type TabOrigin,
@@ -49,13 +50,13 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   );
 };
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<panel.Key>): ReactElement => (
-    <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-      <Row {...props} />
-    </Errors.SuspenseBoundary>
-  ),
+const ListItem = (props: List.ItemProps<panel.Key>): ReactElement => (
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+    <Row {...props} />
+  </Errors.SuspenseBoundary>
 );
+
+const listItem = Component.renderProp(ListItem);
 
 export interface MovePickerParams {
   /** The tab being moved, and the panel it currently sits in. */
@@ -69,7 +70,7 @@ const Content = ({
   const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
-  const data = keys.filter((key) => key !== origin.panel);
+  const data = array.remove(keys, origin.panel);
   const handleChange = (key: panel.Key) => {
     if (key === NEW_PANEL_KEY) moveToNewPanel(origin);
     else moveTab(origin, key);

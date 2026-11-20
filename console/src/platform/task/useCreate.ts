@@ -17,12 +17,15 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 
 import { Panel } from "@/platform/panel";
-import { type GetInitialValues } from "@/platform/task/Form";
+import type { GetInitialValues } from "@/platform/task/Form";
 
 export interface CreateParams {
   deviceKey?: device.Key;
+  /** The devices of a task that uses several, in place of deviceKey. */
+  deviceKeys?: device.Key[];
   rackKey?: rack.Key;
   config?: unknown;
 }
@@ -54,11 +57,12 @@ const create = async <S extends task.Schemas = task.Schemas>({
   getInitialValues,
   deviceMake,
   deviceKey,
+  deviceKeys,
   rackKey,
   config,
 }: CreateParams &
   CreateUseCreateParams<S> & { client: Synnax }): Promise<task.Task> => {
-  if (deviceKey == null && config == null && deviceMake != null) {
+  if (deviceKey == null && deviceKeys == null && config == null && deviceMake != null) {
     const devices = await client.devices.retrieve({
       make: deviceMake,
       limit: 2,
@@ -74,6 +78,7 @@ const create = async <S extends task.Schemas = task.Schemas>({
   } = await getInitialValues({
     client,
     deviceKey,
+    deviceKeys: array.toArray(deviceKeys ?? deviceKey),
     config,
   });
   return await client.tasks.create({ ...initial, rack: rackKey ?? initial.rack ?? 0 });
@@ -92,7 +97,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
-    return ({ deviceKey, rackKey, config }: CreateParams = {}) => {
+    return ({ deviceKey, deviceKeys, rackKey, config }: CreateParams = {}) => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         const created = await create({
@@ -100,6 +105,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
           getInitialValues,
           deviceMake,
           deviceKey,
+          deviceKeys,
           rackKey,
           config,
         });

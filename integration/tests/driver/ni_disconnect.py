@@ -29,13 +29,14 @@ import nidaqmx.system
 import nisyscfg
 
 import synnax as sy
+from framework.utils import hold
 from tests.driver.ni_read import NIDigitalRead, NIReadCurrentVoltage
 from tests.driver.ni_task import retrieve_present_device
 from tests.driver.ni_write import NIDigitalWrite
 from tests.driver.task import (
+    ReadTask,
     ReadTaskCase,
-    ReadTaskT,
-    TaskT,
+    Task,
     WriteTaskCase,
     send_and_verify_commands,
 )
@@ -223,7 +224,7 @@ def _delete_replaced_device(client: sy.Synnax, location: str, key: str) -> None:
         client.devices.delete([key])
 
 
-class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
+class _NIReadDisconnectMixin[ReadTaskT: ReadTask](ReadTaskCase[ReadTaskT]):
     """Reset + remove/re-add disconnect test logic for read tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device
@@ -290,7 +291,7 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
     def _assert_no_samples_after_removal(self, tsk: ReadTaskT) -> None:
         self.log("Assert no new samples after removal")
         start = sy.TimeStamp.now()
-        sy.sleep(0.5)  # noqa: TID251 hold: checks that no sample arrives
+        hold(0.5, reason="checks that no sample arrives")
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
         for key in self._channel_keys(tsk):
@@ -327,7 +328,7 @@ class NIDigitalReadDisconnect(
     disconnect_device = "E102Mod3"
 
 
-class _NIWriteDisconnectMixin(WriteTaskCase[TaskT]):
+class _NIWriteDisconnectMixin[TaskT: Task](WriteTaskCase[TaskT]):
     """Reset + remove/re-add disconnect test logic for write tasks.
 
     Subclasses set ``disconnect_device`` to the NI MAX alias of the device

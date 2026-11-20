@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Telem } from "@/schematic/node/common/telem";
-import { type FormProps } from "@/schematic/node/spec";
+import type { FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -30,7 +30,7 @@ const LightTelemForm = (): ReactElement => {
   const threshold = value.threshold ?? Telem.DEFAULT_THRESHOLD;
 
   const handleSourceChange = (v: channel.Key | null): void =>
-    onChange({ ...value, channel: v ?? undefined });
+    onChange({ ...value, channel: v ?? 0 });
 
   const handleThresholdChange = (bounds: { lower: number; upper: number }): void =>
     onChange({ ...value, threshold: bounds });
@@ -41,7 +41,7 @@ const LightTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.channel ?? 0}
+            value={value.channel}
             onChange={handleSourceChange}
           />
         </Input.Item>

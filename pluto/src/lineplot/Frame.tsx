@@ -37,12 +37,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
 
@@ -66,6 +66,8 @@ export interface ContextValue {
    * one returns one level.
    */
   toggleZoom: (key: string, x: bounds.Bounds) => void;
+  /** The key of the last toggleZoom call that the view still shows, or null. */
+  zoomedKey: string | null;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -228,6 +230,7 @@ export const Frame = ({
   };
 
   const zoomHistory = useRef<SavedView[]>([]);
+  const [zoomedKey, setZoomedKey] = useState<string | null>(null);
 
   const applyViewport = (args: Viewport.UseEvent) => {
     if (changesView(args)) {
@@ -238,7 +241,10 @@ export const Frame = ({
   };
 
   const setViewport: Viewport.UseHandler = (args) => {
-    if (changesView(args)) zoomHistory.current = [];
+    if (changesView(args) && zoomHistory.current.length > 0) {
+      zoomHistory.current = [];
+      setZoomedKey(null);
+    }
     applyViewport(args);
   };
 
@@ -278,6 +284,7 @@ export const Frame = ({
     const back = history.at(-1)?.key === key ? history.pop() : undefined;
     if (back == null)
       history.push({ key, viewport: appliedRef.current, hold: holdRef.current });
+    setZoomedKey(history.at(-1)?.key ?? null);
     const next =
       back?.viewport ??
       box.reRoot(
@@ -302,6 +309,7 @@ export const Frame = ({
     setViewportElement,
     addViewportHandler,
     toggleZoom,
+    zoomedKey,
     id,
   };
 

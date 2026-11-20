@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type view } from "@synnaxlabs/client";
+import type { view } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 
 export interface FormContextValue {
@@ -27,15 +27,26 @@ export interface ContextValue {
   resourceType: view.Type;
   selected: view.Key;
   select: (key: view.Key) => void;
+  /** Opens a view in a new tab. Null when the user may not open a tab. */
+  openInNewTab: ((key: view.Key) => void) | null;
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
-  /** The term the lists of every view are searched by. */
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({
   displayName: "View.Context",
+  providerName: "View.Frame",
+});
+
+/** The search of a frame. It changes on each key, so it has a context of its own. */
+export interface SearchContextValue {
+  /** The term the lists of every view are searched by. */
+  term: string;
+  setTerm: (term: string) => void;
+}
+
+export const [SearchContext, useSearchContext] = context.create<SearchContextValue>({
+  displayName: "View.SearchContext",
   providerName: "View.Frame",
 });
