@@ -161,11 +161,18 @@ public:
     WriteTaskSink(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
+        std::shared_ptr<secret::Reader> reader,
         WriteTaskConfig cfg
     ):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
-        connector(std::move(client), std::move(pool), this->cfg.device, "[opc.write] "),
+        connector(
+            std::move(client),
+            std::move(pool),
+            std::move(reader),
+            this->cfg.device,
+            "[opc.write] "
+        ),
         connection(nullptr, nullptr, "") {}
 
     /// @brief retrieves the device again, so a changed trusted server certificate takes

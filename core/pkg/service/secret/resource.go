@@ -28,13 +28,14 @@ func (s *Service) Resources() *resource.TableProvider[Key, Secret] {
 	})
 }
 
-// Uses returns the ID of every record in snap that references the secret with key.
+// Uses returns the ID of every record in snap that holds a use reference to the secret
+// with key.
 func (s *Service) Uses(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, snap, s.table, key)
+	return resource.Uses(ctx, snap, s.table, key)
 }
 
 // ResourceID returns the resource ID of the secret with the given key.

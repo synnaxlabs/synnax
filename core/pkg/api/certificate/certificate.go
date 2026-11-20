@@ -175,7 +175,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve returns the certificates that the request selects and that the subject can
-// retrieve.
+// retrieve, with their uses when the request asks for them.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -189,7 +189,31 @@ func (s *Service) Retrieve(
 	if err = q.Where(bind.Filter(snap, certificate.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if req.IncludeUses {
+		if err = s.fillUses(ctx, snap, res.Certificates); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillUses sets the uses of each certificate, leaving out the resources the subject
+// cannot retrieve. A certificate with no readable uses gets empty uses.
+func (s *Service) fillUses(
+	ctx context.Context,
+	snap bind.Snapshot,
+	certs []certificate.Certificate,
+) error {
+	for i := range certs {
+		base := certs[i].Base()
+		uses, err := s.internal.Uses(ctx, snap, base.Key)
+		if err != nil {
+			return err
+		}
+		base.Uses = snap.Visible(uses)
+		certs[i].SetBase(base)
+	}
+	return nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single certificate.

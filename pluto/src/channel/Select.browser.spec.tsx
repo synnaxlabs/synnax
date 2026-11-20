@@ -11,8 +11,9 @@ import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
+import { render } from "vitest-browser-react";
 
 import { Channel } from "@/channel";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -22,15 +23,15 @@ const TRIGGER_CLASS = "pluto-channel__trigger";
 describe("Channel select", () => {
   const Wrapper = createSynnaxWrapper({ client: null });
 
-  it("should mark the single select's trigger so forms can widen it", () => {
-    const c = render(<Channel.SelectSingle value={0} onChange={vi.fn()} />, {
+  it("should mark the single select's trigger so forms can widen it", async () => {
+    const c = await render(<Channel.SelectSingle value={0} onChange={vi.fn()} />, {
       wrapper: Wrapper,
     });
     expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
   });
 
-  it("should show the select's own icon when no channel is selected", () => {
-    const c = render(
+  it("should show the select's own icon when no channel is selected", async () => {
+    const c = await render(
       <Channel.SelectSingle value={0} onChange={vi.fn()} icon={<Icon.Time />} />,
       { wrapper: Wrapper },
     );
@@ -38,15 +39,15 @@ describe("Channel select", () => {
     expect(trigger?.querySelector(".lyra-icon--time")).not.toBeNull();
   });
 
-  it("should mark the multiple select's trigger so forms can widen it", () => {
-    const c = render(<Channel.SelectMultiple value={[]} onChange={vi.fn()} />, {
+  it("should mark the multiple select's trigger so forms can widen it", async () => {
+    const c = await render(<Channel.SelectMultiple value={[]} onChange={vi.fn()} />, {
       wrapper: Wrapper,
     });
     expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
   });
 
-  it("should keep the single select's trigger mark beside the caller's trigger props", () => {
-    const c = render(
+  it("should keep the single select's trigger mark beside the caller's trigger props", async () => {
+    const c = await render(
       <Channel.SelectSingle
         value={0}
         onChange={vi.fn()}
@@ -59,8 +60,8 @@ describe("Channel select", () => {
     expect(trigger?.classList.contains("lyra-btn--shadow")).toBe(true);
   });
 
-  it("should keep the multiple select's trigger mark beside the caller's trigger props", () => {
-    const c = render(
+  it("should keep the multiple select's trigger mark beside the caller's trigger props", async () => {
+    const c = await render(
       <Channel.SelectMultiple
         value={[]}
         onChange={vi.fn()}
@@ -89,23 +90,27 @@ describe("Channel select", () => {
         where: { not: { key: { in: [key] } } },
       });
       const props = { value: 0, onChange: vi.fn(), virtual: false };
-      const c = render(
+      const c = await render(
         <Channel.SelectSingle {...props} query={excluding(first.key)} />,
         { wrapper: Wrapper },
       );
-      fireEvent.click(c.getByRole("button"));
-      const search = await c.findByPlaceholderText(/search/i);
-      fireEvent.change(search, { target: { value: term } });
-      await c.findByText(second.name);
-      expect(c.queryByText(first.name)).toBeNull();
+      await c.getByRole("button").click();
+      const search = page.getByPlaceholder(/search/i);
+      await userEvent.fill(search, term);
+      const searchElement = search.element();
+      const text = (name: string) => page.getByText(name, { exact: true });
+      await expect.element(text(second.name)).toBeInTheDocument();
+      await expect.element(text(first.name)).not.toBeInTheDocument();
 
-      c.rerender(<Channel.SelectSingle {...props} query={excluding(second.key)} />);
+      await c.rerender(
+        <Channel.SelectSingle {...props} query={excluding(second.key)} />,
+      );
 
-      await c.findByText(first.name);
-      expect(c.queryByText(second.name)).toBeNull();
-      expect(c.getByText(third.name)).toBeTruthy();
-      expect(c.getByPlaceholderText(/search/i)).toBe(search);
-      expect(search).toHaveProperty("value", term);
+      await expect.element(text(first.name)).toBeInTheDocument();
+      await expect.element(text(second.name)).not.toBeInTheDocument();
+      await expect.element(text(third.name)).toBeInTheDocument();
+      expect(search.element()).toBe(searchElement);
+      await expect.element(search).toHaveValue(term);
     });
   });
 });
