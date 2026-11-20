@@ -1,0 +1,53 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Serves every docs page, and each reference group's route as the group's first page.
+// A rest route under /reference would outrank [...slug].md.ts, so this one sits at the
+// root, below every other route.
+
+import type { GetStaticPaths } from "astro";
+import { type CollectionEntry, getCollection, render } from "astro:content";
+
+import Blog from "@/layouts/Blog.astro";
+import Reference from "@/layouts/Reference.astro";
+import { FIRST_PAGES } from "@/pages/_nav";
+
+type Props =
+    | { entry: CollectionEntry<"reference" | "blog">; first?: undefined }
+    | { entry?: undefined; first: string };
+
+export const getStaticPaths = (async () => [
+    ...[...(await getCollection("reference")), ...(await getCollection("blog"))].map(
+        (entry) => ({ params: { slug: entry.id }, props: { entry } }),
+    ),
+    ...[...FIRST_PAGES].map(([route, first]) => ({
+        params: { slug: route.slice(1) },
+        props: { first },
+    })),
+]) satisfies GetStaticPaths;
+
+if (Astro.props.entry == null) return Astro.rewrite(Astro.props.first);
+const { entry } = Astro.props;
+const { Content, headings, remarkPluginFrontmatter } = await render(entry);
+const { outline } = remarkPluginFrontmatter;
+---
+
+{entry.collection === "reference" ? (
+    <Reference
+        frontmatter={{ ...entry.data, url: `/${entry.id}`, outline }}
+        headings={headings}
+    >
+        <Content />
+    </Reference>
+) : (
+    <Blog frontmatter={{ ...entry.data, outline }} headings={headings}>
+        <Content />
+    </Blog>
+)}

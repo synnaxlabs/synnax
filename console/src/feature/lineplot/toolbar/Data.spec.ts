@@ -18,7 +18,15 @@ import {
 } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -72,6 +80,28 @@ const clickPreset = (span: TimeSpan): void => {
   assertDefined(preset);
   fireEvent.click(preset);
 };
+
+// Creates a range that starts the given hours before the end of time, so only a planned
+// range sorts ahead of it in the newest-first list. It leads the lists of other specs
+// too, so it is deleted once the test finishes.
+const createLeadingRange = async (hours: number): Promise<ranger.Range> => {
+  const start = TimeStamp.MAX.sub(TimeSpan.hours(hours));
+  const rng = await createTestRange(client, {
+    timeRange: start.spanRange(TimeSpan.hours(1)),
+  });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
+};
+
+// Reads the option texts once they show every given range. The ranges of other specs
+// can move the list only before the read.
+const optionsShowing = async (...ranges: ranger.Range[]): Promise<string[]> =>
+  await waitFor(() => {
+    const texts = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+    for (const { name } of ranges)
+      expect(texts.some((t) => t.includes(name))).toBe(true);
+    return texts;
+  });
 
 const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
   await waitFor(async () =>
@@ -250,7 +280,15 @@ describe("lineplot/toolbar/Data", () => {
       const created = await createTestRange(client);
       const { key } = await renderData([]);
       search(created.name);
-      fireEvent.click(await screen.findByText(created.name));
+      // Before the search answers, the ranges of other specs can move the option out of
+      // the list. The spec clicks it once the list holds only the answer.
+      const option = await waitFor(() => {
+        const [only, ...rest] = screen.getAllByRole("option");
+        expect(rest).toHaveLength(0);
+        expect(only.textContent).toContain(created.name);
+        return only;
+      });
+      fireEvent.click(option);
       await expectRanges(key, [{ variant: "key", key: created.key }]);
     });
 
@@ -276,16 +314,14 @@ describe("lineplot/toolbar/Data", () => {
 
     it("lists the plotted ranges first", async () => {
       const plotted = await createTestRange(client);
-      // A newer range would lead the list if the plotted one did not go first.
-      await createTestRange(client);
+      // It sorts ahead of the plotted range, which leads only because it is plotted.
+      const newer = await createLeadingRange(2);
       await renderData([{ variant: "key", key: plotted.key }]);
       // The tag reads the range, so the picker can put it first when it opens.
       await screen.findByText(plotted.name);
       openSearch();
-      await waitFor(() =>
-        expect(screen.getAllByRole("option").length).toBeGreaterThan(2),
-      );
-      expect(screen.getAllByRole("option")[0].textContent).toContain(plotted.name);
+      const [first] = await optionsShowing(plotted, newer);
+      expect(first).toContain(plotted.name);
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {

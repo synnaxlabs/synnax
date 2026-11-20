@@ -55,12 +55,14 @@ export const useSeries = (): color.Key[] =>
 
 /**
  * Returns a function that resolves a color reference to its value for the theme. The
- * function returns undefined for a named color that is not loaded.
+ * function returns undefined for an absent reference or a named color that is not
+ * loaded.
  */
-export const useResolve = (): ((ref: color.Ref) => xcolor.Color | undefined) => {
+export const useResolve = (): ((ref?: color.Ref) => xcolor.Color | undefined) => {
   const t = Theming.use();
   const named = new Map(useAll().map((c) => [c.key, c]));
   return (ref) => {
+    if (ref == null) return undefined;
     if (ref.type === "fixed") return xcolor.construct(ref.value);
     const n = named.get(ref.key);
     return n == null ? undefined : Theming.resolve(n, t);
