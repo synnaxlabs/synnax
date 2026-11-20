@@ -20,7 +20,7 @@ import (
 // the request.
 type Role uint8
 
-//go:generate stringer -type=Role
+//go:generate go tool stringer -type=Role
 const (
 	// RoleClient indicates whether the middleware is located on the client side of the
 	// request.
@@ -34,7 +34,7 @@ const (
 // is being executed for.
 type Variant uint8
 
-//go:generate stringer -type=Variant
+//go:generate go tool stringer -type=Variant
 const (
 	// VariantUnary is set on middleware that is executed for a unary request.
 	VariantUnary Variant = iota + 1

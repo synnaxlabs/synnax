@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { List } from "@/list";
 import { Menu } from "@/menu";
+import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
@@ -243,6 +244,25 @@ describe("ContextMenu", () => {
     fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(screen.getByText("Action 1")).toBeTruthy();
     expect(screen.getByText("Action 2")).toBeTruthy();
+  });
+
+  it("should portal the menu into the document body by default", () => {
+    render(<TestMenu />);
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByRole("menu").parentElement).toBe(document.body);
+  });
+
+  it("should portal the menu into a Portal.Target", () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    render(
+      <Portal.Target element={target}>
+        <TestMenu />
+      </Portal.Target>,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByRole("menu").parentElement).toBe(target);
+    target.remove();
   });
 
   it("should close the menu when clicking a menu item", () => {

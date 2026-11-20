@@ -427,7 +427,9 @@ bound, a log precision, or the line plot X channel.
   option hides when the text matches a name in any case, and after a click until the
   text changes, so a second click makes no copy. It needs create permission. A filter
   never creates. A new parent range covers the ranges that move into it. Under the
-  divider, the create option comes first, then "No <noun>".
+  divider, the create option comes first, then "No <noun>". The "Replace with" select of
+  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  users to move to.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
@@ -691,6 +693,9 @@ bound, a log precision, or the line plot X channel.
 - A channel that deploying will create shows the name deploying gives it, from the
   function that deploy uses. "No channel" in gray is only for a channel whose name
   cannot be known yet.
+- A typed channel name that deploying will number, because another channel holds it,
+  keeps its text. The field's help text gives the name that deploying uses: "Saves as
+  pressure_2". A free typed name shows no help text.
 - A channel that deploying skips, such as a disabled one, shows no `Icon.New`. In a
   list, its tooltip says that deploying skips it.
 - A missing channel shows the name deploying will use, and a rename edits that name. Its

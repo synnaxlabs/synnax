@@ -168,7 +168,7 @@ class PagerDutyAlert(TestCase):
                 if error_message in inc.title
                 or self.status_key in (inc.incident_key or "")
             ]
-            return found if found else None
+            return found or None
 
         matching = sy.poll(
             find_triggered_incidents,

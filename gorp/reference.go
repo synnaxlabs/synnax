@@ -448,10 +448,11 @@ func (r *reference[K, E, T]) detachTarget(e *E, target Target) bool {
 func (r *reference[K, E, T]) canRetarget() bool { return r.retarget != nil }
 
 func (r *reference[K, E, T]) retargetTarget(e *E, from, to Target) {
-	// Both parse, as Table.Retarget formats them from keys of the table that the
-	// reference found e through.
-	f, _ := r.parse(from)
-	t, _ := r.parse(to)
+	f, fromOK := r.parse(from)
+	t, toOK := r.parse(to)
+	if !fromOK || !toOK {
+		panic("[gorp] - Retarget got a target that its reference cannot parse")
+	}
 	r.retarget(e, f, t)
 }
 
