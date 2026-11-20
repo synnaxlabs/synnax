@@ -21,7 +21,11 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import { Range } from "@/platform/range";
-import { createOffPageTestRange, createTestRange } from "@/platform/range/testutil";
+import {
+  createOffPageTestRange,
+  createTestRange,
+  createTestRangeName,
+} from "@/platform/range/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
@@ -68,7 +72,7 @@ describe("Range.useCreateModal", () => {
   });
 
   it("should create the range on the Core without adding it to the favorites", async () => {
-    const name = uniqueName("persisted");
+    const name = createTestRangeName(client, "persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
@@ -83,7 +87,7 @@ describe("Range.useCreateModal", () => {
   });
 
   it("should resolve with the key of the range it creates", async () => {
-    const name = uniqueName("prompted");
+    const name = createTestRangeName(client, "prompted");
     const { result } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
@@ -96,7 +100,10 @@ describe("Range.useCreateModal", () => {
   it("should report the range it saved to the Core", async () => {
     const analytics = createTestSink();
     await openModal(
-      { name: uniqueName("reported"), timeRange: { start: 1, end: 2 } },
+      {
+        name: createTestRangeName(client, "reported"),
+        timeRange: { start: 1, end: 2 },
+      },
       { client, analytics },
     );
     await clickWhenEnabled("Create");
@@ -107,7 +114,7 @@ describe("Range.useCreateModal", () => {
 
   it("should close on save after the prefilled parent is cleared", async () => {
     const parent = await createOffPageTestRange(client);
-    const name = uniqueName("orphaned");
+    const name = createTestRangeName(client, "orphaned");
     await openModal(
       {
         name,
