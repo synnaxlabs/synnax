@@ -49,15 +49,21 @@ const HARDWARE: Device.Hardware = {
   checks: [],
   Configure: Device.createConfigure({
     icon: <Icon.Hardware />,
-    zeroProperties: { vendor: "acme" },
-    suggestIdentifiers: suggestFirstWord,
+    adapter: Device.createLegacyAdapter({
+      make: "acme",
+      zeroProperties: { vendor: "acme" },
+      suggestIdentifiers: suggestFirstWord,
+    }),
   }),
 };
 
 const Configure = Device.createConfigure({
   icon: <Icon.Hardware />,
-  zeroProperties: {},
-  suggestIdentifiers: suggestFirstWord,
+  adapter: Device.createLegacyAdapter({
+    make: "acme",
+    zeroProperties: {},
+    suggestIdentifiers: suggestFirstWord,
+  }),
 });
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
