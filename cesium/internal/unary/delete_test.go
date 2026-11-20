@@ -1890,8 +1890,7 @@ var _ = Describe("Delete", func() {
 						telem.NewSeriesV[int64](0, 1, 2, 3),
 					)).To(Succeed())
 					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
-					del, release, err := dataDB.OpenDelete(tr)
-					Expect(err).ToNot(HaveOccurred())
+					del, release := MustSucceed2(dataDB.OpenDelete(tr))
 					Expect(del(ctx)).To(Succeed())
 					release()
 					Expect(MustSucceed(dataDB.HasDataFor(ctx, tr))).To(BeFalse())
@@ -1902,35 +1901,30 @@ var _ = Describe("Delete", func() {
 							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "foo_writer"},
 						}))
-						_, _, err := dataDB.OpenDelete(
+						Expect(dataDB.OpenDelete(
 							(10 * telem.SecondTS).Range(12 * telem.SecondTS),
-						)
-						Expect(err).To(HaveOccurred())
+						)).Error().To(MatchError(control.ErrUnauthorized))
 						MustSucceed(w.Close())
 					})
 				It("Should return an error for an invalid range", func() {
-					_, _, err := dataDB.OpenDelete(
+					Expect(dataDB.OpenDelete(
 						(12 * telem.SecondTS).Range(10 * telem.SecondTS),
-					)
-					Expect(err).To(HaveOccurred())
+					)).Error().To(MatchError(ContainSubstring("cannot be after")))
 				})
 				It("Should return an error when the DB is closed", func() {
 					Expect(dataDB.Close()).To(Succeed())
-					_, _, err := dataDB.OpenDelete(
+					Expect(dataDB.OpenDelete(
 						(10 * telem.SecondTS).Range(12 * telem.SecondTS),
-					)
-					Expect(err).To(MatchError(unary.ErrDBClosed))
+					)).Error().To(MatchError(unary.ErrDBClosed))
 				})
 				It("Should block writers until release", func(ctx SpecContext) {
 					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
-					_, release, err := dataDB.OpenDelete(tr)
-					Expect(err).ToNot(HaveOccurred())
-					_, _, err = dataDB.OpenWriter(ctx, unary.WriterConfig{
+					_, release := MustSucceed2(dataDB.OpenDelete(tr))
+					Expect(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:                 10 * telem.SecondTS,
 						Subject:               control.Subject{Key: "foo_writer"},
 						ErrOnUnauthorizedOpen: new(true),
-					})
-					Expect(err).To(HaveOccurred())
+					})).Error().To(MatchError(control.ErrUnauthorized))
 					release()
 					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
