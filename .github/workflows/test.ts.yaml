@@ -310,8 +310,9 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
+      # One shard runs the whole WebKit pass. Vitest rejects more shards than files.
       - name: Test in WebKit
-        if: inputs.test && inputs.browsers
+        if: inputs.test && inputs.browsers && matrix.shard == 1
         shell: bash
         timeout-minutes: 10
         env:
@@ -319,13 +320,9 @@ jobs:
           SYNNAX_TEST_CACHE_KEY:
             ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
             github.job, strategy.job-index) }}
-          SHARD_ARG:
-            ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
-            inputs.shards) || '' }}
-        run: |
-          read -ra args <<< "$SHARD_ARG"
-          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
-            --project webkit "${args[@]}"
+        run: >-
+          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
+          webkit
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint
