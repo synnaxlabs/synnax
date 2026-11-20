@@ -186,18 +186,18 @@ device reports.
 
 Select the configuration that matches the wiring of the sensor:
 
-| Console option              | Code value    | Use when                                                           |
-| --------------------------- | ------------- | ------------------------------------------------------------------ |
-| Default                     | `Cfg_Default` | You want what the port gives, shown as **Default (Differential)**. |
-| Differential                | `Diff`        | The source is grounded, the signal is small, or wires are long.    |
-| Referenced single ended     | `RSE`         | The source floats, such as a battery. Measures against AI GND.     |
-| Non-referenced single ended | `NRSE`        | The source is grounded and you need more channels. Uses AI SENSE.  |
-| Pseudo-Differential         | `PseudoDiff`  | The module is a dynamic signal module, such as for IEPE sensors.   |
+| Console option              | Code value    | Use when                                                          |
+| --------------------------- | ------------- | ----------------------------------------------------------------- |
+| Default                     | `Cfg_Default` | You want what the port gives, such as **Default (Differential)**. |
+| Differential                | `Diff`        | The source is grounded, the signal is small, or wires are long.   |
+| Referenced single ended     | `RSE`         | The source floats, such as a battery. Measures against AI GND.    |
+| Non-referenced single ended | `NRSE`        | The source is grounded and you need more channels. Uses AI SENSE. |
+| Pseudo-Differential         | `PseudoDiff`  | The module is a dynamic signal module, such as for IEPE sensors.  |
 
-A differential channel also takes a negative port: `ai8` for `ai0` on E, M, and X Series
-devices and the NI 9204, 9205, and 9206, and `ai4` for `ai0` on the NI USB-6001, 6002,
-6003, 6008, and 6009. For a floating source in **Differential** or **NRSE**, connect
-bias resistors from the negative input to AI GND. See NI's
+On E, M, and X Series devices and the NI 9204, 9205, and 9206, a differential channel on
+`ai0` also takes `ai8`. On the NI USB-6001, 6002, 6003, 6008, and 6009, it takes `ai4`.
+For a floating source in **Differential** or **NRSE**, connect bias resistors from the
+negative input to AI GND. See NI's
 [field wiring guide](https://www.ni.com/en/shop/data-acquisition/measurement-fundamentals/field-wiring-and-noise-considerations-for-analog-signals.html).
 
 <Note.Note variant="warning">
