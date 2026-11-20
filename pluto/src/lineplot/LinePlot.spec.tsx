@@ -187,8 +187,8 @@ describe("LinePlot", () => {
     it("should put the outermost right axis in the last column", async () => {
       const { container } = render(
         <LinePlot.Frame>
-          <LinePlot.YAxis aetherKey="inner" axisKey="y1" location="right" />
-          <LinePlot.YAxis aetherKey="outer" axisKey="y2" location="right" />
+          <LinePlot.YAxis aetherKey="outer" axisKey="y1" location="right" />
+          <LinePlot.YAxis aetherKey="inner" axisKey="y2" location="right" />
         </LinePlot.Frame>,
         { wrapper },
       );
