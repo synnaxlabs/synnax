@@ -28,7 +28,6 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -128,10 +127,6 @@ var _ = Describe("Delete", Ordered, func() {
 	deleteOf := func(keys ...channel.Key) impact.Change {
 		return impact.Change{Variant: impact.DeleteChannelsChange{Keys: keys}}
 	}
-	plan := func(ctx SpecContext, keys ...channel.Key) impact.Plan {
-		GinkgoHelper()
-		return MustSucceed(layer.Impact.Plan(ctx, db, deleteOf(keys...)))
-	}
 	apply := func(
 		ctx SpecContext,
 		opts impact.ApplyOptions,
@@ -153,7 +148,7 @@ var _ = Describe("Delete", Ordered, func() {
 	}
 
 	It(
-		"Should plan one entry for each record that a delete changes and count the rest",
+		"Should return one entry for each record that a delete changes and count the rest",
 		func(
 			ctx SpecContext,
 		) {
@@ -176,16 +171,19 @@ var _ = Describe("Delete", Ordered, func() {
 				Where(status.MatchOwners[any](owner)).
 				Entry(&st).
 				Exec(ctx, db)).To(Succeed())
-			p := plan(ctx, ch.Key())
+			p := MustSucceed(apply(ctx, impact.ApplyOptions{
+				Picks: map[string]impact.Choice{
+					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				},
+			}, ch.Key()))
 			Expect(p.Entries).To(ConsistOf(
 				entry(task.ResourceID(tsk.Key), impact.EffectRestrict),
 				entry(lineplot.ResourceID(plot.Key), impact.EffectDetach),
 				entry(status.ResourceID(st.Key), impact.EffectCascade),
 			))
 			Expect(p.Kept).To(Equal(uint32(1)))
-			Expect(p.Token).To(HaveLen(32))
 			Expect(p.Change).To(Equal(deleteOf(ch.Key())))
-			Expect(exists(ctx, ch.Key())).To(BeTrue())
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
 		},
 	)
 
@@ -241,10 +239,8 @@ var _ = Describe("Delete", Ordered, func() {
 		) {
 			ch := createChannel(ctx, channel.Channel{})
 			tsk := createTask(ctx, ch.Key())
-			p := plan(ctx, ch.Key())
 			id := task.ResourceID(tsk.Key).String()
 			Expect(apply(ctx, impact.ApplyOptions{
-				Token: p.Token,
 				Picks: map[string]impact.Choice{id: impact.ChoiceDelete},
 			}, ch.Key())).Error().ToNot(HaveOccurred())
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
@@ -265,34 +261,16 @@ var _ = Describe("Delete", Ordered, func() {
 			DataType:   telem.Float32T,
 			LocalIndex: index.LocalKey,
 		})
-		p := plan(ctx, index.Key())
-		Expect(p.Entries).To(Equal([]impact.Entry{
-			entry(channel.ResourceID(data.Key()), impact.EffectRestrict),
-		}))
-		Expect(apply(ctx, impact.ApplyOptions{
-			Token: p.Token,
+		applied := MustSucceed(apply(ctx, impact.ApplyOptions{
 			Picks: map[string]impact.Choice{
 				channel.ResourceID(data.Key()).String(): impact.ChoiceDelete,
 			},
-		}, index.Key())).Error().ToNot(HaveOccurred())
+		}, index.Key()))
+		Expect(applied.Entries).To(Equal([]impact.Entry{
+			entry(channel.ResourceID(data.Key()), impact.EffectRestrict),
+		}))
 		Expect(exists(ctx, index.Key())).To(BeFalse())
 		Expect(exists(ctx, data.Key())).To(BeFalse())
-	})
-
-	It("Should refuse a token whose plan changed and carry the new plan", func(
-		ctx SpecContext,
-	) {
-		ch := createChannel(ctx, channel.Channel{})
-		p := plan(ctx, ch.Key())
-		plot := createPlot(ctx, ch.Key())
-		_, err := apply(ctx, impact.ApplyOptions{Token: p.Token}, ch.Key())
-		Expect(err).To(MatchError(impact.ErrPlanChanged))
-		changed, ok := errors.AsType[impact.PlanChangedError](err)
-		Expect(ok).To(BeTrue())
-		Expect(changed.Plan.Entries).To(Equal([]impact.Entry{
-			entry(lineplot.ResourceID(plot.Key), impact.EffectDetach),
-		}))
-		Expect(exists(ctx, ch.Key())).To(BeTrue())
 	})
 
 	It("Should refuse a pick for no entry", func(ctx SpecContext) {

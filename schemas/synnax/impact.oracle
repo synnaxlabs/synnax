@@ -76,12 +76,6 @@ Plan struct {
             change. They need no pick, so they are not entries.
         """
     }
-    token   string  {
-        @doc value """
-            is the hex form of a hash of the change and the entries. Apply refuses a
-            token that no longer matches.
-        """
-    }
     change  Change  {
         @doc value "is the change that the plan covers."
     }

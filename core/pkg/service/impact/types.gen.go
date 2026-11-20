@@ -192,9 +192,6 @@ type Plan struct {
 	// Kept is the number of records that hold a deleted channel and keep it with no
 	// change. They need no pick, so they are not entries.
 	Kept uint32 `json:"kept" msgpack:"kept"`
-	// Token is the hex form of a hash of the change and the entries. Apply refuses a
-	// token that no longer matches.
-	Token string `json:"token" msgpack:"token"`
 	// Change is the change that the plan covers.
 	Change Change `json:"change" msgpack:"change"`
 }

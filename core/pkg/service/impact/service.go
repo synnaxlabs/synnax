@@ -14,6 +14,7 @@ package impact
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -61,22 +62,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// ErrPlanChanged is the error of an Apply whose plan changed since the caller planned.
-var ErrPlanChanged = errors.New("the records that the change touches changed")
-
-// PlanChangedError wraps ErrPlanChanged with the new plan.
-type PlanChangedError struct {
-	// Plan is the plan as it is now.
-	Plan Plan
-}
-
-// Error implements error.
-func (PlanChangedError) Error() string { return ErrPlanChanged.Error() }
-
-// Unwrap returns ErrPlanChanged.
-func (PlanChangedError) Unwrap() error { return ErrPlanChanged }
-
-// Service plans and applies changes to channels.
+// Service applies changes to channels.
 type Service struct{ cfg ServiceConfig }
 
 // OpenService opens a Service from cfgs.
@@ -88,34 +74,16 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// Plan returns every record that c touches, as seen by snap, with the picks for each.
-// It writes nothing.
-func (s *Service) Plan(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	c Change,
-) (Plan, error) {
-	keys, err := deletedKeys(c)
-	if err != nil {
-		return Plan{}, err
-	}
-	p, err := s.planDelete(ctx, snap, keys)
-	return p.Plan, err
-}
-
 // ApplyOptions are the inputs of the caller to Apply.
 type ApplyOptions struct {
-	// Token is the token of the plan that the caller saw. When it is empty, Apply
-	// applies the picks to the plan as it is now.
-	Token string
 	// Picks maps the id of an entry to the pick for it. An entry with no pick takes its
 	// default.
 	Picks map[string]Choice
 }
 
 // Apply carries out c in tx with the picks of opts and returns the plan that it
-// applied. It plans c again in tx, and fails with a PlanChangedError when opts.Token
-// names another plan. A restrict entry that takes cancel fails Apply with the
+// applied, which it makes in tx: every entry it met, with the count of the records that
+// keep a deleted channel. A restrict entry that takes cancel fails Apply with the
 // gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
 // delete, and the holders of that channel take their picks or defaults. A delete pick
 // on another record deletes it through ServiceConfig.Delete before the channels go. A
@@ -132,46 +100,9 @@ func (s *Service) Apply(
 	if err != nil {
 		return Plan{}, err
 	}
-	p, err := s.planDelete(ctx, tx, keys)
+	applied, keys, records, err := s.resolve(ctx, tx, keys, opts.Picks)
 	if err != nil {
 		return Plan{}, err
-	}
-	if opts.Token != "" && opts.Token != p.Token {
-		return Plan{}, PlanChangedError{Plan: p.Plan}
-	}
-	var (
-		picked  = set.New[string]()
-		deleted = set.New[resource.ID]()
-		records []resource.ID
-	)
-	for {
-		more, picks, err := choose(p, opts.Picks)
-		if err != nil {
-			return Plan{}, err
-		}
-		for _, e := range p.Entries {
-			if _, ok := opts.Picks[e.ID]; ok {
-				picked.Add(e.ID)
-			}
-		}
-		for _, r := range picks {
-			if !deleted.Contains(r) {
-				deleted.Add(r)
-				records = append(records, r)
-			}
-		}
-		if len(more) == 0 {
-			break
-		}
-		keys = append(keys, more...)
-		if p, err = s.planDelete(ctx, tx, keys); err != nil {
-			return Plan{}, err
-		}
-	}
-	for id := range opts.Picks {
-		if !picked.Contains(id) {
-			return Plan{}, errors.Wrapf(validate.ErrValidation, "no entry is %s", id)
-		}
 	}
 	if len(records) > 0 {
 		if err = s.cfg.Delete(ctx, tx, records); err != nil {
@@ -181,7 +112,65 @@ func (s *Service) Apply(
 	if err = s.cfg.Channel.NewWriter(tx).DeleteMany(ctx, keys, false); err != nil {
 		return Plan{}, err
 	}
-	return p.Plan, nil
+	applied.Change = c
+	return applied, nil
+}
+
+// resolve plans the delete of the channels with keys in tx, then plans again with each
+// channel that picks add to it. It returns every entry that it met, sorted by id, the
+// keys of the channels to delete, and the other records that picks delete.
+func (s *Service) resolve(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []channel.Key,
+	picks map[string]Choice,
+) (Plan, []channel.Key, []resource.ID, error) {
+	var (
+		applied Plan
+		seen    = set.New[string]()
+		deleted = set.New[resource.ID]()
+		records []resource.ID
+	)
+	for {
+		p, err := s.planDelete(ctx, tx, keys)
+		if err != nil {
+			return Plan{}, nil, nil, err
+		}
+		applied.Kept = p.Kept
+		more, picked, err := choose(p, picks)
+		if err != nil {
+			return Plan{}, nil, nil, err
+		}
+		for _, e := range p.Entries {
+			if !seen.Contains(e.ID) {
+				seen.Add(e.ID)
+				applied.Entries = append(applied.Entries, e)
+			}
+		}
+		for _, r := range picked {
+			if !deleted.Contains(r) {
+				deleted.Add(r)
+				records = append(records, r)
+			}
+		}
+		if len(more) == 0 {
+			break
+		}
+		keys = append(keys, more...)
+	}
+	for id := range picks {
+		if !seen.Contains(id) {
+			return Plan{}, nil, nil, errors.Wrapf(
+				validate.ErrValidation,
+				"no entry is %s",
+				id,
+			)
+		}
+	}
+	slices.SortFunc(applied.Entries, func(a, b Entry) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+	return applied, keys, records, nil
 }
 
 // choose applies picks to the entries of p. It returns the channels and the other
