@@ -284,12 +284,13 @@ func (g *gates) refused() set.Set[cesium.ChannelKey] {
 	return refused
 }
 
-// lacks reports whether the session lacks control of key. It takes only the locks of
-// the channel's controller, which no caller holds while it calls Cesium, so Cesium can
-// call it under a claim lock.
+// lacks reports whether the session lacks control of key. It takes only the read lock
+// of the channel's region, which no caller holds while it calls Cesium, so Cesium can
+// call it under a claim lock. The claim lock serializes the write, so lacks takes no
+// use lock.
 func (g *gates) lacks(key cesium.ChannelKey) bool {
 	gt, ok := g.byKey[channel.Key(key)]
-	return ok && g.authorize(gt) != nil
+	return ok && !gt.Authorized()
 }
 
 func (g *gates) authorize(gt *gate) error {
