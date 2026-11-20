@@ -143,12 +143,12 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 				}
 				if err != nil {
 					cancel()
-					return oCtx, err
+					return oCtx, translateGRPCError(s.Errors, err)
 				}
 				md, hdrErr := grpcClient.Header()
 				if hdrErr != nil {
 					cancel()
-					return oCtx, hdrErr
+					return oCtx, translateGRPCError(s.Errors, hdrErr)
 				}
 				if errVals := md.Get("error"); len(errVals) > 0 {
 					cancel()

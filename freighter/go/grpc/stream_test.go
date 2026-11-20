@@ -273,4 +273,20 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		stream := MustSucceed(client.Stream(timeoutCtx, addr))
 		Expect(stream.Receive()).Error().To(MatchError(context.DeadlineExceeded))
 	})
+
+	It("Should return context.Canceled when cancelled before opening", func(
+		ctx SpecContext,
+	) {
+		server, client, addr := startPair()
+		server.BindHandler(func(
+			ctx context.Context,
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
+		) error {
+			<-ctx.Done()
+			return nil
+		})
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(client.Stream(cancelCtx, addr)).Error().To(MatchError(context.Canceled))
+	})
 })
