@@ -31,6 +31,77 @@ import {
 
 const { pem: PEM, privateKeyPem: PRIVATE_KEY } = CERTIFICATE;
 
+const USES_CHANNEL = "sy_secret_uses_test";
+
+const usesOf = (key: secret.Key) => [{ type: "certificate", key }];
+
+const movedUsesOf = (key: secret.Key) => [{ type: "certificate", key: `${key}-moved` }];
+
+interface RetrieveRequest {
+  where: { key: { eq?: secret.Key; in?: secret.Key[] } };
+  includeUses?: boolean;
+}
+
+/**
+ * Creates a secret client on a fake transport and a pushed change stream. Each secret
+ * that the transport returns has the uses of `core.usesOf`. A retrieve that asks for
+ * uses waits in `core.held` while `core.holding` is set.
+ * @returns the client, the fake Core, the keys of each retrieve that asks for uses, and
+ * functions that push a frame, send one change on the channel of uses, and drop the
+ * stream and wait for the reconnect.
+ */
+const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => {
+  const usesRequests: secret.Key[][] = [];
+  const core = { usesOf, holding: false, held: [] as Array<() => void> };
+  const send = async (
+    target: string,
+    req: RetrieveRequest,
+    _: z.ZodType,
+    res: z.ZodType,
+  ) => {
+    if (target !== "/secret/retrieve")
+      throw new Error(`unexpected request to ${target}`);
+    const { eq, in: keys = eq == null ? [] : [eq] } = req.where.key;
+    if (req.includeUses === true) usesRequests.push(keys);
+    const reply = res.parse({
+      secrets: keys.map((key) => ({
+        key,
+        name: key,
+        source: "stored",
+        updated: 0,
+        ...(req.includeUses === true && { uses: core.usesOf(key) }),
+      })),
+    });
+    if (req.includeUses === true && core.holding)
+      await new Promise<void>((resolve) => core.held.push(resolve));
+    return reply;
+  };
+  const unary = { use: () => {}, send } as unknown as UnaryClient;
+  const streams = { current: new PushStreamer() };
+  const cache = new query.Cache({
+    openStreamer: async () => streams.current,
+    breaker: { baseInterval: TimeSpan.milliseconds(1) },
+    onError: () => {},
+    recordCap,
+  });
+  onTestFinished(async () => await cache.close());
+  const secrets = new secret.Client({ unary, cache, usesChannels: [USES_CHANNEL] });
+  await cache.ensureStreaming();
+  const push = (frame: framer.Frame): void => streams.current.push(frame);
+  const change = (): void =>
+    push(new framer.Frame({ [USES_CHANNEL]: new Series(["changed"]) }));
+  const reconnect = async (): Promise<void> => {
+    const { epoch } = cache;
+    const dropped = streams.current;
+    streams.current = new PushStreamer();
+    dropped.drop();
+    await expect.poll(() => cache.epoch).toBe(epoch + 1);
+  };
+  return { secrets, core, usesRequests, push, change, reconnect };
+};
+
+type Fake = Awaited<ReturnType<typeof createFakeSecrets>>;
+
 describe("Secret", () => {
   describe("set", () => {
     it("should create a stored secret", async () => {
@@ -921,38 +992,14 @@ describe("Secret", () => {
 
   describe("record cap", () => {
     it("should keep the uses of a held secret when it trims uses", async () => {
-      const uses = [{ type: "certificate", key: "held" }];
-      const send = async (
-        target: string,
-        req: { where: { key: { eq: secret.Key } } },
-        _: z.ZodType,
-        res: z.ZodType,
-      ) => {
-        if (target !== "/secret/retrieve")
-          throw new Error(`unexpected request to ${target}`);
-        const { eq: key } = req.where.key;
-        return res.parse({
-          secrets: [{ key, name: key, source: "stored", updated: 0, uses }],
-        });
-      };
-      const unary = { use: () => {}, send } as unknown as UnaryClient;
-      const stream = new PushStreamer();
-      const cache = new query.Cache({
-        openStreamer: async () => stream,
-        breaker: { baseInterval: TimeSpan.milliseconds(1) },
-        onError: () => {},
-        recordCap: 4,
-      });
-      onTestFinished(async () => await cache.close());
-      const secrets = new secret.Client({ unary, cache, usesChannels: [] });
-      await cache.ensureStreaming();
+      const { secrets, push } = await createFakeSecrets({ recordCap: 4 });
       const [held, ...others] = Array.from({ length: 6 }, () => uuid.create());
       const q = { key: held, includeUses: true };
       onTestFinished(secrets.watch(q).onChange(() => {}));
       await secrets.retrieve(q);
       // The fifth read trims once. The sixth trims again and drops the oldest uses.
       for (const key of others) await secrets.retrieve({ key, includeUses: true });
-      stream.push(
+      push(
         new framer.Frame({
           [secret.ACTION_CHANNEL_NAME]: new Series([
             {
@@ -971,7 +1018,182 @@ describe("Secret", () => {
       await expect
         .poll(() => expectLive(secrets.watch(q).getCached()).name)
         .toBe("Renamed");
-      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(uses);
+      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(usesOf(held));
+    });
+  });
+
+  describe("uses refetch", () => {
+    const PAST_DEBOUNCE = TimeSpan.seconds(1).milliseconds;
+    const PAST_GRACE = TimeSpan.seconds(6).milliseconds;
+
+    const useFakeTimers = (): void => {
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        shouldAdvanceTime: true,
+      });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+    };
+
+    it("should not retrieve uses after the last query that asks for them stops", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, change } = await createFakeSecrets();
+      const stopped = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(stopped).onChange(() => {});
+      await secrets.retrieve(stopped);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[stopped.key]]);
+      const watched = { key: uuid.create(), includeUses: true };
+      onTestFinished(secrets.watch(watched).onChange(() => {}));
+      await secrets.retrieve(watched);
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[stopped.key], [watched.key], [watched.key]]);
+    });
+
+    it("should retrieve uses once for a burst of changes", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, change } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await secrets.retrieve(q);
+      for (let i = 0; i < 10; i++) change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[q.key], [q.key]]);
+    });
+
+    it("should refetch only the uses that a query watches", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, change } = await createFakeSecrets();
+      const [watched, unwatched] = [uuid.create(), uuid.create()];
+      await secrets.retrieve({ key: unwatched, includeUses: true });
+      onTestFinished(secrets.watch({ key: unwatched }).onChange(() => {}));
+      const q = { key: watched, includeUses: true };
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await secrets.retrieve(q);
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[unwatched], [watched], [watched]]);
+    });
+
+    it("should keep the uses of a query that watches again inside the grace", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, change } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(2).milliseconds);
+      onTestFinished(secrets.watch(q).onChange(() => {}));
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      expect(expectLive(secrets.watch(q).getCached()).uses).toEqual(usesOf(q.key));
+      expect(usesRequests).toEqual([[q.key]]);
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[q.key], [q.key]]);
+    });
+
+    it("should keep the uses of a list closed past the grace", async () => {
+      useFakeTimers();
+      const { secrets } = await createFakeSecrets();
+      const key = uuid.create();
+      const list = secrets.watch({ where: { key: { in: [key] } }, includeUses: true });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      expect(list.getCached()?.records.map((s) => s.uses)).toEqual([usesOf(key)]);
+    });
+
+    it("should fetch the uses of a closed list that a change dropped", async () => {
+      useFakeTimers();
+      const { secrets, change } = await createFakeSecrets();
+      const key = uuid.create();
+      const list = secrets.watch({ where: { key: { in: [key] } }, includeUses: true });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(list.getCached()).toBeUndefined();
+      onTestFinished(list.onChange(() => {}));
+      expect((await list.retrieve()).records.map((s) => s.uses)).toEqual([usesOf(key)]);
+    });
+
+    it.each([
+      ["a change", async ({ change }: Fake) => change()],
+      ["a reconnect", async ({ reconnect }: Fake) => await reconnect()],
+    ])("should not serve a closed query whose uses %s dropped", async (_, drop) => {
+      useFakeTimers();
+      const fake = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = fake.secrets.watch(q).onChange(() => {});
+      await fake.secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      await drop(fake);
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(fake.secrets.watch(q).getCached()).toBeUndefined();
+    });
+
+    it("should not serve uses that a refetch read before a reconnect", async () => {
+      useFakeTimers();
+      const { secrets, core, change, reconnect } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      core.holding = true;
+      change();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      core.usesOf = movedUsesOf;
+      await reconnect();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      core.holding = false;
+      // The refetch that started before the reconnect replies first.
+      for (const release of core.held.splice(0)) {
+        release();
+        await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      }
+      const cached = secrets.watch(q).getCached();
+      const uses = cached == null ? undefined : expectLive(cached).uses;
+      expect(uses ?? movedUsesOf(q.key)).toEqual(movedUsesOf(q.key));
+    });
+
+    it("should not retrieve uses on a reconnect with no query that watches them", async () => {
+      useFakeTimers();
+      const { secrets, usesRequests, reconnect } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      await reconnect();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(usesRequests).toEqual([[q.key]]);
+    });
+
+    it("should not put back uses that a reply read before a refetch dropped them", async () => {
+      useFakeTimers();
+      const { secrets, core, reconnect } = await createFakeSecrets();
+      const q = { key: uuid.create(), includeUses: true };
+      const off = secrets.watch(q).onChange(() => {});
+      await secrets.retrieve(q);
+      off();
+      await vi.advanceTimersByTimeAsync(PAST_GRACE);
+      core.holding = true;
+      await reconnect();
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      core.holding = false;
+      core.held.splice(0).forEach((release) => release());
+      await vi.advanceTimersByTimeAsync(PAST_DEBOUNCE);
+      expect(secrets.watch(q).getCached()).toBeUndefined();
     });
   });
 });

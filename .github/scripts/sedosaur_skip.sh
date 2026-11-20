@@ -10,14 +10,15 @@
 # included in the file licenses/APL.txt.
 
 # Decides whether Sedosaur skips a request for a review, and prints true or false. Reads
-# GITHUB_REPOSITORY, HEAD_SHA, KEY, FORK, REPEAT, and REPLAY. KEY is the external ID of
-# the review's check run, `<pr>:<base ref>`. Exits non-zero only when the GitHub API
+# GITHUB_REPOSITORY, PR, HEAD_SHA, KEY, FORK, REPEAT, and REPLAY. KEY is the external ID
+# of the review's check run, `<pr>:<base ref>`. Exits non-zero only when the GitHub API
 # fails.
 #
-# A fork's code never reaches a runner. A replay and a repeat always run. Sessions often
-# ask again for a review of a head that has one. The reviews of one pull request take
-# turns, so a head needs no other review when its last review for this pull request and
-# base succeeded under the current rules. Their check runs carry RULES.
+# A fork's code reaches a runner only after a maintainer approves that exact head. A
+# replay and a repeat always run. Sessions often ask again for a review of a
+# head that has one. The reviews of one pull request take turns, so a head needs no
+# other review when its last review for this pull request and base succeeded under the
+# current rules. Their check runs carry RULES.
 
 set -euo pipefail
 
@@ -25,8 +26,11 @@ REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 GH_API="$(dirname "$0")/gh_api.sh"
 
 if [ "${FORK:?}" = true ]; then
-    echo true
-    exit 0
+    APPROVED=$("$(dirname "$0")/fork_approved.sh" "${PR:?}" "${HEAD_SHA:?}")
+    if [ "$APPROVED" != true ]; then
+        echo true
+        exit 0
+    fi
 fi
 if [ "${REPLAY:?}" = true ] || [ "${REPEAT:?}" = true ]; then
     echo false

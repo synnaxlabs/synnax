@@ -105,7 +105,7 @@ class PanelsClient:
         target = panel_name if panel_name is not None else "New panel"
         option = self.layout.dialog.get_by_role("option").filter(has_text=target)
         option.first.click()
-        self._wait_followed(tab_name, panel_name if panel_name else tab_name)
+        self._wait_followed(tab_name, panel_name or tab_name)
 
     def drag_tab_to_pill(self, tab_name: str, panel_name: str) -> None:
         """Drag a mosaic tab onto a panel pill, moving the tab there."""

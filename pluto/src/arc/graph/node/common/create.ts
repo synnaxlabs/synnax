@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FC } from "react";
-import z from "zod/v4";
+import { z } from "zod";
 
 import { type Spec } from "@/arc/graph/node/types/spec";
 

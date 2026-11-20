@@ -194,6 +194,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-${{ env.PRODUCT }}
+          rust-src-dir: console/src-tauri
           # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
           cache-bin: false
 
@@ -278,6 +279,7 @@ jobs:
           Add-Content $env:GITHUB_PATH $dir
 
       - name: Set up trusted-signing-cli
+        id: signer
         if:
           matrix.os == 'windows-latest' && inputs.sign_binaries && inputs.stage !=
           'compile'
@@ -333,6 +335,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          # Read by src-tauri/scripts/Sign.ps1.
+          SIGNER: ${{ steps.signer.outputs.path }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
