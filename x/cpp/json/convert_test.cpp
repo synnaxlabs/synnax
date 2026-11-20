@@ -1405,6 +1405,42 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthThirteen) {
     );
 }
 
+/// @brief it should reject an ISO 8601 day past the end of its month.
+TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
+    for (const auto *input:
+         {"2023-02-29T00:00:00Z",
+          "2024-02-30T00:00:00Z",
+          "2100-02-29T00:00:00Z",
+          "2001-04-31T00:00:00Z",
+          "2001-11-31T00:00:00Z",
+          "2001-01-32T00:00:00Z",
+          "2001-12-99T00:00:00Z"})
+        ASSERT_OCCURRED_AS_P(
+            x::json::to_sample_value(
+                json(input),
+                x::telem::TIMESTAMP_T,
+                x::json::TimeFormat::ISO8601
+            ),
+            x::json::CONVERSION_ERROR
+        );
+}
+
+/// @brief it should accept an ISO 8601 date on the last day of its month.
+TEST(ToSampleValue, StringToTimestampISO8601LastDayOfMonth) {
+    for (const auto *input:
+         {"2024-02-29T00:00:00Z",
+          "2000-02-29T00:00:00Z",
+          "2001-04-30T00:00:00Z",
+          "2001-12-31T00:00:00Z"})
+        ASSERT_NIL_P(
+            x::json::to_sample_value(
+                json(input),
+                x::telem::TIMESTAMP_T,
+                x::json::TimeFormat::ISO8601
+            )
+        );
+}
+
 TEST(ToSampleValue, StringToTimestampISO8601DayZero) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(
