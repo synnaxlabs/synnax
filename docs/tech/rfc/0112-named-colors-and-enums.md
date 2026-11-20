@@ -179,11 +179,13 @@ the first eight are closer than 0.05 in OKLab, in either theme. The first eight 
 hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
 `#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
 the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
-near color only a possible one. A new line gets the first series color that no other
-line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
-least in its plot, and a tie goes to the first by position. A user can pick any color.
-Auto clears a picked color, and the line gets a series color the same way. Rules get
-series colors the same way, counted among the rules of the plot.
+near color only a possible one. A user adds colors to Series in Settings, where they set
+the value, and a new color takes part in the assignment by its position. A new line gets
+the first series color that no other line in its plot uses, and stores its key. When the
+plot uses every series color, it gets the one used least in its plot, and a tie goes to
+the first by position. A user can pick any color. Auto clears a picked color, and the
+line gets a series color the same way. Rules get series colors the same way, counted
+among the rules of the plot.
 
 ### 4.5 Editor checks
 
@@ -245,6 +247,15 @@ record that moves to `color.Ref` (phases 23 to 28) mints a version (RFC 0053) th
 stores each old color as `fixed`, and its hand-written client code writes the union
 (`client/py/synnax/ranger/client.py:831`, `client/py/synnax/label/client.py:93`).
 
+### 4.7 Creating and editing in place
+
+The field that uses a named color or an enumeration can create and edit one. The color
+picker creates a named color, and Edit in the menu of a swatch edits one. The Options
+tab of a select or a state indicator creates an enumeration and edits the one the symbol
+holds. Each type has one editor, and the field and Settings open the same editor.
+Settings also creates, edits, finds, and deletes both types, and for enumerations it
+lists their users and replaces them.
+
 ## 5 What this RFC does not cover
 
 - **Limits**: Value ranges that mean one state belong to the `limit` type.
@@ -294,6 +305,7 @@ phase 22.
 | 26    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 22          |
 | 27    | Store color references in range colors                     | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 22          |
 | 28    | Store color references in panel colors                     | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 22          |
+| 29    | Create and edit named colors in the color picker           | `lyra/src/color`, `pluto/src/color`, `console/src/feature/color`                                                                       | 8, 9           |
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
@@ -301,15 +313,16 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`. Phase 21 fills the field, and RFC 0114 phase 1 adds
 it to symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select`
-and `state_indicator`, and Pluto draws each by the order of §4.2. The channel redesign
-adds the channel `enumeration` and its step in that order. The picker leaves `options`
-as they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2
-adds the picker to node state bindings, and RFC 0114 phase 4 to custom symbol states.
-RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC
-0114 phase 2 in the `color` of a `symbol` node, which the schematic multi-edit panel
-edits through phase 22. Phase 23 covers the variants that keep their own colors (RFC
-0114 §4.0). In phase 27, the Driver writes range colors
-(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
+and `state_indicator`, where a user also creates an enumeration and edits the one a
+symbol holds, and Pluto draws each by the order of §4.2. The channel redesign adds the
+channel `enumeration` and its step in that order. The picker leaves `options` as they
+are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds the
+picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC 0114
+phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114 phase 2
+in the `color` of a `symbol` node, which the schematic multi-edit panel edits through
+phase 22. Phase 23 covers the variants that keep their own colors (RFC 0114 §4.0). In
+phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
+`fixed`.
 
 ## 7 Resolved decisions
 
