@@ -17,6 +17,7 @@ import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
 
 import { tokenSource } from "./src/util/githubApp";
+import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
@@ -62,7 +63,8 @@ const SECRET = envField.string({
 // https://astro.build/config
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
-  adapter: vercel(),
+  adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
+  image: { domains: IMAGES.domains },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
   },
