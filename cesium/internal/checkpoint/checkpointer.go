@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrDiskFull is the error of a switch that would keep more than MaxLogs logs, because
-// heads keep failing.
+// ErrDiskFull is the error of the file of a next log when the root holds MaxLogs logs,
+// because heads keep failing.
 var ErrDiskFull = errors.New("disk full")
 
 // MaxLogs is the most logs that the root keeps while heads fail.
@@ -34,8 +34,6 @@ type Config struct {
 	DB uint64
 	// LogSize is the size of each new log file.
 	LogSize int64
-	// Snapshot returns the durable state that a head holds.
-	Snapshot func() (*state.Snapshot, error)
 	// Prepared reports that the file of a log is ready, or why it is not.
 	Prepared func(next uint64, err error)
 	// Executor runs each step of the checkpointer. It must run every function it gets.
@@ -48,15 +46,15 @@ func (c Config) Validate() error {
 	v := validate.New("checkpoint.Config")
 	v.NotNil("fs", c.FS)
 	v.Positive("log_size", c.LogSize)
-	v.NotNil("snapshot", c.Snapshot)
 	v.NotNil("prepared", c.Prepared)
 	v.NotNil("executor", c.Executor)
 	return v.Error()
 }
 
 // Checkpointer is the owner of heads and log files. It makes the file of the next log
-// when the log asks, and writes the head of a log once the log switches to it, then
-// removes what the switch no longer needs. Each step runs on its executor, and its
+// when the log asks, and writes the head of a log when the state hands it the snapshot
+// of the switch, then removes what the switch no longer needs. Each step runs on its
+// executor, and its
 // calls return at once. A Checkpointer is safe for concurrent use.
 type Checkpointer struct {
 	cfg  Config
@@ -65,7 +63,7 @@ type Checkpointer struct {
 	mu   struct {
 		sync.Mutex
 		prepare []uint64
-		heads   []uint64
+		heads   []head
 		err     error
 		closed  bool
 	}
@@ -97,7 +95,8 @@ func (c *Checkpointer) signal() {
 
 // Prepare queues switch step 1 for the log of generation next: the file of the log,
 // and the removal of a leftover head of that generation. It reports the result to the
-// Prepared hook.
+// Prepared hook: an error that wraps ErrDiskFull when the root holds MaxLogs logs below
+// next.
 func (c *Checkpointer) Prepare(next uint64) {
 	c.mu.Lock()
 	c.mu.prepare = append(c.mu.prepare, next)
@@ -105,18 +104,22 @@ func (c *Checkpointer) Prepare(next uint64) {
 	c.signal()
 }
 
-// Switched queues switch steps 4 to 6 for the log of generation: the head of the
-// durable state, then the removal of the heads and logs that the switch no longer
+type head struct {
+	generation uint64
+	snapshot   *state.Snapshot
+}
+
+// Head queues switch steps 4 to 6 for the log of generation: the head of s, the durable
+// state at the switch, then the removal of the heads and logs that the switch no longer
 // needs. A failed head leaves the older head and its logs in place.
-func (c *Checkpointer) Switched(generation uint64) {
+func (c *Checkpointer) Head(generation uint64, s *state.Snapshot) {
 	c.mu.Lock()
-	c.mu.heads = append(c.mu.heads, generation)
+	c.mu.heads = append(c.mu.heads, head{generation: generation, snapshot: s})
 	c.mu.Unlock()
 	c.signal()
 }
 
-// Err returns the error of the last head, or nil once a later head succeeds. It wraps
-// ErrDiskFull when MaxLogs logs pile up.
+// Err returns the error of the last head, or nil once a later head succeeds.
 func (c *Checkpointer) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -147,10 +150,10 @@ func (c *Checkpointer) run() {
 	c.mu.prepare, c.mu.heads = nil, nil
 	c.mu.Unlock()
 	for _, next := range prepare {
-		c.cfg.Prepared(next, Prepare(c.cfg.FS, next, c.cfg.LogSize))
+		c.cfg.Prepared(next, c.prepare(next))
 	}
-	for _, generation := range heads {
-		err := c.head(generation)
+	for _, h := range heads {
+		err := c.write(h)
 		c.mu.Lock()
 		c.mu.err = err
 		c.mu.Unlock()
@@ -158,32 +161,37 @@ func (c *Checkpointer) run() {
 	c.stepped <- closed
 }
 
-// head writes the head of generation, then cleans the root.
-func (c *Checkpointer) head(generation uint64) error {
-	s, err := c.cfg.Snapshot()
-	if err == nil {
-		err = Write(c.cfg.FS, generation, Encode(c.cfg.DB, generation, s))
-	}
-	if err == nil {
-		err = Clean(c.cfg.FS, generation)
-	}
+// write writes the head h, then cleans the root.
+func (c *Checkpointer) write(h head) error {
+	err := Write(c.cfg.FS, h.generation, Encode(c.cfg.DB, h.generation, h.snapshot))
 	if err != nil {
-		if n, listErr := countLogs(c.cfg.FS); listErr != nil || n > MaxLogs {
-			err = errors.Join(err, listErr, errors.Wrapf(ErrDiskFull,
-				"%d logs since the last head", n))
-		}
+		return err
 	}
-	return err
+	return Clean(c.cfg.FS, h.generation)
 }
 
-func countLogs(fs xfs.FS) (int, error) {
+// prepare makes the file of the log of generation next, unless the root holds MaxLogs
+// logs below next. Only a head removes logs.
+func (c *Checkpointer) prepare(next uint64) error {
+	n, err := countLogs(c.cfg.FS, next)
+	if err != nil {
+		return err
+	}
+	if n >= MaxLogs {
+		return errors.Wrapf(ErrDiskFull, "%d logs since the oldest head", n)
+	}
+	return Prepare(c.cfg.FS, next, c.cfg.LogSize)
+}
+
+// countLogs returns the number of logs in fs below generation below.
+func countLogs(fs xfs.FS, below uint64) (int, error) {
 	entries, err := fs.List("")
 	if err != nil {
 		return 0, err
 	}
 	var n int
 	for _, e := range entries {
-		if _, ok := generationOf(e.Name(), ".log"); ok {
+		if g, ok := generationOf(e.Name(), ".log"); ok && g < below {
 			n++
 		}
 	}
