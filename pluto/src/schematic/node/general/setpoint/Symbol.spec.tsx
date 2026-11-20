@@ -21,19 +21,10 @@ import {
 } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement } from "react";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  onTestFinished,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Setpoint } from "@/schematic/node/general/setpoint";
-import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { canvasTest } from "@/vis/render/testutil";
@@ -146,12 +137,10 @@ describe("Setpoint.Symbol staleness", () => {
     // Stamps every sample a minute ago, so a readback is stale once one arrives.
     const now = TimeStamp.now().sub(TimeSpan.minutes(1));
     const core = new SyntheticCore({ rate: Rate.hz(10), start: now, now });
-    const client = telemTest.createClient(core);
-    onTestFinished(async () => await client.feed.close());
     const FeedWrapper = createSynnaxWrapper({
       client: null,
       additionalRegistry: { ...value.REGISTRY, ...setpoint.REGISTRY },
-      telemFactories: [new telem.RemoteFactory(client)],
+      telemFactories: [telemTest.createRemoteFactory(core)],
       renderContext: canvasTest.record(),
     });
     const node = (nodeKey: string, stateChannel: channel.Key): ReactElement => (

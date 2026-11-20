@@ -13,6 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { assetURL, type Product } from "@/util/releases";
+import { DOWNLOADS } from "@/inline";
 
 export interface Platform {
     name: string;
@@ -65,28 +66,7 @@ const event = location == null ? undefined : `${product}_download_clicked`;
         </Flex.Box>
     ))}
 </Flex.Box>
-<script is:inline data-astro-rerun>
-    // The CDN serves every browser the same page, so the browser picks its platform
-    // before paint. An unknown agent, or a phone or tablet that can install neither,
-    // keeps every platform: iPhones say "like Mac OS X" and iPads may pose as a
-    // Macintosh, so mobile is checked first. The client router skips an inline script
-    // whose text already ran, so data-astro-rerun runs it after every navigation.
-    (() => {
-        const agent = navigator.userAgent;
-        if (/iPhone|iPad|Android|Mobile/.test(agent)) return;
-        const platforms = [
-            ...document.currentScript.previousElementSibling.querySelectorAll(
-                "[data-agent]",
-            ),
-        ];
-        const matches = (platform) => new RegExp(platform.dataset.agent).test(agent);
-        if (!platforms.some(matches)) return;
-        platforms.forEach((platform) => {
-            if (!matches(platform)) platform.remove();
-        });
-    })();
-</script>
-
+<script is:inline data-astro-rerun set:html={DOWNLOADS} />
 <style>
     :global(.docs-download) {
         margin: 6rem 0;

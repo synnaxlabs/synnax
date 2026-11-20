@@ -19,6 +19,13 @@ pnpm check-site:build && pnpm check-site # static build + link and media crawler
 because the cause can be the host. With `--strict`, which the nightly run and the CI of
 a release set, a broken external link fails too.
 
+## Pages
+
+The pages live in `src/docs`: the reference under `reference/` and the blog under
+`blog/`. The `reference` and `blog` collections in `src/content.config.ts` set the
+frontmatter fields of each, and `src/pages/[...slug].astro` renders every page at its
+path. A file that starts with an underscore is a partial, not a page.
+
 ## Release lookups
 
 Download links and the version in the header read the per-product GitHub releases
