@@ -311,6 +311,9 @@ describe("Label.Select edit", () => {
     const search = screen.getByPlaceholderText<HTMLInputElement>("Search labels...");
     expect(document.activeElement).toBe(search);
     expect(search.value).toBe(listed.name);
+    // The search asks the Core again, which no longer matches the old name.
+    expect(await screen.findByText(`No labels match "${listed.name}"`)).toBeTruthy();
+    fireEvent.change(search, { target: { value: renamed } });
     expect(await screen.findByRole("option", { name: renamed })).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
   });
