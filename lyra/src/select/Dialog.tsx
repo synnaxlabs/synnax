@@ -9,7 +9,7 @@
 
 import "@/select/Dialog.css";
 
-import { array, destructor } from "@synnaxlabs/x";
+import { array, destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactNode,
@@ -55,6 +55,18 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
 };
 
+// Inputs that scroll the list or move its cursor. The first one ends a reveal that
+// still waits, so the list never moves under the user.
+const SCROLL_EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
+const SCROLL_KEYS: ReadonlySet<string> = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+]);
+
 // The dialog opens on its first choice, as a native dropdown does. A fetched list can
 // load the choice after the dialog is placed, so the reveal waits for it once. A
 // virtual list adopts the scroll container of a dialog that opens again one render
@@ -79,27 +91,40 @@ const useRevealChoice = (): void => {
       readRef.current;
     const selected = array.toArray(getState().value);
     let frame: number | undefined;
-    const reveal = (): boolean => {
-      const key = registry.getOrder(getData()).find((k) => selected.includes(k));
-      if (key == null) return false;
-      frame = requestAnimationFrame(() => {
-        const element = registry.hasItem(key)
-          ? registry.getElement(key)
-          : getRowElement(key);
-        if (element != null) element.scrollIntoView({ block: "nearest" });
-        else scrollToIndex(getData().indexOf(key));
-      });
-      return true;
-    };
     const stops: destructor.Destructor[] = [];
-    const stop = (): void => stops.splice(0).forEach((s) => s());
-    const retry = (): void => {
-      if (reveal()) stop();
+    const stop = (): void => {
+      stops.splice(0).forEach((s) => s());
+      if (frame != null) cancelAnimationFrame(frame);
     };
-    if (!reveal()) stops.push(registry.subscribe(retry), subscribeData(retry));
+    const reveal = (key: record.Key): void => {
+      const element = registry.hasItem(key)
+        ? registry.getElement(key)
+        : getRowElement(key);
+      if (element != null) element.scrollIntoView({ block: "nearest" });
+      else scrollToIndex(getData().indexOf(key));
+    };
+    const tryReveal = (): void => {
+      if (frame != null) return;
+      const key = registry.getOrder(getData()).find((k) => selected.includes(k));
+      if (key == null) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        stop();
+        reveal(key);
+      });
+    };
+    const handleKey = (e: KeyboardEvent): void => {
+      if (SCROLL_KEYS.has(e.key)) stop();
+    };
+    const options = { capture: true, passive: true };
+    SCROLL_EVENTS.forEach((type) => window.addEventListener(type, stop, options));
+    window.addEventListener("keydown", handleKey, options);
+    stops.push(registry.subscribe(tryReveal), subscribeData(tryReveal));
+    tryReveal();
     return () => {
       stop();
-      if (frame != null) cancelAnimationFrame(frame);
+      SCROLL_EVENTS.forEach((type) => window.removeEventListener(type, stop, options));
+      window.removeEventListener("keydown", handleKey, options);
     };
   }, [placed, registry, readRef]);
 };

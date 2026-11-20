@@ -1109,6 +1109,24 @@ describe("Select", () => {
       await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
     });
 
+    it("should not scroll to a late choice once the user scrolls", async () => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, early)}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      const scroll = dialog.querySelector(".lyra-list__scroll") as Element;
+      // The reveal waits for the choice once the dialog shows.
+      await scheduler.nextFrame();
+      scroll.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll.scrollTop).toBe(0);
+    });
+
     it("should move the hover on from the choice", async () => {
       const onChange = vi.fn();
       const trigger = await renderChoice(
