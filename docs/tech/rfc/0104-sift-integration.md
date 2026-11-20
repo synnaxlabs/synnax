@@ -264,24 +264,24 @@ Each phase merged into `main` as one PR on 2026-11-13. In order, the phases are 
 #4837, #4838, #4839, #4846, #4848, #4852, #4854, #4855, #4857, #4859, #4860, #4865,
 #4867, #4868, and #4869.
 
-| Phase | Scope                                          | Touches                                                                                           | Depends on |
-| ----- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Add the Sift ingest engine and fake server     | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`, `x/go/validate`      | -          |
-| 2     | Add the Sift device and connection commands    | `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/layer.go`                | 1          |
-| 3     | Add Sift ad hoc runs to the ingest engine      | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`                       | 1          |
-| 4     | Upload range data to Sift                      | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                             | 2, 3       |
-| 5     | Stream live data to Sift                       | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                             | 4          |
-| 6     | Add the Sift TypeScript types                  | `client/ts/src/sift`, `schemas/synnax/sift.oracle`                                                | 5          |
-| 7     | Connect Sift devices in the Console            | `console/src/feature/sift`, `console/src/feature/device`, `console/src/flags.ts`, `lyra/src/icon` | 6          |
-| 8     | Add the Sift stream task form                  | `console/src/feature/sift`, `console/src/feature/task`                                            | 7          |
-| 9     | Upload a range to Sift from the Console        | `console/src/feature/sift`, `console/src/feature/range`                                           | 8          |
-| 10    | Upload a plain time span to Sift               | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`, `client/ts/src/sift`                       | 9          |
-| 11    | Pick the Sift asset from the assets Sift lists | `console/src/feature/sift`                                                                        | 10         |
-| 12    | Show Sift uploads on the range overview        | `console/src/feature/sift`, `console/src/feature/range`                                           | 11         |
-| 13    | Upload a line plot selection to Sift           | `console/src/feature/sift`, `console/src/feature/lineplot`                                        | 12         |
-| 14    | Add the Sift Python client                     | `client/py/synnax/sift`, `client/py/tests`                                                        | 10         |
-| 15    | Document sending data to Sift                  | `site/docs/src/pages/reference/ranges`                                                            | 13, 14     |
-| 16    | Remove the Sift flags                          | `console/src/flags.ts`, `console/src/feature/sift`, `site/docs/src/pages/reference/ranges`        | 15         |
+| Phase | Scope                                          | Touches                                                                                                 | Depends on |
+| ----- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Add the Sift ingest engine and fake server     | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`, `x/go/validate`            | -          |
+| 2     | Add the Sift device and connection commands    | `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/layer.go`                      | 1          |
+| 3     | Add Sift ad hoc runs to the ingest engine      | `core/pkg/service/sift/ingest`, `core/pkg/service/sift/fake`, `core/go.mod`                             | 1          |
+| 4     | Upload range data to Sift                      | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                                   | 2, 3       |
+| 5     | Stream live data to Sift                       | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`                                                   | 4          |
+| 6     | Add the Sift TypeScript types                  | `client/ts/src/sift`, `schemas/synnax/sift.oracle`                                                      | 5          |
+| 7     | Connect Sift devices in the Console            | `console/src/feature/sift`, `console/src/feature/device`, `console/src/flags/flags.ts`, `lyra/src/icon` | 6          |
+| 8     | Add the Sift stream task form                  | `console/src/feature/sift`, `console/src/feature/task`                                                  | 7          |
+| 9     | Upload a range to Sift from the Console        | `console/src/feature/sift`, `console/src/feature/range`                                                 | 8          |
+| 10    | Upload a plain time span to Sift               | `core/pkg/service/sift`, `schemas/synnax/sift.oracle`, `client/ts/src/sift`                             | 9          |
+| 11    | Pick the Sift asset from the assets Sift lists | `console/src/feature/sift`                                                                              | 10         |
+| 12    | Show Sift uploads on the range overview        | `console/src/feature/sift`, `console/src/feature/range`                                                 | 11         |
+| 13    | Upload a line plot selection to Sift           | `console/src/feature/sift`, `console/src/feature/lineplot`                                              | 12         |
+| 14    | Add the Sift Python client                     | `client/py/synnax/sift`, `client/py/tests`                                                              | 10         |
+| 15    | Document sending data to Sift                  | `site/docs/src/pages/reference/ranges`                                                                  | 13, 14     |
+| 16    | Remove the Sift flags                          | `console/src/flags/flags.ts`, `console/src/feature/sift`, `site/docs/src/pages/reference/ranges`        | 15         |
 
 ## 6 Resolved decisions
 
