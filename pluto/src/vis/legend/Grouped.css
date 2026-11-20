@@ -41,8 +41,4 @@
         justify-content: space-between;
         height: round(3.25rem, 1px);
     }
-
-    .pluto-legend-entry .lyra-text {
-        font-weight: 400;
-    }
 }

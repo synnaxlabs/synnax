@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   box,
   color,
+  id,
   location,
   staticWindow,
   TimeRange,
@@ -21,7 +22,14 @@ import {
   type Window,
   xy,
 } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   createRef,
   type FC,
@@ -31,11 +39,16 @@ import {
 } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Aether } from "@/aether";
+import { aether } from "@/aether/aether";
 import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
+import { tooltip } from "@/lineplot/tooltip/aether";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { line } from "@/vis/line/aether";
+import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
 const client = createTestClient();
@@ -50,6 +63,22 @@ const LINE: lineplotClient.Line = {
   aggregation: "min_max",
   detail: "medium",
 };
+
+// GLHost supplies the line GL program, as the canvas does in production.
+const GLHost = ({ children }: PropsWithChildren): ReactElement => {
+  const [{ path }] = Aether.use({
+    type: lineTest.Host.TYPE,
+    schema: lineTest.Host.stateZ,
+    initialState: {},
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};
+
+// all lists c and every component under it.
+const all = (c: aether.Component): aether.Component[] => [
+  c,
+  ...(c instanceof aether.Composite ? c.children.flatMap(all) : []),
+];
 
 describe("LinePlot", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -173,6 +202,145 @@ describe("LinePlot", () => {
       act(() => result.current.toggleZoom("range", { lower: 0.2, upper: 0.6 }));
       expect(onViewport.mock.calls.at(-1)?.[0].box).toEqual(zoomed);
       expect(resets(onViewportChange)).toEqual(0);
+    });
+  });
+
+  describe("relative", () => {
+    const ZERO = TimeStamp.seconds(1000);
+    const RED = color.construct("#ff0000");
+    const window = staticWindow(new TimeRange(ZERO, ZERO.add(TimeSpan.seconds(10))));
+    const RANGES: LinePlot.RangeSpec[] = [
+      { key: "r1", window, label: "Range 1", color: RED, zero: ZERO },
+      { key: "r2", window, color: "#00ff00", zero: ZERO },
+      { key: "r3", window, label: "Rolling" },
+    ];
+
+    // Each mount of the wrapper has its own worker tree.
+    let roots: aether.Root[] = [];
+    beforeEach(async () => {
+      roots = [];
+      const recorder = canvasTest.record();
+      (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+      wrapper = await createAsyncSynnaxWrapper({
+        client,
+        additionalRegistry: {
+          ...lineplot.REGISTRY,
+          ...range.REGISTRY,
+          ...line.REGISTRY,
+          [lineTest.Host.TYPE]: lineTest.Host,
+        },
+        renderContext: recorder,
+        telemFactories: [],
+        onRoot: (r) => roots.push(r),
+      });
+    });
+
+    const components = (): aether.Component[] => roots.flatMap(all);
+
+    const renderRelative = async (
+      props: Partial<LinePlot.LinePlotProps> = {},
+    ): Promise<void> => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: index.key,
+      });
+      const key = await createPlot([
+        { ...LINE, yChannel: data.key, label: "pressure" },
+      ]);
+      const { result } = renderHook(() => LinePlot.useDispatch(), { wrapper });
+      await act(async () => {
+        await result.current.dispatchAsync({
+          key,
+          actions: [
+            lineplotClient.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
+          ],
+        });
+      });
+      render(
+        <GLHost>
+          <LinePlot.Scope.Provider value={key}>
+            <LinePlot.LinePlot ranges={RANGES} {...props} />
+          </LinePlot.Scope.Provider>
+        </GLHost>,
+        { wrapper },
+      );
+    };
+
+    const traces = (): Map<string, line.Line> =>
+      new Map(
+        components()
+          .filter((c): c is line.Line => c instanceof line.Line)
+          .map((l) => [l.key, l]),
+      );
+
+    const trace = (key: string): line.Line => {
+      const found = traces().get(key);
+      if (found == null) throw new Error(`no trace ${key}`);
+      return found;
+    };
+
+    it("should draw each range that has a zero from its zero, in its color", async () => {
+      await renderRelative();
+      await waitFor(() => expect([...traces().keys()]).toEqual(["line/r1", "line/r2"]));
+      expect(trace("line/r1").state.zero).toEqual(ZERO);
+      expect(trace("line/r1").state.color).toEqual(RED);
+    });
+
+    it("should name a range that has no label by its key", async () => {
+      await renderRelative();
+      expect(await screen.findByText("r2")).toBeDefined();
+      expect(trace("line/r2").state.group).toEqual("r2");
+    });
+
+    it.each([
+      ["a hidden range", { hiddenRanges: new Set(["r1"]) }],
+      ["a hidden line of a range", { hiddenTraces: new Set(["line/r1"]) }],
+    ])("should hide the trace of %s", async (_, props) => {
+      await renderRelative(props);
+      await waitFor(() => expect(trace("line/r1").state.visible).toBe(false));
+      expect(trace("line/r2").state.visible).toBe(true);
+    });
+
+    it("should raise a hovered range and dim the others", async () => {
+      await renderRelative();
+      fireEvent.pointerEnter(await screen.findByText("Range 1"));
+      await waitFor(() => expect(trace("line/r1").state.raised).toBe(true));
+      expect(trace("line/r1").state.opacity).toEqual(1);
+      expect(trace("line/r2").state.opacity).toEqual(0.25);
+      expect(trace("line/r2").state.raised).toBe(false);
+    });
+
+    it("should rename the stored line from the entry of one range", async () => {
+      await renderRelative();
+      const [label] = await screen.findAllByText("pressure");
+      fireEvent.dblClick(label);
+      label.innerText = "flow";
+      fireEvent.keyDown(label, { key: "Enter" });
+      await waitFor(() => expect(trace("line/r2").state.label).toEqual("flow"));
+    });
+
+    it("should report the hovered line with the time of its value", async () => {
+      const onHoveredChange = vi.fn();
+      await renderRelative({ onHoveredChange });
+      const leaf = await waitFor(() => {
+        const found = components().find((c) => c instanceof tooltip.Tooltip);
+        if (!(found instanceof tooltip.Tooltip)) throw new Error("no tooltip");
+        return found;
+      });
+      leaf.setState((p) => ({ ...p, hovered: { key: "line/r1", x: 1.5e9 } }));
+      await waitFor(() =>
+        expect(onHoveredChange).toHaveBeenLastCalledWith({
+          line: "line",
+          range: "r1",
+          time: ZERO.add(TimeSpan.milliseconds(1500)),
+        }),
+      );
     });
   });
 

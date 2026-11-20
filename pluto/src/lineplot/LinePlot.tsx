@@ -130,7 +130,7 @@ export interface RangeSpec {
   /** Identifies the range. Unique among the ranges of a plot. */
   key: string;
   window: Window;
-  /** The name of the range on a relative x axis. */
+  /** The name of the range on a relative x axis. Defaults to key. */
   label?: string;
   /** The color of each line of the range on a relative x axis. */
   color?: color.Crude;
@@ -267,7 +267,8 @@ const Line = ({
             legendGroup={range.key}
             visible={shown}
             zero={range.zero}
-            group={range.label}
+            tooltipGroup={line.key}
+            group={range.label ?? range.key}
             color={c}
             opacity={hover != null && hover.range !== range.key ? DIMMED_OPACITY : 1}
             raised={hovered}
@@ -286,6 +287,7 @@ interface TraceProps {
   legendGroup: string;
   visible: boolean;
   zero?: TimeStamp;
+  tooltipGroup?: string;
   group?: string;
   color?: color.Color;
   opacity?: number;
@@ -300,6 +302,7 @@ const Trace = ({
   legendGroup,
   visible,
   zero,
+  tooltipGroup,
   group,
   color: traceColor,
   opacity,
@@ -327,6 +330,7 @@ const Trace = ({
       color={traceColor ?? line.color}
       strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
       zero={zero}
+      tooltipGroup={tooltipGroup}
       group={group}
       opacity={opacity}
       raised={raised}
@@ -373,6 +377,7 @@ const Legend = ({
   pKey: key,
   editable,
   onLineVisibleChange,
+  ranges,
   ...rest
 }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
@@ -387,9 +392,12 @@ const Legend = ({
         lineplot.setLineColor({ key: lineKey, color: { type: "fixed", value: color } }),
       ],
     });
-  const handleLineLabelChange = (lineKey: string, label: string) =>
-    editable &&
-    dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] });
+  // On a relative axis each entry is a line of one range, and the label is the line's.
+  const handleLineLabelChange = (entryKey: string, label: string) => {
+    const line = ranges == null ? entryKey : parseTraceKey(entryKey, ranges)?.line;
+    if (!editable || line == null) return;
+    dispatch({ key, actions: [lineplot.setLineLabel({ key: line, label })] });
+  };
   if (legend.hidden) return null;
   return (
     <BaseLegend
@@ -398,6 +406,7 @@ const Legend = ({
       onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
       onPositionChange={handlePositionChange}
+      ranges={ranges}
       {...rest}
     />
   );
@@ -649,7 +658,10 @@ export interface LinePlotProps extends FrameProps {
 }
 
 /** @returns the line and range of a key from traceKey, or null if no range matches. */
-export const parseTraceKey = (key: string, ranges: RangeSpec[]): TraceKey | null => {
+export const parseTraceKey = (
+  key: string,
+  ranges: Pick<RangeSpec, "key">[],
+): TraceKey | null => {
   const range = ranges.find((r) => key.endsWith(`/${r.key}`));
   if (range == null) return null;
   return { line: key.slice(0, -range.key.length - 1), range: range.key };
@@ -671,7 +683,7 @@ const parseHover = (
 const legendRanges = (ranges: RangeSpec[]): BaseLegendProps["ranges"] =>
   ranges.map((r) => ({
     key: r.key,
-    name: r.label ?? "",
+    name: r.label ?? r.key,
     color: r.color,
     zero: r.zero,
     start:

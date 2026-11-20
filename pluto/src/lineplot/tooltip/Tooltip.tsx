@@ -49,10 +49,7 @@ export const Tooltip = ({
     setState((p) => ({ ...p, position: xy.sub(xy.construct(e), topLeft) }));
   };
 
-  const handleLeave = (): void => {
-    setState((p) => ({ ...p, position: null, hovered: null }));
-    onHoveredChange?.(null);
-  };
+  const handleLeave = (): void => setState((p) => ({ ...p, position: null }));
 
   useEffect(() => {
     if (ref.current === null) return;

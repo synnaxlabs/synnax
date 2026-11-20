@@ -144,6 +144,7 @@ describe("Tooltip", () => {
     const entry = (channel: string, range: string, y: number): FindResult => ({
       ...found(`${channel}/${range}`, y),
       label: channel,
+      tooltipGroup: channel,
       group: range,
     });
     const results = [
@@ -161,6 +162,19 @@ describe("Tooltip", () => {
       "r1",
       "r2",
     ]);
+  });
+
+  it("should keep two lines that share a label under their own headings", () => {
+    const { recorder, component } = mount({ relative: true });
+    const entry = (line: string, range: string, y: number): FindResult => ({
+      ...found(`${line}/${range}`, y),
+      label: "pressure",
+      tooltipGroup: line,
+      group: range,
+    });
+    const results = [entry("a", "r1", 1), entry("b", "r1", 2)];
+    component.render({ findByXDecimal: () => results, region: REGION });
+    expect(texts(recorder).filter((t) => t === "pressure")).toHaveLength(2);
   });
 
   it("should draw the entry of the line under the cursor in bold", () => {

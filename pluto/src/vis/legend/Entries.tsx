@@ -15,7 +15,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { type color, compare, type optional, type state } from "@synnaxlabs/x";
+import {
+  type color,
+  compare,
+  type optional,
+  type state,
+  type text,
+} from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
@@ -47,6 +53,8 @@ export interface EntriesProps {
   sorted?: boolean;
   /** The shade of the label of a visible entry. */
   shade?: Theming.Shade;
+  /** The weight of the label. Defaults to the weight of small text. */
+  weight?: text.Weight;
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;
   entryProps?: Omit<Flex.BoxProps, "background">;
@@ -93,6 +101,7 @@ const Entry = ({
   onHoverChange,
   sorted: _,
   shade = 10,
+  weight,
   colorPickerVisible,
   onColorPickerVisibleChange,
   className,
@@ -129,6 +138,7 @@ const Entry = ({
         <Text.MaybeEditable
           color={entry.visible ? shade : 7}
           level="small"
+          weight={weight}
           onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}
           overflow="nowrap"

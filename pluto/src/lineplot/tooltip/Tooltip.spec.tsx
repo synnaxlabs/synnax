@@ -9,7 +9,7 @@
 
 import { fireEvent, waitFor } from "@testing-library/react";
 import { Profiler } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { lineplot } from "@/lineplot/aether";
 import { Frame } from "@/lineplot/Frame";
@@ -63,5 +63,32 @@ describe("Tooltip", () => {
     fireEvent.mouseMove(viewport, { clientX: 10, clientY: 20 });
     await waitFor(() => expect(leaf.state.position).toEqual({ x: 10, y: 20 }));
     expect(renders).toBe(baseline);
+  });
+
+  it("should report the hovered line, and no line once the cursor leaves", async () => {
+    const onHoveredChange = vi.fn();
+    const { container, root } = render(
+      <Frame aetherKey="plot">
+        <Viewport>
+          <Tooltip aetherKey="tooltip" onHoveredChange={onHoveredChange} />
+        </Viewport>
+      </Frame>,
+      { render: true, registry: lineplot.REGISTRY },
+    );
+    const leaf = await waitFor(() => {
+      const found = root.findChildAtPath(TOOLTIP_PATH);
+      assert(found instanceof tooltip.Tooltip);
+      return found;
+    });
+    const viewport = container.querySelector(".pluto-line-plot__viewport");
+    assert(viewport != null);
+    fireEvent.mouseMove(viewport, { clientX: 10, clientY: 20 });
+    await waitFor(() => expect(leaf.state.position).not.toBeNull());
+    const hovered = { key: "a", x: 1 };
+    leaf.setState((p) => ({ ...p, hovered }));
+    await waitFor(() => expect(onHoveredChange).toHaveBeenLastCalledWith(hovered));
+    fireEvent.mouseLeave(viewport);
+    await waitFor(() => expect(onHoveredChange).toHaveBeenLastCalledWith(null));
+    expect(leaf.state.hovered).toBeNull();
   });
 });

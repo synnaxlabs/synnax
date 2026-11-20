@@ -79,6 +79,8 @@ export interface CreateSynnaxWrapperParams {
   telemFactories?: telem.Factory[];
   /** Connection status the Synnax context reports; defaults to disconnected. */
   connectionStatus?: connection.Status;
+  /** Called with the root of the worker tree, to read component state in a spec. */
+  onRoot?: (root: aether.Root) => void;
 }
 
 export const createSynnaxWrapper = ({
@@ -87,26 +89,30 @@ export const createSynnaxWrapper = ({
   renderContext,
   telemFactories,
   connectionStatus,
+  onRoot,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   if (client != null) disableActEnvironment();
-  const AetherProvider = createAetherProvider({
-    ...synnax.REGISTRY,
-    ...status.REGISTRY,
-    ...alamos.REGISTRY,
-    ...theming.REGISTRY,
-    ...staleness.REGISTRY,
-    ...(renderContext != null
-      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
-      : {}),
-    ...(telemFactories != null
-      ? {
-          [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
-            telem.createFactory(c, telemFactories),
-          ),
-        }
-      : {}),
-    ...additionalRegistry,
-  });
+  const AetherProvider = createAetherProvider(
+    {
+      ...synnax.REGISTRY,
+      ...status.REGISTRY,
+      ...alamos.REGISTRY,
+      ...theming.REGISTRY,
+      ...staleness.REGISTRY,
+      ...(renderContext != null
+        ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
+        : {}),
+      ...(telemFactories != null
+        ? {
+            [telem.PROVIDER_TYPE]: telem.createProvider((c) =>
+              telem.createFactory(c, telemFactories),
+            ),
+          }
+        : {}),
+      ...additionalRegistry,
+    },
+    onRoot,
+  );
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner =
       renderContext == null ? (

@@ -141,6 +141,11 @@ describe("Legend", () => {
       expect(onRangeVisibleChange).toHaveBeenLastCalledWith("r1", false, true);
     });
 
+    it("should end with the footer", async () => {
+      renderLegend(LINES, { ranges: RANGES, footer: <span>Show all</span> });
+      expect(await screen.findByText("Show all")).toBeDefined();
+    });
+
     it("should report the hover of a range name with the range key", async () => {
       const onHoverChange = vi.fn();
       renderLegend(LINES, { ranges: RANGES, onHoverChange });

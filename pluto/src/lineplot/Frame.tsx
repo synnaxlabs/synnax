@@ -127,7 +127,10 @@ export interface LineSpec {
 
 /** Ref handle exposed by Frame for imperative access */
 export interface FrameRef {
-  /** Returns the current bounds for all axes */
+  /**
+   * Returns the current bounds for all axes. On a relative x axis the x bounds are
+   * spans from zero, not timestamps.
+   */
   getBounds: () => Promise<lineplot.AxesBounds>;
   /** Zooms to x, in decimal space, like ContextValue.toggleZoom. */
   toggleZoom: ContextValue["toggleZoom"];

@@ -64,7 +64,7 @@ const byValue = (
   { value: { y: b } }: FindResult,
 ): number => (a === b ? 0 : Number.isNaN(a) ? 1 : Number.isNaN(b) ? -1 : b - a);
 
-// rows lists results with a group under a heading for each channel, sorted by value.
+// rows lists the results of each tooltip group under a heading, sorted by value.
 // Results with no group keep their order.
 const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   const entry = (r: FindResult, label: string | undefined): Row => ({
@@ -73,15 +73,15 @@ const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
     color: r.color,
     bold: r.key === hovered?.key,
   });
-  if (!results.some((r) => r.group != null))
+  if (!results.some((r) => r.tooltipGroup != null))
     return results.map((r) => entry(r, r.label));
-  const channels = new Map<string, FindResult[]>();
+  const groups = new Map<string, FindResult[]>();
   results.forEach((r) => {
-    const name = r.label ?? "";
-    channels.set(name, [...(channels.get(name) ?? []), r]);
+    const key = r.tooltipGroup ?? r.key;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
   });
-  return [...channels].flatMap(([name, members]) => [
-    { label: name, bold: true },
+  return [...groups.values()].flatMap((members) => [
+    { label: members[0].label ?? "", bold: true },
     ...[...members].sort(byValue).map((r) => entry(r, r.group)),
   ]);
 };
@@ -129,6 +129,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
+    if (this.state.position == null && this.state.hovered != null)
+      this.setState((p) => ({ ...p, hovered: null }));
     render.request(ctx, "tool");
   }
 
