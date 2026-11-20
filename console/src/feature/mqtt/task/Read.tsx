@@ -36,11 +36,14 @@ import {
   uuid,
 } from "@synnaxlabs/x";
 import {
+  createContext,
   type Dispatch,
   type FC,
-  Fragment,
+  type PropsWithChildren,
+  type ReactElement,
   type RefObject,
   type SetStateAction,
+  useContext,
   useRef,
   useState,
 } from "react";
@@ -430,14 +433,6 @@ const storedProps = (
   return { ...props, channels };
 };
 
-/** @returns what the device stores for each message of a topic, as deploy finds it. */
-const usePropsOf = (device: Device, path: deep.Path<PlainReadEntry>): ICD.PropsOf => {
-  const entries = PForm.useFieldValue(root.config.entries);
-  const topic = PForm.useFieldValue(path.topic);
-  const written = writtenChannels(entries);
-  return (bound) => storedProps(device.properties.read, topic, bound, written);
-};
-
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
   deviceName: string,
@@ -454,10 +449,6 @@ const usePrefix = (
   });
   return messagePrefix(deviceName, topic, read, name ?? "");
 };
-
-/** @returns the messages of each open ICD, by ICD key. */
-const messagesOf = (formats: ICD.Formats): ICD.Messages =>
-  new Map([...formats].map(([key, form]) => [key, form.value().messages]));
 
 const EntryItem = (props: Tree.ItemRenderProps<string>) => {
   const path = root.config.entries[props.itemKey];
@@ -548,20 +539,6 @@ interface FieldDetailsProps extends MessagePanelProps {
 const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
   const prefix = usePrefix(device.name, rest.path, rest.read);
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
-};
-
-interface PlannerProps {
-  device: Device;
-  path: deep.Path<PlainReadEntry>;
-  /** The index of the message in the topic's reads. */
-  read: number;
-}
-
-/** Plans the channels of a message of a topic, for the tree and the panes. */
-const Planner = ({ device, path, read }: PlannerProps) => {
-  const prefix = usePrefix(device.name, path, read);
-  const propsOf = usePropsOf(device, path);
-  return <ICD.Planner path={path} read={read} prefix={prefix} propsOf={propsOf} />;
 };
 
 interface TopicDetailsProps {
@@ -668,20 +645,7 @@ interface TagDetailsProps {
 
 const TagDetails: FC<TagDetailsProps> = ({ path, device }) => {
   const entry = PForm.useFieldValue(path);
-  const field = tagField(device.name, entry);
-  const props = device.properties.read[sparkplugPropertiesKey(entry)];
-  const plan = Task.useChannelPlan(
-    { field, props },
-    async (client) =>
-      await Task.planReadChannels({
-        client,
-        namer: Task.createNamer(client),
-        props,
-        fields: [field],
-        namePrefix: field.name,
-        indexKey: "",
-      }),
-  );
+  const plan = useContext(TagPlansContext).get(entry.key);
   const planned = plan == null ? undefined : Task.newChannelName(plan, entry.key);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
@@ -803,7 +767,7 @@ const Entries: FC<EntriesProps> = ({
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const plain = entries.filter(isPlain);
-    const messages = messagesOf(formats);
+    const messages = ICD.messagesOf(formats);
     const held = entries.map((e): Addition =>
       isPlain(e)
         ? {
@@ -964,6 +928,83 @@ const Entries: FC<EntriesProps> = ({
   );
 };
 
+/** The plan of each enabled tag, by entry key. */
+const TagPlansContext = createContext<
+  ReadonlyMap<string, Task.ReadChannelPlan | undefined>
+>(new Map());
+TagPlansContext.displayName = "MQTT.TagPlansContext";
+
+/** The plan of a message or a tag, in the plan of the whole task. */
+type SourcePlan =
+  | { type: "message"; plan: ICD.MessagePlan }
+  | { type: "tag"; plan: Task.ReadChannelPlan };
+
+interface PlansProps extends PropsWithChildren {
+  device: Device;
+}
+
+/**
+ * Plans the channels of every message and tag that the task reads, together and as
+ * deploying plans them, for the tree and the panes.
+ */
+const Plans = ({ device, children }: PlansProps): ReactElement => {
+  const entries = PForm.useFieldValue(root.config.entries);
+  const messages = ICD.useMessages();
+  const enabled = entries.filter(({ disabled }) => !disabled);
+  const bound = enabled.filter(isPlain).flatMap((source) =>
+    source.messages.flatMap((read, r) => {
+      const message = ICD.messageOf(messages, source, r);
+      if (message == null) return [];
+      const fields = ICD.readFields(ICD.jsonFields(message), read);
+      return [{ source, read: r, message, fields }];
+    }),
+  );
+  const tags = enabled.filter((e) => e.type === "sparkplug");
+  const written = writtenChannels(entries);
+  const sources = [
+    ...bound.map((b) => ({
+      key: b.source.key,
+      position: b.read,
+      topic: b.source.topic,
+      read: b.source.messages[b.read],
+      message: b.message,
+      prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
+      props: storedProps(device.properties.read, b.source.topic, b, written),
+    })),
+    ...tags.map((entry) => ({
+      entry,
+      name: device.name,
+      props: device.properties.read[sparkplugPropertiesKey(entry)],
+    })),
+  ];
+  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
+    const plan = await planRead(client, device, bound, tags, written, signal);
+    return [
+      ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
+      ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
+    ];
+  });
+  const reads = bound.map(({ source, read }, i): ICD.PlannedRead => {
+    const p = plans[i];
+    return {
+      path: plainPath(source.key),
+      read,
+      plan: p?.type === "message" ? p.plan : undefined,
+    };
+  });
+  const tagPlans = new Map(
+    tags.map((entry, i) => {
+      const p = plans[bound.length + i];
+      return [entry.key, p?.type === "tag" ? p.plan : undefined];
+    }),
+  );
+  return (
+    <ICD.Plans plans={reads}>
+      <TagPlansContext value={tagPlans}>{children}</TagPlansContext>
+    </ICD.Plans>
+  );
+};
+
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);
   const [selected, setSelected] = useState<string[]>([]);
@@ -978,7 +1019,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     return { channel: stored?.channels[""] ?? 0 };
   };
   const body = (
-    <ICD.Plans>
+    <Plans device={device}>
       <Entries
         device={device}
         selected={selected}
@@ -989,13 +1030,10 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       />
       {plain.flatMap(({ key, messages }) =>
         messages.map(({ message }, read) => (
-          <Fragment key={`${key}/${message}`}>
-            <ICD.SuitRead path={plainPath(key)} read={read} />
-            <Planner device={device} path={plainPath(key)} read={read} />
-          </Fragment>
+          <ICD.SuitRead key={`${key}/${message}`} path={plainPath(key)} read={read} />
         )),
       )}
-    </ICD.Plans>
+    </Plans>
   );
   return (
     <>
@@ -1031,32 +1069,37 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that earlier ones keep added to written, so
- * it leaves a stored channel that another binding writes. Reads from the Core alone.
+ * namer. A message plans with written and the channels that earlier ones keep, so it
+ * leaves a stored channel that another binding writes. Reads from the Core alone, and
+ * changes no argument. Throws between sources once signal aborts.
  */
 const planRead = async (
   client: Synnax,
   dev: Pick<Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
-  written: Set<channel.Key>,
+  written: ReadonlySet<channel.Key>,
+  signal?: AbortSignal,
 ): Promise<ReadPlan> => {
   const namer = Task.createNamer(client);
+  const kept = new Set(written);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
+    signal?.throwIfAborted();
     const { source: entry, read: r, message } = b;
     const plan = await ICD.planMessage(
       client,
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedProps(dev.properties.read, entry.topic, b, written),
+      storedProps(dev.properties.read, entry.topic, b, kept),
     );
-    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
   }
   const plans: Task.ReadChannelPlan[] = [];
   for (const entry of tags) {
+    signal?.throwIfAborted();
     const field = tagField(dev.name, entry);
     plans.push(
       await Task.planReadChannels({
