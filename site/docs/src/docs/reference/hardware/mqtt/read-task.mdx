@@ -82,10 +82,11 @@ for each message. It names them after the broker, the topic, and the field. To c
 the name of a new channel, rename its field. After the task creates the channel, select
 the field and type a new name in **Channel** to rename the channel.
 
-A message that reads a number, boolean, or timestamp field stores all of its fields on
-its index channel. A message that reads only string, JSON, or bytes fields reads them
-into [virtual channels](/reference/channels#virtual-channels), which store no data,
-unless one of them reads into an existing channel that stores data.
+A message stores all of its fields on its index channel when it reads a number, boolean,
+timestamp, or UUID field, or when one of its fields reads into an existing channel that
+stores data. A field that reads into an existing virtual channel does not count. A
+message with none of these fields reads its fields into
+[virtual channels](/reference/channels#virtual-channels), which store no data.
 
 <Video id="hardware/mqtt/read-task" label="Create and start an MQTT read task" />
 
