@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import "schemas/synnax/versions/channel/v2"
 import "schemas/synnax/versions/status/v2"
 import "schemas/x/versions/telem/v0"
@@ -56,27 +55,29 @@ Status = status.Status<nil> {
 }
 
 Calculation struct {
-    key        Key = create    {
+    key        Key = create {
         @doc value "is the key of the calculation."
         @key
     }
-    output     channel.Key     {
+    output     channel.Key  {
         @doc value """
             is the channel that the calculation writes. A channel holds at most one
             calculation, and a delete of the channel deletes it.
         """
     }
-    expression string          {
+    expression string       {
         @doc value "is the Arc expression that computes each output sample."
     }
     operations Operation[] = [] {
         @doc value "are the operations applied to the computed samples, in order."
     }
-    primary    channel.Key?    {
-        @doc value "is the channel that the expression reads whose samples time the output."
+    primary    channel.Key? {
+        @doc value """
+            is the channel that the expression reads whose samples time the output.
+        """
     }
-    status     Status?         {
-        @doc value "is the status of the calculation, joined on retrieve."
+    status     Status?      {
+        @doc value  "is the status of the calculation, joined on retrieve."
         @go marshal omit
     }
 
