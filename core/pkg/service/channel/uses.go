@@ -94,16 +94,16 @@ func (s *Service) Uses(
 	return out, nil
 }
 
-// PlanDelete returns the keys that a delete of the channels with keys removes, with the
-// index of each calculated channel that no other channel uses, and what that delete
-// would do to the records that hold them, as gorp.Table.PlanDelete does. It reads snap
-// and writes nothing.
+// PlanDelete returns the keys that a delete of the channels with keys removes, as
+// Writer.DeleteMany with allowInternal false finds them, and what that delete would do
+// to the records that hold them, as gorp.Table.PlanDelete does. It reads snap, writes
+// nothing, and fails with a validation error when keys holds a built-in channel.
 func (s *Service) PlanDelete(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	keys Keys,
 ) (Keys, gorp.DeleteEffects, error) {
-	keys, err := s.withCalculatedIndexes(ctx, snap, keys)
+	keys, err := s.deletion(ctx, snap, keys, false)
 	if err != nil {
 		return nil, gorp.DeleteEffects{}, err
 	}

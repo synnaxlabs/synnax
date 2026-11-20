@@ -260,24 +260,23 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 // Unless allowInternal is true, deleting any internal channel returns an error and no
 // channels are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	keys, err := w.svc.withCalculatedIndexes(ctx, w.tx, keys)
+	keys, err := w.svc.deletion(ctx, w.tx, keys, allowInternal)
 	if err != nil {
 		return err
 	}
-	return w.delete(ctx, keys, allowInternal, nil)
+	return w.delete(ctx, keys, nil)
 }
 
 // DeletePlanned deletes the channels with keys and their storage by applying effects,
-// which Service.PlanDelete returned for keys in the writer's transaction, instead of
-// walking the records that hold them again. keys are the keys that PlanDelete returned.
-// The caller must delete each holder in effects.Restricts first. Deleting an internal
-// channel returns an error.
+// which Service.PlanDelete returned with keys in the writer's transaction, instead of
+// walking the records that hold them again. The caller must delete each holder in
+// effects.Restricts first.
 func (w Writer) DeletePlanned(
 	ctx context.Context,
 	keys Keys,
 	effects gorp.DeleteEffects,
 ) error {
-	return w.delete(ctx, keys, false, &effects)
+	return w.delete(ctx, keys, &effects)
 }
 
 // DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
@@ -295,12 +294,15 @@ func (w Writer) DeleteManyByNames(
 	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
 }
 
-// withCalculatedIndexes returns keys and the index of each calculated channel in keys
-// that no channel outside keys uses.
-func (s *Service) withCalculatedIndexes(
+// deletion returns the keys of the channels that a delete of keys removes, as snap
+// holds them: keys and the index of each calculated channel in keys that no channel
+// outside keys uses. Unless allowInternal is true, it fails with a validation error
+// when keys holds a built-in channel.
+func (s *Service) deletion(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	keys Keys,
+	allowInternal bool,
 ) (Keys, error) {
 	var deleted []Channel
 	if err := s.table.NewRetrieve().
@@ -313,6 +315,13 @@ func (s *Service) withCalculatedIndexes(
 	deleting := set.New(keys...)
 	indexes := set.New[Key]()
 	for _, c := range deleted {
+		if !allowInternal && s.IsBuiltIn(c.Key()) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"can't delete built-in channel %q",
+				c.Name,
+			)
+		}
 		if c.IsCalculated() && c.LocalIndex != 0 && !deleting.Contains(c.Index()) {
 			indexes.Add(c.Index())
 		}
@@ -924,7 +933,6 @@ func validateNameSyntax(names []string) error {
 func (w Writer) delete(
 	ctx context.Context,
 	keys Keys,
-	allowInternal bool,
 	planned *gorp.DeleteEffects,
 ) error {
 	del := w.svc.table.NewDelete()
@@ -933,16 +941,6 @@ func (w Writer) delete(
 	}
 	if err := del.
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
-		Guard(func(_ gorp.Context, c Channel) error {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"can't delete built-in channel %q",
-					c.Name,
-				)
-			}
-			return nil
-		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
