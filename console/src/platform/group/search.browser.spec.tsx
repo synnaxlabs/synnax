@@ -279,8 +279,10 @@ describe("Group search selection", () => {
     );
     if (folderRow == null) throw new Error("folder result not found");
     withControlHeld(() => fireEvent.click(folderRow));
-    fireEvent.dragStart(folderRow);
-    fireEvent.drop(await findTreeRow(itemName(dest.name)));
+    fireEvent.dragStart(folderRow, { dataTransfer: new DataTransfer() });
+    fireEvent.drop(await findTreeRow(itemName(dest.name)), {
+      dataTransfer: new DataTransfer(),
+    });
     await waitFor(async () =>
       expect(
         await retrieveChildGroupKeys(client, group.resourceID(dest.key)),
