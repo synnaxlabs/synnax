@@ -222,6 +222,7 @@ jobs:
       tauri_macos_matrix: ${{ steps.set-console-tauri-matrix.outputs.macos }}
       tauri_windows_matrix: ${{ steps.set-console-tauri-matrix.outputs.windows }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1144,6 +1145,7 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+    timeout-minutes: 10
     steps:
       - name: Download release binaries
         run: |
@@ -1181,6 +1183,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
