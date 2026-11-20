@@ -182,25 +182,13 @@ func OpenService(
 	return s, nil
 }
 
-// SyncHashes stores the current config hash of each task whose type hashes referenced
-// records. Call it after every migration that can change a config or a record that it
-// hashes, and before the Driver configures the tasks.
+// SyncHashes stores the current config hash of each task. Call it after every migration
+// that can change a config or a record that it hashes, and before the Driver configures
+// the tasks.
 func (s *Service) SyncHashes(ctx context.Context) error {
-	var types []string
-	for _, t := range s.cfg.Configs.Types() {
-		if store, _ := s.cfg.Configs.Store(t); len(store.HashedTables()) > 0 {
-			types = append(types, t)
-		}
-	}
-	if len(types) == 0 {
-		return nil
-	}
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var tasks []Task
-		if err := s.NewRetrieve().
-			Where(MatchTypes(types...)).
-			Entries(&tasks).
-			Exec(ctx, tx); err != nil {
+		if err := s.NewRetrieve().Entries(&tasks).Exec(ctx, tx); err != nil {
 			return err
 		}
 		w := s.NewWriter(tx)
