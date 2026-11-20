@@ -9,31 +9,21 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { defineConfig } from "astro/config";
 
-/** VERCEL_LIVE is the Vercel toolbar, which Vercel adds to preview deployments. */
-const VERCEL_LIVE = "https://vercel.live";
-
 export default defineConfig({
-  integrations: [integration(), react()],
+  integrations: [integration(), react(), jitless()],
   adapter: vercel(),
   security: {
-    csp: {
-      directives: [
-        "default-src 'self'",
-        `connect-src 'self' https://formspree.io ${VERCEL_LIVE}`,
-        `img-src 'self' data: ${VERCEL_LIVE} https://vercel.com`,
-        `frame-src ${VERCEL_LIVE}`,
-        "object-src 'none'",
-        "base-uri 'self'",
-      ],
-      scriptDirective: { resources: ["'self'", VERCEL_LIVE] },
-      // Components set sizes and custom properties in style attributes.
-      styleDirective: {
-        resources: ["'self'", { resource: "'unsafe-inline'", kind: "attribute" }],
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", "https://formspree.io"],
+        "img-src": ["'self'", "data:"],
       },
-    },
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
   },
   vite: {
     // Prebundle the island's linked workspace modules so their icon dependencies
