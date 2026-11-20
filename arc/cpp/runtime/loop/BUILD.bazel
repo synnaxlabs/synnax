@@ -29,14 +29,6 @@ cc_library(
         "@platforms//os:windows": ["loop_windows.h"],
         "//conditions:default": [],
     }),
-    copts = select({
-        "@platforms//os:windows": [
-            "/D_WIN32_WINNT=0x0601",
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],

@@ -200,7 +200,7 @@ export interface DiagramProps
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
-   * the most recent mousemove over the diagram.
+   * the most recent mousemove over the diagram. Ignored when not editable.
    */
   onPaste?: ClipboardHandler;
 }
@@ -496,6 +496,7 @@ export const create = ({
     };
 
     const handlePaste = (e: ReactClipboardEvent<HTMLDivElement>): void => {
+      if (!editable) return;
       onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
     };
 
@@ -574,5 +575,5 @@ export const create = ({
     </ReactFlowProvider>
   );
 
-  return memo(Diagram);
+  return Diagram;
 };

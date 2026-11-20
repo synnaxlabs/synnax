@@ -78,11 +78,7 @@ export interface UseReturn<Z extends z.ZodType> extends ContextValue<Z> {}
 export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => {
   const { schema, mode = "normal", onChange, onHasTouched, store } = params;
   const ref = useInitializerRef<State<Z>>(
-    () =>
-      new State<Z>(
-        params.store !== undefined ? params.store : createLocalStore(params.values),
-        schema,
-      ),
+    () => new State<Z>(params.store ?? createLocalStore(params.values), schema),
   );
   const onChangeRef = useSyncedRef(onChange);
   const handleError = Status.useErrorHandler();
