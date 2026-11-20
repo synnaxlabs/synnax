@@ -50,14 +50,17 @@ export interface FilePickerInterceptor {
  * interceptFilePicker captures <input type="file"> clicks so tests can drive the real
  * browser pickFiles/pickDirectory code paths without a native dialog. The returned
  * interceptor selects files or cancels on the captured input. Installs a spy on
- * HTMLElement.prototype.click; callers restore it via vi.restoreAllMocks() in
+ * HTMLInputElement.prototype.click; callers restore it via vi.restoreAllMocks() in
  * afterEach.
  */
 export const interceptFilePicker = (): FilePickerInterceptor => {
-  // The spy calls through instead of replacing the click, so a component that actuates
-  // itself through the DOM still works while a pick is intercepted. A file input's own
-  // click is inert in jsdom, which has no picker.
-  const spy = vi.spyOn(HTMLElement.prototype, "click");
+  // A file input's click would open the browser's own picker, which a headless browser
+  // cancels at once. Other inputs click as usual.
+  const spy = vi
+    .spyOn(HTMLInputElement.prototype, "click")
+    .mockImplementation(function (this: HTMLInputElement) {
+      if (this.type !== "file") HTMLElement.prototype.click.call(this);
+    });
   const lastInput = (): HTMLInputElement => {
     const input = spy.mock.contexts.findLast(
       (ctx): ctx is HTMLInputElement =>

@@ -35,7 +35,10 @@ export const FileDragSource = (): ReactElement => {
 /** Starts the file haul a rendered {@link FileDragSource} provides. */
 export const startFileDrag = (): void => {
   act(() => {
-    fireEvent.dragStart(screen.getByText(START_FILE_DRAG));
+    // A browser builds a synthetic drag event with no DataTransfer.
+    fireEvent.dragStart(screen.getByText(START_FILE_DRAG), {
+      dataTransfer: new DataTransfer(),
+    });
   });
 };
 
