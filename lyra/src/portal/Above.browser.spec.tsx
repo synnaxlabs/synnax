@@ -45,8 +45,7 @@ const renderAbove = async (modal: ReactElement): Promise<HTMLElement> => {
   return host;
 };
 
-const counter = (): HTMLElement =>
-  page.getByRole("button", { name: /count/ }).element();
+const counter = (): Element => page.getByRole("button", { name: /count/ }).element();
 
 describe("Portal.Above", () => {
   it("should render into its element while no modal is open", async () => {
