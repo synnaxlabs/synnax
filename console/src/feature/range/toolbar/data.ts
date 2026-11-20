@@ -62,6 +62,8 @@ export const useGroups = (): Groups => {
   const [at, setAt] = useState(() => TimeStamp.now());
   // Show more grows the size, so a read for a new `at` keeps the pages already shown.
   const [runningSize, setRunningSize] = useState(RUNNING_PAGE);
+  // The size of Running's last read to land. A read for a larger size is a page.
+  const [answered, setAnswered] = useState({ size: runningSize, loading: true });
   const runningList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("in_progress", at), order: NEWEST },
@@ -78,7 +80,13 @@ export const useGroups = (): Groups => {
   // land apart. Until both land, the groups keep the ranges of the last answers, so a
   // range that ends moves to Recent at once and never shows twice or drops out.
   const [held, setHeld] = useState<ranger.Key[]>([]);
-  const reading = runningList.variant === "loading" || recentList.variant === "loading";
+  const runningLoading = runningList.variant === "loading";
+  const reading = runningLoading || recentList.variant === "loading";
+  if (runningLoading !== answered.loading)
+    setAnswered({
+      size: runningLoading ? answered.size : runningSize,
+      loading: runningLoading,
+    });
   const keys = unique.unique([
     ...runningList.data,
     ...recentList.data,
@@ -117,11 +125,7 @@ export const useGroups = (): Groups => {
     runningComplete: runningList.complete,
     moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
     reading,
-    // Show more grows the size past the answer shown, so a crossing's read never pages.
-    paging:
-      runningList.variant === "loading" &&
-      !runningList.complete &&
-      runningList.data.length < runningSize,
+    paging: runningLoading && answered.size < runningSize,
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };

@@ -209,7 +209,12 @@ describe("range/Toolbar", () => {
       });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
-      // A read for a range that ends keeps Show more enabled.
+      // A deleted range shrinks the page, and a read for a range that ends still keeps
+      // Show more enabled.
+      const deleted = newer[newer.length - 1];
+      await waitForLine("Running", deleted.name);
+      await client.ranges.delete(deleted.key);
+      await waitFor(() => expect(queryLine("Running", deleted.name)).toBeNull());
       const reads = holdListReads();
       await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
       const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
