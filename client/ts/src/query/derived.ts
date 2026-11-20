@@ -96,7 +96,10 @@ export const bindDerived = <
     ),
     ...(triggers ?? []).map((t) => t.attach(recompose)),
     // A record the derived table needs is needed in the source, which composes it.
-    source.hold({ held: () => into.held() }),
+    source.hold({
+      held: () => into.held(),
+      drop: (keys) => into.drop(keys),
+    }),
   ];
   recompose("all");
   return () => detach.forEach((d) => d());
