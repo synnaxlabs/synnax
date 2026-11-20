@@ -110,8 +110,10 @@ const createFake = async () => {
     core.gate = gate;
     return gate;
   };
-  const cachedUses = (key: secret.Key) =>
-    secrets.watch({ key, includeUses: true }).getCached()?.uses;
+  const cachedUses = (key: secret.Key) => {
+    const cached = secrets.watch({ key, includeUses: true }).getCached();
+    return query.isLive(cached) ? cached.uses : undefined;
+  };
   const reopened = () => opened;
   return {
     secrets,

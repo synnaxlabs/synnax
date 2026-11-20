@@ -174,21 +174,25 @@ export interface TableParams<
  * NotFound instead of returning the survivors. Splits a rejected batch in halves until
  * each vanished key stands alone, so a few vanished keys cost a few requests, not one
  * per cached key.
+ *
+ * @param vanished - Whether an error of a batch means one of its keys is gone. It
+ * defaults to NotFound.
  */
 export const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
   fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
   keys: Key[],
+  vanished: (exc: unknown) => boolean = NotFoundError.matches,
 ): Promise<Array<Keyed<Key, Value>>> => {
   try {
     return await fetch(keys);
   } catch (exc) {
-    if (!NotFoundError.matches(exc)) throw errors.fromUnknown(exc);
+    if (!vanished(exc)) throw errors.fromUnknown(exc);
   }
   if (keys.length === 1) return [];
   const mid = Math.ceil(keys.length / 2);
   const halves = await Promise.all([
-    fetchSurvivors(fetch, keys.slice(0, mid)),
-    fetchSurvivors(fetch, keys.slice(mid)),
+    fetchSurvivors(fetch, keys.slice(0, mid), vanished),
+    fetchSurvivors(fetch, keys.slice(mid), vanished),
   ]);
   return halves.flat();
 };

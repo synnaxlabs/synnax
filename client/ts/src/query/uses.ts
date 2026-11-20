@@ -10,7 +10,7 @@
 import { type record, scheduler, sync, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { isConnectionError, NotFoundError } from "@/errors";
+import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import { type Retrieves, type Trigger, trigger } from "@/query/query";
 import { fetchSurvivors, type Keyed, type Table } from "@/query/table";
@@ -95,6 +95,10 @@ const stripCopy = <R extends object & { uses?: unknown }>(record: R): R => {
   delete stripped.uses;
   return stripped;
 };
+
+/** A record that the subject can no longer retrieve has no uses that it can read. */
+const vanishedForSubject = (exc: unknown): boolean =>
+  NotFoundError.matches(exc) || AccessDeniedError.matches(exc);
 
 /**
  * Holds the uses of records, which are the resources that use each one, apart from the
@@ -276,8 +280,12 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
               uses,
             })),
           keys,
+          vanishedForSubject,
         );
         store.ingest(records, { mode: "set", since });
+        const returned = new Set(records.map(({ key }) => key));
+        const gone = keys.filter((key) => !returned.has(key));
+        if (gone.length > 0) store.evict(gone);
       });
       fetched = true;
     } finally {
