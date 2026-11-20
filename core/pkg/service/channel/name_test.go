@@ -18,8 +18,10 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Unique names", Ordered, func() {
@@ -98,6 +100,42 @@ var _ = Describe("Unique names", Ordered, func() {
 		})).To(MatchError(
 			ContainSubstring("channel with name 'pt_batch_01' already exists"),
 		))
+	})
+
+	It("Should name the position of a clashing channel in a create of many", func(
+		ctx SpecContext,
+	) {
+		taken := virtual(UniqueChannelName())
+		Expect(create(ctx, &taken)).To(Succeed())
+		chs := []channel.Channel{virtual(UniqueChannelName()), virtual(taken.Name)}
+		err := db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateMany(ctx, &chs)
+		})
+		Expect(err).To(MatchError(validate.ErrValidation))
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		Expect(ok).To(BeTrue())
+		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+	})
+
+	It("Should use up no channel keys on a create that the index refuses", func(
+		ctx SpecContext,
+	) {
+		index := func(name string) channel.Channel {
+			return channel.Channel{
+				Name:     name,
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		first := index(UniqueChannelName())
+		Expect(create(ctx, &first)).To(Succeed())
+		for range 3 {
+			dup := index(first.Name)
+			Expect(create(ctx, &dup)).To(MatchError(ContainSubstring("already exists")))
+		}
+		next := index(UniqueChannelName())
+		Expect(create(ctx, &next)).To(Succeed())
+		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
 	})
 
 	It("Should keep each holder of a stored duplicate writable", func(ctx SpecContext) {

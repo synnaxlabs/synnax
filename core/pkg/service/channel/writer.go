@@ -128,7 +128,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, nameTaken(err)
+		return nil, nameTaken(err, 0)
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -638,6 +638,12 @@ func (w Writer) allocateNew(
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
+	// Allocate uses up keys, so a name that the index refuses fails before it.
+	for _, i := range newIndices {
+		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
+			return nil, nameTaken(err, i)
+		}
+	}
 	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
 		return nil, err
 	}
@@ -749,7 +755,15 @@ func (w Writer) allocateAndWrite(
 		Exclusive().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		return nameTaken(err)
+		// The check before Allocate passed, so a clash is between two new channels, and
+		// the later one is refused.
+		at, name := -1, takenName(err)
+		for _, i := range newIndices {
+			if channels[i].Name == name {
+				at = i
+			}
+		}
+		return nameTaken(err, at)
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
@@ -850,9 +864,20 @@ func validateNameSyntax(names []string) error {
 	return nil
 }
 
-// nameTaken returns err as a validation error that names the taken name when err is a
-// clash of the name index, and returns err unchanged otherwise.
-func nameTaken(err error) error {
+// nameTaken returns err as a validation error at the name of the channel at position i
+// of a request when err is a clash of the name index, and returns err unchanged
+// otherwise.
+// takenName returns the name of a clash of the name index, or "" when err is not one.
+func takenName(err error) string {
+	var clash gorp.UniqueError
+	if errors.As(err, &clash) && clash.Space == nameSpace {
+		name, _ := clash.Value.(string)
+		return name
+	}
+	return ""
+}
+
+func nameTaken(err error, i int) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) || clash.Space != nameSpace {
 		return err
@@ -863,7 +888,7 @@ func nameTaken(err error) error {
 			"channel with name '%v' already exists",
 			clash.Value,
 		),
-		"name",
+		strconv.Itoa(i), "name",
 	)
 }
 
@@ -933,7 +958,7 @@ func (w Writer) rename(
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return nameTaken(err)
+		return nameTaken(err, slices.Index(names, takenName(err)))
 	}
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
