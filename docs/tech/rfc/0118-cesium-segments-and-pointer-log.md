@@ -291,8 +291,8 @@ the block, stored in the log with each commit. A writer continues from that valu
   variable type, a search of the trailers finds a sample's block.
 - **Handles**: One budget for the database, the smaller of half the file limit and 4096,
   replaces the cap per channel (`cesium/internal/domain/db.go:76`). A handle with
-  unsynced bytes is synced before the budget closes it. A sync that fails, from any
-  caller, marks the segment failed (§5.4).
+  unsynced bytes is synced before the budget closes it, in the job that needs the slot.
+  A sync that fails, from any caller, marks the segment failed (§5.4).
 
 **Version 2, a sealed clock as progressions.** The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
@@ -789,8 +789,10 @@ it. It keeps every sample that a checked block holds.
 - **Injected inputs**: The file system (`WithFS`, `cesium/options.go:92`) and the clock
   (`WithClock`, `:141`) are injected today. The random source and one executor, which
   runs every owner step and every sync of the pool, are NEW options (today
-  `cesium/delete.go:190` calls `rand.Int`). Every sync is `File.Sync`
-  (`x/go/io/fs/fs.go:39`): Cesium holds no OS-specific code and no timer.
+  `cesium/delete.go:190` calls `rand.Int`). A job of the executor never waits for
+  another job of it: work that a job needs, such as the sync of an evicted handle, runs
+  inside that job. Every sync is `File.Sync` (`x/go/io/fs/fs.go:39`): Cesium holds no
+  OS-specific code and no timer.
 - **Four owners**: The state owner holds the claims, the pointer sets of every channel,
   and the counters. It never does I/O. The log owner holds the log file. The
   checkpointer holds heads, parts, and log files. The compactor holds rewrites, the
