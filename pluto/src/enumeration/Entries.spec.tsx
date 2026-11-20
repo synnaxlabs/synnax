@@ -108,6 +108,22 @@ describe("Enumeration.Table", () => {
       expect(sentValues(onChange)).toEqual([[["Running", 1]]]);
     });
 
+    it("should send a typed name to its entry after another user moves it", () => {
+      const onChange = vi.fn<OnChange>();
+      const off = createEntry("Off", 0);
+      const on = createEntry("On", 1);
+      const table = (value: enumeration.Entry[]): ReactElement => (
+        <Enumeration.Table value={value} onChange={onChange} onMove={vi.fn()} />
+      );
+      const { rerender } = render(table([off, on]), { wrapper });
+      const name = input("Name 1");
+      act(() => name.focus());
+      fireEvent.change(name, { target: { value: "Closed" } });
+      rerender(table([on, off]));
+      fireEvent.keyDown(name, { key: "Enter" });
+      expect(changes(onChange)).toEqual([[{ ...off, name: "Closed" }]]);
+    });
+
     it("should send nothing for a typed name that Esc discards", () => {
       const onChange = vi.fn<OnChange>();
       renderTable({ initial: [createEntry("Off", 0), createEntry("On", 1)], onChange });
