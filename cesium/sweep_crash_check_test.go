@@ -139,12 +139,10 @@ var _ = Describe("Sweep crash check", func() {
 					DataType: telem.TimestampT,
 				},
 			)).To(Succeed())
-			Expect(db.WriteSeries(
-				ctx,
+			Expect(commitFrame(ctx, db, idx, 10*telem.SecondTS, telem.UnaryFrame(
 				idx,
-				10*telem.SecondTS,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
-			)).To(Succeed())
+			))).To(Succeed())
 			Expect(db.Close()).To(Succeed())
 			syncAll(disk, "")
 			var (
@@ -256,7 +254,7 @@ var _ = Describe("Sweep crash check", func() {
 					Key: dropped, Name: "b", Index: idx, DataType: telem.Int64T,
 				},
 			)).To(Succeed())
-			Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			Expect(commitFrame(ctx, db, idx, 10*telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{idx, kept, dropped},
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12),

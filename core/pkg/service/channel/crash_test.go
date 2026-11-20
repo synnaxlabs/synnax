@@ -276,7 +276,13 @@ func (e *crashEngine) Commit(
 		},
 	)
 	start := telem.TimeStamp(r.ID) * telem.SecondTS
-	if err := e.cesium.Write(ctx, start, frame); err != nil {
+	if err := commitFrame(
+		ctx,
+		e.cesium,
+		cesium.ChannelKey(e.clock.Key()),
+		start,
+		frame,
+	); err != nil {
 		return 0, err
 	}
 	if err := crash.Writeback(e.fs); err != nil {
@@ -578,9 +584,10 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		data, scratch := e.samples("d1"), e.samples("s1")
 		Expect(e.create(ctx, &data)).To(Succeed())
 		Expect(e.create(ctx, &scratch)).To(Succeed())
-		Expect(e.cesium.Write(ctx, telem.SecondTS, telem.MultiFrame(
+		clock := cesium.ChannelKey(e.clock.Key())
+		Expect(commitFrame(ctx, e.cesium, clock, telem.SecondTS, telem.MultiFrame(
 			[]cesium.ChannelKey{
-				cesium.ChannelKey(e.clock.Key()),
+				clock,
 				cesium.ChannelKey(data.Key()),
 				cesium.ChannelKey(scratch.Key()),
 			},
@@ -615,7 +622,7 @@ var _ = Describe("Crash adapter on the channel services", func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(e.cesium.Write(ctx, telem.SecondTS, telem.MultiFrame(
+			Expect(commitFrame(ctx, e.cesium, 99, telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{99},
 				[]telem.Series{stamps(1, 1)},
 			))).To(Succeed())
@@ -656,3 +663,26 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		},
 	)
 })
+
+// commitFrame writes fr from start with one writer on clock, commits it, and closes the
+// writer.
+func commitFrame(
+	ctx context.Context,
+	db *cesium.DB,
+	clock cesium.ChannelKey,
+	start telem.TimeStamp,
+	fr cesium.Frame,
+) error {
+	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: fr.KeysSlice(),
+		Clock:    clock,
+		Start:    start,
+	})
+	if err != nil {
+		return err
+	}
+	if _, _, err = w.Write(ctx, fr, nil); err == nil {
+		_, _, err = w.Commit(ctx, nil)
+	}
+	return errors.Join(err, w.Close())
+}

@@ -37,6 +37,7 @@ var _ = Describe("Skip check under the claim lock", func() {
 		})).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: []cesium.ChannelKey{index},
+			Clock:    index,
 			Start:    10 * telem.SecondTS,
 		}))
 		return db, w, index

@@ -51,7 +51,7 @@ var _ = Describe("Purge check", func() {
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
-		Expect(ts.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+		Expect(commitFrame(ctx, ts, idx, 10*telem.SecondTS, telem.MultiFrame(
 			[]cesium.ChannelKey{idx, data},
 			[]telem.Series{
 				telem.NewSeriesSecondsTSV(10, 11, 12),
