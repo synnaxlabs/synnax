@@ -576,6 +576,8 @@ describe("Color.Field", () => {
         screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
       ).toBeNull();
       expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
+      fireEvent.click(screen.getByText("Custom"));
+      expect(screen.queryByRole("button", { name: "Save to library" })).toBeNull();
     });
 
     it("should open no swatch menu or palette + for a user who cannot update", async () => {
