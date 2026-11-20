@@ -146,7 +146,6 @@ const removeFromContextMenu = async (item: HTMLElement): Promise<void> => {
   fireEvent.click(await screen.findByText("Remove"));
 };
 
-/** Pastes the text into the element. */
 const paste = (target: HTMLElement, text: string): void => {
   const clipboardData = new DataTransfer();
   clipboardData.setData("text/plain", text);
