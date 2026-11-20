@@ -45,6 +45,20 @@ func (e OutOfRangeError) Error() string {
 // Unwrap returns ErrOutOfRange.
 func (e OutOfRangeError) Unwrap() error { return ErrOutOfRange }
 
+// ConversionError is returned by Convert and ValueAs when the samples of one data type
+// do not convert to another.
+type ConversionError struct {
+	// From is the data type of the series.
+	From DataType
+	// To is the data type that the series does not convert to.
+	To DataType
+}
+
+// Error implements error.
+func (e ConversionError) Error() string {
+	return fmt.Sprintf("cannot convert %s series to %s", withArticle(e.From), e.To)
+}
+
 // withArticle returns dt after the indefinite article of its name.
 func withArticle(dt DataType) string {
 	if strings.HasPrefix(string(dt), "int") {
@@ -58,14 +72,15 @@ func withArticle(dt DataType) string {
 // zero for an integer type. A boolean is 1 or 0 as a number, and a number is true as a
 // boolean unless it is 0. It returns s when dt is its data type. It returns an
 // OutOfRangeError when a sample is out of the range of dt or is a NaN for an integer
-// type, and an error when either type is not a number, a timestamp, or a boolean.
+// type, and a ConversionError when either type is not a number, a timestamp, or a
+// boolean.
 func Convert(s Series, dt DataType) (Series, error) {
 	if s.DataType == dt {
 		return s, nil
 	}
 	t, ok := targetOf(dt)
-	if !ok {
-		return Series{}, convertError(s.DataType, dt)
+	if _, from := targetOf(s.DataType); !ok || !from {
+		return Series{}, ConversionError{From: s.DataType, To: dt}
 	}
 	var (
 		data []byte
@@ -93,7 +108,6 @@ func Convert(s Series, dt DataType) (Series, error) {
 	case Float64T:
 		data, err = convertFrom[float64](s.Data, s.DataType, t)
 	case UnknownT, UUIDT, StringT, BytesT, JSONT:
-		err = convertError(s.DataType, dt)
 	}
 	if err != nil {
 		return Series{}, err
@@ -112,7 +126,7 @@ func ValueAs[T NumericSample](s Series, i int) (T, error) {
 	}
 	t, ok := targetOf(dt)
 	if !ok {
-		return 0, convertError(s.DataType, dt)
+		return 0, ConversionError{From: s.DataType, To: dt}
 	}
 	switch s.DataType {
 	case Uint8T, BooleanT:
@@ -137,11 +151,7 @@ func ValueAs[T NumericSample](s Series, i int) (T, error) {
 		return valueAs[float64, T](s.ValueAt[float64](i), s.DataType, t)
 	case UnknownT, UUIDT, StringT, BytesT, JSONT:
 	}
-	return 0, convertError(s.DataType, dt)
-}
-
-func convertError(from, to DataType) error {
-	return errors.Newf("cannot convert %s series to %s", withArticle(from), to)
+	return 0, ConversionError{From: s.DataType, To: dt}
 }
 
 // target is a type that numbers convert to: its kind ('u', 'i', 'f', or 'b' for a
@@ -297,7 +307,7 @@ func convertFrom[S NumericSample](
 		return dst, nil
 	case UnknownT, UUIDT, StringT, BytesT, JSONT:
 	}
-	return nil, convertError(from, t.dataType)
+	return nil, ConversionError{From: from, To: t.dataType}
 }
 
 func convertTo[S, T NumericSample](src []S) []byte {
