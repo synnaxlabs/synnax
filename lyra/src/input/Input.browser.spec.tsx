@@ -12,6 +12,7 @@ import { assert, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -127,6 +128,77 @@ describe("Input", () => {
       expect(textStart(textIcon.input) - textIcon.icon!.right).toBe(
         textStart(outlinedIcon.input) - outlinedIcon.icon!.right,
       );
+    });
+  });
+
+  describe("slot button", () => {
+    const renderSlotButton = async (props: Partial<Input.TextProps> = {}) => {
+      let pressed = 0;
+      const { getByRole } = await renderThemed(
+        <Input.Text
+          value=""
+          onChange={() => {}}
+          placeholder="Name"
+          {...props}
+          startContent={
+            <Button.Button aria-label="Pick color" onClick={() => pressed++}>
+              <Icon.Add />
+            </Button.Button>
+          }
+        />,
+      );
+      return {
+        button: getByRole("button", { name: "Pick color" }),
+        input: () => getByRole("textbox").element(),
+        pressed: () => pressed,
+      };
+    };
+
+    it("should take a click on a button in the start content", async () => {
+      const { button, pressed } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(pressed()).toBe(1);
+    });
+
+    it("should leave a slot button of a preview input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ preview: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
+    it("should leave a slot button of a disabled input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ disabled: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
+    it("should not focus the input on a press of a slot button", async () => {
+      const { button, input } = await renderSlotButton();
+      await userEvent.click(button);
+      expect(document.activeElement).not.toBe(input());
+    });
+
+    it("should leave a press in a dialog that a slot button opens to the dialog", async () => {
+      const { getByRole } = await renderThemed(
+        <Triggers.Provider>
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            placeholder="Name"
+            startContent={
+              <Color.Swatch
+                value="#ff0000"
+                onChange={() => {}}
+                aria-label="Pick color"
+              />
+            }
+          />
+        </Triggers.Provider>,
+      );
+      await userEvent.click(getByRole("button", { name: "Pick color" }));
+      const hex = page.getByRole("textbox", { name: "Hex" });
+      await userEvent.click(hex);
+      expect(document.activeElement).toBe(hex.element());
     });
   });
 

@@ -67,7 +67,7 @@ THREAD_NODES = (
 )
 
 
-COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.I)
+COMMAND = re.compile(r"@sedosaur\s+dismiss\b", re.IGNORECASE)
 """The reply on the thread of a finding that dismisses it."""
 WRITE = {"admin", "write"}
 """The repository permissions that can dismiss a finding. GitHub reports maintain as
@@ -79,14 +79,14 @@ SETTLED = "The review of {head} finds this fixed: {reason}"
 ANSWER_START = "<!-- sedosaur_answer "
 ANSWER_END = " -->"
 # The REST fields of a comment, in the shape that GraphQL serves.
-_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.I)
+_FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.IGNORECASE)
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
     "body}"
 )
 
 _SUMMARY = re.compile(
-    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.S
+    f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.DOTALL
 )
 
 

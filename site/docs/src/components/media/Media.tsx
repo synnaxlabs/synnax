@@ -36,7 +36,10 @@ export interface VideoProps
     Omit<
       DetailedHTMLProps<VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
-    > {}
+    > {
+  /** Describes what the video shows, for screen readers. */
+  label: string;
+}
 
 /**
  * Renders a looping, muted docs video that follows the reader's color scheme. The
@@ -44,7 +47,12 @@ export interface VideoProps
  * `@/components/media/lightbox` expands it.
  * @throws {Error} if Studio has uploaded no version of the video.
  */
-export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
+export const Video = ({
+  id,
+  label,
+  themed = true,
+  ...rest
+}: VideoProps): ReactElement => {
   const version = VERSIONS[id];
   if (version == null)
     throw new Error(
@@ -54,7 +62,7 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
   const src = (theme?: string): string => `${CDN.video(id, version, theme)}#t=0.001`;
   return (
     <div className="docs-video">
-      <video loop muted playsInline preload="metadata" {...rest}>
+      <video loop muted playsInline preload="metadata" aria-label={label} {...rest}>
         {themed && <source src={src("dark")} media={DARK} type="video/mp4" />}
         <source src={src(themed ? "light" : undefined)} type="video/mp4" />
       </video>
@@ -114,6 +122,8 @@ export interface ImageProps
       "id"
     > {
   extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
+  /** Describes what the image shows. Use an empty string only for decoration. */
+  alt: string;
 }
 
 /**

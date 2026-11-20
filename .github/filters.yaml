@@ -247,6 +247,13 @@ www:
   - .github/workflows/build.site.yaml
   - site/www/**
 
+studio:
+  - *client_ts
+  - *lyra
+  - *ts
+  - *x_ts
+  - studio/**
+
 knip:
   - *arc_ts
   - *console
@@ -424,6 +431,11 @@ suppressions_py:
 runners:
   - *py
   - scripts/runners/**
+
+console_deps:
+  - console/src-tauri/.cargo/audit.toml
+  - console/src-tauri/Cargo.lock
+  - console/src-tauri/Cargo.toml
 
 console_build: &console_build
   - *console

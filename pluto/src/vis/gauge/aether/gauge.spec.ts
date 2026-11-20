@@ -75,9 +75,16 @@ describe("gauge/aether/Gauge", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the gauge, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(gauge.Gauge.z.parse({ box: BOX })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("60");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("61");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
