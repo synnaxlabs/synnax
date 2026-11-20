@@ -665,17 +665,17 @@ control region and gates its own writers on it (`x/go/control`).
   and ends where the stretch of its first stamp ends, so the writer sends one Commit per
   stretch. Its `Sync` waits for those stamps (§5.4).
 
-| Case of RFC 0095 §4.0                                    | Decided by | How                                                                                                                           |
-| -------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Start before every other claim: opens                    | Cesium     | No claim holds the start. A second live claim on a key fails at any start: the framer keeps one live writer per clock (D-153) |
-| Start inside another claim, at any authority: fails      | Both       | Cesium refuses a `Bounded` claim. A second live writer joins the framer's control region and gets no Cesium writer of its own |
-| No start, next to a live writer: fails                   | Cesium     | The start is the open time, inside the live claim                                                                             |
-| A commit reaches a stored domain: write conflict         | Cesium     | The commit overlaps a stored pointer                                                                                          |
-| A live writer opens over a persist claim: opens          | Cesium     | A live claim skips `Bounded` claims at open. An overlap shows at a commit                                                     |
-| A commit reaches another claim: fails, the other goes on | Cesium     | The commit rule                                                                                                               |
-| A live writer moves back over uncommitted time: it wins  | Cesium     | The live claim moves back to its first stamp (RFC 0086 §6.0). The `Bounded` commit then fails                                 |
-| A delete reaches committed time of an open writer: fails | Cesium     | `DeleteTimeRange` checks claims                                                                                               |
-| The writer opens on a virtual channel: samples drop      | The framer | A virtual channel never reaches Cesium                                                                                        |
+| Case of RFC 0095 §4.0                                    | Decided by | How                                                                                                                                 |
+| -------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Start before every other claim: opens                    | Cesium     | No claim holds the start. A second live claim on a key fails at any start: the framer keeps one live writer per clock (§5.8, above) |
+| Start inside another claim, at any authority: fails      | Both       | Cesium refuses a `Bounded` claim. A second live writer joins the framer's control region and gets no Cesium writer of its own       |
+| No start, next to a live writer: fails                   | Cesium     | The start is the open time, inside the live claim                                                                                   |
+| A commit reaches a stored domain: write conflict         | Cesium     | The commit overlaps a stored pointer                                                                                                |
+| A live writer opens over a persist claim: opens          | Cesium     | A live claim skips `Bounded` claims at open. An overlap shows at a commit                                                           |
+| A commit reaches another claim: fails, the other goes on | Cesium     | The commit rule                                                                                                                     |
+| A live writer moves back over uncommitted time: it wins  | Cesium     | The live claim moves back to its first stamp (RFC 0086 §6.0). The `Bounded` commit then fails                                       |
+| A delete reaches committed time of an open writer: fails | Cesium     | `DeleteTimeRange` checks claims                                                                                                     |
+| The writer opens on a virtual channel: samples drop      | The framer | A virtual channel never reaches Cesium                                                                                              |
 
 ### 5.9 Struct storage, designed and not built
 
