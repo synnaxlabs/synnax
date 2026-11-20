@@ -34,8 +34,7 @@ const TOOLTIPS: Record<Mode, string> = {
 
 /**
  * Selects the time mode of the plot's x axis: absolute or relative. Renders nothing
- * when the axis does not show time. With the compare flag off, it renders only on a
- * relative axis, so the user can go back to absolute.
+ * when the axis does not show time.
  */
 export const TimeModeSelect = (): ReactElement | null => {
   const key = LinePlot.useKey();
@@ -59,7 +58,7 @@ export const TimeModeSelect = (): ReactElement | null => {
       </span>
     </Select.Item>
   );
-  if (type !== "time" || (!FLAGS.compare && timeMode !== "relative")) return null;
+  if (!FLAGS.compare || type !== "time") return null;
   return (
     <Select.Buttons<Mode>
       variant="outlined"

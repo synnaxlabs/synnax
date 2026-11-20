@@ -299,6 +299,16 @@ describe("LinePlot", () => {
       expect(trace("line/r1").state.color).toEqual(RED);
     });
 
+    it("should draw a relative x axis as absolute when relative is disabled", async () => {
+      await renderTraces({ relativeDisabled: true });
+      await waitFor(() =>
+        expect([...traces().keys()]).toEqual(["line", "line/1", "line/2"]),
+      );
+      expect(trace("line").state.zero).toBeUndefined();
+      expect(await screen.findByText("pressure")).toBeDefined();
+      expect(screen.queryByText("Range 1")).toBeNull();
+    });
+
     it("should name a range that has no label by its key", async () => {
       await renderTraces();
       expect(await screen.findByText("r2")).toBeDefined();

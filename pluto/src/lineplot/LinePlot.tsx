@@ -532,6 +532,7 @@ const YAxis = ({
 interface XAxisProps extends AxisChildrenProps {
   axisKey: lineplot.XAxisKey;
   rangeProviderProps?: Range.ProviderProps;
+  relativeDisabled: boolean;
 }
 
 const XAxis = ({
@@ -542,6 +543,7 @@ const XAxis = ({
   hiddenLines,
   onSelectRule,
   rangeProviderProps,
+  relativeDisabled,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const handleDrop = (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
@@ -555,7 +557,7 @@ const XAxis = ({
   const dragging = Haul.useDraggingState();
   const axis = useXAxis({ key, axisKey });
   const { key: _, timeMode: __, ...axisConfig } = axis;
-  const relative = isRelative(axis);
+  const relative = !relativeDisabled && isRelative(axis);
   const yAxes = useYAxisKeys({ key });
   const handleLabelChange = (label: string) =>
     dispatch({
@@ -655,6 +657,8 @@ export interface LinePlotProps extends FrameProps {
   legendFooter?: BaseLegendProps["footer"];
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;
+  /** Draws a relative x axis as absolute. */
+  relativeDisabled?: boolean;
 }
 
 /** @returns the line and range of a key from traceKey, or null if no range matches. */
@@ -726,6 +730,7 @@ export const LinePlot = ({
   onRangeColorChange,
   legendFooter,
   onHoveredChange,
+  relativeDisabled = false,
   children,
   ref,
   ...rest
@@ -733,7 +738,8 @@ export const LinePlot = ({
   const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
-  const relative = isRelative(useXAxis({ key, axisKey: "x1" }));
+  const x1 = useXAxis({ key, axisKey: "x1" });
+  const relative = !relativeDisabled && isRelative(x1);
   const viewportRef = useViewportReset({ key, relative });
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const handleTooltipHover = (found: tooltip.Hovered | null): void => {
@@ -764,6 +770,7 @@ export const LinePlot = ({
             hiddenLines={hiddenLines}
             onSelectRule={onSelectRule}
             rangeProviderProps={rangeProviderProps}
+            relativeDisabled={relativeDisabled}
           />
         ))}
       </HoverContext>
