@@ -15,11 +15,10 @@ import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
-  Pick<
-    schematic.ScaleNodeConfig,
-    "levelColor" | "axisColor" | "levelHidden" | "caretHidden"
-  >
+  Pick<schematic.ScaleNodeConfig, "levelHidden" | "caretHidden">
 > {
+  levelColor?: color.Crude;
+  axisColor?: color.Crude;
   className?: string;
 }
 

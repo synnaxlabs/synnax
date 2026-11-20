@@ -25,13 +25,14 @@ const STALE = color.construct("#ff0000");
 interface SetupOptions {
   value?: string;
   state?: Record<string, unknown>;
+  seriesColors?: color.Color[];
 }
 
 // Mounts a Gauge under the real provider stack with a recording render context. No
 // render loop runs in tests, so the gauge draws synchronously on mount and on every
 // telem emit; call `recorder.clear()` before an explicit `render({})` to isolate that
 // render's calls.
-const setup = ({ value = "50", state = {} }: SetupOptions = {}) => {
+const setup = ({ value = "50", state = {}, seriesColors = [] }: SetupOptions = {}) => {
   const source = telemTest.source<string>(value);
   const recorder = canvasTest.record();
   const h = renderAether(gauge.Gauge, {
@@ -41,6 +42,7 @@ const setup = ({ value = "50", state = {} }: SetupOptions = {}) => {
       ...state,
     }),
     theming: { theme: THEME, fontURLs: [] },
+    series: { colors: seriesColors },
     render: recorder,
   });
   return { h, component: h.component, source, recorder };
@@ -57,6 +59,14 @@ const valueEnd = (recorder: canvasTest.Recorder): number =>
   recorder.upper2d.calls.filter((c) => c.op === "arc").at(-1)?.args[4] as number;
 
 describe("gauge/aether/Gauge", () => {
+  describe("color", () => {
+    it("should stroke the arc with the first series color while its color is absent", () => {
+      const first = color.construct("#20a4f3");
+      const { recorder } = setup({ seriesColors: [first, STALE] });
+      expect(styles(recorder, "strokeStyle")).toContain(color.hex(first));
+    });
+  });
+
   describe("value arc", () => {
     it("should measure the arc from a stored lower above the upper", () => {
       const reversed = setup({

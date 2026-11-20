@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -48,6 +49,7 @@ var (
 	node       testutil.Node
 	db         *gorp.DB
 	groupSvc   *group.Service
+	colorSvc   *color.Service
 	svc        *panel.Service
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
@@ -65,6 +67,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: node.DB,
 	}))
 	db = node.DB
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    node.DB,
+		Group: groupSvc,
+	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
 	}))
@@ -106,12 +112,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		return projectSvc.NewWriter(tx).Create(ctx, &proj)
 	})).To(Succeed())
 	plotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-		DB:   node.DB,
-		ImEx: imex.NewService(),
-		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
-			DB:    node.DB,
-			Group: groupSvc,
-		})),
+		DB:    node.DB,
+		ImEx:  imex.NewService(),
+		Color: colorSvc,
 		Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    node.DB,
 			Group: groupSvc,
@@ -130,6 +133,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	})).RBAC
 })
+
+// fixedColor returns a fixed color reference to the hex color.
+func fixedColor(hex string) *color.Ref {
+	GinkgoHelper()
+	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
+}
 
 // createUser stores a user that can own drafts.
 func createUser(ctx context.Context) user.User {

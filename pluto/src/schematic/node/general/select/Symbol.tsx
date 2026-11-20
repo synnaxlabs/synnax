@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -42,6 +43,7 @@ export const Symbol = ({
     onClickDelay,
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const badged = Staleness.useBadged();
   const sink = Telem.numberSink(commandChannel);
@@ -71,7 +73,7 @@ export const Symbol = ({
       <Select
         value={target}
         onSend={set}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
         orientation={orientation}
         disabled={disabled}
         options={options}

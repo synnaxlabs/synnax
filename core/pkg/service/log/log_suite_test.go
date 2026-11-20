@@ -19,11 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,6 +40,7 @@ var (
 	db         *gorp.DB
 	channelSvc *channel.Service
 	groupSvc   *group.Service
+	colorSvc   *color.Service
 	proj       project.Project
 	projectSvc *project.Service
 	svc        *log.Service
@@ -52,6 +55,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
+	}))
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
@@ -80,6 +87,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		return projectSvc.NewWriter(tx).Create(ctx, &proj)
 	})).To(Succeed())
 })
+
+// fixedColor returns a fixed color reference to the hex color.
+func fixedColor(hex string) *color.Ref {
+	GinkgoHelper()
+	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
+}
 
 // dispatch runs Writer.Apply in a transaction of its own.
 func dispatch(

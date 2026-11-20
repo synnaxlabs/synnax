@@ -7,22 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  certificate,
-  type rack,
-  status,
-  type Synnax,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { certificate, TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
 /** The type of the task that lists the files of a rack. */
 export const TASK_TYPE = "file_browser";
-
-const LIST_COMMAND_TYPE = "list";
-
-const LIST_TIMEOUT = TimeSpan.seconds(10);
 
 const entryZ = z.object({
   name: z.string(),
@@ -39,7 +28,7 @@ const entryZ = z.object({
 /** A file or folder on a rack. */
 export interface Entry extends z.infer<typeof entryZ> {}
 
-const listingZ = z.object({
+export const listingZ = z.object({
   /** The listed folder, or empty for the top. */
   path: z.string(),
   /** The folder above the listed one, or empty at a root. */
@@ -55,24 +44,3 @@ const listingZ = z.object({
 
 /** The entries of a folder on a rack. */
 export interface Listing extends z.infer<typeof listingZ> {}
-
-/**
- * Lists a folder on a rack. An empty path lists the roots, the home folder, and the
- * secrets folder.
- * @throws {Error} if the rack has no file browser, or if the rack fails to list the
- * folder.
- */
-export const list = async (
-  client: Synnax,
-  rack: rack.Key,
-  path: string = "",
-): Promise<Listing> => {
-  const browser = await client.tasks.retrieve({ type: TASK_TYPE, rack, one: true });
-  const res = await browser.executeCommandSync({
-    type: LIST_COMMAND_TYPE,
-    timeout: LIST_TIMEOUT,
-    args: { path },
-  });
-  if (res.variant === "error") throw status.toError(res);
-  return listingZ.parse(res.details?.data);
-};

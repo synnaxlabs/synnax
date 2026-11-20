@@ -16,9 +16,15 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import group as group_, project as project_, resource as resource_, user
+from synnax import (
+    color as color_,
+    group as group_,
+    project as project_,
+    resource as resource_,
+    user,
+)
 from synnax.resource import ID
-from x import color as color_, filter, spatial
+from x import filter, spatial
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -213,7 +219,8 @@ class Panel(BaseModel):
         root: Is the root of the panel tree.
         icon: Is the key of the icon that marks the panel in lists. When null, the
             Console draws its default panel icon.
-        color: Is the color of the panel's icon. When null, the theme picks it.
+        color: Is the color of the panel's icon, a named color or a fixed color. When
+            null, the theme picks it.
         group: Is the group the panel sits in, if any.
         project: Is the project that holds the panel.
         owner: Is the user whose draft the panel is. Nil for a shared panel.
@@ -223,7 +230,7 @@ class Panel(BaseModel):
     name: str = Field(min_length=1)
     root: Node = Field(default_factory=lambda: LeafNode(variant="leaf", tabs=[]))
     icon: str | None = None
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
     group: group_.Key | None = None
     project: project_.Key | None = None
     owner: user.Key | None = None
