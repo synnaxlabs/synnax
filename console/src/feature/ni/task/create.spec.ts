@@ -18,13 +18,15 @@ const client = createTestClient();
 
 describe("NI.Task create", () => {
   it("should keep the channels of the given analog read config", async () => {
-    const config = NI.Task.analogReadConfigZ.parse({ autoStart: true });
+    const config = NI.Task.analogReadConfigZ.parse({
+      channels: [{ ...NI.Task.createAIChannel(), key: "kept" }],
+    });
     const tsk = await createWithHook(
       NI.Task.useCreateAnalogRead,
       NI.Task.ANALOG_READ_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should create an analog write task on the given device", async () => {
@@ -39,23 +41,27 @@ describe("NI.Task create", () => {
   });
 
   it("should keep the channels of the given analog write config", async () => {
-    const config = NI.Task.analogWriteConfigZ.parse({ autoStart: true });
+    const config = NI.Task.analogWriteConfigZ.parse({
+      channels: [{ ...NI.Task.createAOChannel(), key: "kept" }],
+    });
     const tsk = await createWithHook(
       NI.Task.useCreateAnalogWrite,
       NI.Task.ANALOG_WRITE_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should keep the channels of the given counter read config", async () => {
-    const config = NI.Task.counterReadConfigZ.parse({ autoStart: true });
+    const config = NI.Task.counterReadConfigZ.parse({
+      channels: [{ ...NI.Task.createCIChannel(), key: "kept" }],
+    });
     const tsk = await createWithHook(
       NI.Task.useCreateCounterRead,
       NI.Task.COUNTER_READ_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should create a digital read task on the given device", async () => {
@@ -70,13 +76,15 @@ describe("NI.Task create", () => {
   });
 
   it("should keep the channels of the given digital read config", async () => {
-    const config = NI.Task.digitalReadConfigZ.parse({ autoStart: true });
+    const config = NI.Task.digitalReadConfigZ.parse({
+      channels: [{ ...NI.Task.createDIChannel(), key: "kept" }],
+    });
     const tsk = await createWithHook(
       NI.Task.useCreateDigitalRead,
       NI.Task.DIGITAL_READ_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should create a digital write task on the given device", async () => {
@@ -91,12 +99,14 @@ describe("NI.Task create", () => {
   });
 
   it("should keep the channels of the given digital write config", async () => {
-    const config = NI.Task.digitalWriteConfigZ.parse({ autoStart: true });
+    const config = NI.Task.digitalWriteConfigZ.parse({
+      channels: [{ ...NI.Task.createDOChannel(), key: "kept" }],
+    });
     const tsk = await createWithHook(
       NI.Task.useCreateDigitalWrite,
       NI.Task.DIGITAL_WRITE_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 });

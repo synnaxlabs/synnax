@@ -28,13 +28,15 @@ describe("LabJack.Task create", () => {
   });
 
   it("should keep the channels of the given read config", async () => {
-    const config = LabJack.Task.READ_SCHEMAS.config.parse({ autoStart: true });
+    const config = LabJack.Task.READ_SCHEMAS.config.parse({
+      channels: [{ ...LabJack.Task.createReadChannel("analog"), key: "kept" }],
+    });
     const tsk = await createWithHook(
       LabJack.Task.useCreateRead,
       LabJack.Task.READ_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should create a write task with one channel on the given device", async () => {
@@ -49,12 +51,14 @@ describe("LabJack.Task create", () => {
   });
 
   it("should keep the channels of the given write config", async () => {
-    const config = LabJack.Task.WRITE_SCHEMAS.config.parse({ autoStart: true });
+    const config = LabJack.Task.WRITE_SCHEMAS.config.parse({
+      channels: [{ ...LabJack.Task.createWriteChannel("digital"), key: "kept" }],
+    });
     const tsk = await createWithHook(
       LabJack.Task.useCreateWrite,
       LabJack.Task.WRITE_SCHEMAS,
       { config },
     );
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 });

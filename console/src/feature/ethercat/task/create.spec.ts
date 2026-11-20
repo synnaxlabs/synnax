@@ -14,24 +14,26 @@ import { createWithHook } from "@/platform/task/testutil";
 
 describe("EtherCAT.Task create", () => {
   it("should keep the channels of the given read config", async () => {
-    const config = EtherCAT.Task.READ_SCHEMAS.config.parse({ autoStart: true });
+    const config = EtherCAT.Task.READ_SCHEMAS.config.parse({
+      channels: [{ ...EtherCAT.Task.createReadChannel([]), key: "kept" }],
+    });
     const tsk = await createWithHook(
       EtherCAT.Task.useCreateRead,
       EtherCAT.Task.READ_SCHEMAS,
       { config },
     );
-    expect(tsk.config.autoStart).toBe(true);
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 
   it("should keep the channels of the given write config", async () => {
-    const config = EtherCAT.Task.WRITE_SCHEMAS.config.parse({ autoStart: true });
+    const config = EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+      channels: [{ ...EtherCAT.Task.createWriteChannel([]), key: "kept" }],
+    });
     const tsk = await createWithHook(
       EtherCAT.Task.useCreateWrite,
       EtherCAT.Task.WRITE_SCHEMAS,
       { config },
     );
-    expect(tsk.config.autoStart).toBe(true);
-    expect(tsk.config.channels).toEqual([]);
+    expect(tsk.config.channels.map(({ key }) => key)).toEqual(["kept"]);
   });
 });
