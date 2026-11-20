@@ -434,7 +434,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	// A writer on a leased virtual channel holds it against a delete, as a writer on a
 	// stored channel does. Free channels have no delete claim and no control.
 	var (
-		releaseLeased = func() {}
+		releaseLeased func()
 		leasedGates   = &gates{controls: s.controls}
 		transfers     []transfer
 	)
@@ -463,7 +463,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
 			leasedGates.release()
-			releaseLeased()
+			if releaseLeased != nil {
+				releaseLeased()
+			}
 			return nil, err
 		}
 		pipe.SetSegment(storageWriterAddr, w)
