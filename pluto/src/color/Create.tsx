@@ -31,7 +31,6 @@ import { Access } from "@/access";
 import { NO_PALETTE, usePalettes } from "@/color/library";
 import { createFormSchema, useCreate, useCreatePalette } from "@/color/queries";
 import { Fields } from "@/color/View";
-import { Synnax } from "@/synnax";
 
 interface NameEntryProps {
   placeholder: string;
@@ -118,13 +117,11 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
   const { value, linked, link } = Color.usePicker();
   const { back } = Dialog.useViews();
   const { dark } = Theming.use();
-  const client = Synnax.use();
-  const palettes = usePalettes().filter(
-    ({ key }) =>
-      key !== color.SERIES_PALETTE &&
-      key !== NO_PALETTE &&
-      Access.updateGranted({ client, id: group.resourceID(key) }),
+  const all = usePalettes().filter(
+    ({ key }) => key !== color.SERIES_PALETTE && key !== NO_PALETTE,
   );
+  const updatable = Access.useUpdatable(all.map(({ key }) => group.resourceID(key)));
+  const palettes = all.filter(({ key }) => updatable.some((id) => id.key === key));
   const [palette, setPalette] = useState(initialPalette);
   const methods = Form.use<typeof createFormSchema>({
     schema: createFormSchema,

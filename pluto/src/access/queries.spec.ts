@@ -10,8 +10,10 @@
 import {
   access,
   channel,
+  device,
   framer,
   InvalidCredentialsError,
+  label,
   query,
   ranger,
   type resource,
@@ -444,6 +446,53 @@ describe("Access Queries", () => {
       );
       await waitFor(() => {
         expect(result.current).toBe(false);
+      });
+    });
+  });
+
+  describe("useUpdatable", () => {
+    it("should keep only the resources the user can update, as the grants change", async () => {
+      const username = id.create();
+      const r = await client.access.roles.create({
+        name: id.create(),
+        description: "test",
+      });
+      await client.access.policies.create({
+        role: r.key,
+        name: id.create(),
+        objects: [ranger.TYPE_RESOURCE_ID, ...baseObjects],
+        actions: ["retrieve", "update"],
+      });
+      const labels = await client.access.policies.create({
+        role: r.key,
+        name: id.create(),
+        objects: [label.TYPE_RESOURCE_ID],
+        actions: ["retrieve", "update"],
+      });
+      await client.users.create({
+        username,
+        password: "test",
+        name: "test test",
+        role: r.key,
+      });
+      const userClient = createTestClient({ username, password: "test" });
+      const ids = [
+        ranger.TYPE_RESOURCE_ID,
+        label.TYPE_RESOURCE_ID,
+        device.TYPE_RESOURCE_ID,
+      ];
+      const { result } = renderHook(() => Access.useUpdatable(ids), {
+        wrapper: await createAsyncSynnaxWrapper({ client: userClient }),
+      });
+      await waitFor(() => {
+        expect(result.current).toEqual([
+          ranger.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+        ]);
+      });
+      await client.access.policies.delete(labels.key);
+      await waitFor(() => {
+        expect(result.current).toEqual([ranger.TYPE_RESOURCE_ID]);
       });
     });
   });
