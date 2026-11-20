@@ -183,6 +183,27 @@ describe("LinePlot", () => {
     });
   });
 
+  describe("grid", () => {
+    it("should put the outermost right axis in the last column", async () => {
+      const { container } = render(
+        <LinePlot.Frame>
+          <LinePlot.YAxis aetherKey="inner" axisKey="y1" location="right" />
+          <LinePlot.YAxis aetherKey="outer" axisKey="y2" location="right" />
+        </LinePlot.Frame>,
+        { wrapper },
+      );
+      const frame = container.querySelector<HTMLElement>(".pluto-line-plot");
+      await waitFor(() => {
+        const columns = frame?.style.gridTemplateColumns ?? "";
+        const names = [...columns.matchAll(/\[axis-start-([^\]\s]+)/g)].map(
+          ([, name]) => name,
+        );
+        expect(names).toHaveLength(2);
+        expect(names[1]).toContain("outer");
+      });
+    });
+  });
+
   describe("toggleZoom", () => {
     const OUTER = { lower: 0.2, upper: 0.6 };
     const INNER = { lower: 0.3, upper: 0.4 };
