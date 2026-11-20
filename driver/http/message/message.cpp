@@ -51,6 +51,21 @@ claim(Writers &writers, const synnax::channel::Key key, const std::string &name)
         ch
     );
 }
+
+/// @brief rejects an index field that takes a default, since each response that leaves
+/// it out would then write the same timestamp.
+x::errors::Error check_index(
+    const synnax::icd::ReadMessage &rm,
+    const synnax::icd::JSONPayload &payload
+) {
+    if (!rm.index.has_value()) return x::errors::NIL;
+    for (const auto &f: payload.fields) {
+        const auto *t = std::get_if<synnax::icd::TimestampJSONField>(&f);
+        if (t != nullptr && t->key == *rm.index && t->default_.has_value())
+            return invalid("the index field " + t->name + " cannot take a default");
+    }
+    return x::errors::NIL;
+}
 }
 
 std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
@@ -118,6 +133,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
             return {Reader{}, invalid("message " + name + " binds no fields")};
         Message m;
         auto [bindings, err] = bind(rm, channels, m);
+        if (!err) err = check_index(rm, *payload);
         if (err)
             return {
                 Reader{},
