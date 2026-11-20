@@ -15,6 +15,7 @@ __lazy_modules__ = [
     "synnax.access.policy",
     "synnax.access.role",
     "synnax.arc",
+    "synnax.calculation",
     "synnax.channel",
     "synnax.control",
     "synnax.device",
@@ -47,6 +48,7 @@ __lazy_modules__ = [
 from importlib.metadata import version as _version
 
 from synnax import (
+    calculation,
     color,
     enumeration,
     ethercat,
@@ -262,6 +264,7 @@ __all__ = [
     "Writer",
     "WriterClosed",
     "WriterMode",
+    "calculation",
     "color",
     "convert_time_units",
     "elapsed_seconds",
