@@ -1143,6 +1143,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
 		Channel:         cfg.Service.Channel,
+		Calculation:     cfg.Service.Calculation,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
 		Stopper:         cfg.Service.TaskStopper,

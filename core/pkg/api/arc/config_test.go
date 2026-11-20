@@ -20,6 +20,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -33,6 +34,7 @@ var _ = Describe("ServiceConfig", func() {
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
 			Channel:         &channel.Service{},
+			Calculation:     &calculation.Service{},
 			RBAC:            &rbac.Service{},
 			Stopper:         &task.Stopper{},
 			DispatchChannel: func(
@@ -75,6 +77,11 @@ var _ = Describe("ServiceConfig", func() {
 				"channel",
 				func(c *apiarc.ServiceConfig) { c.Channel = nil },
 				"channel: must be non-nil",
+			),
+			Entry(
+				"calculation",
+				func(c *apiarc.ServiceConfig) { c.Calculation = nil },
+				"calculation: must be non-nil",
 			),
 			Entry(
 				"rbac",

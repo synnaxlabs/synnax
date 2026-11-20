@@ -109,6 +109,30 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
 }
 
+// Outputs returns the calculation of each channel among keys that a calculation writes,
+// keyed by that channel, as snap sees them.
+func (s *Service) Outputs(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys ...channel.Key,
+) (map[channel.Key]Calculation, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	var calcs []Calculation
+	if err := s.NewRetrieve().
+		Where(MatchOutputs(keys...)).
+		Entries(&calcs).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	byOutput := make(map[channel.Key]Calculation, len(calcs))
+	for _, c := range calcs {
+		byOutput[c.Output] = c
+	}
+	return byOutput, nil
+}
+
 // Channels returns the resource of each channel that c links, in the order of its
 // fields.
 func (s *Service) Channels(c Calculation) []resource.ID {

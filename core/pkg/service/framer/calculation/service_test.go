@@ -51,6 +51,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		channelGraph *calcgraph.Graph
 		writerSvc    *writer.Service
 		creator      calctestutil.Creator
+		calcSvc      *calcsvc.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -139,13 +140,14 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{
+		calcSvc = MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      dist.DB,
 			Channel: channelSvc,
-			Calculation: MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
-				DB:      dist.DB,
-				Channel: channelSvc,
-			})),
+		}))
+		creator = calctestutil.Creator{
+			DB:          dist.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
 		}
 		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,
@@ -162,6 +164,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer:       dist.Framer,
 			Writer:       writerSvc,
 			Channel:      channelSvc,
+			Calculation:  calcSvc,
 			ChannelGraph: channelGraph,
 		}))
 	})
@@ -1328,17 +1331,14 @@ var _ = Describe("Calculation", Ordered, func() {
 					calc.Expression = fmt.Sprintf(
 						"return %s + 100 / %s", dependent.Name, base.Name,
 					)
-					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						_, err := channelSvc.NewWriter(tx).Apply(
-							ctx,
-							calc.Key(),
-							channel.NewSetAction(channel.SetPayload{
-								Path:  []string{"expression"},
-								Value: calc.Expression,
-							}),
-						)
-						return err
-					})).To(Succeed())
+					Expect(creator.Apply(
+						ctx,
+						calc.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: calc.Expression,
+						}),
+					)).To(Succeed())
 					Eventually(written).Should(ContainElement(SatisfyAll(
 						compileFailure(),
 						HaveField("Description", ContainSubstring("circular")),
@@ -1483,6 +1483,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Framer:       dist.Framer,
 				Writer:       writerSvc,
 				Channel:      channelSvc,
+				Calculation:  calcSvc,
 				ChannelGraph: channelGraph,
 				RetryDelay:   retryDelay,
 				Compile: func(
@@ -1674,17 +1675,14 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(added.Close(ctx)).To(Succeed())
 				})
 				changes.Store(1)
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					_, err := channelSvc.NewWriter(tx).Apply(
-						ctx,
-						calc.Key(),
-						channel.NewSetAction(channel.SetPayload{
-							Path:  []string{"expression"},
-							Value: fmt.Sprintf("return %s * 3", bases[0].Name),
-						}),
-					)
-					return err
-				})).To(Succeed())
+				Expect(creator.Apply(
+					ctx,
+					calc.Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 3", bases[0].Name),
+					}),
+				)).To(Succeed())
 				Eventually(changed).Should(Receive())
 
 				Eventually(func(g Gomega) {
@@ -1732,17 +1730,14 @@ var _ = Describe("Calculation", Ordered, func() {
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := channelSvc.NewWriter(tx).Apply(
-					ctx,
-					calcs[0].Key(),
-					channel.NewSetAction(channel.SetPayload{
-						Path:  []string{"expression"},
-						Value: calcs[0].Expression,
-					}),
-				)
-				return err
-			})).To(Succeed())
+			Expect(creator.Apply(
+				ctx,
+				calcs[0].Key(),
+				channel.NewSetAction(channel.SetPayload{
+					Path:  []string{"expression"},
+					Value: calcs[0].Expression,
+				}),
+			)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				Expect(
@@ -1798,17 +1793,14 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			target.Store(uint32(calcCh.Key()))
 			changes.Store(3)
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := channelSvc.NewWriter(tx).Apply(
-					ctx,
-					calcCh.Key(),
-					channel.NewSetAction(channel.SetPayload{
-						Path:  []string{"expression"},
-						Value: fmt.Sprintf("return %s * 3", baseCh.Name),
-					}),
-				)
-				return err
-			})).To(Succeed())
+			Expect(creator.Apply(
+				ctx,
+				calcCh.Key(),
+				channel.NewSetAction(channel.SetPayload{
+					Path:  []string{"expression"},
+					Value: fmt.Sprintf("return %s * 3", baseCh.Name),
+				}),
+			)).To(Succeed())
 			Eventually(changed).Should(Receive())
 			// A request takes the lock of the service, so it returns well before the
 			// retry when the wait holds no lock.
@@ -1871,17 +1863,14 @@ var _ = Describe("Calculation", Ordered, func() {
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := channelSvc.NewWriter(tx).Apply(
-					ctx,
-					calcs[0].Key(),
-					channel.NewSetAction(channel.SetPayload{
-						Path:  []string{"expression"},
-						Value: calcs[0].Expression,
-					}),
-				)
-				return err
-			})).To(Succeed())
+			Expect(creator.Apply(
+				ctx,
+				calcs[0].Key(),
+				channel.NewSetAction(channel.SetPayload{
+					Path:  []string{"expression"},
+					Value: calcs[0].Expression,
+				}),
+			)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				Expect(

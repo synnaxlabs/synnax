@@ -43,7 +43,7 @@ import (
 // openServices opens the iterator service and the services it depends on over node.
 func openServices(
 	ctx context.Context, node testutil.Node,
-) (*iterator.Service, *channel.Service) {
+) (*iterator.Service, *channel.Service, *calculation.Service) {
 	GinkgoHelper()
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: node.DB,
@@ -58,12 +58,17 @@ func openServices(
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
-	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
+	calcSvc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:      node.DB,
-		Framer:  node.Framer,
 		Channel: channelSvc,
 	}))
-	return iteratorSvc, channelSvc
+	iteratorSvc := MustSucceed(iterator.NewService(iterator.ServiceConfig{
+		DB:          node.DB,
+		Framer:      node.Framer,
+		Channel:     channelSvc,
+		Calculation: calcSvc,
+	}))
+	return iteratorSvc, channelSvc, calcSvc
 }
 
 // merged concatenates every series into one.
@@ -82,14 +87,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		iteratorSvc, channelSvc = openServices(ctx, node)
+		var calcSvc *calculation.Service
+		iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
 		creator = calctestutil.Creator{
-			DB:      node.DB,
-			Channel: channelSvc,
-			Calculation: MustOpen(calculation.OpenService(
-				ctx,
-				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
-			)),
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
 		}
 	})
 	Describe("Basic Iteration", func() {
@@ -533,17 +536,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))
 
 					calcA.Expression = "return calc_circ_b + 1"
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						_, err := channelSvc.NewWriter(tx).Apply(
-							ctx,
-							calcA.Key(),
-							channel.NewSetAction(channel.SetPayload{
-								Path:  []string{"expression"},
-								Value: calcA.Expression,
-							}),
-						)
-						return err
-					})).To(Succeed())
+					Expect(creator.Apply(
+						ctx,
+						calcA.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: calcA.Expression,
+						}),
+					)).To(Succeed())
 
 					// Opening an iterator over the now-cyclic channel should fail.
 					Expect(iteratorSvc.Open(ctx, iterator.Config{
@@ -2726,14 +2726,12 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-				iteratorSvc, channelSvc = openServices(ctx, node)
+				var calcSvc *calculation.Service
+				iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
 				creator = calctestutil.Creator{
-					DB:      node.DB,
-					Channel: channelSvc,
-					Calculation: MustOpen(calculation.OpenService(
-						ctx,
-						calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
-					)),
+					DB:          node.DB,
+					Channel:     channelSvc,
+					Calculation: calcSvc,
 				}
 				createSensor(ctx, node, channelSvc)
 			})
@@ -2944,7 +2942,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
-		iteratorSvc, channelSvc := openServices(ctx, node)
+		iteratorSvc, channelSvc, _ := openServices(ctx, node)
 		ch := &channel.Channel{
 			Name:     "Scott",
 			DataType: telem.TimestampT,
@@ -2984,14 +2982,12 @@ var _ = Describe("Read failure", func() {
 		}
 		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-		iteratorSvc, channelSvc = openServices(ctx, node)
+		var calcSvc *calculation.Service
+		iteratorSvc, channelSvc, calcSvc = openServices(ctx, node)
 		creator = calctestutil.Creator{
-			DB:      node.DB,
-			Channel: channelSvc,
-			Calculation: MustOpen(calculation.OpenService(
-				ctx,
-				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
-			)),
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
 		}
 	})
 

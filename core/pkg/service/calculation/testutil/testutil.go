@@ -80,6 +80,41 @@ func (c Creator) CreateMany(
 	return slices.Clip(channels[:len(calcs)]), nil
 }
 
+// CalculationOf returns the calculation that writes the channel with key output.
+func (c Creator) CalculationOf(
+	ctx context.Context,
+	output channel.Key,
+) (calculation.Calculation, error) {
+	var calc calculation.Calculation
+	err := c.Calculation.NewRetrieve().
+		Where(calculation.MatchOutputs(output)).
+		Entry(&calc).
+		Exec(ctx, c.DB)
+	return calc, err
+}
+
+// Apply applies acts to the output channel with key and writes its calculation, as the
+// old channel API does.
+func (c Creator) Apply(
+	ctx context.Context,
+	key channel.Key,
+	acts ...channel.Action,
+) error {
+	return c.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if _, err := c.Channel.NewWriter(tx).Apply(ctx, key, acts...); err != nil {
+			return err
+		}
+		var output channel.Channel
+		if err := c.Channel.NewRetrieve().
+			Where(channel.MatchKeys(key)).
+			Entry(&output).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		return c.Calculation.NewWriter(tx).SetFromChannel(ctx, output)
+	})
+}
+
 // Indexes returns the index channel of each output, in the order of outputs.
 func (c Creator) Indexes(
 	ctx context.Context,

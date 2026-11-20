@@ -58,13 +58,14 @@ var _ = Describe("Streamer", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{
+		calcSvc := MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
 			DB:      node.DB,
 			Channel: channelSvc,
-			Calculation: MustOpen(calcsvc.OpenService(ctx, calcsvc.ServiceConfig{
-				DB:      node.DB,
-				Channel: channelSvc,
-			})),
+		}))
+		creator = calctestutil.Creator{
+			DB:          node.DB,
+			Channel:     channelSvc,
+			Calculation: calcSvc,
 		}
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      node.DB,
@@ -81,6 +82,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Framer:       node.Framer,
 			Writer:       writerSvc,
 			Channel:      channelSvc,
+			Calculation:  calcSvc,
 			ChannelGraph: channelGraph,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{

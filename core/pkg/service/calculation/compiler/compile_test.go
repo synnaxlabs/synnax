@@ -72,6 +72,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -92,6 +93,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -113,6 +115,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(
 			mod.Dependencies.Reads.Slice(),
@@ -138,6 +141,7 @@ var _ = Describe("Compile", func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
@@ -149,10 +153,12 @@ var _ = Describe("Compile", func() {
 			DataType:   telem.Int64T,
 			Expression: "return 1",
 		}))
-		calc.Expression = "return invalid_syntax {{"
+		c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
+		c.Expression = "return invalid_syntax {{"
 		Expect(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        calc,
+			Calculation:    c,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

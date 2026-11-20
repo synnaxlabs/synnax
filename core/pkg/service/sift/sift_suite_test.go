@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -101,9 +102,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:           db,
-		Framer:       node.Framer,
-		Channel:      channelSvc,
+		DB:      db,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(
+			ctx,
+			calculation.ServiceConfig{DB: db, Channel: channelSvc},
+		)),
 		ChannelGraph: channelGraph,
 	}))
 	rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

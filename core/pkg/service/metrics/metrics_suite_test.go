@@ -72,6 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           dist.DB,
 		Framer:       dist.Framer,
 		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	}))
 })

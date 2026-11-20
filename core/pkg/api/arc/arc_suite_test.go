@@ -128,6 +128,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Arc:             arcSvc,
 		Status:          statusSvc,
 		Channel:         channelSvc,
+		Calculation:     svc.Calculation,
 		RBAC:            rbacSvc,
 		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
 		Stopper:         svc.TaskStopper,

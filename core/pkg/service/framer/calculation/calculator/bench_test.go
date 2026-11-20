@@ -106,9 +106,14 @@ func (e *benchEnv) openCalculator(
 	if err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
+	record, err := e.creator.CalculationOf(e.ctx, out.Key())
+	if err != nil {
+		b.Fatalf("failed to retrieve calculation: %v", err)
+	}
 	mod, err := compiler.Compile(e.ctx, e.node.DB, compiler.Config{
 		ChannelService: e.channelSvc,
 		Channel:        out,
+		Calculation:    record,
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)

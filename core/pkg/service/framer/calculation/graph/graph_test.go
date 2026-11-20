@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -72,12 +73,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // setExpression applies a set of expr to the expression of ch, then reads ch back.
 func setExpression(ctx context.Context, ch *channel.Channel, expr string) {
 	GinkgoHelper()
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		_, err := channelSvc.NewWriter(tx).Apply(ctx, ch.Key(), channel.NewSetAction(
-			channel.SetPayload{Path: []string{"expression"}, Value: expr},
-		))
-		return err
-	})).To(Succeed())
+	Expect(creator.Apply(ctx, ch.Key(), channel.NewSetAction(
+		channel.SetPayload{Path: []string{"expression"}, Value: expr},
+	))).To(Succeed())
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(ch.Key())).
 		Entry(ch).
@@ -88,8 +86,9 @@ var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channel: channelSvc,
-			DB:      db,
+			Channel:     channelSvc,
+			Calculation: creator.Calculation,
+			DB:          db,
 		}))
 	})
 	Describe("Add", func() {
@@ -293,7 +292,6 @@ var _ = Describe("Graph", func() {
 					}
 				}
 				calcs := MustSucceed(creator.CreateMany(ctx, calculations))
-				calcs = append(calcs, MustSucceed(creator.Indexes(ctx, calcs))...)
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}
@@ -339,7 +337,6 @@ var _ = Describe("Graph", func() {
 						Expression: "return base_nested_order + 2",
 					},
 				}))
-				calcs = append(calcs, MustSucceed(creator.Indexes(ctx, calcs))...)
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}
@@ -1309,8 +1306,9 @@ var _ = Describe("Graph", func() {
 					compiled []channel.Key
 				)
 				g = MustSucceed(graph.New(graph.Config{
-					Channel: channelSvc,
-					DB:      db,
+					Channel:     channelSvc,
+					Calculation: creator.Calculation,
+					DB:          db,
 					Compile: func(
 						ctx context.Context,
 						db *gorp.DB,
@@ -1393,8 +1391,9 @@ var _ = Describe("Graph", func() {
 			func(ctx SpecContext) {
 				var failing channel.Key
 				g = MustSucceed(graph.New(graph.Config{
-					Channel: channelSvc,
-					DB:      db,
+					Channel:     channelSvc,
+					Calculation: creator.Calculation,
+					DB:          db,
 					Compile: func(
 						ctx context.Context,
 						db *gorp.DB,
@@ -1579,7 +1578,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return err_base * 2",
 				}))
 				Expect(g.Add(ctx, calc)).To(Succeed())
-				calc.Expression = "return invalid_syntax {{"
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, bases[0].Key(), false)
+				})).To(Succeed())
 				Expect(
 					g.Update(ctx, calc),
 				).Error().
@@ -1597,6 +1598,7 @@ var _ = Describe("Graph", func() {
 				g = MustSucceed(graph.New(graph.Config{
 					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 					Channel:         channelSvc,
+					Calculation:     creator.Calculation,
 					DB:              db,
 					Compile: func(
 						context.Context,
@@ -1606,12 +1608,11 @@ var _ = Describe("Graph", func() {
 						return compiler.Module{}, compileErr
 					},
 				}))
-				calc := channel.Channel{
-					Name:       "logged_calc",
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       "logged_calc_" + uuid.New().String()[:8],
 					DataType:   telem.Float64T,
-					Virtual:    true,
 					Expression: "return 1.0",
-				}
+				}))
 				Expect(g.Add(ctx, calc)).To(MatchError(compileErr))
 				failures := logs.FilterMessage("failed to compile calculated channel")
 				Expect(failures.Len()).To(Equal(logged))

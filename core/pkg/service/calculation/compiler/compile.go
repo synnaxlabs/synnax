@@ -12,8 +12,8 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
@@ -35,16 +36,21 @@ type Config struct {
 	//
 	// [REQUIRED]
 	ChannelService *channel.Service
-	// Channel is the calculated channel whose expression will be compiled.
+	// Channel is the output channel of Calculation.
 	//
 	// [REQUIRED]
 	Channel channel.Channel
+	// Calculation is the calculation to compile.
+	//
+	// [REQUIRED]
+	Calculation calculation.Calculation
 }
 
 var _ config.Config[Config] = Config{}
 
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
+	c.Calculation = other.Calculation
 	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
 	return c
 }
@@ -52,6 +58,11 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
 	v.NonZero("channel.key", c.Channel.Key())
+	v.Ternaryf(
+		"calculation.output",
+		c.Calculation.Output != c.Channel.Key(),
+		"must be the key of the channel",
+	)
 	v.NotNil("channel_service", c.ChannelService)
 	return v.Error()
 }
@@ -83,7 +94,12 @@ func preProcess(
 	ana := channel.NewCalculationAnalyzer(resolver, parser.Config{
 		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
 	})
-	result, err := ana.Analyze(ctx, cfg.Channel)
+	result, err := ana.AnalyzeExpression(
+		ctx,
+		cfg.Channel,
+		cfg.Calculation.Expression,
+		hasDerivative(cfg.Calculation.Operations),
+	)
 	if err != nil {
 		return arc.Program{}, err
 	}
@@ -94,7 +110,7 @@ func preProcess(
 	fn := ir.Function{
 		Key:     calculationKey,
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
-		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
+		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
 	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
@@ -147,9 +163,34 @@ func addEdge(g *arc.Graph, source, target ir.Handle) {
 	g.Edges = append(g.Edges, graph.Edge{Source: source, Target: target})
 }
 
+// hasDerivative reports whether ops holds a derivative.
+func hasDerivative(ops []calculation.Operation) bool {
+	return slices.ContainsFunc(ops, func(op calculation.Operation) bool {
+		_, ok := op.Variant.(calculation.DerivativeOperation)
+		return ok
+	})
+}
+
+// operationNode returns the node type of op and its window, which is zero for an
+// operation with none.
+func operationNode(op calculation.Operation) (string, calculation.Window) {
+	switch v := op.Variant.(type) {
+	case calculation.MinOperation:
+		return string(calculation.MinOperationType), v.Window
+	case calculation.MaxOperation:
+		return string(calculation.MaxOperationType), v.Window
+	case calculation.AvgOperation:
+		return string(calculation.AvgOperationType), v.Window
+	case calculation.DerivativeOperation:
+		return string(calculation.DerivativeOperationType), calculation.Window{}
+	default:
+		panic(fmt.Sprintf("operation of unknown variant %T", op.Variant))
+	}
+}
+
 // addOperations chains ops between the calculation and write nodes of g, or connects
 // the two nodes directly when ops is empty.
-func addOperations(g *arc.Graph, ops []channel.Operation) {
+func addOperations(g *arc.Graph, ops []calculation.Operation) {
 	if len(ops) == 0 {
 		addEdge(
 			g,
@@ -160,10 +201,11 @@ func addOperations(g *arc.Graph, ops []channel.Operation) {
 	}
 	for i, o := range ops {
 		key := fmt.Sprintf("op_%d", i)
-		addNode(g, key, string(o.Type), xmsgpack.EncodedJSON{"duration": o.Duration})
-		if o.ResetChannel != 0 {
-			resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
-			addNode(g, resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
+		typ, w := operationNode(o)
+		addNode(g, key, typ, xmsgpack.EncodedJSON{"duration": w.Duration})
+		if w.Reset != nil {
+			resetKey := fmt.Sprintf("on_reset_%d", *w.Reset)
+			addNode(g, resetKey, "on", xmsgpack.EncodedJSON{"channel": *w.Reset})
 			addEdge(
 				g,
 				ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
@@ -239,13 +281,7 @@ func compile(
 	}
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
-	cfg.Channel.Operations = lo.Filter(
-		cfg.Channel.Operations,
-		func(item channel.Operation, _ int) bool {
-			return item.Type != "none"
-		},
-	)
-	addOperations(&g, cfg.Channel.Operations)
+	addOperations(&g, cfg.Calculation.Operations)
 	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read); err != nil {
 		return Module{}, err
 	}

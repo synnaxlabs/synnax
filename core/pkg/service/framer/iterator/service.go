@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
@@ -91,6 +92,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// DB holds the channels that iterators resolve.
 	//
 	// [REQUIRED]
@@ -108,6 +113,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Framer = override.Nil(cfg.Framer, other.Framer)
 	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
+	cfg.Calculation = override.Nil(cfg.Calculation, other.Calculation)
 	cfg.DB = override.Nil(cfg.DB, other.DB)
 	return cfg
 }
@@ -117,6 +123,7 @@ func (cfg ServiceConfig) Validate() error {
 	v := validate.New("iterator")
 	v.NotNil("framer", cfg.Framer)
 	v.NotNil("channel", cfg.Channel)
+	v.NotNil("calculation", cfg.Calculation)
 	v.NotNil("db", cfg.DB)
 	return v.Error()
 }
@@ -348,17 +355,30 @@ func (s *Service) retrieveFreeIndexOwners(
 	if len(freeIndexes) == 0 {
 		return nil, nil
 	}
-	var owners []channel.Channel
-	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.cfg.Channel.NewRetrieve().
-			Where(channel.MatchCalculated()).
+	var (
+		indexed []channel.Channel
+		calcs   map[channel.Key]calculation.Calculation
+	)
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.cfg.Channel.NewRetrieve().
 			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
-			Entries(&owners).
-			Exec(ctx, snap)
+			Entries(&indexed).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = s.cfg.Calculation.Outputs(
+			ctx,
+			snap,
+			channel.KeysFromChannels(indexed)...,
+		)
+		return err
 	}); err != nil {
 		return nil, err
 	}
-	return owners, nil
+	return lo.Filter(indexed, func(ch channel.Channel, _ int) bool {
+		_, ok := calcs[ch.Key()]
+		return ok
+	}), nil
 }
 
 // newCalculationGraph returns a graph that holds the calculated channels in channels
@@ -370,13 +390,22 @@ func (s *Service) newCalculationGraph(
 	calcGraph, err := graph.New(graph.Config{
 		Instrumentation: s.cfg.Child("calculation.graph"),
 		Channel:         s.cfg.Channel,
+		Calculation:     s.cfg.Calculation,
 		DB:              s.cfg.DB,
 	})
 	if err != nil {
 		return nil, err
 	}
+	calcs, err := s.cfg.Calculation.Outputs(
+		ctx,
+		s.cfg.DB,
+		channel.KeysFromChannels(channels)...,
+	)
+	if err != nil {
+		return nil, err
+	}
 	for _, ch := range channels {
-		if ch.IsCalculated() {
+		if _, ok := calcs[ch.Key()]; ok {
 			if err = calcGraph.Add(ctx, ch); err != nil {
 				return nil, err
 			}
@@ -443,7 +472,7 @@ func (s *Service) newGroupSizer(
 	}
 	indexes := make(map[channel.Key][]channel.Key, len(requested))
 	for _, ch := range requested {
-		if !ch.IsCalculated() {
+		if !calcGraph.Contains(ch.Key()) {
 			if !ch.Virtual {
 				indexes[ch.Key()] = []channel.Key{ch.Index()}
 			}

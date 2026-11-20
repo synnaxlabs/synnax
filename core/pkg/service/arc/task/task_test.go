@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -138,9 +139,13 @@ var _ = Describe("Task", Ordered, func() {
 			Status:  statusSvc,
 		}))
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			DB:           node.DB,
-			Framer:       node.Framer,
-			Channel:      channelSvc,
+			DB:      node.DB,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+			)),
 			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

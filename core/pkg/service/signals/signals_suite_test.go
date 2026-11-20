@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -187,9 +188,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:           node.DB,
-		Framer:       node.Framer,
-		Channel:      channelSvc,
+		DB:      node.DB,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(
+			ctx,
+			calculation.ServiceConfig{DB: node.DB, Channel: channelSvc},
+		)),
 		ChannelGraph: channelGraph,
 	}))
 	uuidTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, testUUIDEntry]{

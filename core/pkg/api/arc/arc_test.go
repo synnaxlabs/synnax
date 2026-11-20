@@ -420,11 +420,17 @@ var _ = Describe("Service", func() {
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
-					for _, ch := range []*channel.Channel{&base, &out, &inner, &outer} {
+					for _, ch := range []*channel.Channel{&base, &out} {
 						if err := w.Create(ctx, ch); err != nil {
 							return err
 						}
 					}
+					calcs := []channel.Channel{inner, outer}
+					if err := svc.Calculation.NewWriter(tx).
+						CreateChannels(ctx, &calcs, false); err != nil {
+						return err
+					}
+					inner, outer = calcs[0], calcs[1]
 					return w.Delete(ctx, base.Key(), false)
 				})).To(Succeed())
 				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
@@ -495,19 +501,25 @@ var _ = Describe("Service", func() {
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
-					for _, ch := range []*channel.Channel{&base, &out, &b, &a} {
+					for _, ch := range []*channel.Channel{&base, &out} {
 						if err := w.Create(ctx, ch); err != nil {
 							return err
 						}
 					}
-					_, err := w.Apply(ctx, b.Key(), channel.NewSetAction(
-						channel.SetPayload{
-							Path:  []string{"expression"},
-							Value: "return cy_a + 1",
-						},
-					))
-					return err
+					calcs := []channel.Channel{b, a}
+					if err := svc.Calculation.NewWriter(tx).
+						CreateChannels(ctx, &calcs, false); err != nil {
+						return err
+					}
+					b, a = calcs[0], calcs[1]
+					return nil
 				})).To(Succeed())
+				Expect(creator.Apply(ctx, b.Key(), channel.NewSetAction(
+					channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return cy_a + 1",
+					},
+				))).To(Succeed())
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "cy_automation",
 					Source: arc.Source{Variant: arc.TextSource{

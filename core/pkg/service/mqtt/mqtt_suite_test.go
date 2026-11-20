@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -110,9 +111,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:           db,
-		Framer:       core.Framer,
-		Channel:      channelSvc,
+		DB:      db,
+		Framer:  core.Framer,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(
+			ctx,
+			calculation.ServiceConfig{DB: db, Channel: channelSvc},
+		)),
 		ChannelGraph: channelGraph,
 	}))
 	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{

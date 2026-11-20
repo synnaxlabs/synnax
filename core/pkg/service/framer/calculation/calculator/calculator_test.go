@@ -101,6 +101,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        out,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 		}))
 		return MustOpen(calculator.Open(
 			ctx,
@@ -1006,6 +1007,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
 			},
 		)
@@ -1421,6 +1423,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        out,
+				Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 			}))
 			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod})), out
 		}
@@ -1519,6 +1522,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				}))
 				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 				fr := frame.NewUnary(

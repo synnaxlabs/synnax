@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -90,9 +91,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		DB:           dist.DB,
-		Framer:       dist.Framer,
-		Channel:      channelSvc,
+		DB:      dist.DB,
+		Framer:  dist.Framer,
+		Channel: channelSvc,
+		Calculation: MustOpen(calculation.OpenService(
+			ctx,
+			calculation.ServiceConfig{DB: dist.DB, Channel: channelSvc},
+		)),
 		ChannelGraph: channelGraph,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{

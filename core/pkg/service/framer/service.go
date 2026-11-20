@@ -18,9 +18,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	calcruntime "github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -92,6 +93,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// ChannelGraph reconciles calculated channel definitions and owns their statuses.
 	// The calculation service subscribes to it and reports through it.
 	//
@@ -116,6 +121,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("channel_graph", c.ChannelGraph)
 	return v.Error()
 }
@@ -126,6 +132,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	c.Reserved = override.Nil(c.Reserved, other.Reserved)
 	return c
@@ -161,11 +168,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	var calcSvc *calculation.Service
-	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
+	var calcSvc *calcruntime.Service
+	if calcSvc, err = calcruntime.OpenService(ctx, calcruntime.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
 		DB:              cfg.DB,
 		Channel:         cfg.Channel,
+		Calculation:     cfg.Calculation,
 		Framer:          cfg.Framer,
 		Writer:          s.writer,
 		ChannelGraph:    cfg.ChannelGraph,
@@ -184,6 +192,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("iterator"),
 		Framer:          cfg.Framer,
 		Channel:         cfg.Channel,
+		Calculation:     cfg.Calculation,
 		DB:              cfg.DB,
 	}); !ok(err, nil) {
 		return nil, err

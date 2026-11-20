@@ -132,12 +132,9 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 // setExpression applies a set of the expression of the calculated channel with key.
 func setExpression(ctx context.Context, key channel.Key, expr string) {
 	GinkgoHelper()
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		_, err := channelSvc.NewWriter(tx).Apply(ctx, key, channel.NewSetAction(
-			channel.SetPayload{Path: []string{"expression"}, Value: expr},
-		))
-		return err
-	})).To(Succeed())
+	Expect(creator.Apply(ctx, key, channel.NewSetAction(
+		channel.SetPayload{Path: []string{"expression"}, Value: expr},
+	))).To(Succeed())
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {

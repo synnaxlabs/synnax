@@ -95,6 +95,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Framer:       node.Framer,
 		Writer:       writerSvc,
 		Channel:      channelSvc,
+		Calculation:  calcSvc,
 		ChannelGraph: channelGraph,
 	})
 	calc = mustOpen(b, "calculation service", calc, err)

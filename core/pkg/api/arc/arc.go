@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -71,6 +72,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel that an automation
+	// reads.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// RBAC reads the access of the subject of each LSP stream.
 	//
 	// [REQUIRED]
@@ -102,6 +108,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
 	c.Stopper = override.Nil(c.Stopper, other.Stopper)
@@ -115,6 +122,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("arc", c.Arc)
 	v.NotNil("status", c.Status)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("dispatch_channel", c.DispatchChannel)
 	v.NotNil("stopper", c.Stopper)
@@ -126,6 +134,7 @@ type Service struct {
 	internal        *arc.Service
 	status          *status.Service
 	channel         *channel.Service
+	calculation     *calculation.Service
 	rbac            *rbac.Service
 	dispatchChannel freighter.UnaryHandler[
 		apichannel.DispatchRequest,
@@ -146,6 +155,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal:        cfg.Arc,
 		status:          cfg.Status,
 		channel:         cfg.Channel,
+		calculation:     cfg.Calculation,
 		rbac:            cfg.RBAC,
 		dispatchChannel: cfg.DispatchChannel,
 		stopper:         cfg.Stopper,
@@ -520,25 +530,33 @@ func (s *Service) compileCalculations(
 	if len(reads) == 0 {
 		return nil, nil
 	}
-	var channels []channel.Channel
-	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.channel.NewRetrieve().
+	var (
+		channels []channel.Channel
+		calcs    map[channel.Key]calculation.Calculation
+	)
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.channel.NewRetrieve().
 			Entries(&channels).
 			Where(channel.MatchKeys(reads.Slice()...)).
-			Exec(ctx, snap)
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = s.calculation.Outputs(ctx, snap, reads.Slice()...)
+		return err
 	}); err != nil {
 		return nil, err
 	}
 	g, err := graph.New(graph.Config{
 		Instrumentation: s.Instrumentation,
 		Channel:         s.channel,
+		Calculation:     s.calculation,
 		DB:              s.db,
 	})
 	if err != nil {
 		return nil, err
 	}
 	for _, ch := range channels {
-		if !ch.IsCalculated() {
+		if _, ok := calcs[ch.Key()]; !ok {
 			continue
 		}
 		err = g.Add(ctx, ch)

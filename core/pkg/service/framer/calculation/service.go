@@ -64,6 +64,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// ChannelGraph reconciles calculated channel definitions. The service subscribes to
 	// it for channel changes and reports calculation statuses through it.
 	//
@@ -93,6 +97,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("channel_graph", c.ChannelGraph)
 	v.Positive("retry_delay", c.RetryDelay)
 	return v.Error()
@@ -105,6 +110,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	c.RetryDelay = override.Numeric(c.RetryDelay, other.RetryDelay)
 	c.Compile = override.Nil(c.Compile, other.Compile)
@@ -139,6 +145,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
+		Calculation:     cfg.Calculation,
 		DB:              cfg.DB,
 		Compile:         cfg.Compile,
 	})
@@ -237,13 +244,27 @@ func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
 }
 
 func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
+	// Don't stop calculating if the channel is deleted. The calculation will be
+	// automatically shut down when it is no longer needed.
+	var changed []channel.Channel
 	for cg := range reader {
-		// Don't stop calculating if the channel is deleted. The calculation will be
-		// automatically shut down when it is no longer needed.
-		if cg.Kind == gorp.ChangeDelete || !cg.Value.IsCalculated() {
-			continue
+		if cg.Kind != gorp.ChangeDelete {
+			changed = append(changed, cg.Value)
 		}
-		s.update(ctx, cg.Value)
+	}
+	calcs, err := s.cfg.Calculation.Outputs(
+		ctx,
+		s.cfg.DB,
+		channel.KeysFromChannels(changed)...,
+	)
+	if err != nil {
+		s.cfg.L.Error("failed to retrieve changed calculations", zap.Error(err))
+		return
+	}
+	for _, ch := range changed {
+		if _, ok := calcs[ch.Key()]; ok {
+			s.update(ctx, ch)
+		}
 	}
 }
 
@@ -320,7 +341,16 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		}
 		return
 	}
-	if !ch.IsCalculated() {
+	calcs, err := s.cfg.Calculation.Outputs(ctx, s.cfg.DB, key)
+	if err != nil {
+		if ctx.Err() == nil {
+			s.cfg.L.Error("failed to retry calculation",
+				zap.Error(err), zap.Stringer("channel", key))
+			s.retries.Trigger(key)
+		}
+		return
+	}
+	if _, ok := calcs[key]; !ok {
 		return
 	}
 	// Another request can add the channel while its own request is pending, so the
@@ -483,12 +513,19 @@ func (s *Service) Close() error {
 func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
-	var channels []channel.Channel
-	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.cfg.Channel.NewRetrieve().
+	var (
+		channels []channel.Channel
+		calcs    map[channel.Key]calculation.Calculation
+	)
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.cfg.Channel.NewRetrieve().
 			Where(channel.MatchKeys(added...)).
 			Entries(&channels).
-			Exec(ctx, snap)
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = s.cfg.Calculation.Outputs(ctx, snap, added...)
+		return err
 	}); err != nil {
 		return err
 	}
@@ -508,7 +545,7 @@ func (s *Service) updateRequests(
 		}
 	}
 	for _, ch := range channels {
-		if ch.IsCalculated() {
+		if _, ok := calcs[ch.Key()]; ok {
 			s.request(ctx, ch)
 		}
 	}

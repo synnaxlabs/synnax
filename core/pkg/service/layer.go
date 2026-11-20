@@ -483,6 +483,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
+			Calculation:     l.Calculation,
 			ChannelGraph:    channelGraph,
 			Reserved:        l.Signals.Publishes,
 		},
