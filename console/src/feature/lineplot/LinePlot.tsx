@@ -265,6 +265,7 @@ const Internal = (): ReactElement => {
           editable={hasUpdatePermission}
           enableTriggers={hasUpdatePermission}
           ranges={ranges}
+          relativeDisabled
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}
