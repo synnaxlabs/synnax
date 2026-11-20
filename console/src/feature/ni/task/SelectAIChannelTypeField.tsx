@@ -70,8 +70,8 @@ export const SelectAIChannelTypeField = ({
       const schema = AI_CHANNEL_SCHEMAS[value];
       const merged = deep.overrideValidItems(next, prevParent, schema);
       // A custom scale gives the range in scaled units, not in device units.
-      const unscaled = "customScale" in merged && merged.customScale.type === "none";
-      const range = unscaled ? defaultAIRange(value, hardware) : undefined;
+      const scaled = "customScale" in merged && merged.customScale.type !== "none";
+      const range = scaled ? undefined : defaultAIRange(value, hardware);
       set(path, {
         ...merged,
         ...(range != null && { minVal: range.lower, maxVal: range.upper }),

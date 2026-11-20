@@ -507,6 +507,15 @@ describe("default ranges", () => {
   });
 
   it.each([
+    "ai_rtd",
+    "ai_thermistor_iex",
+    "ai_thermistor_vex",
+    "ai_thermocouple",
+  ] as const)("should give %s a range of 0 to 100", (type) => {
+    expect(NI.Task.defaultAIRange(type, hardware)).toEqual({ lower: 0, upper: 100 });
+  });
+
+  it.each([
     ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
     ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
     ["a device with no hardware", NI.Task.defaultAIRange("ai_current")],
