@@ -13,6 +13,7 @@ import { type ReactElement, useState } from "react";
 import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Status } from "@/status";
@@ -961,6 +962,17 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should keep the first pasted row of a table with only text columns", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["on"]]} onChange={onChange}>
+          <Input.TableColumn name="Label" type="string" />
+        </Input.Table>,
+      );
+      paste(cell("Label", "1"), "Label\nON");
+      expect(onChange).toHaveBeenCalledWith([["Label"], ["ON"]]);
+    });
+
     it("should drop a heading row a text column would otherwise accept", () => {
       const onChange = renderMixed();
       paste(cell("Label", "1"), "Label\tValue\nON\t1\nOFF\t2");
@@ -979,6 +991,255 @@ describe("Input.Table", () => {
       from.focus();
       fireEvent.keyDown(from, { key: "ArrowDown" });
       expect(document.activeElement).toBe(cell("Label", "2"));
+    });
+  });
+
+  describe("boolean columns", () => {
+    const renderFlags = (value: Input.TableCell[][] = [["pump", true]]) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={value} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    it("should default a boolean column to a checkbox", () => {
+      renderFlags();
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.classList).toContain(CSS.BE("input", "checkbox", "input"));
+    });
+
+    it("should show a read-only boolean cell as a disabled checkbox", () => {
+      render(
+        <Input.Table value={[["pump", true]]} onChange={vi.fn()} preview>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.disabled).toBe(true);
+    });
+
+    it("should commit a toggled checkbox into its column", () => {
+      const onChange = renderFlags();
+      fireEvent.click(cell("Enabled", "1"));
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should append a row whose boolean cell is false", () => {
+      const onChange = renderFlags();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["pump", true],
+        ["", false],
+      ]);
+    });
+
+    it.each([
+      ["true", true],
+      ["FALSE", false],
+      ["1", true],
+      ["0", false],
+    ])("should read a pasted %s", (text, expected) => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), `valve\t${text}\nvent\ttrue`);
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", expected],
+        ["vent", true],
+      ]);
+    });
+
+    it("should read a single value pasted into a checkbox", () => {
+      const onChange = renderFlags();
+      paste(cell("Enabled", "1"), "0");
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should mark a checkbox whose single pasted value does not parse", () => {
+      render(
+        <Stateful initial={[["pump", true]]}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string" />,
+            <Input.TableColumn key="enabled" name="Enabled" type="boolean" />,
+          ]}
+        </Stateful>,
+      );
+      paste(cell("Enabled", "1"), "maybe");
+      expect(cell("Enabled", "1").checked).toBe(true);
+      expect(marked(cell("Enabled", "1"))).toBe(true);
+    });
+
+    it("should drop a heading row whose boolean cells do not parse", () => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), "Name\tEnabled\nvalve\tfalse");
+      expect(onChange).toHaveBeenCalledWith([["valve", false]]);
+    });
+
+    it("should refuse pasted text that names an object property", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\ttrue\nvent\tconstructor");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", true],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+
+    it("should keep and mark a boolean cell whose pasted text does not parse", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\tfalse\nvent\tmaybe");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", false],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+  });
+
+  describe("custom columns", () => {
+    interface Point {
+      x: number;
+      y: number;
+    }
+
+    const parsePoint = (text: string): Point | null => {
+      const [x, y] = text.split(";").map(Number);
+      return isFinite(x) && isFinite(y) ? { x, y } : null;
+    };
+
+    const renderPoints = (parse?: (text: string) => Point | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", { x: 0, y: 0 }]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<Point>
+            name="Point"
+            type="custom"
+            empty={{ x: 1, y: 1 }}
+            parse={parse}
+          >
+            {({ value, onChange, "aria-label": label }) => (
+              <button
+                aria-label={label}
+                onClick={() => onChange({ x: value.x + 1, y: value.y })}
+              >
+                {`${value.x};${value.y}`}
+              </button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    const point = (): HTMLElement => screen.getByRole("button", { name: "Point 1" });
+
+    it("should render the cell a custom column builds from the cell's value", () => {
+      renderPoints();
+      expect(point().textContent).toBe("0;0");
+    });
+
+    it("should commit a custom cell's change into its column", () => {
+      const onChange = renderPoints();
+      fireEvent.click(point());
+      expect(onChange).toHaveBeenCalledWith([["origin", { x: 1, y: 0 }]]);
+    });
+
+    it("should append a row holding the custom column's empty value", () => {
+      const onChange = renderPoints();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", { x: 0, y: 0 }],
+        ["", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should refuse a paste into a custom column without a parse", () => {
+      const onChange = renderPoints();
+      paste(cell("Name", "1"), "a\t2;3\nb\t4;5");
+      expect(onChange).toHaveBeenCalledWith([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should read a paste with a custom column's parse", () => {
+      const onChange = renderPoints(parsePoint);
+      paste(cell("Name", "1"), "a\t2;3");
+      expect(onChange).toHaveBeenCalledWith([["a", { x: 2, y: 3 }]]);
+    });
+
+    it("should write an undefined value that a custom column's parse reads", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", "red"]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<string | undefined>
+            name="Tint"
+            type="custom"
+            empty={undefined}
+            parse={(text) => (text === "" ? undefined : text)}
+          >
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value ?? "None"}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      paste(cell("Name", "1"), "origin\t\nnext\tblue");
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", undefined],
+        ["next", "blue"],
+      ]);
+    });
+  });
+
+  describe("select cells", () => {
+    const ORDERS = ["big", "little"];
+
+    const renderOrders = (parse?: (text: string) => string | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["big"]]} onChange={onChange}>
+          <Input.TableColumn name="Byte order" type="string" parse={parse}>
+            {({ value, "aria-label": label }) => (
+              <button aria-label={label}>{value}</button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      const order = screen.getByRole("button", { name: "Byte order 1" });
+      return { onChange, order };
+    };
+
+    const pasteOn = (el: HTMLElement, text: string): void => {
+      fireEvent.focus(el);
+      fireEvent.paste(el, { clipboardData: { getData: () => text } });
+    };
+
+    it("should leave one value pasted on a select whose column has no parse", () => {
+      const { onChange, order } = renderOrders();
+      pasteOn(order, "foo");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should read a single value pasted on a select with its column's parse", () => {
+      const { onChange, order } = renderOrders((text) =>
+        ORDERS.includes(text) ? text : null,
+      );
+      pasteOn(order, "little");
+      expect(onChange).toHaveBeenCalledWith([["little"]]);
     });
   });
 });

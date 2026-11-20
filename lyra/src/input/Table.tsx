@@ -27,6 +27,7 @@ import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { Checkbox } from "@/input/Checkbox";
 import { Numeric } from "@/input/Numeric";
 import { ItemContext, type ItemContextValue } from "@/input/scope";
 import { Text as InputText } from "@/input/Text";
@@ -35,8 +36,8 @@ import { type Status } from "@/status";
 import { Text } from "@/text";
 import { reactElementToArray } from "@/util/children";
 
-/** The value one {@link Table} cell holds. */
-export type TableCell = string | number;
+/** The value one {@link Table} cell holds. The cell's column decides its type. */
+export type TableCell = unknown;
 
 /** The props a {@link TableColumn} cell renderer receives. */
 export interface TableCellProps<V extends TableCell = TableCell> extends Control<V> {
@@ -62,9 +63,9 @@ const MIN_SHARED_WIDTH = 16;
 
 /**
  * The column's type decides what a new row holds, how pasted text is read, and which
- * input a cell defaults to.
+ * input a cell defaults to. A custom column holds any value and renders it itself.
  */
-export type TableColumnProps =
+export type TableColumnProps<V = unknown> =
   | (BaseTableColumnProps & {
       type?: "number";
       /** Reads pasted text, or returns null to refuse it. Defaults to `Number`. */
@@ -78,6 +79,21 @@ export type TableColumnProps =
       parse?: (text: string) => string | null;
       /** Renders the cell. Defaults to a text input. */
       children?: RenderProp<TableCellProps<string>>;
+    })
+  | (BaseTableColumnProps & {
+      type: "boolean";
+      /** Reads pasted text, or returns null to refuse it. Defaults to true or false. */
+      parse?: (text: string) => boolean | null;
+      /** Renders the cell. Defaults to a checkbox. */
+      children?: RenderProp<TableCellProps<boolean>>;
+    })
+  | (BaseTableColumnProps & {
+      type: "custom";
+      /** The value a new row holds. */
+      empty: V;
+      /** Reads pasted text, or returns null to refuse it. Omitted, pastes fail. */
+      parse?: (text: string) => V | null;
+      children: RenderProp<TableCellProps<V>>;
     });
 
 /**
@@ -86,34 +102,81 @@ export type TableColumnProps =
  *
  * @example <Input.TableColumn name="Pre-scaled" />
  * @example <Input.TableColumn name="Label" type="string" />
+ * @example <Input.TableColumn name="Enabled" type="boolean" />
  */
-export const TableColumn = (_: TableColumnProps): null => null;
+export const TableColumn = <V,>(_: TableColumnProps<V>): null => null;
 
 const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode => {
-  if (column.type === "string") {
-    const cell = { ...props, value: String(props.value) };
-    if (column.children != null) return column.children(cell);
-    return <InputText {...cell} />;
+  switch (column.type) {
+    case "string": {
+      const cell = { ...props, value: String(props.value) };
+      if (column.children != null) return column.children(cell);
+      return <InputText {...cell} />;
+    }
+    case "boolean": {
+      const cell = { ...props, value: props.value === true };
+      if (column.children != null) return column.children(cell);
+      // A read-only box still shows its state as a control.
+      return <Checkbox {...cell} preview={false} disabled={props.preview} />;
+    }
+    case "custom":
+      return column.children(props);
+    case "number":
+    case undefined: {
+      const cell = { ...props, value: Number(props.value) };
+      if (column.children != null) return column.children(cell);
+      return <Numeric {...cell} showDragHandle={false} />;
+    }
   }
-  const cell = { ...props, value: Number(props.value) };
-  if (column.children != null) return column.children(cell);
-  return <Numeric {...cell} showDragHandle={false} />;
 };
 
 /** The value a new row holds in this column. */
-const emptyCell = (column: TableColumnProps): TableCell =>
-  column.type === "string" ? "" : 0;
+const emptyCell = (column: TableColumnProps): TableCell => {
+  switch (column.type) {
+    case "string":
+      return "";
+    case "boolean":
+      return false;
+    case "custom":
+      return column.empty;
+    case "number":
+    case undefined:
+      return 0;
+  }
+};
+
+/** Whether the column's default reader refuses words, as a heading holds. */
+const refusesWords = (column: TableColumnProps): boolean =>
+  column.type == null || column.type === "number" || column.type === "boolean";
+
+const BOOLEANS = new Map<string, boolean>([
+  ["true", true],
+  ["false", false],
+  ["1", true],
+  ["0", false],
+]);
 
 /**
  * Reads a pasted cell with its column's parse, or as the type its column holds.
  * @returns null when the column refuses the text. By default, a number column refuses
- * text that is not a number, and a text column takes anything.
+ * text that is not a number, a text column takes anything, a boolean column takes true,
+ * false, 1, and 0, and a custom column refuses all text.
  */
 const parseCell = (text: string, column: TableColumnProps): TableCell | null => {
   if (column.parse != null) return column.parse(text);
-  if (column.type === "string") return text;
-  const value = Number(text);
-  return isFinite(value) ? value : null;
+  switch (column.type) {
+    case "string":
+      return text;
+    case "boolean":
+      return BOOLEANS.get(text.trim().toLowerCase()) ?? null;
+    case "custom":
+      return null;
+    case "number":
+    case undefined: {
+      const value = Number(text);
+      return isFinite(value) ? value : null;
+    }
+  }
 };
 
 /** Pasted text bound for one cell, and its value when the cell's column reads it. */
@@ -123,18 +186,18 @@ interface PastedCell {
 }
 
 /**
- * A spreadsheet selection often carries a heading row: one with number cells, none of
- * which parse.
+ * A spreadsheet selection often carries a heading row: one with number or boolean
+ * cells, none of which parse.
  */
 const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
-  const numbers = row.filter((_, j) => columns[j].type !== "string");
-  return numbers.length > 0 && numbers.every(({ value }) => value == null);
+  const typed = row.filter((_, j) => refusesWords(columns[j]));
+  return typed.length > 0 && typed.every(({ value }) => value === null);
 };
 
 /**
  * Reads clipboard text as a grid of cells, parsing each against the column it lands on.
- * A first row that reads as a heading is dropped.
- * @returns null when the text is a single cell, leaving the paste to the focused cell.
+ * A first row that reads as a heading is dropped, unless it is a single cell.
+ * @returns null when the text holds no cells.
  */
 const parseBlock = (
   text: string,
@@ -151,11 +214,26 @@ const parseBlock = (
         .slice(0, targets.length)
         .map((text, j) => ({ text, value: parseCell(text, targets[j]) })),
     );
-  if (block.length > 0 && isHeading(block[0], targets)) block.shift();
-  if (block.length === 0) return null;
-  if (block.length === 1 && block[0].length === 1) return null;
-  return block;
+  if (block.length > 0 && !isSingle(block) && isHeading(block[0], targets))
+    block.shift();
+  return block.length === 0 ? null : block;
 };
+
+const isSingle = (block: unknown[][]): boolean =>
+  block.length === 1 && block[0].length === 1;
+
+/** Whether the element takes pasted text itself, as a text field does. */
+const takesText = (el: EventTarget): boolean =>
+  el instanceof HTMLTextAreaElement ||
+  (el instanceof HTMLInputElement && el.type !== "checkbox" && el.type !== "radio");
+
+/**
+ * Whether a single value pasted on a cell that is not a text field, such as a select,
+ * reaches the cell. The default string and number readers take values that such a cell
+ * may not hold, so they do not.
+ */
+const checksText = (column: TableColumnProps): boolean =>
+  column.parse != null || column.type === "boolean" || column.type === "custom";
 
 type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY | null;
 
@@ -297,6 +375,11 @@ export const Table = ({
       anchor.current.x,
     );
     if (block == null) return;
+    if (
+      isSingle(block) &&
+      (takesText(e.target) || !checksText(columns[anchor.current.x]))
+    )
+      return;
     e.preventDefault();
     restored.current = false;
     pasted.current = true;
@@ -306,7 +389,7 @@ export const Table = ({
       next.push(createRow?.(next) ?? emptyRow());
     const rejected: Rejection[] = [];
     plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
-      if (parsed != null) next[at.y][at.x] = parsed;
+      if (parsed !== null) next[at.y][at.x] = parsed;
       else rejected.push({ at, text, kept: next[at.y][at.x] });
     });
     const written = (at: xy.XY): boolean =>

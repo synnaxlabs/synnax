@@ -96,6 +96,12 @@
         padding-left: 1.5rem;
     }
 
+    /* A read-only cell keeps the inset of an editable one, so its text stays under its
+       heading. */
+    & tbody .lyra-input.lyra-btn--preview .lyra-input__preview-value {
+        padding: 0 1.5rem;
+    }
+
     & .lyra-input__table-gutter {
         width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
@@ -228,16 +234,19 @@
     /* A marked cell keeps its frame at rest, above its unfocused neighbors. */
     &
         tbody
-        .lyra-input:is(.lyra--status-error, .lyra--status-warning):not(:focus-within) {
+        :is(.lyra-input, .lyra-btn--shadow):is(
+            .lyra--status-error,
+            .lyra--status-warning
+        ):not(:focus-within) {
         z-index: 1;
     }
 
-    & tbody .lyra-input.lyra--status-error {
+    & tbody :is(.lyra-input, .lyra-btn--shadow).lyra--status-error {
         --pluto-border-color: var(--pluto-error-z);
         --pluto-hover-border-color: var(--pluto-error-p1);
     }
 
-    & tbody .lyra-input.lyra--status-warning {
+    & tbody :is(.lyra-input, .lyra-btn--shadow).lyra--status-warning {
         --pluto-border-color: var(--pluto-warning-z);
         --pluto-hover-border-color: var(--pluto-warning-p1);
     }
