@@ -8,18 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Check } from "@/util/checks/check";
-import {
-  enumerateRoutes,
-  navRefs,
-  pageFiles,
-  routed,
-  toRoute,
-} from "@/util/checks/crawl";
+import { docFiles, enumerateRoutes, navRefs, toRoute } from "@/util/checks/crawl";
 import { normalizeRoute } from "@/util/route";
 
 const referencePages = (): string[] =>
-  pageFiles()
-    .filter((f) => f.startsWith("reference/") && f.endsWith(".mdx") && routed(f))
+  docFiles()
+    .filter((f) => f.startsWith("reference/"))
     .map((f) => normalizeRoute(toRoute(f)));
 
 /**
