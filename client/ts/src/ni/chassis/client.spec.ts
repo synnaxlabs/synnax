@@ -191,18 +191,19 @@ describe("NI chassis", async () => {
   describe("update", () => {
     it("should write the configuration group", async () => {
       const c = await create();
-      await client.ni.chassis.update(c.key, {
+      const stored = await client.ni.chassis.update(c.key, {
         group: "configuration",
         name: "Renamed",
       });
       const retrieved = await client.ni.chassis.retrieve({ key: c.key });
       expect(retrieved.name).toBe("Renamed");
       expect(retrieved.model).toBe(c.model);
+      expect(stored).toEqual(retrieved);
     });
 
     it("should write the identity group and keep the configuration", async () => {
       const c = await create("Kept");
-      await client.ni.chassis.update(c.key, {
+      const stored = await client.ni.chassis.update(c.key, {
         group: "identity",
         rack: rack.key,
         serial: "01ABCDEF",
@@ -212,6 +213,7 @@ describe("NI chassis", async () => {
       const retrieved = await client.ni.chassis.retrieve({ key: c.key });
       expect(retrieved.serial).toBe("01ABCDEF");
       expect(retrieved.name).toBe("Kept");
+      expect(stored).toEqual(retrieved);
     });
   });
 
