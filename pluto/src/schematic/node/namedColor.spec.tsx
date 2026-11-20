@@ -12,25 +12,41 @@ import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
-import { ReactFlowProvider } from "@xyflow/react";
+import { type Node as FlowNode, ReactFlowProvider } from "@xyflow/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { Jumps } from "@/schematic/edge/common/jumps";
+import { Pipe } from "@/schematic/edge/pipe";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { Box } from "@/schematic/node/general/box";
+import { Button } from "@/schematic/node/general/button";
+import { Circle } from "@/schematic/node/general/circle";
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Input } from "@/schematic/node/general/input";
+import { Line } from "@/schematic/node/general/line";
+import { OffPageReference } from "@/schematic/node/general/offPageReference";
+import { Polygon } from "@/schematic/node/general/polygon";
 import { Scale } from "@/schematic/node/general/scale";
+import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
+import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
+import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
+import { type NodeProps } from "@/schematic/node/spec";
+import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
 import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { button } from "@/vis/button/aether";
+import { diagram } from "@/vis/diagram/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { scale } from "@/vis/scale/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
+import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { stringValue } from "@/vis/stringValue/aether";
 import { value } from "@/vis/value/aether";
 
@@ -40,8 +56,10 @@ const client = createTestClient();
 const drawn = new Map<string, unknown>();
 
 const REGISTRY = {
+  ...button.REGISTRY,
   ...input.REGISTRY,
   ...setpoint.REGISTRY,
+  ...stateIndicator.REGISTRY,
   ...stalenessTest.createRegistry(gauge.Gauge.TYPE, gauge.Gauge.z, (s) =>
     drawn.set("gauge", s.color),
   ),
@@ -63,10 +81,34 @@ const REGISTRY = {
 
 const NODE = { nodeKey: "n1", selected: false, onConfigChange: () => {} };
 
-const symbolColor = (root: HTMLElement): string | undefined =>
+/** Reads the color the primitive paints, from the DOM or the drawn Aether state. */
+type Painted = (root: HTMLElement) => unknown;
+
+const symbolColor: Painted = (root) =>
   root
     .querySelector<HTMLElement>(`[style*="${Primitive.SYMBOL_COLOR}"]`)
     ?.style.getPropertyValue(Primitive.SYMBOL_COLOR);
+
+const drew =
+  (field: string): Painted =>
+  () =>
+    drawn.get(field);
+
+const tankFill: Painted = (root) =>
+  root.querySelector<HTMLElement>(".pluto-tank")?.style.backgroundColor;
+
+// A fill that has not resolved is a theme variable, not a hex color.
+const svgFill: Painted = (root) =>
+  root.querySelector('[fill^="#"]')?.getAttribute("fill");
+
+// The axis paints a theme variable until the color resolves.
+const axisStroke: Painted = (root) =>
+  root.querySelector('[stroke^="#"]')?.getAttribute("stroke");
+
+const textColor: Painted = (root) =>
+  Array.from(root.querySelectorAll<HTMLElement>("*")).find(
+    (el) => el.style.color !== "",
+  )?.style.color;
 
 // The red, green, and blue of a painted color: a crude color, a symbol color variable,
 // or a CSS rgb() string.
@@ -83,186 +125,146 @@ const rgb = (painted: unknown): string | undefined => {
 
 interface Entry {
   render: (ref: color.Ref) => ReactElement;
-  /** Reads the color the primitive paints, from the DOM or the drawn Aether state. */
-  painted: (root: HTMLElement) => unknown;
+  painted: Painted;
 }
 
+/**
+ * A color field of a symbol: its label, its config key, and how to read its color on
+ * the node and on the preview. A null reader skips that render.
+ */
+type Field = [
+  label: string,
+  key: string,
+  node: Painted | null,
+  preview: Painted | null,
+];
+
+interface SymbolSpec<C extends object> {
+  key: string;
+  Node: FC<NodeProps<C>>;
+  Preview: FC<C>;
+}
+
+/** @returns an entry for each field of the symbol, on its node and on its preview. */
+const symbolEntries = <C extends object>(
+  spec: SymbolSpec<C>,
+  configZ: { parse: (crude: unknown) => C },
+  fields: Field[],
+): Array<[string, Entry]> => {
+  const name = spec.key.replaceAll("_", " ");
+  const config = (key: string, ref: color.Ref): C =>
+    configZ.parse({ variant: spec.key, [key]: ref });
+  return fields.flatMap(([label, key, node, preview]) => {
+    const entries: Array<[string, Entry]> = [];
+    if (node != null)
+      entries.push([
+        `${name} ${label}`,
+        {
+          render: (ref) => <spec.Node {...NODE} config={config(key, ref)} />,
+          painted: node,
+        },
+      ]);
+    if (preview != null)
+      entries.push([
+        `${name} preview ${label}`,
+        { render: (ref) => <spec.Preview {...config(key, ref)} />, painted: preview },
+      ]);
+    return entries;
+  });
+};
+
+const EDGE_SIZE = { width: 40, height: 40 };
+
+const EDGE_NODES: FlowNode[] = [
+  { id: "a", position: { x: 0, y: 0 }, measured: EDGE_SIZE, data: {} },
+  { id: "b", position: { x: -200, y: 100 }, measured: EDGE_SIZE, data: {} },
+];
+
 const ENTRIES: Array<[string, Entry]> = [
-  [
-    "gauge stroke",
-    {
-      render: (strokeColor) => (
-        <Gauge.spec.Node
-          {...NODE}
-          config={schematic.gaugeNodeConfigZ.parse({ variant: "gauge", strokeColor })}
-        />
-      ),
-      painted: () => drawn.get("gauge"),
-    },
-  ],
-  [
-    "input fill",
-    {
-      render: (fillColor) => (
-        <Input.spec.Node
-          {...NODE}
-          config={schematic.inputNodeConfigZ.parse({ variant: "input", fillColor })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "setpoint fill",
-    {
-      render: (fillColor) => (
-        <Setpoint.spec.Node
-          {...NODE}
-          config={schematic.setpointNodeConfigZ.parse({
-            variant: "setpoint",
-            fillColor,
-          })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "string display text",
-    {
-      render: (textColor) => (
-        <StringDisplay.spec.Node
-          {...NODE}
-          config={schematic.stringDisplayNodeConfigZ.parse({
-            variant: "string_display",
-            textColor,
-          })}
-        />
-      ),
-      painted: () => drawn.get("string value"),
-    },
-  ],
-  [
-    "string display stroke",
-    {
-      render: (strokeColor) => (
-        <StringDisplay.spec.Node
-          {...NODE}
-          config={schematic.stringDisplayNodeConfigZ.parse({
-            variant: "string_display",
-            strokeColor,
-          })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "value text",
-    {
-      render: (textColor) => (
-        <Value.spec.Node
-          {...NODE}
-          config={schematic.valueNodeConfigZ.parse({ variant: "value", textColor })}
-        />
-      ),
-      painted: () => drawn.get("value text"),
-    },
-  ],
-  [
-    "value stroke",
-    {
-      render: (strokeColor) => (
-        <Value.spec.Node
-          {...NODE}
-          config={schematic.valueNodeConfigZ.parse({ variant: "value", strokeColor })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "value fill",
-    {
-      render: (fillColor) => (
-        <Value.spec.Node
-          {...NODE}
-          config={schematic.valueNodeConfigZ.parse({ variant: "value", fillColor })}
-        />
-      ),
-      painted: () => drawn.get("value fill"),
-    },
-  ],
-  ...(["level", "axis", "text"] as const).map((field): [string, Entry] => [
-    `scale ${field}`,
-    {
-      render: (ref) => (
-        <Scale.spec.Node
-          {...NODE}
-          config={schematic.scaleNodeConfigZ.parse({
-            variant: "scale",
-            [`${field}Color`]: ref,
-          })}
-        />
-      ),
-      painted: () => drawn.get(`scale ${field}`),
-    },
+  ...symbolEntries(Gauge.spec, schematic.gaugeNodeConfigZ, [
+    ["stroke", "strokeColor", drew("gauge"), symbolColor],
+  ]),
+  ...symbolEntries(Input.spec, schematic.inputNodeConfigZ, [
+    ["fill", "fillColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(Setpoint.spec, schematic.setpointNodeConfigZ, [
+    ["fill", "fillColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(StringDisplay.spec, schematic.stringDisplayNodeConfigZ, [
+    ["text", "textColor", drew("string value"), textColor],
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(Value.spec, schematic.valueNodeConfigZ, [
+    ["text", "textColor", drew("value text"), textColor],
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+    ["fill", "fillColor", drew("value fill"), null],
+  ]),
+  ...symbolEntries(Scale.spec, schematic.scaleNodeConfigZ, [
+    ["level", "levelColor", drew("scale level"), symbolColor],
+    ["axis", "axisColor", drew("scale axis"), axisStroke],
+    ["text", "textColor", drew("scale text"), null],
+  ]),
+  ...symbolEntries(Tank.spec, schematic.tankNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+    ["fill", "fillColor", tankFill, tankFill],
+  ]),
+  ...symbolEntries(Box.spec, schematic.boxNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+    ["fill", "fillColor", tankFill, tankFill],
+  ]),
+  ...symbolEntries(Cylinder.spec, schematic.cylinderNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+    ["fill", "fillColor", svgFill, svgFill],
+  ]),
+  ...symbolEntries(Polygon.spec, schematic.polygonNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+    ["fill", "fillColor", svgFill, svgFill],
+  ]),
+  // The preview renders the same symbol as the node.
+  ...symbolEntries(Circle.spec, schematic.circleNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, null],
+    ["fill", "fillColor", svgFill, null],
+  ]),
+  ...symbolEntries(Line.spec, schematic.lineNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(Button.spec, schematic.buttonNodeConfigZ, [
+    ["fill", "fillColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(Select.spec, schematic.selectNodeConfigZ, [
+    ["fill", "fillColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(StateIndicator.spec, schematic.stateIndicatorNodeConfigZ, [
+    ["stroke", "strokeColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(TextBox.spec, schematic.textBoxNodeConfigZ, [
+    ["text", "textColor", symbolColor, symbolColor],
+  ]),
+  ...symbolEntries(OffPageReference.spec, schematic.offPageReferenceNodeConfigZ, [
+    ["fill", "fillColor", symbolColor, symbolColor],
   ]),
   [
-    "gauge preview stroke",
+    "pipe edge stroke",
     {
       render: (strokeColor) => (
-        <Gauge.spec.Preview
-          {...schematic.gaugeNodeConfigZ.parse({ variant: "gauge", strokeColor })}
-        />
+        <ReactFlowProvider defaultNodes={EDGE_NODES}>
+          <Jumps.Context value={Jumps.createStore()}>
+            <svg>
+              <Pipe.spec.Edge
+                edgeKey="e1"
+                source={diagram.createEndpoint(40, 20, "right")}
+                target={diagram.createEndpoint(-160, 120, "right")}
+                sourceNode="a"
+                targetNode="b"
+                selected={false}
+                config={{ ...Pipe.spec.defaultConfig(), strokeColor }}
+                onChange={() => {}}
+              />
+            </svg>
+          </Jumps.Context>
+        </ReactFlowProvider>
       ),
       painted: symbolColor,
-    },
-  ],
-  [
-    "scale preview level",
-    {
-      render: (levelColor) => (
-        <Scale.spec.Preview
-          {...schematic.scaleNodeConfigZ.parse({ variant: "scale", levelColor })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "scale preview axis",
-    {
-      render: (axisColor) => (
-        <Scale.spec.Preview
-          {...schematic.scaleNodeConfigZ.parse({ variant: "scale", axisColor })}
-        />
-      ),
-      // The axis paints a theme variable until the color resolves.
-      painted: (root) => root.querySelector('[stroke^="#"]')?.getAttribute("stroke"),
-    },
-  ],
-  [
-    "tank preview stroke",
-    {
-      render: (strokeColor) => (
-        <Tank.spec.Preview
-          {...schematic.tankNodeConfigZ.parse({ variant: "tank", strokeColor })}
-        />
-      ),
-      painted: symbolColor,
-    },
-  ],
-  [
-    "tank preview fill",
-    {
-      render: (fillColor) => (
-        <Tank.spec.Preview
-          {...schematic.tankNodeConfigZ.parse({ variant: "tank", fillColor })}
-        />
-      ),
-      painted: (root) =>
-        root.querySelector<HTMLElement>(".pluto-tank")?.style.backgroundColor,
     },
   ],
 ];
