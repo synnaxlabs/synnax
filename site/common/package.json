@@ -9,6 +9,7 @@
     "./CdnPicture.astro": "./src/CdnPicture.astro",
     "./consent": "./src/consent.ts",
     "./contact": "./src/contact.ts",
+    "./csp": "./src/csp.ts",
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./Head.astro": "./src/Head.astro",
@@ -56,6 +57,7 @@
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

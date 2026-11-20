@@ -9,7 +9,7 @@
 
 import { STREAM_TYPE } from "@/feature/sift/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/sift/task/commands";
 export * from "@/feature/sift/task/create";

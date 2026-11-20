@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
 import {

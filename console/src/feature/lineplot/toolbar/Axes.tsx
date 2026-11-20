@@ -13,8 +13,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Direction, LinePlot, Properties } from "@synnaxlabs/pluto";
-import { type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { text } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

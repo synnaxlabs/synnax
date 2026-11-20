@@ -11,7 +11,7 @@ import { type rack, status } from "@synnaxlabs/client";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { unique } from "@synnaxlabs/x";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Address, sameAddress } from "@/feature/ethercat/device/settings";
-import { type SlaveProperties } from "@/feature/ethercat/device/types";
+import type { SlaveProperties } from "@/feature/ethercat/device/types";
 
 /**
  * How the scan found a slave set up:

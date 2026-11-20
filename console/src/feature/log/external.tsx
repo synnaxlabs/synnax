@@ -13,7 +13,7 @@ import { Log as Base } from "@synnaxlabs/pluto";
 
 import { Selectable } from "@/feature/log/Selectable";
 import { Panel } from "@/platform/panel";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export * from "@/feature/log/commands";
 export * from "@/feature/log/link";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Properties } from "@/platform/view/filter/types";
+import type { Properties } from "@/platform/view/filter/types";
 
 /**
  * One condition of a filter, one for each chip. A condition with no property is a node

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type z } from "zod";
+import type { z } from "zod";
 
 export type Config<V extends schematic.EdgeConfigType = schematic.EdgeConfigType> =
   Extract<schematic.EdgeConfig, { variant: V }>;

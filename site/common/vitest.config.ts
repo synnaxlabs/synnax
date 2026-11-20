@@ -9,7 +9,7 @@
 
 import react from "@astrojs/react";
 import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
+import type { ViteUserConfigFn } from "vitest/config";
 
 import { CDN } from "./src/cdn";
 

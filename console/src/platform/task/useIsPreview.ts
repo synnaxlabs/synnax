@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type z } from "zod";
+import type { z } from "zod";
 
 /**
  * Whether the surrounding task form renders read-only because the subject holds no

@@ -10,7 +10,7 @@
 import { type compare, type record, search } from "@synnaxlabs/x";
 import { useMemo, useState } from "react";
 
-import { type FrameProps, type GetItem } from "@/list/Frame";
+import type { FrameProps, GetItem } from "@/list/Frame";
 
 /** Return value for {@link useStaticData}. Spread it into a {@link Frame}. */
 export interface UseStaticDataReturn<

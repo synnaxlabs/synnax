@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type KeyboardEvent, type MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { type Haul } from "@/haul";
+import type { Haul } from "@/haul";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil/dom";
 import { createRenderCounter } from "@/testutil/renders";
-import { type Node } from "@/tree/base";
+import type { Node } from "@/tree/base";
 import { Item } from "@/tree/Item";
 import {
   canDropHaulItem,

@@ -11,14 +11,14 @@ import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/arc";
 import { useClipboard } from "@/arc/graph/clipboard";
 import { Errors } from "@/errors";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const client = createTestClient();
 let wrapper: FC<PropsWithChildren>;

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 import { type ListQuery, useList } from "@/schematic/symbol/queries";
 
 const ListItem = ({

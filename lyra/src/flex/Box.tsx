@@ -10,13 +10,13 @@
 import "@/flex/Box.css";
 
 import { type color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import z from "zod";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { type Theming } from "@/theming";
+import type { Theming } from "@/theming";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;

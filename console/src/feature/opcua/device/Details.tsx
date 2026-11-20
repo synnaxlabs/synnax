@@ -34,7 +34,7 @@ import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
-import { type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,
   nodeDetailsZ,

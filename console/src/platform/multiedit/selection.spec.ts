@@ -28,6 +28,7 @@ const FIELDS = MultiEdit.fieldsByVariant(SCHEMAS);
 
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
+const FIXED_RED = { type: "fixed", value: RED } as const;
 
 const create = (configs: Array<[string, Config]>) => {
   const updates: Array<Array<[string, Config]>> = [];
@@ -93,7 +94,7 @@ describe("selection", () => {
 
   it("should set every referenced color", () => {
     updates.length = 0;
-    selection.setColors([{ key: "a", path: "fillColor", value: RED }], BLUE);
+    selection.setColors([{ key: "a", path: "fillColor", value: FIXED_RED }], BLUE);
     expect(updates).toEqual([
       [["a", { variant: "gauge", fillColor: BLUE, precision: 2 }]],
     ]);
@@ -117,8 +118,8 @@ describe("selection", () => {
       onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
     }).setColors(
       [
-        { key: "a", path: "fillColor", value: RED },
-        { key: "a", path: "options.0.color", value: RED },
+        { key: "a", path: "fillColor", value: FIXED_RED },
+        { key: "a", path: "options.0.color", value: FIXED_RED },
       ],
       BLUE,
     );
@@ -151,7 +152,7 @@ describe("selection", () => {
 
   it("should throw when a reference names an element outside the selection", () => {
     expect(() =>
-      selection.setColors([{ key: "z", path: "fillColor", value: RED }], BLUE),
+      selection.setColors([{ key: "z", path: "fillColor", value: FIXED_RED }], BLUE),
     ).toThrow("[multiedit] - no config for z");
   });
 

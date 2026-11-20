@@ -9,10 +9,10 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { useDriverCertificateModal } from "@/feature/opcua/device/Certificate";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 
 export const RackMenuItems = ({ rackKey }: Device.RackMenuItemsProps): ReactElement => {
   const openCertificate = useDriverCertificateModal();
