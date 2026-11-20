@@ -146,6 +146,21 @@ export const Side = ({ children }: PropsWithChildren): ReactElement => (
   </Flex.Box>
 );
 
+export interface SearchProps extends Pick<
+  Input.TextProps,
+  "value" | "onChange" | "placeholder"
+> {}
+
+/** A field at the head of a {@link Side} that filters its list. */
+export const Search = (props: SearchProps): ReactElement => (
+  <Input.Text
+    size="small"
+    startContent={<Icon.Search />}
+    className={CSS.BE("icd-picker", "search")}
+    {...props}
+  />
+);
+
 /** The part of a {@link Side} that lists what to pick. It fills the room left over. */
 export const SideList = ({ children }: PropsWithChildren): ReactElement => (
   <Flex.Box y empty className={CSS.BE("icd-picker", "side-list")}>

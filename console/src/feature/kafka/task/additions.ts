@@ -26,7 +26,7 @@ export const shapeKey = ({ fields }: json.Shape): string =>
     .sort()
     .join("\n");
 
-/** A message that adding picks puts in the task's ICD, and the records that read it. */
+/** A message that Add data puts in the task's ICD, and the records that read it. */
 export interface Addition {
   message: icd.Message;
   /** The Kafka keys of the new records that read the message. */

@@ -49,12 +49,14 @@ The task reads a field into a channel only when the record binds the field to on
 
 1. In the devices toolbar, right-click the cluster and select **Create read task**. You
    can also run the "Create Kafka read task" command.
-2. Click **Add data**, then enter the **Topic**, such as `sensor-readings`. The dialog
-   reads up to 100 records of the topic, spread back in time, and groups their keys by
-   the fields that their values hold.
-3. Select the fields to record, then click **Add** _N_ **fields**. Each group becomes a
-   message in the ICD of the task, with a record for each key that has no record yet. A
-   timestamp that the dialog finds becomes the index of the message.
+2. Click **Add data**. The dialog lists the topics of the cluster. Select a topic, such
+   as `sensor-readings`, to see its partitions, rate, format, and newest record. The
+   dialog reads up to 100 records of the topic, spread back in time, and groups their
+   keys by the fields that their values hold.
+3. Select the fields to record. You can select fields from more than one topic. Then
+   click **Add** _N_ **fields**. Each group becomes a message in the ICD of the task,
+   with a record for each key that has no record yet. A timestamp that the dialog finds
+   becomes the index of the message.
 4. Click <Icon.Play /> (**Start**).
 
 The first message creates an ICD named after the task. For a topic with no records yet,
@@ -65,7 +67,7 @@ A key with no record of its own goes to the **Any key** record of its topic. The
 marks the fields that **Any key** reads for the key as **Any key**. A new record of the
 key reads them too, into new channels, so the key keeps every field.
 
-To read another topic, click **Add data** again and enter its name. The tree shows each
+To read another topic later, click **Add data** again and select it. The tree shows each
 topic above its records. Select a topic to change its **Name**.
 
 The Console creates a channel for each field that the task reads, and an index channel

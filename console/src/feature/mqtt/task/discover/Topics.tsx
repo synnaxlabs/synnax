@@ -401,13 +401,10 @@ export const TopicPicker = ({
         onListen={listen}
       />
       <ICD.Picker.Side>
-        <Input.Text
+        <ICD.Picker.Search
           value={term}
           onChange={setTerm}
-          size="small"
           placeholder="Search topics"
-          startContent={<Icon.Search />}
-          className={CSS.BE("mqtt-discover", "search")}
         />
         <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
         {(listing?.truncated === true || scope !== "") && (

@@ -44,6 +44,7 @@ import { type Device, SCHEMAS } from "@/feature/kafka/device/types";
 import { useConnectModal } from "@/feature/kafka/device/useConnectModal";
 import { useAddDataModal } from "@/feature/kafka/task/AddData";
 import {
+  type Addition,
   createAdditions,
   createExtensions,
   createRecords,
@@ -171,9 +172,6 @@ const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
   name,
   payload: { format: "json", fields: [], ...(match == null ? {} : { match }) },
 });
-
-const recordOf = (icdKey: icd.Key, message: icd.MessageKey): ReadRecord =>
-  kafka.readRecordZ.parse({ icd: icdKey, messages: [{ message }] });
 
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
@@ -499,12 +497,12 @@ const Records: FC<RecordsProps> = ({
 
   /**
    * Puts messages in the ICD of the first record, or in a new ICD for a task with no
-   * record, then adds the records that read them to the topic named topic.
+   * record, then adds the records that read them to their topics.
+   * @param recordsOf - Returns the records to add to each topic, by topic name.
    */
   const addRecords = async (
-    topic: string,
     messages: icd.Message[],
-    recordsOf: (icdKey: icd.Key) => ReadRecord[],
+    recordsOf: (icdKey: icd.Key) => Map<string, ReadRecord[]>,
   ) => {
     if (client == null) throw new DisconnectedError();
     const first = records.at(0);
@@ -524,21 +522,16 @@ const Records: FC<RecordsProps> = ({
       });
     }
     const added = recordsOf(icdKey);
-    const key = pushRecords(topic, added);
-    onSelect([added[0].key]);
-    onExpand((prev) => unique.unique([...prev, key, added[0].key]));
+    const keys = [...added].map(([topic, recs]) => pushRecords(topic, recs));
+    const [{ key: shown }] = [...added.values()].flat();
+    onSelect([shown]);
+    onExpand((prev) => unique.unique([...prev, ...keys, shown]));
   };
 
   /** @returns the messages of the ICD of the first record. */
   const heldMessages = (): icd.Message[] => {
     const first = records.at(0);
     return first == null ? [] : ICD.formatOf(formats, first.icd).value().messages;
-  };
-
-  /** Adds a record that reads any key of a topic. */
-  const addRecord = async (topic: string) => {
-    const message = createMessage(uniqueName(ANY_KEY, heldMessages()));
-    await addRecords(topic, [message], (icdKey) => [recordOf(icdKey, message.key)]);
   };
 
   /** @returns the name of the topic of the selected item, or of the only topic. */
@@ -578,26 +571,41 @@ const Records: FC<RecordsProps> = ({
       }
     });
 
-  /** Adds the fields that the user picks from records of a topic, or one record. */
+  /** Adds the fields that the user picks from topics, and any empty record. */
   const add = async () => {
     const result = await addData({
       device,
       topic: selectedTopic(),
+      topics: topics.map(({ name }) => name),
       reads: (name) => readsOf(topicRecords(name), messagesOf),
       label,
     });
     if (result == null) return;
-    if (result.variant === "record") return await addRecord(result.topic);
-    const { shapes, picks } = result;
-    const held = topicRecords(result.topic);
-    const reads = readsOf(held, messagesOf);
-    extend(createExtensions(shapes, picks, held, messagesOf));
-    const additions = createAdditions(shapes, picks, reads, heldMessages(), label);
-    if (additions.length === 0) return;
+    const additions = new Map<string, Addition[]>();
+    let held = heldMessages();
+    for (const { topic, shapes, picks } of result.topics) {
+      const records = topicRecords(topic);
+      const reads = readsOf(records, messagesOf);
+      extend(createExtensions(shapes, picks, records, messagesOf));
+      const added = createAdditions(shapes, picks, reads, held, label);
+      if (added.length === 0) continue;
+      additions.set(topic, added);
+      held = [...held, ...added.map(({ message }) => message)];
+    }
+    if (result.record != null) {
+      const empty = {
+        message: createMessage(uniqueName(ANY_KEY, held)),
+        recordKeys: [""],
+      };
+      additions.set(result.record, [...(additions.get(result.record) ?? []), empty]);
+    }
+    if (additions.size === 0) return;
     await addRecords(
-      result.topic,
-      additions.map(({ message }) => message),
-      (icdKey) => createRecords(icdKey, additions),
+      [...additions.values()].flat().map(({ message }) => message),
+      (icdKey) =>
+        new Map(
+          [...additions].map(([topic, added]) => [topic, createRecords(icdKey, added)]),
+        ),
     );
   };
 
