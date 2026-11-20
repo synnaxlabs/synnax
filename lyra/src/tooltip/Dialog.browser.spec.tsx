@@ -325,14 +325,8 @@ describe("Tooltip.Dialog", () => {
 
     it("should open instantly on keyboard focus and close on blur", () => {
       const { btn } = mountButton();
-      // jsdom parses :focus-visible but never matches it; treat focus as
-      // focus-visible like a keyboard-driven browser would
-      const matches = btn.matches.bind(btn);
-      btn.matches = ((sel: string) =>
-        sel === ":focus-visible"
-          ? document.activeElement === btn
-          : matches(sel)) as typeof btn.matches;
       act(() => btn.focus());
+      expect(btn.matches(":focus-visible")).toBe(true);
       expect(getTooltip()).not.toBeNull();
       act(() => btn.blur());
       expect(getTooltip()).toBeNull();
