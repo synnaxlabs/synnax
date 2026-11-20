@@ -347,9 +347,9 @@ request marks that channel as needing no time. The reader sends no second reques
 names no clock key.
 
 - **Closed frames**: Every frame the Core sends holds, for each data series of a timed
-  key, the time series of its clock for the same alignments: one per contiguous run of
-  each clock and multiple per frame, under the clock key, on every transport and
-  encoding.
+  key, the time series of its clock for the same alignments: one per contiguous range of
+  alignments of each clock and multiple per frame, under the clock key, on every
+  transport and encoding.
 - **Untimed keys**: A streamer or iterator request may list `untimed_keys`, a subset of
   its keys whose values a reader needs with no time: readouts, gauges, lights, and the
   other value displays. Staleness uses sample arrival, not stamps
@@ -360,7 +360,7 @@ names no clock key.
   (`client/ts/src/framer/cache/streamer.ts`), so it marks a key untimed only while every
   display that holds the key marks it.
 - **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
-  iterator adds, per chunk and clock, the stamps of the alignment runs of its data
+  iterator adds, per chunk and clock, the stamps of the alignment ranges of its data
   series, within the chunk size. A reduced read reduces them as it does the data.
 - **Calculations**: A calculation session stores nothing, names no clock, and takes no
   claim: its series carry the clocks of its inputs. Its relay frame holds the outputs,
