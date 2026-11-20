@@ -224,9 +224,10 @@ Rewire struct {
 - **Naming rules** (Phase 32): A folder holds `name_rule string?`, an RE2 expression
   that must match the whole name of each channel directly in the folder, not of child
   folders. `group.CheckMember` (`core/pkg/service/group/member.go:30`) takes the name
-  and checks the rule; the channel writer calls it on create, move, and now rename. The
-  error names the rule and the folder. A rule is refused while a current name breaks it.
-  The field mints group v2 (1 or 5 + r bytes, last).
+  and checks the rule; the channel writer calls it on create, move, and now rename. An
+  action checks the rule on each name that it leaves, not on its temporary names
+  (§4.13). The error names the rule and the folder. A rule is refused while a current
+  name breaks it. The field mints group v2 (1 or 5 + r bytes, last).
 
 ### 4.2 Paths
 
@@ -260,8 +261,9 @@ Rewire struct {
   on its own lease and the free lease, so no new channel can take it, and the links of a
   cluster from before `core/v0.61.0`, which removed `--peers`, stay. `DropDangling`
   clears a weak link whose key was never issued and keeps a dead one, so an import of
-  raw keys from another Core, as the line plot import already does, drops the keys that
-  mean nothing here instead of failing.
+  raw keys drops the keys that this Core never issued instead of failing. A file names
+  no Core, and single-node Cores issue the same first keys, so a raw key that this Core
+  issued binds by key, and the import plan names its path here (§4.6).
 - **Direction**: `@ref direction read | write` (NEW) says how the holder uses a channel.
   It sits on the key field or on a field above it. Gorp does not learn it. A reference
   carries one opaque `Tag uint8` (NEW) that Gorp stores and never reads, and Oracle
@@ -278,26 +280,28 @@ Rewire struct {
   (`core/pkg/service/task/config/config.go:319`) and drops tombstones and holders that
   the caller cannot retrieve. Clients fetch `uses` again on one Core signal for every
   record type, `sy_reference_change`: one frame per commit that changes a link, naming
-  each target whose holders changed by resource type and key, and no holder.
+  each target whose holders changed by resource type and key, and no holder. A subject
+  gets a target's sample only when it can retrieve the target and one holder whose link
+  to it changed, so a change that only hidden records make shows nothing.
 - **Retarget**: Oracle generates `Retarget` for every key reference, as it does
   `Detach`. The retargets of one action apply as one map, so a swap swaps the lines of a
   plot and keeps their styles. The Tag stays the direction alone; the wiring site gives
   the impact service the list of holders that `keep` instead (§4.11).
 
-| Holder                       | Field                                                           | Kind              | On delete                    | Direction                        | On heal or rewire                         |
-| ---------------------------- | --------------------------------------------------------------- | ----------------- | ---------------------------- | -------------------------------- | ----------------------------------------- |
-| Task configs                 | channel fields                                                  | `use`             | `restrict`, as today         | per field                        | `keep`                                    |
-| Line plot, log               | channel lists                                                   | `use`             | `detach`, as today           | `read`                           | `retarget`                                |
-| Schematic symbol, table cell | channel fields                                                  | `use`             | `weak`: "deleted channel"    | per field                        | `retarget`                                |
-| Arc                          | `reads`, `writes`, and the channel inputs of graph node configs | `use`             | `weak`                       | `read`, `write`                  | Text pass (§4.5); graph inputs `retarget` |
-| Arc task                     | `reads`, `writes` of the deployed compile                       | `use`             | `weak`                       | `read`, `write`                  | Never; a note until the next deploy       |
-| Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                    | `write`                          | Never                                     |
-| Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                       | `read`                           | Text pass; `reset`, `primary` `retarget`  |
-| Channel                      | `group`                                                         | `place`           | `detach`                     | none                             | Never                                     |
-| Channel                      | `rewires[].from`                                                | `use`             | `weak`: the span reads empty | `read`                           | Never                                     |
-| Tombstone                    | `rewires[].from`                                                | `use`             | `weak`                       | `read`                           | Never                                     |
-| Tombstone                    | `group`                                                         | `place`           | `cascade`                    | none                             | Never                                     |
-| Status                       | `owner`                                                         | `place`, `unique` | `cascade`                    | none; `channel` leaves the types | Never                                     |
+| Holder                       | Field                                                           | Kind              | On delete                                                | Direction                        | On heal or rewire                         |
+| ---------------------------- | --------------------------------------------------------------- | ----------------- | -------------------------------------------------------- | -------------------------------- | ----------------------------------------- |
+| Task configs                 | channel fields                                                  | `use`             | `restrict`, as today                                     | per field                        | `keep`                                    |
+| Line plot, log               | channel lists                                                   | `use`             | `weak` from Phase 33: "deleted channel"; `detach` before | `read`                           | `retarget`                                |
+| Schematic symbol, table cell | channel fields                                                  | `use`             | `weak`: "deleted channel"                                | per field                        | `retarget`                                |
+| Arc                          | `reads`, `writes`, and the channel inputs of graph node configs | `use`             | `weak`                                                   | `read`, `write`                  | Text pass (§4.5); graph inputs `retarget` |
+| Arc task                     | `reads`, `writes` of the deployed compile                       | `use`             | `weak`                                                   | `read`, `write`                  | Never; a note until the next deploy       |
+| Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                                                | `write`                          | Never                                     |
+| Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                                                   | `read`                           | Text pass; `reset`, `primary` `retarget`  |
+| Channel                      | `group`                                                         | `place`           | `detach`                                                 | none                             | Never                                     |
+| Channel                      | `rewires[].from`                                                | `use`             | `weak`: the span reads empty                             | `read`                           | Never                                     |
+| Tombstone                    | `rewires[].from`                                                | `use`             | `weak`                                                   | `read`                           | Never                                     |
+| Tombstone                    | `group`                                                         | `place`           | `cascade`                                                | none                             | Never                                     |
+| Status                       | `owner`                                                         | `place`, `unique` | `cascade`                                                | none; `channel` leaves the types | Never                                     |
 
 Nothing cascades to a channel (RFC 0100 §4.5). A delete runs through its plan (§4.11).
 With no picks a task holder defaults to `cancel`, so the old route fails with today's
@@ -434,10 +438,12 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   calculation outside the write lock, so a holder whose last compile failed is still
   found. A token whose path the action gives to another channel keeps it: it follows the
   measurement and binds the new holder at the next compile. A token whose path no
-  channel holds after the action gets `update_text` (default) or `keep`. All edits of
-  one holder come from one lex. The helper is a pure function in `arc/go` (precedent:
-  `arc/go/lsp/rename.go:114`). The Arc service writes text actions, as the Core already
-  does (`core/pkg/service/arc/actions.go:106`).
+  channel holds after the action gets `update_text` (default) or `keep`. A tombstone's
+  path counts as held: a token that names it follows the tombstone when the action
+  changes that path, so the text binds at the heal. In a swap, this rule decides each
+  token. All edits of one holder come from one lex. The helper is a pure function in
+  `arc/go` (precedent: `arc/go/lsp/rename.go:114`). The Arc service writes text actions,
+  as the Core already does (`core/pkg/service/arc/actions.go:106`).
 - **Form**: An edit writes the bare form only when every segment is an identifier and
   none is an Arc keyword, literal, or type name, and the name does not clash with a
   variable or a module member. If not, it writes the quoted form, with `\` and `'`
@@ -588,21 +594,35 @@ duplicate name fails where it picked one.
   as tasks at save, call apply too. `Declare` runs before the text holders open, so it
   reports the channels that it creates and renames; before the API serves, `impact`
   applies their heals and text passes with the defaults. A migration that moves a
-  channel onto a tombstone's path runs the same heal.
+  channel onto a tombstone's path runs the same heal, so a live channel and a tombstone
+  never share a path. `Declare` renames a user channel and creates the built-in as two
+  actions, the rename first, so text that names the user channel follows it. Every first
+  free suffix in this RFC (`Declare`, the Phase 8 migration, a displaced channel) skips
+  tombstone paths.
+- **Access**: An entry for a record that the caller cannot retrieve is a count, with no
+  name or text. Applying an entry needs update access on its record, or delete access
+  for a delete. An entry that the caller may not apply fails the apply with an access
+  error that names no record; one pick covers all hidden entries. A delete of data by
+  path needs delete access on each piece.
+- **Folders**: A folder delete deletes the folder's tombstones first, and lists them, so
+  the group guard sees only live members (`core/pkg/service/group/service.go:397-423`).
 - **Routes**: `/impact/plan` and `/impact/apply`. A plan carries a token, a 16 B hash of
   the action and the entries, and picks override entries by id. The Console shows one
   dialog for every plan; the clients, imports, and Git apply pass picks.
 - **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
   plans the Gorp entries again and compares each text holder's hash; a holder that
-  changed reruns its edit once, inline, with no retry loop. A changed plan fails with
-  `impact.ErrPlanChanged`, which carries the new plan. One action commits in one
-  transaction.
+  changed reruns its edit once, inline, with no retry loop. It also lexes each text
+  holder written since the plan's lex, and one that gains an entry changes the plan. A
+  changed plan fails with `impact.ErrPlanChanged`, which carries the new plan. One
+  action commits in one transaction.
 - **Defaults**: A delete: a task holder `cancel`s (default) or is deleted too, a
   schematic symbol or table cell keeps the dead key and shows "deleted channel", and a
-  line plot or log detaches. A rename or a move: the text pass (§4.5). A create, rename,
-  or move onto a tombstone's path: the heal (§4.12). A rename onto a taken path plans a
-  rewire whose default is `cancel` (§4.13). A delete of data: an entry that warns for
-  each holder whose history uses the range.
+  line plot or log keeps it too from Phase 33 (it detaches before). A rename or a move:
+  the text pass (§4.5). A create, rename, or move onto a tombstone's path: the heal
+  (§4.12). A rename onto a taken path plans a rewire whose default is `cancel` (§4.13).
+  A delete of data: an entry that warns for each holder whose history uses the range;
+  the frame delete route of `core/v0.62.0` applies it, which deletes the key's own data,
+  as today.
 
 ### 4.12 Tombstones and heals
 
@@ -610,7 +630,7 @@ duplicate name fails where it picked one.
 Tombstone struct {
     key     Key            { @key }
     name    Name
-    group   group.Key?     { @ref kind place  @ref on_delete cascade }
+    group   group.Key?     { @ref kind place  @ref on_delete restrict }
     rewires Rewire[]?
     @go marshal
 }
@@ -618,11 +638,13 @@ Tombstone struct {
 
 - **Write**: The delete of a channel writes a tombstone in its transaction when a weak
   link other than a `rewires` entry holds the key, or when the channel holds `rewires`.
-  The tombstone takes the channel's list and adds `{the channel, delete time}`. Dead
-  entries next to each other merge into one gap entry with `from` 0, so a script that
-  makes a channel again on each run does not grow the list.
+  The tombstone takes the channel's list and adds a gap entry, `{0, delete time}`: the
+  deleted channel's data is gone, so its span holds nothing of its own. Gap entries next
+  to each other merge into one, so a script that makes a channel again on each run does
+  not grow the list. A rewire's `delete` of the displaced channel writes no tombstone,
+  since the renamed channel takes its path in the same action.
 - **One per path**: A unique index on (folder, name) in its own space, so a tombstone
-  never blocks a create. A folder delete deletes its tombstones.
+  never blocks a create. A folder delete removes its tombstones first (§4.11).
 - **Heal**: A create, rename, or move that gives a channel a tombstone's path plans a
   heal. Each link that holds the dead key gets `retarget` (default) or `keep`; the list
   moves to the new channel. The tombstone then goes, whatever the picks, so a path holds
@@ -637,32 +659,39 @@ Tombstone struct {
 ### 4.13 Rewires and measured reads
 
 - **List**: `rewires` on the channel that holds the path, oldest first. Entry i says
-  that `from` held the path until `at`, after the `at` of entry i - 1; the holder's own
-  span starts at the last `at`. `at` rises strictly and is never after the write time.
-  It is the Core clock at apply unless the caller passes one, so samples inside a clock
-  skew land on the wrong side.
+  that `from` held the path until `at`, after the `at` of entry i - 1. The span of a
+  past holder reads its data, empty once it is deleted, and hides the holder's own data
+  there, which measured something else. A gap entry (`from` 0) covers no time: in its
+  span the holder's own data reads, so a remake that writes old times, or a channel
+  moved onto a tombstone's path, keeps its past. `at` rises strictly and is never after
+  the write time. It is the Core clock at apply unless the caller passes one, so samples
+  inside a clock skew land on the wrong side. A rewire whose `at` does not rise fails
+  and names the last `at`. A gap entry takes the later of the delete time and the last
+  `at` plus 1 ns, since it only marks.
 - **Rewire**: A rename onto a taken path, only with picks. The displaced channel's entry
   is `cancel` (default), `rename` (to the name a device integration proposes, or the
-  first free `<name>_<n>` that is not a tombstone's path), or `delete`, which warns that
-  the path loses its data before the move. A caller that passes no picks, such as a
-  script of `core/v0.62.0`, gets today's refusal; the Console offers the rewire as its
-  main action. The renamed channel takes the displaced channel's list and adds
-  `{the displaced channel, at}`, and its own list gets the entry of §4.12. A plain
-  rename or move keeps the list: the measurement moves with its channel. Display links
-  of the displaced channel `retarget`, and task configs and device ports `keep`. Text
-  that names the path keeps it, and text that names the renamed channel's old path gets
-  `update_text`.
+  first free `<name>_<n>`; a proposed name that is a tombstone's path falls back to the
+  suffix), or `delete`, which warns that the path loses its data before the move. A
+  caller that passes no picks, such as a script of `core/v0.62.0`, gets today's refusal;
+  the Console offers the rewire as its main action. The renamed channel takes the
+  displaced channel's list and adds `{the displaced channel, at}`, and its own list gets
+  the entry of §4.12. A plain rename or move keeps the list: the measurement moves with
+  its channel. Display links of the displaced channel `retarget`, and task configs and
+  device ports `keep`. Text that names the path keeps it. Text that names the renamed
+  channel's old path gets `keep` (default) or `update_text`: that path named the old
+  measurement, which does not move with the port.
 - **Order**: An action orders its renames so that names stay unique after each write,
   with a temporary name inside the transaction for a cycle. The check per write stays.
 - **Notes**: The plan lists the holders of the renamed channel, whose reads gain the
   path's history, the running Arc tasks that compiled the displaced channel, and the
   subjects that hold control of it. With a past `at`, it also lists the Sift tasks whose
-  position passes `at` and the running tasks that read the path after it. None is
-  redone.
+  position passes `at` and the running tasks that read the path after it. After a move
+  back, a channel's data from its time at another path reads only raw. None is redone.
 - **Deletes**: A delete of a past holder `keep`s the dead entry (default; its span reads
   empty) or `cancel`s. A delete of the current holder leaves a tombstone with the list
-  (§4.12). A delete of data by path runs over the same pieces, and a delete by key over
-  a range that another channel's history uses gets an entry that warns.
+  (§4.12). A delete of data by path runs over the same pieces, with delete access on
+  each, and a delete by key over a range that another channel's history uses gets an
+  entry that warns.
 - **Measured reads**: NEW `measured_keys` on iterator and read requests, a subset of the
   requested keys, empty by default. The clients set it when the caller named a path, and
   the Console on every display read; calculation inputs, Sift uploads, and a measured
@@ -689,7 +718,7 @@ Tombstone struct {
 ## 5 Implementation phases
 
 Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the rest
-200 to 400. Phases 31 and 38 are small switches.
+200 to 400. Phases 31 and 39 are small switches.
 
 - **Names**: Phase 5 gives Arc the quoted token, and Phase 11 the path filter. Phases 26
   to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
@@ -705,8 +734,8 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
 - **Phase 3: The whole calculation shape.** `reads` stays empty until Phase 27, and
   nothing reads `primary` until RFC 0117 Phase 5. The `weak` and `direction` tags on its
   links are live-only and arrive with Phase 1.
-- **Across RFCs**: Phases 3 and 26 land after RFC 0117 Phase 2. Phases 33 to 37 land
-  after RFC 0117 Phase 6 and RFC 0118's alignment counter. Phase 38 lands after RFC 0117
+- **Across RFCs**: Phases 3 and 26 land after RFC 0117 Phase 2. Phases 34 to 38 land
+  after RFC 0117 Phase 6 and RFC 0118's alignment counter. Phase 39 lands after RFC 0117
   Phases 5, 6, and 7, and one minor after Phase 3 ships. RFC 0117 Phase 6 lifts the key
   cap, and its Phase 9 builds channel v3. RFC 0118 moves the storage half of create,
   rename, and delete out of the commit hook.
@@ -745,12 +774,13 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
 | 30    | Route every channel rename through the impact service      | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/impact`, `scripts`                                                                                                                                                                                                                                                                                                                                              | 29             |
 | 31    | Make channel names unique only within their folder         | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                              | 10, 22, 24, 30 |
 | 32    | Add naming rules to folders                                | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`                                                                                                                                                                                                                                   | 22, 31         |
-| 33    | Read channels as measurements on request                   | `core/pkg/service/framer/iterator`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                   | 18             |
-| 34    | Check access and delete by path over measured pieces       | `core/pkg/api/framer`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                            | 33             |
-| 35    | Rewire a path to another channel                           | `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                       | 30, 33         |
-| 36    | Publish a history change when a rewire commits             | `core/pkg/service/framer`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                           | 35             |
-| 37    | Ask for measured reads in clients and calculations         | `client/ts/src/framer`, `client/py/synnax/framer`, `console/src`, `core/pkg/service/calculation`, `core/pkg/service/sift`                                                                                                                                                                                                                                                                                                   | 20, 33         |
-| 38    | Remove the old calculation API and document the new model  | `schemas/synnax/channel.oracle`, `core/pkg/api/channel`, `client/ts`, `client/py`, `client/cpp`, `site/docs`                                                                                                                                                                                                                                                                                                                | 3, 31, 32      |
+| 33    | Keep dead channel keys in line plots and logs              | `core/pkg/service/lineplot`, `core/pkg/service/log`, `schemas/synnax/log.oracle`, `pluto/src/lineplot`, `pluto/src/log`                                                                                                                                                                                                                                                                                                     | 1, 19          |
+| 34    | Read channels as measurements on request                   | `core/pkg/service/framer/iterator`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                   | 18             |
+| 35    | Check access and delete by path over measured pieces       | `core/pkg/api/framer`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                            | 34             |
+| 36    | Rewire a path to another channel                           | `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                       | 30, 34         |
+| 37    | Publish a history change when a rewire commits             | `core/pkg/service/framer`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                           | 36             |
+| 38    | Ask for measured reads in clients and calculations         | `client/ts/src/framer`, `client/py/synnax/framer`, `console/src`, `core/pkg/service/calculation`, `core/pkg/service/sift`                                                                                                                                                                                                                                                                                                   | 20, 34         |
+| 39    | Remove the old calculation API and document the new model  | `schemas/synnax/channel.oracle`, `core/pkg/api/channel`, `client/ts`, `client/py`, `client/cpp`, `site/docs`                                                                                                                                                                                                                                                                                                                | 3, 31, 32      |
 
 ## 6 Resolved decisions
 
