@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -42,6 +43,16 @@ describe("Schematic.Node.resolveSpec", () => {
 
   it("should throw NotFoundError for an unknown variant", () => {
     expect(() => resolveSpec("not-a-symbol")).toThrow(NotFoundError);
+  });
+});
+
+describe("Schematic.Node.REGISTRY", () => {
+  // The node cutover adds the drawing of normally_open_solenoid_valve.
+  it("should draw every symbol that the Core ships", async () => {
+    const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
+    expect(builtins.map((b) => b.name).filter((name) => !(name in REGISTRY))).toEqual([
+      "normally_open_solenoid_valve",
+    ]);
   });
 });
 

@@ -350,6 +350,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/group/delete",
 		),
+		SchematicSymbolRetrieveBuiltins: unary[
+			struct{},
+			symbol.RetrieveBuiltinsResponse,
+		](router, "/api/v1/schematic/symbol/retrieve-builtins"),
 
 		// LINE PLOT
 		LinePlotCreate: unary[lineplot.CreateRequest, lineplot.CreateResponse](

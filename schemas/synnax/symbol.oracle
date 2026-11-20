@@ -490,6 +490,21 @@ Symbol struct {
     @retrieve
 }
 
+Builtin struct {
+    name     string    {
+        @doc value "is the shipped name of the built-in, which never changes."
+    }
+    states   State[]   {
+        @doc value "are what the built-in shows."
+    }
+    commands Command[] {
+        @doc value "are the requests that the built-in sends."
+    }
+
+    @doc value "is a symbol that the Core ships. Pluto holds its drawing."
+    @py omit
+}
+
 Where filter Symbol {
     key
     groups  group.Key[] {
