@@ -186,6 +186,13 @@ export default defineConfig({
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
           include: [BROWSER_SPECS],
+          // A browser has no `process` to read the test Core from.
+          provide: {
+            synnaxTestCore: {
+              host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+              port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+            },
+          },
           browser: {
             enabled: true,
             headless: true,
