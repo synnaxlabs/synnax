@@ -20,7 +20,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
@@ -392,6 +392,13 @@ describe("Enumeration.Settings", () => {
       shipped.key,
       enumeration.set({ path: ["entries"], value: shipped.entries.slice(1) }),
     );
+    // The WebKit run reads the built-ins next, so a failed restore must not stick.
+    onTestFinished(async () => {
+      await client.enumerations.dispatch(
+        shipped.key,
+        enumeration.set({ path: ["entries"], value: shipped.entries }),
+      );
+    });
     await renderEnumerations();
     expect(await screen.findByText("Edited")).toBeTruthy();
     await openContextMenu(shipped.name);

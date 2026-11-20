@@ -20,7 +20,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Color } from "@/feature/color";
 import { Modals } from "@/platform/modals";
@@ -259,6 +259,13 @@ describe("Color.Settings", () => {
       shipped.key,
       color.set({ path: ["light"], value: xcolor.construct("#123456") }),
     );
+    // The WebKit run reads the built-ins next, so a failed restore must not stick.
+    onTestFinished(async () => {
+      await client.colors.dispatch(
+        shipped.key,
+        color.set({ path: ["light"], value: shipped.light }),
+      );
+    });
     await renderColors();
     expect(
       await within(await findColor(shipped.name)).findByText("Edited"),
