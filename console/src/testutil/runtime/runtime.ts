@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { isMainWindow } from "@/session/runtime/isMainWindow";
+import type { Runtime } from "@/session/runtime";
 
 /**
  * EngineRef is the mutable engine handle a spec creates via vi.hoisted and flips
@@ -27,20 +27,20 @@ export interface EngineRef {
  * and load this helper with a dynamic import inside the factory.
  */
 export const mockRuntimeEngine = async (
-  importOriginal: () => Promise<{ Runtime: Record<string, unknown> }>,
+  importOriginal: () => Promise<{ Runtime: typeof Runtime }>,
   ref: EngineRef,
-): Promise<{ Runtime: Record<string, unknown> }> => {
-  const { Runtime } = await importOriginal();
+): Promise<{ Runtime: typeof Runtime }> => {
+  const { Runtime: original } = await importOriginal();
   return {
     Runtime: {
-      ...Runtime,
+      ...original,
       get ENGINE() {
         return ref.engine;
       },
       get CORE_EMBEDDED() {
-        return ref.coreEmbedded ?? Runtime.CORE_EMBEDDED;
+        return ref.coreEmbedded ?? original.CORE_EMBEDDED;
       },
-      isMainWindow: () => isMainWindow(ref.engine),
+      isMainWindow: () => original.isMainWindow(ref.engine),
     },
   };
 };
