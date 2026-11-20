@@ -40,8 +40,9 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
 	// OnRewrite runs in the transaction of each delete that detaches or inlines a
-	// target in an entry of the table, after Gorp rewrites the entry. It gets the entry
-	// as written. An error fails the delete.
+	// target in an entry of the table, and of each Table.Retarget that moves one, after
+	// Gorp rewrites the entry. It gets the entry as written. An error fails the delete
+	// or the retarget.
 	OnRewrite func(ctx context.Context, tx Tx, e E) error
 	// OnTargetSet maps the name of a table to a hook. The hook runs in the transaction
 	// of each write that sets an entry of that table which an entry of this table holds

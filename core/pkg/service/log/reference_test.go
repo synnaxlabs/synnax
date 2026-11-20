@@ -189,3 +189,94 @@ var _ = Describe("Channel references", func() {
 			To(Equal([]channel.Key{kept}))
 	})
 })
+
+var _ = Describe("Channel retargets", func() {
+	create := func(ctx SpecContext, entries ...log.ChannelEntry) log.Log {
+		GinkgoHelper()
+		l := defaults.Fill(log.Log{
+			Project:  &proj.Key,
+			Name:     "retarget",
+			Channels: entries,
+		})
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &l)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, l.Key)
+			})).To(Succeed())
+		})
+		return l
+	}
+	retarget := func(ctx SpecContext, l log.Log, to map[channel.Key]channel.Key) {
+		GinkgoHelper()
+		id := log.ResourceID(l.Key)
+		holders := []gorp.Dependent{{
+			Holder:    gorp.Target{Table: string(id.Type), Key: id.Key},
+			Reference: "channels.channel",
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Retarget(ctx, to, holders)
+		})).To(Succeed())
+	}
+	retrieve := func(ctx SpecContext, key log.Key) log.Log {
+		GinkgoHelper()
+		var res log.Log
+		Expect(svc.NewRetrieve().
+			Where(log.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res
+	}
+
+	It("Should swap two channels and keep the alias of each entry", func(
+		ctx SpecContext,
+	) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
+		a, b := keys[0], keys[1]
+		l := create(ctx, log.ChannelEntry{Channel: a, Alias: "a"}, log.ChannelEntry{
+			Channel: b,
+			Alias:   "b",
+		})
+		retarget(ctx, l, map[channel.Key]channel.Key{a: b, b: a})
+		res := retrieve(ctx, l.Key)
+		Expect(channelsOf(res)).To(Equal([]channel.Key{b, a}))
+		Expect(res.Channels[0].Alias).To(Equal("a"))
+		Expect(res.Channels[1].Alias).To(Equal("b"))
+	})
+
+	It(
+		"Should keep the first entry and its alias when a retarget moves a channel "+
+			"onto one the log shows",
+		func(ctx SpecContext) {
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 3))
+			a, b, c := keys[0], keys[1], keys[2]
+			l := create(
+				ctx,
+				log.ChannelEntry{Channel: a, Alias: "a"},
+				log.ChannelEntry{Channel: c, Alias: "c"},
+				log.ChannelEntry{Channel: b, Alias: "b"},
+			)
+			retarget(ctx, l, map[channel.Key]channel.Key{a: b})
+			res := retrieve(ctx, l.Key)
+			Expect(channelsOf(res)).To(Equal([]channel.Key{b, c}))
+			Expect(res.Channels[0].Alias).To(Equal("a"))
+			Expect(res.Channels[1].Alias).To(Equal("c"))
+		},
+	)
+
+	It("Should send the log as written to open Consoles", func(ctx SpecContext) {
+		keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
+		a, b := keys[0], keys[1]
+		l := create(ctx, log.ChannelEntry{Channel: a})
+		rec := &Recorder[log.Key, log.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		retarget(ctx, l, map[channel.Key]channel.Key{a: b})
+		seen := rec.Snapshot()
+		Expect(seen).To(HaveLen(1))
+		Expect(seen[0].Key).To(Equal(l.Key))
+		Expect(seen[0].Actions).To(HaveLen(1))
+		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+		Expect(channelsOf(seen[0].Actions[0].Create.Log)).To(Equal([]channel.Key{b}))
+	})
+})
