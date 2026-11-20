@@ -69,7 +69,38 @@ export interface CaptureOptions {
    * with VITE_DESKTOP=true.
    */
   desktop?: boolean;
+  /**
+   * The OS the Console draws for, such as its window controls and shortcut keys. The
+   * Console reads it from the user agent, so a capture on a Mac can show Windows.
+   */
+  os?: OS;
 }
+
+/** An OS that a capture can show the Console on. */
+export type OS = "macOS" | "Windows";
+
+const PLATFORMS: Record<OS, string> = {
+  macOS: "Macintosh; Intel Mac OS X 10_15_7",
+  Windows: "Windows NT 10.0; Win64; x64",
+};
+
+/** Where Synnax Desktop keeps its files on each OS, as the Desktop shell reports. */
+const DESKTOP_PATHS: Record<OS, { data: string; logs: string; save: string }> = {
+  macOS: {
+    data: "/Users/synnax/Library/Application Support/com.synnaxlabs.desktop/core",
+    logs: "/Users/synnax/Library/Logs/com.synnaxlabs.desktop",
+    save: "/Users/synnax/Desktop/synnax-diagnostics.zip",
+  },
+  Windows: {
+    data: "C:\\Users\\synnax\\AppData\\Local\\com.synnaxlabs.desktop\\core",
+    logs: "C:\\Users\\synnax\\AppData\\Local\\com.synnaxlabs.desktop\\logs",
+    save: "C:\\Users\\synnax\\Desktop\\synnax-diagnostics.zip",
+  },
+};
+
+const userAgent = (os: OS, chromeVersion: string): string =>
+  `Mozilla/5.0 (${PLATFORMS[os]}) AppleWebKit/537.36 (KHTML, like Gecko) ` +
+  `Chrome/${chromeVersion} Safari/537.36`;
 
 /** Credentials of the user every capture connects as: the capture core's defaults. */
 export const CREDENTIALS = { username: "synnax", password: "seldon" };
@@ -83,7 +114,10 @@ const DEV_PORT_KEY = "synnax-dev-connection-port";
  * API key and diagnostics commands with sample values, and records every other command
  * so that the capture fails on it.
  */
-const desktopShell = (connection: Record<string, string | number>): string => `(() => {
+const desktopShell = (
+  connection: Record<string, string | number>,
+  os: OS,
+): string => `(() => {
   const unanswered = [];
   window.__studioDesktop = { asked: false, unanswered };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
@@ -111,8 +145,8 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
         waits: 0,
         lastWaitMs: null,
       },
-      dataDir: "/Users/synnax/Library/Application Support/Synnax/core",
-      logDir: "/Users/synnax/Library/Logs/Synnax",
+      dataDir: ${JSON.stringify(DESKTOP_PATHS[os].data)},
+      logDir: ${JSON.stringify(DESKTOP_PATHS[os].logs)},
       dataSize: 184549376,
     }),
     supervisor_log_tail: () =>
@@ -124,7 +158,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
         line(120, "info", "auth", "created API key"),
       ].join("\\n"),
     supervisor_export_diagnostics: () => null,
-    "plugin:dialog|save": () => "/Users/synnax/Desktop/synnax-diagnostics.zip",
+    "plugin:dialog|save": () => ${JSON.stringify(DESKTOP_PATHS[os].save)},
   };
   window.__TAURI_INTERNALS__ = {
     metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
@@ -370,6 +404,7 @@ export class CaptureSession {
       hideNotifications: true,
       corePort: 9090,
       desktop: false,
+      os: "macOS",
       ...options,
     };
     const browser = await chromium.launch({
@@ -386,6 +421,7 @@ export class CaptureSession {
       deviceScaleFactor: opts.dsf,
       colorScheme: opts.theme,
       ignoreHTTPSErrors: opts.insecure,
+      userAgent: userAgent(opts.os, browser.version()),
     });
     const page = await context.newPage();
     const origin = Date.now();
@@ -412,7 +448,10 @@ export class CaptureSession {
     );
     if (opts.desktop)
       await page.addInitScript(
-        desktopShell({ host: "localhost", port: opts.corePort, ...CREDENTIALS }),
+        desktopShell(
+          { host: "localhost", port: opts.corePort, ...CREDENTIALS },
+          opts.os,
+        ),
       );
     const hideRules = [
       // The renderer blinks the caret on wall time, ~6x fast against the
