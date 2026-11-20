@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 

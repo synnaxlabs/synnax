@@ -68,6 +68,13 @@ class Harness:
             self.gh.serve(f"api */rulesets/{key}", served)
         self.gh.serve("api */rulesets[?]*", listing)
 
+    def approval(self, policy: str) -> None:
+        """Sets which fork contributors need approval to run workflows."""
+        self.gh.serve(
+            "api */actions/permissions/fork-pr-contributor-approval",
+            {"approval_policy": policy},
+        )
+
     def run(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(SCRIPT)],
@@ -83,6 +90,7 @@ def harness(tmp_path: Path) -> Harness:
     harness = Harness(tmp_path)
     harness.file(ruleset("main"))
     harness.live(ruleset("main"))
+    harness.approval("all_external_contributors")
     return harness
 
 
@@ -113,3 +121,33 @@ class TestRulesets:
         result = harness.run()
         assert result.returncode != 0
         assert "with no file in .github/rulesets:\n  release" in result.stderr
+
+
+class TestForkApproval:
+    """Tests for the approval that fork workflow runs need."""
+
+    def test_passes_when_every_outside_contributor_needs_approval(
+        self, harness: Harness
+    ) -> None:
+        result = harness.run()
+        assert result.returncode == 0, result.stderr
+        assert "every outside contributor needs approval" in result.stdout
+
+    @pytest.mark.parametrize(
+        "policy",
+        ["first_time_contributors", "first_time_contributors_new_to_github"],
+    )
+    def test_fails_on_a_weaker_policy(self, harness: Harness, policy: str) -> None:
+        harness.approval(policy)
+        result = harness.run()
+        assert result.returncode != 0
+        assert (
+            f"fork workflow approval is {policy}, not all_external_contributors"
+            in result.stderr
+        )
+
+    def test_fails_loud_when_the_policy_cannot_be_read(self, harness: Harness) -> None:
+        harness.gh.fail("api */fork-pr-contributor-approval", "HTTP 403")
+        result = harness.run()
+        assert result.returncode != 0
+        assert "every outside contributor" not in result.stdout

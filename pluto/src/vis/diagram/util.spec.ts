@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { type InternalNode, type NodeChange as RFNodeChange } from "@xyflow/react";
+import type { InternalNode, NodeChange as RFNodeChange } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import {

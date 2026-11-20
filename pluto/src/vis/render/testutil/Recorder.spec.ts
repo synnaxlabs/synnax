@@ -10,7 +10,7 @@
 import { box, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const REQUEST: render.Request = {

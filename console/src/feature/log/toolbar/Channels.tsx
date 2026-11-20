@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
@@ -24,7 +24,7 @@ import {
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

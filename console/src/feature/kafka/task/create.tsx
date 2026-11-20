@@ -15,7 +15,7 @@ import {
   WRITE_TYPE,
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({

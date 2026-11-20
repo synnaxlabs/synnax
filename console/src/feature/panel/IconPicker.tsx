@@ -11,8 +11,8 @@ import { panel } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Errors, Panel } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Appearance } from "@/platform/appearance";
 import { CSS } from "@/platform/css";

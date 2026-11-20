@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 
 import { Box } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 
 const NAME = "Box";

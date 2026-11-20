@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax, User as PUser } from "@synnaxlabs/pluto";
 import { location, primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";

@@ -9,7 +9,7 @@
 
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 /**
  * Root wraps a portal island with the providers Pluto's interactive pieces need. A page

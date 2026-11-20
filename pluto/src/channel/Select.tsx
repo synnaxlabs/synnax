@@ -9,19 +9,19 @@
 
 import "@/channel/Select.css";
 
-import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import type { channel, Synnax as Client } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { getCachedIndex, HaulPreview } from "@/channel/HaulPreview";
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
 const ListItem = ({

@@ -11,7 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { type breaker, Rate, Size, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { rawIndex } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
