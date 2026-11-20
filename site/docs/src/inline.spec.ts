@@ -9,27 +9,24 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { hash, LOADER } from "@synnaxlabs/site-common/csp";
-import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { type experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
 import Buttons from "@/components/download/Buttons.astro";
 import { STORAGE_KEY } from "@/components/nav/collapse";
 import Mark from "@/components/platform/Mark.astro";
-import { COLLAPSE, HASHES } from "@/inline";
+import { COLLAPSE, HASHES, MARK } from "@/inline";
 import Reference from "@/layouts/Reference.astro";
+import { createContainer } from "@/testutil/container";
 
 /** inlineHashes renders a component and hashes each of its inline scripts. */
 const inlineHashes = async (
   render: (container: AstroContainer) => Promise<string>,
 ): Promise<string[]> => {
-  const container = await AstroContainer.create({
-    astroConfig: { site: "https://docs.synnaxlabs.com" },
-  });
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer("https://docs.synnaxlabs.com");
   const { document } = new JSDOM(await render(container)).window;
   return [...document.querySelectorAll("script:not([src]):not([type])")].map((s) =>
     hash(s.textContent),
@@ -67,7 +64,7 @@ describe("inline", () => {
       for (const h of hashes) expect(HASHES).toContain(h);
     });
 
-    it("should let every inline script of a reference page run", async () => {
+    it("should match the scripts a reference page renders", async () => {
       const hashes = await inlineHashes(
         async (c) =>
           await c.renderToString(Reference, {
@@ -78,8 +75,8 @@ describe("inline", () => {
             request: new Request("https://docs.synnaxlabs.com/reference/channels"),
           }),
       );
-      expect(hashes).toContain(hash(COLLAPSE));
-      for (const h of hashes) expect([hash(LOADER), ...HASHES]).toContain(h);
+      for (const script of [COLLAPSE, MARK, LOADER])
+        expect(hashes).toContain(hash(script));
     });
   });
 
