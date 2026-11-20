@@ -135,9 +135,20 @@ Earlier versions are on the
 
 The installer also offers to install the Core as a Windows service, and selects that
 option by default. With the service, the Core starts now and each time Windows starts,
-so skip step 2. The service runs without TLS and listens on `localhost:9090`, so only
-this computer can reach it. To serve other computers or to use TLS, edit
-`C:\ProgramData\Synnax\config.yaml`. See
+so skip step 2. The service runs without TLS and listens on port 9090 of every network
+interface, so other computers on the network can reach it. To limit it to this computer,
+replace the `listen: localhost:9090` line in `C:\ProgramData\Synnax\config.yaml` with a
+listener that sets [`loopback`](/reference/enterprise/cli-reference#listener-loopback),
+then restart the service. The host must be `localhost` or `127.0.0.1`:
+
+```yaml
+listen:
+  - address: localhost:9090
+    loopback: true
+```
+
+A `loopback` key outside the `listen` list has no effect. You can also block the port
+with a firewall. To use TLS, edit the same file. See
 [Run the Core as a service](/reference/enterprise/service) and
 [Set up TLS](/reference/enterprise/tls).
 
