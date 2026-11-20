@@ -45,6 +45,14 @@ func (t *texts[K]) set(key K, text []string) {
 
 func (t *texts[K]) isEmpty() bool { return len(t.keys) == 0 }
 
+func (t *texts[K]) size() int { return len(t.keys) }
+
+func (t *texts[K]) reset() {
+	clear(t.keys)
+	t.keys = t.keys[:0]
+	clear(t.text)
+}
+
 // NewSearch returns an empty Search that waits for its bulk load.
 func NewSearch[S Scope, K comparable]() *Search[S, K] {
 	s := &Search[S, K]{population: newPopulation(), committed: search.New[K]()}

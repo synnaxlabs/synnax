@@ -99,6 +99,16 @@ func newDelta[K, V comparable]() *delta[K, V] {
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 
+func (d *delta[K, V]) size() int { return len(d.state) }
+
+func (d *delta[K, V]) reset() {
+	clear(d.state)
+	clear(d.forward)
+	clear(d.arena)
+	clear(d.keys)
+	d.arena, d.keys = d.arena[:0], d.keys[:0]
+}
+
 // set stages values for key. The delta owns values from then on.
 func (d *delta[K, V]) set(key K, values []V) {
 	d.unstage(key)
@@ -199,16 +209,27 @@ func AnyOf[V comparable](values []V) func(V) bool {
 }
 
 // changes is the set of changes that one scope has staged against an index.
-type changes interface{ isEmpty() bool }
+type changes interface {
+	isEmpty() bool
+	// size returns the number of keys staged in the changes.
+	size() int
+	// reset empties the changes, keeping their storage for the next scope.
+	reset()
+}
 
 // overlay holds the changes of every scope that has staged changes against an index.
 type overlay[S Scope, D changes] struct {
-	// mu guards deltas.
+	// mu guards deltas, spare, and hasSpare.
 	mu     sync.RWMutex
 	deltas map[S]D
+	// spare is the changes of the last scope that ended, emptied, so the next scope
+	// stages into them and allocates none. hasSpare is true when spare holds them.
+	spare    D
+	hasSpare bool
 	// create returns an empty set of changes.
 	create func() D
-	// flush applies the changes of a committed scope to committed state.
+	// flush applies the changes of a committed scope to committed state. It must not
+	// keep the slices of the changes, which the next scope reuses.
 	flush func(D)
 }
 
@@ -223,18 +244,36 @@ func (o *overlay[S, D]) load(scope S) D {
 	if o.deltas == nil {
 		o.deltas = make(map[S]D)
 	}
-	d := o.create()
+	var d D
+	if o.hasSpare {
+		d, o.hasSpare = o.spare, false
+	} else {
+		d = o.create()
+	}
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
+		// A map keeps the buckets it grew to, and iterating it costs them all, so only
+		// the changes of a small scope are worth reusing.
+		reuse := d.size() <= spareSize
+		if reuse {
+			d.reset()
+		}
 		o.mu.Lock()
 		delete(o.deltas, scope)
+		if reuse {
+			o.spare, o.hasSpare = d, true
+		}
 		o.mu.Unlock()
 	})
 	return d
 }
+
+// spareSize is the most staged keys that a scope's changes may hold for the next scope
+// to reuse them.
+const spareSize = 64
 
 // get returns the changes of scope, or false when scope has staged none.
 func (o *overlay[S, D]) get(scope S) (D, bool) {
