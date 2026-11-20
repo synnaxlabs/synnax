@@ -151,14 +151,16 @@ export class Client extends query.Retriever<
     });
   }
 
-  async retrieve<DetailsSchema extends z.ZodType>(
+  override async retrieve<DetailsSchema extends z.ZodType>(
     params: (SingleRetrieveParams | OneParams) & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(params: Key | SingleRetrieveParams | OneParams): Promise<Status>;
-  async retrieve(
+  override async retrieve(
+    params: Key | SingleRetrieveParams | OneParams,
+  ): Promise<Status>;
+  override async retrieve(
     params: Key[] | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Status[]>;
-  async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
+  override async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
     rawParams:
       | Key
       | Key[]

@@ -41,17 +41,17 @@ const PIXEL_POS_UPDATE_DIST = 3;
 export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   static readonly TYPE = "Rule";
 
-  schema = ruleStateZ;
+  override schema = ruleStateZ;
   lastUpdateRef: number | null = null;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     this.internal.renderCtx = render.Context.use(ctx);
     const theme = theming.use(ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
     render.request(ctx, "tool");
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "tool");
   }
 
