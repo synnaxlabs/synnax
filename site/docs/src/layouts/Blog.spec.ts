@@ -9,9 +9,10 @@
 
 // @vitest-environment node
 
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import Blog from "@/layouts/Blog.astro";
 import { createContainer } from "@/testutil/container";
@@ -36,6 +37,11 @@ const RELEASES: Release[] = [
 ];
 
 const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));
+
+// The Desktop band reads the size of a CDN image.
+beforeEach(() => {
+  stubImageSize(3840, 2400);
+});
 
 const renderPost = async (
   path: string,

@@ -267,8 +267,8 @@ export class Log
 {
   static readonly TYPE = "log";
   static readonly z = logStateZ;
-  schema = Log.z;
-  methods = methodsZ;
+  override schema = Log.z;
+  override methods = methodsZ;
   entries: LogEntry[] = [];
   // Copied, not shared: the scrollback branch mutates this in place.
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
@@ -296,7 +296,7 @@ export class Log
     return this.calcVisibleLineCount(this.internal.lineHeight);
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
@@ -451,7 +451,7 @@ export class Log
     this.setState((p) => ({ ...p, empty, loading, blank }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { telem, stopListeningRestore } = this.internal;
     stopListeningRestore?.();
     telem.cleanup?.();
