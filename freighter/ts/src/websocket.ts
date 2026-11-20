@@ -148,6 +148,8 @@ class WebSocketStream<
   private write(req: z.input<RQ> | z.infer<RQ>): void {
     if (this.serverClosed != null) throw new EOF();
     if (this.sendClosed) throw new StreamClosed();
+    // The socket drops a message sent after it starts to close.
+    if (this.ws.readyState !== WebSocket.OPEN) throw new EOF();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
   }
 
