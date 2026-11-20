@@ -277,7 +277,6 @@ var _ = Describe("Replay", func() {
 			state.ErrRefused, "drop of key 5, the clock of segment 3 of key 6"),
 		Entry("a clear of a key with no intent", &log.Intent{Key: 9, Cleared: true},
 			state.ErrRefused, "intent of key 9 cleared, but it has none"),
-		Entry("a tombstone", &log.Tombstone{Key: 5}, log.ErrUnknown, "Tombstone"),
 		Entry("a replace", &log.Replace{Old: 2, New: 5}, log.ErrUnknown, "Replace"),
 		Entry("a check", &log.Check{Segment: 2}, log.ErrUnknown, "Check"),
 	)

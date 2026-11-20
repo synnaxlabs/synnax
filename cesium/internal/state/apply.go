@@ -43,7 +43,10 @@ type core struct {
 	// keysChanged is true when a key joined or left channels since the owner last
 	// published the keys.
 	keysChanged bool
-	keys        set.Set[uint32]
+	// dead holds the sealed segments that a Tombstone left with no live pointer, which
+	// the database unlinks once no reader pins them.
+	dead []uint64
+	keys set.Set[uint32]
 }
 
 func newCore(versions set.Set[uint16]) *core {
@@ -99,6 +102,10 @@ func (c *core) record(r log.Record) error {
 		return nil
 	case *log.Intent:
 		return c.intent(r)
+	case *log.Tombstone:
+		dead, err := c.tombstone(r)
+		c.dead = append(c.dead, dead...)
+		return err
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}

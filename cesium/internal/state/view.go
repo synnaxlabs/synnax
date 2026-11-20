@@ -61,6 +61,11 @@ func (c *chanState) insert(s *segState) {
 	c.segs = slices.Insert(c.segs, i, s)
 }
 
+// remove takes the segment with identity id out of c.
+func (c *chanState) remove(id uint64) {
+	c.segs = slices.DeleteFunc(c.segs, func(s *segState) bool { return s.vis.ID == id })
+}
+
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
 	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
