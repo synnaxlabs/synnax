@@ -95,6 +95,37 @@ var _ = Describe("Worker", func() {
 		Eventually(calls).Should(Receive(Equal(map[int]string{1: "delete", 2: "set"})))
 	})
 
+	It(
+		"Should merge a value with the one that waits for its key",
+		func(ctx SpecContext) {
+			var (
+				started = make(chan struct{})
+				release = make(chan struct{})
+				calls   = make(chan map[int]string, 2)
+			)
+			w := DeferClose(MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{
+				Handle: func(_ context.Context, latest map[int]string) {
+					if _, ok := latest[0]; ok {
+						close(started)
+						<-release
+					}
+					calls <- latest
+				},
+				Merge: func(waiting, added string) string {
+					return waiting + "+" + added
+				},
+			})))
+			w.Add(0, "hold")
+			Eventually(started).Should(BeClosed())
+			w.Add(1, "a")
+			w.Add(1, "b")
+			w.Add(2, "c")
+			close(release)
+			Eventually(calls).Should(Receive(Equal(map[int]string{0: "hold"})))
+			Eventually(calls).Should(Receive(Equal(map[int]string{1: "a+b", 2: "c"})))
+		},
+	)
+
 	It("Should end the context of a running Handle on Close", func(ctx SpecContext) {
 		started := make(chan struct{})
 		w := MustOpen(coalesce.Open(ctx, coalesce.Config[int, string]{

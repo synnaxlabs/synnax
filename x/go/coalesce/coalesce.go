@@ -30,6 +30,11 @@ type Config[K comparable, V any] struct {
 	//
 	// [REQUIRED]
 	Handle func(ctx context.Context, latest map[K]V)
+	// Merge returns the value that waits for a key when Add receives added while
+	// waiting waits for that key.
+	//
+	// [OPTIONAL] - Defaults to added.
+	Merge func(waiting, added V) V
 }
 
 var _ config.Config[Config[int, int]] = Config[int, int]{}
@@ -37,6 +42,7 @@ var _ config.Config[Config[int, int]] = Config[int, int]{}
 // Override implements config.Config.
 func (c Config[K, V]) Override(other Config[K, V]) Config[K, V] {
 	c.Handle = override.Nil(c.Handle, other.Handle)
+	c.Merge = override.Nil(c.Merge, other.Merge)
 	return c
 }
 
@@ -49,7 +55,8 @@ func (c Config[K, V]) Validate() error {
 
 // Worker calls Handle on a goroutine it owns with the values that Add receives. A value
 // goes to a call of Handle that starts after the Add, and a later Add for the same key
-// before that call replaces it. Safe for concurrent use.
+// before that call replaces it, or merges with it through Merge. Safe for concurrent
+// use.
 type Worker[K comparable, V any] struct {
 	cfg Config[K, V]
 	mu  struct {
@@ -86,6 +93,9 @@ func Open[K comparable, V any](
 // Add hands value for key to the Worker. It never waits for Handle.
 func (w *Worker[K, V]) Add(key K, value V) {
 	w.mu.Lock()
+	if waiting, ok := w.mu.latest[key]; ok && w.cfg.Merge != nil {
+		value = w.cfg.Merge(waiting, value)
+	}
 	w.mu.latest[key] = value
 	w.mu.Unlock()
 	select {
