@@ -170,11 +170,6 @@ x::json::json Browser::top() const {
         const auto name_utf8 = to_utf8(name);
         const auto path_utf8 = to_utf8(path);
         if (!name_utf8 || !path_utf8) return;
-        // A home or secrets folder that is a root shows once, as the root.
-        if (std::ranges::any_of(entries, [&](const auto &e) {
-                return e["path"] == *path_utf8;
-            }))
-            return;
         entries.push_back(
             {{"name", *name_utf8}, {"path", *path_utf8}, {"kind", "directory"}}
         );
