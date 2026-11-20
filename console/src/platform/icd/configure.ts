@@ -88,9 +88,10 @@ export interface MessagePlan {
  * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
- * @param written - The channels that bindings write, which no field takes from props.
- * When another message writes one, its index and every channel on it are replaced. A
- * channel that props store keeps the index when the message's own bindings write it.
+ * @param written - The channels that bindings write. When another message writes one,
+ * its index and every channel on it are replaced. A channel that props store on an
+ * index that the message's own bindings write is lent: the message keeps the index,
+ * and its field takes the channel back.
  */
 export const planMessage = async (
   client: Synnax,
@@ -109,11 +110,6 @@ export const planMessage = async (
       channel: 0,
       dataType: "",
     };
-  // The Core refuses a channel that two bindings write, and an index that two messages
-  // write.
-  const skipped = fields
-    .filter((f) => bindingOf(f).channel === 0 && written.has(held[f.pointer]))
-    .map(({ pointer }) => pointer);
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = [...written].filter((key) => !own.has(key));
   const bound =
@@ -126,18 +122,24 @@ export const planMessage = async (
     ch.isIndex ? ch.key : ch.index;
   const ownIndexes = new Set(bound.filter((ch) => own.has(ch.key)).map(indexOf));
   const stored = new Set(Object.values(props?.channels ?? {}));
+  const lent = (ch: channel.Channel): boolean =>
+    !own.has(ch.key) && stored.has(ch.key) && ownIndexes.has(indexOf(ch));
   // The message that wrote the index keeps it, and the one that borrowed its channel
   // moves.
   const taken = new Set(
     bound
-      .filter(
-        (ch) =>
-          !own.has(ch.key) && !(stored.has(ch.key) && ownIndexes.has(indexOf(ch))),
-      )
+      .filter((ch) => !own.has(ch.key) && !lent(ch))
       .map(indexOf)
       .filter(primitive.isNonZero),
   );
-  skipped.forEach((p) => delete held[p]);
+  const lentKeys = new Set(bound.filter(lent).map(({ key }) => key));
+  // The Core refuses a channel that two bindings write, and an index that two messages
+  // write.
+  for (const f of fields) {
+    const key = held[f.pointer];
+    if (bindingOf(f).channel === 0 && written.has(key) && !lentKeys.has(key))
+      delete held[f.pointer];
+  }
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
   const live = new Map(

@@ -104,7 +104,7 @@ describe("planMessage", () => {
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
   });
 
-  it("should keep its index when another message borrows a channel that it stores", async () => {
+  it("should keep its index and take back a stored channel that another message borrows", async () => {
     const prefix = uniqueName("src");
     const index = await createIndex(`${prefix}_time`);
     const createStored = async (name: string) =>
@@ -140,12 +140,7 @@ describe("planMessage", () => {
     );
     expect(time.key).toBe(index.key);
     expect(data.map(({ index }) => index)).toEqual([time.key, time.key, time.key]);
-    expect(data.map(({ name }) => name)).toEqual([
-      `${prefix}_temp_2`,
-      `${prefix}_pressure`,
-      `${prefix}_flow`,
-    ]);
-    expect((await client.channels.retrieve(shared.key)).name).toBe(`${prefix}_temp`);
+    expect(data.map(({ key }) => key)).toEqual([shared.key, stored.key, onIndex.key]);
   });
 
   it("should leave an index that another message writes when its bindings write nothing on it", async () => {
