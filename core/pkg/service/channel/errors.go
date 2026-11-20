@@ -18,13 +18,14 @@ import (
 
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
 // NameErrors returns err with its message naming the channels it mentions by their
-// records. A cesium.ChannelError reads `channel "<name>"`, or `deleted channel <key>`
+// records. A channel error reads `channel "<name>"`, or `deleted channel <key>`
 // when no record has the key, and any other `<key>` that Cesium prints reads
 // `"<name>"`. A channel for which visible returns false keeps its key, and a nil
 // visible names every channel. The returned error matches err under errors.Is and
@@ -121,13 +122,20 @@ func mentionedKeys(msg string, errKeys set.Set[Key]) []Key {
 	return keys
 }
 
-// channelErrorKeys returns the key of each cesium.ChannelError in err.
+// channelErrorKeys returns the key of each channel error in err, from Cesium or from
+// the distribution layer.
 func channelErrorKeys(err error) set.Set[Key] {
 	keys := set.New[Key]()
 	walk(err, func(e error) {
-		var ce cesium.ChannelError
+		var (
+			ce cesium.ChannelError
+			de distchannel.Error
+		)
 		if errors.As(e, &ce) {
 			keys.Add(Key(ce.Key))
+		}
+		if errors.As(e, &de) {
+			keys.Add(de.Key)
 		}
 	})
 	return keys
