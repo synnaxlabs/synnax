@@ -299,6 +299,15 @@ describe("lineplot reducer", () => {
       expect(out.ranges).toEqual([state.ranges[0], keyRef(r2)]);
     });
 
+    it("should set a new T0 and color on a range that setRanges keeps, and undo it", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const action = lineplot.setRanges({ ranges: [styled, keyRef(r2)] });
+      const { next, targets } = lineplot.reduceAll(state, [action]);
+      expect(next.ranges).toEqual([styled, keyRef(r2)]);
+      expect(targets).toEqual([`range:${r1}`]);
+      expect(roundTrip(state, action).ranges).toEqual([keyRef(r2), keyRef(r1)]);
+    });
+
     it("should set, reset, and round-trip the T0 of a saved range", () => {
       const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
       const action = lineplot.setRangeT0({ range: r1, t0 });
@@ -327,9 +336,14 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, action).ranges).toEqual(state.ranges);
     });
 
-    it("should coalesce color edits to one range, and not across ranges", () => {
-      const kind = (k: string): string =>
-        lineplot.kindOf([lineplot.setRangeColor({ range: keyRef(k), color: red })]);
+    it.each([
+      [
+        "color",
+        (k: string) => lineplot.setRangeColor({ range: keyRef(k), color: red }),
+      ],
+      ["T0", (k: string) => lineplot.setRangeT0({ range: k, t0 })],
+    ])("should coalesce %s edits to one range, and not across ranges", (_, edit) => {
+      const kind = (k: string): string => lineplot.kindOf([edit(k)]);
       expect(kind(r1)).toEqual(`range:${r1}`);
       expect(kind(r2)).not.toEqual(kind(r1));
     });

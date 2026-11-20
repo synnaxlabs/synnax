@@ -87,6 +87,12 @@ const sameRange = (a: AnyRef, b: AnyRef): boolean => {
   return b.variant === "window" && deep.equal(a.window, b.window);
 };
 
+// sameSettings reports whether a and b, which refer to the same range or window, have
+// the same T0 and color.
+const sameSettings = (a: ranger.Ref, b: ranger.Ref): boolean =>
+  deep.equal(a.color, b.color) &&
+  deep.equal(a.variant === "key" ? a.t0 : null, b.variant === "key" ? b.t0 : null);
+
 // keepSettings returns next with the T0 and color of prev in each field next leaves
 // unset. prev and next refer to the same range or window.
 const keepSettings = (prev: ranger.Ref, next: ranger.Ref): ranger.Ref => {
@@ -241,27 +247,29 @@ const handlers: Handlers = {
   // the user edits a window. It drops each reference to a range or window that an
   // earlier one names. A reference to a range or window the plot already shows keeps
   // its T0 and color unless the new reference sets them. The inverse and the targets
-  // cover only the references that changed, so undo leaves another user's later edits
-  // in place. Undo appends a restored reference at the end of the set.
+  // cover only the references that changed, a new T0 or color included, so undo leaves
+  // another user's later edits in place. Undo appends a restored reference at the end
+  // of the set.
   setRanges: (state, payload) => {
-    const ranges = payload.ranges.filter(
-      (n, i) => payload.ranges.findIndex((o) => sameRange(o, n)) === i,
-    );
-    const removed = state.ranges.filter((r) => !ranges.some((n) => sameRange(n, r)));
-    const added = ranges.filter((n) => !state.ranges.some((r) => sameRange(n, r)));
-    if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
-    const restored = removed.map(plainRef);
     const prev = state.ranges.map(plainRef);
-    state.ranges = ranges.map((n) => {
-      const p = prev.find((r) => sameRange(r, n));
-      return p == null ? n : keepSettings(p, n);
-    });
+    const next = payload.ranges
+      .filter((n, i) => payload.ranges.findIndex((o) => sameRange(o, n)) === i)
+      .map((n) => {
+        const p = prev.find((r) => sameRange(r, n));
+        return p == null ? n : keepSettings(p, n);
+      });
+    const kept = (r: ranger.Ref, refs: ranger.Ref[]): boolean =>
+      refs.some((o) => sameRange(o, r) && sameSettings(o, r));
+    const removed = prev.filter((p) => !kept(p, next));
+    const added = next.filter((n) => !kept(n, prev));
+    if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
+    state.ranges = next;
     return {
       inverse: [
         ...added.map((range) => removeRange({ range })),
-        ...restored.map((range) => addRange({ range })),
+        ...removed.map((range) => addRange({ range })),
       ],
-      targets: [...removed, ...added].map(rangeTarget),
+      targets: [...new Set([...removed, ...added].map(rangeTarget))],
     };
   },
 
@@ -557,6 +565,8 @@ export const kindOf = (actions: Action[]): string => {
       return `axis:${a.setAxisTimeMode.key}`;
     case "set_range_color":
       return rangeTarget(a.setRangeColor.range);
+    case "set_range_t0":
+      return `range:${a.setRangeT0.range}`;
     case "set_line_label":
       return `line:${a.setLineLabel.key}`;
     case "set_line_color":
