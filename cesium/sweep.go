@@ -38,8 +38,7 @@ type KeptChannel struct {
 // intent first. Sweep also returns the highest key that the DB holds in any form, so
 // that no new channel takes it. Only the first Sweep in one open of the DB decides. A
 // later call ignores records, drops nothing, and returns the channels that the first
-// kept
-// and that are still kept, with the highest key. When the first fails, every later
+// kept and that are still kept, with the highest key. When the first fails, every later
 // call returns its error.
 func (db *DB) Sweep(
 	ctx context.Context,

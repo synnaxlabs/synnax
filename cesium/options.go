@@ -19,6 +19,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,6 +36,7 @@ type options struct {
 	gcCfg     GCConfig
 	fileSize  telem.Size
 	chunkSize int64
+	clock     xtime.Clock
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -62,6 +64,7 @@ func mergeAndValidateOptions(o *options) error {
 		o.metaCodec,
 	)
 	o.fs = override.Nil(xfs.Default, o.fs)
+	o.clock = override.Nil(xtime.Real, o.clock)
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
@@ -80,6 +83,10 @@ func mergeAndValidateOptions(o *options) error {
 // WithFS sets the file system that cesium will use to store data. This defaults to the
 // OS file system.
 func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
+
+// WithClock sets the clock that Cesium reads the time from. It must be monotonic. This
+// defaults to the system clock.
+func WithClock(clock xtime.Clock) Option { return func(o *options) { o.clock = clock } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.

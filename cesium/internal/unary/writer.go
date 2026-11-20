@@ -200,7 +200,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	}
 	start := cfg.Start
 	if start.IsZero() {
-		start = telem.Now()
+		start = telem.NewTimeStamp(db.cfg.Clock.Now())
 	}
 	w = &Writer{
 		cfg:         cfg,

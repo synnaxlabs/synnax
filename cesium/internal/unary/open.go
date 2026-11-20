@@ -64,7 +64,8 @@ type Config struct {
 	// block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
-	// Clock times the AutoIndexPersistInterval of each writer. See domain.Config.Clock.
+	// Clock is the time of a writer that opens with no start, and times the
+	// AutoIndexPersistInterval of each writer. See domain.Config.Clock.
 	// [OPTIONAL] Default: xtime.Real
 	Clock xtime.Clock
 }
@@ -98,6 +99,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{
 		FileSize:    1 * telem.Gigabyte,
 		GCThreshold: 0.2,
+		Clock:       xtime.Real,
 	}, configs...)
 	if err != nil {
 		return nil, err
