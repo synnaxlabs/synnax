@@ -14,13 +14,14 @@ import { type Type, typeZ } from "@/resource/types.gen";
 
 /** Zod schema parsing a `"type:key"` string into an {@link ID}. */
 export const stringIDZ = z.string().transform((v, ctx) => {
-  const [type, key] = v.split(":");
+  const [type, ...rest] = v.split(":");
+  const key = rest.join(":");
   const res = typeZ.safeParse(type);
   if (!res.success) {
     ctx.addIssue({ code: "custom", message: `invalid resource type: ${type}` });
     return z.NEVER;
   }
-  return { type: res.data, key: key ?? "" };
+  return { type: res.data, key };
 });
 
 /** Zod schema for {@link ID}, accepting the object or the `"type:key"` string. */
