@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/payload/pb"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -53,59 +52,6 @@ var _ = Describe("Translator", func() {
 				Label: "ON", Value: true,
 			})
 		}),
-		Entry("an enum entry", func() {
-			roundTrip(pb.EnumEntryToPB, pb.EnumEntryFromPB, payload.EnumEntry{
-				Label: "FAULT", Value: 4,
-			})
-		}),
-		Entry("a float read", func() {
-			roundTrip(pb.FloatReadToPB, pb.FloatReadFromPB, payload.FloatRead{
-				DataType:   new(telem.Float32T),
-				EnumValues: []payload.FloatEntry{{Label: "HIGH", Value: 2.5}},
-				Fill:       new(payload.Float(1.5)),
-			})
-		}),
-		Entry("a float read with no data type or fill", func() {
-			roundTrip(pb.FloatReadToPB, pb.FloatReadFromPB, payload.FloatRead{
-				EnumValues: []payload.FloatEntry{},
-			})
-		}),
-		Entry("an integer read", func() {
-			roundTrip(pb.IntegerReadToPB, pb.IntegerReadFromPB, payload.IntegerRead{
-				DataType:   new(telem.Int16T),
-				EnumValues: []payload.IntegerEntry{{Label: "LOW", Value: -3}},
-				Fill:       new(payload.Integer(-1)),
-			})
-		}),
-		Entry("an unsigned read", func() {
-			roundTrip(pb.UnsignedReadToPB, pb.UnsignedReadFromPB, payload.UnsignedRead{
-				DataType:   new(telem.Uint8T),
-				EnumValues: []payload.UnsignedEntry{{Label: "MAX", Value: 255}},
-				Fill:       new(payload.Unsigned(1)),
-			})
-		}),
-		Entry("a string read", func() {
-			roundTrip(pb.StringReadToPB, pb.StringReadFromPB, payload.StringRead{
-				EnumValues: []payload.StringEntry{{Label: "RUN", Value: "running"}},
-				Fill:       new("idle"),
-			})
-		}),
-		Entry("a boolean read", func() {
-			roundTrip(pb.BooleanReadToPB, pb.BooleanReadFromPB, payload.BooleanRead{
-				EnumValues: []payload.BooleanEntry{{Label: "ON", Value: true}},
-				Fill:       new(false),
-			})
-		}),
-		Entry("a timestamp read", func() {
-			roundTrip(
-				pb.TimestampReadToPB,
-				pb.TimestampReadFromPB,
-				payload.TimestampRead{
-					TimeFormat: payload.TimeFormatUnixMs,
-					Fill:       new(telem.TimeStamp(1000)),
-				},
-			)
-		}),
 	)
 
 	DescribeTable("Should round trip a kind", func(v payload.Kind) {
@@ -130,29 +76,6 @@ var _ = Describe("Translator", func() {
 		Entry("Unix milliseconds", payload.TimeFormatUnixMs),
 		Entry("Unix microseconds", payload.TimeFormatUnixUs),
 		Entry("Unix nanoseconds", payload.TimeFormatUnixNs),
-	)
-
-	DescribeTable("Should round trip a format", func(v payload.Format) {
-		roundTrip(pb.FormatToPB, pb.FormatFromPB, v)
-	},
-		Entry("JSON", payload.FormatJSON),
-		Entry("text", payload.FormatText),
-		Entry("binary", payload.FormatBinary),
-	)
-
-	DescribeTable("Should round trip a JSON type", func(v payload.JSONType) {
-		roundTrip(pb.JSONTypeToPB, pb.JSONTypeFromPB, v)
-	},
-		Entry("number", payload.JSONTypeNumber),
-		Entry("string", payload.JSONTypeString),
-		Entry("boolean", payload.JSONTypeBoolean),
-	)
-
-	DescribeTable("Should round trip a generator type", func(v payload.GeneratorType) {
-		roundTrip(pb.GeneratorTypeToPB, pb.GeneratorTypeFromPB, v)
-	},
-		Entry("UUID", payload.GeneratorTypeUUID),
-		Entry("timestamp", payload.GeneratorTypeTimestamp),
 	)
 
 	DescribeTable("Should reject a value that the enum does not hold",

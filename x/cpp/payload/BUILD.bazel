@@ -46,7 +46,6 @@ cc_test(
     deps = [
         ":payload",
         "//x/cpp/errors",
-        "//x/cpp/telem",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
