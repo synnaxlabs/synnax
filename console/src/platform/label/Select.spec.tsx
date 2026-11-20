@@ -15,7 +15,11 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Label } from "@/platform/label";
-import { createTestLabel, createTestLabelName, searchAndClickLabel } from "@/platform/label/testutil";
+import {
+  createTestLabel,
+  createTestLabelName,
+  searchAndClickLabel,
+} from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
