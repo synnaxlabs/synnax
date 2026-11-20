@@ -107,7 +107,7 @@ describe("oidc", () => {
       });
       expect(tauri.calls).toContainEqual({
         cmd: "oidc_wait",
-        args: { state: tauri.state },
+        args: { port: 4242, state: tauri.state },
       });
       expect(tauri.calls).toContainEqual({
         cmd: "keychain_set",
