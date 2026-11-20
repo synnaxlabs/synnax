@@ -199,7 +199,11 @@ const fixedOptions = (): ReactElement[] =>
     </Select.Item>
   ));
 
-const listSelect = (virtual: boolean, data: string[] = MANY_KEYS): ReactElement => (
+const listSelect = (
+  virtual: boolean,
+  data: string[] = MANY_KEYS,
+  onSearch?: (term: string) => void,
+): ReactElement => (
   <Dialog.Frame>
     <Select.Frame<string, undefined>
       data={data}
@@ -209,7 +213,7 @@ const listSelect = (virtual: boolean, data: string[] = MANY_KEYS): ReactElement 
     >
       <Select.SingleTrigger placeholder="Pick" />
       <Select.Dialog>
-        <Select.Body<string> resourceName="key">
+        <Select.Body<string> resourceName="key" onSearch={onSearch}>
           {({ key, ...p }) => (
             <Select.Item key={key} {...p}>
               {p.itemKey}
@@ -1125,6 +1129,24 @@ describe("Select", () => {
       await scheduler.nextFrame();
       await scheduler.nextFrame();
       expect(scroll.scrollTop).toBe(0);
+    });
+
+    it("should not scroll to a late choice once the user searches", async () => {
+      const early = MANY_KEYS.filter((key) => key !== CHOICE);
+      const select = (data: string[]): ReactElement => (
+        <Triggers.Provider>{listSelect(true, data, () => {})}</Triggers.Provider>
+      );
+      const { container, rerender } = await renderThemed(select(early));
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      await scheduler.nextFrame();
+      (dialog.querySelector("input") as HTMLInputElement).focus();
+      await userEvent.keyboard("k");
+      await rerender(select(MANY_KEYS));
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(dialog.querySelector(".lyra-list__scroll")?.scrollTop).toBe(0);
     });
 
     it("should move the hover on from the choice", async () => {

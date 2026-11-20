@@ -68,9 +68,9 @@ const SCROLL_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 // The dialog opens on its first choice, as a native dropdown does. A fetched list can
-// load the choice after the dialog is placed, so the reveal waits for it once. A
-// virtual list adopts the scroll container of a dialog that opens again one render
-// later, so the scroll waits a frame.
+// load the choice after the dialog is placed, so the reveal waits for it once, until
+// the user scrolls or searches. A virtual list adopts the scroll container of a dialog
+// that opens again one render later, so the scroll waits a frame.
 const useRevealChoice = (): void => {
   const { placed } = BaseDialog.useContext();
   const registry = useRegistryContext("Select.Dialog");
@@ -104,6 +104,8 @@ const useRevealChoice = (): void => {
       else scrollToIndex(getData().indexOf(key));
     };
     const tryReveal = (): void => {
+      // A search lists its matches in their own order.
+      if (registry.getTerm() !== "") return stop();
       if (frame != null) return;
       const key = registry.getOrder(getData()).find((k) => selected.includes(k));
       if (key == null) return;
