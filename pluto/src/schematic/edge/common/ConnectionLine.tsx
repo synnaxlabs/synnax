@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useStore } from "@xyflow/react";
+import { useViewportStore } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
@@ -23,7 +23,7 @@ export const ConnectionLine = ({
   targetBox,
   status,
 }: Diagram.ConnectionLineProps): ReactElement => {
-  const zoom = useStore(selectZoom);
+  const zoom = useViewportStore(selectZoom);
   const conn = Segmented.createConnector({ source, target, sourceBox, targetBox });
   const points = Segmented.segmentsToPoints(source.position, conn, zoom, false);
   const colorVar =

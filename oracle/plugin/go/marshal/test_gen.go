@@ -189,7 +189,7 @@ func (r *testFileRenderer) newBuilder(mode valueMode) *testValueBuilder {
 		parentPath:  r.parentPath,
 		imports:     r.fo.ExtraImports,
 		aliases:     r.aliases,
-		pins:        r.pins,
+		scope:       pinScope{pins: r.pins},
 		pkgPrefix:   r.packageName + ".",
 		mode:        mode,
 		sharedVars:  r.sharedVars,
@@ -381,7 +381,7 @@ func (r *testFileRenderer) addGenericTest(
 	gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
 	for _, m := range modes {
 		b := r.newBuilder(m.mode)
-		b.owner = e.Type.QualifiedName
+		b.scope.owners = []string{e.Type.QualifiedName}
 		fieldExprs, err := b.substitutedFieldExprs(substituted, m.name, e.GoName)
 		if err != nil {
 			return err
@@ -529,12 +529,8 @@ type testValueBuilder struct {
 	parentPath  string
 	imports     map[string]string
 	// aliases forces the alias of each import path it holds.
-	aliases map[string]string
-	// pins resolves a stored reference to the dependency version that owner's version
-	// file imports.
-	pins versioning.Pins
-	// owner is the qualified name of the type whose fields the builder is filling.
-	owner     string
+	aliases   map[string]string
+	scope     pinScope
 	pkgPrefix string
 	needsUUID bool
 	depth     int
@@ -630,9 +626,7 @@ func (b *testValueBuilder) buildStructFieldExprs(
 	}
 	// An inline payload belongs to its union, which already owns the fields.
 	if !typ.Synthetic {
-		prev := b.owner
-		b.owner = typ.QualifiedName
-		defer func() { b.owner = prev }()
+		defer b.scope.enter(typ.QualifiedName)()
 	}
 	if types.CanEmbed(form, b.table) {
 		return b.buildEmbeddedStructFieldExprs(form)
@@ -897,7 +891,6 @@ func (b *testValueBuilder) genericFieldExprs(
 		substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
 	}
 	var fieldExprs []string
-	outer := b.owner
 	for i, f := range substituted {
 		if f.Type.Name == "nil" {
 			continue
@@ -913,9 +906,9 @@ func (b *testValueBuilder) genericFieldExprs(
 		fieldGoName := naming.GetFieldName(f)
 		// A field typed by a type argument was written in the outer declaration's file,
 		// so it keeps the outer pins.
-		b.owner = outer
+		leave := func() {}
 		if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
-			b.owner = actual.QualifiedName
+			leave = b.scope.enter(actual.QualifiedName)
 		}
 		var expr string
 		var err error
@@ -924,7 +917,7 @@ func (b *testValueBuilder) genericFieldExprs(
 		} else {
 			expr, err = b.valueExpr(r, f.Type)
 		}
-		b.owner = outer
+		leave()
 		if err != nil {
 			return nil, err
 		}
@@ -945,9 +938,7 @@ func (b *testValueBuilder) unionExpr(
 	if err != nil {
 		return "", err
 	}
-	prev := b.owner
-	b.owner = actual.QualifiedName
-	defer func() { b.owner = prev }()
+	defer b.scope.enter(actual.QualifiedName)()
 	goName := naming.GetGoName(actual)
 	variantType := strings.TrimSuffix(goType, goName) +
 		casing.VariantTypeName(goName, v.Name)
@@ -1282,7 +1273,7 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return b.pkgPrefix + goName, nil
 	}
-	if p, ok := b.pins.Path(b.owner, typ); ok {
+	if p, ok := b.scope.path(typ); ok {
 		goPath = p
 	}
 	importPath := resolveGoImportPath(goPath, b.repoRoot)

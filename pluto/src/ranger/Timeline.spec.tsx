@@ -224,11 +224,12 @@ describe("Ranger.Timeline", () => {
   });
 
   it("should offer a planned end once a range is scheduled", () => {
-    const now = TimeStamp.now().nanoseconds;
+    // A whole second is exact as a number of nanoseconds, so no rounding moves the end.
+    const start = TimeStamp.now().truncate(TimeSpan.SECOND).nanoseconds + HOUR;
     const onChange = vi.fn();
     render(
       <Ranger.Timeline
-        value={{ start: now + HOUR, end: TimeStamp.MAX.nanoseconds }}
+        value={{ start, end: TimeStamp.MAX.nanoseconds }}
         onChange={onChange}
       />,
     );
@@ -236,7 +237,7 @@ describe("Ranger.Timeline", () => {
     const field = screen.getByRole("textbox");
     fireEvent.change(field, { target: { value: "start + 2h" } });
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(onChange).toHaveBeenCalledWith({ start: now + HOUR, end: now + 3 * HOUR });
+    expect(onChange).toHaveBeenCalledWith({ start, end: start + 2 * HOUR });
   });
 
   it("should name each time cell by the end it holds", () => {
