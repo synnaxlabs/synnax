@@ -46,7 +46,7 @@ func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, erro
 	}
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
-	for k := range db.mu.dbs.virtual {
+	for k := range db.mu.virtualDirs {
 		if !records.Contains(k) {
 			drop = append(drop, k)
 		}
@@ -99,7 +99,7 @@ func (db *DB) removeOrphanIntents(records, hidden set.Set[ChannelKey]) error {
 		if _, open := db.mu.dbs.unary[k]; open {
 			continue
 		}
-		if _, open := db.mu.dbs.virtual[k]; open {
+		if db.mu.virtualDirs.Contains(k) {
 			continue
 		}
 		err = errors.Join(err, rm.remove(db, k))
@@ -121,7 +121,7 @@ func (db *DB) reopenFailedDeletes(
 		failed = append(failed, k)
 		if db.mu.skipped.Contains(k) {
 			db.mu.skipped.Remove(k)
-			if err := db.openVirtualOrUnary(ctx, Channel{Key: k}); err != nil {
+			if err := db.openChannel(ctx, Channel{Key: k}); err != nil {
 				return err
 			}
 		}

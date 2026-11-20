@@ -127,11 +127,11 @@ func (c Channel) String() string {
 }
 
 // ToStorage returns the storage representation of each channel that has a storage
-// channel. Free channels have none, so ToStorage leaves them out.
+// channel. Free and virtual channels have none, so ToStorage leaves them out.
 func ToStorage(channels []Channel) []cesium.Channel {
 	stored := make([]cesium.Channel, 0, len(channels))
 	for _, c := range channels {
-		if c.Key().Free() {
+		if c.Key().Free() || c.Virtual {
 			continue
 		}
 		stored = append(stored, cesium.Channel{
@@ -140,7 +140,6 @@ func ToStorage(channels []Channel) []cesium.Channel {
 			IsIndex:     c.IsIndex,
 			DataType:    c.DataType,
 			Index:       cesium.ChannelKey(c.Index()),
-			Virtual:     c.Virtual,
 			Concurrency: c.Concurrency,
 		})
 	}

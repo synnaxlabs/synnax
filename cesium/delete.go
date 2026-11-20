@@ -110,8 +110,8 @@ func (db *DB) dropLocked(keys []ChannelKey) error {
 		rm  = &removals{}
 	)
 	for _, key := range keys {
-		if _, ok := db.mu.dbs.virtual[key]; ok {
-			delete(db.mu.dbs.virtual, key)
+		if db.mu.virtualDirs.Contains(key) {
+			db.mu.virtualDirs.Remove(key)
 			err = errors.Join(err, rm.remove(db, key))
 			continue
 		}
@@ -329,9 +329,6 @@ func (db *DB) DeleteTimeRange(
 			} else {
 				dataChannels = append(dataChannels, ch)
 			}
-			continue
-		}
-		if _, ok := db.mu.dbs.virtual[ch]; ok {
 			continue
 		}
 		return channel.NewNotFoundError(ch)

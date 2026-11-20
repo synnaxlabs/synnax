@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/stringer"
@@ -35,7 +34,6 @@ import (
 type Writer struct {
 	WriterConfig
 	internal []*idxWriter
-	virtual  *virtualWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
@@ -108,9 +106,6 @@ func (w *Writer) Close() error {
 	for _, idx := range w.internal {
 		err = errors.Join(err, idx.Close())
 	}
-	if w.virtual.internal != nil {
-		err = errors.Join(err, w.virtual.Close())
-	}
 	w.err = errors.Join(w.err, err)
 	return w.err
 }
@@ -149,11 +144,6 @@ func (w *Writer) WriteExcept(
 			return Frame{}, false, w.fail(err)
 		}
 	}
-	if w.virtual.internal != nil {
-		if fr, err = w.virtual.write(skip, &excluded, fr); err != nil {
-			return Frame{}, false, w.fail(err)
-		}
-	}
 	return fr.ExcludeKeys(excluded), len(excluded) > 0, nil
 }
 
@@ -161,9 +151,6 @@ func (w *Writer) WriteExcept(
 func (w *Writer) checkSkip(skip set.Set[ChannelKey]) error {
 	for k := range skip {
 		if _, ok := w.keyToIdx[k]; ok {
-			continue
-		}
-		if _, ok := w.virtual.internal[k]; ok {
 			continue
 		}
 		return channel.Wrap(k, errors.Wrap(
@@ -723,46 +710,4 @@ func (w *idxWriter) resolveCommitEnd(
 		return approx, index.NewDiscontinuousStampError(w.start)
 	}
 	return approx, nil
-}
-
-type virtualWriter struct {
-	internal map[ChannelKey]*virtual.Writer
-}
-
-func (w virtualWriter) write(
-	skip set.Set[ChannelKey],
-	excluded *[]ChannelKey,
-	fr Frame,
-) (Frame, error) {
-	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) {
-			continue
-		}
-		v, ok := w.internal[k]
-		if !ok {
-			continue
-		}
-		s := fr.RawSeriesAt(rawI)
-		if skip.Contains(k) {
-			if err := skipSeries(v.Channel, k, s, excluded); err != nil {
-				return fr, err
-			}
-			continue
-		}
-		alignment, err := v.Write(s)
-		if err != nil {
-			return fr, err
-		}
-		s.Alignment = alignment
-		fr.SetRawSeriesAt(rawI, s)
-	}
-	return fr, nil
-}
-
-func (w virtualWriter) Close() error {
-	var err error
-	for _, chW := range w.internal {
-		err = errors.Join(err, chW.Close())
-	}
-	return err
 }

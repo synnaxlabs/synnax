@@ -159,7 +159,6 @@ var _ = Describe("Channel", func() {
 				LocalIndex:  3,
 				DataType:    telem.Float32T,
 				IsIndex:     true,
-				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}
 			Expect(channel.ToStorage([]channel.Channel{c})).To(Equal([]cesium.Channel{{
@@ -168,9 +167,18 @@ var _ = Describe("Channel", func() {
 				IsIndex:     true,
 				DataType:    telem.Float32T,
 				Index:       cesium.ChannelKey(3),
-				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}}))
+		})
+		It("Should leave out a virtual channel", func() {
+			virtual := channel.Channel{
+				Name:        "command",
+				LocalKey:    3,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+				Virtual:     true,
+			}
+			Expect(channel.ToStorage([]channel.Channel{virtual})).To(BeEmpty())
 		})
 		It("Should leave out a free channel", func() {
 			free := channel.Channel{

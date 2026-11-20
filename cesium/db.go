@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/set"
@@ -65,12 +64,15 @@ type DB struct {
 	}
 	mu struct {
 		dbs struct {
-			unary   map[ChannelKey]unary.DB
-			virtual map[ChannelKey]virtual.DB
+			unary map[ChannelKey]unary.DB
 			// hidden holds the channels that Sweep keeps: they hold samples but have
 			// no record and no intent. Writers and iterators cannot open on them.
 			hidden map[ChannelKey]unary.DB
 		}
+		// virtualDirs holds the keys of the directories whose metadata names a virtual
+		// channel. A Core older than this Cesium wrote them, and an undo to it reads
+		// them, so Open leaves them in place.
+		virtualDirs set.Set[ChannelKey]
 		// skipped holds the keys whose directories Open skipped for their intent.
 		skipped set.Set[ChannelKey]
 		sync.RWMutex

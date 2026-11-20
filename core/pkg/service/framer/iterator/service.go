@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -263,6 +265,9 @@ func (s *Service) newCalculationTransform(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = refuseVirtual(channels); err != nil {
+		return nil, nil, err
+	}
 	// A free index has no expression, so add the calculated channel that writes it.
 	owners, err := s.retrieveFreeIndexOwners(ctx, channels)
 	if err != nil {
@@ -287,6 +292,9 @@ func (s *Service) newCalculationTransform(
 			ctx,
 			concreteBaseKeys.Slice(),
 		); err != nil {
+			return nil, nil, err
+		}
+		if err = refuseVirtual(concreteBaseChannels); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -424,6 +432,21 @@ func openCalculationTransform(
 		transform.calculators = append(transform.calculators, calc)
 	}
 	return transform, nil
+}
+
+// refuseVirtual returns an error for the first leased virtual channel of channels that
+// no calculation writes. Such a channel has no storage to read. A free channel reads
+// through the calculation that writes it.
+func refuseVirtual(channels []channel.Channel) error {
+	for _, ch := range channels {
+		if ch.Virtual && !ch.IsCalculated() && !ch.Key().Free() {
+			return cesium.ChannelError{Key: uint32(ch.Key()), Err: errors.Wrap(
+				query.ErrUnsupported,
+				"cannot open an iterator on a virtual channel",
+			)}
+		}
+	}
+	return nil
 }
 
 // newGroupSizer returns a group sizer for the requested channels. A concrete channel

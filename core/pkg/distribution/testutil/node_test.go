@@ -34,8 +34,8 @@ var _ = Describe("Node", func() {
 		n := testutil.NewNode(ctx)
 		ch := MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
 			Name:        "SG_01",
-			DataType:    telem.Float64T,
-			Virtual:     true,
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
 			Leaseholder: 1,
 		}}))[0]
 		Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
