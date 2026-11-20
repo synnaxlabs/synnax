@@ -151,8 +151,8 @@ describe("auth", () => {
 
   describe("retrieveMethods", () => {
     const client = auth.createTokenlessClient({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
     });
     it("should list the methods the Core accepts without logging in", async () => {
       const methods = await auth.retrieveMethods(client);
