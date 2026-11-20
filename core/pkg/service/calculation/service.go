@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -106,6 +107,17 @@ func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 // NewRetrieve opens a query for calculations.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{gorp: s.table.NewRetrieve(), indexes: s.indexes}
+}
+
+// Channels returns the resource of each channel that c links, in the order of its
+// fields.
+func (s *Service) Channels(c Calculation) []resource.ID {
+	targets := s.table.Targets(&c)
+	ids := make([]resource.ID, len(targets))
+	for i, t := range targets {
+		ids[i] = resource.ID{Type: resource.Type(t.Table), Key: t.Key}
+	}
+	return ids
 }
 
 // NewWriter opens a Writer that changes calculations in tx.

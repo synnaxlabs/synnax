@@ -15,29 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
-// Resets returns the reset channel of each windowed operation of c that has one, in
-// the order of the operations.
-func Resets(c Calculation) []channel.Key {
-	var resets []channel.Key
-	for _, op := range c.Operations {
-		var w Window
-		switch v := op.Variant.(type) {
-		case MinOperation:
-			w = v.Window
-		case MaxOperation:
-			w = v.Window
-		case AvgOperation:
-			w = v.Window
-		case DerivativeOperation:
-			continue
-		}
-		if w.Reset != nil {
-			resets = append(resets, *w.Reset)
-		}
-	}
-	return resets
-}
-
 // FromChannelOperations returns the calculation form of the operations of a channel. A
 // none operation has no calculation form, and a reset channel of 0 is absent. It panics
 // on an operation whose type is not valid.

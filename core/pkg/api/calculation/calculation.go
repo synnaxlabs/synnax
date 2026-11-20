@@ -11,12 +11,12 @@ package calculation
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -122,6 +122,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
+	named := req.Named()
 	if err = q.Where(calculation.And(
 		bind.Filter(snap, calculation.Match),
 		calculation.Match(func(
@@ -129,7 +130,7 @@ func (s *Service) Retrieve(
 			_ calculation.Retrieve,
 			c *calculation.Calculation,
 		) (bool, error) {
-			return channelsAllowed(snap, *c), nil
+			return s.channelsAllowed(snap, named, *c)
 		}),
 	)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
@@ -144,19 +145,23 @@ func (s *Service) Retrieve(
 
 // channelsAllowed returns true when the subject can retrieve the output of c and each
 // primary and reset channel of c.
-func channelsAllowed(snap bind.Snapshot, c calculation.Calculation) bool {
-	if !snap.Allowed(channel.ResourceID(c.Output)) {
-		return false
-	}
-	if c.Primary != nil && !snap.Allowed(channel.ResourceID(*c.Primary)) {
-		return false
-	}
-	for _, reset := range calculation.Resets(c) {
-		if !snap.Allowed(channel.ResourceID(reset)) {
-			return false
+// channelsAllowed reports whether the subject of snap can retrieve each channel that c
+// links. It returns the denial when the request names c.
+func (s *Service) channelsAllowed(
+	snap bind.Snapshot,
+	named []resource.ID,
+	c calculation.Calculation,
+) (bool, error) {
+	for _, id := range s.internal.Channels(c) {
+		if snap.Allowed(id) {
+			continue
 		}
+		if slices.Contains(named, calculation.ResourceID(c.Key)) {
+			return false, snap.Enforce(id)
+		}
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func (s *Service) attachStatuses(
