@@ -41,11 +41,6 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *StreamConfig, to map[device.Key]device.Key) {
-				if t, ok := to[e.Device]; ok {
-					e.Device = t
-				}
-			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, StreamConfig, channel.Key]{
 			Name:     "channels",
@@ -64,13 +59,6 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 				e.Channels = slices.DeleteFunc(e.Channels, func(k2 channel.Key) bool {
 					return k2 == t
 				})
-			},
-			Retarget: func(e *StreamConfig, to map[channel.Key]channel.Key) {
-				for i3, k4 := range e.Channels {
-					if t, ok := to[k4]; ok {
-						e.Channels[i3] = t
-					}
-				}
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, StreamConfig, label.Key]{

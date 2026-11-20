@@ -82,13 +82,6 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Log, to map[project.Key]project.Key) {
-				if e.Project != nil {
-					if t, ok := to[*e.Project]; ok {
-						e.Project = &t
-					}
-				}
-			},
 		}),
 		search: gorp.NewSearchIndex[Key, Log](
 			"search",

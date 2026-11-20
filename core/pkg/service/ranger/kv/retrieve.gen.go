@@ -37,11 +37,6 @@ func newIndexes() indexes {
 			Targets: func(e *Pair) []ranger.Key {
 				return []ranger.Key{e.Range}
 			},
-			Retarget: func(e *Pair, to map[ranger.Key]ranger.Key) {
-				if t, ok := to[e.Range]; ok {
-					e.Range = t
-				}
-			},
 		}),
 	}
 }

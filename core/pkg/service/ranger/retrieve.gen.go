@@ -89,13 +89,6 @@ func newIndexes() indexes {
 				}
 				return []Key{*e.Parent}
 			},
-			Retarget: func(e *Range, to map[Key]Key) {
-				if e.Parent != nil {
-					if t, ok := to[*e.Parent]; ok {
-						e.Parent = &t
-					}
-				}
-			},
 		}),
 		search: gorp.NewSearchIndex[Key, Range](
 			"search",

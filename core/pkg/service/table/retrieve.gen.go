@@ -84,13 +84,6 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Table, to map[project.Key]project.Key) {
-				if e.Project != nil {
-					if t, ok := to[*e.Project]; ok {
-						e.Project = &t
-					}
-				}
-			},
 		}),
 		rowsCellsConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Table, channel.Key]{
 			Name:     "rows.cells.config.channel",

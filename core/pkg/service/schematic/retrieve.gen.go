@@ -86,13 +86,6 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Schematic, to map[project.Key]project.Key) {
-				if e.Project != nil {
-					if t, ok := to[*e.Project]; ok {
-						e.Project = &t
-					}
-				}
-			},
 		}),
 		nodesConfigStateChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
 			Name:     "nodes.config.state_channel",

@@ -74,17 +74,6 @@ func newIndexes() indexes {
 					e.Variant = v2
 				}
 			},
-			Retarget: func(e *Certificate, to map[secret.Key]secret.Key) {
-				switch v3 := e.Variant.(type) {
-				case StoredCertificate:
-					if v3.PrivateKey != nil {
-						if t, ok := to[*v3.PrivateKey]; ok {
-							v3.PrivateKey = &t
-						}
-					}
-					e.Variant = v3
-				}
-			},
 		}),
 		search: gorp.NewSearchIndex[Key, Certificate](
 			"search",
