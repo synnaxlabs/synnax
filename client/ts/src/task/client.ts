@@ -402,8 +402,6 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
-  // Replies that the client stands in with. A wait skips them, as no Driver sent them.
-  private readonly standIns = new WeakSet<status.Status>();
   private readonly parsed = new WeakMap<Schemas, Parsed>();
 
   constructor(cfg: ClientConfig) {
@@ -457,7 +455,7 @@ export class Client extends query.Retriever<
             const held = statuses.ownedBy(resourceID(changed.task));
             if (held == null) return;
             const optimistic = this.optimisticStatus(changed, held.key);
-            this.setStandIn(optimistic);
+            statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
         ),
@@ -749,7 +747,7 @@ export class Client extends query.Retriever<
         status.detailsOf(held)?.cmd === pending.cmd.key;
       if (answered) continue;
       pending.optimistic = this.optimisticStatus(pending.cmd, pending.optimistic.key);
-      this.setStandIn(pending.optimistic);
+      this.cfg.statuses.setLocal(pending.optimistic);
     }
   }
 
@@ -764,7 +762,7 @@ export class Client extends query.Retriever<
       const held = statuses.ownedBy(owner);
       if (held == null) return;
       if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
-      this.setStandIn(
+      statuses.setLocal(
         status.create<StatusDetailsZodObject>({
           key: held.key,
           name: optimistic.name,
@@ -975,17 +973,13 @@ export class Client extends query.Retriever<
     });
   }
 
-  private setStandIn(stat: Status): void {
-    this.standIns.add(stat);
-    this.cfg.statuses.setLocal(stat);
-  }
-
   // The change stream carries every status, so a wait while it is live opens nothing.
   private readonly openStatuses: StatusOpener = async ({ onStatus, onError }) => {
     const { cache, framer, statuses } = this.cfg;
     if (!cache.live) return await streamStatuses(framer)({ onStatus, onError });
-    const stopWrites = statuses.onWrite((stat) => {
-      if (!this.standIns.has(stat)) onStatus(stat);
+    // A local status is a stand-in reply of this client, not the Driver's.
+    const stopWrites = statuses.onWrite((stat, { local }) => {
+      if (!local) onStatus(stat);
     });
     const stopDown = cache.onStreamDown(() =>
       onError(new DisconnectedError("The connection to the Core dropped.")),
