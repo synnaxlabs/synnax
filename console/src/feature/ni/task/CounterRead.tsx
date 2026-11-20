@@ -11,12 +11,11 @@ import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/clien
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive, unique } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -28,14 +27,12 @@ import {
   CI_CHANNEL_TYPE_NAMES,
   type CIChannel,
   COUNTER_READ_SCHEMAS,
-  COUNTER_READ_TYPE,
-  counterReadConfigZ,
+  type counterReadConfigZ,
   type CounterReadSchemas,
   deployCounterReadConfigZ,
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<CounterReadSchemas>>();
@@ -156,20 +153,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
-  deviceKeys,
-  config,
-}) => {
-  const cfg = counterReadConfigZ.parse(config ?? {});
-  if (config == null) {
-    cfg.channels = [];
-    if (deviceKeys.length === 0) cfg.channels.push(createNextCIChannel([]));
-    for (const device of deviceKeys)
-      cfg.channels.push(createNextCIChannel(cfg.channels, { device }));
-  }
-  return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   client,
   config,
@@ -260,16 +243,3 @@ export const CounterRead = Task.wrapForm({
   type: "ni_counter_read",
   onConfigure,
 });
-
-export const useCreateCounterRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const CounterReadSelectable: Selector.Selectable = {
-  type: COUNTER_READ_TYPE,
-  title: "NI counter read task",
-  label: "Counter read",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: useCreateCounterRead,
-};

@@ -11,12 +11,11 @@ import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/clien
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive, strings, unique } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
@@ -29,15 +28,13 @@ import {
   AI_CHANNEL_TYPE_NAMES,
   type AIChannel,
   ANALOG_READ_SCHEMAS,
-  ANALOG_READ_TYPE,
-  analogReadConfigZ,
+  type analogReadConfigZ,
   type AnalogReadSchemas,
   channelPort,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
 import { useChannelDevice } from "@/feature/ni/task/usePort";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<AnalogReadSchemas>>();
@@ -176,20 +173,6 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
-  deviceKeys,
-  config,
-}) => {
-  const cfg = analogReadConfigZ.parse(config ?? {});
-  if (config == null) {
-    cfg.channels = [];
-    if (deviceKeys.length === 0) cfg.channels.push(createNextAIChannel([]));
-    for (const device of deviceKeys)
-      cfg.channels.push(createNextAIChannel(cfg.channels, { device }));
-  }
-  return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   client,
   config,
@@ -282,16 +265,3 @@ export const AnalogRead = Task.wrapForm({
   type: "ni_analog_read",
   onConfigure,
 });
-
-export const useCreateAnalogRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const AnalogReadSelectable: Selector.Selectable = {
-  type: ANALOG_READ_TYPE,
-  title: "NI analog read task",
-  label: "Analog read",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: useCreateAnalogRead,
-};

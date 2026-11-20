@@ -9,8 +9,8 @@
 
 import { array, id } from "@synnaxlabs/x";
 
-import { type policy } from "@/access/policy";
-import { type role } from "@/access/role";
+import type { policy } from "@/access/policy";
+import type { role } from "@/access/role";
 import type Synnax from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";

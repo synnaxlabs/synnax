@@ -1,0 +1,240 @@
+---
+title: "`time`"
+description:
+  "Look up time.interval, time.wait, time.now, and time.format, the timers and the clock
+  of an Arc automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import Details from "@/components/details/Details.astro";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `time` module has timers and the clock. Import it with `import time`. `interval` and
+`wait` are flow functions: a function body cannot call them.
+
+The `period` and `duration` parameters have the type `i64 ns`. They take a duration
+literal, such as `500ms`, or a duration variable in any time unit.
+
+```arc channels="ign_cmd" bodies="fire"
+import time
+
+hold := 5s
+
+sequence fire {
+    time.wait(duration=hold) => next
+    1 -> ign_cmd
+}
+
+true => fire
+```
+
+A literal of 0 or less gives `invalid argument value: period must be positive, got 0s`.
+A variable that becomes 0 or less stops the timer and shows a warning. The automation
+keeps running.
+
+<Divider.Divider x />
+
+## `format`
+
+Prints a timestamp as text, in UTC or a time zone.
+
+<Field.List>
+
+<Field.Item name="input" type="i64 ns" required id="format-input">
+
+The timestamp to print.
+
+</Field.Item>
+
+<Field.Item name="format" type="str" default='""' id="format-format">
+
+The format of the text, from the codes below. An empty format gives ISO 8601, such as
+`2026-03-07T15:04:05.25Z`.
+
+</Field.Item>
+
+<Field.Item name="tz" type="str" default='""' id="format-tz">
+
+The time zone, such as `America/Denver`. Defaults to UTC.
+
+</Field.Item>
+
+</Field.List>
+
+- Trigger -> optional. Each new trigger runs it, whatever the value. With no trigger, it
+  runs when `input` has a new value.
+- Output -> the text, as a `str`.
+- Function form -> `time.format(input, format, tz) str`.
+
+```arc channels="start_msg"
+import time
+
+true => time.format(time.now(), "%Y-%m-%d %H:%M:%S %Z", "America/Denver") -> start_msg
+```
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Table /> Format codes</Text.Text>
+
+A format holds plain text and codes. Each code prints one part of the time. The examples
+are for `2026-03-07T15:04:05.25Z`.
+
+| Code | Output                                  | Example                    |
+| ---- | --------------------------------------- | -------------------------- |
+| `%Y` | Year                                    | `2026`                     |
+| `%y` | Year, last two digits                   | `26`                       |
+| `%C` | Year, first two digits                  | `20`                       |
+| `%m` | Month, 01 to 12                         | `03`                       |
+| `%b` | Month, short name                       | `Mar`                      |
+| `%h` | The same as `%b`                        | `Mar`                      |
+| `%B` | Month, full name                        | `March`                    |
+| `%d` | Day of the month, 01 to 31              | `07`                       |
+| `%e` | Day of the month, space padded          | ` 7`                       |
+| `%H` | Hour, 00 to 23                          | `15`                       |
+| `%I` | Hour, 01 to 12                          | `03`                       |
+| `%p` | `AM` or `PM`                            | `PM`                       |
+| `%M` | Minute, 00 to 59                        | `04`                       |
+| `%S` | Second, 00 to 59                        | `05`                       |
+| `%j` | Day of the year, 001 to 366             | `066`                      |
+| `%f` | Microseconds, six digits                | `250000`                   |
+| `%N` | Nanoseconds, nine digits                | `250000000`                |
+| `%u` | Weekday, 1 on Monday to 7 on Sunday     | `6`                        |
+| `%w` | Weekday, 0 on Sunday to 6 on Saturday   | `6`                        |
+| `%a` | Weekday, short name                     | `Sat`                      |
+| `%A` | Weekday, full name                      | `Saturday`                 |
+| `%U` | Week of the year, weeks start on Sunday | `09`                       |
+| `%W` | Week of the year, weeks start on Monday | `09`                       |
+| `%G` | ISO 8601 year                           | `2026`                     |
+| `%g` | ISO 8601 year, last two digits          | `26`                       |
+| `%V` | ISO 8601 week, 01 to 53                 | `10`                       |
+| `%z` | Offset from UTC                         | `+0000`                    |
+| `%Z` | Time zone abbreviation                  | `UTC`                      |
+| `%F` | The same as `%Y-%m-%d`                  | `2026-03-07`               |
+| `%c` | The same as `%a %b %e %H:%M:%S %Y`      | `Sat Mar  7 15:04:05 2026` |
+| `%D` | The same as `%m/%d/%y`                  | `03/07/26`                 |
+| `%x` | The same as `%m/%d/%y`                  | `03/07/26`                 |
+| `%T` | The same as `%H:%M:%S`                  | `15:04:05`                 |
+| `%X` | The same as `%H:%M:%S`                  | `15:04:05`                 |
+| `%R` | The same as `%H:%M`                     | `15:04`                    |
+| `%r` | The same as `%I:%M:%S %p`               | `03:04:05 PM`              |
+| `%%` | A `%`                                   | `%`                        |
+| `%n` | A line break                            |                            |
+| `%t` | A tab                                   |                            |
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Table /> Time zones</Text.Text>
+
+A time zone takes [any IANA name](https://www.iana.org/time-zones), case insensitive.
+The examples are `%H:%M %Z` for `2026-03-07T15:04:05Z`.
+
+| Zone              | Short name       | Example     |
+| ----------------- | ---------------- | ----------- |
+| `America/Denver`  | `US/Mountain`    | `08:04 MST` |
+| `America/Phoenix` | `US/Arizona`     | `08:04 MST` |
+| `America/Toronto` | `Canada/Eastern` | `10:04 EST` |
+| `Europe/Berlin`   |                  | `16:04 CET` |
+| `UTC`             |                  | `15:04 UTC` |
+
+</Details>
+
+<Divider.Divider x />
+
+## `interval`
+
+Fires again and again, once each `period`.
+
+<Field.List>
+
+<Field.Item name="period" type="i64 ns" required id="interval-period">
+
+The time between two fires.
+
+</Field.Item>
+
+</Field.List>
+
+- Trigger -> optional. The first trigger starts the timer, and later values have no
+  effect. With no trigger, the timer starts when its stage starts.
+- Output -> `u8` value 1 on each fire, with the time of the cycle.
+- Runs -> on the first timer cycle after the timer starts, then on a fixed schedule,
+  once each `period`. A late fire does not move the next one. When a cycle takes longer
+  than `period`, the timer fires once and does not make up the fires that it missed. At
+  the top level, it fires when the automation starts.
+
+The `period` also takes a rate, as a literal, a variable, or an expression, in any
+frequency unit. A rate variable that the automation writes changes the period.
+
+```arc channels="heartbeat, fast_heartbeat"
+import time
+
+time.interval(period=1s) -> heartbeat
+time.interval(period=10hz) -> fast_heartbeat
+```
+
+A rate rounds to the nearest nanosecond, so `60hz` fires each 16.666667 ms.
+
+The `period` must be more than `0ns`. A rate must be more than `0hz` and less than
+`2GHz`, because the period of a higher rate rounds to `0ns`.
+
+<Divider.Divider x />
+
+## `now`
+
+Gives the current time.
+
+- Trigger -> optional. Each new trigger runs it, whatever the value. With no trigger, it
+  runs once each time its stage starts.
+- Output -> the time as a timestamp, type `i64 ns`. Write it to a `timestamp` channel or
+  an `i64` channel. Another channel type, such as `f64`, is an error.
+- Function form -> `time.now()`. All calls in the same cycle give the same time.
+
+`now` has no parameters.
+
+```arc channels="start_time"
+import time
+
+true => time.now() -> start_time
+```
+
+<Divider.Divider x />
+
+## `wait`
+
+Fires once, after `duration`.
+
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" required id="wait-duration">
+
+The time to wait.
+
+</Field.Item>
+
+</Field.List>
+
+- Trigger -> optional. The first trigger starts the timer, and later values have no
+  effect. With no trigger, the timer starts when its stage starts.
+- Output -> `u8` value 1, once, with the time of the cycle.
+- Runs -> when `duration` has passed since the timer started. It counts from zero again
+  each time its stage starts. As a sequence step, the sequence moves on when it fires.
+
+```arc channels="ign_cmd, press_vlv_cmd" bodies="fire"
+import time
+
+sequence fire {
+    1 -> ign_cmd
+    time.wait(duration=2s) => next
+    1 -> press_vlv_cmd
+}
+
+true => fire
+```
+
+The timers follow the same rules on the Core and on a Driver. They never fire early. How
+soon after its deadline a timer fires depends on where the automation runs and its
+performance level. See [Arc timing](/reference/control/arc/timing).

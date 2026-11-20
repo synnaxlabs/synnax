@@ -75,9 +75,16 @@ describe("gauge/aether/Gauge", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the gauge, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(gauge.Gauge.z.parse({ box: BOX })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("60");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("61");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
@@ -105,6 +112,23 @@ describe("gauge/aether/Gauge", () => {
       recorder.clear();
       component.render({});
       expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
+    });
+
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("60");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      expect(styles(recorder, "strokeStyle")).not.toContain(color.hex(STALE));
     });
 
     it("should recolor the arc as well as the value text", () => {

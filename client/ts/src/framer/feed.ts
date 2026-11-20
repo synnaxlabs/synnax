@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler, type Size, type TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import {
+  disposable,
+  scheduler,
+  type Size,
+  type TimeRange,
+  TimeStamp,
+  unique,
+} from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
@@ -26,10 +33,10 @@ import {
 } from "@/framer/cache/streamer";
 import { Handle } from "@/framer/cache/subscription";
 import { TileReader } from "@/framer/cache/tile";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
-import { type StreamOpener } from "@/framer/streamer";
-import { type SubscribeRequest, type Subscription } from "@/framer/subscription";
+import type { StreamOpener } from "@/framer/streamer";
+import type { SubscribeRequest, Subscription } from "@/framer/subscription";
 import { historyChangeZ } from "@/framer/types.gen";
 
 /** Reads the newest count stored samples of each channel in the time range. */
@@ -92,6 +99,11 @@ export interface FeedOptions extends Omit<
  * byte budget.
  */
 export class Feed {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
@@ -286,9 +298,10 @@ export class Feed {
 
   /**
    * Closes the feed and every open subscription, releasing the stream and all cached
-   * buffers.
+   * buffers. Closing a closed feed does nothing.
    */
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     this.handles.forEach((h) => h.close());
     this.latest.close(new UnexpectedError("telemetry feed is closed"));

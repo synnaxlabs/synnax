@@ -10,7 +10,7 @@
 import "@/resize/Base.css";
 
 import { direction, location } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";

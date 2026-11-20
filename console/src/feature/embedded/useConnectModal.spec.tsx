@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { InvalidCredentialsError } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import { testClientParams } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -30,7 +30,7 @@ import {
 import { findDismissButton } from "@/platform/modals/testutil";
 import { CaptureStatuses, getIconButton } from "@/testutil";
 
-const { host, port } = TEST_CLIENT_PARAMS;
+const { host, port } = testClientParams();
 
 const { client, live } = await createDesktopUser();
 

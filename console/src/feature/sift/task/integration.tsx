@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { StreamSelectable } from "@/feature/sift/task/Stream";
+import { StreamSelectable } from "@/feature/sift/task/create";
 import { PREFIX } from "@/feature/sift/task/types";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

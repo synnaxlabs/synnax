@@ -15,12 +15,12 @@ import {
   type task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -68,14 +68,17 @@ const createDraft = async (
 const renderWrite = async (config: z.infer<EtherCAT.Task.WriteSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
-  const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
-    client,
-    taskKey: draft.key,
-    onStatuses: (next) => {
-      statuses.length = 0;
-      statuses.push(...next);
+  const rendered = await renderTaskFormTab(
+    EtherCAT.Task.FORMS[EtherCAT.Task.WRITE_TYPE],
+    {
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => {
+        statuses.length = 0;
+        statuses.push(...next);
+      },
     },
-  });
+  );
   await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };

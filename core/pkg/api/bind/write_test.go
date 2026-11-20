@@ -26,21 +26,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xtypes "github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // copyRequest is a request that copies its sources.
@@ -164,12 +170,22 @@ func grant(
 
 // write runs f through bind.Write as u, with a request that copies sources.
 func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) error {
+	return writeAs(ctx, u.ResourceID(), f, sources...)
+}
+
+// writeAs runs f through bind.Write as subject, with a request that copies sources.
+func writeAs(
+	ctx context.Context,
+	subject resource.ID,
+	f apply,
+	sources ...resource.ID,
+) error {
 	_, err := bind.Write(
 		binder,
 		func(ctx context.Context, tx gorp.Tx, _ copyRequest) (struct{}, error) {
 			return struct{}{}, f(ctx, tx)
 		},
-	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
+	)(SubjectCtx(ctx, subject), copyRequest{sources: sources})
 	return err
 }
 
@@ -1110,6 +1126,190 @@ var _ = Describe("Owned records", func() {
 	})
 })
 
+var _ = Describe("Vouched records", func() {
+	var (
+		rck rack.Rack
+		key secret.Key
+	)
+	BeforeEach(func(ctx SpecContext) {
+		rck = rack.Rack{Name: "rack-" + uuid.New().String()}
+		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "key"}}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := svc.Rack.NewWriter(tx).Create(ctx, &rck); err != nil {
+				return err
+			}
+			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("sift-api-key"))
+		})).To(Succeed())
+		key = s.Base().Key
+	})
+	createDevice := func(dev *device.Device) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return svc.Device.NewWriter(tx).Create(ctx, dev)
+		}
+	}
+	siftDevice := func() device.Device {
+		return device.Device{
+			Key:        uuid.New().String(),
+			Rack:       rck.Key,
+			Name:       "sift",
+			Make:       sift.Make,
+			Model:      sift.Make,
+			Location:   "grpc-api.siftstack.com:443",
+			Properties: msgpack.EncodedJSON{"api_key": key.String()},
+		}
+	}
+
+	It("Should deny a rack that makes a record use a secret", func(ctx SpecContext) {
+		dev := siftDevice()
+		Expect(writeAs(ctx, rck.ResourceID(), createDevice(&dev))).To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot make a record use %s",
+				rck.ResourceID(),
+				secret.ResourceID(key),
+			)),
+		))
+	})
+
+	It("Should let a user make a record use a secret", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeDevice})
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeStatus})
+		grant(ctx, u, access.ActionUpdate, rck.ResourceID())
+		grant(ctx, u, access.ActionRetrieve, secret.ResourceID(key))
+		dev := siftDevice()
+		Expect(write(ctx, u, createDevice(&dev))).To(Succeed())
+	})
+
+	It("Should let a rack change a record that already uses a secret", func(
+		ctx SpecContext,
+	) {
+		dev := siftDevice()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return createDevice(&dev)(ctx, tx)
+		})).To(Succeed())
+		Expect(
+			writeAs(ctx, rck.ResourceID(), func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).Rename(ctx, dev.Key, "renamed")
+			}),
+		).To(Succeed())
+	})
+
+	Describe("Moves", func() {
+		var other rack.Rack
+		BeforeEach(func(ctx SpecContext) {
+			other = rack.Rack{Name: "rack-" + uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+		})
+		create := func(ctx SpecContext, dev *device.Device) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return createDevice(dev)(ctx, tx)
+			})).To(Succeed())
+		}
+		setRack := func(key device.Key) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).Apply(
+					ctx,
+					key,
+					device.NewSetRackAction(device.SetRackPayload{Rack: other.Key}),
+				)
+			}
+		}
+		deniedMove := func() OmegaMatcher {
+			return SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot move a record that uses %s onto a rack",
+					other.ResourceID(),
+					secret.ResourceID(key),
+				)),
+			)
+		}
+
+		It("Should deny a rack that moves a record that uses a secret onto itself",
+			func(ctx SpecContext) {
+				dev := siftDevice()
+				create(ctx, &dev)
+				Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).
+					To(deniedMove())
+			},
+		)
+
+		// createAlertTask creates an alert task on rck, then applies acts to it.
+		createAlertTask := func(ctx SpecContext, acts ...task.Action) task.Task {
+			GinkgoHelper()
+			t := task.Task{Type: pagerduty.AlertTaskType, Rack: rck.Key, Name: "Alerts"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.Task.NewWriter(tx)
+				if err := w.Create(ctx, &t); err != nil || len(acts) == 0 {
+					return err
+				}
+				_, err := w.Apply(ctx, t.Key, acts...)
+				return err
+			})).To(Succeed())
+			return t
+		}
+		moveTask := func(key task.Key) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				_, err := svc.Task.NewWriter(tx).Apply(
+					ctx,
+					key,
+					task.NewSetAction(task.SetPayload{
+						Path:  []string{"rack"},
+						Value: other.Key,
+					}),
+				)
+				return err
+			}
+		}
+
+		It(
+			"Should deny a rack that moves a task whose config uses a secret onto itself",
+			func(ctx SpecContext) {
+				t := createAlertTask(ctx, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "routing_key"},
+					Value: key.String(),
+				}))
+				Expect(writeAs(ctx, other.ResourceID(), moveTask(t.Key))).
+					To(deniedMove())
+			},
+		)
+
+		It("Should let a rack move a task whose config uses no secret onto itself",
+			func(ctx SpecContext) {
+				t := createAlertTask(ctx)
+				Expect(writeAs(ctx, other.ResourceID(), moveTask(t.Key))).To(Succeed())
+			},
+		)
+
+		It("Should refuse a rack that creates over a record that uses a secret", func(
+			ctx SpecContext,
+		) {
+			dev := siftDevice()
+			create(ctx, &dev)
+			moved := dev
+			moved.Rack = other.Key
+			Expect(writeAs(ctx, other.ResourceID(), createDevice(&moved))).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("device %s already exists", dev.Key)),
+				))
+		})
+
+		It("Should let a rack move a record that uses no secret onto itself", func(
+			ctx SpecContext,
+		) {
+			dev := siftDevice()
+			dev.Properties = msgpack.EncodedJSON{}
+			create(ctx, &dev)
+			Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).To(Succeed())
+		})
+	})
+})
+
 var _ = Describe("WritePrepared", func() {
 	It("Should pass what prepare returns to apply", func(ctx SpecContext) {
 		u := newUser(ctx)
@@ -1138,5 +1338,36 @@ var _ = Describe("WritePrepared", func() {
 			},
 		)(AuthedCtx(ctx, u), "request")).Error().To(MatchError(failed))
 		Expect(applied).To(BeFalse())
+	})
+})
+
+var _ = Describe("WriteUnchecked", func() {
+	It("Should commit the writes of apply", func(ctx SpecContext) {
+		l := MustSucceed(bind.WriteUnchecked(
+			db,
+			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
+				return l, svc.Label.NewWriter(tx).Create(ctx, &l)
+			},
+		)(ctx, label.Label{Name: "label"}))
+		Expect(labelExists(ctx, l.Key)).To(BeTrue())
+	})
+	It("Should roll back the writes and return a zero response on an error", func(
+		ctx SpecContext,
+	) {
+		failed := errors.New("failed")
+		var created label.Label
+		// Error also asserts that the response is zero.
+		Expect(bind.WriteUnchecked(
+			db,
+			func(ctx context.Context, tx gorp.Tx, l label.Label) (label.Label, error) {
+				if err := svc.Label.NewWriter(tx).Create(ctx, &l); err != nil {
+					return l, err
+				}
+				created = l
+				return l, failed
+			},
+		)(ctx, label.Label{Name: "label"})).Error().To(MatchError(failed))
+		Expect(created.Key).ToNot(BeZero())
+		Expect(labelExists(ctx, created.Key)).To(BeFalse())
 	})
 })

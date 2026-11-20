@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Color } from "@synnaxlabs/lyra/color";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type ColorFallback } from "@/schematic/node/spec";
+import type { ColorFallback } from "@/schematic/node/spec";
 
 const path = deep.path<{ fillColor?: color.Color }>();
 

@@ -94,7 +94,8 @@ on:
         type: string
         default: ""
       test_timeout:
-        description: Minutes the Test step can run; an unsharded Console run needs more
+        description:
+          Minutes the Test step can run, at most 95; an unsharded Console needs more
         required: false
         type: number
         default: 20
@@ -124,6 +125,13 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 # The test services pull their images from GHCR.
 permissions:
   contents: read
@@ -145,21 +153,21 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         shard: [1, 2, 3, 4]
-        # An empty node is the one in devEngines. The test tooling (undici 8) needs
-        # 22.19.0, so it stands in for the 22.12 floor.
-        node: ${{ fromJSON(inputs.node_lts && '["", "22.19.0", "26"]' || '[""]') }}
+        # An empty node is the one in devEngines. The test tooling (jsdom 31 and
+        # Stylelint 18) needs 22.22.2, so it stands in for the 22.12 floor.
+        node: ${{ fromJSON(inputs.node_lts && '["", "22.22.2", "24"]' || '[""]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
           - os: macos-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: macos-latest
-            node: "26"
+            node: "24"
           - os: windows-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: windows-latest
-            node: "26"
+            node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
           - shard: ${{ inputs.shards < 3 && 3 }}
           - shard: ${{ inputs.shards < 4 && 4 }}
@@ -169,6 +177,8 @@ jobs:
             node: ""
             lint: true
     runs-on: ${{ matrix.os }}
+    # An expression cannot add, so a raised step bound gets the larger job bound.
+    timeout-minutes: ${{ inputs.test_timeout > 20 && 120 || 45 }}
     steps:
       # The matrix holds four shards, so a larger count would skip test files.
       - name: Check the shard count
@@ -177,11 +187,22 @@ jobs:
           echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
           exit 1
 
+      # The job bound leaves 25 minutes for the steps before and after the tests.
+      - name: Check the test timeout
+        if: inputs.test_timeout > 95
+        env:
+          TEST_TIMEOUT: ${{ inputs.test_timeout }}
+        run: |
+          echo "::error::test_timeout must be at most 95, not $TEST_TIMEOUT."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Start Core
-        if: runner.os == 'Linux' && inputs.core_image != ''
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_INSECURE: true
@@ -227,6 +248,8 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
+          # Typed linting of the Console needs more than 4 GB of heap.
+          NODE_OPTIONS: "--max_old_space_size=6144"
         run: pnpm lint:"$PACKAGE"
 
       # The packages are ES modules only, so the profile skips CommonJS and node10.
@@ -248,10 +271,12 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
-      # Only the Linux runners start a Core, so the others run only the spec files that
-      # create no test client.
+      # Only the Linux runners start a Core, and not for a fork, so the others run only
+      # the spec files that create no test client.
       - name: Skip the specs that need a Core
-        if: inputs.test && runner.os != 'Linux' && inputs.core_image != ''
+        if:
+          inputs.test && inputs.core_image != '' && (runner.os != 'Linux' || env.FORK ==
+          'true')
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
@@ -278,6 +303,10 @@ jobs:
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
+          # A key per job and step, so Turbo never replays a cached test run.
+          SYNNAX_TEST_CACHE_KEY:
+            ${{ format('{0}-{1}-{2}-{3}-cov', github.run_id, github.run_attempt,
+            github.job, strategy.job-index) }}
         run: |
           read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS $SPECS"
           pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
@@ -285,7 +314,7 @@ jobs:
       - name: Run the examples
         if:
           inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
-          inputs.core_image != '' && !matrix.node
+          inputs.core_image != '' && env.FORK != 'true' && !matrix.node
         shell: bash
         timeout-minutes: 5
         env:
@@ -293,12 +322,16 @@ jobs:
         run:
           pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
+      # One shard runs the whole WebKit pass. Vitest rejects more shards than files.
       - name: Test in WebKit
-        if: inputs.test && inputs.browsers
+        if: inputs.test && inputs.browsers && matrix.shard == 1
         shell: bash
         timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
+          SYNNAX_TEST_CACHE_KEY:
+            ${{ format('{0}-{1}-{2}-{3}-webkit', github.run_id, github.run_attempt,
+            github.job, strategy.job-index) }}
         run: >-
           pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
           webkit
@@ -315,9 +348,10 @@ jobs:
         with:
           bun-version: ${{ inputs.latest_runtimes && 'latest' || '1.4.4' }}
 
-      # The smoke test needs the Core, which only the Linux runner has.
+      # The smoke test needs the Core, which only the Linux runner has, and not for a
+      # fork.
       - name: Smoke-test the packed package
-        if: inputs.runtimes && matrix.lint
+        if: inputs.runtimes && matrix.lint && env.FORK != 'true'
         shell: bash
         timeout-minutes: 10
         env:

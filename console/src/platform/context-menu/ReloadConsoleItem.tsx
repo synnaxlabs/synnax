@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Session } from "@/session";
 

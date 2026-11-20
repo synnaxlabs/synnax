@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Viewport as BaseViewport } from "@/viewport";
 import { useContext } from "@/vis/diagram/Context";
@@ -19,7 +19,7 @@ import { useContext } from "@/vis/diagram/Context";
 const PAN_TRIGGER: Triggers.Trigger[] = [["MouseMiddle"]];
 const SELECT_TRIGGER: Triggers.Trigger[] = [["MouseLeft"]];
 
-export const Base = (): ReactElement => {
+export const SelectViewportMode = (): ReactElement => {
   const { viewportMode, onViewportModeChange } = useContext();
   return (
     <Select.Buttons
@@ -46,5 +46,3 @@ export const Base = (): ReactElement => {
     </Select.Buttons>
   );
 };
-
-export const SelectViewportMode = memo(Base);

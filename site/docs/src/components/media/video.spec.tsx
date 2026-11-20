@@ -12,9 +12,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { Media } from "@/components/media";
 import { start } from "@/components/media/video";
-import versions from "@/components/media/videos.json";
+import videos from "@/components/media/videos.json";
 
-const [ID, OTHER_ID] = Object.keys(versions);
+const [ID, OTHER_ID] = Object.keys(videos);
 
 let touch = false;
 let schemeChange: (() => void) | null = null;
@@ -31,7 +31,7 @@ class Observer {
 
 const show = (...ids: string[]): HTMLVideoElement[] => {
   document.body.innerHTML = ids
-    .map((id) => renderToString(<Media.Video id={id} />))
+    .map((id) => renderToString(<Media.Video id={id} label="A video" />))
     .join("");
   document.dispatchEvent(new Event("astro:after-swap"));
   return [...document.querySelectorAll("video")];
@@ -145,8 +145,8 @@ describe("video", () => {
 
   it("should reload themed videos when the color scheme changes", () => {
     document.body.innerHTML =
-      renderToString(<Media.Video id={ID} />) +
-      renderToString(<Media.Video id={OTHER_ID} themed={false} />);
+      renderToString(<Media.Video id={ID} label="A video" />) +
+      renderToString(<Media.Video id={OTHER_ID} label="A video" themed={false} />);
     schemeChange?.();
     expect(load).toHaveBeenCalledExactlyOnceWith(document.querySelector("video"));
   });

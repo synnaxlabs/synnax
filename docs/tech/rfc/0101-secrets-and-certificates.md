@@ -79,14 +79,14 @@ the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller                                        | Does                                       |
-| --------------------- | --------------------------------------------- | ------------------------------------------ |
-| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it |
-| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values             |
-| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename |
-| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only                                   | Returns stored values; refuses file values |
+| Endpoint              | Caller                                        | Does                                                                                                  |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it                                                            |
+| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values                                                                        |
+| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename                                                            |
+| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret                                                                |
+| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)                                                                        |
+| `secret/resolve`      | A rack only                                   | Spends a grant and returns its command, or checks uses (§3.3); file values reach only the Core's rack |
 
 The write binder (`core/pkg/api/bind/write.go`) makes the create, update, and delete
 checks on each record that a write changes. Owner and Engineer get every action on
@@ -169,10 +169,10 @@ one minute away and returns its key. The Console then sends that task a command 
 carries only the key.
 
 The Driver resolves the key with the task of the command, and a Core integration does
-the same in process (`core/pkg/service/secret/grant.go:51`). The Core refuses a grant
-for a different task, deletes the grant, and returns the stored command with the values
-of its secrets. The integration runs the stored command, never the arguments on the
-stream. A Kafka or MQTT test on the Core's rack follows the same rule
+the same in process (`Service.Resolve`, `core/pkg/service/secret/grant.go`). The Core
+refuses a grant for a different task, deletes the grant, and returns the stored command
+with the values of its secrets. The integration runs the stored command, never the
+arguments on the stream. A Kafka or MQTT test on the Core's rack follows the same rule
 (`core/pkg/service/kafka/scan_task.go:73`). A grant that no resolve uses ends at its
 expiry. The key travels on `sy_task_cmd`, where an Operator can read and write any
 command (`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs
@@ -269,12 +269,14 @@ The Secrets and Certificates pages of Settings list the items, with "Used by", R
 and Delete (`console/src/feature/secret/Settings.tsx`). Every connect form uses two
 shared fields:
 
-- **Secret field**: Shows the name and "Set on <date>". It picks from the list, or adds
-  a secret from a typed value.
-- **Certificate field**: Shows the subject, issuer, expiry, and SHA-256 fingerprint,
-  with Download. It picks from the list, or adds a certificate from a dropped file
-  (`console/src/platform/fs/DropZone.tsx`), pasted PEM, or the file browser on the
-  device's rack, with an optional key file.
+- **Secret field**: Shows the name. Its list shows "Set on <date>" for a stored secret
+  and "Read from <file>" for a file secret. It picks from the list, or adds a secret
+  from a typed value.
+- **Certificate field**: Shows the name, with the expiry in a badge at its end. A line
+  under it shows the path of a file certificate. Details shows the subject, issuer,
+  expiry, and SHA-256 fingerprint, with Download. It picks from the list, or adds a
+  certificate from a dropped file (`console/src/platform/fs/DropZone.tsx`), pasted PEM,
+  or the file browser on the device's rack, with an optional key file.
 
 Phase 9 adds the certificate field without the file browser, and phase 10 adds the file
 browser to both fields. From phase 10, both fields list only the file items of the

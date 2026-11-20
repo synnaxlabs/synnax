@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { createPortal } from "react-dom";
@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { type Status } from "@/status";
+import type { Status } from "@/status";
 
 const COLUMNS = [
   <Input.TableColumn key="raw" name="Raw" />,
@@ -403,6 +403,28 @@ describe("Input.Table", () => {
       input.focus();
       fireEvent.keyDown(input, { key: "Escape" });
       expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should commit nothing on two Escs in a cell that commits on blur", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["a"]]} onChange={onChange}>
+          {[
+            <Input.TableColumn key="name" name="Name" type="string">
+              {(props) => <Input.Text {...props} onlyChangeOnBlur />}
+            </Input.TableColumn>,
+          ]}
+        </Input.Table>,
+      );
+      const input = cell("Name", "1");
+      act(() => input.focus());
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("a");
+      expect(document.activeElement).toBe(input);
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("should discard a typed number and keep focus", () => {

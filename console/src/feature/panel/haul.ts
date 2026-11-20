@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
-import { type Haul } from "@synnaxlabs/lyra/haul";
+import type { panel } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 
 /** Haul type of a panel dragged by its pill in the selector strip. */
 export const PILL_HAUL_TYPE = "console_panel_pill";

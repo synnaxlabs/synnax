@@ -11,9 +11,9 @@ import { device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Access, Device } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type SelectConnect } from "@/platform/device/Select";
+import type { SelectConnect } from "@/platform/device/Select";
 import { useHandleChange } from "@/platform/device/useHandleChange";
 import { Empty } from "@/platform/empty";
 import { Task } from "@/platform/task";

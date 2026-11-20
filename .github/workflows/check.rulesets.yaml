@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Fails when the rulesets on GitHub drift from .github/rulesets. Nothing applies the
-# files, so a change to one fails here until an admin applies it.
+# Fails when the rulesets on GitHub drift from .github/rulesets, or when a fork's
+# workflow runs no longer need a maintainer's approval. Nothing applies the files, so a
+# change to one fails here until an admin applies it.
 
 name: Check - Rulesets
 
@@ -18,6 +19,7 @@ on:
       - main
     paths:
       - .github/rulesets/**
+      - .github/scripts/verify_rulesets.sh
   schedule:
     - cron: "0 14 * * *"
   workflow_dispatch:
@@ -29,11 +31,25 @@ jobs:
   verify:
     name: Verify rulesets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Verify rulesets
         env:
           GH_TOKEN: ${{ secrets.GH_SERVICE_TOKEN }}
         run: .github/scripts/verify_rulesets.sh
+
+  relay-failure:
+    name: Relay the failure
+    needs: [verify]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

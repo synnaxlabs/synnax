@@ -17,13 +17,16 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/certificate/certificate.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
 #include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
+#include "client/cpp/icd/icd.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/secret/secret.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
@@ -209,10 +212,16 @@ public:
     device::Client devices;
     /// @brief Client for managing statuses.
     status::Client statuses;
+    /// @brief Client for reading secrets.
+    secret::Client secrets;
+    /// @brief Client for reading and writing certificates.
+    certificate::Client certificates;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs;
     /// @brief Client for reading the control state of channels.
     control::Client control;
+    /// @brief Client for creating and retrieving ICDs.
+    icd::Client icds;
 
     /// @brief constructs the Synnax client from the provided configuration. When cfg
     /// sets neither secure nor ca_cert, the client reads the CA certificate from
@@ -286,8 +295,15 @@ public:
             this->t.status_delete,
             this->t.status_set_by_key_or_name
         ),
+        secrets(this->t.secret_retrieve, this->t.secret_resolve),
+        certificates(
+            this->t.certificate_retrieve,
+            this->t.certificate_set,
+            this->t.certificate_refresh
+        ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
-        control(this->t.control_retrieve) {
+        control(this->t.control_retrieve),
+        icds(this->t.icd_create, this->t.icd_retrieve) {
         details::check_little_endian();
     }
 

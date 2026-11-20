@@ -102,6 +102,7 @@ jobs:
     outputs:
       green: ${{ steps.find.outputs.green }}
       run_id: ${{ steps.find.outputs.run_id }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -119,9 +120,11 @@ jobs:
     # A lookup that failed set no output, so CI runs.
     if: ${{ !cancelled() && needs.green-run.outputs.green != 'true' }}
     # A called workflow gets no more than its caller grants. In CI, the fail-fast job
-    # asks for actions: write and the paths filter for pull-requests: read.
+    # asks for actions: write and checks: read, and the paths filter asks for
+    # pull-requests: read.
     permissions:
       actions: write
+      checks: read
       contents: write
       packages: write
       pull-requests: read
@@ -157,6 +160,7 @@ jobs:
     if: ${{ !cancelled() }}
     permissions: {}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Require a green full CI run of the commit
         env:
@@ -217,6 +221,7 @@ jobs:
       desktop_previous_tag: ${{ steps.desktop.outputs.previous_tag }}
       desktop_build_version: ${{ steps.desktop-build.outputs.version }}
       desktop_driver_release: ${{ steps.desktop-build.outputs.driver_release }}
+    timeout-minutes: 10
     steps:
       - name: Require a product
         if: >-
@@ -230,6 +235,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve Console version
         id: console
@@ -346,11 +352,13 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -408,9 +416,12 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Write updater manifest
         uses: ./.github/actions/publish-updater-manifest
@@ -428,11 +439,13 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -496,9 +509,12 @@ jobs:
       SYNNAX_TS_ENV: prod
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -627,9 +643,12 @@ jobs:
       contents: write
       id-token: write
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # The stage reads only the tarballs, so no dependency code runs in this job.
       - name: Set up pnpm and Node.js
@@ -714,9 +733,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -794,9 +816,12 @@ jobs:
       contents: write
       id-token: write
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
@@ -867,11 +892,13 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -945,9 +972,12 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
       VERSION: ${{ needs.resolve.outputs.core_version }}
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download Core binary
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -958,10 +988,11 @@ jobs:
       - name: Rename binary for installer
         shell: powershell
         run:
-          Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
+          Move-Item -Force ".github/scripts/synnax-v$env:VERSION.exe"
           .github/scripts/synnax-server.exe
 
       - name: Set up trusted-signing-cli
+        id: signer
         uses: ./.github/actions/setup-trusted-signing-cli
 
       - name: Build Windows installer
@@ -971,17 +1002,18 @@ jobs:
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
           Copy-Item -Force .\.github\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
-          makensis /DVERSION=${{ env.VERSION }} .\.github\scripts\windows_installer.nsi
+          makensis "/DVERSION=$env:VERSION" .\.github\scripts\windows_installer.nsi
 
       - name: Sign Windows installer
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
-          Installer" .\.github\scripts\synnax-setup-v${{ env.VERSION }}.exe
+          SIGNER: ${{ steps.signer.outputs.path }}
+        run: >-
+          & $env:SIGNER -e https://wcus.codesigning.azure.net -a CodeSigningAccountName
+          -c CodeSigningCertificateProfile -d "Synnax Core Installer"
+          ".\.github\scripts\synnax-setup-v$env:VERSION.exe"
 
       - name: Upload Windows installer
         run: |
@@ -996,11 +1028,13 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -1090,9 +1124,12 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download bundles
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1144,6 +1181,7 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # The repo has one Latest badge, and a publish takes it by default. It belongs to
       # the newest stable Core, so a Console, Driver, or Desktop publish declines it.

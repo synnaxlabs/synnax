@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { staleness } from "@/vis/staleness/aether";
 
 const stateMappingZ = z.object({
@@ -39,9 +39,9 @@ export class StateIndicator
   static readonly TYPE = "StateIndicator";
   static readonly z = stateZ;
 
-  schema = StateIndicator.z;
+  override schema = StateIndicator.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
     i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
@@ -62,7 +62,7 @@ export class StateIndicator
     this.setState((p) => ({ ...p, key: nextKey }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.stopListening?.();
     this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();

@@ -92,10 +92,8 @@ You deliver the work yourself, as your GitHub App.
    declaration, or the test that settles it. Sedosaur checks it against the head, then
    withdraws the finding or replies why it holds. After a hold, reply again only with
    new evidence, else leave the finding to a person. Only a person can dismiss.
-4. When you pushed, or when the `Review gate` waits for the Sedosaur review of the head
-   or says it ended `failure` or `cancelled`, comment `@sedosaur review` on the pull
-   request. After a push, wait until `gh pr view --json headRefOid` shows your commit
-   before you comment. A push, a new base, or a reply alone gets no review.
+4. Your push starts a Sedosaur review. When the `Review gate` says the review of the
+   head ended `failure` or `cancelled`, name it in your comment for a person.
 5. Comment on the pull request with `gh pr comment`. Start the comment with the line
    `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
    each one with its fix or the reason you left it. Keep it short: what you merged,

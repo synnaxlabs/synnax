@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { TimeSpan } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
@@ -20,7 +20,7 @@ import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { theming } from "@/theming/aether";
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 import { staleness } from "@/vis/staleness/aether";
 

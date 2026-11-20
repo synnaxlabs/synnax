@@ -10,7 +10,7 @@
 import synnax as sy
 from tests.arc.arc import ArcCase
 
-ARC_STL_STRING_SOURCE = """
+ARC_STL_STRING_SOURCE = r"""
 // ──────────────────────────── string.len ─────────────────────────────
 // len(const)
 func len_cc() {s str} i64 {

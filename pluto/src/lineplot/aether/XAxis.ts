@@ -17,13 +17,13 @@ import {
 } from "@/lineplot/aether/axis";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
   render(props: AxisRenderProps): void {
     if (this.deleted) return;

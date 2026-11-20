@@ -11,6 +11,7 @@ package secret
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -19,13 +20,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -39,6 +43,18 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Task finds the rack of the task that a grant's command targets.
+	//
+	// [REQUIRED]
+	Task *task.Service
+	// Rack finds the devices and tasks on a rack.
+	//
+	// [REQUIRED]
+	Rack *rack.Service
+	// DB reads the records that a resolve without a grant checks.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 }
 
 var (
@@ -51,6 +67,9 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Task = override.Nil(c.Task, other.Task)
+	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -59,6 +78,9 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.secret")
 	v.NotNil("secret", c.Secret)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("task", c.Task)
+	v.NotNil("rack", c.Rack)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -67,6 +89,9 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *secret.Service
+	task     *task.Service
+	racks    *rack.Service
+	db       *gorp.DB
 }
 
 // NewService opens a Service with the given configuration.
@@ -78,6 +103,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.Secret,
+		task:     cfg.Task,
+		racks:    cfg.Rack,
+		db:       cfg.DB,
 	}, nil
 }
 
@@ -98,6 +126,8 @@ type Input struct {
 	Value string `json:"value" msgpack:"value"`
 	// FileName is the name of a file secret's file in the secrets folder of the rack.
 	FileName string `json:"file_name" msgpack:"file_name"`
+	// Rack is the rack that reads the file of a file secret.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Key selects the secret to replace. A zero key creates a new secret.
 	Key Key `json:"key" msgpack:"key"`
 }
@@ -107,18 +137,18 @@ func (in Input) secret() (Secret, error) {
 	v := validate.New("secret")
 	switch in.Source {
 	case secret.SourceStored:
-		if v.Ternary(
-			"file_name",
-			in.FileName != "",
-			"must be empty for a stored secret",
-		) {
-			return Secret{}, v.Error()
+		v.Ternary("file_name", in.FileName != "", "must be empty for a stored secret")
+		v.Ternary("rack", in.Rack != 0, "must be empty for a stored secret")
+		if err := v.Error(); err != nil {
+			return Secret{}, err
 		}
 		return Secret{Variant: secret.StoredSecret{Base: base}}, nil
 	case secret.SourceFile:
-		return Secret{
-			Variant: secret.FileSecret{Base: base, FileName: in.FileName},
-		}, nil
+		return Secret{Variant: secret.FileSecret{
+			Base:     base,
+			FileName: in.FileName,
+			Rack:     in.Rack,
+		}}, nil
 	}
 	v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
 	return Secret{}, v.Error()
@@ -205,10 +235,7 @@ func (s *Service) fillUses(
 			return err
 		}
 		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
-			target := gorp.Target{Table: string(id.Type), Key: id.Key}
-			if t, ok := taskconfig.TaskOf(target); ok {
-				id = t
-			}
+			id = taskOf(id)
 			return id, snap.Allowed(id)
 		})
 		secrets[i].SetBase(base)
@@ -247,22 +274,27 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a subject and the secrets it may read once.
+// GrantCreateRequest names a subject, the command it may run once, and the secrets it
+// reads to run it.
 type GrantCreateRequest struct {
-	// Subject is the subject that may read the secrets. It must be a rack.
+	// Subject is the subject that may run the command. It must be a rack.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
-	// Secrets are the secrets the subject may read.
+	// Secrets are the secrets the subject reads to run the command.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Command is the command the subject runs. Its task must be on the subject rack.
+	Command task.Command `json:"command" msgpack:"command"`
 }
 
-// GrantCreateResponse holds the key of a grant to send with a command to the subject.
+// GrantCreateResponse holds the key of a grant to send to the task of the command.
 type GrantCreateResponse struct {
 	Grant grant.Key `json:"grant" msgpack:"grant"`
 }
 
-// CreateGrant creates a grant that lets the subject read the secrets once, within a
-// minute. Only a user with create access on devices and retrieve access on each secret
-// may call it.
+// CreateGrant creates a grant that lets the subject run the command once with the
+// secrets, within a minute. Only a user with create access on devices and retrieve
+// access on each secret may call it. It returns query.ErrNotFound when the task of the
+// command does not exist, and a validation error when the task is not on the subject
+// rack.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -271,7 +303,24 @@ func (s *Service) CreateGrant(
 	if err := s.enforceGrant(ctx, tx, req.Secrets); err != nil {
 		return GrantCreateResponse{}, err
 	}
-	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Secrets...)
+	var t task.Task
+	if err := s.task.NewRetrieve().
+		Where(task.MatchKeys(req.Command.Task)).
+		Entry(&t).
+		Exec(ctx, tx); err != nil {
+		return GrantCreateResponse{}, err
+	}
+	v := validate.New("grant")
+	if v.Ternaryf(
+		"command.task",
+		t.Rack.ResourceID() != req.Subject,
+		"%s is not on %s",
+		t,
+		req.Subject,
+	) {
+		return GrantCreateResponse{}, v.Error()
+	}
+	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Command, req.Secrets...)
 	if err != nil {
 		return GrantCreateResponse{}, err
 	}
@@ -300,13 +349,29 @@ func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) erro
 	})
 }
 
-// ResolveRequest selects the secrets to resolve.
+// ResolveRequest names a grant to spend and the task that runs its command, or, without
+// a grant, the secrets to read.
 type ResolveRequest struct {
-	// Grant is the key of a grant for the calling rack. The request reads only the
-	// secrets that the grant names, and spends the grant.
+	// Grant is the key of a grant for the calling rack.
 	Grant grant.Key `json:"grant" msgpack:"grant"`
-	// Keys selects the secrets to resolve.
-	Keys []Key `json:"keys" msgpack:"keys"`
+	// Task is the task that runs the command. It must be the task of the grant's
+	// command, and empty without a grant.
+	Task task.Key `json:"task" msgpack:"task"`
+	// Secrets are the secrets to read without a grant. A device or task on the calling
+	// rack must use each one. Empty with a grant.
+	Secrets []Key `json:"secrets" msgpack:"secrets"`
+}
+
+func (r ResolveRequest) validate() error {
+	v := validate.New("resolve")
+	if r.Grant != uuid.Nil() {
+		v.Ternary("task", r.Task == uuid.Nil(), "required with a grant")
+		v.Ternary("secrets", len(r.Secrets) > 0, "must be empty with a grant")
+	} else {
+		v.Ternary("secrets", len(r.Secrets) == 0, "required without a grant")
+		v.Ternary("task", r.Task != uuid.Nil(), "must be empty without a grant")
+	}
+	return v.Error()
 }
 
 // Value is the plain text value of a secret.
@@ -317,15 +382,26 @@ type Value struct {
 	Key Key `json:"key" msgpack:"key"`
 }
 
-// ResolveResponse holds the values of the secrets, in the order of the request.
+// ResolveResponse holds the command of a grant, the secrets it names, and their values.
 type ResolveResponse struct {
+	// Command is the command to run, in place of the arguments of the command that
+	// carried the grant.
+	Command task.Command `json:"command" msgpack:"command"`
+	// Secrets holds the keys of the secrets that the grant names, file secrets
+	// included. Empty without a grant.
+	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Values holds one value for each secret, except a file secret of a calling rack
+	// that is not the Core's, which the rack reads from its own secrets folder.
 	Values []Value `json:"values" msgpack:"values"`
 }
 
 var errResolveSubject = errors.Wrap(access.ErrDenied, "only a rack can resolve secrets")
 
-// Resolve returns the plain text values of the secrets. Only a rack may call it, and
-// only for secrets that the grant names.
+// Resolve returns the plain text values of secrets. Only a rack may call it. With a
+// grant, it spends the grant and also returns its command: the grant must be to the
+// rack for the task of the request. Without one, it returns the values of the secrets
+// of the request, and an error that wraps access.ErrDenied when no device or task on
+// the rack uses one. A wrong mix of grant, task, and secrets is a validation error.
 func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
@@ -334,13 +410,98 @@ func (s *Service) Resolve(
 	if subject.Type != resource.TypeRack {
 		return ResolveResponse{}, errResolveSubject
 	}
-	values, err := s.internal.Resolve(ctx, subject, req.Grant, req.Keys...)
+	if err := req.validate(); err != nil {
+		return ResolveResponse{}, err
+	}
+	var (
+		g      grant.Grant
+		values map[Key][]byte
+		err    error
+	)
+	if req.Grant == uuid.Nil() {
+		values, err = s.resolveUsed(ctx, subject, req.Secrets)
+	} else {
+		g, values, err = s.internal.Resolve(ctx, subject, req.Task, req.Grant)
+	}
 	if err != nil {
 		return ResolveResponse{}, err
 	}
-	res := ResolveResponse{Values: make([]Value, len(req.Keys))}
-	for i, k := range req.Keys {
-		res.Values[i] = Value{Key: k, Value: string(values[k])}
+	res := ResolveResponse{
+		Command: g.Command,
+		Secrets: g.Secrets,
+		Values:  make([]Value, 0, len(values)),
+	}
+	for k, v := range values {
+		res.Values = append(res.Values, Value{Key: k, Value: string(v)})
 	}
 	return res, nil
+}
+
+// resolveUsed returns the values of the secrets with keys to reader, when a device or
+// task on reader uses each one.
+func (s *Service) resolveUsed(
+	ctx context.Context,
+	reader resource.ID,
+	keys []Key,
+) (values map[Key][]byte, err error) {
+	rk, err := rack.KeyFromResourceID(reader)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		dependents, err := s.racks.Dependents(ctx, snap, rk)
+		if err != nil {
+			return err
+		}
+		// A file item references the rack that reads it, but is not on the rack.
+		on := make(set.Set[resource.ID], len(dependents))
+		for _, id := range dependents {
+			if id.Type != resource.TypeSecret && id.Type != resource.TypeCertificate {
+				on.Add(id)
+			}
+		}
+		for _, key := range keys {
+			used, err := s.usedOn(ctx, snap, on, key)
+			if err != nil {
+				return err
+			}
+			if !used {
+				return errors.Wrapf(
+					access.ErrDenied,
+					"no device or task on %s uses secret %s",
+					reader,
+					key,
+				)
+			}
+		}
+		values, err = s.internal.RevealTo(ctx, snap, reader, keys...)
+		return err
+	})
+	return values, err
+}
+
+// usedOn returns true when a record in on uses the secret with key.
+func (s *Service) usedOn(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	on set.Set[resource.ID],
+	key Key,
+) (bool, error) {
+	uses, err := s.internal.Uses(ctx, snap, key)
+	if err != nil {
+		return false, err
+	}
+	return lo.SomeBy(uses, func(id resource.ID) bool {
+		return on.Contains(taskOf(id))
+	}), nil
+}
+
+// taskOf returns the task of a config record, and any other ID as it is.
+func taskOf(id resource.ID) resource.ID {
+	if t, ok := taskconfig.TaskOf(
+		gorp.Target{Table: string(id.Type), Key: id.Key},
+	); ok {
+		return t
+	}
+	return id
 }

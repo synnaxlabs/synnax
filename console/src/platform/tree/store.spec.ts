@@ -10,14 +10,14 @@
 import { resource } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Source, type Window } from "@/platform/tree/children";
+import type { Source, Window } from "@/platform/tree/children";
 import {
   isMoreKey,
   type Results,
   Store,
   type StoreConfig,
 } from "@/platform/tree/store";
-import { type Resource } from "@/platform/tree/types";
+import type { Resource } from "@/platform/tree/types";
 
 const ROOT: resource.ID = { type: "builtin", key: "root" };
 const ROOT_KEY = resource.idToString(ROOT);

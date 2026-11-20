@@ -11,10 +11,9 @@ import operator
 import time
 import uuid
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from fractions import Fraction
 
-import dateutil
 import numpy as np
 import pandas as pd
 import pytest
@@ -27,7 +26,7 @@ from x.testutil import untyped
 
 _now = sy.TimeStamp.now()
 
-EST = dateutil.tz.gettz("EST")
+EST = timezone(timedelta(hours=-5), "EST")
 
 _COMPARISONS = (
     operator.eq,
