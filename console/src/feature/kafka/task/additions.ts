@@ -54,8 +54,19 @@ export const isPickable = (
 /** @returns the messages of an ICD, by its key. */
 export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
 
-/** The pointers of the fields that the task reads from each Kafka key, by key. */
-export type Reads = Map<string, Set<string>>;
+/** What the records of the task read, by Kafka key. */
+export interface Reads {
+  /** The pointers of the fields that the records of each key read. */
+  pointers: Map<string, Set<string>>;
+  /** The keys with a record that reads no JSON message. */
+  jsonless: Set<string>;
+}
+
+/** @returns the index of the first JSON message that a record reads, or -1 for none. */
+const jsonRead = (record: ReadRecord, held: icd.Message[]): number =>
+  record.messages.findIndex(
+    ({ message }) => held.find(({ key }) => key === message)?.payload.format === "json",
+  );
 
 /** @returns the pointers of the fields that a record binds, in any of its messages. */
 const pointersOf = (record: ReadRecord, messagesOf: MessagesOf): Set<string> => {
@@ -70,21 +81,27 @@ const pointersOf = (record: ReadRecord, messagesOf: MessagesOf): Set<string> => 
   );
 };
 
-/** @returns the pointers that the records of each Kafka key read. */
+/** @returns what the records of each Kafka key read. */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
-  const reads: Reads = new Map();
+  const reads: Reads = { pointers: new Map(), jsonless: new Set() };
   for (const record of records) {
-    const pointers = reads.get(record.recordKey) ?? new Set<string>();
+    const { recordKey } = record;
+    if (jsonRead(record, messagesOf(record.icd)) < 0) reads.jsonless.add(recordKey);
+    const pointers = reads.pointers.get(recordKey) ?? new Set<string>();
     pointersOf(record, messagesOf).forEach((p) => pointers.add(p));
-    reads.set(record.recordKey, pointers);
+    reads.pointers.set(recordKey, pointers);
   }
   return reads;
 };
 
+/** @returns whether a pick of a shape can extend each record of its keys. */
+export const isExtendable = (shape: json.Shape, { jsonless }: Reads): boolean =>
+  !shape.sources.some((key) => jsonless.has(key));
+
 /** @returns the pointers that every key of a shape reads: its fields in the task. */
-export const takenPointers = (shape: json.Shape, reads: Reads): Set<string> => {
+export const takenPointers = (shape: json.Shape, { pointers }: Reads): Set<string> => {
   const [first, ...rest] = shape.sources.map(
-    (key) => reads.get(key) ?? new Set<string>(),
+    (key) => pointers.get(key) ?? new Set<string>(),
   );
   return new Set([...(first ?? [])].filter((p) => rest.every((r) => r.has(p))));
 };
@@ -93,15 +110,16 @@ export const takenPointers = (shape: json.Shape, reads: Reads): Set<string> => {
  * @returns the pointers that any key of a shape reads. Their messages gain the picks of
  * the shape, so the picks must not mix variable-length fields among them.
  */
-export const heldPointers = (shape: json.Shape, reads: Reads): Set<string> =>
-  new Set(shape.sources.flatMap((key) => [...(reads.get(key) ?? [])]));
+export const heldPointers = (shape: json.Shape, { pointers }: Reads): Set<string> =>
+  new Set(shape.sources.flatMap((key) => [...(pointers.get(key) ?? [])]));
 
 /**
  * @returns the fields that a click on a shape picks: each one that a key of the shape
  * does not read and that the shape can take, without mixing variable-length fields
- * among fixed ones. Fixed fields go first.
+ * among fixed ones. Fixed fields go first. A shape that is not extendable picks none.
  */
 export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
+  if (!isExtendable(shape, reads)) return new Set();
   const taken = takenPointers(shape, reads);
   const held = heldPointers(shape, reads);
   const free = shape.fields.filter(
@@ -204,8 +222,8 @@ export interface Extension {
 /**
  * @returns the picks that the records of the task gain, in the first JSON message that
  * each record reads. A message gains each picked field that it does not hold, once for
- * all of its records. A record starts to read each picked field that it does not. A
- * record that reads no JSON message gains nothing.
+ * all of its records. A record starts to read each picked field that it does not.
+ * @throws if a picked shape is not extendable.
  */
 export const createExtensions = (
   shapes: json.Shape[],
@@ -220,11 +238,8 @@ export const createExtensions = (
     for (const record of records) {
       if (!shape.sources.includes(record.recordKey)) continue;
       const held = messagesOf(record.icd);
-      const read = record.messages.findIndex(
-        ({ message }) =>
-          held.find(({ key }) => key === message)?.payload.format === "json",
-      );
-      if (read < 0) continue;
+      const read = jsonRead(record, held);
+      if (read < 0) throw new Error(`Record ${record.key} reads no JSON message`);
       const { message } = record.messages[read];
       const bound = pointersOf(record, messagesOf);
       const picked = shape.fields.filter(

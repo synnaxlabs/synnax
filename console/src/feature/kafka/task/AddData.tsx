@@ -20,6 +20,7 @@ import { type Device } from "@/feature/kafka/device/types";
 import {
   defaultPicks,
   heldPointers,
+  isExtendable,
   isPickable,
   type Picks,
   type Reads,
@@ -47,6 +48,10 @@ export type Result =
 const FRAME = "records";
 
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
+
+const NO_JSON = "No JSON message";
+
+const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: NO_JSON };
 
 /** @returns the value at a JSON pointer of a document, or undefined for none. */
 const valueAt = (doc: unknown, pointer: string): unknown => {
@@ -107,6 +112,7 @@ const ShapeValues = ({
   onChange,
 }: ShapeValuesProps) => {
   const records = newestFirst(sample, shape);
+  const extendable = isExtendable(shape, reads);
   const taken = takenPointers(shape, reads);
   const held = new Set([...heldPointers(shape, reads), ...value]);
   const values = shape.fields.map((f, i): ICD.Picker.Value => {
@@ -114,6 +120,7 @@ const ShapeValues = ({
     let lock: ICD.Picker.Lock | undefined;
     if (i === shape.index) lock = INDEX;
     else if (taken.has(f.pointer)) lock = ICD.Picker.TAKEN;
+    else if (!extendable) lock = NOT_EXTENDABLE;
     else if (!isPickable(shape, held, f)) lock = { checked: false, label: dataType };
     return {
       key: f.pointer,
@@ -123,7 +130,7 @@ const ShapeValues = ({
       lock,
     };
   });
-  const mixed = values.some(({ lock }) => lock?.checked === false);
+  const mixed = extendable && values.some(({ lock }) => lock?.checked === false);
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -161,6 +168,7 @@ const toItem = (
   const pickable = defaultPicks(shape, reads).size;
   let meta = pluralize("record", shape.count, true);
   if (picked > 0) meta = `${picked} selected`;
+  else if (!isExtendable(shape, reads)) meta = NO_JSON;
   else if (pickable === 0 && takenPointers(shape, reads).size > 0) meta = "In task";
   let state: ICD.Picker.TreeItem["picked"] = "none";
   if (picked > 0) state = picked >= pickable ? "all" : "some";

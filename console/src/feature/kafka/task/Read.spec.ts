@@ -771,6 +771,26 @@ describe("Kafka read form", () => {
       expect(dialog.getAllByText("In task")).toHaveLength(1);
     });
 
+    it("should lock a shape with a key whose record reads no JSON message", async () => {
+      const format = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [],
+      });
+      const { dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-2",
+        records: [kafka.readRecordZ.parse({ icd: format.key, recordKey: "oven-1" })],
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf(PRESSURE_SHAPE) });
+      const pick = await dialog.findByRole("checkbox", { name: "Pick oven-1, oven-2" });
+      expect(pick).toHaveProperty("disabled", true);
+      const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
+      expect(pressure).toHaveProperty("disabled", true);
+      expect(dialog.getAllByText("No JSON message")).toHaveLength(4);
+      expect(dialog.queryByText(/A string field cannot share a message/)).toBeNull();
+    });
+
     it("should add a field to the message that the records of the keys read", async () => {
       const temperature = createField("temperature", "float");
       const message: icd.Message = {
