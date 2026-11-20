@@ -97,7 +97,6 @@ var _ = Describe("Reference feed model", func() {
 	It(
 		"Should match a model over seeded commits, bulk commits between small ones",
 		func() {
-			record := signals.ReferenceRecord()
 			for seed := range uint64(64) {
 				r := rand.New(rand.NewPCG(seed, 7))
 				appendCommit := signals.NewReferenceFeedAppend(idOf)
@@ -108,18 +107,26 @@ var _ = Describe("Reference feed model", func() {
 					}
 					c := randomCommit(r, size)
 					want := modelOf(c)
-					var got []modelSample
-					for s := range appendCommit(c).Series() {
+					fr, changes := appendCommit(c)
+					var sent, wantSent []string
+					for s := range fr.Series() {
 						Expect(s.Validate()).To(Succeed())
 						for sample := range s.Samples() {
-							of, by, sent, err := record.Changed(sample)
-							Expect(err).ToNot(HaveOccurred())
-							Expect(record.Of(sample)).To(Equal(of))
-							Expect(string(sent)).To(Equal(of.String()))
-							got = append(got, modelSample{target: of, holders: by})
+							sent = append(sent, string(sample))
 						}
 					}
+					var got []modelSample
+					for _, ch := range changes {
+						got = append(got, modelSample{
+							target:  ch.Target,
+							holders: ch.Holders,
+						})
+					}
+					for _, w := range want {
+						wantSent = append(wantSent, w.target.String())
+					}
 					Expect(got).To(Equal(want), "seed %d step %d", seed, step)
+					Expect(sent).To(Equal(wantSent), "seed %d step %d", seed, step)
 				}
 			}
 		},

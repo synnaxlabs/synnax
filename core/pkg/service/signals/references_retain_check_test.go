@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 )
@@ -53,9 +54,13 @@ func commitOf(n int, prefix string) gorp.Commit {
 
 var _ = Describe("Reference feed memory", func() {
 	It("Should not hold the memory of a bulk commit once small commits follow", func() {
-		appendCommit := signals.NewReferenceFeedAppend(func(t gorp.Target) resource.ID {
+		feed := signals.NewReferenceFeedAppend(func(t gorp.Target) resource.ID {
 			return resource.ID{Type: resource.Type(t.Table), Key: t.Key}
 		})
+		appendCommit := func(c gorp.Commit) framer.Frame {
+			fr, _ := feed(c)
+			return fr
+		}
 		Expect(appendCommit(commitOf(1, "warm")).Empty()).To(BeFalse())
 		before := heapAfterGC()
 		Expect(appendCommit(commitOf(500_000, "bulk")).Empty()).To(BeFalse())
@@ -65,8 +70,8 @@ var _ = Describe("Reference feed memory", func() {
 		after := heapAfterGC()
 		held := int64(after) - int64(before)
 		GinkgoWriter.Printf("held after the bulk commit: %d bytes\n", held)
-		runtime.KeepAlive(appendCommit)
-		appendCommit = nil
+		runtime.KeepAlive(feed)
+		feed = nil
 		GinkgoWriter.Printf(
 			"held once the feed is dropped: %d bytes\n",
 			int64(heapAfterGC())-int64(before),

@@ -67,13 +67,7 @@ func (p *Provider) PublishReferenceChanges(
 			)
 		}
 	}
-	f := &referenceFeed{
-		ch:       channel.Channel{Name: referenceChangeName, DataType: telem.StringT},
-		holderOf: holderOf,
-		changes:  observe.New[[]ReferenceChange](),
-		index:    make(map[gorp.Target]int),
-		seen:     make(set.Set[targetHolder]),
-	}
+	f := newReferenceFeed(holderOf)
 	if err := p.add(ctx, f, &f.ch); err != nil {
 		return err
 	}
@@ -95,6 +89,20 @@ type referenceFeed struct {
 	seen    set.Set[targetHolder]
 }
 
+// referenceRetained is the most links that a referenceFeed keeps room for between
+// commits.
+const referenceRetained = 1024
+
+func newReferenceFeed(holderOf func(gorp.Target) resource.ID) *referenceFeed {
+	return &referenceFeed{
+		ch:       channel.Channel{Name: referenceChangeName, DataType: telem.StringT},
+		holderOf: holderOf,
+		changes:  observe.New[[]ReferenceChange](),
+		index:    make(map[gorp.Target]int),
+		seen:     make(set.Set[targetHolder]),
+	}
+}
+
 // targetHolder is a holder whose link to the target at an index of targets changed.
 type targetHolder struct {
 	target int
@@ -102,9 +110,7 @@ type targetHolder struct {
 }
 
 func (f *referenceFeed) append(c gorp.Commit, fr framer.Frame) framer.Frame {
-	f.targets, f.links = f.targets[:0], f.links[:0]
-	clear(f.index)
-	clear(f.seen)
+	defer f.reset()
 	for _, ch := range c.Changes {
 		if len(ch.Added) == 0 && len(ch.Removed) == 0 {
 			continue
@@ -123,18 +129,35 @@ func (f *referenceFeed) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 		return cmp.Compare(a.target, b.target)
 	})
 	changes := make([]ReferenceChange, len(f.targets))
+	holders := make([]resource.ID, len(f.links))
 	var data []byte
 	for i, j := 0, 0; i < len(f.targets); i++ {
 		target := resourceOf(f.targets[i])
-		changes[i].Target = target
+		start := j
 		for ; j < len(f.links) && f.links[j].target == i; j++ {
-			changes[i].Holders = append(changes[i].Holders, f.links[j].holder)
+			holders[j] = f.links[j].holder
 		}
+		changes[i] = ReferenceChange{Target: target, Holders: holders[start:j:j]}
 		data = appendSample(data, target)
 	}
 	// The DB delivers a commit to its readers once the commit is visible.
 	f.changes.Notify(context.Background(), changes)
 	return fr.Append(f.ch.Key(), telem.Series{DataType: telem.StringT, Data: data})
+}
+
+// reset empties the work of a commit, and frees it when it outgrew referenceRetained.
+func (f *referenceFeed) reset() {
+	if len(f.links) > referenceRetained {
+		f.targets, f.links = nil, nil
+		f.index = make(map[gorp.Target]int)
+		f.seen = make(set.Set[targetHolder])
+		return
+	}
+	clear(f.targets)
+	clear(f.links)
+	f.targets, f.links = f.targets[:0], f.links[:0]
+	clear(f.index)
+	clear(f.seen)
 }
 
 // add records that the link of holder to target changed.
