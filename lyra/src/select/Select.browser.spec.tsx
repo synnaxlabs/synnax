@@ -1367,7 +1367,7 @@ describe("Select", () => {
       const onChange = await renderEditable();
       await userEvent.keyboard("{ArrowDown}");
       // Space opens the view from the focused button, so the opener has the focus in
-      // every browser. The hover answers Enter, not Space.
+      // every browser.
       (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
       await userEvent.keyboard(" ");
       await expect.element(page.getByText("Editing low")).toBeVisible();
@@ -1378,6 +1378,34 @@ describe("Select", () => {
         .element(page.getByRole("button", { name: "Edit low" }))
         .toHaveFocus();
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should open the view again with Enter on the opener and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      const opener = page.getByRole("button", { name: "Edit low" });
+      (opener.element() as HTMLElement).focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(opener).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not move the hover with an arrow key on the opener", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
     });
 
     it("should keep the keys from the options while a view shows", async () => {
