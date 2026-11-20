@@ -78,7 +78,10 @@ var _ = Describe("Delete intent sync", func() {
 			// After a failed sync, the bytes of the file are unknown, and a later sync
 			// can pass without making them durable.
 			fail.Store(false)
-			Expect(db.Intend([]cesium.ChannelKey{second})).To(HaveOccurred())
+			Expect(db.Intend([]cesium.ChannelKey{second})).To(SatisfyAll(
+				MatchError(errSync),
+				MatchError(ContainSubstring("until a restart")),
+			))
 		},
 	)
 })
