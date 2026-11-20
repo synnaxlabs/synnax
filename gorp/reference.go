@@ -666,10 +666,15 @@ func (r *reference[K, E, T]) check(
 }
 
 // indexedAt reports whether stored holds v, the target at position i of an entry. An
-// edit keeps most targets at their positions, so it scans stored only for the targets
-// that moved.
+// edit keeps most targets at their positions, or one away after an insert or a removal,
+// so it scans stored only for the targets that moved further.
 func indexedAt[T comparable](stored []T, i int, v T) bool {
-	return (i < len(stored) && stored[i] == v) || slices.Contains(stored, v)
+	for _, at := range [3]int{i, i + 1, i - 1} {
+		if at >= 0 && at < len(stored) && stored[at] == v {
+			return true
+		}
+	}
+	return slices.Contains(stored, v)
 }
 
 func (r *reference[K, E, T]) checkUnique(
