@@ -47,7 +47,7 @@ const stubLineStateZ = z.object({
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
   static readonly TYPE = line.Line.TYPE;
-  schema = stubLineStateZ;
+  override schema = stubLineStateZ;
 
   get loading(): boolean {
     return this.state.loading;

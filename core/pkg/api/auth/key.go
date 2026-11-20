@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -54,12 +55,16 @@ type KeyCreateResponse struct {
 }
 
 // CreateKey creates an API key for the caller, or for another user or rack. It returns
-// a validation error when the subject is not a user or rack that exists.
+// a validation error when the API key method is off or the subject is not a user or
+// rack that exists.
 func (s *Service) CreateKey(
 	ctx context.Context,
 	tx gorp.Tx,
 	req KeyCreateRequest,
 ) (KeyCreateResponse, error) {
+	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
+		return KeyCreateResponse{}, err
+	}
 	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
 	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name)
 	if err != nil {
