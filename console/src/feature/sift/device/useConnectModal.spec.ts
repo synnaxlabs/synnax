@@ -79,10 +79,7 @@ describe("Sift.Device.useConnectModal", () => {
     pressSaveTrigger();
     const cmd = await answered;
     expect(cmd.type).toBe(Sift.Task.TEST_CONNECTION_COMMAND_TYPE);
-    expect(cmd.args).toMatchObject({
-      connection: { uri: "localhost:50051", apiKey: apiKey.key },
-      grant: expect.any(String),
-    });
+    expect(cmd.args).toEqual({ grant: expect.any(String) });
     await waitFor(async () =>
       expect((await client.devices.retrieve({ key: dev.key })).location).toBe(
         "localhost:50051",
