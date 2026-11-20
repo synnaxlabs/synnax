@@ -1,22 +1,17 @@
 ---
-title: "Version 0.35 release notes"
+title: "Table component"
+version: "0.35.0"
+date: "Nov 25, 2024"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
 import { Image, Video } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
-
-<Release
-    version="0.35.0"
-    date="Nov 25, 2024"
-    title="Table component"
-    breakingChanges
->
 
 <Hero.Hero
   image="console/tables/thumbnail"
@@ -127,5 +122,3 @@ your schematic.
 
 While this release does **not** introduce any backwards incompatible changes, the
 updated label alignment system may cause the edges of existing schematics to shift.
-
-</Release>

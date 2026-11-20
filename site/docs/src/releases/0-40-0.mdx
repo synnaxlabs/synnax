@@ -1,21 +1,16 @@
 ---
-title: "Version 0.40 release notes"
+title: "Driver and embedded control sequence improvements"
+version: "0.40.0"
+date: "April 1, 2025"
 ---
 
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
-import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Note } from "@/components/note";
 export const components = mdxOverrides;
-
-<Release
-    version="0.40.0"
-    date="April 1, 2025"
-    title="Driver and embedded control sequence improvements"
->
 
 Synnax v0.40.0 is a maintenance release that introduces no breaking changes, improves
 performance of the Synnax Driver, and fixes a few bugs related to the embedded control
@@ -72,5 +67,3 @@ on new Drivers.
 - Added the
   [`control.set_authority`](/reference/control/arc/standard-library/control#set_authority)
   method to the embedded control sequence editor code completion.
-
-</Release>

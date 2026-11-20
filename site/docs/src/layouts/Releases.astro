@@ -9,6 +9,9 @@
 // included in the file licenses/APL.txt.
 
 import type { MarkdownHeading } from "astro";
+import { getCollection, render } from "astro:content";
+import { semver } from "@synnaxlabs/x";
+import { Divider } from "@synnaxlabs/lyra/divider";
 
 import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
@@ -16,15 +19,27 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import IndexHero from "@/components/hero/Index.astro";
 import ReleasesArtwork from "@/components/hero/ReleasesArtwork.astro";
 import { Releases as ReleasesComponents } from "@/components/releases";
-const { headings, frontmatter } = Astro.props;
+import { NOTES_PAGE } from "@/util/releaseNotes";
+
+const entries = (await getCollection("releases")).sort((a, b) =>
+    semver.compare(b.data.version, a.data.version),
+);
+const notes = await Promise.all(
+    entries.map(async (entry) => {
+        const text = entry.data.version.split(".").slice(0, 2).join(".");
+        const { Content } = await render(entry);
+        return { data: entry.data, Content, slug: text.replaceAll(".", ""), text };
+    }),
+);
+const headings: MarkdownHeading[] = notes.map(({ slug, text }) => ({
+    depth: 6,
+    slug,
+    text,
+}));
 ---
 
-<Root frontmatter={{ title: "Releases", description: frontmatter.description }}>
-    <OutlineBar
-        slot="subheader"
-        headings={headings.filter(({ depth }: MarkdownHeading) => depth === 6)}
-        select="article h6"
-    />
+<Root frontmatter={{ title: "Releases", description: NOTES_PAGE.description }}>
+    <OutlineBar slot="subheader" headings={headings} select="article h6" />
     <section>
         <Flex.Box direction="y" className="releases" el="article" grow>
             <IndexHero
@@ -39,7 +54,17 @@ const { headings, frontmatter } = Astro.props;
                     View releases on GitHub
                 </a>
             </IndexHero>
-            <slot />
+            {notes.map(({ data, Content, slug, text }, i) => (
+                <>
+                    {i > 0 && <Divider.Divider x />}
+                    <div class="release-wrapper">
+                        <h6 id={slug}>{text}</h6>
+                        <ReleasesComponents.Release {...data}>
+                            <Content />
+                        </ReleasesComponents.Release>
+                    </div>
+                </>
+            ))}
         </Flex.Box>
         <ReleasesComponents.List headings={headings} />
     </section>

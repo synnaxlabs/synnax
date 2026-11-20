@@ -1,10 +1,11 @@
 ---
-title: "Version 0.55 release notes"
+title: "Flexible Arc sequences and persisted variable-length channels"
+version: "0.55.0"
+date: "Apr 18, 2026"
 ---
 
 import { Fragment } from "react";
 import { Image } from "@/components/media/Media";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
@@ -12,12 +13,6 @@ import Diagram from "@/components/diagram/Diagram.astro";
 import ArcSequence from "@/components/releases/ArcSequence.astro";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.55.0"
-    date="Apr 18, 2026"
-    title="Flexible Arc sequences and persisted variable-length channels"
->
 
 <ArcSequence />
 
@@ -280,5 +275,3 @@ immediately obvious when someone else is driving.
 
 - The sidebar now preserves its scroll position across page navigations, so clicking a
   link no longer resets the navigation tree to the top.
-
-</Release>

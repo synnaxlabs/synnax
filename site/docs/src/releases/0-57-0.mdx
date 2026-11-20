@@ -1,22 +1,17 @@
 ---
-title: "Version 0.57 release notes"
+title: "Projects, panels, and a redesigned Console"
+version: "0.57.0"
+date: "Aug 23, 2026"
+breakingChanges: true
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
 import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
-
-<Release
-    version="0.57.0"
-    breakingChanges
-    date="Aug 23, 2026"
-    title="Projects, panels, and a redesigned Console"
->
 
 <Hero.Hero
   video="releases/0-57-0/panels"
@@ -502,5 +497,3 @@ warning; the old cold junction fields do not.
 
 A task key no longer encodes its rack, and the rack is a plain field. Code that derived
 a rack from a task key must read `rack` instead. Existing tasks migrate automatically.
-
-</Release>
