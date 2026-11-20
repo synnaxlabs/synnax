@@ -68,8 +68,8 @@ func normalizePtr(s *string) *string {
 	return &n
 }
 
-// normalizeNames returns names, each in NFC.
-func normalizeNames(names []string) []string {
+// NormalizeNames returns names, each in NFC, the form in which the Core stores names.
+func NormalizeNames(names []string) []string {
 	return lo.Map(
 		names,
 		func(n string, _ int) string { return validate.NormalizeName(n) },

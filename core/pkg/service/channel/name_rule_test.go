@@ -97,6 +97,18 @@ var _ = Describe("Name rule", Ordered, func() {
 		Expect(stored(ctx, ch.Key())).To(Equal("\u00F1ame_renamed"))
 	})
 
+	It("Should find a stored channel by the decomposed form of its name", func(
+		ctx SpecContext,
+	) {
+		stored := virtual(UniqueChannelName() + "_\u00E9")
+		Expect(create(ctx, &stored)).To(Succeed())
+		again := virtual(stored.Name[:len(stored.Name)-2] + "e\u0301")
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &again, channel.RetrieveIfNameExists())
+		})).To(Succeed())
+		Expect(again.Key()).To(Equal(stored.Key()))
+	})
+
 	It("Should refuse a name that breaks the rule", func(ctx SpecContext) {
 		ch := virtual("stand.pt")
 		Expect(create(ctx, &ch)).

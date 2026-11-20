@@ -277,7 +277,7 @@ func (w Writer) DeleteManyByNames(
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(normalizeNames(names)...)).
+		Where(MatchNames(NormalizeNames(names)...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -352,7 +352,7 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	newNames = normalizeNames(newNames)
+	newNames = NormalizeNames(newNames)
 	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
 		return err
 	}
@@ -533,7 +533,7 @@ func (w Writer) resetStoredNames(
 	reset set.Set[int],
 ) error {
 	names := Names(channels)
-	normal := normalizeNames(names)
+	normal := NormalizeNames(names)
 	var existing []Channel
 	if err := w.svc.newRetrieve().
 		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
@@ -980,7 +980,7 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	names = normalizeNames(names)
+	names = NormalizeNames(names)
 	if err := checkRepeatedNames(names); err != nil {
 		return err
 	}
