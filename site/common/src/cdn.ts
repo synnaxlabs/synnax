@@ -7,13 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRoot } from "react-dom/client";
-
-import { Button } from "@/components/feedback/Feedback";
-import { type Mount } from "@/util/island";
-
-export const mount: Mount = (el) => {
-  const root = createRoot(el);
-  root.render(<Button initialVisible />);
-  return () => root.unmount();
-};
+/** The origin of the CDN that holds the images and videos of every Synnax site. */
+export const CDN = "https://synnax.nyc3.cdn.digitaloceanspaces.com";

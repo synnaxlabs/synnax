@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRoot } from "react-dom/client";
+import { grammar } from "@synnaxlabs/arc";
+import { highlighter } from "@synnaxlabs/site-common/shiki";
 
-import { Search } from "@/components/search/Search";
-import { type Mount } from "@/util/island";
-
-export const mount: Mount = (el) => {
-  const root = createRoot(el);
-  root.render(<Search initialVisible />);
-  return () => root.unmount();
-};
+/** Renders code in Python, TypeScript, or Arc to highlighted HTML. */
+export const highlight = await highlighter(["python", "typescript", grammar]);
