@@ -904,7 +904,7 @@ var _ = Describe("Literal Parser", func() {
 			Entry(
 				"time unit above i64 range",
 				"10000000000.0s",
-				types.I64(),
+				types.TimeSpan(),
 				"out of range for i64",
 			),
 			Entry(
