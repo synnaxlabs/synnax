@@ -185,8 +185,8 @@ var _ = Describe("Issued", Ordered, func() {
 			return channel.NewKey(leased.Leaseholder, 0)
 		}, false),
 		Entry("a key leased to another node", func() channel.Key {
-			return channel.NewKey(node.Key(99), leased.LocalKey)
-		}, false),
+			return channel.NewKey(node.Key(99), leased.LocalKey+1000)
+		}, true),
 	)
 })
 

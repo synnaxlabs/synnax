@@ -59,17 +59,18 @@ func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, 
 	return out, nil
 }
 
-// Issued reports whether Allocate issued key k: k is leased to the host node or free,
-// and its counter has passed its local key. A key of a deleted channel counts.
+// Issued reports whether no later Allocate can return key k. A key leased to the host
+// node or free counts once storage holds its counter at or past its local key. A key of
+// another node counts, since Allocate issues only host and free keys. A key of a
+// deleted channel counts.
 func (s *Service) Issued(k Key) bool {
-	c := s.leasedCounter
 	switch {
 	case k.Free():
-		c = s.freeCounter
-	case k.Lease() != s.cfg.HostKey:
-		return false
+		return s.freeCounter.issued(k.LocalKey())
+	case k.Lease() == s.cfg.HostKey:
+		return s.leasedCounter.issued(k.LocalKey())
 	}
-	return k.LocalKey() != 0 && int64(k.LocalKey()) <= c.ctr.Value()
+	return true
 }
 
 // Create creates the storage channels for the provided channels, which carry the keys

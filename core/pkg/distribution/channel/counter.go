@@ -11,20 +11,34 @@ package channel
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/math"
 )
 
-type counter struct{ ctr *kv.AtomicInt64Counter }
+type counter struct {
+	ctr *kv.AtomicInt64Counter
+	// durable is the highest value that storage holds. A failed write moves ctr but not
+	// durable.
+	durable atomic.Int64
+}
 
 func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
 	ctr, err := kv.NewCounter(ctx, db, key)
 	if err != nil {
 		return nil, err
 	}
-	return &counter{ctr: ctr}, nil
+	c := &counter{ctr: ctr}
+	c.durable.Store(ctr.Value())
+	return c, nil
+}
+
+// issued reports whether storage holds a value of the counter at or past local, so no
+// later add returns local.
+func (c *counter) issued(local LocalKey) bool {
+	return local != 0 && int64(local) <= c.durable.Load()
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
@@ -34,6 +48,11 @@ func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
 	next, err := c.ctr.Add(ctx, int64(delta))
 	if err != nil {
 		return 0, err
+	}
+	for cur := c.durable.Load(); next > cur; cur = c.durable.Load() {
+		if c.durable.CompareAndSwap(cur, next) {
+			break
+		}
 	}
 	return LocalKey(next), nil
 }
