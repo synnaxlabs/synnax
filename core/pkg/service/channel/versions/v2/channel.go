@@ -127,20 +127,23 @@ func (c Channel) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeChannel, Key: c.Key().String()}
 }
 
+// payloadSize is the most keys a payload holds: the fields of ToPayload and the
+// internal flag that signals add.
+const payloadSize = 11
+
 // ToPayload returns a map representation of the channel for use in ontology resources
 // and signal marshaling. The "operations" and "group" keys are omitted when the channel
-// has no operations or no group.
+// has no operations or no group. The map has room for one more key.
 func (c Channel) ToPayload() map[string]any {
-	p := map[string]any{
-		"key":         c.Key(),
-		"name":        c.Name,
-		"leaseholder": c.Leaseholder,
-		"is_index":    c.IsIndex,
-		"index":       c.Index(),
-		"data_type":   c.DataType,
-		"virtual":     c.Virtual,
-		"expression":  c.Expression,
-	}
+	p := make(map[string]any, payloadSize)
+	p["key"] = c.Key()
+	p["name"] = c.Name
+	p["leaseholder"] = c.Leaseholder
+	p["is_index"] = c.IsIndex
+	p["index"] = c.Index()
+	p["data_type"] = c.DataType
+	p["virtual"] = c.Virtual
+	p["expression"] = c.Expression
 	if len(c.Operations) > 0 {
 		p["operations"] = c.Operations
 	}
