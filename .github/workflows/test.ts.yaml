@@ -322,9 +322,10 @@ jobs:
           SHARD_ARG:
             ${{ inputs.shards > 1 && format('--shard={0}/{1}', matrix.shard,
             inputs.shards) || '' }}
-        run: >-
-          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
-          webkit $SHARD_ARG
+        run: |
+          read -ra args <<< "$SHARD_ARG"
+          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
+            --project webkit "${args[@]}"
 
       - name: Set up Deno
         if: inputs.runtimes && matrix.lint
