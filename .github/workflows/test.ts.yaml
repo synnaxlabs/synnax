@@ -280,9 +280,9 @@ jobs:
         shell: bash
         working-directory: ${{ inputs.directory }}
         run: |
-          specs=$(git grep -L -E \
-            'create(Proxied)?TestClient|test(ClientParams|CoreAddress)' \
-            -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
+          pattern='create(Proxied)?TestClient|test(ClientParams|CoreAddress)'
+          pattern+='|CONNECTION_PARAMS'
+          specs=$(git grep -L -E "$pattern" -- '*.spec.ts' '*.spec.tsx' | tr '\n' ' ')
           echo "SPECS=$specs" >> "$GITHUB_ENV"
 
       # Without a limit, a hung test run holds the job for up to 6 hours. Turbo holds a
