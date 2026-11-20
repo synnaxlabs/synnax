@@ -94,8 +94,21 @@ func expectVariableTrailers(b, stream []byte, starts []int64) {
 var _ = Describe("Segment", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs xfs.FS
-			BeforeEach(func() { fs = makeFS() })
+			var (
+				fs     xfs.FS
+				budget *segment.Budget
+				h      *segment.Handle
+			)
+			BeforeEach(func() {
+				fs = makeFS()
+				budget = MustSucceed(segment.NewBudget(4))
+			})
+
+			create := func(c segment.Config) *segment.Writer {
+				GinkgoHelper()
+				h = MustSucceed(budget.Create(fs, "3.seg"))
+				return segment.NewWriter(h, c)
+			}
 
 			fileBytes := func() []byte {
 				GinkgoHelper()
@@ -108,10 +121,10 @@ var _ = Describe("Segment", func() {
 				It(
 					"Should follow each full block with the checksum of the block at its place",
 					func() {
-						w := MustSucceed(segment.Create(fs, "3.seg", cfg))
+						w := create(cfg)
 						data := pattern(2*segment.BlockSize + 10)
 						Expect(w.Write(data)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						b := fileBytes()
 						Expect(b).To(HaveLen(len(data) + 2*segment.FixedTrailer))
 						first := b[:segment.BlockSize]
@@ -128,7 +141,7 @@ var _ = Describe("Segment", func() {
 				It(
 					"Should return the running checksum of the unfinished block at a commit",
 					func() {
-						w := MustSucceed(segment.Create(fs, "3.seg", cfg))
+						w := create(cfg)
 						data := pattern(segment.BlockSize + 100)
 						Expect(w.Write(data[:30])).To(Succeed())
 						Expect(w.Write(data[30:])).To(Succeed())
@@ -136,25 +149,25 @@ var _ = Describe("Segment", func() {
 						Expect(length).To(Equal(uint32(len(data))))
 						Expect(tail).
 							To(Equal(placeAt(cfg, 65_540).Sum(data[segment.BlockSize:])))
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 					},
 				)
 
 				It(
 					"Should give an empty block the checksum of its place alone",
 					func() {
-						w := MustSucceed(segment.Create(fs, "3.seg", cfg))
+						w := create(cfg)
 						Expect(w.Write(pattern(segment.BlockSize))).To(Succeed())
 						_, tail := w.Commit()
 						Expect(tail).To(Equal(placeAt(cfg, 65_540).Sum(nil)))
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 					},
 				)
 
 				It(
 					"Should put the length and checksum back to the last commit",
 					func() {
-						w := MustSucceed(segment.Create(fs, "3.seg", cfg))
+						w := create(cfg)
 						data := pattern(segment.BlockSize + 50)
 						Expect(w.Write(data[:20])).To(Succeed())
 						length, tail := w.Commit()
@@ -165,7 +178,7 @@ var _ = Describe("Segment", func() {
 						again, againTail := w.Commit()
 						Expect(again).To(Equal(uint32(len(data))))
 						Expect(againTail).ToNot(Equal(tail))
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						b := fileBytes()
 						Expect(binary.LittleEndian.Uint32(b[segment.BlockSize:])).
 							To(Equal(placeAt(cfg, 0).Sum(data[:segment.BlockSize])))
@@ -175,11 +188,11 @@ var _ = Describe("Segment", func() {
 				It(
 					"Should read a stream range across blocks with no trailer bytes",
 					func() {
-						w := MustSucceed(segment.Create(fs, "3.seg", cfg))
+						w := create(cfg)
 						data := pattern(3*segment.BlockSize + 5)
 						Expect(w.Write(data)).To(Succeed())
-						Expect(w.Sync()).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Sync()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
 						defer func() { Expect(f.Close()).To(Succeed()) }()
 						got := make([]byte, 2*segment.BlockSize)
@@ -195,7 +208,7 @@ var _ = Describe("Segment", func() {
 						"that starts in its block",
 					func(sizes []int, split bool) {
 						stream, starts := samples(sizes...)
-						w := MustSucceed(segment.Create(fs, "3.seg", varCfg))
+						w := create(varCfg)
 						if split {
 							for i, s := range starts {
 								end := int64(len(stream))
@@ -208,7 +221,7 @@ var _ = Describe("Segment", func() {
 							Expect(w.Write(stream)).To(Succeed())
 						}
 						length, tail := w.Commit()
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						Expect(length).To(Equal(uint32(len(stream))))
 						full := int64(
 							len(stream) / segment.BlockSize * segment.BlockSize,
@@ -246,7 +259,7 @@ var _ = Describe("Segment", func() {
 					"Should refuse a write that ends inside a sample and change nothing",
 					func() {
 						stream, starts := samples(10, 70_000, 20)
-						w := MustSucceed(segment.Create(fs, "3.seg", varCfg))
+						w := create(varCfg)
 						Expect(w.Write(stream[:starts[1]])).To(Succeed())
 						Expect(w.Write(stream[starts[1] : starts[1]+3])).
 							To(MatchError(ContainSubstring("ends inside the length at 0")))
@@ -254,7 +267,7 @@ var _ = Describe("Segment", func() {
 							To(MatchError(ContainSubstring("ends inside a sample")))
 						Expect(w.Len()).To(Equal(starts[1]))
 						Expect(w.Write(stream[starts[1]:])).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						expectVariableTrailers(fileBytes(), stream, starts)
 					},
 				)
@@ -263,14 +276,14 @@ var _ = Describe("Segment", func() {
 					"Should put the sample count and block state back to the last commit",
 					func() {
 						first, _ := samples(5, 70_000)
-						w := MustSucceed(segment.Create(fs, "3.seg", varCfg))
+						w := create(varCfg)
 						Expect(w.Write(first[:9])).To(Succeed())
 						w.Commit()
 						Expect(w.Write(first[9:])).To(Succeed())
 						w.PutBack()
 						stream, starts := samples(5, 100, 140_000, 7)
 						Expect(w.Write(stream[9:])).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						expectVariableTrailers(fileBytes(), stream, starts)
 					},
 				)
@@ -279,9 +292,9 @@ var _ = Describe("Segment", func() {
 					"Should read a stream range across blocks with no trailer bytes",
 					func() {
 						stream, _ := samples(200_000)
-						w := MustSucceed(segment.Create(fs, "3.seg", varCfg))
+						w := create(varCfg)
 						Expect(w.Write(stream)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
+						Expect(h.Close()).To(Succeed())
 						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
 						defer func() { Expect(f.Close()).To(Succeed()) }()
 						got := make([]byte, 2*segment.BlockSize)
@@ -292,9 +305,9 @@ var _ = Describe("Segment", func() {
 			})
 
 			It("Should refuse to create a segment file that exists", func() {
-				w := MustSucceed(segment.Create(fs, "3.seg", cfg))
-				Expect(w.Close()).To(Succeed())
-				Expect(segment.Create(fs, "3.seg", cfg)).Error().
+				create(cfg)
+				Expect(h.Close()).To(Succeed())
+				Expect(budget.Create(fs, "3.seg")).Error().
 					To(MatchError(ContainSubstring("exists")))
 			})
 		})

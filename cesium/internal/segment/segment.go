@@ -15,11 +15,9 @@ package segment
 import (
 	"encoding/binary"
 	"io"
-	"os"
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
 const (
@@ -98,22 +96,18 @@ type cursor struct {
 // Writer appends samples to one open segment. It is not safe for concurrent use.
 type Writer struct {
 	cfg       Config
-	file      xfs.File
+	handle    *Handle
 	at        cursor
 	committed cursor
 	buf       []byte
 }
 
-// Create creates the file name in fs for the segment of cfg, and returns its writer.
-func Create(fs xfs.FS, name string, cfg Config) (*Writer, error) {
-	file, err := fs.Open(name, os.O_CREATE|os.O_EXCL|os.O_RDWR)
-	if err != nil {
-		return nil, err
-	}
-	w := &Writer{cfg: cfg, file: file}
+// NewWriter returns the writer of the empty segment of cfg in h.
+func NewWriter(h *Handle, cfg Config) *Writer {
+	w := &Writer{cfg: cfg, handle: h}
 	w.at = cursor{crc: cfg.place(0).Start(), blockOff: NoStart}
 	w.committed = w.at
-	return w, nil
+	return w
 }
 
 // Write appends p to the stream, with the trailer of each block that p fills, in one
@@ -149,7 +143,7 @@ func (w *Writer) Write(p []byte) error {
 			w.buf = w.appendTrailer(w.buf)
 		}
 	}
-	if _, err := w.file.WriteAt(w.buf, start); err != nil {
+	if _, err := w.handle.WriteAt(w.buf, start); err != nil {
 		w.PutBack()
 		return err
 	}
@@ -208,9 +202,3 @@ func (w *Writer) PutBack() { w.at = w.committed }
 
 // Len returns the stream length of the written bytes.
 func (w *Writer) Len() int64 { return w.at.length }
-
-// Sync makes the written bytes durable.
-func (w *Writer) Sync() error { return w.file.Sync() }
-
-// Close closes the file of the segment.
-func (w *Writer) Close() error { return w.file.Close() }
