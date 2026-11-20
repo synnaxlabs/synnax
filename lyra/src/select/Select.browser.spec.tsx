@@ -180,6 +180,63 @@ const renderFooter = async (): Promise<Element> => {
   return document.getElementById("footer") as Element;
 };
 
+const MANY_KEYS = Array.from({ length: 60 }, (_, i) => `key-${i}`);
+const CHOICE = "key-50";
+
+const fixedOptions = (): ReactElement[] =>
+  MANY_KEYS.map((key) => (
+    <Select.Item key={key} itemKey={key}>
+      {key}
+    </Select.Item>
+  ));
+
+const listSelect = (virtual: boolean): ReactElement => (
+  <Dialog.Frame>
+    <Select.Frame<string, undefined>
+      data={MANY_KEYS}
+      value={CHOICE}
+      onChange={() => {}}
+      virtual={virtual}
+    >
+      <Select.SingleTrigger placeholder="Pick" />
+      <Select.Dialog>
+        <Select.Body<string> resourceName="key">
+          {({ key, ...p }) => (
+            <Select.Item key={key} {...p}>
+              {p.itemKey}
+            </Select.Item>
+          )}
+        </Select.Body>
+      </Select.Dialog>
+    </Select.Frame>
+  </Dialog.Frame>
+);
+
+const renderChoice = async (select: ReactElement): Promise<Element> => {
+  const { container } = await renderThemed(
+    <Triggers.Provider>{select}</Triggers.Provider>,
+  );
+  return container.querySelector(".lyra-dialog__trigger") as Element;
+};
+
+const openDialog = async (trigger: Element): Promise<Element> => {
+  await userEvent.click(trigger);
+  const dialog = page.getByRole("dialog").element();
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return dialog;
+};
+
+const isInView = (dialog: Element, text: string): boolean => {
+  const option = Array.from(dialog.querySelectorAll("[role='option']")).find(
+    (el) => el.textContent === text,
+  );
+  const scroll = option?.closest(".lyra-list__scroll");
+  if (option == null || scroll == null) return false;
+  const { top, bottom } = option.getBoundingClientRect();
+  const view = scroll.getBoundingClientRect();
+  return top >= view.top && bottom <= view.bottom;
+};
+
 interface PinnedOptions {
   body: DOMRect;
   border: number;
@@ -993,6 +1050,54 @@ describe("Select", () => {
     });
   });
 
+  describe("opening", () => {
+    it("should scroll a static list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(false)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a virtual list to the choice", async () => {
+      const dialog = await openDialog(await renderChoice(listSelect(true)));
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a list of fixed options to the choice", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={() => {}}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should scroll a multiple select to its first choice in the list", async () => {
+      const trigger = await renderChoice(
+        <Select.Simple<string>
+          resourceName="key"
+          multiple
+          value={["key-59", "key-30"]}
+          onChange={() => {}}
+        >
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      const dialog = await openDialog(trigger);
+      await expect.poll(() => isInView(dialog, "key-30")).toBe(true);
+    });
+
+    it("should scroll a virtual list to the choice when it opens again", async () => {
+      const trigger = await renderChoice(listSelect(true));
+      const first = await openDialog(trigger);
+      await expect.poll(() => isInView(first, CHOICE)).toBe(true);
+      first.querySelector(".lyra-list__scroll")?.scrollTo({ top: 0 });
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => document.querySelector("[role='dialog']")).toBeNull();
+      const second = await openDialog(trigger);
+      await expect.poll(() => isInView(second, CHOICE)).toBe(true);
+    });
+  });
+
   describe("footer", () => {
     it("should keep its height when the list overflows the dialog", async () => {
       const footer = await renderFooter();
@@ -1182,6 +1287,10 @@ describe("Select", () => {
       );
       const scroll = getByRole("listbox").element();
       await expect.poll(() => scroll.scrollHeight).toBeGreaterThan(5000);
+      // The dialog scrolls to its choice a frame after it shows.
+      const dialog = getByRole("dialog").element();
+      await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+      await scheduler.nextFrame();
       scroll.scrollTop = scroll.scrollHeight;
       await expect.poll(() => getByText("old-199").elements().length).toBe(1);
 

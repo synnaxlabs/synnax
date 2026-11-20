@@ -115,8 +115,13 @@ export interface UseReturn<K extends record.Key> extends Omit<
   clear: () => void;
 }
 
+interface RevealOrder<K extends record.Key> extends SelectionOrder<K> {
+  /** Scrolls the option into view at once. */
+  reveal: (key: K) => void;
+}
+
 // The registry holds keys of every selection's type, so the order narrows them to K.
-const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
+const useOrder = <K extends record.Key>(): RevealOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
   const getRowElement = List.useGetElement();
@@ -127,6 +132,11 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
     else scrollToIndex(getData().indexOf(key), direction);
+  };
+  const reveal = (key: K) => {
+    const element = getElement(key);
+    if (element != null) element.scrollIntoView({ block: "nearest" });
+    else scrollToIndex(getData().indexOf(key));
   };
   const click = (key: K) => getElement(key)?.click();
   const doubleClick = (key: K) =>
@@ -149,6 +159,7 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   return {
     getOrder,
     scrollTo,
+    reveal,
     click,
     doubleClick,
     contextMenu,
@@ -161,6 +172,25 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
       };
     },
   };
+};
+
+// A dialog opens on its first selected option, as a native dropdown does. A dialog that
+// opens again is placed at once, and a virtual list adopts its new scroll container one
+// render later, so the scroll waits a frame.
+const useRevealOnOpen = <K extends record.Key>(
+  { getOrder, reveal }: RevealOrder<K>,
+  selected: K[],
+): void => {
+  const { placed } = Dialog.useContext();
+  const revealRef = useSyncedRef((): void => {
+    const key = getOrder().find((k) => selected.includes(k));
+    if (key != null) reveal(key);
+  });
+  useEffect(() => {
+    if (!placed) return;
+    const frame = requestAnimationFrame(() => revealRef.current());
+    return () => cancelAnimationFrame(frame);
+  }, [placed, revealRef]);
 };
 
 /**
@@ -183,9 +213,11 @@ export const useSingle = <K extends record.Key>({
   const order = useOrder<K>();
   const { getOrder, subscribe } = order;
   const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
+  const selected = value == null ? [] : [value];
+  useRevealOnOpen(order, selected);
   const { setCursor, target, ...rest } = useCursor({
     order,
-    selected: value == null ? [] : [value],
+    selected,
     select: (key) => setSelected([key]),
     initialHover,
     cursor,
@@ -248,6 +280,7 @@ export const useMultiple = <K extends record.Key>({
     shiftValueRef.current = key;
     onChange([key], { clicked: null });
   };
+  useRevealOnOpen(order, value);
   const { setCursor, target, ...rest } = useCursor({
     order,
     selected: value,
