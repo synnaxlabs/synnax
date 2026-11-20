@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { TimeSpan } from "@synnaxlabs/x";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { MultiEdit } from "@/platform/multiedit";
+import { renderWithConsole } from "@/testutil";
 
 describe("NumberFormatSection", () => {
   it("should round a typed fraction to a whole precision", () => {
@@ -28,5 +30,69 @@ describe("NumberFormatSection", () => {
     fireEvent.change(input, { target: { value: "2.6" } });
     fireEvent.blur(input);
     expect(onPrecisionChange).toHaveBeenLastCalledWith(3);
+  });
+});
+
+describe("StalenessSection", () => {
+  const COLORS = [{ fallback: "#000000" }];
+
+  const field = (): HTMLInputElement => {
+    const input = screen
+      .getByText("Timeout")
+      .closest(".lyra-input__item")
+      ?.querySelector("input");
+    assert(input != null);
+    return input;
+  };
+
+  const typeTimeout = (value: string): void => {
+    fireEvent.focus(field());
+    fireEvent.change(field(), { target: { value } });
+    fireEvent.blur(field());
+  };
+
+  it("should show and write a timeout in nanoseconds by default", async () => {
+    const onTimeoutChange = vi.fn();
+    await renderWithConsole(
+      <MultiEdit.StalenessSection
+        colors={COLORS}
+        timeout={Number(TimeSpan.seconds(3).valueOf())}
+        onColorChange={vi.fn()}
+        onTimeoutChange={onTimeoutChange}
+      />,
+    );
+    expect(field().value).toBe("3s");
+    typeTimeout("7s");
+    expect(onTimeoutChange).toHaveBeenLastCalledWith(
+      Number(TimeSpan.seconds(7).valueOf()),
+    );
+  });
+
+  it("should show and write a timeout in the given unit", async () => {
+    const onTimeoutChange = vi.fn();
+    await renderWithConsole(
+      <MultiEdit.StalenessSection
+        colors={COLORS}
+        timeout={3}
+        unit={TimeSpan.SECOND}
+        onColorChange={vi.fn()}
+        onTimeoutChange={onTimeoutChange}
+      />,
+    );
+    expect(field().value).toBe("3s");
+    typeTimeout("7s");
+    expect(onTimeoutChange).toHaveBeenLastCalledWith(7);
+  });
+
+  it("should show the default timeout when no element has one", async () => {
+    await renderWithConsole(
+      <MultiEdit.StalenessSection
+        colors={COLORS}
+        unit={TimeSpan.SECOND}
+        onColorChange={vi.fn()}
+        onTimeoutChange={vi.fn()}
+      />,
+    );
+    expect(field().value).toBe("5s");
   });
 });

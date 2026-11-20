@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -67,6 +68,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
 			router,
 			"/api/v1/auth/login",
+		),
+		AuthMethods: unary[struct{}, auth.MethodsResponse](
+			router,
+			"/api/v1/auth/methods",
 		),
 		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
 			router,
@@ -189,7 +194,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.NewFrameEncoder(ctx),
+				framer.NewFrameEncoder(ctx, layer.Errors()),
 				csvEncoder,
 				framer.NewTDMSEncoder(ctx),
 			),
@@ -476,12 +481,42 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		ColorDelete: unary[color.DeleteRequest, struct{}](
 			router,
-			"/api/v1/color/delete",
+			"/api/v1"+api.PathColorDelete,
 		),
 		ColorDispatch: unary[color.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathColorDispatch,
 		),
+		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
+			router,
+			"/api/v1/color/retrieve-builtins",
+		),
+
+		// ENUMERATION
+		EnumerationCreate: unary[
+			enumeration.CreateRequest,
+			enumeration.CreateResponse,
+		](router, "/api/v1/enumeration/create"),
+		EnumerationRetrieve: unary[
+			enumeration.RetrieveRequest,
+			enumeration.RetrieveResponse,
+		](router, "/api/v1/enumeration/retrieve"),
+		EnumerationDelete: unary[enumeration.DeleteRequest, struct{}](
+			router,
+			"/api/v1"+api.PathEnumerationDelete,
+		),
+		EnumerationDispatch: unary[enumeration.DispatchRequest, struct{}](
+			router,
+			"/api/v1"+api.PathEnumerationDispatch,
+		),
+		EnumerationRetrieveBuiltins: unary[
+			struct{},
+			enumeration.RetrieveBuiltinsResponse,
+		](router, "/api/v1/enumeration/retrieve-builtins"),
+		EnumerationRetrieveDependents: unary[
+			enumeration.RetrieveDependentsRequest,
+			enumeration.RetrieveDependentsResponse,
+		](router, "/api/v1/enumeration/retrieve-dependents"),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](
@@ -732,6 +767,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathCertificateDispatch,
+		),
+		CertificateRefresh: unary[certificate.RefreshRequest, struct{}](
+			router,
+			"/api/v1/certificate/refresh",
 		),
 
 		// IMPORT/EXPORT

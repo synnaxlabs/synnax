@@ -11,12 +11,12 @@ import {
   caseconv,
   color,
   patch,
-  type record,
+  record,
   TimeRange,
   TimeStamp,
   zod,
 } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -84,8 +84,7 @@ const handlers: Handlers = {
   // echo arrives. The echo keeps the cached labels so it does not undo that write. It
   // keeps hasChildren too, which a create always carries as false.
   create: (state, { range }) => {
-    for (const key of Object.keys(state) as Array<keyof Payload>)
-      if (!(key in range)) delete state[key];
+    for (const key of record.keys(state)) if (!(key in range)) delete state[key];
     Object.assign(state, {
       ...range,
       labels: state.labels,

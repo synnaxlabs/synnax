@@ -11,13 +11,14 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
+import pydantic
 import pytest
 
 import synnax as sy
 from x import filter
 from x.strings import random_name
 from x.telem import seconds_linspace
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 def channel_name() -> str:
@@ -60,7 +61,7 @@ class TestChannel:
         """Should raise a validation error when creating an index channel without a
         name
         """
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(pydantic.ValidationError):
             client.channels.create(data_type=sy.DataType.TIMESTAMP, is_index=True)
 
     def test_create_indexed_pair(self, client: sy.Synnax) -> None:
@@ -92,7 +93,7 @@ class TestChannel:
         idx = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
-        with pytest.raises(sy.ValidationError):
+        with pytest.raises(pydantic.ValidationError):
             client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
 
     def test_create_indexed_pair_no_data_type(self, client: sy.Synnax) -> None:
@@ -486,6 +487,7 @@ class TestChannel:
         task = client.tasks.create(
             name="read",
             type="modbus_read",
+            rack=rack.key,
             config={
                 "device": device.key,
                 "channels": [
@@ -976,14 +978,14 @@ class TestChannelRetrieveFilters:
         """Should reject a single key beside a limit, since a page could hide a
         match"""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.channels.retrieve(create_channels[0].key, limit=1)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)(create_channels[0].key, limit=1)
 
     def test_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, even beside an empty list of keys"""
         with pytest.raises(sy.ValidationError, match="virtual is None"):
-            client.channels.retrieve(virtual=None)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)(virtual=None)
         with pytest.raises(sy.ValidationError, match="virtual is None"):
-            client.channels.retrieve([], virtual=None)  # type: ignore[call-overload]
+            untyped(client.channels.retrieve)([], virtual=None)
 
     def test_no_params(self, client: sy.Synnax) -> None:
         """Should retrieve a list of channels when no key or name is given"""

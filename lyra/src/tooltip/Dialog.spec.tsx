@@ -9,7 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tooltip } from "@/tooltip";
@@ -178,6 +178,17 @@ describe("Tooltip.Dialog", () => {
       advance(PAST_DELAY);
       expect(getTooltip()).not.toBeNull();
       unhover(btn);
+      advance(PAST_CLOSE);
+      expect(getTooltip()).toBeNull();
+    });
+
+    it("should close when the cursor leaves before the open renders", () => {
+      const { btn } = mountButton();
+      hover(btn);
+      act(() => {
+        vi.advanceTimersByTime(PAST_DELAY.milliseconds);
+        unhover(btn);
+      });
       advance(PAST_CLOSE);
       expect(getTooltip()).toBeNull();
     });

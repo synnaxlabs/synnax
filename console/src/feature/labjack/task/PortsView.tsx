@@ -14,7 +14,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { unique } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import {
   AI_PORT_TYPE,
@@ -27,7 +28,7 @@ import {
 } from "@/feature/labjack/device/types";
 import { PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims, terminal } from "@/feature/labjack/task/ports";
-import { type Channel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
@@ -164,7 +165,7 @@ export const PortsView = <C extends Channel, P extends Port>({
   const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
   const portClaims = claims(channels, model);
-  const types = [...new Set(ports.map(({ type }) => type))];
+  const types = unique.unique(ports.map(({ type }) => type));
   const add = (port: P) => {
     const channel = create(get(path).value, port);
     push(channel);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createServer, type RequestListener, type Server } from "node:http";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 
 import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { afterEach, describe, expect, test } from "vitest";
@@ -23,7 +23,7 @@ const ENDPOINT = new url.URL({
   pathPrefix: "unary",
 });
 
-const client = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+const client = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
 
 const messageZ = z.object({
   id: z.number().optional(),
@@ -60,7 +60,7 @@ describe("http", () => {
   });
 
   test("request params", async () => {
-    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const c = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
     const response = await c.send("/middlewareCheck", {}, messageZ, messageZ, {
       Test: "test",
     });
@@ -68,7 +68,7 @@ describe("http", () => {
   });
 
   test("request params missing", async () => {
-    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const c = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
     await expect(c.send("/middlewareCheck", {}, messageZ, messageZ)).rejects.toThrow();
   });
 
@@ -82,18 +82,52 @@ describe("http", () => {
   });
 
   test("unreachable", async () => {
-    const c = new HTTPClient(
-      new url.URL({
+    const c = new HTTPClient({
+      endpoint: new url.URL({
         host: "127.0.0.1",
         protocol: "http",
         port: 9999,
         pathPrefix: "unary",
       }),
-      new binary.JSONCodec(),
-    );
+      codec: new binary.JSONCodec(),
+    });
     const send = c.send("/unreachable", {}, messageZ, messageZ);
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
+  });
+
+  describe("deno fetch errors", () => {
+    const failWith = (cause: string): Promise<unknown> =>
+      new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        connector: {
+          fetch: async () => {
+            throw new TypeError("fetch failed", { cause: new Error(cause) });
+          },
+          dial: async () => {
+            throw new Error("unused");
+          },
+        },
+      }).send("/echo", {}, messageZ, messageZ);
+
+    test("throws unreachable for a refused connection", async () => {
+      await expect(
+        failWith(
+          "error sending request for url (http://127.0.0.1:9311/x): client error " +
+            "(Connect): tcp connect error: Connection refused (os error 61)",
+        ),
+      ).rejects.toThrow(Unreachable);
+    });
+
+    test("does not throw unreachable for a TLS failure", async () => {
+      const err = await failWith(
+        "error sending request for url (https://127.0.0.1:9312/x): client error " +
+          "(Connect): received corrupt message of type InvalidContentType",
+      ).catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(false);
+      expect(err).toBeInstanceOf(TypeError);
+    });
   });
 
   describe("timeout", () => {
@@ -106,12 +140,11 @@ describe("http", () => {
       server = createServer(handler);
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const { port } = server.address() as AddressInfo;
-      return new HTTPClient(
-        new url.URL({ host: "127.0.0.1", port }),
-        new binary.JSONCodec(),
-        false,
+      return new HTTPClient({
+        endpoint: new url.URL({ host: "127.0.0.1", port }),
+        codec: new binary.JSONCodec(),
         timeout,
-      );
+      });
     };
 
     afterEach(async () => {
@@ -167,6 +200,71 @@ describe("http", () => {
         }, 20);
       }, timeout);
       expect(await c.send("/slow", {}, messageZ, messageZ)).toEqual({ id: 1 });
+    });
+  });
+
+  describe("reset while reading the response body", () => {
+    let server: Server;
+    let c: HTTPClient;
+    let requests: number;
+
+    const serve = async (status: number): Promise<void> => {
+      requests = 0;
+      server = createServer((req, res) => {
+        requests++;
+        res.writeHead(status, {
+          "Content-Type": "application/json",
+          "Content-Length": "100",
+        });
+        res.write("{", () => req.socket.destroy());
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      if (address == null || typeof address === "string")
+        throw new Error("server is not listening on a port");
+      c = new HTTPClient({
+        endpoint: new url.URL({ host: "127.0.0.1", port: address.port }),
+        codec: new binary.JSONCodec(),
+      });
+    };
+
+    afterEach(async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    test("send throws unreachable", async () => {
+      await serve(200);
+      await expect(c.send("/reset", {}, messageZ, messageZ)).rejects.toThrow(
+        Unreachable,
+      );
+    });
+
+    test("the breaker does not resend a delivered request", async () => {
+      await serve(200);
+      const unary = unaryWithBreaker(c, {
+        maxRetries: 2,
+        baseInterval: TimeSpan.milliseconds(1),
+      });
+      const err = await unary
+        .send("/reset", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(requests).toBe(1);
+    });
+
+    test("upload throws unreachable", async () => {
+      await serve(200);
+      await expect(
+        c.upload("/reset", encodeJSON({}), { encoding: "JSON" }, messageZ),
+      ).rejects.toThrow(Unreachable);
+    });
+
+    test("download throws unreachable for an error response", async () => {
+      await serve(400);
+      await expect(
+        c.download("/reset", {}, messageZ, { encoding: "JSON" }),
+      ).rejects.toThrow(Unreachable);
     });
   });
 
@@ -261,15 +359,15 @@ describe("http", () => {
     });
 
     test("unreachable", async () => {
-      const c = new HTTPClient(
-        new url.URL({
+      const c = new HTTPClient({
+        endpoint: new url.URL({
           host: "127.0.0.1",
           protocol: "http",
           port: 9999,
           pathPrefix: "unary",
         }),
-        new binary.JSONCodec(),
-      );
+        codec: new binary.JSONCodec(),
+      });
       await expect(
         c.upload("/echo", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow(Unreachable);
@@ -371,15 +469,15 @@ describe("http", () => {
     });
 
     test("unreachable", async () => {
-      const c = new HTTPClient(
-        new url.URL({
+      const c = new HTTPClient({
+        endpoint: new url.URL({
           host: "127.0.0.1",
           protocol: "http",
           port: 9999,
           pathPrefix: "unary",
         }),
-        new binary.JSONCodec(),
-      );
+        codec: new binary.JSONCodec(),
+      });
       await expect(
         c.download("/echo", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow(Unreachable);

@@ -11,7 +11,7 @@ import { device, status } from "@synnaxlabs/client";
 import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/device";
@@ -129,6 +129,19 @@ describe("Device select", () => {
     });
     await c.findByRole("button", { name: "Device" });
     expect(c.container.querySelector(`.${END_CLASS}`)).toBeNull();
+  });
+
+  it("should call a device by the given resource name", async () => {
+    const c = render(
+      <Device.SelectSingle
+        value={undefined}
+        onChange={vi.fn()}
+        resourceName="connection"
+      />,
+      { wrapper },
+    );
+    fireEvent.click(await c.findByRole("button", { name: "Connection" }));
+    expect(await c.findByPlaceholderText("Search connections...")).toBeTruthy();
   });
 
   it("should keep the status beside the caller's trigger props", async () => {

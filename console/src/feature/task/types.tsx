@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device, type task } from "@synnaxlabs/client";
+import type { channel, device, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -21,7 +21,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Sift } from "@/feature/sift";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export const INTEGRATIONS: Task.Integration[] = [
   EtherCAT.Task.INTEGRATION,
@@ -36,6 +36,13 @@ export const INTEGRATIONS: Task.Integration[] = [
   Sift.Task.INTEGRATION,
 ];
 
+const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
+  INTEGRATIONS.flatMap(({ plotChannels }) => Object.entries(plotChannels ?? {})),
+);
+
+export const getPlotChannels = (type: string): Task.PlotChannels | undefined =>
+  PLOT_CHANNELS[type];
+
 const TASK_ICON = <Icon.Task />;
 
 export const getIcon = (type: string): Icon.ReactElement =>
@@ -45,7 +52,7 @@ export const parseType = (type: string): string => {
   const [first, ...rest] = type.split("_");
   const name =
     INTEGRATIONS.find(({ prefix }) => prefix === first)?.name ??
-    caseconv.capitalize(first);
+    strings.capitalize(first);
   return `${[name, ...rest].join(" ")} task`;
 };
 

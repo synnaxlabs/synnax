@@ -69,8 +69,8 @@ func (s *Service) DeleteTimeRange(
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
-	stored := channel.Keys(lo.Reject(keys, func(k channel.Key, _ int) bool {
+	stored := lo.Reject(keys, func(k channel.Key, _ int) bool {
 		return k.Free()
-	}))
+	})
 	return s.cfg.TS.DeleteTimeRange(ctx, stored.Storage(), tr)
 }

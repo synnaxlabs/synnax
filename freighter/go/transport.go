@@ -16,7 +16,7 @@ type Payload = any
 
 type Transport interface {
 	alamos.ReportProvider
-	Use(...Middleware)
+	Use(middleware ...Middleware)
 }
 
 type Reporter struct {

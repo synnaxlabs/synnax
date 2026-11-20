@@ -12,7 +12,7 @@ import { act, render } from "@testing-library/react";
 import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type FallbackProps } from "@/errors/Fallback";
+import type { FallbackProps } from "@/errors/Fallback";
 import { SuspenseBoundary } from "@/errors/SuspenseBoundary";
 
 const Suspender = ({ promise }: { promise: Promise<string> }): ReactElement => (
@@ -47,10 +47,7 @@ describe("SuspenseBoundary", () => {
   });
 
   it("should render the loading fallback while a child suspends", () => {
-    let resolve!: (value: string) => void;
-    const promise = new Promise<string>((r) => {
-      resolve = r;
-    });
+    const { promise, resolve } = Promise.withResolvers<string>();
     const c = render(
       <SuspenseBoundary loading={<div>loading</div>}>
         <Suspender promise={promise} />

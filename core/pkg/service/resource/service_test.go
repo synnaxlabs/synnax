@@ -28,6 +28,7 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		racks = openFixture[rackEntry](ctx, db, resource.TypeRack)
 		svc = MustSucceed(resource.NewService(resource.ServiceConfig{
@@ -64,6 +65,13 @@ var _ = Describe("Service", func() {
 				},
 			})).Error().
 				To(MatchError(ContainSubstring("providers.channel: must be non-nil")))
+		})
+	})
+
+	Describe("Provides", func() {
+		It("Should report whether a type has a Provider", func() {
+			Expect(svc.Provides(resource.TypeChannel)).To(BeTrue())
+			Expect(svc.Provides(resource.TypeTask)).To(BeFalse())
 		})
 	})
 

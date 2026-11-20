@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, search } from "@synnaxlabs/x";
+import { type destructor, map, type record, search } from "@synnaxlabs/x";
 import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
@@ -66,6 +66,8 @@ export interface Registry {
   isHidden: (key: record.Key) => boolean;
   /** @returns the number of unpinned fixed items the search has not hidden. */
   countVisible: () => number;
+  /** @returns whether an unpinned fixed item has the name as its text, in any case. */
+  hasName: (name: string) => boolean;
   /** @returns the search term. */
   getTerm: () => string;
   /** Sets the search term and hides the unpinned fixed items whose text misses it. */
@@ -152,15 +154,18 @@ const useRegistry = (): Registry => {
         if (!hidden && !pinned) count++;
       return count;
     },
-    getLabel: (key) => {
-      let label = labelsRef.current.get(key);
-      if (label == null) {
-        label = document.createElement("span");
-        label.className = CSS.BE("select", "fixed-label");
-        labelsRef.current.set(key, label);
-      }
-      return label;
+    hasName: (name) => {
+      const lower = name.toLowerCase();
+      for (const { text, pinned } of itemsRef.current.values())
+        if (!pinned && text?.toLowerCase() === lower) return true;
+      return false;
     },
+    getLabel: (key) =>
+      map.getOrInsert(labelsRef.current, key, () => {
+        const label = document.createElement("span");
+        label.className = CSS.BE("select", "fixed-label");
+        return label;
+      }),
     subscribe,
   };
 };
@@ -225,6 +230,13 @@ export const useVisibleCount = (): number =>
 
 /** @returns the search term. It re-renders the caller whenever the term changes. */
 export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
+
+/**
+ * @returns whether an unpinned fixed item has the name as its text, in any case. It
+ * re-renders the caller whenever an item registers, unregisters, or changes.
+ */
+export const useHasName = (name: string): boolean =>
+  useRegistryValue("Select.useHasName", (registry) => registry.hasName(name));
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

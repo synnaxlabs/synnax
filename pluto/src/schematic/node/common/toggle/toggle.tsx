@@ -9,16 +9,15 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Primitive } from "@/schematic/node/common/primitive";
+import type { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
-import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { ButtonProps } from "@/schematic/node/common/toggle/Button";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 
@@ -54,6 +53,7 @@ export const createToggle = <C extends ToggleConfig>(
       ...rest
     } = config;
     const theme = Theming.use();
+    const badged = Staleness.useBadged();
     const source = Telem.booleanSource(stateChannel);
     const sink = Telem.booleanSink(commandChannel);
     const { enabled, toggle, stale } = Base.use({
@@ -77,14 +77,18 @@ export const createToggle = <C extends ToggleConfig>(
           config={control}
           channel={commandChannel}
           onChange={onConfigChange}
-        />
+        >
+          {stale && badged ? <Staleness.Badge /> : null}
+        </Control.State>
         <Sym
           enabled={enabled}
           onClick={toggle}
-          onClickDelay={TimeSpan.milliseconds(onClickDelay)}
+          onClickDelay={onClickDelay}
           orientation={orientation}
           strokeColor={
-            stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor
+            stale && !badged
+              ? Staleness.resolveColor(stalenessColor, theme)
+              : symbolColor
           }
           {...rest}
         />

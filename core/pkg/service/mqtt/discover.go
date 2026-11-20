@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/net/proxy"
@@ -100,6 +101,29 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if props.ClientID == "" {
 		cfg.clientID = deriveClientID(uuid.New().String())
 	}
+	if err = dialBroker(ctx, addr, cfg); err != nil {
+		return err
+	}
+	if inUse && held.clientID == cfg.clientID {
+		return driver.Failure{
+			Message: "Client ID in use",
+			Description: fmt.Sprintf(
+				"A running task of this broker connects with client ID %q. The broker "+
+					"would drop that task to let the test log in with the same ID. "+
+					"Stop the tasks of this broker to test these settings.",
+				cfg.clientID,
+			),
+		}
+	}
+	if err = probe(ctx, s.ins, cfg); err != nil {
+		return connectFailure(err)
+	}
+	return nil
+}
+
+// dialBroker dials addr and, when cfg uses TLS, completes a handshake. It returns a
+// driver.Failure when the broker is not reachable.
+func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
 	dialCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
@@ -119,24 +143,7 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if cErr := conn.Close(); cErr != nil && !errors.Is(cErr, net.ErrClosed) {
 		return cErr
 	}
-	if err != nil {
-		return err
-	}
-	if inUse && held.clientID == cfg.clientID {
-		return driver.Failure{
-			Message: "Client ID in use",
-			Description: fmt.Sprintf(
-				"A running task of this broker connects with client ID %q. The broker "+
-					"would drop that task to let the test log in with the same ID. "+
-					"Stop the tasks of this broker to test these settings.",
-				cfg.clientID,
-			),
-		}
-	}
-	if err = probe(ctx, s.ins, cfg); err != nil {
-		return connectFailure(err)
-	}
-	return nil
+	return err
 }
 
 func connectFailure(err error) error {
@@ -188,6 +195,31 @@ type heardTopic struct {
 	browsedTopic
 	// retained is the number of retained messages heard.
 	retained int
+	// inferrer holds the shape of every message heard.
+	inferrer *xjson.Inferrer
+}
+
+// infer sets the kind and the time format of each field, and the index, from the shape
+// of every message heard.
+func (t *heardTopic) infer() {
+	shape := t.inferrer.Shape()
+	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
+	for _, f := range shape.Fields {
+		byPointer[f.Pointer.String()] = f
+	}
+	for i := range t.Fields {
+		f := byPointer[t.Fields[i].Pointer]
+		t.Fields[i].Kind, t.Fields[i].TimeFormat = f.Kind, f.TimeFormat
+	}
+	if shape.Index < 0 {
+		return
+	}
+	index := shape.Fields[shape.Index].Pointer.String()
+	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
+		return f.Pointer == index
+	}) {
+		t.Index = index
+	}
 }
 
 // heard is what a browse heard on each topic.
@@ -226,7 +258,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 					res.truncated = true
 					return false
 				}
-				t = &heardTopic{Topic: m.Topic()}
+				t = &heardTopic{Topic: m.Topic(), inferrer: xjson.NewInferrer()}
 				by[m.Topic()] = t
 			}
 			t.Count++
@@ -237,6 +269,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
 			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
 				payloadFields(p)
+			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},
 	); err != nil {
@@ -272,7 +305,7 @@ type sampledMessage struct {
 	// Time is the time that the message arrived.
 	Time telem.TimeStamp `json:"time"`
 	// Format is the format of the whole payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Payload is the start of the payload, from at most 16 KiB: text when Format is
 	// json or text, and hex digits otherwise.
 	Payload string `json:"payload"`
@@ -311,17 +344,8 @@ type heardMessage struct {
 // payloads. The answer keeps the messages that driver.Fit keeps, and the shapes come
 // from every message read.
 func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, error) {
-	if len(args.Topics) == 0 {
-		return sampleResult{}, errors.Wrap(
-			validate.ErrValidation, "topics: must be non-empty",
-		)
-	}
-	for i, topic := range args.Topics {
-		if slices.Index(args.Topics, topic) < i {
-			return sampleResult{}, errors.Wrapf(
-				validate.ErrValidation, "topics: must not repeat %q", topic,
-			)
-		}
+	if err := validateSampleTopics(args.Topics); err != nil {
+		return sampleResult{}, err
 	}
 	count := min(max(cmp.Or(args.Count, defaultSampleCount), 1), maxSampleCount)
 	duration := min(
@@ -332,50 +356,96 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 	literal := !slices.ContainsFunc(args.Topics, func(t string) bool {
 		return strings.ContainsAny(t, "+#")
 	})
-	var (
-		mu         sync.Mutex
-		by         = make(map[string][]heardMessage)
-		full, held int
-		truncated  bool
-	)
-	if err := s.listen(
-		ctx,
-		args.Device,
-		args.Topics,
-		duration,
-		func(m paho.Message) bool {
-			mu.Lock()
-			defer mu.Unlock()
-			messages, seen := by[m.Topic()]
-			payload := m.Payload()
-			switch {
-			case seen && len(messages) == count:
-				return false
-			case !seen && len(by) == maxSampleTopics:
-				truncated = true
-				return false
-			case held+len(payload) > sampleByteLimit:
-				truncated = true
-				return true
-			}
-			held += len(payload)
-			msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
-			msg.Format = driver.FormatOf(payload)
-			msg.Payload = driver.Display(payload, msg.Format, samplePayloadLimit)
-			by[m.Topic()] = append(
-				messages,
-				heardMessage{sampledMessage: msg, payload: payload},
-			)
-			if len(by[m.Topic()]) == count {
-				full++
-			}
-			return literal && full >= len(args.Topics)
-		},
-	); err != nil {
+	h := &hearing{
+		by:      make(map[string][]heardMessage),
+		count:   count,
+		literal: literal,
+		topics:  len(args.Topics),
+	}
+	if err := s.listen(ctx, args.Device, args.Topics, duration, h.hear); err != nil {
 		return sampleResult{}, err
 	}
-	mu.Lock()
-	defer mu.Unlock()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	by, truncated := h.by, h.truncated
+	res, sampled := newSampleResult(by)
+	kept, cut, err := driver.Fit(res, sampled)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	for i := range res.Topics {
+		res.Topics[i].Messages = kept[i]
+	}
+	res.Truncated = truncated || cut
+	return res, nil
+}
+
+// hearing holds the messages that a sample hears on each topic.
+type hearing struct {
+	mu sync.Mutex
+	by map[string][]heardMessage
+	// count is the number of messages to hear on each topic.
+	count int
+	// literal is true when every topic is exact, so the sample can end once each
+	// topic holds count messages.
+	literal bool
+	topics  int
+	// full is the number of topics that hold count messages.
+	full      int
+	held      int
+	truncated bool
+}
+
+// hear keeps m unless its topic is full, the sample holds too many topics, or the
+// payload passes the byte limit. It returns true when the sample is complete.
+func (h *hearing) hear(m paho.Message) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	messages, seen := h.by[m.Topic()]
+	payload := m.Payload()
+	switch {
+	case seen && len(messages) == h.count:
+		return false
+	case !seen && len(h.by) == maxSampleTopics:
+		h.truncated = true
+		return false
+	case h.held+len(payload) > sampleByteLimit:
+		h.truncated = true
+		return true
+	}
+	h.held += len(payload)
+	msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
+	msg.Format = driver.FormatOf(payload)
+	msg.Payload = driver.Display(payload, msg.Format, samplePayloadLimit)
+	h.by[m.Topic()] = append(
+		messages,
+		heardMessage{sampledMessage: msg, payload: payload},
+	)
+	if len(h.by[m.Topic()]) == h.count {
+		h.full++
+	}
+	return h.literal && h.full >= h.topics
+}
+
+// validateSampleTopics checks that topics is not empty and has no repeats.
+func validateSampleTopics(topics []string) error {
+	if len(topics) == 0 {
+		return errors.Wrap(validate.ErrValidation, "topics: must be non-empty")
+	}
+	for i, topic := range topics {
+		if slices.Index(topics, topic) < i {
+			return errors.Wrapf(
+				validate.ErrValidation, "topics: must not repeat %q", topic,
+			)
+		}
+	}
+	return nil
+}
+
+// newSampleResult returns a result with a topic for each topic in by, sorted by name,
+// and the shapes of every message heard. It returns the sampled messages of each
+// topic in the same order.
+func newSampleResult(by map[string][]heardMessage) (sampleResult, [][]sampledMessage) {
 	var (
 		names   = slices.Sorted(maps.Keys(by))
 		sampled = make([][]sampledMessage, len(names))
@@ -397,15 +467,7 @@ func (s *scanner) sample(ctx context.Context, args sampleArgs) (sampleResult, er
 	for i, name := range names {
 		res.Topics[i].Topic = name
 	}
-	kept, cut, err := driver.Fit(res, sampled)
-	if err != nil {
-		return sampleResult{}, err
-	}
-	for i := range res.Topics {
-		res.Topics[i].Messages = kept[i]
-	}
-	res.Truncated = truncated || cut
-	return res, nil
+	return res, sampled
 }
 
 // listen subscribes a client of its own to filters on the broker device key, and passes
@@ -417,7 +479,7 @@ func (s *scanner) listen(
 	duration time.Duration,
 	handle func(paho.Message) (stop bool),
 ) error {
-	_, _, cfg, err := s.browseConfig(ctx, key)
+	_, cfg, err := s.browseConfig(ctx, key)
 	if err != nil {
 		return err
 	}

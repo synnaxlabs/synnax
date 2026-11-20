@@ -12,11 +12,10 @@ from tests.console.task.mqtt_case import MQTTCase
 
 # A JSON payload and a bare number, both published at the simulator's rate.
 TOPICS = ["plant/sensors", "plant/scalar"]
-# A pick in the add data dialog takes the numbers of plant/sensors. The string field
-# stays out, because it cannot share the index of the numbers.
-SENSOR_FIELDS = ["/temperature", "/pressure", "/count"]
-# The numbers of plant/sensors and the whole payload of plant/scalar.
-DATA_CHANNELS = 4
+# A pick in the add data dialog takes every field of plant/sensors.
+SENSOR_FIELDS = ["temperature", "pressure", "count", "state"]
+# The fields of plant/sensors and the whole payload of plant/scalar.
+DATA_CHANNELS = 5
 
 
 class MQTTReadTask(MQTTCase):
@@ -38,8 +37,8 @@ class MQTTReadTask(MQTTCase):
         return page
 
     def test_add_entries(self, page: MQTTRead) -> None:
-        """Topics picked in the add data dialog are listed with the fields of their
-        payloads."""
+        """Topics picked in the add data dialog are listed, and the task reads the
+        fields of their payloads."""
         self.log("Testing: Add entries through the add data dialog")
         page.add_topics(TOPICS)
         listed = page.entries()

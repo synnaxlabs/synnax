@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action } from "@reduxjs/toolkit";
+import type { Action } from "@reduxjs/toolkit";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
+import { destructor } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 import { useStore } from "react-redux";
 
-import {
-  type Callbacks,
-  type Params,
-  type Synchronizers,
-} from "@/session/synchronizer/create";
+import type { Callbacks, Params, Synchronizers } from "@/session/synchronizer/create";
 
 interface Mounted<S, A extends Action> extends Callbacks<S, A> {
   name: string;
@@ -98,7 +95,7 @@ export const use = <S, A extends Action>(
     return () => {
       released = true;
       generation += 1;
-      destructors.forEach((destroy) => destroy());
+      destructor.unwind(...destructors);
     };
   }, [client, store]);
   return verified;

@@ -12,6 +12,7 @@ package unary
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"slices"
 	"strconv"
@@ -270,7 +271,11 @@ func (r *offsetResolver) tableFor(
 	if err != nil {
 		return nil, err
 	}
-	return result.(*offsetTable), nil
+	table, ok := result.(*offsetTable)
+	if !ok {
+		panic(fmt.Sprintf("offset table rebuild returned %T", result))
+	}
+	return table, nil
 }
 
 // newTracker returns an offsetTracker bound to this resolver. Fixed-density trackers

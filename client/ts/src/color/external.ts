@@ -10,5 +10,6 @@
 export * from "@/color/actions";
 export * from "@/color/actions.gen";
 export * from "@/color/client";
+export * from "@/color/palette";
 export * from "@/color/types.gen";
-export { type WhereInput } from "@/color/where.gen";
+export type { WhereInput } from "@/color/where.gen";

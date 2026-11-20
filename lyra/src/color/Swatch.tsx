@@ -13,7 +13,8 @@ import { color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
-import { Picker } from "@/color/Picker";
+import { findNamed } from "@/color/named";
+import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
@@ -25,7 +26,8 @@ import { Text } from "@/text";
 interface BaseProps
   extends
     Omit<BaseSwatchProps, "value" | "onChange">,
-    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible"> {
+    Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
+    Pick<PickerProps, "library"> {
   /**
    * If true, the swatch holds picker changes and calls `onChange` once, when the picker
    * closes. A change pending when the swatch unmounts is dropped.
@@ -99,6 +101,7 @@ export const Swatch = ({
   status,
   tooltip,
   hideTooltip,
+  library,
   ...rest
 }: SwatchProps): ReactElement => {
   // Only an OptionalValueProps caller sets a fallback, and only then does the picker
@@ -111,17 +114,22 @@ export const Swatch = ({
   });
   const [pending, setPending] = useState<Pending | null>(null);
   const handleVisibleChange: xstate.Setter<boolean> = (arg) => {
-    if (pending != null && !xstate.executeSetter(arg, visible)) {
+    if (pending != null && !xstate.resolve(arg, visible)) {
       onChange?.(pending.value);
       setPending(null);
     }
     setVisible(arg);
   };
   const shownValue = pending != null ? pending.value : value;
+  // A pending change unlinks the value when the picker closes.
+  const named = pending == null ? library?.named : undefined;
+  const linked =
+    library == null || named == null ? undefined : findNamed(library.palettes, named);
   const shownMixed = mixed && pending == null;
   const auto = !custom && !shownMixed && shownValue == null;
   let tooltipText = "Click to change color";
-  if (custom) tooltipText = "Custom: pick any color";
+  if (linked != null) tooltipText = `${linked.name}. Click to change.`;
+  else if (custom) tooltipText = "Custom: pick any color";
   else if (shownMixed)
     tooltipText = "Mixed: the selection has several colors. Click to set one.";
   else if (auto) tooltipText = "Auto: the theme picks the color. Click to change.";
@@ -178,11 +186,23 @@ export const Swatch = ({
       variant="floating"
     >
       {swatch}
-      <Dialog.Dialog>
+      <Dialog.Dialog className={CSS.BE("color-swatch", "dialog")}>
         <Input.ItemBoundary>
           <Picker
             value={shownValue}
             fallback={fallback}
+            library={
+              library == null
+                ? undefined
+                : {
+                    ...library,
+                    named,
+                    onNamedChange: (key) => {
+                      setPending(null);
+                      library.onNamedChange(key);
+                    },
+                  }
+            }
             onChange={(c) =>
               onlyChangeOnBlur ? setPending({ value: c }) : onChange(c)
             }

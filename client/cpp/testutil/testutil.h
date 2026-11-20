@@ -25,13 +25,18 @@ const std::string SYNTHETIC_TASK_TYPE = "opc_scan";
 /// tells apart at the same time. Its configuration has the same shape.
 const std::string ALT_SYNTHETIC_TASK_TYPE = "labjack_scan";
 
-/// @brief returns the config of the Core that tests connect to: SYNNAX_HOST and
-/// SYNNAX_PORT when set, else localhost:9090, in insecure mode.
-/// @throws std::runtime_error if SYNNAX_PORT is not a port number.
+/// @brief returns the config of the Core that tests connect to: SYNNAX_TEST_HOST and
+/// SYNNAX_TEST_PORT when set, else localhost:9090, in insecure mode.
+/// @throws std::runtime_error if SYNNAX_TEST_PORT is not a port number.
 extern synnax::Config test_client_config();
 
 /// @brief instantiates a new client for the Core named by test_client_config.
 extern synnax::Synnax new_test_client();
+
+/// @returns the config of a client for the Core named by test_client_config that signs
+/// in as the rack with key, through a new API key that client creates.
+extern synnax::Config
+rack_client_config(const synnax::Synnax &client, synnax::rack::Key key);
 
 /// @brief creates a new random generator for a test suite, and outputs the seed to
 /// stdout for reproducibility.

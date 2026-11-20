@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access } from "@synnaxlabs/client";
+import type { access } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
@@ -46,7 +46,7 @@ describe("User queries", () => {
   describe("useDelete", () => {
     it("should delete a single user", async () => {
       const testUser = await client.users.create({
-        username: `test-user-${Date.now()}`,
+        username: `test-user-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
@@ -67,13 +67,13 @@ describe("User queries", () => {
 
     it("should delete multiple users", async () => {
       const user1 = await client.users.create({
-        username: `user1-${Date.now()}`,
+        username: `user1-${id.create()}`,
         name: "User One",
         password: "password123",
         role: role.key,
       });
       const user2 = await client.users.create({
-        username: `user2-${Date.now()}`,
+        username: `user2-${id.create()}`,
         name: "User Two",
         password: "password123",
         role: role.key,
@@ -119,7 +119,7 @@ describe("User queries", () => {
       });
       expect(result.current.variant).toEqual("error");
       expect(result.current.status.description).toEqual(
-        `cannot change the role of root user ${root.name}: validation error`,
+        `cannot change the role of root user ${root.name}`,
       );
       expect((await client.users.retrieve(root.key)).role).not.toEqual(role.key);
     });
@@ -128,7 +128,7 @@ describe("User queries", () => {
   describe("useRename", () => {
     it("should change a user's name", async () => {
       const testUser = await client.users.create({
-        username: `original-${Date.now()}`,
+        username: `original-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
@@ -168,7 +168,7 @@ describe("User queries", () => {
   describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
-        username: `retrieve-test-${Date.now()}`,
+        username: `retrieve-test-${id.create()}`,
         name: "Retrieve Test",
         password: "password123",
         role: role.key,
@@ -227,7 +227,7 @@ describe("User queries", () => {
 
     it("should cache retrieved users", async () => {
       const testUser = await client.users.create({
-        username: `cached-user-${Date.now()}`,
+        username: `cached-user-${id.create()}`,
         name: "Cached User",
         password: "password123",
         role: role.key,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "@synnaxlabs/freighter";
+import type { Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
@@ -23,8 +23,8 @@ import {
 import {
   createEmptyRole,
   createTestClient,
-  TEST_CLIENT_PARAMS,
   TEST_CREDENTIALS,
+  testClientParams,
 } from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
@@ -38,12 +38,12 @@ const DUMMY_CTX: Context = {
 
 describe("auth", () => {
   test("valid credentials", async () => {
-    const transport = new Transport(
-      new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+    const transport = new Transport({
+      url: new url.URL({
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
-    );
+    });
     const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
     const mw = client.middleware();
     const res = await mw(DUMMY_CTX, async () => DUMMY_CTX);
@@ -51,12 +51,12 @@ describe("auth", () => {
   });
 
   test("invalid credentials", async () => {
-    const transport = new Transport(
-      new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+    const transport = new Transport({
+      url: new url.URL({
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
-    );
+    });
     const client = new auth.Client(transport.unary, {
       credentials: { username: TEST_CREDENTIALS.username, password: "wrong" },
     });
@@ -70,12 +70,12 @@ describe("auth", () => {
     const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
     ERROR_TYPES.forEach((ErrorType) => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
-        const transport = new Transport(
-          new url.URL({
-            host: TEST_CLIENT_PARAMS.host,
-            port: Number(TEST_CLIENT_PARAMS.port),
+        const transport = new Transport({
+          url: new url.URL({
+            host: testClientParams().host,
+            port: Number(testClientParams().port),
           }),
-        );
+        });
         const onFailure = vi.fn();
         const client = new auth.Client(
           transport.unary,
@@ -103,12 +103,12 @@ describe("auth", () => {
     });
 
     it("should fail and report the failure after MAX_RETRIES", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const onFailure = vi.fn();
       const client = new auth.Client(
         transport.unary,
@@ -126,12 +126,12 @@ describe("auth", () => {
     });
 
     it("should not report a rejected session that new credentials replaced", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const onFailure = vi.fn();
       const client = new auth.Client(
         transport.unary,
@@ -149,28 +149,47 @@ describe("auth", () => {
     });
   });
 
+  describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
+    });
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods(client);
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
+    });
+  });
+
   describe("sessions", () => {
     const makeClient = (
       credentials: auth.Credentials = TEST_CREDENTIALS,
       observer: auth.Observer = {},
     ) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, { credentials }, observer);
       transport.use(client.middleware());
       return client;
     };
     const makeResumed = (token: string, observer: auth.Observer = {}) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, { token }, observer);
       transport.use(client.middleware());
       return client;
@@ -313,12 +332,12 @@ describe("auth", () => {
       await first.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       const token = first.token;
       expect(token).toBeDefined();
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let succeeded = false;
       let username: string | undefined;
       const resumed = new auth.Client(
@@ -340,12 +359,12 @@ describe("auth", () => {
     });
 
     it("should report a dead token as a credential failure", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let failure: Error | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -361,7 +380,9 @@ describe("auth", () => {
     });
 
     it("should keep a saved token when the Core cannot be reached", async () => {
-      const transport = new Transport(new url.URL({ host: "localhost", port: 1 }));
+      const transport = new Transport({
+        url: new url.URL({ host: "localhost", port: 1 }),
+      });
       let failure: Error | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -387,12 +408,12 @@ describe("auth", () => {
     });
 
     it("should report a cookie resume with no cookie as missing credentials", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, { cookie: true });
       await expect(
         client.middleware()(DUMMY_CTX, async () => DUMMY_CTX),
@@ -403,13 +424,13 @@ describe("auth", () => {
       const owner = makeClient();
       await login(owner);
       let cookie: string | undefined =
-        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+        `synnax-session-${testClientParams().port}=${owner.token}`;
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       transport.use(async (ctx, next) => {
         if (cookie != null) ctx.params.Cookie = cookie;
         return await next(ctx);
@@ -432,14 +453,14 @@ describe("auth", () => {
       const owner = makeClient();
       await login(owner);
       let cookie: string | undefined =
-        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
+        `synnax-session-${testClientParams().port}=${owner.token}`;
       let logins = 0;
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       transport.use(async (ctx, next) => {
         if (ctx.target.endsWith("/auth/session/create")) logins++;
         if (cookie != null) ctx.params.Cookie = cookie;
@@ -543,12 +564,12 @@ describe("auth", () => {
     });
 
     it("should end a session whose login is still in flight when released", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       let key: string | undefined;
       const client = new auth.Client(
         transport.unary,
@@ -567,12 +588,12 @@ describe("auth", () => {
     });
 
     it("should leave a persistent session open when released", async () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, {
         credentials: TEST_CREDENTIALS,
         persistent: true,
@@ -635,12 +656,12 @@ describe("auth", () => {
 
   describe("setPassword", () => {
     const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, authority, observer);
       transport.use(client.middleware());
       return client;
@@ -732,12 +753,12 @@ describe("auth", () => {
 
   describe("API keys", () => {
     const makeClient = (authority: auth.Authority) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
-      );
+      });
       const client = new auth.Client(transport.unary, authority);
       transport.use(client.middleware());
       return client;

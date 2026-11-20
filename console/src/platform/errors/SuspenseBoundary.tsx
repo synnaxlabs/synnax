@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Errors } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import type { PropsWithChildren, ReactElement, ReactNode } from "react";
 
-import { useFallback } from "@/platform/errors/ErrorDiagnostics";
+import { useFallback } from "@/platform/errors/Diagnostics";
 
 export interface SuspenseBoundaryProps extends PropsWithChildren {
   /** When provided, crash diagnostics include the crashed panel's name and key. */
@@ -19,7 +19,7 @@ export interface SuspenseBoundaryProps extends PropsWithChildren {
   loading?: ReactNode;
 }
 
-/** Boundary + React Suspense in one component. On a crash it renders ErrorDiagnostics
+/** Boundary + React Suspense in one component. On a crash it renders Diagnostics
  * annotated with the connected Core and, when panelKey is given, the panel details. */
 export const SuspenseBoundary = ({
   panelKey,

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color, type xy } from "@synnaxlabs/x";
+import { box, color, TimeSpan, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { type ProviderOptions } from "@/testutil/providers";
+import type { ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
@@ -101,7 +101,7 @@ describe("value/aether/Value", () => {
     it("should apply defaults for unspecified fields", () => {
       const parsed = value.Value.z.parse({ box: BOX });
       expect(parsed.precision).toBe(2);
-      expect(parsed.stalenessTimeout).toBe(5);
+      expect(parsed.stalenessTimeout).toBe(TimeSpan.seconds(5).nanoseconds);
       expect(parsed.minWidth).toBe(60);
       expect(parsed.notation).toBe("standard");
       expect(parsed.level).toBe("p");
@@ -361,15 +361,25 @@ describe("value/aether/Value", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the value, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(value.Value.z.parse({ box: box.ZERO })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("1");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("2");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
       const stale = color.construct("#ff0000");
       const { component, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       vi.advanceTimersByTime(10000);
       recorder.clear();
@@ -380,7 +390,10 @@ describe("value/aether/Value", () => {
     it("should use the staleness color once the source goes quiet", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("1");
       vi.advanceTimersByTime(1250);
@@ -389,9 +402,26 @@ describe("value/aether/Value", () => {
       expect(fillStyles(recorder)).toContain(color.hex(stale));
     });
 
+    it("should keep its own color while the stale color is hidden", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("1");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
+    });
+
     it("should fall back to the warning color when no staleness color is set", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1 },
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       source.setValue("1");
       vi.advanceTimersByTime(1250);
@@ -403,7 +433,10 @@ describe("value/aether/Value", () => {
     it("should repaint itself when the source goes quiet", () => {
       const stale = color.construct("#ff0000");
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("1");
       recorder.clear();
@@ -417,7 +450,10 @@ describe("value/aether/Value", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
         value: "1",
-        state: { stalenessTimeout: 5, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       for (let i = 0; i < 5; i++) {
         vi.advanceTimersByTime(1000);
@@ -431,7 +467,10 @@ describe("value/aether/Value", () => {
     it("should clear the staleness color when the source sends again", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: stale },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: stale,
+        },
       });
       source.setValue("1");
       vi.advanceTimersByTime(1250);

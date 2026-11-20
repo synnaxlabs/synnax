@@ -12,7 +12,6 @@
 
 pub mod commands;
 mod diagnostics;
-pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
@@ -43,6 +42,11 @@ const STDERR_FILE: &str = "core-stderr.log";
 /// The exit code of a Core whose data directory another process holds, `DataLocked` in
 /// the Core's `cmd/exit` package.
 const LOCKED_CODE: i32 = 75;
+
+/// The exit codes of a Core that fails the same way on every start, `DataRefused`,
+/// `Unavailable`, and `Config` in the Core's `cmd/exit` package. Such a Core is not
+/// restarted.
+const FINAL_CODES: [i32; 3] = [65, 69, 78];
 
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
@@ -393,6 +397,12 @@ impl Task {
                         self.give_up(Reason::Locked, message);
                     }
                 }
+                Outcome::Exited {
+                    reason,
+                    message,
+                    code: Some(code),
+                    ..
+                } if FINAL_CODES.contains(&code) => self.give_up(reason, message),
                 Outcome::Exited {
                     uptime,
                     reason,
@@ -774,7 +784,6 @@ impl Drop for Prober {
 mod tests {
     use super::*;
     use std::future::Future;
-    use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -843,6 +852,13 @@ echo "grpc: an earlier log line" >&2
 kill -9 $$
 "#;
 
+    /// A stand-in Core whose embedded Driver cannot load, `Unavailable` in the Core's
+    /// `cmd/exit` package.
+    const UNAVAILABLE: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+exit 69
+"#;
+
     /// A stand-in Core that finds its data directory locked on its first three starts.
     /// Then it creates `ready` and behaves as `OBEDIENT`.
     const LOCKED_THRICE: &str = r#"#!/bin/sh
@@ -877,8 +893,16 @@ while true; do sleep 1; done
         fn new(script: &str, probe: probe::Probe) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let program = dir.path().join("core");
-            std::fs::write(&program, script).unwrap();
-            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+            // On Linux, a fork on another test thread can inherit a write fd on the
+            // script until it execs, and then running the script fails with ETXTBSY. A
+            // child writes it, so this process never holds that fd.
+            let written = std::process::Command::new("/bin/sh")
+                .args(["-c", r#"printf '%s' "$1" > "$0" && chmod 755 "$0""#])
+                .arg(&program)
+                .arg(script)
+                .status()
+                .unwrap();
+            assert!(written.success());
             let cfg = Config {
                 start_timeout: Duration::from_secs(5),
                 stop_timeout: Duration::from_millis(300),
@@ -1071,6 +1095,26 @@ while true; do sleep 1; done
     }
 
     #[tokio::test]
+    async fn does_not_restart_a_core_that_cannot_start() {
+        let f = Fixture::new(UNAVAILABLE, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert!(matches!(
+            status,
+            Status::Failed {
+                reason: Reason::Crashed,
+                ..
+            }
+        ));
+        assert_eq!(f.runs(), 1);
+        assert_eq!(sup.history().last_exit.unwrap().exit_code, Some(69));
+        sup.restart().await;
+        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert_eq!(f.runs(), 2);
+    }
+
+    #[tokio::test]
     async fn gives_up_on_a_crash_loop_and_starts_again_on_request() {
         let f = Fixture::new(CRASHING, always(false));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
@@ -1098,10 +1142,16 @@ while true; do sleep 1; done
         assert_eq!(first.starts, 0);
         assert_eq!(first.failures, 1);
         assert_eq!(first.last_exit.unwrap().reason, Reason::FailedToStart);
+        // Starting can pass before a status read, so wait on the count instead.
+        let mut history = sup.history.clone();
         sup.restart().await;
-        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
-        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        assert_eq!(sup.history().failures, 2);
+        tokio::time::timeout(
+            Duration::from_secs(10),
+            history.wait_for(|h| h.failures == 2),
+        )
+        .await
+        .expect("timed out waiting for the second failure")
+        .unwrap();
     }
 
     #[tokio::test]
@@ -1300,7 +1350,7 @@ while true; do sleep 1; done
     async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
         let calls = Arc::new(AtomicUsize::new(0));
         let probe: probe::Probe = Arc::new(move |_| {
-            let ok = calls.fetch_add(1, Ordering::SeqCst) % 4 == 0;
+            let ok = calls.fetch_add(1, Ordering::SeqCst).is_multiple_of(4);
             Box::pin(async move { ok })
         });
         let mut f = Fixture::new(STUBBORN, probe);

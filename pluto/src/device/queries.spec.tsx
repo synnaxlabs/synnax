@@ -16,13 +16,13 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { caseconv, id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
 import { Errors } from "@/errors";
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -907,7 +907,7 @@ describe("queries", () => {
         });
         await act(async () => expect(await result.current.saveAsync()).toBe(false));
         expect(result.current.status.description).toEqual(
-          `rack: rack ${removed.key} does not exist: validation error`,
+          `rack: rack ${removed.key} does not exist`,
         );
         act(() => result.current.form.set(path.rack, rack.key));
         await act(async () => expect(await result.current.saveAsync()).toBe(true));

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
-import { dynamicWindow, staticWindow, TimeRange, type Window } from "@synnaxlabs/x";
+import { dynamicWindow, staticWindow, type Window } from "@synnaxlabs/x";
 
-import { useGetState } from "@/session/range/selectors";
-import { RECENT_KEY, type State } from "@/session/range/slice";
+import { BUILT_IN, type State } from "@/session/range/slice";
 
 /** @returns the reference a visualization stores to show the session range. */
 export const toRef = (state: State): ranger.Ref => {
@@ -21,13 +20,11 @@ export const toRef = (state: State): ranger.Ref => {
       return { variant: "key", key: state.key };
     case "dynamic":
       return { variant: "window", window: dynamicWindow(state.span) };
-    case "static":
-      return {
-        variant: "window",
-        window: staticWindow(new TimeRange(state.timeRange)),
-      };
   }
 };
+
+/** The reference that new plots and channels show: the shortest rolling window. */
+export const RECENT_REF: ranger.Ref = toRef(BUILT_IN[0]);
 
 const windowsEqual = (a: Window, b: Window): boolean => {
   if (a.variant === "dynamic")
@@ -51,16 +48,6 @@ export const refsEqual = (a: ranger.Ref, b: ranger.Ref): boolean => {
  */
 export const findKey = (ref: ranger.Ref, states: State[]): string | undefined =>
   states.find((s) => refsEqual(toRef(s), ref))?.key;
-
-/** @returns a getter for the reference to the selected range, or to the recent one. */
-export const useGetSelectedRef = (): (() => ranger.Ref) => {
-  const getState = useGetState();
-  return () => {
-    const state = getState() ?? getState(RECENT_KEY);
-    if (state == null) throw new Error("the recent range is missing from the session");
-    return toRef(state);
-  };
-};
 
 /**
  * @returns the window each reference shows, in order. A key reference resolves to the

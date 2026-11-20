@@ -11,11 +11,12 @@ import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
 import {
   createBaseProps,
@@ -23,7 +24,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 

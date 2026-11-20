@@ -18,6 +18,7 @@
 #include <variant>
 #include <vector>
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -35,6 +36,7 @@
 
 namespace synnax::arc {
 
+struct Calculation;
 struct Where;
 struct Cursor;
 struct Change;
@@ -58,6 +60,24 @@ constexpr const char *MODE_GRAPH = "graph";
 using Key = x::uuid::UUID;
 
 using Status = ::synnax::status::Status<std::monostate>;
+
+/// @brief Calculation is a calculated channel that an automation reads, compiled to a
+/// module.
+struct Calculation {
+    /// @brief channel is the key of the calculated channel.
+    ::synnax::channel::Key channel = 0;
+    /// @brief program is the compiled module that computes the channel.
+    ::arc::program::Program program;
+
+    static Calculation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Calculation;
+    [[nodiscard]] std::pair<::service::arc::pb::Calculation, x::errors::Error>
+    to_proto() const;
+    static std::pair<Calculation, x::errors::Error>
+    from_proto(const ::service::arc::pb::Calculation &pb);
+};
 
 /// @brief Where is a filter that selects Arcs.
 struct Where {
@@ -293,7 +313,10 @@ struct AutomationArc : public Base {
     /// bytecode.
     std::optional<::arc::program::Program> program;
     /// @brief changes is what changed in the automation since its task was deployed.
-    std::optional<std::vector<Change>> changes;
+    std::vector<Change> changes;
+    /// @brief calculations are the calculated channels that the program reads, nested
+    /// ones included. Dependencies come before the channels that read them.
+    std::vector<Calculation> calculations;
 
     static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

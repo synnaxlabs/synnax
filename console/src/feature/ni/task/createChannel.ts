@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import { type Device } from "@/feature/ni/device/types";
+import type { Device } from "@/feature/ni/device/types";
 import {
   ANALOG_INPUT,
   ANALOG_OUTPUT,
@@ -39,7 +39,7 @@ import { Task } from "@/platform/task";
 
 /** Where a new channel goes. Each field it leaves out takes a default. */
 export interface Placement {
-  /** The channel to copy. Defaults to the first channel. */
+  /** The channel to copy. Defaults to the last channel. */
   copy?: string;
   /** Defaults to the copied channel's device. */
   device?: string;
@@ -47,14 +47,8 @@ export interface Placement {
   port?: number;
 }
 
-const template = <C extends { key: string }>(
-  channels: C[],
-  zero: C,
-  copy?: string,
-): C => {
-  if (copy == null) return deep.copy(channels[0] ?? zero);
-  return deep.copy(channels.find(({ key }) => key === copy) ?? zero);
-};
+const template = <C extends Task.Channel>(channels: C[], zero: C, copy?: string): C =>
+  deep.copy(Task.channelToCopy(channels, copy) ?? zero);
 
 const hardwareOf = (devices: Device[], key: string): ni.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
@@ -136,6 +130,8 @@ export const createNextCIChannel = (
 export interface LinePlacement {
   port?: number;
   line?: number;
+  /** The channel whose port to fill without port data. Defaults to the last channel. */
+  copy?: string;
 }
 
 const createDigitalChannel = <C extends DigitalChannel>(
@@ -156,7 +152,8 @@ const createDigitalChannel = <C extends DigitalChannel>(
     for (let line = 0; line < lines; line++)
       if (!taken.has(lineName(port, line))) return { ...next, port, line };
   }
-  const port = placement.port ?? channels.at(-1)?.port ?? next.port;
+  const source = Task.channelToCopy(channels, placement.copy);
+  const port = placement.port ?? source?.port ?? next.port;
   let line = 0;
   while (taken.has(lineName(port, line))) line++;
   return { ...next, port, line };
@@ -164,7 +161,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
 
 /**
  * Creates a digital input channel on the lowest free line of the device. Without port
- * data, it takes the lowest free line of the last channel's port.
+ * data, it takes the lowest free line of the copied channel's port.
  */
 export const createNextDIChannel = (
   channels: DIChannel[],

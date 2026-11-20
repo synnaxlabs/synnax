@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Triggers } from "@/triggers";
@@ -111,11 +111,9 @@ describe("Text", () => {
       expect(windows.container.textContent).toBe("Backspace");
     });
 
-    it("should print the keys of the platform the page runs on by default", async () => {
-      vi.resetModules();
+    it("should print the keys of the platform the page runs on by default", () => {
       vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Macintosh");
-      const reloaded = await import("@/triggers");
-      const { container } = render(<reloaded.Triggers.Text trigger={MIXED} />);
+      const { container } = render(<Triggers.Text trigger={MIXED} />);
       expect(capsOf(container)).toEqual(["option", "shift", "command", "K", "click"]);
     });
   });

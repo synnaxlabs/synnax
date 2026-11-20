@@ -466,6 +466,9 @@ func numericSuffix(t types.Type) (string, error) {
 		types.KindFloatConstant, types.KindNumericConstant,
 		types.KindExactIntegerFloatConstant:
 		return "f64", nil
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
 	return "", errors.Newf("cannot convert %s to str", t)
 }

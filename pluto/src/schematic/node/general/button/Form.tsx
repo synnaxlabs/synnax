@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { SIZE_LEVELS } from "@/schematic/node/common/size";
-import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
+import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
 import { Properties } from "@/vis/properties";
 
@@ -33,7 +32,7 @@ const ButtonTelemForm = (): ReactElement => {
   const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v ?? undefined,
+      commandChannel: v ?? 0,
     });
 
   return (
@@ -42,7 +41,7 @@ const ButtonTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.commandChannel ?? 0}
+            value={value.commandChannel}
             onChange={handleSinkChange}
           />
         </Input.Item>
@@ -71,9 +70,7 @@ export const ButtonForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
-          <Form.SizeField
-            onChange={(size, { set }) => set(path.level, SIZE_LEVELS[size])}
-          />
+          <Form.SizeField />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

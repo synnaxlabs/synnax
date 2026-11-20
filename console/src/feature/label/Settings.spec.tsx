@@ -14,6 +14,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -22,7 +23,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Label } from "@/feature/label";
@@ -34,7 +35,6 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   openContextMenu,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -167,8 +167,9 @@ describe("Label.Settings", () => {
     await openContextMenu(a.name);
     expect(screen.queryByText("Rename")).toBeNull();
     await clickAndSettle("Delete");
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect.poll(async () => await deleted(a.key)).toBe(true);
     await expect.poll(async () => await deleted(b.key)).toBe(true);

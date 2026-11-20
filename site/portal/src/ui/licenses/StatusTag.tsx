@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/lyra/status";
+import { Status as LyraStatus } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type LicenseStatus, STATUS_LABELS } from "@/ui/format";
+import type { Status } from "@/server/license/status";
+import { STATUS_LABELS } from "@/ui/format";
 
-const VARIANTS: Record<LicenseStatus, "success" | "warning" | "error"> = {
+const VARIANTS: Record<Status, "success" | "warning" | "error"> = {
   active: "success",
   expiring: "warning",
   expired: "error",
   revoked: "error",
 };
 
-export const StatusTag = ({ status }: { status: LicenseStatus }): ReactElement => (
-  <Tag.Tag icon={<Status.Indicator variant={VARIANTS[status]} />} size="small">
+export const StatusTag = ({ status }: { status: Status }): ReactElement => (
+  <Tag.Tag icon={<LyraStatus.Indicator variant={VARIANTS[status]} />} size="small">
     {STATUS_LABELS[status]}
   </Tag.Tag>
 );

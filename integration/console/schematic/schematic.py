@@ -19,12 +19,6 @@ from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Properties,
     Symbol,
-    box_bottom,
-    box_center_x,
-    box_center_y,
-    box_left,
-    box_right,
-    box_top,
 )
 from x.control import Authority
 from x.spatial import AngularDirection, OuterLocation
@@ -42,15 +36,6 @@ AlignmentType = Literal[
     "top",
     "bottom",
 ]
-
-_ALIGNMENT_EXTRACTORS = {
-    "left": box_left,
-    "right": box_right,
-    "top": box_top,
-    "bottom": box_bottom,
-    "horizontal": box_center_x,
-    "vertical": box_center_y,
-}
 
 DistributionType = Literal[
     "horizontal",
@@ -458,10 +443,15 @@ class Schematic(ConsolePage):
             sy.sleep(0.1)  # Wait for Core update
 
     def fit_view(self) -> None:
-        """Fit the schematic view to its contents."""
+        """Fit the schematic view to its contents. The button also toggles fit view on
+        resize, so a second click restores that setting."""
         fit = self.page.get_by_role("button", name="Fit view to contents", exact=True)
-        if fit.count() > 0:
-            fit.click()
+        pressed = fit.get_attribute("aria-pressed")
+        flipped = "false" if pressed == "true" else "true"
+        fit.click()
+        expect(fit).to_have_attribute("aria-pressed", flipped)
+        fit.click()
+        expect(fit).to_have_attribute("aria-pressed", pressed or "false")
 
     def get_edit_status(self) -> bool:
         """Get whether edit is currently enabled for this schematic."""

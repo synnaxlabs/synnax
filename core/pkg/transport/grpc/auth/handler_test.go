@@ -71,6 +71,12 @@ type (
 		auth.KeyRetrieveResponse,
 		*grpcauth.KeyRetrieveResponse,
 	]
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*grpcauth.MethodsResponse,
+	]
 	keyDeleteServer = grpc.UnaryServer[
 		auth.KeyDeleteRequest,
 		*grpcauth.KeyDeleteRequest,
@@ -122,44 +128,62 @@ var (
 )
 
 var _ = Describe("Auth", func() {
-	var (
-		transport   api.Transport
-		bindable    = grpcauth.New(&transport).(grpc.CompoundBindableTransport)
-		login       = transport.AuthLogin.(*loginServer)
-		create      = transport.AuthSessionCreate.(*sessionCreateServer)
-		renew       = transport.AuthSessionRenew.(*sessionRenewServer)
-		retrieve    = transport.AuthSessionRetrieve.(*sessionRetrieveServer)
-		del         = transport.AuthSessionDelete.(*sessionDeleteServer)
-		keyCreate   = transport.AuthKeyCreate.(*keyCreateServer)
-		keyRetrieve = transport.AuthKeyRetrieve.(*keyRetrieveServer)
-		keyDelete   = transport.AuthKeyDelete.(*keyDeleteServer)
-	)
+	var transport api.Transport
+	bindable, ok := grpcauth.New(
+		&transport,
+		api.NewErrorCodec(),
+	).(grpc.CompoundBindableTransport)
+	Expect(ok).To(BeTrue())
+	login, ok := transport.AuthLogin.(*loginServer)
+	Expect(ok).To(BeTrue())
+	methods, ok := transport.AuthMethods.(*methodsServer)
+	Expect(ok).To(BeTrue())
+	create, ok := transport.AuthSessionCreate.(*sessionCreateServer)
+	Expect(ok).To(BeTrue())
+	renew, ok := transport.AuthSessionRenew.(*sessionRenewServer)
+	Expect(ok).To(BeTrue())
+	retrieve, ok := transport.AuthSessionRetrieve.(*sessionRetrieveServer)
+	Expect(ok).To(BeTrue())
+	del, ok := transport.AuthSessionDelete.(*sessionDeleteServer)
+	Expect(ok).To(BeTrue())
+	keyCreate, ok := transport.AuthKeyCreate.(*keyCreateServer)
+	Expect(ok).To(BeTrue())
+	keyRetrieve, ok := transport.AuthKeyRetrieve.(*keyRetrieveServer)
+	Expect(ok).To(BeTrue())
+	keyDelete, ok := transport.AuthKeyDelete.(*keyDeleteServer)
+	Expect(ok).To(BeTrue())
 
 	Describe("New", func() {
 		It("Should bind every auth server onto the API transport", func() {
-			Expect(bindable).To(HaveLen(8))
-			Expect(transport.AuthLogin).To(BeIdenticalTo(bindable[0].(*loginServer)))
-			Expect(
-				transport.AuthSessionCreate,
-			).To(BeIdenticalTo(bindable[1].(*sessionCreateServer)))
-			Expect(
-				transport.AuthSessionRenew,
-			).To(BeIdenticalTo(bindable[2].(*sessionRenewServer)))
-			Expect(
-				transport.AuthSessionRetrieve,
-			).To(BeIdenticalTo(bindable[3].(*sessionRetrieveServer)))
-			Expect(
-				transport.AuthSessionDelete,
-			).To(BeIdenticalTo(bindable[4].(*sessionDeleteServer)))
-			Expect(
-				transport.AuthKeyCreate,
-			).To(BeIdenticalTo(bindable[5].(*keyCreateServer)))
-			Expect(
-				transport.AuthKeyRetrieve,
-			).To(BeIdenticalTo(bindable[6].(*keyRetrieveServer)))
-			Expect(
-				transport.AuthKeyDelete,
-			).To(BeIdenticalTo(bindable[7].(*keyDeleteServer)))
+			Expect(bindable).To(HaveExactElements(
+				BeIdenticalTo(login),
+				BeIdenticalTo(create),
+				BeIdenticalTo(renew),
+				BeIdenticalTo(retrieve),
+				BeIdenticalTo(del),
+				BeIdenticalTo(keyCreate),
+				BeIdenticalTo(keyRetrieve),
+				BeIdenticalTo(keyDelete),
+				BeIdenticalTo(methods),
+			))
+		})
+	})
+
+	Describe("MethodsResponse", func() {
+		It("Should translate the methods", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{Methods: []svcauth.Method{
+					svcauth.MethodAPIKey,
+					svcauth.MethodPassword,
+				}},
+			)).Methods).To(Equal([]string{"api_key", "password"}))
+		})
+		It("Should translate an empty method list", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{Methods: []svcauth.Method{}},
+			)).Methods).To(BeEmpty())
 		})
 	})
 

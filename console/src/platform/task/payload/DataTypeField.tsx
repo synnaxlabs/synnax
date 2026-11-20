@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { DataType, type deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { isMissing } from "@/platform/task/ChannelState";
 
@@ -31,6 +31,8 @@ export interface DataTypeFieldProps extends Pick<
   path: deep.Target<string>;
   /** The channel that sets the data type, or 0 before deploying creates one. */
   channel: channel.Key;
+  /** The data type that an empty value stands for. */
+  defaultDataType?: string;
 }
 
 /**
@@ -39,32 +41,38 @@ export interface DataTypeFieldProps extends Pick<
  */
 export const DataTypeField = ({
   channel,
-  ...rest
-}: DataTypeFieldProps): ReactElement =>
-  channel === 0 ? <Unbound {...rest} /> : <Bound {...rest} channel={channel} />;
-
-const Unbound = ({
   path,
+  defaultDataType = "",
+  ...rest
+}: DataTypeFieldProps): ReactElement => {
+  const unbound = (
+    <Form.Field path={path} label="Data type" padHelpText={false}>
+      {({ value, ...p }) => (
+        <Select {...p} {...rest} value={value === "" ? defaultDataType : value} />
+      )}
+    </Form.Field>
+  );
+  return channel === 0 ? unbound : <Bound channel={channel} unbound={unbound} />;
+};
+
+const Select = ({
   hideDataTypes = HIDDEN_DATA_TYPES,
-  hideVariableDensity,
-}: Omit<DataTypeFieldProps, "channel">): ReactElement => (
-  <Form.Field path={path} label="Data type" padHelpText={false}>
-    {(p) => (
-      <Telem.SelectDataType
-        {...p}
-        hideDataTypes={hideDataTypes}
-        hideVariableDensity={hideVariableDensity}
-        location="bottom"
-      />
-    )}
-  </Form.Field>
+  ...rest
+}: Telem.SelectDataTypeProps): ReactElement => (
+  <Telem.SelectDataType {...rest} hideDataTypes={hideDataTypes} location="bottom" />
 );
 
 const NO_HIDDEN_DATA_TYPES: DataType[] = [];
 
-const Bound = ({ channel, ...rest }: DataTypeFieldProps): ReactElement => {
+interface BoundProps {
+  channel: channel.Key;
+  /** Renders once the channel no longer exists. */
+  unbound: ReactElement;
+}
+
+const Bound = ({ channel, unbound }: BoundProps): ReactElement => {
   const result = Channel.useResultDataType({ key: channel });
-  if (isMissing(result)) return <Unbound {...rest} />;
+  if (isMissing(result)) return unbound;
   return (
     <Input.Item label="Data type" padHelpText={false} helpText="Set on the channel">
       <Telem.SelectDataType

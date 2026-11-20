@@ -35,7 +35,7 @@ export default defineConfig({
         "@reduxjs/toolkit",
         "@tauri-apps/api",
         "@synnaxlabs/x",
-        "zod",
+        /^zod(\/|$)/,
       ],
       output: {
         globals: { react: "react", "react-dom": "ReactDOM" },

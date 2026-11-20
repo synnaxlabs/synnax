@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/exit"
@@ -159,7 +160,7 @@ func install(autoStart bool) error {
 // returns the ID of its group.
 func createUser() (int, error) {
 	u, err := user.Lookup(name)
-	if errors.As(err, new(user.UnknownUserError)) {
+	if _, unknown := errors.AsType[user.UnknownUserError](err); unknown {
 		if out, err := exec.Command(
 			"useradd",
 			"--system",
@@ -246,7 +247,7 @@ func Lookup() (Installation, bool, error) {
 func systemdOffline() (bool, error) {
 	out, err := exec.Command("systemctl", "is-system-running").Output()
 	// The command exits with an error in every state but running.
-	if err != nil && !errors.As(err, new(*exec.ExitError)) {
+	if _, exited := errors.AsType[*exec.ExitError](err); err != nil && !exited {
 		return false, err
 	}
 	return strings.TrimSpace(string(out)) == "offline", nil
@@ -333,7 +334,9 @@ func unescape(s string) (string, string, error) {
 // the working directory workDir.
 func dataDir(args []string, workDir string) (string, error) {
 	cmd := &cobra.Command{
-		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlagsHandling: pflag.IgnoreUnknownFlag,
+		},
 	}
 	cmdstart.AddDataFlag(cmd)
 	config := cmd.Flags().String("config", "", "")

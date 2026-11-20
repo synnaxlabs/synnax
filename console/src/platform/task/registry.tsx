@@ -8,12 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type Icon } from "@synnaxlabs/lyra/icon";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { PropsWithChildren, ReactElement } from "react";
+
+import type { PlotChannels } from "@/platform/task/plot";
 
 export interface Registry {
   getIcon: (type: string) => Icon.ReactElement;
   parseType: (type: string) => string;
+  /** Returns undefined for a task type that has no channels to plot. */
+  getPlotChannels: (type: string) => PlotChannels | undefined;
 }
 
 const [Context, useContext] = context.create<Registry>({

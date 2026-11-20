@@ -12,6 +12,7 @@
 import numpy as np
 
 import synnax as sy
+from framework.utils import hold
 from tests.driver.ni_task import (
     NIAnalogReadTaskCase,
     NICounterReadTaskCase,
@@ -222,7 +223,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
             # Capture pre-tare averages
             pre_start = sy.TimeStamp.now()
-            sy.sleep(0.5)  # noqa: TID251 fixed sample window
+            hold(0.5, reason="fixed sample window")
             pre_end = sy.TimeStamp.now()
             pre_tr = sy.TimeRange(pre_start, pre_end)
 
@@ -260,7 +261,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
             # Capture post-tare values
             post_start = sy.TimeStamp.now()
-            sy.sleep(0.5)  # noqa: TID251 fixed sample window
+            hold(0.5, reason="fixed sample window")
             post_end = sy.TimeStamp.now()
 
         post_tr = sy.TimeRange(post_start, post_end)

@@ -9,8 +9,8 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type color, text } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, type Ref } from "react";
+import type { color, text } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode, Ref } from "react";
 
 import { CSS } from "@/css";
 
@@ -20,9 +20,17 @@ const HEIGHT_RATIO = 0.72;
 export const readoutHeight = (size: Component.Size): number =>
   Math.round(Component.HEIGHTS[size] * HEIGHT_RATIO);
 
-/** @returns the text level of a readout under a field of the given size. */
-export const readoutLevel = (size: Component.Size): text.Level =>
-  text.downLevel(Component.SIZE_TEXT_LEVELS[size]);
+/**
+ * The text level of a readout under a field of each size: the largest level whose line
+ * height fits the readout.
+ */
+export const READOUT_LEVELS: Record<Component.Size, text.Level> = {
+  tiny: "tiny",
+  small: "small",
+  medium: "p",
+  large: "h4",
+  huge: "h3",
+};
 
 export interface ReadoutProps {
   size: Component.Size;
@@ -44,7 +52,7 @@ export const Readout = ({
   color,
   valueRef,
 }: ReadoutProps): ReactElement => {
-  const level = readoutLevel(size);
+  const level = READOUT_LEVELS[size];
   return (
     <div
       className={CSS.BE("symbol-field", "readout")}

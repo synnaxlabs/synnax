@@ -9,7 +9,7 @@
 
 import "@/schematic/node/common/form/StateMapping.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,8 +17,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { color, type deep, id } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { array, color, type deep, id } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 
@@ -99,8 +99,8 @@ export const StateMappingForm = ({
   const options = Form.useFieldValue(path);
 
   const handleAddOption = (): void => {
-    const nextValue =
-      options.length === 0 ? 0 : Math.max(...options.map((o) => o.value)) + 1;
+    const max = array.maxBy(options, (o) => o.value);
+    const nextValue = max == null ? 0 : max.value + 1;
     push({ key: id.create(), name: "", value: nextValue });
   };
 

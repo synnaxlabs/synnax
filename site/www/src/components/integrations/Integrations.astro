@@ -23,7 +23,8 @@ import Modbus from "@synnaxlabs/site-common/integrations/Modbus.astro";
 import OPCUA from "@synnaxlabs/site-common/integrations/OPCUA.astro";
 import SectionHero from "@/components/common/SectionHero.astro";
 import FeatureSection from "@/components/common/FeatureSection.astro";
-import CdnPicture from "@/components/common/CdnPicture.astro";
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { cdn } from "@/cdn";
 ---
 
 <!-- Dither SVG filter definition -->
@@ -237,7 +238,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
                     style="--img-br: 3.5rem 1rem 1rem 1rem; --img-w: 170%;"
                 >
                     <CdnPicture
-                        path="images/workflow-attach-device.png"
+                        src={cdn("images/workflow-attach-device.png")}
                         sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Attach device"
                     />
@@ -248,7 +249,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
                     style="--img-br: 1.5rem 1rem 1rem 1rem;"
                 >
                     <CdnPicture
-                        path="images/workflow-configure.png"
+                        src={cdn("images/workflow-configure.png")}
                         sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Configure instrumentation"
                     />
@@ -259,7 +260,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
                     style="--img-br: 2rem 1rem 1rem 1rem; --img-w: 120%;"
                 >
                     <CdnPicture
-                        path="images/workflow-acquire.png"
+                        src={cdn("images/workflow-acquire.png")}
                         sizes="(max-width: 900px) 95vw, 1100px"
                         alt="Acquire data and control"
                     />

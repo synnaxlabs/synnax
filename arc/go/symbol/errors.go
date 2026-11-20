@@ -34,7 +34,7 @@ type notExportedError struct {
 
 // Error implements the error interface.
 func (e *notExportedError) Error() string {
-	return fmt.Sprintf("'%s' is not exported by module %q", e.Name, e.Module)
+	return fmt.Sprintf("not exported: '%s' in module %q", e.Name, e.Module)
 }
 
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily
@@ -49,12 +49,12 @@ type UndefinedSymbolError struct {
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
-	return fmt.Sprintf("undefined symbol: %s", e.Name)
+	return "undefined symbol: " + e.Name
 }
 
 func isUndefined(err error) bool {
-	var undefined *UndefinedSymbolError
-	return errors.Is(err, query.ErrNotFound) || errors.As(err, &undefined)
+	_, undefined := errors.AsType[*UndefinedSymbolError](err)
+	return undefined || errors.Is(err, query.ErrNotFound)
 }
 
 // GetHint implements the hint interface of diagnostics. It looks for two kinds of

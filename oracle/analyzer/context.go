@@ -41,8 +41,7 @@ func NewStandardFileLoader(repoRoot string) FileLoader {
 // Load loads a schema file by its repo-relative import path.
 func (l standardFileLoader) Load(importPath string) (string, string, error) {
 	importPath = paths.EnsureOracleExtension(importPath)
-	fullPath := paths.Resolve(importPath, l.repoRoot)
-	content, err := os.ReadFile(fullPath)
+	content, err := paths.ReadFile(importPath, l.repoRoot)
 	if err != nil {
 		return "", "", err
 	}

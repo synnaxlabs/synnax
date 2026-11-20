@@ -72,12 +72,9 @@ Acquisition::Acquisition(
     writer_config(std::move(writer_config)),
     err_on_unauthorized(err_on_unauthorized) {}
 
-namespace {
-/// @brief sets the authorities a writer opens with to those it holds after
-/// authorities is applied.
-void apply(synnax::framer::WriterConfig &config, const Authorities &authorities) {
-    if (authorities.keys.empty()) {
-        config.authorities = authorities.authorities;
+void Authorities::apply(synnax::framer::WriterConfig &config) const {
+    if (this->keys.empty()) {
+        config.authorities = this->authorities;
         return;
     }
     if (config.authorities.size() != config.channels.size()) {
@@ -85,14 +82,13 @@ void apply(synnax::framer::WriterConfig &config, const Authorities &authorities)
                                                     : config.authorities[0];
         config.authorities.assign(config.channels.size(), all);
     }
-    for (size_t i = 0; i < authorities.keys.size(); i++) {
-        const auto it = std::ranges::find(config.channels, authorities.keys[i]);
+    for (size_t i = 0; i < this->keys.size(); i++) {
+        const auto it = std::ranges::find(config.channels, this->keys[i]);
         if (it == config.channels.end()) continue;
         const auto at = it - config.channels.begin();
-        const auto j = authorities.authorities.size() == 1 ? 0 : i;
-        config.authorities[at] = authorities.authorities[j];
+        const auto j = this->authorities.size() == 1 ? 0 : i;
+        config.authorities[at] = this->authorities[j];
     }
-}
 }
 
 void Acquisition::run() {
@@ -145,6 +141,7 @@ bool Acquisition::run_once(Run &run) {
             if (auto err = authorities.validate()) {
                 LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
                 authorities = Authorities{};
+                source_err = err;
                 break;
             }
         }
@@ -156,7 +153,7 @@ bool Acquisition::run_once(Run &run) {
                            << err.message();
                 break;
             }
-            apply(run.config, authorities);
+            authorities.apply(run.config);
             authorities = Authorities{};
         }
         if (!fr.empty()) {

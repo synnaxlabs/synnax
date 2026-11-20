@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Nav } from "@/components/nav";
+import type { Nav } from "@/components/nav";
 
 export const ENTERPRISE_NAV: Nav.PageNavNode = {
   key: "enterprise",
@@ -75,6 +75,10 @@ export const ENTERPRISE_NAV: Nav.PageNavNode = {
         {
           href: "/reference/enterprise/driver/configuration",
           name: "Configuration",
+        },
+        {
+          href: "/reference/enterprise/driver/container",
+          name: "Run in a container",
         },
         {
           href: "/reference/enterprise/driver/cli-reference",

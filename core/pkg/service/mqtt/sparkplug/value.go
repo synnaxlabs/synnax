@@ -98,8 +98,10 @@ func (n number) int64() (int64, bool) {
 		return n.i, true
 	case unsigned:
 		return int64(n.u), n.u <= math.MaxInt64
+	case float:
+		return int64(n.f), n.f == math.Trunc(n.f) && n.f >= -(1<<63) && n.f < 1<<63
 	}
-	return int64(n.f), n.f == math.Trunc(n.f) && n.f >= -(1<<63) && n.f < 1<<63
+	panic("unknown number kind")
 }
 
 // uint64 returns n as a uint64. ok is false for a fraction, a NaN, and a number out of
@@ -110,8 +112,10 @@ func (n number) uint64() (uint64, bool) {
 		return uint64(n.i), n.i >= 0
 	case unsigned:
 		return n.u, true
+	case float:
+		return uint64(n.f), n.f == math.Trunc(n.f) && n.f >= 0 && n.f < 1<<64
 	}
-	return uint64(n.f), n.f == math.Trunc(n.f) && n.f >= 0 && n.f < 1<<64
+	panic("unknown number kind")
 }
 
 func (n number) float64() float64 {
@@ -120,8 +124,10 @@ func (n number) float64() float64 {
 		return float64(n.i)
 	case unsigned:
 		return float64(n.u)
+	case float:
+		return n.f
 	}
-	return n.f
+	panic("unknown number kind")
 }
 
 // float32 returns n as a float32. ok is false for a finite number past the float32
@@ -152,6 +158,8 @@ func Compatible(ch telem.DataType, t DataType) bool {
 			telem.Uint8T, telem.Uint16T, telem.Uint32T, telem.Uint64T,
 			telem.Float32T, telem.Float64T:
 			return true
+		case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+			telem.JSONT, telem.BooleanT:
 		}
 	case String, Text, UUID:
 		return ch == telem.StringT
@@ -189,6 +197,7 @@ func ValueAt(series telem.Series, i int) Value {
 		return StringValue(series.At(i))
 	case telem.TimestampT:
 		return DateTimeValue(series.ValueAt[telem.TimeStamp](i))
+	case telem.UnknownT, telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
 	}
 	panic("sparkplug: no tag takes samples of " + series.DataType)
 }
@@ -225,6 +234,7 @@ func AppendSample(dst []byte, dt telem.DataType, v Value) ([]byte, error) {
 		if ts, ok := v.(DateTimeValue); ok {
 			return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 		}
+	case telem.UnknownT, telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
 	}
 	return dst, misfit(v, dt)
 }

@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device, ni, type Synnax } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { expect } from "vitest";
 
 import {
@@ -21,14 +22,13 @@ import {
   SCHEMAS,
   ZERO_PROPERTIES,
 } from "@/feature/ni/device/types";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 import {
   awaitEditableForm,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
 

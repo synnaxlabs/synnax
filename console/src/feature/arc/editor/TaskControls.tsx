@@ -9,7 +9,7 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { type arc, type rack } from "@synnaxlabs/client";
+import type { arc, rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 
@@ -20,7 +20,7 @@ import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
-  where: { integrations: { any: ["arc"] } },
+  where: { integrations: { any: [PlatformArc.INTEGRATION_KEY] } },
 };
 const RACK_TRIGGER_PROPS = {
   className: CSS.BE("rack-select", "trigger"),

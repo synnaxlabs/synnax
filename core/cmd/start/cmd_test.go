@@ -96,11 +96,32 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		},
 	)
 
+	Describe("Integrations", func() {
+		It("Should reject both integration flags", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			viper.Set(start.FlagDisableIntegrations, []string{"ni"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+
+		It("Should accept one integration flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).ToNot(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+	})
+
 	Describe("Session idle timeout", func() {
 		It("Should fill the default when the flag is unset", func() {
 			viper.Set(start.FlagInsecure, true)
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+			Expect(cfg.Validate()).
 				ToNot(MatchError(ContainSubstring("session_idle_timeout")))
 		})
 
@@ -108,8 +129,71 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 			viper.Set(start.FlagInsecure, true)
 			viper.Set(start.FlagSessionIdleTimeout, -time.Second)
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
-			Expect(start.DefaultCoreConfig.Override(cfg).Validate()).
+			Expect(cfg.Validate()).
 				To(MatchError(ContainSubstring("session_idle_timeout")))
+		})
+	})
+
+	DescribeTable("Should reject a task worker count that does not fit a byte",
+		func(count int) {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagTaskWorkerCount, count)
+			Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+				To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(start.FlagTaskWorkerCount)),
+				))
+		},
+		Entry("negative", -1),
+		Entry("one above the maximum", 256),
+		Entry("far above the maximum", 300),
+	)
+
+	It("Should accept the largest task worker count that fits a byte", func() {
+		viper.Set(start.FlagInsecure, true)
+		viper.Set(start.FlagTaskWorkerCount, 255)
+		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().
+			ToNot(HaveOccurred())
+	})
+
+	Describe("Auth methods", func() {
+		validateConfig := func() error {
+			GinkgoHelper()
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			return cfg.Validate()
+		}
+
+		It("Should accept every method when the flag is unset", func() {
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an explicitly empty list", func() {
+			viper.Set(start.FlagAuthMethods, []string{})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an unknown method", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password", "carrier_pigeon"})
+			Expect(validateConfig()).To(MatchError(ContainSubstring("carrier_pigeon")))
+		})
+
+		It("Should refuse api_key off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			Expect(validateConfig()).To(
+				MatchError(ContainSubstring("must include api_key")),
+			)
+		})
+
+		It("Should allow password off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"api_key"})
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should allow api_key off when the embedded Driver is off", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			viper.Set(start.FlagNoDriver, true)
+			Expect(validateConfig()).ToNot(MatchError(ContainSubstring("auth_methods")))
 		})
 	})
 

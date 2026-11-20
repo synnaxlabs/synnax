@@ -13,6 +13,8 @@
 package validation
 
 import (
+	"cmp"
+
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -27,6 +29,8 @@ type Rules struct {
 	Pattern        *string
 	PatternMessage *string
 	Required       bool
+	// Finite refuses NaN and the infinities in a floating point field.
+	Finite bool
 	// Skip excludes the field from generated validation entirely, including recursion
 	// into it. Used for fields that hold a reference to another entity (e.g. a parent
 	// key or label keys) rather than embedded data to validate.
@@ -57,6 +61,8 @@ func Parse(domain resolution.Domain) *Rules {
 			switch expr.Name {
 			case "required":
 				rules.Required = true
+			case "finite":
+				rules.Finite = true
 			case "skip":
 				rules.Skip = true
 			}
@@ -137,6 +143,7 @@ func TypeRules(types []resolution.Type) *Rules {
 func Merge(a, b *Rules) *Rules {
 	out := *a
 	out.Required = a.Required || b.Required
+	out.Finite = a.Finite || b.Finite
 	out.Skip = a.Skip || b.Skip
 	out.MinLength = tighterLength(a.MinLength, b.MinLength, true)
 	out.MaxLength = tighterLength(a.MaxLength, b.MaxLength, false)
@@ -144,7 +151,7 @@ func Merge(a, b *Rules) *Rules {
 	out.GT = tighterNumber(a.GT, b.GT, true)
 	out.Max = tighterNumber(a.Max, b.Max, false)
 	if out.Min != nil && out.GT != nil {
-		if out.GT.value() >= out.Min.value() {
+		if out.GT.Compare(*out.Min) >= 0 {
 			out.Min = nil
 		} else {
 			out.GT = nil
@@ -164,14 +171,22 @@ func tighterLength(a, b *int64, lower bool) *int64 {
 }
 
 func tighterNumber(a, b *Number, lower bool) *Number {
-	if a == nil || (b != nil && (b.value() > a.value()) == lower &&
-		b.value() != a.value()) {
+	if a == nil || (b != nil && b.Compare(*a) != 0 && (b.Compare(*a) > 0) == lower) {
 		return b
 	}
 	return a
 }
 
-func (n Number) value() float64 {
+// Compare returns -1, 0, or 1 when n is less than, equal to, or greater than o. Two
+// integers compare exactly.
+func (n Number) Compare(o Number) int {
+	if n.IsInt && o.IsInt {
+		return cmp.Compare(n.Int, o.Int)
+	}
+	return cmp.Compare(n.float(), o.float())
+}
+
+func (n Number) float() float64 {
 	if n.IsInt {
 		return float64(n.Int)
 	}
@@ -183,6 +198,6 @@ func IsEmpty(r *Rules) bool {
 	if r == nil {
 		return true
 	}
-	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
+	return !r.Required && !r.Finite && r.MinLength == nil && r.MaxLength == nil &&
 		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil
 }

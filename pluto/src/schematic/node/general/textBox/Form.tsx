@@ -9,14 +9,14 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Form } from "@/schematic/node/common/form";
@@ -25,9 +25,10 @@ import { Orientation } from "@/schematic/node/common/orientation";
 const path = deep.path<schematic.TextBoxNodeConfig>();
 
 const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
-  bounds: { lower: 0, upper: 2000 },
+  bounds: { lower: 1, upper: 2000 },
   dragScale: 5,
   endContent: "px",
+  integer: true,
 };
 
 export const TextBoxForm = (): ReactElement => {
@@ -51,7 +52,7 @@ export const TextBoxForm = (): ReactElement => {
         <Form.ColorField path={path.textColor} label="Text" />
         <Base.Field
           onChange={(_, { set }) => set(path.autoFitDisabled, true)}
-          path={path.width}
+          path={path.inlineSize}
           label="Wrap width"
           padHelpText={false}
         >

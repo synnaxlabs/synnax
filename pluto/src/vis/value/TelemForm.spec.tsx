@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { type channel, DataType, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { deep, id } from "@synnaxlabs/x";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import type { FC, PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Value } from "@/vis/value";
 
@@ -48,5 +51,31 @@ describe("Value.TelemForm", () => {
     const { value } = renderTelemForm();
     typePrecision("40");
     expect(value(path.precision)).toBe(17);
+  });
+});
+
+describe("Value.TelemForm channel", () => {
+  const client = createTestClient();
+  const valuePath = deep.path<schematic.ValueNodeConfig>();
+  let wrapper: FC<PropsWithChildren>;
+  let ch: channel.Channel;
+  beforeAll(async () => {
+    wrapper = await createAsyncSynnaxWrapper({ client });
+    ch = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+  });
+
+  it("should store 0 when the channel is cleared", async () => {
+    const { findByLabelText, value } = renderForm(
+      <Value.TelemForm />,
+      schematic.valueNodeConfigZ.parse({ variant: "value", channel: ch.key }),
+      schematic.valueNodeConfigZ,
+      wrapper,
+    );
+    fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
+    await waitFor(() => expect(value(valuePath.channel)).toBe(0));
   });
 });

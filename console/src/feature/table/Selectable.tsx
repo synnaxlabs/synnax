@@ -11,7 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Table } from "@/platform/table";
 
 export const Selectable: Selector.Selectable = {

@@ -130,7 +130,7 @@ func (c *Codec[K]) HasPrefix(k K, prefix []byte) bool {
 			return false
 		}
 		src := unsafe.Slice((*byte)(unsafe.Pointer(&k)), c.size)
-		for i := range len(prefix) {
+		for i := range prefix {
 			if src[c.size-1-i] != prefix[i] {
 				return false
 			}

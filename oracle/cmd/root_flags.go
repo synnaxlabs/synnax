@@ -11,7 +11,7 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-// Flag constants for type safety
+// Flag constants for type safety.
 const (
 	verboseFlag = "verbose"
 )

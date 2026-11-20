@@ -8,11 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { type breaker, type record, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+import {
+  type breaker,
+  disposable,
+  type record,
+  Series,
+  sleep,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -23,6 +30,12 @@ interface Doc extends record.Keyed<string> {
 }
 
 class MockStreamer implements framer.Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[] = [];
   private readonly frames: framer.Frame[];
   private done = false;
@@ -55,7 +68,7 @@ class MockStreamer implements framer.Streamer {
       if (fr != null) return { done: false, value: fr };
       if (this.dropped) throw new Error("conn dropped");
       if (this.done) return { done: true, value: undefined };
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await sleep.sleep(TimeSpan.milliseconds(5));
     }
   }
 
@@ -83,6 +96,8 @@ const failingStreamer = (): framer.Streamer => ({
   keys: [],
   update: async () => {},
   close: () => {},
+  [Symbol.dispose]: () => {},
+  [Symbol.asyncDispose]: async () => {},
   next: async () => {
     throw new Error("conn dropped");
   },
@@ -99,7 +114,7 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
   let closed = false;
   let emitted = false;
   const next = async (): Promise<IteratorResult<framer.Frame>> => {
-    while (!closed) await new Promise((resolve) => setTimeout(resolve, 2));
+    await vi.waitFor(() => expect(closed).toBe(true), { timeout: 10_000, interval: 2 });
     if (emitted) return { done: true, value: undefined };
     emitted = true;
     return { done: false, value: frame };
@@ -108,6 +123,12 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
     keys: [],
     update: async () => {},
     close: () => {
+      closed = true;
+    },
+    [Symbol.dispose]: () => {
+      closed = true;
+    },
+    [Symbol.asyncDispose]: async () => {
       closed = true;
     },
     next,
@@ -146,6 +167,7 @@ describe("Cache", () => {
       cache.createTable<string, number>({ name: "docs" });
       await cache.ensureStreaming();
       expect(cache.epoch).toEqual(0);
+      expect(cache.live).toBe(false);
       const late = () => cache.createTable({ name: "late" });
       expect(late).not.toThrow();
       await cache.close();
@@ -816,6 +838,26 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("is live only while the stream is open", async () => {
+      const first = new MockStreamer();
+      let opens = 0;
+      const cache = makeEngine(async () => {
+        opens++;
+        return opens === 1 ? first : new MockStreamer();
+      });
+      const liveWhenDown: boolean[] = [];
+      cache.onStreamDown(() => liveWhenDown.push(cache.live));
+      expect(cache.live).toBe(false);
+      await cache.ensureStreaming();
+      expect(cache.live).toBe(true);
+      first.drop();
+      await expect.poll(() => liveWhenDown).toEqual([false]);
+      await expect.poll(() => cache.epoch).toBe(2);
+      expect(cache.live).toBe(true);
+      await cache.close();
+      expect(cache.live).toBe(false);
+    });
+
     it("notifies its listeners when the cache closes", async () => {
       const cache = makeEngine();
       const down = vi.fn();
@@ -1062,10 +1104,7 @@ describe("Cache", () => {
     });
 
     it("discards a reconcile that completes after a reset", async () => {
-      let release: (docs: Doc[]) => void = () => {};
-      const gate = new Promise<Doc[]>((resolve) => {
-        release = resolve;
-      });
+      const { promise: gate, resolve: release } = Promise.withResolvers<Doc[]>();
       const fetch = vi.fn(async () => await gate);
       const cache = makeReopeningEngine();
       const table = cache.createTable<string, Doc>({ name: "docs", fetch });
@@ -1075,7 +1114,7 @@ describe("Cache", () => {
       await cache.reset();
       release([{ key: "kept", name: "old-cluster" }]);
       await gate;
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(table.get("kept")).toBeUndefined();
       expect(table.keys()).toEqual([]);
       await cache.close();
@@ -1099,6 +1138,16 @@ describe("Cache", () => {
       expect(table.get()).toEqual([]);
       expect(table.status("k1")).toEqual("unknown");
       expect(table.status("k2")).toEqual("unknown");
+      await cache.close();
+    });
+
+    it("should notify that the stream went down", async () => {
+      const cache = makeEngine();
+      await cache.ensureStreaming();
+      const liveWhenDown: boolean[] = [];
+      cache.onStreamDown(() => liveWhenDown.push(cache.live));
+      await cache.reset();
+      expect(liveWhenDown).toEqual([false]);
       await cache.close();
     });
 
@@ -1143,10 +1192,7 @@ describe("Cache", () => {
     });
 
     it("ignores open callbacks from a streamer retired mid-open", async () => {
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => {
-        release = resolve;
-      });
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const cache = makeEngine(async () => {
         await gate;
         return new MockStreamer();

@@ -1,18 +1,13 @@
 ---
-title: "Version 0.32 release notes"
+title: "Multi-device NI analog read tasks"
+version: "0.32.0"
+date: "Oct 9, 2024"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
-
-<Release
-version="0.32.0"
-date="Oct 9, 2024"
-title="Multi-device NI analog read tasks"
->
 
 <Hero.Hero
   image="releases/0-32-0/thumbnail"
@@ -20,6 +15,7 @@ title="Multi-device NI analog read tasks"
   layout="framed"
   tone="deep"
   palette="violet-blue"
+  alt="The channels of an NI analog read task"
 />
 
 <Divider.Divider x />
@@ -45,5 +41,3 @@ device for each channel.
 
 This release does **not** introduce any breaking changes. Previous NI analog read tasks
 will be migrated to the new format automatically.
-
-</Release>

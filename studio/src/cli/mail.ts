@@ -13,13 +13,14 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { bucket, CDN, OUT_ROOT, ROOT, run, select } from "@/cli/common";
 import { versionOf } from "@/cli/hash";
 import { type MailHero, runMailHeroes, runMailShot } from "@/cli/pipeline";
 import { type Entry, stillKey } from "@/manifest";
-import { type Region } from "@/remotion/Mail";
+import type { Region } from "@/remotion/Mail";
 
 const usage = `usage: pnpm mail <id>[@seconds[:x,y,width]]... [options]
 Makes the mail copies of the docs media that a release notes letter shows, as 2x JPEGs.
@@ -153,7 +154,7 @@ const main = async (): Promise<void> => {
     console.log(`${id} -> ${images[id]}`);
   }
   const sorted = Object.fromEntries(
-    Object.entries(images).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(images).sort(compare.by(([id]) => id)),
   );
   await writeFile(IMAGES, `${JSON.stringify(sorted, null, 2)}\n`);
   console.log(`wrote ${path.relative(ROOT, IMAGES)}`);

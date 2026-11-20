@@ -9,13 +9,14 @@
 
 import { DataType, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
-import { createTestIndexChannel, uniqueChannelName } from "@/platform/channel/testutil";
+import { createTestIndexChannel } from "@/platform/channel/testutil";
 import {
   findButton,
   getSwitch,
@@ -76,7 +77,7 @@ describe("useCreateModal", () => {
 
     it("should restore the default data type when leaving the index kind", async () => {
       await openModal();
-      const name = uniqueChannelName("virt");
+      const name = uniqueName("virt");
       setName(name);
       selectKind("Index");
       selectKind("Virtual");
@@ -92,7 +93,7 @@ describe("useCreateModal", () => {
   describe("creation", () => {
     it("should create an index channel and close the modal", async () => {
       await openModal();
-      const name = uniqueChannelName("idx");
+      const name = uniqueName("idx");
       setName(name);
       selectKind("Index");
       await clickCreate();
@@ -109,7 +110,7 @@ describe("useCreateModal", () => {
     it("should create a data channel paired with the selected index", async () => {
       const index = await createTestIndexChannel(client);
       await openModal();
-      const name = uniqueChannelName("data");
+      const name = uniqueName("data");
       setName(name);
       fireEvent.click(screen.getByText("Select channel"));
       fireEvent.change(await screen.findByPlaceholderText("Search channels...", {}), {
@@ -126,7 +127,7 @@ describe("useCreateModal", () => {
 
     it("should create a virtual channel without an index", async () => {
       await openModal();
-      const name = uniqueChannelName("virt");
+      const name = uniqueName("virt");
       setName(name);
       selectKind("Virtual");
       await clickCreate();
@@ -140,7 +141,7 @@ describe("useCreateModal", () => {
     it("should report the channel it created", async () => {
       const analytics = createTestSink();
       await openModal(analytics);
-      setName(uniqueChannelName("virt"));
+      setName(uniqueName("virt"));
       selectKind("Virtual");
       await clickCreate();
       await waitFor(() =>
@@ -152,7 +153,7 @@ describe("useCreateModal", () => {
 
     it("should keep the modal open and reset the form when create more is enabled", async () => {
       await openModal();
-      const name = uniqueChannelName("more");
+      const name = uniqueName("more");
       setName(name);
       selectKind("Index");
       fireEvent.click(getSwitch("Create more"));
@@ -181,7 +182,7 @@ describe("useCreateModal", () => {
 
     it("should reject a data channel that has no index and create nothing", async () => {
       await openModal();
-      const name = uniqueChannelName("noidx");
+      const name = uniqueName("noidx");
       setName(name);
       await clickCreate();
       await waitFor(() =>

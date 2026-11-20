@@ -16,7 +16,7 @@
 // preview writes the HTML to a temporary file. test mails the letter to the sender
 // alone. send mails it to everyone on the release notes list, one time per version.
 
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -47,7 +47,8 @@ const apiKey = (): string => {
 };
 
 if (mode === "preview") {
-  const file = path.join(tmpdir(), `letter-${version}.html`);
+  const dir = await mkdtemp(path.join(tmpdir(), "letter-"));
+  const file = path.join(dir, `letter-${version}.html`);
   await writeFile(file, html);
   console.info(file);
 } else if (mode === "test") {

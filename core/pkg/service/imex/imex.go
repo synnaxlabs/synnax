@@ -154,8 +154,7 @@ var Codec = xjson.NewCodec(decodeOptions)
 func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
-		var syntactic *jsontext.SyntacticError
-		if errors.As(err, &syntactic) {
+		if _, ok := errors.AsType[*jsontext.SyntacticError](err); ok {
 			return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
 		}
 		return err
@@ -208,7 +207,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // Decode materializes the envelope body as T using the codec bound when the envelope
 // was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have
 // no codec bound and must be marshaled and unmarshaled before Decode.
-func (e Envelope) Decode[T any]() (T, error) {
+func (e *Envelope) Decode[T any]() (T, error) {
 	var t T
 	if e.codec == nil {
 		return t, errors.New(
@@ -312,7 +311,7 @@ func versionFromAny(v any) (Version, error) {
 		if err != nil {
 			return 0, err
 		}
-		return Version(n), nil
+		return n, nil
 	default:
 		return 0, errors.Newf("version must be a number or semver string, got %T", v)
 	}
@@ -417,14 +416,14 @@ type Importer interface {
 	// data, so it needs no transaction. It returns the Write that persists the
 	// resource. The registry resolves the envelope's Name before Decode, so importers
 	// treat it as the resource's name rather than re-deriving one from the body.
-	Decode(context.Context, Envelope) (Write, error)
+	Decode(ctx context.Context, env Envelope) (Write, error)
 	// Match reports whether the envelope body, decoded as a flat map, is this
 	// importer's resource. It routes envelopes carrying no `type` header: some legacy
 	// Console state files never carried one, so Service.ResolveType offers the body to
 	// every registered importer's Match in sorted type order, first claim winning. The
 	// markers Match tests are frozen — they describe historical file shapes. Importers
 	// with no typeless legacy formats return false.
-	Match(map[string]any) bool
+	Match(data map[string]any) bool
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
@@ -432,7 +431,7 @@ type Importer interface {
 type Exporter interface {
 	// Export retrieves the resource identified by id from the snapshot and serializes
 	// it, stamping the exporter's per-schema Version.
-	Export(context.Context, gorp.Snapshot, resource.ID) (Envelope, error)
+	Export(ctx context.Context, snap gorp.Snapshot, id resource.ID) (Envelope, error)
 	// Type returns the resource type this exporter handles.
 	Type() resource.Type
 }

@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -112,6 +113,13 @@ var _ = Describe("SeriesFactory", func() {
 					telem.UUIDT,
 				),
 			)
+			Specify("uuid as its 16 bytes in order", func() {
+				id := uuid.MustParse("01020304-0506-0708-090a-0b0c0d0e0f10")
+				Expect(telem.NewSeriesV(id).Data).To(Equal([]byte{
+					0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+					0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+				}))
+			})
 			Specify(
 				"bool",
 				newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BooleanT),
@@ -347,11 +355,11 @@ var _ = Describe("SeriesFactory", func() {
 		})
 
 		It("Should produce output readable by Series.At", func() {
-			samples := [][]byte{[]byte("foo"), []byte("barbaz"), []byte("")}
-			var data []byte
-			for _, s := range samples {
-				data = append(data, telem.MarshalVariableSample(s)...)
-			}
+			data := slices.Concat(
+				telem.MarshalVariableSample([]byte("foo")),
+				telem.MarshalVariableSample([]byte("barbaz")),
+				telem.MarshalVariableSample([]byte("")),
+			)
 			series := telem.Series{DataType: telem.StringT, Data: data}
 			Expect(series.Len()).To(Equal(int64(3)))
 			Expect(series.At(0)).To(Equal([]byte("foo")))
@@ -361,9 +369,10 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should produce the same encoding as NewSeriesV", func() {
 			fromFactory := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
-			var manual []byte
-			manual = append(manual, telem.MarshalVariableSample([]byte{1, 2})...)
-			manual = append(manual, telem.MarshalVariableSample([]byte{3, 4, 5})...)
+			manual := slices.Concat(
+				telem.MarshalVariableSample([]byte{1, 2}),
+				telem.MarshalVariableSample([]byte{3, 4, 5}),
+			)
 			Expect(manual).To(Equal(fromFactory.Data))
 		})
 	})

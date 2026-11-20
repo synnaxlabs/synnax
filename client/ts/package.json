@@ -22,6 +22,9 @@
     "url": "git+https://github.com/synnaxlabs/synnax.git",
     "directory": "client/ts"
   },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",
@@ -30,7 +33,9 @@
     "bench": "vitest bench --config vitest.bench.config.ts",
     "cov": "vitest --coverage",
     "lint": "eslint",
-    "fix": "eslint --fix"
+    "fix": "eslint --fix",
+    "install-browsers": "playwright install chromium firefox webkit",
+    "smoke": "smoke/run.sh"
   },
   "dependencies": {
     "@synnaxlabs/alamos": "catalog:",
@@ -40,9 +45,13 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
+    "undici": "catalog:node22",
     "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
+    "undici": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
@@ -55,7 +64,9 @@
     "@types/node": "catalog:",
     "@types/ws": "catalog:",
     "eslint": "catalog:",
+    "playwright": "catalog:",
     "typescript": "catalog:",
+    "undici": "catalog:node22",
     "vite": "catalog:",
     "vitest": "catalog:",
     "ws": "catalog:"

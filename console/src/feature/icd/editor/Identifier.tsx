@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 
 import {
@@ -31,7 +31,7 @@ const NAMES: Record<Type, string> = {
   field: "Field value",
 };
 
-const TYPES = Object.keys(NAMES) as Type[];
+const TYPES = record.keys(NAMES);
 
 const create = (
   type: icd.IdentifierType,

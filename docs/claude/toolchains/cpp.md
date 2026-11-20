@@ -16,8 +16,9 @@ bazel test //driver/...
 
 Platform-specific code uses `config_setting` + `select()` — prefer it over `#ifdef` —
 for sources (`daemon_linux.cpp` vs `daemon_darwin.cpp`), deps (Modbus excluded on NI
-Linux Real-Time), copts (`/DWIN32_LEAN_AND_MEAN`, `/DNOMINMAX`, `/D_WIN32_WINNT=0x0601`
-on Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
+Linux Real-Time), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`). First-party targets set
+no `copts`: `.bazelrc` gives all workspace code `WIN32_LEAN_AND_MEAN`, `NOMINMAX`, and
+`_WIN32_WINNT=0x0A00` on Windows, so never define them in a target or a source file.
 
 ## Style
 
@@ -109,3 +110,6 @@ mock via interface implementations. Utilities from `x/cpp/testutil/testutil.h`:
 - Include paths differ per platform — conditional includes where unavoidable.
 - Check leaks with valgrind/ASAN. `#pragma once` or traditional guards.
 - Target platforms: Windows, macOS, Linux, NI Linux Real-Time.
+- Linux Drivers run on glibc 2.35 and later (NI Linux Real-Time 23.8 and later). CI
+  builds them in `driver/linux.Dockerfile`, and `check_glibc_floor.py` fails a binary
+  that needs a newer `GLIBC_` symbol or a shared libstdc++.

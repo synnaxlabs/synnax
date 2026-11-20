@@ -1042,7 +1042,7 @@ var _ = Describe("Expressions", func() {
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				var calls []string
+				calls := make([]string, 0, len(*ctx.CallEdges))
 				for _, edge := range *ctx.CallEdges {
 					calls = append(calls, edge.Caller.Name+"->"+edge.Callee.Name)
 				}
@@ -2174,16 +2174,36 @@ var _ = Describe("Expressions", func() {
 				Expect(d.Message).To(ContainSubstring(message))
 				Expect(d.Message).To(ContainSubstring("math.is_nan"))
 			},
-			Entry("==", "v == math.nan", "== with math.nan is always false"),
+			Entry(
+				"==",
+				"v == math.nan",
+				"comparison with NaN: == with math.nan is always false",
+			),
 			Entry(
 				"!=",
 				"v != math.nan",
-				"!= with math.nan is always true, use not math.is_nan instead",
+				"comparison with NaN: != with math.nan is always true, use not math.is_nan instead",
 			),
-			Entry("<", "v < math.nan", "< with math.nan is always false"),
-			Entry(">", "math.nan > v", "> with math.nan is always false"),
-			Entry("<=", "v <= -math.nan", "<= with math.nan is always false"),
-			Entry(">=", "w >= f32(math.nan)", ">= with math.nan is always false"),
+			Entry(
+				"<",
+				"v < math.nan",
+				"comparison with NaN: < with math.nan is always false",
+			),
+			Entry(
+				">",
+				"math.nan > v",
+				"comparison with NaN: > with math.nan is always false",
+			),
+			Entry(
+				"<=",
+				"v <= -math.nan",
+				"comparison with NaN: <= with math.nan is always false",
+			),
+			Entry(
+				">=",
+				"w >= f32(math.nan)",
+				"comparison with NaN: >= with math.nan is always false",
+			),
 			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
 			Entry("left side", "math.nan == w", "always false"),
 			Entry("parentheses on the left", "(math.nan) == v", "always false"),
@@ -2250,12 +2270,12 @@ var _ = Describe("Expressions", func() {
 			Entry(
 				"an import alias",
 				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
-				"== with m.nan is always false, use m.is_nan instead",
+				"comparison with NaN: == with m.nan is always false, use m.is_nan instead",
 			),
 			Entry(
 				"a module without is_nan",
 				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
-				"!= with custom.missing is always true, "+
+				"comparison with NaN: != with custom.missing is always true, "+
 					"use not is_nan from the math module instead",
 			),
 		)
@@ -2266,10 +2286,10 @@ var _ = Describe("Expressions", func() {
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 			Entry("time.now()", `
 				import time
-				func testFunc() i64 { return time.now() }
+				func testFunc() i64 ns { return time.now() }
 			`),
 			Entry("bare now() (deprecated)", `
-				func testFunc() i64 { return now() }
+				func testFunc() i64 ns { return now() }
 			`),
 		)
 
@@ -2296,7 +2316,7 @@ var _ = Describe("TruthyCondition", func() {
 			Expect(d.Code).To(Equal(codes.TruthyCondition.Code))
 			Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 			Expect(d.Message).To(Equal(
-				"non-boolean conditions are deprecated, use an explicit " +
+				"non-boolean condition: deprecated, use an explicit " +
 					"comparison like x != 0",
 			))
 			Expect(d.Fixes).To(HaveLen(1))

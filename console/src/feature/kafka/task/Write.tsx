@@ -13,15 +13,14 @@ import { kafka } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { DataType, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Select as SelectDevice } from "@/feature/kafka/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/kafka/device/types";
+import { SCHEMAS } from "@/feature/kafka/device/types";
 import {
   deployWriteConfigZ,
   isString,
@@ -33,7 +32,6 @@ import {
   type WriteSchemas,
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
@@ -44,36 +42,40 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
-const renderRecordKeySelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">) => (
-    <Select.Simple<RecordKey>
-      {...p}
-      resourceName="record key"
-      triggerProps={SELECT_TRIGGER_PROPS}
-      dialogProps={SELECT_DIALOG_PROPS}
-    >
-      <Select.Item itemKey="channel_name">Channel name</Select.Item>
-      <Select.Item itemKey="none">None</Select.Item>
-    </Select.Simple>
-  ),
+const SelectRecordKey = (
+  p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">,
+) => (
+  <Select.Simple<RecordKey>
+    {...p}
+    resourceName="record key"
+    triggerProps={SELECT_TRIGGER_PROPS}
+    dialogProps={SELECT_DIALOG_PROPS}
+  >
+    <Select.Item itemKey="channel_name">Channel name</Select.Item>
+    <Select.Item itemKey="none">None</Select.Item>
+  </Select.Simple>
 );
 
-const renderTimeFormatSelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
-    <Select.Simple<TimeFormat>
-      {...p}
-      resourceName="time format"
-      triggerProps={SELECT_TRIGGER_PROPS}
-      dialogProps={SELECT_DIALOG_PROPS}
-    >
-      <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
-      <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
-      <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
-      <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
-      <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
-    </Select.Simple>
-  ),
+const renderRecordKeySelect = Component.renderProp(SelectRecordKey);
+
+const SelectTimeFormat = (
+  p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">,
+) => (
+  <Select.Simple<TimeFormat>
+    {...p}
+    resourceName="time format"
+    triggerProps={SELECT_TRIGGER_PROPS}
+    dialogProps={SELECT_DIALOG_PROPS}
+  >
+    <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
+    <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
+    <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
+    <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
+    <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
+  </Select.Simple>
 );
+
+const renderTimeFormatSelect = Component.renderProp(SelectTimeFormat);
 
 const Properties = () => (
   <>
@@ -159,11 +161,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const renderSelectChannel = Component.renderProp(
-  (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-    <PChannel.SelectSingle {...p} />
-  ),
+const SelectChannel = (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
+  <PChannel.SelectSingle {...p} />
 );
+
+const renderSelectChannel = Component.renderProp(SelectChannel);
 
 const JSON_TYPE_ITEMS = (
   <>
@@ -173,13 +175,15 @@ const JSON_TYPE_ITEMS = (
   </>
 );
 
-const renderSelectJSONType = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
-    <Select.Simple<string> {...p} resourceName="JSON type">
-      {JSON_TYPE_ITEMS}
-    </Select.Simple>
-  ),
+const SelectJSONType = (
+  p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">,
+) => (
+  <Select.Simple<string> {...p} resourceName="JSON type">
+    {JSON_TYPE_ITEMS}
+  </Select.Simple>
 );
+
+const renderSelectJSONType = Component.renderProp(SelectJSONType);
 
 const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
   const { channel: key, jsonType } = PForm.useFieldValue(path);
@@ -242,19 +246,6 @@ const Form: FC = () => (
   />
 );
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = WRITE_SCHEMAS.config.parse(
-    config ?? {
-      record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    },
-  );
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Kafka write task", type: WRITE_TYPE, config: cfg };
-};
-
 /**
  * A cleared pointer is omitted from the record instead of placed at "". A string,
  * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
@@ -299,16 +290,3 @@ export const Write = Task.wrapForm({
   type: WRITE_TYPE,
   onConfigure,
 });
-
-export const useCreateWrite = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const WriteSelectable: Selector.Selectable = {
-  type: WRITE_TYPE,
-  title: "Kafka write task",
-  label: "Write",
-  icon: <Icon.Logo.Kafka />,
-  useOnSelect: useCreateWrite,
-};

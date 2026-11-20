@@ -9,15 +9,18 @@
 
 package set
 
-import (
-	"slices"
+import "slices"
 
-	"golang.org/x/exp/constraints"
-)
+// integer is any integer type. It repeats types.Integer, which set cannot import
+// because types depends on set.
+type integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
 
 // intRange is a set that includes every integer between start and end (start inclusive,
 // end exclusive).
-type intRange[T constraints.Integer] struct {
+type intRange[T integer] struct {
 	// start is the first integer in intRange.
 	start T
 	// end is the integer after the last integer in intRange.
@@ -31,7 +34,7 @@ func (r intRange[T]) size() T {
 
 // Integer is a set of integers that is memory-optimized to limit the space required for
 // consecutive number of integers.
-type Integer[T constraints.Integer] []intRange[T]
+type Integer[T integer] []intRange[T]
 
 // Insert inserts the integers nums into the set s.
 func (s *Integer[T]) Insert(nums ...T) {

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
-import { type CaptureSession } from "@/capture/rig";
+import type { CaptureSession } from "@/capture/rig";
 
 /**
  * control returns the first visualization control button (zoom, pan, selection, rule,

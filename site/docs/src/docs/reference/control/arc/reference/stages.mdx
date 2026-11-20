@@ -1,0 +1,102 @@
+---
+title: "Stages"
+description:
+  "Syntax of Arc stages: the declaration, what a stage body can contain, and transitions
+  to other stages and sequences."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A stage runs all of its items at the same time, while it is active. Newlines or commas
+separate the items. To learn what happens when a stage starts and stops, see
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
+
+```text
+stage = "stage" name? "{" item* "}"
+```
+
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, pressurize, hold, vent, abort"
+import time
+
+sequence press {
+    stage pressurize {
+        abort_cmd == 1 => abort
+        tank_pt > 500 => abort
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    stage hold {
+        abort_cmd == 1 => abort
+        0 -> press_vlv_cmd
+        time.wait(duration=30s) => next
+    }
+    stage vent {
+        1 -> vent_vlv_cmd
+    }
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_cmd == 1 => press
+```
+
+<Divider.Divider x />
+
+## Stage body
+
+| Item                 | Example                                    |
+| -------------------- | ------------------------------------------ |
+| Flow                 | `tank_pt -> scale(k=6.895) -> tank_pt_kpa` |
+| Transition           | `tank_pt > 500 => abort`                   |
+| Function call        | `monitor()`                                |
+| Variable declaration | `peak $= 0.0`                              |
+| Assignment           | `target = 400.0`                           |
+| Sequence             | `sequence { ... }`                         |
+
+A sequence in a stage runs its steps in order, while the other items of the stage keep
+running. A stage cannot contain a stage. When more than one transition is true in the
+same cycle, the first one in the code wins. See
+[conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
+
+<Divider.Divider x />
+
+## Transitions
+
+| Transition | Effect                                                                    |
+| ---------- | ------------------------------------------------------------------------- |
+| `=> next`  | Moves to the next step of the sequence.                                   |
+| `=> name`  | Moves to the named step of the same sequence, also an earlier step.       |
+| `=> other` | Stops this sequence, then starts the top-level sequence or stage `other`. |
+
+A stage of a different sequence is not a valid target: `undefined symbol: name`. A
+`=> next` in the last step fails with
+`invalid transition target: 'next' in last stage 'abort' has no next stage`.
+
+A transition to a top-level target stops the whole top-level sequence or stage that
+holds it, including all nested items. Nothing in that scope resumes. A running target
+does not restart, except when a transition inside it targets itself. Several flows can
+target the same stage or sequence.
+
+<Divider.Divider x />
+
+## Top-level stages
+
+A named top-level stage runs only after a `=> name` starts it. An anonymous top-level
+stage runs for as long as the automation runs.
+
+```arc channels="tank_pt, alarm_cmd" bodies="alarm"
+func alarm() {
+    alarm_cmd = 1
+}
+
+stage {
+    tank_pt > 500 => alarm()
+}
+```
+
+A top-level stage cannot use `next`:
+`invalid transition target: 'next' used outside of a sequence`.

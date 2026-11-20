@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -78,7 +80,7 @@ var _ = Describe("Scan task", func() {
 		ch := createVirtual(ctx, telem.Float64T)
 		return configure(ctx, factory, newTask(
 			ctx, rackKey, mqtt.ReadTaskType,
-			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
+			readConfig(ctx, dev, plainEntry("plant/edit", field("v", ch, ""))),
 		))
 	}
 	startRead := func(ctx context.Context, read driver.Task) {
@@ -178,8 +180,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/tls", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -201,8 +209,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/scan", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/scan", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -252,7 +266,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				ch := createVirtual(ctx, telem.Float64T)
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-					dev,
+					ctx, dev,
 					plainEntry("plant/edit", field("v", ch, "")),
 				))
 				read := configure(ctx, factory, t)
@@ -601,8 +615,10 @@ var _ = Describe("Scan task", func() {
 			return stat
 		}
 
-		field := func(pointer, t, sample string) map[string]any {
-			return map[string]any{"pointer": pointer, "type": t, "sample": sample}
+		field := func(pointer, t, sample string, kind payload.Kind) map[string]any {
+			return map[string]any{
+				"pointer": pointer, "type": t, "sample": sample, "kind": string(kind),
+			}
 		}
 
 		It("Should list the retained topics with their payloads, in order",
@@ -614,17 +630,21 @@ var _ = Describe("Scan task", func() {
 					"filter": "plant/#", "duration": 200,
 				})
 				Expect(stat.Details.Data).To(HaveKeyWithValue("truncated", false))
-				expectTopic := func(t any, name, payload, value string) {
+				expectTopic := func(t any, name, text, value string) {
 					GinkgoHelper()
 					Expect(t).To(SatisfyAll(
 						HaveKeyWithValue("topic", name),
-						HaveKeyWithValue("payload", payload),
+						HaveKeyWithValue("payload", text),
 						HaveKeyWithValue("format", "json"),
-						HaveKeyWithValue("fields", []any{field("/v", "number", value)}),
+						HaveKeyWithValue(
+							"fields",
+							[]any{field("/v", "number", value, payload.KindInteger)},
+						),
 						HaveKeyWithValue("retained", true),
 					))
 				}
-				topics := stat.Details.Data["topics"].([]any)
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				expectTopic(topics[0], "plant/a", `{"v":1}`, "1")
 				expectTopic(topics[1], "plant/b", `{"v":2}`, "2")
@@ -642,7 +662,7 @@ var _ = Describe("Scan task", func() {
 					Count    int             `json:"count"`
 					Rate     float64         `json:"rate"`
 					LastSeen telem.TimeStamp `json:"last_seen"`
-					Format   driver.Format   `json:"format"`
+					Format   payload.Format  `json:"format"`
 				} `json:"topics"`
 			}
 			Expect(stat.Details.Data.Unmarshal(&res)).To(Succeed())
@@ -653,7 +673,7 @@ var _ = Describe("Scan task", func() {
 			Expect(a.LastSeen).ToNot(BeZero())
 			Expect(b.Count).To(BeNumerically(">", 1))
 			Expect(b.Rate).To(BeNumerically(">", 0))
-			Expect(b.Format).To(Equal(driver.FormatText))
+			Expect(b.Format).To(Equal(payload.FormatText))
 		})
 
 		It("Should leave out the topics that do not fit in the answer",
@@ -662,9 +682,9 @@ var _ = Describe("Scan task", func() {
 				for i := range fields {
 					fields[i] = fmt.Sprintf(`"f%03d":"%s"`, i, strings.Repeat("x", 64))
 				}
-				payload := "{" + strings.Join(fields, ",") + "}"
+				body := "{" + strings.Join(fields, ",") + "}"
 				for i := range 60 {
-					broker.publish(fmt.Sprintf("plant/%02d", i), payload, true)
+					broker.publish(fmt.Sprintf("plant/%02d", i), body, true)
 				}
 				stat := browse(ctx, msgpack.EncodedJSON{
 					"filter": "plant/#", "duration": 3000,
@@ -693,16 +713,23 @@ var _ = Describe("Scan task", func() {
 				broker.publish("plant/e", `{"v": 1, "v": 2}`, true)
 				broker.publish("plant/f", `{"v": 1} {"v": 2}`, true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				fields := func(t any) any { return t.(map[string]any)["fields"] }
+				fields := func(t map[string]any) any { return t["fields"] }
 				Expect(stat.Details.Data["topics"]).To(HaveExactElements(
-					WithTransform(fields, Equal([]any{field("", "number", "23.4")})),
 					WithTransform(fields, Equal([]any{
-						field("/state", "string", `"ON"`),
-						field("/mode", "string", `"AUTO"`),
+						field("", "number", "23.4", payload.KindFloat),
 					})),
 					WithTransform(fields, Equal([]any{
-						field("/out/flow~1rate~0avg", "number", "1.2"),
-						field("/on", "boolean", "true"),
+						field("/state", "string", `"ON"`, payload.KindString),
+						field("/mode", "string", `"AUTO"`, payload.KindString),
+					})),
+					WithTransform(fields, Equal([]any{
+						field(
+							"/out/flow~1rate~0avg",
+							"number",
+							"1.2",
+							payload.KindFloat,
+						),
+						field("/on", "boolean", "true", payload.KindBoolean),
 					})),
 					WithTransform(fields, BeEmpty()),
 					WithTransform(fields, BeEmpty()),
@@ -716,27 +743,118 @@ var _ = Describe("Scan task", func() {
 				long := strings.Repeat("x", 300)
 				broker.publish("plant/a", `{"text": "`+long+`", "v": 1}`, true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				topic := stat.Details.Data["topics"].([]any)[0]
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				topic := topics[0]
 				Expect(topic).To(HaveKeyWithValue("payload", HaveLen(256)))
 				Expect(topic).To(HaveKeyWithValue("fields", []any{
-					field("/text", "string", `"`+long[:63]),
-					field("/v", "number", "1"),
+					field("/text", "string", `"`+long[:63], payload.KindString),
+					field("/v", "number", "1", payload.KindInteger),
 				}))
 			},
 		)
 
-		It("Should give at most 256 scalars of a payload", func(ctx SpecContext) {
-			names := make([]string, 300)
-			for i := range names {
-				names[i] = fmt.Sprintf(`"f%03d": %d`, i, i)
-			}
-			broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
-			stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-			topic := stat.Details.Data["topics"].([]any)[0]
-			fields := topic.(map[string]any)["fields"].([]any)
-			Expect(fields).To(HaveLen(256))
-			Expect(fields[255]).To(Equal(field("/f255", "number", "255")))
-		})
+		It("Should give at most 256 scalars of a payload, and no index past them",
+			func(ctx SpecContext) {
+				names := make([]string, 301)
+				for i := range 300 {
+					names[i] = fmt.Sprintf(`"f%03d": %d`, i, i)
+				}
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				names[300] = fmt.Sprintf(`"ts": %d`, ms)
+				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				topic, ok := topics[0].(map[string]any)
+				Expect(ok).To(BeTrue())
+				fields, ok := topic["fields"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(fields).To(HaveLen(256))
+				Expect(fields[255]).To(
+					Equal(field("/f255", "number", "255", payload.KindInteger)),
+				)
+				Expect(topic).ToNot(HaveKey("index"))
+			},
+		)
+
+		It("Should give no kind to a field past the first 1,024 fields of a topic",
+			func(ctx SpecContext) {
+				names := make([]string, 1024)
+				for i := range names {
+					names[i] = fmt.Sprintf(`"f%04d": %d`, i, i)
+				}
+				broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
+				publishUntilDone(broker, "plant/a", `{"late": 1}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(HaveKeyWithValue("fields", []any{
+					map[string]any{"pointer": "/late", "type": "number", "sample": "1"},
+				}))
+			},
+		)
+
+		It("Should give no index when the last payload is not JSON",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d}`, ms), true)
+				publishUntilDone(broker, "plant/a", "offline")
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(SatisfyAll(
+					HaveKeyWithValue("format", "text"),
+					HaveKeyWithValue("fields", BeEmpty()),
+					Not(HaveKey("index")),
+				))
+			},
+		)
+
+		It("Should infer the kinds and the index from every message heard",
+			func(ctx SpecContext) {
+				ms := int64(telem.Now() / telem.MillisecondTS)
+				broker.publish("plant/a", fmt.Sprintf(`{"ts":%d,"v":1.5}`, ms), true)
+				publishUntilDone(
+					broker,
+					"plant/a",
+					fmt.Sprintf(`{"ts":%d,"v":2}`, ms+1),
+				)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics).To(HaveLen(1))
+				Expect(topics[0]).To(SatisfyAll(
+					HaveKeyWithValue("index", "/ts"),
+					HaveKeyWithValue("fields", []any{
+						map[string]any{
+							"pointer":     "/ts",
+							"type":        "number",
+							"sample":      strconv.FormatInt(ms+1, 10),
+							"kind":        "timestamp",
+							"time_format": "unix_ms",
+						},
+						field("/v", "number", "2", payload.KindFloat),
+					}),
+				))
+			},
+		)
+
+		It("Should give no index when no field holds a timestamp",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", `{"time":"soon","v":1}`, true)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(SatisfyAll(
+					Not(HaveKey("index")),
+					HaveKeyWithValue("fields", []any{
+						field("/time", "string", `"soon"`, payload.KindString),
+						field("/v", "number", "1", payload.KindInteger),
+					}),
+				))
+			},
+		)
 
 		It("Should report a list cut at the limit", func(ctx SpecContext) {
 			broker.publish("plant/a", "1", true)
@@ -752,7 +870,8 @@ var _ = Describe("Scan task", func() {
 				broker.publish("plant/long", strings.Repeat("é", 200), true)
 				broker.publish("plant/binary", "\xff\xfe\x00", true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				topics := stat.Details.Data["topics"].([]any)
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				Expect(topics[0]).To(HaveKeyWithValue("payload", ""))
 				Expect(topics[1]).
@@ -813,9 +932,9 @@ var _ = Describe("Scan task", func() {
 			Topics []struct {
 				Topic    string `json:"topic"`
 				Messages []struct {
-					Format   driver.Format `json:"format"`
-					Payload  string        `json:"payload"`
-					Retained bool          `json:"retained"`
+					Format   payload.Format `json:"format"`
+					Payload  string         `json:"payload"`
+					Retained bool           `json:"retained"`
 				} `json:"messages"`
 			} `json:"topics"`
 			Shapes    []xjson.Shape `json:"shapes"`
@@ -851,7 +970,7 @@ var _ = Describe("Scan task", func() {
 			Expect(res.Topics).To(HaveLen(2))
 			Expect(res.Topics[0].Topic).To(Equal("rig/1/temp"))
 			Expect(res.Topics[0].Messages[0].Retained).To(BeTrue())
-			Expect(res.Topics[0].Messages[0].Format).To(Equal(driver.FormatJSON))
+			Expect(res.Topics[0].Messages[0].Format).To(Equal(payload.FormatJSON))
 			Expect(res.Topics[0].Messages[0].Payload).
 				To(Equal(fmt.Sprintf(`{"value":1.5,"time":%d}`, now)))
 			Expect(res.Shapes).To(HaveLen(1))

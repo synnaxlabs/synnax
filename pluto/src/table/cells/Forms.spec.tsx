@@ -11,7 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TextForm, ValueForm } from "@/table/cells/Forms";
@@ -96,6 +96,15 @@ describe("ValueForm", () => {
       const { getByText } = renderTelemetryTab();
       typePrecision(getByText, "40");
       expect(methods.get(path.precision).value).toBe(17);
+    });
+
+    it("should write the staleness timeout to the cell config in seconds", () => {
+      const { getByLabelText } = renderTelemetryTab();
+      const input = getByLabelText("Timeout");
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: "7s" } });
+      fireEvent.blur(input);
+      expect(methods.get(path.stalenessTimeout).value).toBe(7);
     });
   });
 

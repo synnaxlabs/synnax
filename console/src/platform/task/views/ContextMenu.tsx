@@ -11,18 +11,24 @@ import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import type { ReactNode } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { TareItem } from "@/platform/task/TareItem";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuProps {
   keys: string[];
-  onRemove: (keys: string[]) => void;
+  onRemove?: (keys: string[]) => void;
   onDuplicate?: (keys: string[]) => void;
   onRename?: (key: string) => void;
   onAddField?: () => void;
   onEnable?: () => void;
   onDisable?: () => void;
+  /** Items that follow the add field item, such as an add item of the form's own. */
+  extraMenuItems?: ReactNode;
+  /** The channels that the Tare item tares. Undefined drops the item. */
+  tareChannels?: channel.Key[];
 }
 
 /** The context menu of a task's item list. Omitted handlers drop their items. */
@@ -34,6 +40,8 @@ export const ContextMenu = ({
   onAddField,
   onEnable,
   onDisable,
+  extraMenuItems,
+  tareChannels,
 }: ContextMenuProps) => {
   const isPreview = useIsPreview();
   const canRenameChannel = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
@@ -50,6 +58,7 @@ export const ContextMenu = ({
               Add field
             </Menu.Item>
           )}
+          {extraMenuItems}
           {canRename && <Base.RenameItem onClick={() => onRename(keys[0])} />}
           {onEnable != null && (
             <Menu.Item itemKey="enable" onClick={onEnable}>
@@ -69,9 +78,18 @@ export const ContextMenu = ({
               Duplicate
             </Menu.Item>
           )}
+        </>
+      )}
+      {tareChannels != null && <TareItem channels={tareChannels} />}
+      {!isPreview && canAct && (
+        <>
           <Menu.Divider />
-          <Base.RemoveItem onClick={() => onRemove(keys)} />
-          <Menu.Divider />
+          {onRemove != null && (
+            <>
+              <Base.RemoveItem onClick={() => onRemove(keys)} />
+              <Menu.Divider />
+            </>
+          )}
         </>
       )}
       <Base.ReloadConsoleItem />

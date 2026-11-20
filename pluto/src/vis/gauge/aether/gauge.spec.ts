@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color } from "@synnaxlabs/x";
+import { box, color, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
@@ -52,19 +52,47 @@ const styles = (recorder: canvasTest.Recorder, prop: string): string[] =>
     .filter((c) => c.op === `set:${prop}`)
     .map((c) => c.args[0] as string);
 
+// The end angle of the value arc, the last arc the gauge draws.
+const valueEnd = (recorder: canvasTest.Recorder): number =>
+  recorder.upper2d.calls.filter((c) => c.op === "arc").at(-1)?.args[4] as number;
+
 describe("gauge/aether/Gauge", () => {
+  describe("value arc", () => {
+    it("should measure the arc from a stored lower above the upper", () => {
+      const reversed = setup({
+        value: "25",
+        state: { bounds: { lower: 100, upper: 0 } },
+      });
+      const ordered = setup({
+        value: "75",
+        state: { bounds: { lower: 0, upper: 100 } },
+      });
+      expect(valueEnd(reversed.recorder)).toBeCloseTo(valueEnd(ordered.recorder));
+    });
+  });
+
   describe("staleness", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the gauge, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(gauge.Gauge.z.parse({ box: BOX })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("60");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("61");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
       const { component, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       vi.advanceTimersByTime(10000);
       recorder.clear();
@@ -74,7 +102,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should use the staleness color once the source goes quiet", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -83,9 +114,29 @@ describe("gauge/aether/Gauge", () => {
       expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
     });
 
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("60");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      expect(styles(recorder, "strokeStyle")).not.toContain(color.hex(STALE));
+    });
+
     it("should recolor the arc as well as the value text", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -96,7 +147,7 @@ describe("gauge/aether/Gauge", () => {
 
     it("should fall back to the warning color when no staleness color is set", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1 },
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -109,7 +160,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should repaint itself when the source goes quiet", () => {
       const { source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       recorder.clear();
@@ -121,7 +175,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should stay live while the source keeps sending", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 5, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       for (let i = 0; i < 5; i++) {
         vi.advanceTimersByTime(1000);
@@ -134,7 +191,10 @@ describe("gauge/aether/Gauge", () => {
 
     it("should clear the staleness color when the source sends again", () => {
       const { component, source, recorder } = setup({
-        state: { stalenessTimeout: 1, stalenessColor: STALE },
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+        },
       });
       source.setValue("60");
       vi.advanceTimersByTime(1250);
@@ -145,7 +205,9 @@ describe("gauge/aether/Gauge", () => {
     });
 
     it("should release its registration on delete", () => {
-      const { h } = setup({ state: { stalenessTimeout: 1 } });
+      const { h } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
     });

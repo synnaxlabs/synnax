@@ -10,7 +10,7 @@
 import "@/schematic/node/common/primitive/primitive.css";
 
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
-import { color, dimensions, direction, type xy } from "@synnaxlabs/x";
+import { color, dimensions, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   createContext,
@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
+import type { SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
 export interface SVGProps
@@ -42,17 +42,6 @@ HoldFill.displayName = "Primitive.HoldFill";
 // Strokes overflow the view box, so the fill reaches past it by a stroke width.
 const HOLD_FILL_MARGIN = 2;
 
-/** @returns the box the hold fill covers on a drawing of the given dimensions. */
-export const holdBox = ({
-  width,
-  height,
-}: dimensions.Dimensions): xy.XY & dimensions.Dimensions => ({
-  x: -HOLD_FILL_MARGIN,
-  y: -HOLD_FILL_MARGIN,
-  width: width + 2 * HOLD_FILL_MARGIN,
-  height: height + 2 * HOLD_FILL_MARGIN,
-});
-
 export const SVG = ({
   dimensions: dimsProp,
   orientation = "left",
@@ -65,7 +54,12 @@ export const SVG = ({
 }: SVGProps): ReactElement => {
   const holdFill = use(HoldFill);
   const id = useUniqueKey();
-  const box = holdBox(dimsProp);
+  const holdBox = {
+    x: -HOLD_FILL_MARGIN,
+    y: -HOLD_FILL_MARGIN,
+    width: dimsProp.width + 2 * HOLD_FILL_MARGIN,
+    height: dimsProp.height + 2 * HOLD_FILL_MARGIN,
+  };
   const dir = direction.construct(orientation);
   const dims = dir === "y" ? dimensions.swap(dimsProp) : dimsProp;
   const symbolColor = color.rgbaString(colorVal);
@@ -92,14 +86,14 @@ export const SVG = ({
               id={`${id}-mask`}
               className={CSS.BE("symbol-hold", "mask")}
               maskUnits="userSpaceOnUse"
-              {...box}
+              {...holdBox}
             >
               <use href={`#${id}`} />
             </mask>
             <rect
               className={CSS.BE("symbol-hold", "fill")}
               mask={`url(#${id}-mask)`}
-              {...box}
+              {...holdBox}
             />
           </>
         ) : (

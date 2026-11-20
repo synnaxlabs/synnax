@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import {
   type Connection,
@@ -18,7 +19,6 @@ import {
   ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
-import { uniqueName } from "@/testutil";
 
 type TCPConnection = Extract<Connection, { transport: "tcp" }>;
 type RTUConnection = Extract<Connection, { transport: "rtu" }>;

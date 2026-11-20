@@ -44,7 +44,7 @@ Entry struct {
 		GinkgoHelper()
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			ctx, live, "schemas/synnax/channel.oracle", "channel",
+			live, "schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag == nil || diag.Ok()).To(BeTrue())
@@ -112,7 +112,7 @@ Entry struct {
 	It("Should promote warnings to errors when configured", func(ctx SpecContext) {
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			ctx, `
+			`
 			@go output "out"
 			Entry struct {
 				key uuid @key

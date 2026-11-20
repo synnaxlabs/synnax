@@ -81,10 +81,7 @@ class TestCertificate:
         """Should reject a private key that does not match the certificate."""
         with pytest.raises(
             sy.PathError,
-            match=(
-                r"^private_key_pem: does not match the certificate: "
-                r"validation error$"
-            ),
+            match=r"^private_key_pem: does not match the certificate$",
         ):
             client.certificates.set(
                 certificate.NewStored(
@@ -93,15 +90,18 @@ class TestCertificate:
             )
 
     def test_create_file(self, client: sy.Synnax) -> None:
-        """Should create a file certificate."""
+        """Should create a file certificate on a rack."""
+        r = client.racks.create(name="File certificate")
         c = client.certificates.set(
             certificate.FileCertificate(
                 name="On disk",
                 certificate_path="/etc/synnax/client.crt",
                 private_key_file="client.key",
+                rack=r.key,
             )
         )
         assert isinstance(c, certificate.FileCertificate)
+        assert c.rack == r.key
         assert c.certificate_path == "/etc/synnax/client.crt"
         assert c.private_key_file == "client.key"
 
@@ -168,7 +168,7 @@ class TestCertificate:
         with pytest.raises(
             sy.ValidationError,
             match=r"^cannot delete secret In use private key because certificate "
-            r"In use uses it as its private_key: validation error$",
+            r"In use uses it as its private_key$",
         ):
             client.secrets.delete(c.private_key)
         assert client.secrets.retrieve(key=c.private_key).key == c.private_key

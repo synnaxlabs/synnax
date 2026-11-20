@@ -9,18 +9,18 @@
 
 import "@/platform/tree/item.css";
 
-import { type resource, type Synnax } from "@synnaxlabs/client";
-import { type Haul } from "@synnaxlabs/lyra/haul";
+import type { resource, Synnax } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { type FC, type ReactElement, type ReactNode } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Children } from "@/platform/tree/children";
+import type { Children } from "@/platform/tree/children";
 import { MatchGroup, useHighlight } from "@/platform/tree/search";
-import { type ContextMenu, type Resource } from "@/platform/tree/types";
+import type { ContextMenu, Resource } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.
@@ -76,6 +76,22 @@ export interface HaulItems {
   (resource: Resource, client: Synnax): Haul.Item[];
 }
 
+export interface HaulPreviewProps {
+  /** The resource the drag started on. */
+  resource: Resource;
+  client: Synnax;
+  /** How many resources the drag carries. */
+  count: number;
+}
+
+/**
+ * Renders the drag preview of a resource. The preview renders outside every provider,
+ * so it reads data from the client cache, never through hooks.
+ */
+export interface HaulPreview {
+  (props: HaulPreviewProps): ReactNode;
+}
+
 /**
  * Item renders one resource in the resource tree. The component carries the static
  * behavior of its resource type (children, order, drag, context menu) as properties,
@@ -89,6 +105,7 @@ export interface Item extends FC<ItemProps> {
   canDrop: CanDrop;
   drop?: Drop;
   haulItems: HaulItems;
+  haulPreview: HaulPreview;
   ContextMenu?: ContextMenu;
   /** A deep link opens a resource of this type. */
   linkable: boolean;
@@ -144,6 +161,10 @@ export interface CreateItemParams {
   /** Moves dropped items into a node of this type. Required when canDrop can pass. */
   drop?: Drop;
   haulItems?: HaulItems;
+  /** The name of the resource type, which the default drag preview shows. */
+  typeName?: string;
+  /** Overrides the default drag preview: the icon, the name, and the type name. */
+  haulPreview?: HaulPreview;
   ContextMenu?: ContextMenu;
   /** A deep link opens a resource of this type. */
   linkable?: boolean;
@@ -159,6 +180,8 @@ export const createItem = ({
   canDrop = () => false,
   drop,
   haulItems = () => [],
+  typeName,
+  haulPreview,
   ContextMenu,
   linkable = false,
   Content: ContentComp,
@@ -166,6 +189,15 @@ export const createItem = ({
   const Row = ContentComp ?? DefaultRow;
   const resolveIcon = (resource: Resource): Icon.ReactElement | undefined =>
     Icon.resolve(typeof icon === "function" ? icon(resource) : icon);
+  const facts = typeName == null ? [] : [typeName];
+  const defaultHaulPreview: HaulPreview = ({ resource, count }) => (
+    <Haul.Preview
+      icon={resolveIcon(resource)}
+      name={resource.name}
+      facts={facts}
+      count={count}
+    />
+  );
   const Component = (props: ItemProps): ReactElement => {
     const onSelect = useOnSelect();
     const handleDoubleClick = () => onSelect(props.resource);
@@ -190,6 +222,7 @@ export const createItem = ({
   item.canDrop = canDrop;
   item.drop = drop;
   item.haulItems = haulItems;
+  item.haulPreview = haulPreview ?? defaultHaulPreview;
   item.ContextMenu = ContextMenu;
   item.linkable = linkable;
   return item;

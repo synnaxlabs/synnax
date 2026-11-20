@@ -285,6 +285,11 @@
             padding: 0 0.25rem;
         }
 
+        /* The parts of a name sit close. Only the last one keeps the margin. */
+        .lyra-text:has(+ .lyra-text:not(.lyra-tabs__close)) {
+            margin-right: 0;
+        }
+
         > .lyra-icon {
             flex-shrink: 0;
             margin-left: 1.5rem;

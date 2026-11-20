@@ -10,8 +10,9 @@
 """MQTT invalid configuration tests through the Console.
 
 The Console form blocks invalid settings before they reach the Driver and renders a
-field error. A broker that is down and a channel another task writes are only found
-at runtime, so the Driver reports those.
+field error. No field shows the error for a config with no enabled entries, so the
+footer shows that failure. A broker that is down and a channel another task writes are
+only found at runtime, so the Driver reports those.
 """
 
 from examples.mqtt_sim import MQTTSim
@@ -21,8 +22,8 @@ from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
 
 TOPIC = "plant/sensors"
-POINTER = "/temperature"
 WILDCARD_TOPIC = "plant/+"
+NO_ENTRIES_ERROR = "At least one entry must be enabled"
 
 
 class MQTTInvalidConfig(MQTTCase):
@@ -33,7 +34,8 @@ class MQTTInvalidConfig(MQTTCase):
     Tests (run sequentially on one task page):
         1. No device selected: the form blocks the deploy.
         2. Wildcard topic: the form blocks the deploy at the topic field.
-        3. No enabled entries: the form blocks the deploy.
+        3. No enabled entries: the form blocks the deploy, the footer shows the
+           failure, and the task does not start.
         4. Broker down: the Driver warns until the broker returns, then runs.
         5. Duplicate channel: a second task on the same field is rejected while
            the first one runs.
@@ -63,10 +65,9 @@ class MQTTInvalidConfig(MQTTCase):
     def test_wildcard_topic(self, page: MQTTRead) -> None:
         self.log("Testing: Wildcard topic")
         self.select_broker(page)
-        page.add_entry()
+        page.add_topics([TOPIC])
+        page.select_entry(TOPIC)
         page.set_topic(WILDCARD_TOPIC)
-        page.add_field(WILDCARD_TOPIC, POINTER)
-        page.select_entry(WILDCARD_TOPIC)
         page.deploy(expect=None)
         message = page.field_help_text("Topic")
         assert message == "Topic must not hold the wildcards + or #", (
@@ -79,7 +80,14 @@ class MQTTInvalidConfig(MQTTCase):
         page.set_topic(TOPIC)
         page.disable_entry(TOPIC)
         page.deploy(expect=None)
-        self.assert_not_deployed(page, label="no enabled entries")
+        status = page.wait_for_status_variant(("error",))
+        assert status.message == "Failed to start task", (
+            f"The footer should report the failed start, got '{status.message}'"
+        )
+        assert NO_ENTRIES_ERROR in status.description, (
+            f"The footer should hold the form's error, got '{status.description}'"
+        )
+        assert not page.is_running(), "The task should not start with no entries"
 
     def test_broker_down(self, page: MQTTRead) -> None:
         """Deploy against a stopped broker; the task warns, then reads once the
@@ -93,16 +101,14 @@ class MQTTInvalidConfig(MQTTCase):
         self.console.tasks.wait_for_state(page.page_name, "running")
 
     def test_duplicate_channel(self, page: MQTTRead) -> None:
-        """Deploy a second task on the same field of the same topic while the first
-        one runs; the Console reuses the channel and the Driver rejects the writer."""
+        """Deploy a second task on the same fields of the same topic while the first
+        one runs; the Console reuses the channels and the Driver rejects the writer."""
         self.log("Testing: Duplicate channel (two tasks on same channel)")
         # Page objects locate their pane by task type, so the first tab closes before a
         # second read task opens.
         self.console.close_all_tabs()
         second = self.create_page(MQTTRead, prefix="MQTT Console Duplicate")
         self.select_broker(second)
-        second.add_entry()
-        second.set_topic(TOPIC)
-        second.add_field(TOPIC, POINTER)
+        second.add_topics([TOPIC])
         self.assert_driver_rejects(second, label="duplicate channel")
         self.console.tasks.stop(page.page_name)

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Select } from "@/select";
@@ -92,6 +92,30 @@ describe("Select.Single dialog body", () => {
     expect(c.queryByText("No results discovered")).toBeNull();
     fireEvent.change(search, { target: { value: "" } });
     expect(c.getByText("No results discovered")).toBeTruthy();
+  });
+
+  it("should not deny a match while a fixed option matches the search", () => {
+    const c = render(
+      <Select.Single
+        visible
+        data={[]}
+        onChange={vi.fn()}
+        onSearch={vi.fn()}
+        resourceName="result"
+        fixedItems={
+          <Select.Item itemKey="stage" textValue="Stage">
+            Stage
+          </Select.Item>
+        }
+      >
+        {() => <div>Hello</div>}
+      </Select.Single>,
+    );
+    fireEvent.change(c.getByPlaceholderText("Search results..."), {
+      target: { value: "stage" },
+    });
+    expect(c.getByText("Stage")).toBeTruthy();
+    expect(c.queryByText(/^No results/)).toBeNull();
   });
 
   it("should ignore spaces around a search term", () => {

@@ -13,7 +13,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
-import { type SparkplugTagID } from "@/feature/mqtt/task/types";
+import type { SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
@@ -58,10 +58,9 @@ const Label = ({ type, identity }: LabelProps) => {
   );
 };
 
-const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => {
-  const topic = PForm.useFieldValue(path.topic);
-  return <Label type="plain" identity={topic} />;
-};
+const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => (
+  <Label type="plain" identity={PForm.useFieldValue(path.topic)} />
+);
 
 const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
   const group = PForm.useFieldValue(path.group);

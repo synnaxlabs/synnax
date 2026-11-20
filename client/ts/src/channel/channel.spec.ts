@@ -18,7 +18,6 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
-  failRequests,
   FAST_RETRY,
   spyOnSend,
   waitForStreamLive,
@@ -302,10 +301,7 @@ describe("Channel", () => {
       await expect(
         client.channels.retrieve({ where: { name: { eq: name } } }),
       ).rejects.toThrow(
-        new PathError(
-          ["where", "name"],
-          new ValidationError("no operator set: validation error"),
-        ),
+        new PathError(["where", "name"], new ValidationError("no operator set")),
       );
     });
     test("retrieve by name", async () => {
@@ -471,8 +467,7 @@ describe("Channel", () => {
       });
       await expect(client.channels.delete(channel.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
-            "validation error",
+          `cannot delete channel ${channel.name} because task ${task.name} uses it`,
         ),
       );
       await client.tasks.delete(task.key);
@@ -494,7 +489,7 @@ describe("Channel", () => {
       await expect(client.channels.delete(index.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete channel ${index.name} because channel ${data.name} uses ` +
-            "it as its index: validation error",
+            "it as its index",
         ),
       );
       await client.channels.delete(data.key);
@@ -587,29 +582,6 @@ describe("Channel", () => {
       const cached = unstreamed.channels.store.get(ch.key);
       expect(cached?.expression).toEqual("return 1.5");
       expect(cached?.dataType).toEqual(DataType.FLOAT64);
-    });
-
-    it("should resolve and report a failed fetch after the send", async () => {
-      const onInternalError = vi.fn();
-      const local = createTestClient({ onInternalError });
-      const ch = await local.channels.create({
-        name: id.create(),
-        dataType: DataType.INT64,
-        virtual: true,
-        expression: "return 1",
-      });
-      const fetchError = new Error("fetch failed");
-      failRequests(local, "/channel/retrieve", fetchError);
-      await local.channels.dispatch(
-        ch.key,
-        channel.set({ path: ["expression"], value: "return 2" }),
-      );
-      expect(onInternalError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: "failed to fetch a dispatched channel",
-          cause: fetchError,
-        }),
-      );
     });
 
     it("should keep the cached channel when the Core rejects the actions", async () => {

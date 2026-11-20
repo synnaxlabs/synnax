@@ -10,7 +10,6 @@
 package testutil
 
 import (
-	"context"
 	"go/parser"
 	"go/token"
 	"os"
@@ -30,13 +29,12 @@ import (
 // Analyze analyzes source as the schema of namespace, loading its imports through
 // loader. It returns a nil table when analysis fails.
 func Analyze(
-	ctx context.Context,
 	source, namespace string,
 	loader analyzer.FileLoader,
 ) (*resolution.Table, *diagnostics.Files) {
 	table := resolution.NewTable()
 	diag := analyzer.AnalyzeSeeded(
-		ctx, source, namespace+".oracle", namespace, loader, table,
+		source, namespace+".oracle", namespace, loader, table,
 	)
 	if !diag.Ok() {
 		return nil, diag
@@ -47,12 +45,11 @@ func Analyze(
 // generateRequest creates a plugin request from a source string by analyzing the source
 // and returning a request with the resolution table.
 func generateRequest(
-	ctx context.Context,
 	source string,
 	namespace string,
 	loader *MockFileLoader,
 ) (*plugin.Request, error) {
-	table, diag := Analyze(ctx, source, namespace, loader)
+	table, diag := Analyze(source, namespace, loader)
 	if diag != nil && !diag.Ok() {
 		return nil, diag
 	}
@@ -64,13 +61,12 @@ func generateRequest(
 
 // MustGenerateRequest is like GenerateRequest but fails the test if analysis fails.
 func MustGenerateRequest(
-	ctx context.Context,
 	source string,
 	namespace string,
 	loader *MockFileLoader,
 ) *plugin.Request {
 	ginkgo.GinkgoHelper()
-	req, err := generateRequest(ctx, source, namespace, loader)
+	req, err := generateRequest(source, namespace, loader)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to analyze source")
 	return req
 }
@@ -80,7 +76,6 @@ func MustGenerateRequest(
 // that need to exercise cross-schema behavior (e.g., two schemas that derive
 // the same namespace from different files).
 func MustGenerateMulti(
-	ctx context.Context,
 	loader *MockFileLoader,
 	p plugin.Plugin,
 ) *plugin.Response {
@@ -89,7 +84,7 @@ func MustGenerateMulti(
 	for path := range loader.Files {
 		files = append(files, path)
 	}
-	table, diag := analyzer.Analyze(ctx, files, loader)
+	table, diag := analyzer.Analyze(files, loader)
 	if diag != nil {
 		gomega.Expect(diag.Ok()).To(gomega.BeTrue(), diag.String)
 	}
@@ -102,14 +97,13 @@ func MustGenerateMulti(
 // MustGenerate analyzes the source and generates output using the provided plugin.
 // Fails the test if analysis or generation fails.
 func MustGenerate(
-	ctx context.Context,
 	source string,
 	namespace string,
 	loader *MockFileLoader,
 	p plugin.Plugin,
 ) *plugin.Response {
 	ginkgo.GinkgoHelper()
-	req := MustGenerateRequest(ctx, source, namespace, loader)
+	req := MustGenerateRequest(source, namespace, loader)
 	resp, err := p.Generate(req)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to generate")
 	return resp
@@ -216,14 +210,12 @@ func (c *ContentExpectation) ToPreserveOrder(
 	orderedSubstrings ...string,
 ) *ContentExpectation {
 	ginkgo.GinkgoHelper()
-	lastIdx := -1
+	start := 0
 	for _, s := range orderedSubstrings {
-		idx := strings.Index(c.content, s)
-		gomega.Expect(idx).
-			To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
-		gomega.Expect(idx).To(gomega.BeNumerically(">", lastIdx),
+		idx := strings.Index(c.content[start:], s)
+		gomega.Expect(idx).To(gomega.BeNumerically(">=", 0),
 			"expected %q to appear after previous substring", s)
-		lastIdx = idx
+		start += idx + len(s)
 	}
 	return c
 }

@@ -13,16 +13,13 @@ import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/cli
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import type { FC, ReactElement } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
-  MAKE,
-  migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
@@ -35,7 +32,6 @@ import {
   deployReadConfigZ,
   nodeIdentity,
   READ_SCHEMAS,
-  READ_TYPE,
   type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
@@ -43,7 +39,6 @@ import {
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<ReadSchemas>>();
@@ -161,16 +156,8 @@ const TaskForm: FC = createForm<ReadChannel>({
   children: isIndexItem,
   resolve,
   indexed: true,
+  tareable: true,
 });
-
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA read task", type: READ_TYPE, config: cfg };
-};
 
 interface DetermineIndexChannelParams {
   client: Synnax;
@@ -241,12 +228,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
   config,
   name,
 ) => {
-  const previous = await client.devices.retrieve({
+  const device = await client.devices.retrieve({
     key: config.device,
     schemas: SCHEMAS,
   });
-  const before = deep.copy(previous.properties);
-  const device = { ...previous, properties: migrateProperties(previous.properties) };
+  const before = deep.copy(device.properties);
 
   const index = await determineIndexChannel({
     client,
@@ -301,16 +287,3 @@ export const Read = Task.wrapForm({
   deployConfigZ: deployReadConfigZ,
   onConfigure,
 });
-
-export const useCreateRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const ReadSelectable: Selector.Selectable = {
-  type: READ_TYPE,
-  title: "OPC UA read task",
-  label: "Read",
-  icon: <Icon.Logo.OPCUA />,
-  useOnSelect: useCreateRead,
-};

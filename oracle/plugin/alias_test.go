@@ -238,11 +238,13 @@ var (
 	}), "|")
 	aliasRef = regexp.MustCompile(`\b(` + names + `)\b`)
 	// aliasDecl matches the whole declaration of an alias in Go, TypeScript, Python,
-	// and C++, including the lines a generic declaration spans.
+	// and C++, including the lines a generic declaration spans and the Python TypeVars
+	// that a generic alias declares.
 	aliasDecl = regexp.MustCompile(`(?m)^\s*(` + strings.Join([]string{
 		`type (` + names + `)(\[[^\]]*\])? = .*$`,
 		`export (const|type) (` + names + `|` + schemas + `)\b[^;]*;`,
 		`(` + names + `): TypeAlias = .*$`,
+		`\w+ = TypeVar\(.*$`,
 		`(template <[^>]*>\s*)?using (` + names + `) = [^;]*;`,
 	}, "|") + `)`)
 	// qualifiedName matches a reference to a base or test type through its package.
@@ -302,7 +304,10 @@ func normalizeLines(path, content string) []string {
 		}
 		if from, imported, ok := strings.Cut(line, " import "); ok &&
 			strings.HasPrefix(from, "from ") {
-			names := strings.Split(imported, ", ")
+			names := slices.DeleteFunc(
+				strings.Split(imported, ", "),
+				func(name string) bool { return name == "TypeVar" },
+			)
 			slices.Sort(names)
 			line = from + " import " + strings.Join(names, ", ")
 		}
@@ -332,10 +337,10 @@ func lineDiff(a, b []string) (onlyA, onlyB []string) {
 	return append(onlyA, a[i:]...), append(onlyB, b[j:]...)
 }
 
-func generateFiles(ctx SpecContext, source string, p plugin.Plugin) map[string]string {
+func generateFiles(source string, p plugin.Plugin) map[string]string {
 	GinkgoHelper()
 	loader := NewMockFileLoader().Add("schemas/base", aliasBase)
-	resp := MustGenerate(ctx, source, "test", loader, p)
+	resp := MustGenerate(source, "test", loader, p)
 	files := make(map[string]string, len(resp.Files))
 	for _, f := range resp.Files {
 		files[f.Path] = string(f.Content)
@@ -345,9 +350,9 @@ func generateFiles(ctx SpecContext, source string, p plugin.Plugin) map[string]s
 
 var _ = Describe("Aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, newPlugin func() plugin.Plugin) {
-			aliased := generateFiles(ctx, aliasHead+aliasDecls+aliasUses, newPlugin())
-			direct := generateFiles(ctx, aliasHead+directUses(), newPlugin())
+		func(newPlugin func() plugin.Plugin) {
+			aliased := generateFiles(aliasHead+aliasDecls+aliasUses, newPlugin())
+			direct := generateFiles(aliasHead+directUses(), newPlugin())
 			Expect(aliased).To(HaveLen(len(direct)))
 			for path, content := range direct {
 				Expect(aliased).To(HaveKey(path))

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -21,12 +22,7 @@ import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import {
-  assertDefined,
-  captureBrowserDownloads,
-  getIconButton,
-  uniqueName,
-} from "@/testutil";
+import { captureBrowserDownloads, getIconButton } from "@/testutil";
 
 const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => {
   const keys = Object.keys(configs);

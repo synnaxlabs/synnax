@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();
@@ -24,8 +24,8 @@ const COLUMNS: List.Column[] = [{ name: "Port", width: "10rem" }];
 
 type ItemOverrides = Partial<Omit<Task.Views.ListChannelItemProps, "children">>;
 
-const createListItem = (overrides: ItemOverrides = {}) =>
-  Component.renderProp(({ itemKey, ...p }: Task.ChannelListItemProps) => (
+const createListItem = (overrides: ItemOverrides = {}) => {
+  const ChannelItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
     <Task.Views.ListChannelItem
       {...p}
       itemKey={itemKey}
@@ -38,7 +38,9 @@ const createListItem = (overrides: ItemOverrides = {}) =>
         <span>port-{itemKey}</span>
       </List.Cell>
     </Task.Views.ListChannelItem>
-  ));
+  );
+  return Component.renderProp(ChannelItem);
+};
 
 const renderList = (listItem = createListItem(), channelColumns?: List.Column[]) =>
   renderInTaskForm(

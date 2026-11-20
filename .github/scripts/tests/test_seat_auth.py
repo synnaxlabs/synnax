@@ -16,7 +16,7 @@ NOW = datetime(2026, 11, 15, 10, 17, tzinfo=UTC)
 
 
 def instance(
-    iid: str, seat: str, *, agent: str = "claude", state: str = "running", **tags: str
+    iid: str, seat: str, *, agent: str = "codex", state: str = "running", **tags: str
 ) -> dict[str, Any]:
     tags |= {"seat": seat, "agent": agent}
     return {
@@ -92,12 +92,12 @@ def run(aws: FakeAws) -> tuple[bool, list[str]]:
 
 def test_signed_out_running_seat_fails_and_is_tagged() -> None:
     aws = FakeAws(
-        [instance("i-1", "claude-1", auth="signed-in")],
+        [instance("i-1", "seat-1", auth="signed-in")],
         {"i-1": ("Success", "signed-out\n")},
     )
     ok, lines = run(aws)
     assert not ok
-    assert lines == ["claude-1: signed-out as of 2026-11-15T10:17Z"]
+    assert lines == ["seat-1: signed-out as of 2026-11-15T10:17Z"]
     assert aws.tagged() == [
         [
             "--resources",
@@ -114,7 +114,7 @@ def test_stopped_seat_reports_its_recorded_state() -> None:
         [
             instance(
                 "i-1",
-                "claude-1",
+                "seat-1",
                 state="stopped",
                 auth="signed-out",
                 auth_checked="2026-11-14T08:17Z",
@@ -123,7 +123,7 @@ def test_stopped_seat_reports_its_recorded_state() -> None:
     )
     ok, lines = run(aws)
     assert not ok
-    assert lines == ["claude-1: signed-out as of 2026-11-14T08:17Z"]
+    assert lines == ["seat-1: signed-out as of 2026-11-14T08:17Z"]
     assert not any(c[:2] == ["ssm", "send-command"] for c in aws.calls)
 
 
@@ -131,44 +131,41 @@ def test_signed_in_seats_pass() -> None:
     aws = FakeAws(
         [
             instance("i-2", "review-1"),
-            instance("i-1", "claude-1"),
-            instance("i-3", "codex-1", agent="codex", state="stopped"),
+            instance("i-1", "seat-1"),
+            instance("i-3", "seat-3", state="stopped"),
         ],
         {"i-1": ("Success", "signed-in"), "i-2": ("Success", "signed-in")},
     )
     ok, lines = run(aws)
     assert ok
     assert lines == [
-        "claude-1: signed-in as of 2026-11-15T10:17Z",
-        "codex-1: not checked yet",
         "review-1: signed-in as of 2026-11-15T10:17Z",
+        "seat-1: signed-in as of 2026-11-15T10:17Z",
+        "seat-3: not checked yet",
     ]
     sends = [c for c in aws.calls if c[:2] == ["ssm", "send-command"]]
     assert len(sends) == 1
-    assert "agent=claude" in sends[0]
-    assert sends[0][-2:] == ["i-1", "i-2"]
+    assert "agent=codex" in sends[0]
+    assert sends[0][-2:] == ["i-2", "i-1"]
 
 
-def test_each_agent_gets_its_own_command() -> None:
+def test_claude_seats_are_not_checked() -> None:
     aws = FakeAws(
-        [instance("i-1", "claude-1"), instance("i-2", "codex-1", agent="codex")],
-        {"i-1": ("Success", "signed-in"), "i-2": ("Success", "signed-out")},
+        [instance("i-1", "claude-1", agent="claude"), instance("i-2", "codex-1")],
+        {"i-2": ("Success", "signed-out")},
     )
-    ok, _ = run(aws)
+    ok, lines = run(aws)
     assert not ok
-    params = [
-        c[c.index("--parameters") + 1]
-        for c in aws.calls
-        if c[:2] == ["ssm", "send-command"]
-    ]
-    assert params == ["agent=claude", "agent=codex"]
+    assert lines == ["codex-1: signed-out as of 2026-11-15T10:17Z"]
+    sends = [c for c in aws.calls if c[:2] == ["ssm", "send-command"]]
+    assert [c[c.index("--parameters") + 1] for c in sends] == ["agent=codex"]
 
 
 def test_seat_without_an_answer_keeps_its_recorded_state() -> None:
     aws = FakeAws(
         [
-            instance("i-1", "claude-1", auth="signed-in", auth_checked="earlier"),
-            instance("i-2", "claude-2"),
+            instance("i-1", "seat-1", auth="signed-in", auth_checked="earlier"),
+            instance("i-2", "seat-2"),
         ],
         # An undelivered invocation has no plugins.
         {"i-1": ("Failed",), "i-2": ("Success", "")},
@@ -176,26 +173,26 @@ def test_seat_without_an_answer_keeps_its_recorded_state() -> None:
     ok, lines = run(aws)
     assert ok
     assert lines == [
-        "claude-1: running, but gave no answer",
-        "claude-1: signed-in as of earlier",
-        "claude-2: running, but gave no answer",
-        "claude-2: not checked yet",
+        "seat-1: running, but gave no answer",
+        "seat-1: signed-in as of earlier",
+        "seat-2: running, but gave no answer",
+        "seat-2: not checked yet",
     ]
     assert aws.tagged() == []
 
 
 def test_seat_with_ssm_offline_is_not_asked() -> None:
     aws = FakeAws(
-        [instance("i-1", "claude-1"), instance("i-2", "claude-2")],
+        [instance("i-1", "seat-1"), instance("i-2", "seat-2")],
         {"i-2": ("Success", "signed-in")},
         offline=("i-1",),
     )
     ok, lines = run(aws)
     assert ok
     assert lines == [
-        "claude-1: running, but gave no answer",
-        "claude-1: not checked yet",
-        "claude-2: signed-in as of 2026-11-15T10:17Z",
+        "seat-1: running, but gave no answer",
+        "seat-1: not checked yet",
+        "seat-2: signed-in as of 2026-11-15T10:17Z",
     ]
     sends = [c for c in aws.calls if c[:2] == ["ssm", "send-command"]]
     assert sends[0][-1:] == ["i-2"]

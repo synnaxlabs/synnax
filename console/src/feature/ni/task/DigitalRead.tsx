@@ -11,13 +11,12 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
@@ -28,12 +27,10 @@ import {
   deployDigitalReadConfigZ,
   type DIChannel,
   DIGITAL_READ_SCHEMAS,
-  DIGITAL_READ_TYPE,
-  digitalReadConfigZ,
+  type digitalReadConfigZ,
   type DigitalReadSchemas,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<DigitalReadSchemas>>();
@@ -100,7 +97,7 @@ const Form: FC = () => {
   return (
     <Task.Views.List<DIChannel>
       path={root.config.channels}
-      createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
+      createChannel={(channels, copy) => createNextDIChannel(channels, { copy }, dev)}
       listItem={listItem}
       columns={PORT_LINE_COLUMNS}
       checkable
@@ -109,16 +106,6 @@ const Form: FC = () => {
       map={map}
     />
   );
-};
-
-const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = digitalReadConfigZ.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  if (config == null) cfg.channels = [createNextDIChannel([])];
-  return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
@@ -200,16 +187,3 @@ export const DigitalRead = Task.wrapForm({
   onConfigure,
   type: "ni_digital_read",
 });
-
-export const useCreateDigitalRead = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const DigitalReadSelectable: Selector.Selectable = {
-  type: DIGITAL_READ_TYPE,
-  title: "NI digital read task",
-  label: "Digital read",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: useCreateDigitalRead,
-};

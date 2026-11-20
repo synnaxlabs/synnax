@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import type { z } from "zod";
 
 import { NotFoundError, PathError } from "@/errors";
 import { icd } from "@/icd";
@@ -31,7 +32,7 @@ const createNew = (name: string = "ICD"): icd.New => ({
             name: "temperature",
             startBit: 8,
             bitLength: 16,
-            signed: true,
+            kind: "integer",
             scale: 0.1,
             units: "degC",
           },
@@ -83,7 +84,7 @@ describe("icd", () => {
         name: "temperature",
         startBit: 8,
         bitLength: 16,
-        signed: true,
+        kind: "integer",
         scale: 0.1,
         units: "degC",
       });
@@ -123,6 +124,11 @@ describe("icd", () => {
     });
 
     it("should create a JSON message with each field type", async () => {
+      const match: icd.JSONMatch = {
+        type: "unsigned",
+        pointer: "/seq",
+        value: "18446744073709551615",
+      };
       const ic = await client.icds.create({
         name: "JSON",
         messages: [
@@ -130,11 +136,22 @@ describe("icd", () => {
             name: "Reading",
             payload: {
               format: "json",
+              match,
               fields: [
-                { type: "number", name: "temp", pointer: "/temp", scale: 0.1 },
+                { type: "float", name: "temp", pointer: "/temp", scale: 0.1 },
+                { type: "integer", name: "delta", pointer: "/delta" },
+                { type: "unsigned", name: "count", pointer: "/count" },
                 { type: "string", name: "state", pointer: "/state" },
                 { type: "boolean", name: "armed", pointer: "/armed" },
-                { type: "timestamp", name: "time", pointer: "/ts", format: "unix_ms" },
+                {
+                  type: "timestamp",
+                  name: "time",
+                  pointer: "/ts",
+                  timeFormat: "unix_ms",
+                },
+                { type: "json", name: "raw", pointer: "/raw" },
+                { type: "uuid", name: "id", pointer: "/id" },
+                { type: "bytes", name: "blob", pointer: "/blob" },
               ],
             },
           },
@@ -143,13 +160,73 @@ describe("icd", () => {
       expect(await client.icds.retrieve(ic.key)).toEqual(ic);
       expect(ic.messages[0].payload).toMatchObject({
         format: "json",
+        match,
         fields: [
-          { type: "number", pointer: "/temp", scale: 0.1 },
+          { type: "float", pointer: "/temp", scale: 0.1, enumValues: [] },
+          { type: "integer", pointer: "/delta" },
+          { type: "unsigned", pointer: "/count" },
           { type: "string", pointer: "/state", scale: 1 },
           { type: "boolean", pointer: "/armed" },
-          { type: "timestamp", pointer: "/ts", format: "unix_ms" },
+          { type: "timestamp", pointer: "/ts", timeFormat: "unix_ms" },
+          { type: "json", pointer: "/raw" },
+          { type: "uuid", pointer: "/id" },
+          { type: "bytes", pointer: "/blob" },
         ],
       });
+    });
+
+    it("should keep the enum values and defaults of JSON fields", async () => {
+      const fields: z.input<typeof icd.jsonFieldZ>[] = [
+        {
+          type: "float",
+          name: "level",
+          pointer: "/level",
+          enumValues: [{ label: "FULL", value: 100.5 }],
+          default: -1.5,
+        },
+        {
+          type: "integer",
+          name: "delta",
+          pointer: "/delta",
+          enumValues: [{ label: "MIN", value: "-9223372036854775808" }],
+          default: "9223372036854775807",
+        },
+        {
+          type: "unsigned",
+          name: "count",
+          pointer: "/count",
+          enumValues: [{ label: "MAX", value: "18446744073709551615" }],
+          default: "18446744073709551614",
+        },
+        {
+          type: "string",
+          name: "state",
+          pointer: "/state",
+          enumValues: [{ label: "on", value: "ON" }],
+          default: "OFF",
+        },
+        {
+          type: "boolean",
+          name: "armed",
+          pointer: "/armed",
+          enumValues: [{ label: "yes", value: true }],
+          default: false,
+        },
+        {
+          type: "timestamp",
+          name: "time",
+          pointer: "/ts",
+          timeFormat: "unix_ns",
+          default: new TimeStamp(2n ** 62n + 1n),
+        },
+      ];
+      const ic = await client.icds.create({
+        name: "Defaults",
+        messages: [{ name: "Reading", payload: { format: "json", fields } }],
+      });
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved).toEqual(ic);
+      expect(retrieved.messages[0].payload).toMatchObject({ format: "json", fields });
     });
 
     it("should create multiple ICDs", async () => {
@@ -243,7 +320,7 @@ describe("icd", () => {
             payload: {
               format: "json",
               fields: [
-                { type: "number", name: "a", pointer: "/v" },
+                { type: "float", name: "a", pointer: "/v" },
                 { type: "string", name: "b", pointer: "/v/x", scale: 2 },
               ],
             },

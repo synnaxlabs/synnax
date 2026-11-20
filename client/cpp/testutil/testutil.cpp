@@ -17,7 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 synnax::Config test_client_config() {
-    x::env::Parser env("SYNNAX");
+    x::env::Parser env("SYNNAX_TEST");
     synnax::Config cfg;
     cfg.host = env.field("host", cfg.host);
     cfg.port = env.field("port", cfg.port);
@@ -27,6 +27,16 @@ synnax::Config test_client_config() {
 
 synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config());
+}
+
+synnax::Config
+rack_client_config(const synnax::Synnax &client, const synnax::rack::Key key) {
+    const auto api_key = ASSERT_NIL_P(
+        client.api_keys.create("test rack", {"rack", std::to_string(key)})
+    );
+    auto cfg = test_client_config();
+    cfg.api_key = api_key.token;
+    return cfg;
 }
 
 std::mt19937 random_generator(const std::string &suite_name) {

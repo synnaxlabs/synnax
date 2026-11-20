@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { unique, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
-import { type Diagram } from "@/vis/diagram";
+import type { Diagram } from "@/vis/diagram";
 
 const { PADDING, TOP_PADDING } = Node.GroupBox;
 
@@ -237,7 +237,7 @@ export const closure = (
   keys: readonly string[],
   parentOf: Map<string, string>,
 ): string[] =>
-  withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], parentOf);
+  withMembers(unique.unique(keys.map((k) => rootOf(parentOf, k))), parentOf);
 
 /** canUngroup returns whether the selection includes a group. */
 export const canUngroup = (

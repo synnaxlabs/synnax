@@ -27,6 +27,43 @@ CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 WRITE_TIMEOUT = 20 * sy.TimeSpan.SECOND
 
 
+def create_plain_entry(
+    client: sy.Synnax,
+    *,
+    topic: str,
+    bindings: list[tuple[sy.icd.JSONField, int]],
+    index: sy.icd.JSONField | None = None,
+    qos: mqtt.QoS = "at_most_once",
+    retained_ignored: bool = False,
+) -> mqtt.PlainReadEntry:
+    """Create an ICD with one JSON message, named after topic, that holds the fields of
+    bindings. Return a plain entry that reads topic as that message.
+
+    :param bindings: Each field of the message, with the channel it writes to.
+    :param index: The field of bindings whose channel indexes the others. None stamps
+        each sample with its arrival time.
+    """
+    message = sy.icd.Message(
+        name=topic, payload=sy.icd.JSONPayload(fields=[f for f, _ in bindings])
+    )
+    ic = client.icds.create(name=topic, messages=[message])
+    return mqtt.PlainReadEntry(
+        topic=topic,
+        qos=qos,
+        retained_ignored=retained_ignored,
+        icd=ic.key,
+        messages=[
+            sy.icd.ReadMessage(
+                message=message.key,
+                index=None if index is None else index.key,
+                bindings=[
+                    sy.icd.ReadBinding(field=f.key, channel=ch) for f, ch in bindings
+                ],
+            )
+        ],
+    )
+
+
 @contextmanager
 def run_reader(
     client: sy.Synnax,
@@ -133,7 +170,9 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase[mqtt.ReadTask]):
             if isinstance(entry, mqtt.SparkplugReadEntry):
                 keys.append(entry.channel)
                 continue
-            keys.extend(f.channel for f in entry.fields if f.channel != 0)
+            keys.extend(
+                b.channel for m in entry.messages for b in m.bindings if b.channel != 0
+            )
         return keys
 
 

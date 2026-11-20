@@ -9,10 +9,9 @@
 
 """Lets someone with write access to the repository tell the bot to stop reporting a
 finding on a pull request, with a reply of `@sedosaur dismiss` on the thread of the
-finding, or with a comment of `@sedosaur dismiss` and its title on the pull request."""
+finding, or with a dispatch that names its title."""
 
 import re
-from typing import Any
 
 from review.post import (
     GH,
@@ -20,114 +19,141 @@ from review.post import (
     Target,
     Thread,
     answer,
-    answers,
     authority,
+    by_bot,
     command,
-    comments,
-    issue_comment,
     outside_findings,
+    pending,
+    rebutted,
+    reply,
     rescore,
+    resolve,
     threads,
     write,
 )
 
 USAGE = (
-    "To dismiss this finding, reply `@sedosaur dismiss` and a reason. To ask for a "
-    "review, comment `@sedosaur review` on the pull request."
+    "To dismiss this finding, reply `@sedosaur dismiss` and a reason. A push starts a "
+    "new review."
 )
 UNNAMED = (
-    "No one open finding has that title. To dismiss a finding, comment "
-    "`@sedosaur dismiss`, its title, and a reason. When two findings share the title, "
-    "add `path:<file>` after it."
+    "No one open finding has that title. When two findings share the title, add "
+    "`path:<file>` after it."
 )
 REFUSED = "Only someone with write access to the repository can dismiss a finding."
 DONE = "Dismissed. Later reviews of this pull request will not report it."
+NAMED = (
+    "Dismissed **{title}** for {actor}: {reason} Later reviews of this pull request "
+    "will not report it."
+)
+UNREASONED = "A dismissal needs a reason."
 PASSED = (
-    " Every finding of the review of the head is dismissed, so the head scores 5/5."
+    " Every finding of the review of the head is dismissed or withdrawn, so the head "
+    "scores 5/5."
 )
 _QUOTES = "\"'\u201c\u201d\u2018\u2019"
 _PATH = re.compile(r"(?:^|\s)path:(\S+)")
-_REPLY = """mutation($t: ID!, $b: String!) {
-  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
-    comment { id }
-  }
-}"""
-_RESOLVE = """mutation($t: ID!) {
-  resolveReviewThread(input: {threadId: $t}) { thread { id } }
-}"""
 
 
-def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
-    """Answers a comment that mentions the bot: a reply on the thread of one of its
-    findings, or a comment on the pull request. Then answers each `@sedosaur dismiss` on
-    the pull request that has no answer yet, so a run also does the work of a run that
-    never finished. A writer's reply dismisses the finding of its thread. A writer's
-    comment binds to the one open finding its title names, and the answer records that
-    finding. Each dismissal resolves the finding's thread. When every finding of the
-    newest review of the head is then dismissed, a new check run scores the head 5/5.
+def dismiss(t: Target, gh: GH, *, comment: int | None, key: str) -> bool:
+    """Answers a reply on the thread of one of the bot's findings, and each reply on the
+    pull request that has no answer yet, so a run also does the work of a run that never
+    finished. With no reply, it only does that work. A writer's `@sedosaur dismiss`
+    reply dismisses the finding of its thread and resolves the thread. A rebuttal waits
+    for `judge`. An open thread with other replies gets the usage once. When every
+    finding of the newest review of the head is then dismissed, by a reply or by a
+    record of `dismiss_by_title`, a new check run scores the head 5/5. Returns whether a
+    rebuttal waits for `judge`.
 
-    :param comment: The database ID of the reply or the comment.
+    :param comment: The database ID of the reply, or None.
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
-    :raises ValueError: If the comment is neither a reply to a finding of the bot nor a
-        comment on the pull request.
+    :raises ValueError: If the comment is not a reply to a finding of the bot.
     """
     found = threads(t, gh)
-    hits = [(th, c) for th in found for c in th.replies if c["databaseId"] == comment]
-    if not hits and issue_comment(t, gh, comment) is None:
-        raise ValueError(f"comment {comment} is not on pull request {t.pr}")
-    for thread, reply in hits:
-        if command(reply["body"]) is None:
-            _reply(gh, thread, USAGE)
+    replies = {c["databaseId"] for th in found for c in th.replies}
+    if comment is not None and comment not in replies:
+        raise ValueError(
+            f"comment {comment} is not on a finding of pull request {t.pr}"
+        )
     can = authority(t, gh)
     _sweep_threads(t, gh, found, can)
-    _sweep_comments(t, gh, found, can)
     if rescore(t, gh, found, key, can):
         _comment(t, gh, PASSED.strip())
+    return any(rebutted(t, th, can) for th in threads(t, gh))
+
+
+def dismiss_by_title(
+    t: Target, gh: GH, *, finding: str, reason: str, actor: str
+) -> None:
+    """Dismisses the one open finding that `finding` names for `actor`. A comment of the
+    bot records the dismissal, and the finding's thread resolves when it has one. The
+    score of the head does not change until `dismiss` runs.
+
+    :param finding: The title of the finding, with `path:<file>` after it when two
+        findings share the title. Case, backticks, and quotes do not count.
+    :param reason: Why the finding does not apply. The comment of the bot shows it.
+    :param actor: The login that asked for the dismissal.
+    :raises ValueError: If the reason is empty, if no one open finding has the title, or
+        if the actor is not a person with write access.
+    """
+    reason = reason.strip()
+    if not reason:
+        raise ValueError(UNREASONED)
+    found = threads(t, gh)
+    can = authority(t, gh)
+    kind = "Bot" if actor.endswith("[bot]") else "User"
+    if not can({"author": {"__typename": kind, "login": actor}}):
+        raise ValueError(REFUSED)
+    still = {(th.path, th.title): th for th in found if not th.resolved}
+    hit = _named(finding, outside_findings(t, gh) | still.keys())
+    if hit is None or hit[1]:
+        raise ValueError(UNNAMED)
+    path, title = hit[0]
+    record = {"actor": actor, "path": path, "title": title, "reason": reason}
+    _comment(
+        t,
+        gh,
+        answer(
+            record, NAMED.format(title=title, actor=actor, reason=_sentence(reason))
+        ),
+    )
+    if (th := still.get((path, title))) is not None:
+        resolve(gh, th)
+
+
+def _sentence(text: str) -> str:
+    return text if text[-1] in ".!?" else f"{text}."
 
 
 def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
-    """Answers each dismissal reply that no reply of the bot follows."""
+    """Answers each dismissal reply that no reply of the bot follows, and gives the
+    usage to each open thread that has other replies only and no rebuttal."""
     for th in found:
+        if not th.resolved and _needs_usage(t, th, can):
+            reply(gh, th, USAGE)
         for i, r in enumerate(th.replies):
             later = th.replies[i + 1 :]
-            if command(r["body"]) is None or any(_by(t, c) for c in later):
+            if (
+                by_bot(t, r)
+                or command(r["body"]) is None
+                or any(by_bot(t, c) for c in later)
+            ):
                 continue
             if not can(r):
-                _reply(gh, th, REFUSED)
+                reply(gh, th, REFUSED)
                 continue
-            _reply(gh, th, DONE)
-            _resolve(gh, th)
+            reply(gh, th, DONE)
+            resolve(gh, th)
 
 
-def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
-    """Answers each dismissal comment on the pull request that has no answer yet."""
-    posted = comments(t, gh)
-    done = {a["comment"] for a in answers(t, posted)}
-    still = {(th.path, th.title): th for th in found if not th.resolved}
-    targets = outside_findings(t, gh) | still.keys()
-    for c in posted:
-        text = command(c["body"])
-        if c["login"] == f"{t.bot}[bot]" or c["id"] in done or text is None:
-            continue
-        hit = _named(text, targets)
-        if not can(c):
-            _comment(t, gh, answer({"comment": c["id"]}, REFUSED))
-        elif hit is None:
-            _comment(t, gh, answer({"comment": c["id"]}, UNNAMED))
-        else:
-            (path, title), reason = hit
-            record = {"comment": c["id"], "path": path, "title": title}
-            _comment(t, gh, answer(record | {"reason": reason}, DONE))
-            if (th := still.get((path, title))) is not None:
-                _resolve(gh, th)
-
-
-def _by(t: Target, reply: dict[str, Any]) -> bool:
-    return (reply["author"] or {}).get("login") == t.bot
-
-
-def _resolve(gh: GH, thread: Thread) -> None:
-    gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
+def _needs_usage(t: Target, th: Thread, can: Authority) -> bool:
+    replies = pending(t, th)
+    return (
+        bool(replies)
+        and all(command(r["body"]) is None for r in replies)
+        and not rebutted(t, th, can)
+        and not any(by_bot(t, r) and r["body"] == USAGE for r in th.replies)
+    )
 
 
 def _named(
@@ -152,16 +178,3 @@ def _named(
 
 def _comment(t: Target, gh: GH, body: str) -> None:
     write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
-
-
-def _reply(gh: GH, thread: Thread, body: str) -> None:
-    gh(
-        "api",
-        "graphql",
-        "-f",
-        f"query={_REPLY}",
-        "-f",
-        f"t={thread.id}",
-        "-f",
-        f"b={body}",
-    )

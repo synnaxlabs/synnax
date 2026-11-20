@@ -11,17 +11,21 @@ import { type label, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
-import { openFilterProperty } from "@/platform/view/testutil";
-import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
+import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
+import { renderSuspended } from "@/testutil";
 
 const client = createTestClient();
+
+// A View.Frame reads its view from the tab it renders in.
+const TAB = { variant: "view", type: "explorer" } as const;
 
 const path = deep.path<z.infer<typeof schema>>();
 
@@ -43,7 +47,7 @@ interface FixtureProps {
 const Fixture = ({ where, properties }: FixtureProps): ReactElement => {
   const methods = Form.use({ schema, values: { where } });
   return (
-    <View.Frame resourceType="range" icon="Label">
+    <View.Frame resourceType="range" icon="Label" tabType={TAB.type}>
       <Form.Form<typeof schema> {...methods}>
         <View.Filter.Menu properties={properties} />
         <View.Filter.Chips properties={properties} />
@@ -60,10 +64,8 @@ const renderFixture = async (
   where?: ranger.Where,
   properties: View.Filter.Properties<ranger.Where> = RANGES,
 ): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
-  await renderSuspended(<Fixture where={where} properties={properties} />, {
-    wrapper,
-  });
+  const { wrapper } = await createTabWrapper({ client, tab: TAB });
+  await renderSuspended(<Fixture where={where} properties={properties} />, { wrapper });
 };
 
 const createLabels = async (count: number): Promise<label.Label[]> =>

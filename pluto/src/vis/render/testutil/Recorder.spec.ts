@@ -10,7 +10,7 @@
 import { box, scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const REQUEST: render.Request = {
@@ -72,6 +72,15 @@ describe("canvasTest.record", () => {
       expect(r.lower2d.calls).toEqual([
         { op: "applyScale", args: [scale.XY.IDENTITY] },
         { op: "fillRect", args: [1, 1, 2, 2] },
+      ]);
+    });
+
+    it("records a linear gradient and the stops added to it", () => {
+      const r = canvasTest.record();
+      r.upper2d.createLinearGradient(0, 0, 10, 0).addColorStop(1, "#fff");
+      expect(r.upper2d.calls).toEqual([
+        { op: "createLinearGradient", args: [0, 0, 10, 0] },
+        { op: "addColorStop", args: [1, "#fff"] },
       ]);
     });
 

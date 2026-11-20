@@ -22,6 +22,7 @@ import (
 var _ = Describe("CreateDriverRole", func() {
 	It("Should create the role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))

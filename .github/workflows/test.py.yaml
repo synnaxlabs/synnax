@@ -31,6 +31,11 @@ on:
         description: The directory containing the package
         required: true
         type: string
+      free_threaded:
+        description: Whether to also test on free-threaded Python 3.14t, on Ubuntu
+        required: false
+        type: boolean
+        default: false
       freighter_image:
         description:
           Freighter integration server image to test against, or empty for none
@@ -77,6 +82,13 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# A fork's run gets no secrets, so its Core would have no license. It skips the Core and
+# the tests that need one, and the merge queue runs them.
+env:
+  FORK:
+    ${{ github.event_name == 'pull_request' &&
+    github.event.pull_request.head.repo.full_name != github.repository }}
+
 # The test services pull their images from GHCR.
 permissions:
   contents: read
@@ -91,16 +103,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        # oldest is the lower bound of requires-python. Only Ubuntu runs it.
-        python: ${{ fromJSON(inputs.lowest && '["oldest"]' || '["3.14", "oldest"]') }}
+        # The versions follow SPEC 0. oldest is the lower bound of requires-python. Only
+        # Ubuntu runs 3.14t.
+        python:
+          ${{ fromJSON(inputs.lowest && '["oldest"]' || inputs.free_threaded &&
+          '["oldest", "3.14", "3.15", "3.14t"]' || '["oldest", "3.14", "3.15"]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
           - os: macos-latest
-            python: oldest
+            python: 3.14t
           - os: windows-latest
-            python: oldest
+            python: 3.14t
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -108,11 +123,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Start Core
-        if:
-          runner.os == 'Linux' && inputs.core_image != '' && (inputs.lowest ||
-          matrix.python != 'oldest')
+        if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -136,7 +151,7 @@ jobs:
           token: ${{ github.token }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -164,19 +179,21 @@ jobs:
 
       # Ruff output depends on the Ruff version, so only the locked one checks it.
       - name: Lint
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: uv run ruff check .
 
       - name: Check docstrings
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: uv run python "$GITHUB_WORKSPACE/scripts/check_docstrings_py.py"
 
       - name: Check formatting
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: |
           uv run ruff format --check --diff . ||
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
+      # Windows and macOS rows exist only in full runs (nightly and release), so mypy
+      # checks each OS's stubs there and only Linux on other runs.
       - name: Check types
         shell: bash
         env:
@@ -185,17 +202,22 @@ jobs:
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
 
-      # Without a limit, a hung test run holds the job for up to 6 hours. Only the newest
-      # Python measures coverage.
+      # Only the Linux runners start a Core, and not for a fork, so the others skip the
+      # tests that need one.
+      - name: Skip the tests that need a Core
+        if: inputs.core_image != '' && (runner.os != 'Linux' || env.FORK == 'true')
+        shell: bash
+        run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
+
+      # Without a limit, a hung test run holds the job for up to 6 hours. Only Python
+      # 3.15 measures coverage.
       - name: Test
-        if:
-          inputs.test && (inputs.coverage_module == '' || matrix.python == 'oldest') &&
-          (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
+        if: inputs.test && (inputs.coverage_module == '' || matrix.python != '3.15')
         timeout-minutes: 5
         run: uv run pytest
 
       - name: Test with coverage
-        if: inputs.test && inputs.coverage_module != '' && matrix.python != 'oldest'
+        if: inputs.test && inputs.coverage_module != '' && matrix.python == '3.15'
         shell: bash
         timeout-minutes: 5
         env:
@@ -203,7 +225,7 @@ jobs:
         run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml
 
       - name: Upload coverage
-        if: inputs.test && inputs.coverage_flag != '' && matrix.python != 'oldest'
+        if: inputs.test && inputs.coverage_flag != '' && matrix.python == '3.15'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov

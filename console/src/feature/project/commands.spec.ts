@@ -9,8 +9,9 @@
 
 import { log, project } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -19,13 +20,11 @@ import { Project } from "@/feature/project";
 import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   captureBrowserDownloads,
   fakePickedFile,
   interceptFilePicker,
   removeSaveFilePicker,
   renderHookWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

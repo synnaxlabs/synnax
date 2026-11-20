@@ -51,79 +51,110 @@ func migrateDevice(
 			zap.String("port", key),
 		)
 	}
-	d.AnalogInput = AnalogInputPorts{
-		Index:    old.AnalogInput.Index,
-		Channels: map[uint16]channel.Key{},
-	}
-	for k, ch := range old.AnalogInput.Channels {
+	d.AnalogInput = migrateAnalogInput(old.AnalogInput, drop)
+	d.AnalogOutput = migrateAnalogOutput(old.AnalogOutput, drop)
+	d.CounterInput = migrateCounterInput(old.CounterInput, drop)
+	d.DigitalInput = migrateDigitalInput(old.DigitalInput, drop)
+	d.DigitalOutput = migrateDigitalOutput(old.DigitalOutput, drop)
+	return d, nil
+}
+
+// dropFunc reports a v0 port key in a port group that v1 cannot hold.
+type dropFunc func(group, key string)
+
+func migrateAnalogInput(old v0.InputPorts, drop dropFunc) AnalogInputPorts {
+	ports := AnalogInputPorts{Index: old.Index, Channels: map[uint16]channel.Key{}}
+	for k, ch := range old.Channels {
 		if k == "boardTempSensor" {
-			d.AnalogInput.Temperature = ch
+			ports.Temperature = ch
 		} else if port, ok := parsePort(k); ok {
-			d.AnalogInput.Channels[port] = ch
+			ports.Channels[port] = ch
 		} else {
 			drop("analog_input", k)
 		}
 	}
-	d.AnalogOutput = map[uint16]AnalogOutputChannels{}
-	for k, pair := range old.AnalogOutput.Channels {
+	return ports
+}
+
+func migrateAnalogOutput(
+	old v0.OutputPorts,
+	drop dropFunc,
+) map[uint16]AnalogOutputChannels {
+	ports := map[uint16]AnalogOutputChannels{}
+	for k, pair := range old.Channels {
 		port, ok := parsePort(k)
 		if !ok {
 			drop("analog_output", k)
 			continue
 		}
-		d.AnalogOutput[port] = AnalogOutputChannels{
-			StateIndex: old.AnalogOutput.StateIndex,
+		ports[port] = AnalogOutputChannels{
+			StateIndex: old.StateIndex,
 			Command:    pair.Command,
 			State:      pair.State,
 		}
 	}
-	d.CounterInput = map[uint16]CounterInputChannels{}
-	for k, ch := range old.CounterInput.Channels {
+	return ports
+}
+
+func migrateCounterInput(
+	old v0.InputPorts,
+	drop dropFunc,
+) map[uint16]CounterInputChannels {
+	ports := map[uint16]CounterInputChannels{}
+	for k, ch := range old.Channels {
 		port, ok := parsePort(k)
 		if !ok {
 			drop("counter_input", k)
 			continue
 		}
-		d.CounterInput[port] = CounterInputChannels{
-			Index:   old.CounterInput.Index,
-			Channel: ch,
-		}
+		ports[port] = CounterInputChannels{Index: old.Index, Channel: ch}
 	}
-	d.DigitalInput = map[uint16]DigitalInputChannels{}
-	for k, ch := range old.DigitalInput.Channels {
+	return ports
+}
+
+func migrateDigitalInput(
+	old v0.InputPorts,
+	drop dropFunc,
+) map[uint16]DigitalInputChannels {
+	ports := map[uint16]DigitalInputChannels{}
+	for k, ch := range old.Channels {
 		port, line, ok := parseLine(k)
 		if !ok {
 			drop("digital_input", k)
 			continue
 		}
-		p, exists := d.DigitalInput[port]
+		p, exists := ports[port]
 		if !exists {
-			p = DigitalInputChannels{
-				Index: old.DigitalInput.Index,
-				Lines: map[uint8]channel.Key{},
-			}
+			p = DigitalInputChannels{Index: old.Index, Lines: map[uint8]channel.Key{}}
 		}
 		p.Lines[line] = ch
-		d.DigitalInput[port] = p
+		ports[port] = p
 	}
-	d.DigitalOutput = map[uint16]DigitalOutputChannels{}
-	for k, pair := range old.DigitalOutput.Channels {
+	return ports
+}
+
+func migrateDigitalOutput(
+	old v0.OutputPorts,
+	drop dropFunc,
+) map[uint16]DigitalOutputChannels {
+	ports := map[uint16]DigitalOutputChannels{}
+	for k, pair := range old.Channels {
 		port, line, ok := parseLine(k)
 		if !ok {
 			drop("digital_output", k)
 			continue
 		}
-		p, exists := d.DigitalOutput[port]
+		p, exists := ports[port]
 		if !exists {
 			p = DigitalOutputChannels{
-				StateIndex: old.DigitalOutput.StateIndex,
+				StateIndex: old.StateIndex,
 				Lines:      map[uint8]CommandStatePair{},
 			}
 		}
 		p.Lines[line] = pair
-		d.DigitalOutput[port] = p
+		ports[port] = p
 	}
-	return d, nil
+	return ports
 }
 
 func parsePort(key string) (uint16, bool) {

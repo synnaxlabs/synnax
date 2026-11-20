@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type record, TimeSpan } from "@synnaxlabs/x";
+import { compare, deep, type record, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -1190,7 +1190,7 @@ describe("Form", () => {
         ]);
       });
       rerender();
-      act(() => result.current.utils.sort?.((a, b) => a.name.localeCompare(b.name)));
+      act(() => result.current.utils.sort?.(compare.by((v) => v.name)));
       rerender();
       expect(result.current.field?.[0].name).toBe("Alice");
       expect(result.current.field?.[1].name).toBe("John Doe");
@@ -1199,8 +1199,7 @@ describe("Form", () => {
   });
 
   describe("fieldListUtils over a store", () => {
-    const byName = (a: record.KeyedNamed, b: record.KeyedNamed) =>
-      a.name.localeCompare(b.name);
+    const byName = compare.by((v: record.KeyedNamed) => v.name);
     const renderOverStore = () => {
       const store = createLocalStore({
         ...deep.copy(initialFormValues),

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
@@ -28,12 +28,12 @@ export const ChannelForm = ({ omit = [] }: ChannelFormProps): ReactElement => {
   const { value, onChange } = Form.useField(path);
 
   const handleSourceChange = (v: channel.Key | null): void =>
-    onChange({ ...value, stateChannel: v ?? undefined });
+    onChange({ ...value, stateChannel: v ?? 0 });
 
   const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v ?? undefined,
+      commandChannel: v ?? 0,
     });
 
   return (
@@ -42,7 +42,7 @@ export const ChannelForm = ({ omit = [] }: ChannelFormProps): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.stateChannel ?? 0}
+            value={value.stateChannel}
             onChange={handleSourceChange}
           />
         </Input.Item>
@@ -51,7 +51,7 @@ export const ChannelForm = ({ omit = [] }: ChannelFormProps): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.commandChannel ?? 0}
+            value={value.commandChannel}
             onChange={handleSinkChange}
           />
         </Input.Item>

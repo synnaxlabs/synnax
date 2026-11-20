@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -150,6 +151,80 @@ var _ = Describe("Login", func() {
 	})
 })
 
+var _ = Describe("Methods", func() {
+	It("Should list the methods the Core accepts", func(ctx SpecContext) {
+		Expect(apiSvc.Methods(ctx, struct{}{})).To(Equal(apiauth.MethodsResponse{
+			Methods: []auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+		}))
+	})
+})
+
+var _ = Describe("Disabled methods", func() {
+	var own auth.Credentials
+	disabled := func(ctx SpecContext, method auth.Method) *apiauth.Service {
+		GinkgoHelper()
+		authenticators := map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: passwordSvc,
+			auth.MethodAPIKey:   apiKeySvc,
+		}
+		delete(authenticators, method)
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB:             other,
+			Authenticators: authenticators,
+		}))
+		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+			DB:       db,
+			Auth:     svc,
+			Password: passwordSvc,
+			APIKey:   apiKeySvc,
+			User:     userSvc,
+			RBAC:     rbacSvc,
+			Identity: node.Identity,
+		}))
+	}
+	BeforeEach(func(ctx SpecContext) {
+		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
+		createUser(ctx, own.Username, own.Password)
+	})
+	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
+			To(Equal(apiauth.MethodsResponse{
+				Methods: []auth.Method{auth.MethodAPIKey},
+			}))
+	})
+	It("Should refuse a password login and keep the password", func(ctx SpecContext) {
+		proof := passwordProof(own.Username, own.Password)
+		Expect(disabled(ctx, auth.MethodPassword).CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: proof},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, proof))
+	})
+	It("Should refuse a password change and keep the password", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).PrepareChangePassword(
+			requestCtx(ctx),
+			apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse to set a password and keep the old one", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).PrepareSetPassword(
+			requestCtx(ctx),
+			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "old"},
+		)).Error().To(MatchError(validate.ErrValidation))
+		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse a new API key", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
+			requestCtx(ctx),
+			nil,
+			apiauth.KeyCreateRequest{Name: "ci"},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
 var _ = Describe("ChangePassword", func() {
 	var (
 		own      auth.Credentials
@@ -265,7 +340,9 @@ var _ = Describe("SetPassword", func() {
 			Cookie:          true,
 		}))
 		Expect(res.Token).To(BeEmpty())
-		cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
+		v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
+		cookie, ok := v.(apiauth.SessionCookie)
+		Expect(ok).To(BeTrue())
 		Expect(authSvc.Authenticate(ctx, cookie.Token)).To(Equal(*res.Session))
 	})
 	It("Should open no session for a caller logged in with an API key", func(
@@ -536,7 +613,9 @@ var _ = Describe("Session cookie", func() {
 				Cookie: true,
 			}))
 			Expect(res.Token).To(BeEmpty())
-			cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
+			v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
+			cookie, ok := v.(apiauth.SessionCookie)
+			Expect(ok).To(BeTrue())
 			Expect(cookie.Token).To(HavePrefix("sys_"))
 			Expect(cookie.Lifetime).To(Equal(authSvc.IdleTimeout()))
 			Expect(MustSucceed(apiSvc.RenewSession(

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReportIssue } from "@/platform/task/check";
-import { type Cell, type State } from "@/platform/task/port/Grid";
+import { unique } from "@synnaxlabs/x";
+
+import type { ReportIssue } from "@/platform/task/check";
+import type { Cell, State } from "@/platform/task/port/Grid";
 
 /** A channel's hold on a port. */
 export interface Claim {
@@ -23,15 +25,8 @@ export interface Claim {
 export type Claims<C extends Claim = Claim> = Map<string, C[]>;
 
 /** Groups the claims by the port each holds. */
-export const group = <C extends Claim>(claims: C[]): Claims<C> => {
-  const result: Claims<C> = new Map();
-  claims.forEach((c) => {
-    const list = result.get(c.port);
-    if (list == null) result.set(c.port, [c]);
-    else list.push(c);
-  });
-  return result;
-};
+export const group = <C extends Claim>(claims: C[]): Claims<C> =>
+  Map.groupBy(claims, (c) => c.port);
 
 const conflicts = (claims: Claim[]): boolean =>
   claims.filter(({ disabled }) => !disabled).length > 1;
@@ -77,7 +72,7 @@ export const cell = ({
 }: CellParams): Cell => {
   const lists = ports.map((port) => claims.get(port) ?? []);
   const all = lists.flat();
-  const holders = [...new Map(all.map((c) => [c.channel, c])).values()];
+  const holders = unique.by(all, (c) => c.channel);
   const names = holders
     .map(({ channel, disabled }) =>
       disabled ? `${describe(channel)} (disabled)` : describe(channel),

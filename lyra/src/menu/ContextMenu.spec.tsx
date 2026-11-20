@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { List } from "@/list";
 import { Menu } from "@/menu";
+import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
@@ -91,6 +92,22 @@ const KeyMenu = ({ onKeys }: { onKeys: (keys: string[]) => void }): ReactElement
   );
 };
 
+const TargetMenu = ({
+  onTarget,
+}: {
+  onTarget: (target: HTMLElement | null) => void;
+}): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={({ target }) => <>{onTarget(target)}</>} {...ctx}>
+      <div className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        <span>Right click me</span>
+      </div>
+      <button onClick={() => ctx.open({ x: 10, y: 10 })}>Open at a point</button>
+    </Menu.ContextMenu>
+  );
+};
+
 const FocusMenu = (): ReactElement => {
   const ctx = Menu.useContextMenu();
   return (
@@ -113,6 +130,41 @@ const FocusMenu = (): ReactElement => {
     >
       <button onContextMenu={ctx.open}>Opener</button>
       <input id="field" aria-label="field" />
+    </Menu.ContextMenu>
+  );
+};
+
+const ChooseMenu = ({
+  onChoose,
+}: {
+  onChoose: (focused: Element | null) => void;
+}): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="edit" onClick={() => onChoose(document.activeElement)}>
+            Edit
+          </Menu.Item>
+          <Menu.Sub itemKey="move" textValue="Move">
+            <Menu.SubTrigger>Move</Menu.SubTrigger>
+            <Menu.Dialog aria-label="Move">
+              <Menu.Menu>
+                <Menu.Item
+                  itemKey="up"
+                  onClick={() => onChoose(document.activeElement)}
+                >
+                  Up
+                </Menu.Item>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <button onContextMenu={ctx.open}>Opener</button>
     </Menu.ContextMenu>
   );
 };
@@ -161,11 +213,56 @@ describe("ContextMenu", () => {
     expect(captured).toEqual(["semantic-key"]);
   });
 
+  it("should give the menu the context target it opened over", () => {
+    let captured: HTMLElement | null = null;
+    render(
+      <TargetMenu
+        onTarget={(target) => {
+          captured = target;
+        }}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(captured).toBe(screen.getByText("Right click me").parentElement);
+  });
+
+  it("should give the menu no target when it opens at a point", () => {
+    let captured: HTMLElement | null | undefined;
+    render(
+      <TargetMenu
+        onTarget={(target) => {
+          captured = target;
+        }}
+      />,
+    );
+    act(() => screen.getByText("Open at a point").click());
+    expect(captured).toBeNull();
+  });
+
   it("should display the menu on context menu event", () => {
     render(<TestMenu />);
     fireEvent.contextMenu(screen.getByText("Right click me"));
     expect(screen.getByText("Action 1")).toBeTruthy();
     expect(screen.getByText("Action 2")).toBeTruthy();
+  });
+
+  it("should portal the menu into the document body by default", () => {
+    render(<TestMenu />);
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByRole("menu").parentElement).toBe(document.body);
+  });
+
+  it("should portal the menu into a Portal.Target", () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    render(
+      <Portal.Target element={target}>
+        <TestMenu />
+      </Portal.Target>,
+    );
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(screen.getByRole("menu").parentElement).toBe(target);
+    target.remove();
   });
 
   it("should close the menu when clicking a menu item", () => {
@@ -282,6 +379,43 @@ describe("ContextMenu", () => {
       fireEvent.click(screen.getByText("Action 1"));
       expect(screen.queryByRole("menu")).toBeNull();
       expect(document.activeElement).toBe(opener);
+    });
+  });
+
+  describe("choosing an item", () => {
+    const open = (onChoose: (focused: Element | null) => void): HTMLElement => {
+      render(
+        <Triggers.Provider>
+          <ChooseMenu onChoose={onChoose} />
+        </Triggers.Provider>,
+      );
+      const opener = screen.getByText("Opener");
+      opener.focus();
+      fireEvent.contextMenu(opener);
+      return opener;
+    };
+
+    it("should give the focus back before the item acts", () => {
+      const onChoose = vi.fn();
+      const opener = open(onChoose);
+      fireEvent.click(screen.getByText("Edit"));
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
+    it("should give the focus back before an item of a submenu acts", () => {
+      const onChoose = vi.fn();
+      const opener = open(onChoose);
+      fireEvent.click(screen.getByText("Move"));
+      fireEvent.click(screen.getByText("Up"));
+      expect(onChoose).toHaveBeenCalledExactlyOnceWith(opener);
+    });
+
+    it("should keep the menu and its focus on a click that opens a submenu", () => {
+      const opener = open(vi.fn());
+      fireEvent.click(screen.getByText("Move"));
+      expect(screen.getByRole("menu")).toBeTruthy();
+      expect(document.activeElement).not.toBe(opener);
     });
   });
 

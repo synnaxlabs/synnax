@@ -15,10 +15,15 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -28,6 +33,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
+
+// Listener is a listener of the Core and the source of the certificate it presents.
+type Listener struct {
+	// Address is the address that the listener binds.
+	Address address.Address
+	// Source gives the certificate that the listener presents.
+	Source cert.Source
+}
 
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
@@ -47,6 +60,21 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// HostKey is the key of the node that runs the Service. It keys the statuses of the
+	// certificates that the node presents, which stay out of the store.
+	//
+	// [REQUIRED]
+	HostKey node.Key
+	// CA reads the CA certificates of the Core. The Service reports the expiry of each
+	// one, and of none when the Core has no CA file.
+	//
+	// [OPTIONAL] - Nil in insecure mode.
+	CA *cert.Loader
+	// Listeners are the listeners of the Core that serve TLS. The Service reports the
+	// expiry of the certificate that each one presents.
+	//
+	// [OPTIONAL] - Empty in insecure mode.
+	Listeners []Listener
 	// Now returns the current time.
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
@@ -57,6 +85,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to one hour.
 	ExpiryCheckInterval telem.TimeSpan
+	// Rack is the Core's own rack. Each file certificate stored before file
+	// certificates named a rack moves to it.
+	//
+	// [REQUIRED]
+	Rack rack.Key
 }
 
 var (
@@ -75,11 +108,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Secret = override.Nil(c.Secret, other.Secret)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
+	c.CA = override.Nil(c.CA, other.CA)
+	c.Listeners = override.Slice(c.Listeners, other.Listeners)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.ExpiryCheckInterval = override.Numeric(
 		c.ExpiryCheckInterval,
 		other.ExpiryCheckInterval,
 	)
+	c.Rack = override.Numeric(c.Rack, other.Rack)
 	return c
 }
 
@@ -89,8 +126,10 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("secret", c.Secret)
 	v.NotNil("status", c.Status)
+	v.NonZero("host_key", c.HostKey)
 	v.NotNil("now", c.Now)
 	v.Positive("expiry_check_interval", c.ExpiryCheckInterval)
+	v.NonZero("rack", c.Rack)
 	return v.Error()
 }
 
@@ -105,8 +144,9 @@ type Service struct {
 }
 
 // OpenService opens a Service with the given configuration. The Service updates the
-// expiry status of every certificate when it opens and on each ExpiryCheckInterval. If
-// the error is nil, the Service must be closed with Close after use.
+// expiry status of every certificate, and of each certificate that the node presents,
+// when it opens and on each ExpiryCheckInterval. If the error is nil, the Service must
+// be closed with Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
@@ -120,6 +160,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		References:      s.indexes.references(),
+		Migrations:      versions.NewMigrations(s.cfg.Rack),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -153,6 +194,12 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 	for {
 		if err := s.writeExpiry(ctx); err != nil {
 			s.cfg.L.Error("failed to update certificate expiry", zap.Error(err))
+		}
+		if err := s.writeOwnExpiry(ctx); err != nil {
+			s.cfg.L.Error(
+				"failed to update the expiry of the Core's certificates",
+				zap.Error(err),
+			)
 		}
 		select {
 		case <-ctx.Done():

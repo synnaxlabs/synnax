@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { type PluginOption } from "vite";
+import type { PluginOption } from "vite";
 
 import { reactCompiler } from "./compiler.js";
 import { declarations } from "./declarations.js";
@@ -100,6 +100,13 @@ export const lib = ({
             },
           },
         };
+      },
+      // Each Zod copy keeps its own registry, so the consumer's copy must be the only
+      // one.
+      generateBundle(_, bundle) {
+        for (const chunk of Object.values(bundle))
+          if (chunk.type === "chunk" && chunk.code.includes("__zod_globalRegistry"))
+            this.error(`${chunk.fileName} bundles Zod`);
       },
     },
     declarations(),

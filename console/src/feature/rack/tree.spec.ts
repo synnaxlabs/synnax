@@ -15,6 +15,7 @@ import {
   NotFoundError,
   rack,
   type resource,
+  status,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -22,6 +23,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { binary } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -30,6 +32,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 import { Rack } from "@/feature/rack";
+import { Arc } from "@/platform/arc";
 import { answerNextCommand } from "@/platform/task/testutil";
 import { Tree } from "@/platform/tree";
 import {
@@ -42,7 +45,7 @@ import {
   renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
+import { createTestClientWithGrants, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -50,6 +53,12 @@ const roles = new RoleClients(client);
 const Item = Rack.TREE_ITEMS.rack;
 
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
+
+const createArcRack = async () =>
+  await client.racks.create({
+    name: uniqueName("arc_rack"),
+    integrations: [Arc.INTEGRATION_KEY],
+  });
 
 const createNIRackWithScanner = async () => {
   const r = await client.racks.create({
@@ -98,13 +107,13 @@ const renderMenu = async (
 
 /**
  * A client that may rename racks and read everything the menu touches, differing only
- * in the type it may create.
+ * in the types it may create.
  */
-const createRackWriter = async (creatable: resource.ID) =>
+const createRackWriter = async (...creatable: resource.ID[]) =>
   await createTestClientWithGrants(client, {
     retrieve: [rack.TYPE_RESOURCE_ID, task.TYPE_RESOURCE_ID, arc.TYPE_RESOURCE_ID],
     update: [rack.TYPE_RESOURCE_ID],
-    create: [creatable],
+    create: creatable,
   });
 
 describe("rack tree item", () => {
@@ -147,11 +156,18 @@ describe("rack tree item", () => {
   });
 
   it("should expose rename, arc creation, and delete for a single rack", async () => {
+    const r = await createArcRack();
+    await renderMenu([r]);
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.getByText("Delete")).toBeTruthy();
+  });
+
+  it("should hide arc creation for a rack without the Arc integration", async () => {
     const r = await createRack();
     await renderMenu([r]);
-    expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Create Arc automation")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
   });
 
   it("should offer Reload Console", async () => {
@@ -184,11 +200,20 @@ describe("rack tree item", () => {
     });
   });
 
-  it("should open the arc creation modal from the context menu", async () => {
-    const r = await createRack();
-    await renderMenu([r]);
+  it("should bind an automation created from the context menu to the rack", async () => {
+    const r = await createArcRack();
+    const name = uniqueName("arc");
+    const { store } = await renderMenu([r]);
+    await selectTestProject(store, client);
     fireEvent.click(await screen.findByText("Create Arc automation"));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    fireEvent.change(await screen.findByPlaceholderText("Arc name"), {
+      target: { value: name },
+    });
+    fireEvent.click(findModalButton("Create"));
+    await waitFor(async () => {
+      const a = await client.arcs.retrieve({ name });
+      expect((await client.arcs.task.retrieve(a.key))?.rack).toBe(r.key);
+    });
   });
 
   it("should open the device picker scoped to the rack", async () => {
@@ -296,7 +321,7 @@ describe("copy properties", () => {
 
 describe("permission to write the rack", () => {
   it("should withhold rename, arc creation, and delete from a viewer", async () => {
-    const r = await createRack();
+    const r = await createArcRack();
     await renderMenu([r], await roles.get("Viewer"));
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -314,15 +339,35 @@ describe("permission to write the rack", () => {
   it("should withhold the scanner toggle from a subject who cannot create tasks", async () => {
     const { rack: r } = await createNIRackWithScanner();
     await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Toggle NI device scanner")).toBeNull();
   });
 
   it("should withhold Connect device from a subject who cannot create devices", async () => {
     const r = await createRack();
     await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
-    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Connect device")).toBeNull();
+  });
+
+  it("should withhold arc creation from a subject who cannot create tasks", async () => {
+    const r = await createArcRack();
+    await renderMenu([r], await createRackWriter(arc.TYPE_RESOURCE_ID));
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Create Arc automation")).toBeNull();
+  });
+
+  it("should offer arc creation to a subject who may create Arcs, tasks, and statuses", async () => {
+    const r = await createArcRack();
+    await renderMenu(
+      [r],
+      await createRackWriter(
+        arc.TYPE_RESOURCE_ID,
+        task.TYPE_RESOURCE_ID,
+        status.TYPE_RESOURCE_ID,
+      ),
+    );
+    expect(await screen.findByText("Create Arc automation")).toBeTruthy();
   });
 
   it("should offer Connect device to a subject who may create devices", async () => {
