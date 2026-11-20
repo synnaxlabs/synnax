@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
   type bounds,
   box,
@@ -323,7 +323,7 @@ describe("LinePlot against a Core", () => {
         [YAxis.TYPE]: YAxis,
         [line.Line.TYPE]: line.Line,
       },
-      synnax: { props: TEST_CLIENT_PARAMS },
+      synnax: { props: testClientParams() },
       render: true,
     });
     const gl = [...stack.basePath, "gl"];

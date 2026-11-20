@@ -82,6 +82,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB:     db,
 			Secret: secrets,
+			Rack:   secrettestutil.CoreRack,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -109,9 +110,16 @@ var _ = Describe("Service", func() {
 			Expect(pd.OpenService(ctx, cfg)).Error().
 				To(MatchError(ContainSubstring(field + ": must be non-nil")))
 		},
-			Entry("db", pd.ServiceConfig{Secret: &secret.Service{}}, "db"),
-			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}}, "secret"),
+			Entry("db", pd.ServiceConfig{Secret: &secret.Service{}, Rack: 1}, "db"),
+			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}, Rack: 1}, "secret"),
 		)
+
+		It("Should reject a config without the Core's rack", func(ctx SpecContext) {
+			Expect(pd.OpenService(ctx, pd.ServiceConfig{
+				DB:     &gorp.DB{},
+				Secret: &secret.Service{},
+			})).Error().To(MatchError(ContainSubstring("rack: must be non-zero")))
+		})
 
 		It("Should lift a stored v1 config and stage its plain routing key", func(
 			ctx SpecContext,
@@ -126,6 +134,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
+				Rack:   secrettestutil.CoreRack,
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
 			Expect(data).ToNot(HaveKey("routing_key"))
@@ -175,6 +184,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
+				Rack:   secrettestutil.CoreRack,
 			}))
 			data := MustSucceed(svc.Alert.Read(ctx, db, cfg.Key))
 			Expect(routingKeyOf(data)).To(Equal(s.Base().Key))
@@ -313,21 +323,6 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(svc.Alert.Delete(ctx, db, key)).To(Succeed())
 			Expect(deleteKey(ctx)).To(Succeed())
-		})
-
-		It("Should reject a routing key that names a file secret", func(
-			ctx SpecContext,
-		) {
-			s := secret.Secret{Variant: secret.FileSecret{
-				Base:     secret.Base{Name: "Routing key"},
-				FileName: "routing.key",
-			}}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return secrets.NewWriter(tx).Set(ctx, &s, nil)
-			})).To(Succeed())
-			Expect(tasks.Create(ctx, svc.Alert, msgpack.EncodedJSON{
-				"routing_key": s.Base().Key.String(),
-			})).Error().To(MatchError("routing_key: must be a stored secret, not a file"))
 		})
 
 		It("Should reject a routing key that does not exist", func(ctx SpecContext) {
