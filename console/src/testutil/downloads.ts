@@ -21,10 +21,11 @@ export interface CapturedDownloads {
 }
 
 /**
- * captureBrowserDownloads stubs the object-URL and anchor-click primitives jsdom lacks
- * so browser download paths complete, recording each downloaded anchor, blob, and
- * revoked URL for assertion. Installs spies; callers restore them via
- * vi.restoreAllMocks() in afterEach.
+ * captureBrowserDownloads stubs the object-URL and anchor-click primitives so browser
+ * download paths complete, recording each downloaded anchor, blob, and revoked URL for
+ * assertion. It hides the save picker until the test ends, so a download takes the
+ * anchor path. Installs spies; callers restore them via vi.restoreAllMocks() in
+ * afterEach.
  */
 export const captureBrowserDownloads = (): CapturedDownloads => {
   const anchors: HTMLAnchorElement[] = [];
