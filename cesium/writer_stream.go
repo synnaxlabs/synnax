@@ -765,7 +765,7 @@ func (w *idxWriter) writeIndex(
 		if series.Len() == 0 || !ok {
 			return idx, nil
 		}
-		if err = w.updateHighWater(series); err != nil {
+		if err = w.validateIndexSeries(series); err != nil {
 			return idx, err
 		}
 		first := series.ValueAt[telem.TimeStamp](0)
@@ -779,6 +779,7 @@ func (w *idxWriter) writeIndex(
 			return idx, err
 		}
 		idx.written = true
+		w.idx.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
 		w.sampleCount = int64(idx.alignment.SampleIndex()) + series.Len()
 		w.hasUncommittedData = true
 		series.Alignment = idx.alignment
@@ -1070,11 +1071,10 @@ func (w *idxWriter) channelsExcept(key ChannelKey) []Channel {
 	return channels
 }
 
-func (w *idxWriter) updateHighWater(s telem.Series) error {
+func (w *idxWriter) validateIndexSeries(s telem.Series) error {
 	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
-	w.idx.highWaterMark = s.ValueAt[telem.TimeStamp](-1)
 	return nil
 }
 
