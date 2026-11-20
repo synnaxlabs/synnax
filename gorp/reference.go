@@ -105,6 +105,10 @@ type Reference[K Key, E Entry[K]] interface {
 	canDetach() bool
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
+	// retargetTargets replaces each target of e that is a key of to, a map between keys
+	// of the table named table, through the reference's Retarget. It reports whether e
+	// held a key of to.
+	retargetTargets(e *E, table string, to any) (bool, error)
 	// check validates the targets that e holds against tx, for a write of e to t. It
 	// reports whether the index already holds those targets for e, with the changes of
 	// tx applied.
@@ -244,6 +248,10 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED] when OnDelete is Inline.
 	Inline func(ctx context.Context, tx Tx, e *E, target T) error
+	// Retarget replaces each target of e that is a key of to with its value. Gorp
+	// passes one map for all the targets it moves, so a map that swaps two keys swaps
+	// them. Table.Retarget calls it.
+	Retarget func(e *E, to map[T]T)
 	// Kind is the kind of the link from e to each of its targets.
 	//
 	// [REQUIRED]
@@ -282,6 +290,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		targetsOf:   cfg.Targets,
 		detach:      cfg.Detach,
 		inline:      cfg.Inline,
+		retarget:    cfg.Retarget,
 		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
@@ -368,6 +377,7 @@ type reference[K Key, E Entry[K], T comparable] struct {
 	targetsOf func(e *E) []T
 	detach    func(e *E, target T)
 	inline    func(ctx context.Context, tx Tx, e *E, target T) error
+	retarget  func(e *E, to map[T]T)
 	// format returns the Target of t.
 	format func(t T) Target
 	// parse returns the value of target, or false when the reference cannot hold it.
@@ -463,6 +473,30 @@ func (r *reference[K, E, T]) inlineTarget(
 		return nil
 	}
 	return r.inline(ctx, tx, e, t)
+}
+
+func (r *reference[K, E, T]) retargetTargets(
+	e *E,
+	table string,
+	to any,
+) (bool, error) {
+	typed, ok := to.(map[T]T)
+	if r.retarget == nil || !ok || !slices.Contains(r.tables, table) {
+		return false, errors.Newf(
+			"[gorp] - reference %s of table %s cannot retarget keys of table %s",
+			r.name,
+			r.owner,
+			table,
+		)
+	}
+	if !slices.ContainsFunc(r.targetsOf(e), func(t T) bool {
+		_, moved := typed[t]
+		return moved
+	}) {
+		return false, nil
+	}
+	r.retarget(e, typed)
+	return true, nil
 }
 
 // Get returns the keys of the entries that hold any of targets, with the changes staged
