@@ -12,7 +12,6 @@ package channel
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -71,16 +70,27 @@ type Channel struct {
 	//
 	// [OPTIONAL]
 	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Concurrency specifies the concurrency setting for the channel's controller
-	// (Exclusive or Shared).
+	// Concurrency is the concurrency of the channel's writers. Cesium keeps it only in
+	// the stored metadata, for the Cores that read it.
 	//
 	// [OPTIONAL]
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
 	Version version `json:"version" msgpack:"version"`
 }
+
+// Concurrency is the concurrency of a channel's writers, in the stored form of
+// x/go/control.
+type Concurrency uint8
+
+const (
+	// ConcurrencyExclusive lets one writer write the channel at a time.
+	ConcurrencyExclusive Concurrency = iota
+	// ConcurrencyShared lets many writers write the channel at once.
+	ConcurrencyShared
+)
 
 // String implements fmt.Stringer to return nicely formatted channel info.
 func (c Channel) String() string { return fmt.Sprintf("<%d>", c.Key) }

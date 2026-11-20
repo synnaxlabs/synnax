@@ -29,9 +29,18 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
+	// Concurrency is the concurrency of a channel's writers, kept in its metadata.
+	Concurrency = channel.Concurrency
 	// ChannelError is an error of one channel. It carries the key of the channel, never
 	// its name, so a caller that holds channel records can name it.
 	ChannelError = channel.Error
+)
+
+const (
+	// ConcurrencyExclusive lets one writer write a channel at a time.
+	ConcurrencyExclusive = channel.ConcurrencyExclusive
+	// ConcurrencyShared lets many writers write a channel at once.
+	ConcurrencyShared = channel.ConcurrencyShared
 )
 
 // ClaimError is the refusal of a writer, a commit, or a delete that reaches the time

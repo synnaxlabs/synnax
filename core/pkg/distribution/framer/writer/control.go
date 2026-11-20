@@ -71,7 +71,7 @@ func (cs *controls) acquire(ch cesium.Channel) (*controlled, error) {
 	if c, ok := cs.byKey[key]; ok {
 		return c, nil
 	}
-	concurrency := ch.Concurrency
+	concurrency := control.Concurrency(ch.Concurrency)
 	if ch.Virtual {
 		concurrency = control.ConcurrencyShared
 	}

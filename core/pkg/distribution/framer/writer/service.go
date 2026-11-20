@@ -552,7 +552,7 @@ func (s *Service) resolve(
 			Name:        r.Name,
 			DataType:    r.DataType,
 			Virtual:     true,
-			Concurrency: r.Concurrency,
+			Concurrency: cesium.Concurrency(r.Concurrency),
 		})
 	}
 	return stored, virtual, records, nil

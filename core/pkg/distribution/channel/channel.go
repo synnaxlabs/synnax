@@ -143,7 +143,7 @@ func ToStorage(channels []Channel) []cesium.Channel {
 			IsIndex:     c.IsIndex,
 			DataType:    c.DataType,
 			Index:       cesium.ChannelKey(c.Index()),
-			Concurrency: c.Concurrency,
+			Concurrency: cesium.Concurrency(c.Concurrency),
 		})
 	}
 	return stored
