@@ -11,10 +11,11 @@ import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Enumeration } from "@/enumeration";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
@@ -29,7 +30,14 @@ describe("SelectForm", () => {
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <Enumeration.CreatePromptProvider value={vi.fn()}>
+          {children}
+        </Enumeration.CreatePromptProvider>
+      </Base>
+    );
     ch = await client.channels.create({
       name: id.create(),
       dataType: DataType.UINT8,
@@ -37,31 +45,39 @@ describe("SelectForm", () => {
     });
   });
 
-  it("should edit the options only while no enumeration is picked", async () => {
+  it("should show a Color column only once an enumeration is picked", async () => {
     const created = await client.enumerations.create({
       name: `select-${id.create()}`,
-      entries: [],
+      entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
     });
-    const { findByRole, findByLabelText, getByPlaceholderText, queryByRole, value } =
-      renderForm(
-        <SelectForm tab="options" onTabChange={vi.fn()} />,
-        createConfig({ variant: "select" }),
-        schematic.selectNodeConfigZ,
-        wrapper,
-      );
-    const add = { name: "Add option" };
-    expect(await findByRole("button", add)).toBeTruthy();
+    const { findByRole, findByLabelText, getByPlaceholderText, value } = renderForm(
+      <SelectForm tab="options" onTabChange={vi.fn()} />,
+      createConfig({
+        variant: "select",
+        options: [{ key: "open", name: "Open", value: 0 }],
+      }),
+      schematic.selectNodeConfigZ,
+      wrapper,
+    );
+    const input = async (label: string): Promise<HTMLInputElement> =>
+      await screen.findByLabelText<HTMLInputElement>(label);
+    const name = async (): Promise<string> => (await input("Name 1")).value;
+    const columns = (): string[] =>
+      screen.getAllByRole("columnheader").flatMap((h) => h.textContent || []);
+    expect(await name()).toBe("Open");
+    expect(columns()).toEqual(["Name", "Value"]);
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
     fireEvent.change(getByPlaceholderText("Search enumerations..."), {
       target: { value: created.name },
     });
     fireEvent.click(await findByRole("option", { name: created.name }));
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
-    const clear = await findByLabelText(`Clear ${created.name}`);
-    expect(queryByRole("button", add)).toBeNull();
-    fireEvent.click(clear);
+    await waitFor(async () => expect(await name()).toBe("Primed"));
+    expect(columns()).toEqual(["Name", "Value", "Color", "Abnormal"]);
+    fireEvent.click(await findByLabelText(`Clear ${created.name}`));
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
-    expect(await findByRole("button", add)).toBeTruthy();
+    await waitFor(async () => expect(await name()).toBe("Open"));
+    expect(columns()).toEqual(["Name", "Value"]);
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

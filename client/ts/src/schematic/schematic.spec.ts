@@ -533,3 +533,35 @@ describe("store", () => {
     expect(cached.corpse.name).toEqual(created.name);
   });
 });
+
+describe("onChange", () => {
+  /** Subscribes, then creates a schematic with another client and waits to hear it. */
+  const createElsewhere = async () => {
+    await client.connect();
+    const other = createTestClient();
+    const heard = new Set<string>();
+    const release = client.schematics.onChange((key) => heard.add(key));
+    const project = await other.projects.create({ name: `sch-${id.create()}` });
+    const created = await other.schematics.create({
+      project: project.key,
+      name: `schematic-${id.create()}`,
+    });
+    await expect.poll(() => heard.has(created.key)).toBe(true);
+    heard.clear();
+    return { other, created, heard, release };
+  };
+
+  it("should hear a change to a schematic that the client does not hold", async () => {
+    const { other, created, heard, release } = await createElsewhere();
+    await other.schematics.rename(created.key, `renamed-${id.create()}`);
+    await expect.poll(() => heard.has(created.key)).toBe(true);
+    release();
+  });
+
+  it("should hear a delete of a schematic", async () => {
+    const { other, created, heard, release } = await createElsewhere();
+    await other.schematics.delete(created.key);
+    await expect.poll(() => heard.has(created.key)).toBe(true);
+    release();
+  });
+});

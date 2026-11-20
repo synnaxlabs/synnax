@@ -60,6 +60,7 @@ interface RenderOptions {
   createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
   rowLabel?: (index: number) => string;
   resourceName?: string;
+  autoFocus?: boolean;
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
   onRemove?: (index: number) => void;
   onMove?: (from: number, to: number) => void;
@@ -344,6 +345,21 @@ describe("Input.Table", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       fireEvent.click(removeButton(0));
       expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should focus the first cell on mount with autoFocus", () => {
+      renderTable({ value: VALUE, autoFocus: true });
+      expect(document.activeElement).toBe(cell("Raw", "1"));
+    });
+
+    it("should focus the add button on mount with autoFocus and no rows", () => {
+      renderTable({ value: [], autoFocus: true });
+      expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should take no focus on mount without autoFocus", () => {
+      renderTable({ value: VALUE });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 

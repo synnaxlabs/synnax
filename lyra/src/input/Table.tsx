@@ -350,6 +350,8 @@ interface BaseTableProps
   children: ColumnElement | ColumnElement[];
   /** Hides the add and remove buttons and makes every cell read-only. */
   preview?: boolean;
+  /** Focuses the first cell on mount, or the add button when there are no rows. */
+  autoFocus?: boolean;
   /**
    * Labels each row's gutter cell. A row's move handle takes the place of its label and
    * carries it in its name. With no label and no handle, no gutter column renders.
@@ -433,6 +435,7 @@ export const Table = ({
   onChange,
   children,
   preview = false,
+  autoFocus = false,
   rowLabel,
   rowKey,
   createRow,
@@ -452,8 +455,8 @@ export const Table = ({
   const restored = useRef(false);
   // Set by a block paste, which commits: Esc then puts back what the paste wrote.
   const pasted = useRef(false);
-  // The row that takes focus once an add or a remove renders.
-  const pendingFocus = useRef<number | null>(null);
+  // The row that takes focus once an add or a remove renders, or the mount.
+  const pendingFocus = useRef<number | null>(autoFocus ? 0 : null);
   const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
   // The key of the row whose handle a keyboard move left.

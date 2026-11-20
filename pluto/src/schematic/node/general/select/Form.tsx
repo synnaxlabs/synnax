@@ -21,6 +21,9 @@ import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
+/** The name of the symbol. */
+export const NAME = "Select";
+
 const path = deep.path<schematic.SelectNodeConfig>();
 
 export const colorFallbacks = {
@@ -87,7 +90,13 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <SelectTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.States enumeration={path.enumeration} options={path.options} />
+      <Form.States
+        enumeration={path.enumeration}
+        options={path.options}
+        label={path.label.label}
+        symbolName={NAME}
+        colorHidden
+      />
     </Tabs.Content>
   </Properties.Tabs>
 );

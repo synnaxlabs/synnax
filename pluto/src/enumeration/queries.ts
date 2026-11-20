@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { enumeration, type resource } from "@synnaxlabs/client";
-import { deep, verbs } from "@synnaxlabs/x";
+import { deep, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
+import { useEffect } from "react";
 import type z from "zod";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
+import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "enumeration";
 const PLURAL_RESOURCE_NAME = "enumerations";
@@ -75,15 +77,41 @@ export const { useResult: useResultBuiltins } = Flux.createRetrieve<
   retrieve: async ({ client }) => await client.enumerations.retrieveBuiltins(),
 });
 
-/** The records that use an enumeration and that the caller can retrieve. */
-export const { useResult: useResultDependents } = Flux.createRetrieve<
-  RetrieveQuery,
-  resource.ID[]
->({
-  name: "enumeration users",
-  retrieve: async ({ client, query: { key } }) =>
-    await client.enumerations.retrieveDependents(key),
-});
+const { useResult: useResultDependentsQuery, useRefresh: useRefreshDependents } =
+  Flux.createRetrieve<RetrieveQuery, resource.ID[]>({
+    name: "enumeration users",
+    retrieve: async ({ client, query: { key } }) =>
+      await client.enumerations.retrieveDependents(key),
+  });
+
+const DEPENDENTS_REFRESH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+/**
+ * @returns the records that use an enumeration and that the caller can retrieve,
+ * fetched again after any schematic changes.
+ */
+export const useResultDependents = (
+  query: RetrieveQuery,
+): Flux.Result<resource.ID[]> => {
+  const client = Synnax.use();
+  const refresh = useRefreshDependents();
+  const { key } = query;
+  useEffect(() => {
+    if (client == null) return;
+    // The cache keeps the users of an earlier mount, which missed the changes since.
+    refresh({ key });
+    const debounced = scheduler.debounce(
+      () => refresh({ key }),
+      DEPENDENTS_REFRESH_DEBOUNCE,
+    );
+    const release = client.schematics.onChange(() => debounced());
+    return () => {
+      debounced.cancel();
+      release();
+    };
+  }, [client, key, refresh]);
+  return useResultDependentsQuery(query);
+};
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   enumeration.New,
