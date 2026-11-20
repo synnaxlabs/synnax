@@ -92,6 +92,28 @@ func outputError(format string, ch channel.Channel) error {
 	)
 }
 
+// Update writes c over the calculation with its key, which keeps its output, and the
+// commit broadcasts a create action that holds it. It returns an error wrapping
+// validate.ErrValidation when c is not valid, and an error wrapping query.ErrNotFound
+// when no calculation has the key.
+func (w Writer) Update(ctx context.Context, c Calculation) error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if err := w.table.
+		NewUpdate().
+		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
+		Change(func(_ gorp.Context, stored Calculation) Calculation {
+			c.Output = stored.Output
+			return c
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, c.Key, NewCreateAction(CreatePayload{Calculation: c}))
+	return nil
+}
+
 // Apply applies the actions to the calculation with the given key, and the commit
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
