@@ -720,6 +720,22 @@ class TestMultiSeries:
         s = telem.MultiSeries([s1, s2])
         assert len(s) == 6
 
+    def test_construction_from_tuple(self) -> None:
+        """Should accept a tuple and keep the series in order"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
+        s = telem.MultiSeries((s1, s2))
+        assert s.series == (s1, s2)
+
+    def test_series_snapshot(self) -> None:
+        """Should not change when the source list changes after construction"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        source = [s1]
+        s = telem.MultiSeries(source)
+        source.append(telem.Series([4, 5, 6], data_type=telem.DataType.INT8))
+        assert s.series == (s1,)
+        assert len(s) == 3
+
     def test_construction_mismatched_data_types(self) -> None:
         """Should throw a ValueError"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
