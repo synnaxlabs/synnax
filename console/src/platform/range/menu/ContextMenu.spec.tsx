@@ -488,6 +488,52 @@ describe("Range.ContextMenu", () => {
         }
       });
     });
+
+    it("should create and edit named colors in the picker and commit once on close", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const ranges = [
+        await createTestRange(client, { name: uniqueName("created") }),
+        await createTestRange(client, { name: uniqueName("created") }),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      fireEvent.click(
+        await within(dialog).findByRole("button", {
+          name: `Create a color in ${palette.name}`,
+        }),
+      );
+      const name = uniqueName("color");
+      const input = await within(dialog).findByPlaceholderText("Color name");
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      const swatch = await within(dialog).findByRole("button", { name });
+      fireEvent.contextMenu(swatch);
+      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
+      for (const r of ranges)
+        expect((await client.ranges.retrieve(r.key)).color).toBeUndefined();
+      act(() => {
+        fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull(),
+      );
+      fireEvent.keyDown(swatch, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          if (stored?.type !== "named") throw new Error("the range is not linked");
+          const created = await client.colors.retrieve(stored.key);
+          expect(created.name).toBe(name);
+          expect(created.group).toBe(palette.key);
+        }
+      });
+    });
   });
 
   describe("copy", () => {

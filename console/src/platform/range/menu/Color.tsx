@@ -35,27 +35,9 @@ const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
     },
     [pendingRef, onCommitRef],
   );
-  const palettes = PColor.usePalettes();
-  const resolve = PColor.useResolve();
   const shown = pending == null ? value : pending.value;
-  return (
-    <Base.Picker
-      value={resolve(shown)}
-      fallback={fallback}
-      onChange={(next) =>
-        setPending({ value: next == null ? undefined : { type: "fixed", value: next } })
-      }
-      library={
-        palettes.length === 0
-          ? undefined
-          : {
-              palettes,
-              named: shown?.type === "named" ? shown.key : undefined,
-              onNamedChange: (key) => setPending({ value: { type: "named", key } }),
-            }
-      }
-    />
-  );
+  const binding = PColor.useBinding(shown, (ref) => setPending({ value: ref }));
+  return <Base.Picker {...binding} fallback={fallback} />;
 };
 
 // The key of the named color that every range links to, if they all link to one.
