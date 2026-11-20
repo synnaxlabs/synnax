@@ -187,6 +187,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := createDevice(ctx)
+			grant(ctx, u, []access.Action{access.ActionCreate}, deviceType, statusType)
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionUpdate},
+				statusType,
+				d.Base().Rack.ResourceID(),
+			)
 			replaced := edit(d, func(b *device.Base) { b.Name = "Replaced" })
 			Expect(create(
 				testutil.AuthedCtx(ctx, u),
