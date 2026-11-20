@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["uptrace>=1.45.0,<2"]
+uptrace = ["uptrace>=1.45.0,<2"]
 
 [dependency-groups]
 dev = [

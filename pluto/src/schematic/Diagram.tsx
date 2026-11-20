@@ -190,6 +190,9 @@ export const nodeChangesToActions = (
         return;
       case "remove":
         actions.push(schematic.removeNode({ key: ch.key }));
+        break;
+      case "select":
+        break;
     }
   });
   return actions;

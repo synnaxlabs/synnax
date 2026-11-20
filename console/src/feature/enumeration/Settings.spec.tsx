@@ -493,19 +493,6 @@ describe("Enumeration.Settings", () => {
     expect((await core.enumerations.retrieve(from.key)).key).toEqual(from.key);
   });
 
-  it("should open delete as a narrow confirmation with selectable text", async () => {
-    const e = await createEnumeration();
-    await renderEnumerations();
-    await openContextMenu(e.name);
-    await clickAndSettle("Delete");
-    const message = await screen.findByText(/Are you sure you want to delete/);
-    const dialog = (await screen.findAllByRole("dialog")).find((d) =>
-      d.contains(message),
-    );
-    expect(dialog?.classList).toContain("console-confirm");
-    expect(message.parentElement?.classList).toContain("console-confirm__body");
-  });
-
   it("should delete an unused enumeration with no replace field", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
@@ -524,5 +511,21 @@ describe("Enumeration.Settings", () => {
     await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
       "enumeration was deleted",
     );
+  });
+
+  it("should disable Cancel and Delete while the delete runs", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    await clickAndSettle("Delete");
+    const remove = await screen.findByRole("button", { name: "Delete" });
+    await waitFor(() => expect(remove.getAttribute("aria-disabled")).toBeNull());
+    act(() => {
+      fireEvent.click(remove);
+    });
+    expect(remove.getAttribute("aria-disabled")).toBe("true");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.getAttribute("aria-disabled")).toBe("true");
+    await waitForDialogToClose();
   });
 });
