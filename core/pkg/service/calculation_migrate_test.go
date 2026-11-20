@@ -10,20 +10,95 @@
 package service_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Calculation grants upgrade", func() {
+	It("Should grant calculations to a custom policy that grants channels", func(
+		ctx SpecContext,
+	) {
+		n := testutil.NewNode(ctx)
+		keys := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+			{Name: "doubled", Leaseholder: node.KeyFree, Virtual: true},
+		}))
+		doubled := channelv1.Channel{
+			Name:        keys[0].Name,
+			Leaseholder: node.KeyFree,
+			LocalKey:    keys[0].LocalKey,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Expression:  "return 2",
+		}
+		channels := gorp.WrapWriter[channelv1.Key, channelv1.Channel](n.DB)
+		Expect(channels.Set(ctx, doubled)).To(Succeed())
+		// v0.62 stores role and policy records, and their chains have run.
+		roles := MustSucceed(role.OpenService(ctx, role.ServiceConfig{DB: n.DB}))
+		policies := MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:   n.DB,
+			Role: roles,
+		}))
+		r := role.Role{Name: "Channels only"}
+		Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return roles.NewWriter(tx, false).Create(ctx, &r)
+		})).To(Succeed())
+		Expect(policies.Close()).To(Succeed())
+		Expect(roles.Close()).To(Succeed())
+		byType := policy.Policy{
+			Key:     uuid.New(),
+			Name:    "every channel",
+			Objects: []resource.ID{{Type: resource.TypeChannel}},
+			Actions: []access.Action{access.ActionRetrieve},
+			Role:    r.Key,
+		}
+		byKey := policy.Policy{
+			Key:     uuid.New(),
+			Name:    "doubled",
+			Objects: []resource.ID{channel.ResourceID(doubled.Key())},
+			Actions: []access.Action{access.ActionUpdate},
+			Role:    r.Key,
+		}
+		stored := gorp.WrapWriter[policy.Key, policy.Policy](n.DB)
+		Expect(stored.Set(ctx, byType, byKey)).To(Succeed())
+
+		l := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+		objectsOf := func(key policy.Key) []resource.ID {
+			GinkgoHelper()
+			var p policy.Policy
+			Expect(l.RBAC.Policy.NewRetrieve().
+				Where(policy.MatchKeys(key)).
+				Entry(&p).
+				Exec(ctx, n.DB)).To(Succeed())
+			return p.Objects
+		}
+		Expect(objectsOf(byType.Key)).To(ConsistOf(
+			resource.ID{Type: resource.TypeChannel},
+			resource.ID{Type: resource.TypeCalculation},
+		))
+		Expect(objectsOf(byKey.Key)).To(ConsistOf(
+			channel.ResourceID(doubled.Key()),
+			calculation.ResourceID(calculation.MigratedKey(doubled.Key())),
+		))
+	})
+})
 
 var _ = Describe("Calculation records upgrade", func() {
 	It("Should build a record for each calculated channel of a v0.62 store", func(

@@ -1121,6 +1121,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
 			l.Calculation.Migration(l.Status),
+			newCalculationGrantMigration(l.RBAC.Policy, l.Calculation),
 			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
