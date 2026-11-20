@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { group, project } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -14,7 +15,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Project } from "@/feature/project";
 import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
-import { getIconButton, getIconButtons } from "@/testutil";
+import { createTestClientWithGrants, getIconButton, getIconButtons } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -30,7 +31,15 @@ describe("project toolbar", () => {
       await client.projects.delete(p.key);
       await client.groups.delete(g.key);
     });
-    await renderToolbar(Project.TOOLBAR.content, { client, items: Project.TREE_ITEMS });
+    // The tree lists only what its subject can read, so it leaves out the projects and
+    // groups of every other spec.
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [project.resourceID(p.key), group.resourceID(g.key)],
+    });
+    await renderToolbar(Project.TOOLBAR.content, {
+      client: reader,
+      items: Project.TREE_ITEMS,
+    });
     expect(await findTreeRow(p.name)).toBeTruthy();
     expect(await findTreeRow(g.name)).toBeTruthy();
   });

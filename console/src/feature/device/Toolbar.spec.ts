@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, rack as rackClient } from "@synnaxlabs/client";
+import { device, rack as rackClient } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -38,8 +38,13 @@ describe("device/Toolbar", () => {
   it("lists a created device under its rack in the devices tree", async () => {
     const dev = await createTestDevice(client);
     const rack = await client.racks.retrieve(dev.rack);
+    // The tree lists only the racks that its subject can read, so it leaves out the
+    // racks of every other spec.
+    const reader = await createTestClientWithGrants(client, {
+      retrieve: [rackClient.resourceID(rack.key), device.resourceID(dev.key)],
+    });
     await renderToolbar(Device.TOOLBAR.content, {
-      client,
+      client: reader,
       items: { ...Rack.TREE_ITEMS, ...Device.TREE_ITEMS },
     });
     await screen.findByText("Devices");
