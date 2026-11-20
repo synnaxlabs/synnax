@@ -17,6 +17,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { CORE, renderOverview } from "@/feature/range/overview/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
@@ -66,7 +67,7 @@ describe("range/overview", () => {
 
     it("should add a picked label to the range", async () => {
       const rng = await createTestRange(client);
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#FF0000",
       });
@@ -83,9 +84,9 @@ describe("range/overview", () => {
 
     it("should remove a label when its tag closes", async () => {
       const rng = await createTestRange(client);
-      const [removed, kept] = await client.labels.create([
-        { name: uniqueName("removed"), color: "#FF0000" },
-        { name: uniqueName("kept"), color: "#00FF00" },
+      const [removed, kept] = await Promise.all([
+        createTestLabel(client, { name: uniqueName("removed"), color: "#FF0000" }),
+        createTestLabel(client, { name: uniqueName("kept"), color: "#00FF00" }),
       ]);
       await client.labels.label(rng.resourceID, [removed.key, kept.key]);
       await renderOverview(rng.key);

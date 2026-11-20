@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
+import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import {
@@ -102,7 +103,7 @@ describe("Range.ContextMenu", () => {
 
   describe("labels", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#000000",
       });
@@ -130,7 +131,7 @@ describe("Range.ContextMenu", () => {
       const rng = await createTestRange(client, { name: uniqueName("create") });
       await renderMenu([rng]);
       const labels = await openSubmenu("Labels");
-      const name = uniqueName("created");
+      const name = createTestLabelName(client, "created");
       searchIn(labels, "Search labels...", name);
       fireEvent.click(await within(labels).findByText(`Create label "${name}"`));
       expect(screen.queryByRole("menu")).toBeNull();
@@ -154,7 +155,7 @@ describe("Range.ContextMenu", () => {
       ];
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Labels")).getByText("New label"));
-      const name = uniqueName("created");
+      const name = createTestLabelName(client, "created");
       fireEvent.change(await screen.findByPlaceholderText("Label name"), {
         target: { value: name },
       });
