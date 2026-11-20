@@ -67,6 +67,8 @@ export const linePlotMethodsZ = {
    * request mapped so each holds the same values, or null when the action changes
    * nothing. The caller sets the open breaks and the boxes.
    */
+  /** Returns the decimal positions across the home view of the seams of x1. */
+  getSeams: z.function({ input: z.tuple([]), output: z.array(z.number()) }),
   setBreaks: z.function({
     input: z.tuple([breaksRequestZ]),
     output: breaksChangeZ.nullable(),
@@ -184,6 +186,10 @@ export class LinePlot
     }
   }
 
+  getSeams(): number[] {
+    return this.axes.at(0)?.layout(this.state).seams ?? [];
+  }
+
   setBreaks(req: BreaksRequest): BreaksChange | null {
     const x1 = this.axes.at(0);
     if (x1 == null) return null;
@@ -192,7 +198,9 @@ export class LinePlot
 
   private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
     const findByXDecimal = this.findDrawnByXDecimal.bind(this);
-    const p = { findByXDecimal, region, canvases };
+    const hiddenAt = (position: number) =>
+      this.axes.at(0)?.hiddenAt(this.state, position, region) ?? null;
+    const p = { findByXDecimal, hiddenAt, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
 
@@ -220,6 +228,8 @@ export class LinePlot
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
+      closedBetween: (a, b) =>
+        this.axes.at(0)?.closedBetween(this.state, a, b) ?? false,
       region,
     };
     this.measures.forEach((m) => m.render(p));

@@ -11,7 +11,15 @@ import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { findParent } from "@synnaxlabs/lyra/util";
-import { box, type dimensions, location, record, scale, xy } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  type dimensions,
+  location,
+  record,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
 import {
   type ForwardedRef,
   type RefObject,
@@ -49,6 +57,12 @@ export interface UseProps {
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
   ref?: RefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
+  /**
+   * Called as a select drag starts, with the x of the press in the decimal space of the
+   * view. Resolves to the x bounds, in the same space, that the drag stays inside. The
+   * drag commits once it resolves.
+   */
+  selectBound?: (x: number) => Promise<bounds.Bounds>;
 }
 
 export interface UseReturn {
@@ -152,10 +166,14 @@ export const use = ({
   initial = D,
   threshold = DEFAULT_THRESHOLD,
   ref,
+  selectBound,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
   const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
+  const selectBoundRef = useRef<bounds.Bounds>(bounds.INFINITE);
+  // Set while the bound of a select drag is on its way.
+  const pendingBoundRef = useRef<Promise<void> | null>(null);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
   // We store the START of the previous pan in statRef, which means that even if the
@@ -223,7 +241,28 @@ export const use = ({
       return setStateRef(box.DECIMAL);
     }
 
-    const selection = fullSize(threshold, box.intersection(box_, canvas), canvas);
+    if (mode === "select" && stage === "start" && selectBound != null) {
+      selectBoundRef.current = bounds.INFINITE;
+      const x = constructScale(stateRef.current, canvas).x.pos(cursor.x);
+      const pending = selectBound(x).then((b) => {
+        selectBoundRef.current = b;
+        if (pendingBoundRef.current === pending) pendingBoundRef.current = null;
+      });
+      pendingBoundRef.current = pending;
+    }
+    // A select drag that ends before its bound arrives commits once it does.
+    const pending = pendingBoundRef.current;
+    if (mode === "select" && stage === "end" && pending != null) {
+      void pending.then(() => handleDrag({ box: box_, triggers, stage, cursor }));
+      return;
+    }
+    const bound = mode === "select" ? selectBoundRef.current : bounds.INFINITE;
+    if (stage === "end") selectBoundRef.current = bounds.INFINITE;
+    const selection = clampX(
+      fullSize(threshold, box.intersection(box_, canvas), canvas),
+      constructScale(stateRef.current, canvas).reverse(),
+      bound,
+    );
     const isClick_ = isClick(box_) || (mode === "zoom" && isSmallZoom(selection));
     if (isClick_ && mode === "zoom") setMaskBox(box.ZERO);
 
@@ -250,18 +289,14 @@ export const use = ({
           setMaskBox(box.ZERO);
           return next;
         }
+        if (!isClick_) setMaskBox(toMask(selection, canvas));
         return box.truncate(prev, calculateTruncPrecision(prev));
       });
     }
 
     if (MASK_MODES.includes(mode)) {
       if (isClick_) return;
-      return setMaskBox(
-        scale.XY.scale(canvas)
-          .clamp(canvas)
-          .translate({ x: -box.left(canvas), y: -box.top(canvas) })
-          .box(selection),
-      );
+      return setMaskBox(toMask(selection, canvas));
     }
 
     setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
@@ -365,6 +400,25 @@ export const use = ({
 
 const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
   scale.XY.scale(canvas).clamp(canvas).scale(prev);
+
+// toMask returns a selection in client pixels as a box relative to the canvas.
+const toMask = (selection: box.Box, canvas: box.Box): box.Box =>
+  scale.XY.scale(canvas)
+    .clamp(canvas)
+    .translate({ x: -box.left(canvas), y: -box.top(canvas) })
+    .box(selection);
+
+// clampX limits the x of b, in pixels, to bound, in the space toPixels maps from.
+const clampX = (b: box.Box, toPixels: scale.XY, bound: bounds.Bounds): box.Box => {
+  const lower = Number.isFinite(bound.lower) ? toPixels.x.pos(bound.lower) : -Infinity;
+  const upper = Number.isFinite(bound.upper) ? toPixels.x.pos(bound.upper) : Infinity;
+  const clamp = (x: number) => Math.min(Math.max(x, lower), upper);
+  return {
+    ...b,
+    one: { ...b.one, x: clamp(b.one.x) },
+    two: { ...b.two, x: clamp(b.two.x) },
+  };
+};
 
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));

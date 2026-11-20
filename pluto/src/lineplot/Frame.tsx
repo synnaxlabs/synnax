@@ -15,7 +15,7 @@ import { useEffectCompare, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
-  type bounds,
+  bounds,
   box,
   type color,
   type CrudeTimeSpan,
@@ -77,6 +77,11 @@ export interface ContextValue {
   toggleBreak: (clientX: number, source: lineplot.BreakSource) => void;
   /** Closes every break of x1, with the view left as it is. */
   closeBreaks: () => void;
+  /**
+   * Resolves to the x bounds of the segment of x1 at x, in the decimal space of the
+   * view, so that a select drag that starts there stops at its seams.
+   */
+  selectBound: (x: number) => Promise<bounds.Bounds>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -285,6 +290,7 @@ export const Frame = ({
   };
 
   const handleError = Status.useErrorHandler();
+  const handleAsyncError = Status.useAsyncErrorHandler();
   const breaksRef = useSyncedRef(breaks);
   const openBreaksRef = useSyncedRef(openBreaks);
   useEffect(() => onBreaksChange?.(breaks), [breaks.open, breaks.closed]);
@@ -353,6 +359,19 @@ export const Frame = ({
       },
       `Failed to ${open ? "open" : "close"} breaks`,
     );
+
+  // selectBound reports a failed read of the seams and leaves the drag unbounded.
+  const selectBound = async (x: number): Promise<bounds.Bounds> => {
+    if (breaksRef.current.closed === 0) return bounds.INFINITE;
+    let seams: number[] = [];
+    await handleAsyncError(async () => {
+      seams = await methods.getSeams();
+    }, "Failed to find the breaks of the plot");
+    return {
+      lower: seams.findLast((s) => s <= x) ?? -Infinity,
+      upper: seams.find((s) => s > x) ?? Infinity,
+    };
+  };
 
   const dispatchViewport: Viewport.UseHandler = (args) => {
     if (changesView(args) && zoomHistory.current.length > 0) {
@@ -451,6 +470,7 @@ export const Frame = ({
     zoomedKey,
     toggleBreak,
     closeBreaks,
+    selectBound,
     id,
   };
 

@@ -166,6 +166,20 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     };
   }
 
+  /**
+   * @returns the values that the closed break at a decimal position across the plot
+   * hides, or null.
+   */
+  hiddenAt(props: LayoutProps, position: number, plot: box.Box): bounds.Bounds | null {
+    const hit = BREAK_HIT_DISTANCE / box.width(plot);
+    return this.layout(props).gapAt(position, hit, true)?.bounds ?? null;
+  }
+
+  /** @returns true when a closed break lies between the values a and b. */
+  closedBetween(props: LayoutProps, a: number, b: number): boolean {
+    return this.layout(props).closedBetween(a, b);
+  }
+
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {

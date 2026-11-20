@@ -437,6 +437,63 @@ describe("viewport/use", () => {
     });
   });
 
+  describe("bounded select", () => {
+    const BOUND = { lower: 0.3, upper: 0.6 };
+    // Bounds each select drag to BOUND, and resolves only when release is called.
+    const bounded = () => {
+      const starts: number[] = [];
+      let resolve = (): void => {};
+      const h = setup({
+        selectBound: async (x) => {
+          starts.push(x);
+          await new Promise<void>((r) => (resolve = r));
+          return BOUND;
+        },
+      });
+      const settle = async () => {
+        await act(async () => resolve());
+      };
+      return { h, starts, settle };
+    };
+
+    it("should report the x where a select drag starts", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+    });
+
+    it("should commit a select drag only once its bound arrives", async () => {
+      const { h, settle } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(h.onChange).not.toHaveBeenCalled();
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0.4);
+      expect(box.right(b)).toBeCloseTo(0.6);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(60);
+    });
+
+    it("should stop the mask at the bound during the drag", async () => {
+      const { h, settle } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 50, y: 20 });
+      await settle();
+      move({ x: 5, y: 80 });
+      expect(box.left(h.result.current.maskBox)).toBeCloseTo(30);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(50);
+      release(h.canvas, { x: 5, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+    });
+
+    it("should not bound a zoom", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 });
+      expect(starts).toHaveLength(0);
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.8);
+    });
+  });
+
   describe("sync", () => {
     const VIEW = box.construct(0.2, 0, 0.4, 1, location.TOP_LEFT);
 
@@ -445,6 +502,13 @@ describe("viewport/use", () => {
       act(() => h.ref.current?.sync(VIEW));
       expect(h.onChange).not.toHaveBeenCalled();
       expect(readViewport(h)).toEqual(VIEW);
+    });
+
+    it("should clear the mask", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      act(() => h.ref.current?.sync(VIEW));
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
     });
 
     it("should start the next zoom from the synced view", () => {

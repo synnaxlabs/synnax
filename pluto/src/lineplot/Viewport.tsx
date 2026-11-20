@@ -31,7 +31,7 @@ export const Viewport = ({
   onChange,
   ...rest
 }: ViewportProps): ReactElement => {
-  const { setViewport, setViewportElement, closeBreaks } =
+  const { setViewport, setViewportElement, closeBreaks, selectBound } =
     useContext("LinePlot.Viewport");
   const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
 
@@ -46,7 +46,13 @@ export const Viewport = ({
     onChange?.(e);
   };
 
-  const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
+  const maskProps = Base.use({
+    onChange: handleChange,
+    selectBound,
+    initial,
+    ref,
+    ...rest,
+  });
 
   const { ref: maskRef } = maskProps;
   useLayoutEffect(() => {

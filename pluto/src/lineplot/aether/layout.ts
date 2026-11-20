@@ -174,6 +174,20 @@ export class Layout {
     return found;
   }
 
+  /** The decimal positions across the home view where segments meet, in order. */
+  get seams(): number[] {
+    return this.positions.slice(1).map((p) => p.lower);
+  }
+
+  /** @returns true when a closed gap lies between the values a and b. */
+  closedBetween(a: number, b: number): boolean {
+    const lower = Math.min(a, b);
+    const upper = Math.max(a, b);
+    return this.gaps.some(
+      (g) => !g.open && g.bounds.lower >= lower && g.bounds.upper <= upper,
+    );
+  }
+
   /** @returns the decimal position across the viewport of the mark of a gap. */
   mark({ bounds: b, open }: Gap): number {
     return this.pos(open ? (b.lower + b.upper) / 2 : b.lower);

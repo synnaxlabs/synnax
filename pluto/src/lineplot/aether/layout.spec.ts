@@ -361,3 +361,35 @@ describe("Layout.gapAt", () => {
     expect(l.gapAt(l.mark(l.gaps[1]), 0.01, true)).toBeNull();
   });
 });
+
+describe("Layout breaks", () => {
+  const PIECES = [
+    { lower: 0, upper: 10 },
+    { lower: 100, upper: 110 },
+    { lower: 200, upper: 210 },
+  ];
+  const layout = (open: number[]) => {
+    const { segments: s, gaps } = join(PIECES, open);
+    return new Layout(s, box.DECIMAL, new Map(), gaps);
+  };
+
+  it("should list the home position of each seam", () => {
+    const [a, b] = layout([]).seams;
+    expect(a).toBeCloseTo(1 / 3);
+    expect(b).toBeCloseTo(2 / 3);
+  });
+
+  it("should list no seam for an open gap", () => {
+    expect(layout([10]).seams).toHaveLength(1);
+  });
+
+  it("should find a closed gap between two values in either order", () => {
+    expect(layout([]).closedBetween(5, 105)).toBe(true);
+    expect(layout([]).closedBetween(105, 5)).toBe(true);
+  });
+
+  it("should find no closed gap inside one segment or across an open gap", () => {
+    expect(layout([]).closedBetween(1, 9)).toBe(false);
+    expect(layout([10]).closedBetween(5, 105)).toBe(false);
+  });
+});
