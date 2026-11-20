@@ -1649,6 +1649,25 @@ describe("Task", async () => {
         .toBe("Driver not running");
     });
 
+    it("keeps a stand-in through a fetch of its task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `fetched-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackAliveAfterEcho(dying.key);
+      await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await setRackStatus(dying.key, "warning", "Driver not running");
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Driver not running");
+      await client.tasks.retrieve({ rack: dying.key });
+      expect(client.statuses.store.get(key)?.message).toBe("Driver not running");
+    });
+
     it("stands the rack's problem in once its Driver goes down during a wait", async () => {
       const dying = await client.racks.create({ name: `dying-${id.create()}` });
       const t = await dying.createTask({
