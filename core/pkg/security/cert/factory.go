@@ -155,6 +155,10 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 			f.cfg.CAKeyPath,
 		)
 	}
+	return f.readCAKey()
+}
+
+func (f *Factory) readCAKey() (crypto.Signer, error) {
 	p, err := f.readPEM(f.cfg.CAKeyPath)
 	if err != nil {
 		return nil, err
@@ -170,12 +174,29 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 	return signer, nil
 }
 
-// CreateCAPairIfMissing creates the CA certificate and its private key if either does
-// not exist, replacing the other one. An existing pair is left untouched.
+// CreateCAPairIfMissing creates the CA certificate and its private key if the
+// certificate does not exist. An existing certificate is left untouched, even without
+// its key. When AllowKeyReuse is set, a new certificate is signed with the existing
+// key.
 func (f *Factory) CreateCAPairIfMissing() error {
-	exists, err := f.pairExists(f.cfg.CACertPath, f.cfg.CAKeyPath)
+	exists, err := f.cfg.FS.Exists(f.cfg.CACertPath)
 	if err != nil || exists {
 		return err
+	}
+	keyExists, err := f.cfg.FS.Exists(f.cfg.CAKeyPath)
+	if err != nil {
+		return err
+	}
+	if keyExists && *f.cfg.AllowKeyReuse {
+		key, rErr := f.readCAKey()
+		if rErr != nil {
+			return rErr
+		}
+		b, sErr := signCACert(key)
+		if sErr != nil {
+			return sErr
+		}
+		return f.writePEM(f.cfg.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
 	}
 	return f.replacePair(f.cfg.CACertPath, f.cfg.CAKeyPath, f.writeCAPair)
 }

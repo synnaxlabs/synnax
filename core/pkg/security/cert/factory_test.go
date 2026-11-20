@@ -16,6 +16,7 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
+	"reflect"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,8 +77,8 @@ var _ = Describe("Factory", func() {
 		})
 	})
 	Describe("CreateCAPairIfMissing", func() {
-		DescribeTable("Should create the pair when one of its files is missing",
-			func(certMissing, reuse bool) {
+		DescribeTable("Should create the pair when the certificate is missing",
+			func(reuse bool) {
 				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 					FS:            fs,
 					AllowKeyReuse: new(reuse),
@@ -85,18 +86,26 @@ var _ = Describe("Factory", func() {
 				}))
 				Expect(f.CreateCAPairIfMissing()).To(Succeed())
 				cfg := f.Config()
-				missing := cfg.CAKeyPath
-				if certMissing {
-					missing = cfg.CACertPath
-				}
-				Expect(cfg.FS.Remove(missing)).To(Succeed())
+				_, before := MustSucceed2(f.Loader.LoadCAPair())
+				Expect(cfg.FS.Remove(cfg.CACertPath)).To(Succeed())
 				Expect(f.CreateCAPairIfMissing()).To(Succeed())
-				Expect(f.Loader.LoadCAPair()).Error().ToNot(HaveOccurred())
+				_, after := MustSucceed2(f.Loader.LoadCAPair())
+				Expect(reflect.DeepEqual(after, before)).To(Equal(reuse))
 			},
-			Entry("certificate", true, false),
-			Entry("certificate with key reuse", true, true),
-			Entry("key", false, false),
+			Entry("without key reuse", false),
+			Entry("with key reuse", true),
 		)
+		It("Should leave a certificate without its key untouched", func() {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				FS:      fs,
+				KeySize: testutil.SmallKeySize,
+			}))
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			cfg := f.Config()
+			Expect(cfg.FS.Remove(cfg.CAKeyPath)).To(Succeed())
+			Expect(f.CreateCAPairIfMissing()).To(Succeed())
+			Expect(cfg.FS.Exists(cfg.CAKeyPath)).To(BeFalse())
+		})
 		It("Should leave an existing pair untouched", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
