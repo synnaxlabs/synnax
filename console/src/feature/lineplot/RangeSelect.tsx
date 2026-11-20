@@ -432,7 +432,8 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     const entry = entries.find(({ key }) => key === itemKey);
     if (entry == null) return null;
     const { ref } = entry;
-    if (ref.variant === "key") return <KeyTag key={itemKey} onRemove={onRemove} range={ref} />;
+    if (ref.variant === "key")
+      return <KeyTag key={itemKey} onRemove={onRemove} range={ref} />;
     if (ref.window.variant === "dynamic")
       return <RollingTag key={itemKey} onRemove={onRemove} window={ref.window} />;
     return <StaticTag key={itemKey} onRemove={onRemove} window={ref.window} />;

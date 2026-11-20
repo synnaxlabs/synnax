@@ -45,7 +45,7 @@ export interface MultipleTagProps<K extends record.Key> extends Omit<
   "onDragStart"
 > {
   itemKey: K;
-  /** Removes only this tag's key from the selection, whatever modifier keys are held. */
+  /** Removes only this tag's key from the selection, ignoring held modifier keys. */
   onRemove: () => void;
   onDragStart: (key: K, event: DragEvent<HTMLElement>) => void;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
