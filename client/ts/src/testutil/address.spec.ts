@@ -16,10 +16,10 @@ describe("testCoreAddress", () => {
     vi.unstubAllGlobals();
   });
 
-  it("should throw where there is no process", () => {
+  it("should throw where there is no process and no provided Core", () => {
     vi.stubGlobal("process", undefined);
     expect(() => testCoreAddress()).toThrow(
-      "no process to read SYNNAX_TEST_HOST and SYNNAX_TEST_PORT from: build the client with an explicit host and port, not with createTestClient",
+      "no Core address in this browser: provide synnaxTestCore in the Vitest project",
     );
   });
 });

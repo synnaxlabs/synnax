@@ -23,6 +23,7 @@ import { describe, expect, it } from "vitest";
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { Modals } from "@/platform/modals";
+import { createTestRange } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -68,7 +69,7 @@ const renderUploads = async (rangeKey: ranger.Key) => {
 };
 
 const createRange = async () =>
-  await client.ranges.create({
+  await createTestRange(client, {
     name: uniqueName("hotfire"),
     timeRange: new TimeRange(START, START.add(TimeSpan.seconds(10))),
   });

@@ -198,7 +198,7 @@ class OPCUATLSDriverCertificateReadFloat(OPCUASecuredReadTaskCase):
         self.log("Testing: Pin the server certificate")
         pinned = sy.poll(
             lambda: pinned_certificate(
-                self.client.devices.retrieve(name=self.device_name)
+                self.client, self.client.devices.retrieve(name=self.device_name)
             ),
             timeout=PIN_TIMEOUT,
             interval=0.5,
