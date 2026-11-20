@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <map>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -24,25 +25,6 @@
 #include "driver/codec/json.h"
 
 namespace driver::http::message {
-/// @brief Binding writes the value of one message field to a channel.
-struct Binding {
-    /// @brief field is the key of the message field to read.
-    synnax::icd::FieldKey field;
-    /// @brief channel is the channel the value of the field is written to.
-    synnax::channel::Channel channel;
-};
-
-/// @brief Bound is an ICD message and the channels its fields write to.
-struct Bound {
-    /// @brief message is the ICD message. Its payload must be JSON.
-    synnax::icd::Message message;
-    /// @brief index is the field whose channel indexes the others. Absent when the
-    /// samples take the time the response arrived.
-    std::optional<synnax::icd::FieldKey> index;
-    /// @brief bindings name the fields to read and their channels.
-    std::vector<Binding> bindings;
-};
-
 /// @brief Reader reads the response bodies of one endpoint, each one of several ICD
 /// messages, into the channels of that message. It is not safe for concurrent use.
 class Reader {
@@ -60,20 +42,30 @@ class Reader {
     std::vector<Message> messages;
     codec::JSON decoder;
 
-    /// @brief sets the index channel and the index field of m from the bindings of b,
-    /// and returns the codec binding of each.
-    static std::pair<std::vector<codec::Binding>, x::errors::Error>
-    bind(const Bound &b, Message &m);
+    /// @brief sets the channels, the index channel, and the index field of m from the
+    /// bindings of rm, and returns the codec binding of each.
+    static std::pair<std::vector<codec::Binding>, x::errors::Error> bind(
+        const synnax::icd::ReadMessage &rm,
+        const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
+        Message &m
+    );
 
 public:
-    /// @brief creates a Reader for messages.
-    /// @returns CONFIGURATION_ERROR when messages is empty, a message is not JSON or
-    /// binds no fields, the bound channels of a message do not share one index channel,
+    /// @brief creates a Reader for the messages that one endpoint reads.
+    /// @param reads the messages to read and the channel of each field.
+    /// @param ic the ICD that holds the messages of reads.
+    /// @param channels the channels of the bindings of reads.
+    /// @returns CONFIGURATION_ERROR when reads is empty, ic has no message that a read
+    /// names, a message is not JSON or binds no fields, channels has no channel that a
+    /// binding names, the bound channels of a message do not share one index channel,
     /// the index field does not write to an index channel, another field does, two
     /// bindings or two messages write to one channel (an index channel included), or
     /// the decoder rejects the messages.
-    static std::pair<Reader, x::errors::Error>
-    create(const std::vector<Bound> &messages);
+    static std::pair<Reader, x::errors::Error> create(
+        const std::vector<synnax::icd::ReadMessage> &reads,
+        const synnax::icd::ICD &ic,
+        const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
+    );
 
     /// @brief reads body as the message whose match rule it meets, and adds one sample
     /// for each channel of that message to fr. The index channel takes the value of the

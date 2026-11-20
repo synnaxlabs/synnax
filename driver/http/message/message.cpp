@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cstddef>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -51,55 +53,84 @@ claim(Writers &writers, const synnax::channel::Key key, const std::string &name)
 }
 }
 
-std::pair<std::vector<codec::Binding>, x::errors::Error>
-Reader::bind(const Bound &b, Message &m) {
+std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
+    const synnax::icd::ReadMessage &rm,
+    const std::map<synnax::channel::Key, synnax::channel::Channel> &channels,
+    Message &m
+) {
     std::vector<codec::Binding> bindings;
-    bindings.reserve(b.bindings.size());
-    for (std::size_t i = 0; i < b.bindings.size(); i++) {
-        const auto &[field, ch] = b.bindings[i];
-        bindings.push_back({.field = field, .data_type = ch.data_type});
+    bindings.reserve(rm.bindings.size());
+    for (std::size_t i = 0; i < rm.bindings.size(); i++) {
+        const auto &b = rm.bindings[i];
+        const auto found = channels.find(b.channel);
+        if (found == channels.end())
+            return {
+                {},
+                invalid("channel " + std::to_string(b.channel) + " does not exist"),
+            };
+        const auto &ch = found->second;
+        bindings.push_back({.field = b.field, .data_type = ch.data_type});
+        m.channels.push_back(ch.key);
         if (i == 0)
             m.index = ch.index;
         else if (ch.index != m.index)
             return {{}, invalid("every channel must share one index channel")};
-        const bool index_field = b.index == field;
+        const bool index_field = rm.index == b.field;
         if (index_field && !ch.is_index)
             return {{}, invalid("the index field must write to an index channel")};
         if (!index_field && ch.is_index)
             return {{}, invalid("only the index field can write to an index channel")};
         if (index_field) m.index_field = i;
     }
-    if (b.index.has_value() && !m.index_field.has_value())
+    if (rm.index.has_value() && !m.index_field.has_value())
         return {{}, invalid("the index field has no channel")};
     return {std::move(bindings), x::errors::NIL};
 }
 
-std::pair<Reader, x::errors::Error> Reader::create(const std::vector<Bound> &messages) {
-    if (messages.empty()) return {Reader{}, invalid("the endpoint reads no messages")};
+std::pair<Reader, x::errors::Error> Reader::create(
+    const std::vector<synnax::icd::ReadMessage> &reads,
+    const synnax::icd::ICD &ic,
+    const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
+) {
+    if (reads.empty()) return {Reader{}, invalid("the endpoint reads no messages")};
     Reader r;
     std::vector<codec::JSONMessage> decoded;
-    decoded.reserve(messages.size());
+    decoded.reserve(reads.size());
     Writers writers;
-    for (const auto &b: messages) {
-        const auto &name = b.message.name;
-        const auto *payload = std::get_if<synnax::icd::JSONPayload>(&b.message.payload);
+    for (const auto &rm: reads) {
+        const auto msg = std::ranges::find_if(
+            ic.messages,
+            [&](const synnax::icd::Message &m) { return m.key == rm.message; }
+        );
+        if (msg == ic.messages.end())
+            return {
+                Reader{},
+                invalid(
+                    "message " + rm.message.to_string() + " does not exist in ICD " +
+                    ic.name
+                ),
+            };
+        const auto &name = msg->name;
+        const auto *payload = std::get_if<synnax::icd::JSONPayload>(&msg->payload);
         if (payload == nullptr)
             return {Reader{}, invalid("message " + name + " is not a JSON message")};
-        if (b.bindings.empty())
+        if (rm.bindings.empty())
             return {Reader{}, invalid("message " + name + " binds no fields")};
         Message m;
-        auto [bindings, err] = bind(b, m);
+        auto [bindings, err] = bind(rm, channels, m);
         if (err)
             return {
                 Reader{},
                 x::errors::Error(err, "message " + name + ": " + err.data)
             };
-        for (const auto &binding: b.bindings)
-            m.channels.push_back(binding.channel.key);
-        auto claim_err = m.index != 0 ? claim(writers, m.index, name) : x::errors::NIL;
-        for (std::size_t k = 0; !claim_err && k < m.channels.size(); k++)
-            if (k != m.index_field) claim_err = claim(writers, m.channels[k], name);
-        if (claim_err) return {Reader{}, claim_err};
+        if (m.index != 0)
+            if (auto claim_err = claim(writers, m.index, name))
+                return {Reader{}, claim_err};
+        for (std::size_t k = 0; k < m.channels.size(); k++) {
+            if (k == m.index_field) continue;
+            if (auto claim_err = claim(writers, m.channels[k], name))
+                return {Reader{}, claim_err};
+        }
         decoded.push_back({
             .name = name,
             .payload = *payload,
