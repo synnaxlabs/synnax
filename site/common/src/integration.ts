@@ -10,11 +10,7 @@
 import path from "node:path";
 
 import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
-import {
-  type AstroIntegration,
-  type AstroUserConfig,
-  type HookParameters,
-} from "astro";
+import type { AstroIntegration, AstroUserConfig, HookParameters } from "astro";
 
 const ROUTES = ["favicon.ico", "favicon.svg", "robots.txt"];
 

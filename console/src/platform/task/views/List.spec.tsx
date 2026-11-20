@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
+import type { Channel } from "@/platform/task/types";
 import { getIconButton, queryIconButton, renderWithConsole } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[] } }>();

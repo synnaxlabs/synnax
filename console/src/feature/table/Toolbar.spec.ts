@@ -29,6 +29,7 @@ import {
   ROW_KEY,
 } from "@/feature/table/testutil";
 import { Toolbar } from "@/feature/table/Toolbar";
+import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import { getInputByItemLabel } from "@/testutil";
@@ -46,15 +47,6 @@ const createUncoloredGrid = (): ReturnType<typeof createCellGrid> =>
     a: { variant: "text", value: "Cell A", level: "h5" },
     b: { variant: "text", value: "Cell B", level: "h5" },
   });
-
-// The role control's hex box, labeled with the role name.
-const roleInput = (label: string): HTMLInputElement => {
-  const input = screen
-    .getAllByLabelText(label)
-    .find((el): el is HTMLInputElement => el instanceof HTMLInputElement);
-  assertDefined(input);
-  return input;
-};
 
 const hexOf = (value: unknown): string | undefined =>
   value == null ? undefined : color.hex(value as color.Crude);
@@ -228,9 +220,9 @@ describe("table/Toolbar", () => {
         createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
     });
     await screen.findByText("Colors");
-    expect(roleInput("Fill").placeholder).toBe("Auto");
+    expect(getHexInput("Fill").placeholder).toBe("Auto");
     expect(screen.queryByText("Selection")).toBeNull();
-    fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
+    fireEvent.change(getHexInput("Fill"), { target: { value: "0000ff" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
       expect(["a", "b"].map((k) => hexOf(configOf(t, k)?.fillColor))).toEqual([
@@ -248,7 +240,7 @@ describe("table/Toolbar", () => {
     });
     await screen.findByText("Colors");
     const send = spyOnSend(client);
-    fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
+    fireEvent.change(getHexInput("Fill"), { target: { value: "0000ff" } });
     await waitFor(() =>
       expect(
         send.mock.calls.find(([target]) => target === "/table/dispatch")?.[1],
@@ -266,18 +258,16 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
     await screen.findByText("Colors");
-    expect(roleInput("Fill").placeholder).toBe("Mixed");
-    expect(roleInput("Text").placeholder).toBe("Auto");
+    expect(getHexInput("Fill").placeholder).toBe("Mixed");
+    expect(getHexInput("Text").placeholder).toBe("Auto");
   });
 
   it("recolors only the cells that hold a selection color", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
-    const label = await screen.findByText("Selection");
-    const item = label.closest(".lyra-input__item");
-    assertDefined(item);
-    const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
+    await screen.findByText("Selection");
+    const swatches = getSwatches("Selection");
     expect(swatches).toHaveLength(2);
     fireEvent.click(swatches[0]);
     fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });

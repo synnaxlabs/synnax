@@ -34,7 +34,7 @@ import {
   digitalWriteConfigZ,
   type DigitalWriteSchemas,
 } from "@/feature/ni/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({

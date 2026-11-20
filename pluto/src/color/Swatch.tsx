@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
-import { type color as xcolor } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color as xcolor } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
-import { usePalettes, useResolve } from "@/color/library";
+import { useBinding } from "@/color/bind";
 
 export interface SwatchProps extends Omit<
   Color.SwatchProps,
@@ -30,29 +30,7 @@ export interface SwatchProps extends Omit<
 }
 
 /** A swatch that picks a named color from a palette or a fixed color. */
-export const Swatch = ({
-  value,
-  onChange,
-  fallback,
-  ...rest
-}: SwatchProps): ReactElement => {
-  const palettes = usePalettes();
-  const resolve = useResolve();
-  return (
-    <Color.Swatch
-      value={value == null ? undefined : resolve(value)}
-      fallback={fallback}
-      onChange={(c) => onChange(c == null ? undefined : { type: "fixed", value: c })}
-      library={
-        palettes.length === 0
-          ? undefined
-          : {
-              palettes,
-              named: value?.type === "named" ? value.key : undefined,
-              onNamedChange: (key) => onChange({ type: "named", key }),
-            }
-      }
-      {...rest}
-    />
-  );
+export const Swatch = ({ value, onChange, ...rest }: SwatchProps): ReactElement => {
+  const binding = useBinding(value, onChange);
+  return <Color.Swatch {...binding} {...rest} />;
 };

@@ -13,13 +13,16 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -221,4 +224,64 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+}
+
+// RefreshRequest holds the details that a rack read from the file of a file
+// certificate.
+type RefreshRequest struct {
+	// Details describes the leaf that the rack read.
+	Details certificate.Details `json:"details" msgpack:"details"`
+	// Key is the key of the file certificate.
+	Key Key `json:"key" msgpack:"key"`
+}
+
+var errRefreshSubject = errors.Wrap(
+	access.ErrDenied,
+	"only a rack can refresh a certificate",
+)
+
+// Refresh saves the details that a rack read from the file of a file certificate, and
+// writes its expiry status. Only the rack that the certificate names may call it. Any
+// other subject gets an error that wraps access.ErrDenied. It returns
+// query.ErrNotFound when the certificate does not exist, and a validation error for a
+// stored certificate.
+func (s *Service) Refresh(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RefreshRequest,
+) (struct{}, error) {
+	subject := auth.GetSubject(ctx)
+	if subject.Type != resource.TypeRack {
+		return struct{}{}, errRefreshSubject
+	}
+	var c Certificate
+	if err := s.internal.NewRetrieve().
+		Where(certificate.MatchKeys(req.Key)).
+		Entry(&c).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	file, ok := c.Variant.(certificate.FileCertificate)
+	if !ok {
+		v := validate.New("refresh")
+		v.Ternaryf(
+			"key",
+			true,
+			"certificate %q is stored, so the Core reads its details",
+			c.Base().Name,
+		)
+		return struct{}{}, v.Error()
+	}
+	if file.Rack.ResourceID() != subject {
+		return struct{}{}, errors.Wrapf(
+			access.ErrDenied,
+			"certificate %q is read by %s, not %s",
+			file.Name,
+			file.Rack.ResourceID(),
+			subject,
+		)
+	}
+	file.Details = &req.Details
+	c.Variant = file
+	return struct{}{}, s.internal.NewWriter(tx).Set(ctx, &c, nil)
 }

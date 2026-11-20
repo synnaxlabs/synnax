@@ -11,8 +11,8 @@ import { log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Log, Telem } from "@synnaxlabs/pluto";
-import { type bounds, type TimeZone } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { bounds, TimeZone } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

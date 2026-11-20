@@ -12,7 +12,7 @@ import { type RefObject, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { use, type UseEvent } from "@/triggers/hooks";
-import { type Stage, type Trigger } from "@/triggers/triggers";
+import type { Stage, Trigger } from "@/triggers/triggers";
 
 /** The event {@link useDrag} hands its callback. */
 export interface DragEvent {

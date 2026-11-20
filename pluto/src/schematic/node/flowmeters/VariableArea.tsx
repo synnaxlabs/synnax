@@ -10,7 +10,7 @@
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Props } from "@/schematic/node/flowmeters/props";
+import type { Props } from "@/schematic/node/flowmeters/props";
 import svg from "@/schematic/node/flowmeters/VariableArea.svg?raw";
 
 const SPEC = Custom.createBuiltIn({

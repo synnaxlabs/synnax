@@ -17,7 +17,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Search } from "@/input/Search";
-import { type Control } from "@/input/types";
+import type { Control } from "@/input/types";
 import { Text } from "@/text";
 
 export interface IconPickerProps extends Control<

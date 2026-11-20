@@ -10,7 +10,7 @@
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";

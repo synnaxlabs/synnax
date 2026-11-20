@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Rack } from "@synnaxlabs/pluto";
 
 import { getDefaultRack } from "@/platform/device/racks";
-import { type ConnectParams } from "@/platform/device/types";
+import type { ConnectParams } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 
 /**

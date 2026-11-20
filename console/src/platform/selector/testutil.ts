@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource } from "@synnaxlabs/client";
+import type { resource } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 import { act, renderHook, type RenderHookResult } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 
-import { type Selectable } from "@/platform/selector/types";
+import type { Selectable } from "@/platform/selector/types";
 
 type Wrapper = FC<PropsWithChildren>;
 

@@ -10,10 +10,10 @@
 import "@/platform/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { type Resize } from "@synnaxlabs/lyra/resize";
+import type { Resize } from "@synnaxlabs/lyra/resize";
 import { Eraser } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
-import { type MouseEvent as ReactMouseEvent, type ReactElement } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
