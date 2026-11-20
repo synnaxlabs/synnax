@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ni, type rack, status, type Synnax } from "@synnaxlabs/client";
+import { ni, status } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -90,11 +90,3 @@ const TreeItem = Tree.createItem({
 });
 
 export const TREE_ITEMS = { ni_chassis: TreeItem } satisfies Tree.Items;
-
-/** Lists the NI chassis on a rack. */
-export const createRackSource = (client: Synnax, rackKey: rack.Key): Tree.Source =>
-  Tree.createSource(
-    client.ni.chassis,
-    { where: { rack: { eq: rackKey } } },
-    Tree.toResource("ni_chassis"),
-  );

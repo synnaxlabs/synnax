@@ -15,6 +15,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
+import { Tree } from "@/platform/tree";
 import {
   createHostItems,
   createResource,
@@ -39,7 +40,13 @@ describe("NI chassis tree item", async () => {
       client,
       root: HOST_ID,
       items: {
-        ...createHostItems((c) => [NI.Chassis.createRackSource(c, rack.key)]),
+        ...createHostItems((c) => [
+          Tree.createSource(
+            c.ni.chassis,
+            { where: { rack: { eq: rack.key } } },
+            Tree.toResource("ni_chassis"),
+          ),
+        ]),
         ...NI.Chassis.TREE_ITEMS,
       },
     });
