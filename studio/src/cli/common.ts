@@ -19,12 +19,16 @@ export const ROOT = path.resolve(import.meta.dirname, "../..");
 export const OUT_ROOT = path.join(ROOT, "out");
 export const THEMES = ["light", "dark"] as const;
 
-/** VIDEO_VERSIONS is the docs site's file of the version of each uploaded video. */
-export const VIDEO_VERSIONS = path.resolve(
+/** VIDEOS is the docs site's file of the version and size of each uploaded video. */
+export const VIDEOS = path.resolve(
   ROOT,
   "../site/docs/src/components/media/videos.json",
 );
-export const versionsZ = z.record(z.string(), z.string());
+export const videosZ = z.record(
+  z.string(),
+  z.object({ version: z.string(), width: z.number(), height: z.number() }),
+);
+export type Videos = z.infer<typeof videosZ>;
 
 /** Stamp written beside a produced entry, recording what produced it. */
 export interface Stamp {
