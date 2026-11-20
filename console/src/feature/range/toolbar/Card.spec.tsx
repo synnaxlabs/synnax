@@ -15,6 +15,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Card } from "@/feature/range/toolbar/Card";
+import { createTestRange } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -32,7 +33,7 @@ const createAgo = async (
   parent?: ranger.Key,
 ): Promise<ranger.Range> => {
   const now = TimeStamp.now();
-  return await client.ranges.create({
+  return await createTestRange(client, {
     name,
     parent,
     timeRange: new TimeRange(
@@ -92,7 +93,7 @@ describe("range/toolbar/Card", () => {
   });
 
   it("should show no end or total for a planned range with no end", async () => {
-    const rng = await client.ranges.create({
+    const rng = await createTestRange(client, {
       name: uniqueName("planned"),
       timeRange: new TimeRange(TimeStamp.now().add(TimeSpan.HOUR), TimeStamp.MAX),
     });
