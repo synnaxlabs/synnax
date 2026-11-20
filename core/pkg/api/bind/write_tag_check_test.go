@@ -11,6 +11,7 @@ package bind_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,8 +42,6 @@ type tagged struct {
 }
 
 func (t tagged) GorpKey() string { return t.Key }
-
-func (t *tagged) fields() *tagged { return t }
 
 func (t tagged) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Key)
@@ -89,7 +88,15 @@ func (t *tagged) DecodeOrc(r *orc.Reader) (err error) {
 // taggedUnmapped is a tagged record in a table with no resource type.
 type taggedUnmapped struct{ tagged }
 
-func fieldsOf(e any) *tagged { return e.(interface{ fields() *tagged }).fields() }
+func fieldsOf(e any) *tagged {
+	switch e := e.(type) {
+	case *tagged:
+		return e
+	case *taggedUnmapped:
+		return &e.tagged
+	}
+	panic(fmt.Sprintf("no tagged fields in %T", e))
+}
 
 func targetsIn(table string, keys ...string) []gorp.Target {
 	var out []gorp.Target
@@ -112,88 +119,45 @@ func openTagged[E gorp.Entry[string]](
 		rng = string(resource.TypeRange)
 		usr = string(resource.TypeUser)
 	)
-	ref := func(
-		name string,
-		table string,
-		kind gorp.LinkKind,
-		onDelete gorp.OnDelete,
-		tag uint8,
-		targets func(t *tagged) []gorp.Target,
-	) gorp.Reference[string, E] {
-		return gorp.NewTargetReference(gorp.TargetReferenceConfig[string, E]{
-			Name:     name,
-			Tables:   []string{table},
-			OnDelete: onDelete,
-			Kind:     kind,
-			Tag:      tag,
-			Targets:  func(e *E) []gorp.Target { return targets(fieldsOf(e)) },
+	var (
+		reads    = func(t *tagged) []string { return t.Reads }
+		writes   = func(t *tagged) []string { return t.Writes }
+		in       = func(t *tagged) []string { return []string{t.In} }
+		inToo    = func(t *tagged) []string { return []string{t.InToo} }
+		owned    = func(t *tagged) []string { return []string{t.OwnedBy} }
+		ownedToo = func(t *tagged) []string { return []string{t.OwnedByToo} }
+	)
+	refs := []struct {
+		name, table string
+		kind        gorp.LinkKind
+		onDelete    gorp.OnDelete
+		tag         uint8
+		keys        func(t *tagged) []string
+	}{
+		{"reads", lbl, gorp.Use, gorp.Restrict, tagRead, reads},
+		{"writes", lbl, gorp.Use, gorp.Restrict, tagWrite, writes},
+		{"in", rng, gorp.Place, gorp.Cascade, tagRead, in},
+		{"in_too", rng, gorp.Place, gorp.Cascade, tagWrite, inToo},
+		{"owned_by", usr, gorp.Use, gorp.Cascade, tagRead, owned},
+		{"owned_by_too", usr, gorp.Use, gorp.Cascade, tagWrite, ownedToo},
+	}
+	references := make([]gorp.Reference[string, E], len(refs))
+	for i, r := range refs {
+		references[i] = gorp.NewTargetReference(gorp.TargetReferenceConfig[string, E]{
+			Name:     r.name,
+			Tables:   []string{r.table},
+			OnDelete: r.onDelete,
+			Kind:     r.kind,
+			Tag:      r.tag,
+			Targets: func(e *E) []gorp.Target {
+				return targetsIn(r.table, r.keys(fieldsOf(e))...)
+			},
 		})
 	}
 	return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, E]{
-		DB:   db,
-		Name: name,
-		References: []gorp.Reference[string, E]{
-			ref(
-				"reads",
-				lbl,
-				gorp.Use,
-				gorp.Restrict,
-				tagRead,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(lbl, t.Reads...)
-				},
-			),
-			ref(
-				"writes",
-				lbl,
-				gorp.Use,
-				gorp.Restrict,
-				tagWrite,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(lbl, t.Writes...)
-				},
-			),
-			ref(
-				"in",
-				rng,
-				gorp.Place,
-				gorp.Cascade,
-				tagRead,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(rng, t.In)
-				},
-			),
-			ref(
-				"in_too",
-				rng,
-				gorp.Place,
-				gorp.Cascade,
-				tagWrite,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(rng, t.InToo)
-				},
-			),
-			ref(
-				"owned_by",
-				usr,
-				gorp.Use,
-				gorp.Cascade,
-				tagRead,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(usr, t.OwnedBy)
-				},
-			),
-			ref(
-				"owned_by_too",
-				usr,
-				gorp.Use,
-				gorp.Cascade,
-				tagWrite,
-				func(t *tagged) []gorp.Target {
-					return targetsIn(usr, t.OwnedByToo)
-				},
-			),
-		},
+		DB:         db,
+		Name:       name,
+		References: references,
 	}))
 }
 
@@ -231,7 +195,7 @@ var _ = Describe("Write and reference tags", func() {
 		Expect(views.NewCreate().Entry(&t).Exec(ctx, db)).To(Succeed())
 		return resource.ID{Type: resource.TypeFramer, Key: t.Key}
 	}
-	rename := func(t *tagged) { t.Name = t.Name + "!" }
+	rename := func(t *tagged) { t.Name += "!" }
 
 	DescribeTable(
 		"Should need the same access for a change of tag alone as for a write that "+

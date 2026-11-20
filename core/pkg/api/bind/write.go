@@ -259,15 +259,43 @@ type placement struct {
 	Kind   gorp.LinkKind
 }
 
+// linearPlacementLimit is the most comparisons for which a placement walk scans instead
+// of building a set. A scan of a small record allocates no set.
+const linearPlacementLimit = 1024
+
 // placementsOf returns the placements of links, once each, in their order.
 func placementsOf(links []gorp.Link) []placement {
 	out := make([]placement, 0, len(links))
+	if len(links)*len(links) <= linearPlacementLimit {
+		for _, l := range links {
+			p := placement{Target: l.Target, Kind: l.Kind}
+			if !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	seen := make(set.Set[placement], len(links))
 	for _, l := range links {
-		if p := (placement{Target: l.Target, Kind: l.Kind}); !slices.Contains(out, p) {
+		p := placement{Target: l.Target, Kind: l.Kind}
+		if !seen.Contains(p) {
+			seen.Add(p)
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// subtractPlacements returns the placements of from that are not in minus.
+func subtractPlacements(from, minus []placement) []placement {
+	if len(from)*len(minus) <= linearPlacementLimit {
+		return lo.Reject(from, func(p placement, _ int) bool {
+			return slices.Contains(minus, p)
+		})
+	}
+	in := make(set.Set[placement], len(minus))
+	in.Add(minus...)
+	return lo.Reject(from, func(p placement, _ int) bool { return in.Contains(p) })
 }
 
 // linksBefore returns the links that the record of c held before the transaction.
@@ -295,10 +323,7 @@ func placementChanges(c gorp.Change) (added, removed []placement) {
 	if c.Kind != gorp.ChangeDelete {
 		after = placementsOf(c.Links)
 	}
-	held := func(in []placement) func(placement, int) bool {
-		return func(p placement, _ int) bool { return slices.Contains(in, p) }
-	}
-	return lo.Reject(after, held(before)), lo.Reject(before, held(after))
+	return subtractPlacements(after, before), subtractPlacements(before, after)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error
