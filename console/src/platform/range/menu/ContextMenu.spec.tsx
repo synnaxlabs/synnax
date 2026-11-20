@@ -506,11 +506,11 @@ describe("Range.ContextMenu", () => {
         }),
       );
       const name = uniqueName("color");
-      const input = await within(dialog).findByPlaceholderText("Color name");
+      const input = await within(dialog).findByRole("textbox", { name: /^Name/ });
       fireEvent.change(input, { target: { value: name } });
       fireEvent.keyDown(input, { key: "Enter" });
       await waitFor(() =>
-        expect(within(dialog).queryByPlaceholderText("Color name")).toBeNull(),
+        expect(within(dialog).queryByRole("textbox", { name: /^Name/ })).toBeNull(),
       );
       const swatch = within(dialog).getByRole("button", { name });
       fireEvent.contextMenu(swatch);
