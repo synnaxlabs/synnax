@@ -32,6 +32,8 @@ cc_library(
         "//client/cpp/framer",
         "//client/cpp/icd",
         "//client/cpp/ni:client",
+        "//client/cpp/ni/chassis",
+        "//client/cpp/ni/device",
         "//client/cpp/rack",
         "//client/cpp/ranger",
         "//client/cpp/secret",
