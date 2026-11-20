@@ -76,7 +76,7 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
-	// mu guards tables, names, referencing, and indexed.
+	// mu guards tables, names, referencing, indexed, and spaces.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// names maps a key prefix to the name of the registered table that stores under it.
@@ -85,6 +85,8 @@ type registry struct {
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
 	indexed map[string][]any
+	// spaces maps the name of a space of unique indexes to its *uniqueSpace.
+	spaces map[string]any
 }
 
 func newRegistry() *registry {
@@ -93,6 +95,7 @@ func newRegistry() *registry {
 		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
+		spaces:      make(map[string]any),
 	}
 }
 

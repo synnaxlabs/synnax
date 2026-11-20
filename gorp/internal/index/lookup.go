@@ -111,6 +111,63 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
+// Value returns the value that key maps to, with the changes of scope applied, and
+// false when key maps to none. It blocks until the bulk load finishes, and returns the
+// load's error.
+func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
+	var none V
+	<-l.population.done
+	if err := l.population.err; err != nil {
+		return none, false, err
+	}
+	if d, ok := l.overlay.get(scope); ok {
+		if s, staged := d.state[key]; staged {
+			if s.deleted {
+				return none, false, nil
+			}
+			return s.values[0], true, nil
+		}
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	v, ok := l.reverse[key]
+	return v, ok, nil
+}
+
+// Holder returns a key that maps to value, with the changes of scope applied, and false
+// when no key does. A non-nil skip is never returned. It blocks until the bulk load
+// finishes, and returns the load's error.
+func (l *Lookup[S, K, V]) Holder(scope S, value V, skip *K) (K, bool, error) {
+	var none K
+	<-l.population.done
+	if err := l.population.err; err != nil {
+		return none, false, err
+	}
+	other := func(k K) bool { return skip == nil || k != *skip }
+	d, staged := l.overlay.get(scope)
+	if staged {
+		h := d.forward[value]
+		if k, ok := h.find(other); ok {
+			return k, true, nil
+		}
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	for _, k := range l.forward[value] {
+		if !other(k) {
+			continue
+		}
+		if staged {
+			// A staged key holds its staged value, which the delta search saw.
+			if _, ok := d.state[k]; ok {
+				continue
+			}
+		}
+		return k, true, nil
+	}
+	return none, false, nil
+}
+
 // Committing returns the keys that a transaction in its commit maps to any of values.
 // Get misses them until the commit flushes. The commit can fail, so a caller must check
 // each key against storage. Call Committing before Get: a scope leaves the overlay only

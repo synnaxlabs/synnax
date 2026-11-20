@@ -38,16 +38,25 @@ func (t *Table[K, E]) register(named bool) error {
 	return nil
 }
 
-// registerReferences adds the table's references to its indexes and to its DB's
-// registry. Call it after the table's migrations: a delete that follows a reference
-// waits for its index to populate, which starts only after them.
-func (t *Table[K, E]) registerReferences() error {
+// registerIndexes adds the table's references to its indexes and to its DB's
+// registry, and its unique indexes to their spaces. Call it after the table's
+// migrations: a delete that follows a reference waits for its index to populate, which
+// starts only after them.
+func (t *Table[K, E]) registerIndexes() error {
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	return t.db.registry.addReferences(refs)
+	if err := t.db.registry.addReferences(refs); err != nil {
+		return err
+	}
+	for _, u := range t.uniques {
+		if err := u.join(t.db.registry, t.name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -55,13 +64,17 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
+	for _, u := range t.uniques {
+		u.leave()
+	}
 	t.db.registry.unregister(t.name, t.keyPrefix)
 	t.registered = false
 }
 
 // writer returns a Writer that stages against the indexes of every open table of E on
-// the table's key prefix and checks the table's references when checked is true. A
-// table outside the registry writes as a Writer with no table does.
+// the table's key prefix, checks the values of its unique indexes, and checks the
+// table's references when checked is true. A table outside the registry writes as a
+// Writer with no table does.
 func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
 	if !t.registered {
 		return wrapWriter[K, E](tx, "", t.keyPrefix, nil)
@@ -71,6 +84,7 @@ func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
 	if checked && len(t.references) > 0 {
 		w.table = t
 	}
+	w.uniques = t.uniques
 	return w
 }
 

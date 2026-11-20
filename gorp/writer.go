@@ -31,6 +31,8 @@ type Writer[K Key, E Entry[K]] struct {
 	indexes []Index[K, E]
 	// table checks the references of each entry Set writes. Nil means no checks.
 	table *Table[K, E]
+	// uniques are the unique indexes whose values Set checks.
+	uniques []uniqueIndex[K, E]
 	// tableName names the table of each record in the change list of tx.
 	tableName string
 	// references are the references whose links the change list of tx records.
@@ -169,6 +171,11 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	var current bool
 	if w.table != nil {
 		if current, err = w.table.check(ctx, w.tx, &entry); err != nil {
+			return err
+		}
+	}
+	for _, u := range w.uniques {
+		if err = u.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}

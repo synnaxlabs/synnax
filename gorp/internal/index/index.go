@@ -315,6 +315,22 @@ func (h holders[K]) len() int {
 	return len(h.few)
 }
 
+// find returns a key of h that f accepts, and false when f accepts none.
+func (h holders[K]) find(f func(K) bool) (K, bool) {
+	if h.many == nil {
+		if i := slices.IndexFunc(h.few, f); i >= 0 {
+			return h.few[i], true
+		}
+	}
+	for k := range h.many {
+		if f(k) {
+			return k, true
+		}
+	}
+	var none K
+	return none, false
+}
+
 // some reports whether f accepts any key of h.
 func (h holders[K]) some(f func(K) bool) bool {
 	if h.many == nil {

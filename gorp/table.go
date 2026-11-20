@@ -69,6 +69,8 @@ type Table[K Key, E Entry[K]] struct {
 	name string
 	// references are the references registered on the Table.
 	references []Reference[K, E]
+	// uniques are the unique indexes of the Table, which its checked writes check.
+	uniques []uniqueIndex[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
 	// closing closes when Close starts, to stop the populate of the indexes. Nil when
@@ -130,9 +132,14 @@ func OpenTable[K Key, E Entry[K]](
 	if t.name == "" {
 		t.name = types.Name[E]()
 	}
+	for _, idx := range cfg.Indexes {
+		if u, ok := idx.(uniqueIndex[K, E]); ok {
+			t.uniques = append(t.uniques, u)
+		}
+	}
 	// The migrations of other tables can write references to the table while its own
 	// migrations run.
-	if err := t.register(cfg.Name != ""); err != nil {
+	if err := t.register(cfg.Name != "" || len(t.uniques) > 0); err != nil {
 		return nil, err
 	}
 	if err := Migrate(ctx, MigrateConfig{
@@ -162,7 +169,7 @@ func OpenTable[K Key, E Entry[K]](
 		t.unregister()
 		return nil, err
 	}
-	if err := t.registerReferences(); err != nil {
+	if err := t.registerIndexes(); err != nil {
 		close(closing)
 		close(locked)
 		<-populated
@@ -240,10 +247,11 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 }
 
 // NewUncheckedWriter returns a Writer that keeps the table's indexes current and skips
-// its reference checks and delete plans. Use it only in a migration that writes before
-// a target of the table's references opens.
+// its reference checks, unique checks, and delete plans. Use it only in a migration
+// that writes before a target of the table's references opens.
 func (t *Table[K, E]) NewUncheckedWriter(tx Tx) *Writer[K, E] {
 	w := t.writer(tx, false)
+	w.uniques = nil
 	return &w
 }
 
