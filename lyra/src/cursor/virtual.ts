@@ -20,6 +20,8 @@ export interface UseVirtualDragProps extends UseDragProps {
 
 interface RefState {
   start: xy.XY;
+  // A cancel event carries no coordinates, so the gesture ends at the last move.
+  last: xy.XY;
   mouseKey: Triggers.Key;
   // pointerId identifies the pointer that owns the active gesture, or null when idle.
   // Moves and the terminating up or cancel from any other pointer are ignored.
@@ -28,6 +30,7 @@ interface RefState {
 
 const INITIAL_STATE: RefState = {
   start: xy.ZERO,
+  last: xy.ZERO,
   mouseKey: "MouseLeft",
   pointerId: null,
 };
@@ -53,7 +56,9 @@ export const useVirtualDrag = ({
     const handleMove = (e: PointerEvent): void => {
       const { mouseKey, start, pointerId } = stateRef.current;
       if (e.pointerId !== pointerId) return;
-      callbacksRef.current.onMove?.(box.construct(start, xy.construct(e)), mouseKey, e);
+      const last = xy.construct(e);
+      setRef((prev) => ({ ...prev, last }));
+      callbacksRef.current.onMove?.(box.construct(start, last), mouseKey, e);
     };
 
     const handleDown = (e: PointerEvent): void => {
@@ -62,7 +67,7 @@ export const useVirtualDrag = ({
       el.onpointermove = handleMove;
       const start = xy.construct(e);
       const mouseKey = Triggers.mouseKey(e.button);
-      setRef({ start, mouseKey, pointerId: e.pointerId });
+      setRef({ start, last: start, mouseKey, pointerId: e.pointerId });
       callbacksRef.current.onStart?.(start, mouseKey, el);
       el.addEventListener("pointerup", handleEnd);
       el.addEventListener("pointercancel", handleEnd);
@@ -75,9 +80,10 @@ export const useVirtualDrag = ({
       el.removeEventListener("pointercancel", handleEnd);
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
-      const { start, mouseKey } = stateRef.current;
+      const { start, last, mouseKey } = stateRef.current;
       setRef((prev) => ({ ...prev, pointerId: null }));
-      callbacksRef.current.onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
+      const end = e.type === "pointercancel" ? last : xy.construct(e);
+      callbacksRef.current.onEnd?.(box.construct(start, end), mouseKey, e);
     };
 
     return () => {
