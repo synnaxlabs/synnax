@@ -36,7 +36,7 @@ export const REFERENCE_CHANGE_CHANNEL_NAME = "sy_reference_change";
  * changed. Call it before the cache streams.
  * @param type - The resource type of the records, such as "channel".
  */
-export const listenReferenceChanges = (
+const listenReferenceChanges = (
   cache: Cache,
   type: string,
   onChange: (keys: Set<string>) => void,
@@ -136,9 +136,9 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       if (this.deletes.inFlight > 0) this.deletes.at.set(event.key, ++this.deletes.seq);
     });
     this.store = store;
-    // The Core announces no change to uses. Refetches run outside the change stream and
-    // one at a time, so an older reply cannot overwrite a newer one. A change that
-    // arrives while a refetch waits joins it.
+    // A reference change names the records whose uses changed. Refetches run outside
+    // the change stream and one at a time, so an older reply cannot overwrite a newer
+    // one. A change that arrives while a refetch waits joins it.
     const mu = sync.createMutex({ waiting: false });
     this.refetch = scheduler.debounce(() => {
       if (mu.waiting) return;
@@ -154,8 +154,8 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     }, REFETCH_DEBOUNCE);
     const onChange = (keys: Set<string> | "all"): void => {
       this.changes.count++;
-      if (keys === "all" || this.named === "all") this.named = "all";
-      else keys.forEach((key) => (this.named as Set<string>).add(key));
+      if (keys === "all") this.named = "all";
+      else this.name(keys);
       this.refetch();
     };
     listenReferenceChanges(cache, cfg.type, onChange);
@@ -235,8 +235,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     this.store.set(records.map(({ key, uses }) => ({ key, uses })));
     // A refetch that a change started can miss these keys or land first.
     if (this.changes.count !== changes) {
-      const { named } = this;
-      if (named !== "all") records.forEach(({ key }) => named.add(String(key)));
+      this.name(records.map(({ key }) => String(key)));
       this.refetch();
     }
     return records.map(this.cfg.strip ?? stripCopy);
@@ -246,6 +245,13 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     const watched = new Set<K>();
     this.watchers.forEach((members) => members().forEach((key) => watched.add(key)));
     return watched;
+  }
+
+  /** Adds keys to the keys that changes named, unless changes named every key. */
+  private name(keys: Iterable<string>): void {
+    const { named } = this;
+    if (named === "all") return;
+    for (const key of keys) named.add(key);
   }
 
   // Only the refetch mutex runs this, so no reply can put back the uses it drops.
@@ -260,17 +266,24 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     if (unwatched.length > 0) store.evict(unwatched);
     const keys = changed.filter((key) => watched.has(key));
     if (keys.length === 0) return;
-    await store.track(async (since) => {
-      const records = await fetchSurvivors(
-        async (keys: K[]) =>
-          (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
-            key,
-            uses,
-          })),
-        keys,
-      );
-      store.ingest(records, { mode: "set", since });
-    });
+    let fetched = false;
+    try {
+      await store.track(async (since) => {
+        const records = await fetchSurvivors(
+          async (keys: K[]) =>
+            (await this.retrieve(cfg.request({ in: keys }))).map(({ key, uses }) => ({
+              key,
+              uses,
+            })),
+          keys,
+        );
+        store.ingest(records, { mode: "set", since });
+      });
+      fetched = true;
+    } finally {
+      // The next change refetches the keys of a failed refetch too.
+      if (!fetched) this.name(keys.map(String));
+    }
   }
 
   // A delete of a record that a retrieve returns makes its uses stale, so the retrieve

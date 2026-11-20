@@ -74,10 +74,5 @@ export {
   type Params,
   type WriteOptions,
 } from "@/query/types";
-export {
-  listenReferenceChanges,
-  REFERENCE_CHANGE_CHANNEL_NAME,
-  Uses,
-  type UsesConfig,
-} from "@/query/uses";
+export { REFERENCE_CHANGE_CHANNEL_NAME, Uses, type UsesConfig } from "@/query/uses";
 export { optimistic, type OptimisticParams } from "@/query/write";
