@@ -20,34 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/content"
 )
-
-// readChannels returns the v2.Channels that reads channels from svc.
-func readChannels(svc *channel.Service) v2.Channels {
-	return func(
-		ctx context.Context,
-		snap gorp.Snapshot,
-		keys []channel.Key,
-	) (map[channel.Key]v2.Channel, error) {
-		var found []channel.Channel
-		if err := svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		return lo.SliceToMap(found, func(c channel.Channel) (channel.Key, v2.Channel) {
-			return c.Key(), v2.Channel{
-				Name:     c.Name,
-				DataType: c.DataType,
-				Index:    c.IsIndex,
-			}
-		}), nil
-	}
-}
 
 // createICD returns the v2.CreateICD that creates an ICD with svc.
 func createICD(svc *icd.Service) v2.CreateICD {
@@ -59,7 +35,7 @@ func createICD(svc *icd.Service) v2.CreateICD {
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
-	channels v2.Channels
+	channels icdv0.Channels
 	create   v2.CreateICD
 	ins      alamos.Instrumentation
 }
@@ -146,7 +122,7 @@ func (r readResolver) check(
 			icds[ic.Key] = ic
 		}
 	}
-	var channels map[channel.Key]v2.Channel
+	var channels map[channel.Key]icdv0.Channel
 	if len(channelKeys) > 0 {
 		var err error
 		if channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
@@ -155,7 +131,7 @@ func (r readResolver) check(
 	}
 	c := read.NewChecker(lo.MapValues(
 		channels,
-		func(ch v2.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
+		func(ch icdv0.Channel, _ channel.Key) read.Channel { return read.Channel(ch) },
 	))
 	for i, e := range cfg.Entries {
 		path := []string{"entries", strconv.Itoa(i)}
