@@ -148,12 +148,10 @@ catalog:
   '@types/html-escaper': ^3.0.4
   '@types/jsdom': ^30.0.0
   '@types/node': ^26.6.6
-  '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   '@types/use-sync-external-store': ^1.7.0
-  '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.2
   '@vercel/oidc-aws-credentials-provider': ^3.3.13
   '@vitejs/plugin-react': ^6.1.2

@@ -366,9 +366,6 @@ catalogs:
     '@types/node':
       specifier: ^26.6.6
       version: 26.6.6
-    '@types/offscreencanvas':
-      specifier: ^2019.7.3
-      version: 2019.7.3
     '@types/pluralize':
       specifier: ^0.0.33
       version: 0.0.33
@@ -381,9 +378,6 @@ catalogs:
     '@types/use-sync-external-store':
       specifier: ^1.7.0
       version: 1.7.0
-    '@types/webgl2':
-      specifier: ^0.0.12
-      version: 0.0.12
     '@types/ws':
       specifier: ^8.18.2
       version: 8.18.2
@@ -1454,9 +1448,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      '@types/offscreencanvas':
-        specifier: 'catalog:'
-        version: 2019.7.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -1466,9 +1457,6 @@ importers:
       '@types/use-sync-external-store':
         specifier: 'catalog:'
         version: 1.7.0
-      '@types/webgl2':
-        specifier: 'catalog:'
-        version: 0.0.12
       '@types/ws':
         specifier: 'catalog:'
         version: 8.18.2
@@ -1678,9 +1666,6 @@ importers:
       '@types/html-escaper':
         specifier: 'catalog:'
         version: 3.0.4
-      '@types/offscreencanvas':
-        specifier: 'catalog:'
-        version: 2019.7.3
       '@types/react':
         specifier: 'catalog:'
         version: 19.3.0
@@ -5286,9 +5271,6 @@ packages:
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
 
-  '@types/offscreencanvas@2019.7.3':
-    resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
-
   '@types/pluralize@0.0.33':
     resolution: {integrity: sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg==}
 
@@ -5320,9 +5302,6 @@ packages:
 
   '@types/vscode@1.138.0':
     resolution: {integrity: sha512-DhlvrucJa8n6EHst7qQcXOcjLKs/VRTQy55plLO+RN74jonYsr/t9dd66zBnAyz1tpDig0okQAxuoPHpVNje2g==}
-
-  '@types/webgl2@0.0.12':
-    resolution: {integrity: sha512-42qYzEoJ1yQlDNWSwtJmQKUKAoYv25mjsxKXhwn4/1qlG3Xlr8t8EK/2771dVi5ytw/KX5XwwG5L8lNxLf6qSQ==}
 
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
@@ -12794,8 +12773,6 @@ snapshots:
     dependencies:
       undici-types: 8.9.0
 
-  '@types/offscreencanvas@2019.7.3': {}
-
   '@types/pluralize@0.0.33': {}
 
   '@types/react-dom@19.3.0(@types/react@19.3.0)':
@@ -12821,8 +12798,6 @@ snapshots:
   '@types/use-sync-external-store@1.7.0': {}
 
   '@types/vscode@1.138.0': {}
-
-  '@types/webgl2@0.0.12': {}
 
   '@types/ws@8.18.2':
     dependencies:
