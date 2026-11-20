@@ -3,7 +3,9 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-11-06
 - **Related**: [RFC 0079 - Kafka integration](0079-kafka-integration.md),
-  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594)
+  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594),
+  [PR #6433 - [docs] Add RFC 0115 for integrations on ICDs](https://github.com/synnaxlabs/synnax/pull/6433),
+  [PR #6523 - SY-6310: Remove the unused payload read types](https://github.com/synnaxlabs/synnax/pull/6523)
 
 ## 0 Summary
 
@@ -19,9 +21,14 @@ field takes its narrowest correct type (§6).
 `core/v0.61.0` shipped every version that this RFC changes, so each change mints a new
 version with a §7 migration, and releases do not hold.
 
+The read fields of this RFC are replaced. RFC 0115 (PR #6433) moves reads onto ICD JSON
+fields: MQTT reads through ICDs now, and HTTP and Kafka move next. PR #6523 removed the
+six `*Read` types, which no schema used. The `*Read` types and the read field steps
+below record the design as it was.
+
 ## 1 Schema
 
-The current `payload` version, with docs and tags cut:
+The `payload` version that this RFC planned, with docs and tags cut:
 
 ```
 Kind enum { float integer unsigned string boolean timestamp json uuid bytes }

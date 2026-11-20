@@ -9,10 +9,10 @@
 
 import { type destructor, observe } from "@synnaxlabs/x";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 import { UnexpectedError } from "@/errors";
 import { query } from "@/query";
-import { type Key, type User } from "@/user/types.gen";
+import type { Key, User } from "@/user/types.gen";
 
 export interface CurrentConfig {
   users: query.Retrieves<Key, User>;

@@ -14,7 +14,7 @@ import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { location, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

@@ -12,11 +12,11 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
-import { type Organization } from "@/server/db/schema";
-import { type Account } from "@/server/directory";
+import type { Organization } from "@/server/db/schema";
+import type { Account } from "@/server/directory";
 import { DESKTOP_CHANNELS, desktopCap } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { Modal } from "@/ui/modal";

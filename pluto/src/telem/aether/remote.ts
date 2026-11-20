@@ -25,8 +25,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type status } from "@/status/aether";
-import { type CreateOptions } from "@/telem/aether/factory";
+import type { status } from "@/status/aether";
+import type { CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type Edge,

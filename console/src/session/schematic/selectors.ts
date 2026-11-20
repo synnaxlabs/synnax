@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access, type Control, type Properties, Schematic } from "@synnaxlabs/pluto";
-import { type control, type record } from "@synnaxlabs/x";
+import type { control, record } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
 import {

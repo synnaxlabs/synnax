@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 
 import {
   type GraphState,

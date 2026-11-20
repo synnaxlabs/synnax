@@ -10,7 +10,7 @@
 // @vitest-environment jsdom
 
 import { act } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterAll, describe, expect, it, vi } from "vitest";

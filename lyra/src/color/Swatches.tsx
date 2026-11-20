@@ -10,7 +10,7 @@
 import "@/color/Swatches.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
@@ -19,7 +19,7 @@ import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type Input } from "@/input";
+import type { Input } from "@/input";
 import { Theming } from "@/theming";
 
 export interface SwatchesProps extends Input.Control<

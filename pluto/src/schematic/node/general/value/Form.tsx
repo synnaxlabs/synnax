@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { type FormProps } from "@/schematic/node/spec";
+import type { FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Value } from "@/vis/value";
 

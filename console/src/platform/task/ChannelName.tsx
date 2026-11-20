@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Channel } from "@synnaxlabs/pluto";
 import { type deep, type optional, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import {

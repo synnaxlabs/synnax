@@ -13,7 +13,7 @@ import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";

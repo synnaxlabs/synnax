@@ -10,7 +10,7 @@
 // A user is active on a UTC day when one of their Desktop machines logs in or renews
 // that day. The app renews at launch and every six hours while it runs.
 
-import { type EventKind } from "@/server/db/schema";
+import type { EventKind } from "@/server/db/schema";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 

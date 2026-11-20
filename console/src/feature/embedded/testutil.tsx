@@ -18,7 +18,7 @@ import { scheduler } from "@synnaxlabs/x";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, cleanup, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { expect, type Mock, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 

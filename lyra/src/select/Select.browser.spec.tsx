@@ -13,14 +13,14 @@ import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest"
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Menu } from "@/menu";
-import { type position } from "@/position";
+import type { position } from "@/position";
 import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
