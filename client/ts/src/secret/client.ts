@@ -72,6 +72,8 @@ export type GrantKey = z.infer<typeof grantKeyZ>;
 const grantCreateReqZ = z.object({
   subject: resource.idZ,
   secrets: keyZ.array(),
+  // The certificate module imports this one, so the keys of certificates are UUIDs.
+  certificates: z.uuid().array(),
   command: task.commandZ,
 });
 
@@ -79,8 +81,16 @@ const grantCreateReqZ = z.object({
 export interface GrantParams {
   /** subject is the rack that may run the command with the secrets. */
   subject: resource.ID;
-  /** secrets are the secrets that the rack reads to run the command. */
+  /**
+   * secrets are the secrets that the rack reads to run the command. The private key of
+   * a stored certificate is a secret.
+   */
   secrets: Key[];
+  /**
+   * certificates are the keys of the file certificates that the rack reads to run the
+   * command. Each must be a file of the rack.
+   */
+  certificates?: string[];
   /**
    * command is the command that the rack runs once. Its task must be on the rack. The
    * rack runs this command, not the arguments of the command that carries the grant.
@@ -241,16 +251,18 @@ export class Client extends query.Retriever<
    * subjects.
    * @returns the key of the grant to send to the task of the command.
    * @throws {AccessDeniedError} if the caller cannot create devices or cannot retrieve
-   * one of the secrets.
-   * @throws {NotFoundError} if a secret or the task of the command does not exist.
+   * one of the secrets or certificates.
+   * @throws {NotFoundError} if a secret, a certificate, or the task of the command does
+   * not exist.
    * @throws {PathError} if the task of the command is not on the subject rack.
+   * @throws {ValidationError} if a certificate is not a file of the subject rack.
    */
-  async grant({ command, ...rest }: GrantParams): Promise<GrantKey> {
+  async grant({ command, certificates = [], ...rest }: GrantParams): Promise<GrantKey> {
     // A task reads args in snake case, as the command writer sends them.
     const args = caseconv.camelToSnake(command.args ?? {});
     const res = await this.cfg.unary.send(
       "/secret/grant/create",
-      { ...rest, command: { ...command, args, key: id.create() } },
+      { ...rest, certificates, command: { ...command, args, key: id.create() } },
       grantCreateReqZ,
       grantCreateResZ,
     );

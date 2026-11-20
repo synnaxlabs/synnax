@@ -27,7 +27,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { searchAndClickLabelOption } from "@/platform/label/testutil";
+import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
@@ -101,7 +101,7 @@ const createLabeled = async (
   labeled: ranger.Range;
   other: ranger.Range;
 }> => {
-  const label = await client.labels.create({
+  const label = await createTestLabel(client, {
     name: uniqueName("label"),
     color: "#000000",
   });
@@ -516,12 +516,13 @@ describe("range/explorer/Explorer", () => {
       // Ended long ago, so the ranges never crowd the running or recent ranges that
       // specs in parallel read from the shared Core.
       const start = TimeStamp.now().sub(TimeSpan.days(365));
-      await client.ranges.create(
+      const matches = await client.ranges.create(
         Array.from({ length: 101 }, (_, i) => ({
           name: `${token} ${i}`,
           timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
         })),
       );
+      onTestFinished(async () => await client.ranges.delete(matches.map((r) => r.key)));
       await renderExplorer();
       await search(token);
       await screen.findByText(/Showing the first 100 matches\./);
@@ -599,7 +600,6 @@ describe("range/explorer/Explorer", () => {
       const planned = await createRange(uniqueName("planned"), {
         timeRange: new TimeRange(end.sub(TimeSpan.HOUR), end),
       });
-      onTestFinished(async () => await client.ranges.delete(planned.key));
       await renderExplorer();
       await openMenuOf(planned);
       fireEvent.click(await menuItem("Start"));
@@ -702,7 +702,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should add a label that the menu search finds", async () => {
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
         color: "#000000",
       });
@@ -820,7 +820,7 @@ describe("range/explorer/Explorer", () => {
   describe("labels", () => {
     it("should add and remove a label from the picker of an item", async () => {
       const token = uniqueToken();
-      const label = await client.labels.create({
+      const label = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#000000",
       });
@@ -926,7 +926,6 @@ describe("range/explorer/Explorer", () => {
 
   describe("layout", () => {
     it("should keep the children of an expanded range in sort order in a list", async () => {
-      // Ranges that start later than the others sort first, so the spec deletes them.
       const start = TimeStamp.now().add(TimeSpan.days(30));
       const at = (days: number) => ({
         timeRange: new TimeRange(start.sub(TimeSpan.days(days)), start),
@@ -937,7 +936,6 @@ describe("range/explorer/Explorer", () => {
         ...at(2),
         parent: parent.key,
       });
-      onTestFinished(async () => await client.ranges.delete([parent.key, other.key]));
       const names = [parent.name, other.name, child.name];
       const listed = () =>
         screen

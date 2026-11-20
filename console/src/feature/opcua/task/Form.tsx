@@ -263,7 +263,7 @@ const findVariables = async (
       device.rack,
       {
         type: BROWSE_VARIABLES_COMMAND_TYPE,
-        args: { connection: device.properties.connection, node_id: folder.nodeId },
+        args: { device: device.key, node_id: folder.nodeId },
         schema: browseVariablesResponseZ,
         timeout: SEARCH_TIMEOUT,
       },
