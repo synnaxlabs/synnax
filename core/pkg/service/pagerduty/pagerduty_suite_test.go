@@ -12,8 +12,10 @@ package pagerduty_test
 import (
 	"context"
 	"encoding/json/v2"
+	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"uuid"
 
 	"github.com/PagerDuty/go-pagerduty"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
@@ -41,6 +44,12 @@ func TestPagerDuty(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// otherRack is a rack other than the Core's, and fileRoutingKey is the routing key in
+// the file "routing.key" of the Core's secrets folder.
+const otherRack rack.Key = 2
+
+var fileRoutingKey = strings.Repeat("d", 32)
 
 var (
 	db        *gorp.DB
@@ -65,10 +74,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		Name: string(resource.TypeTask),
 	}))
-	secretSvc = secrettestutil.OpenService(ctx, db)
+	// File secrets reference their rack, so the rack table must be open.
+	racks := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[rack.Key, rack.Rack]{
+		DB:   db,
+		Name: "rack",
+	}))
+	for _, k := range []rack.Key{secrettestutil.CoreRack, otherRack} {
+		Expect(racks.NewCreate().Entry(&rack.Rack{Key: k, Name: "Rack"}).Exec(ctx, db)).
+			To(Succeed())
+	}
+	secretSvc = secrettestutil.OpenService(ctx, db, secret.ServiceConfig{
+		Folder: fstest.MapFS{"routing.key": {Data: []byte(fileRoutingKey)}},
+	})
 	alertSvc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 		DB:     db,
 		Secret: secretSvc,
+		Rack:   secrettestutil.CoreRack,
 	}))
 })
 
@@ -86,6 +107,21 @@ func createRoutingKey(ctx context.Context, value string) secret.Key {
 	}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
+	})).To(Succeed())
+	return s.Base().Key
+}
+
+// createFileRoutingKey creates a secret that names the file "routing.key" on the rack
+// with key r, and returns its key.
+func createFileRoutingKey(ctx context.Context, r rack.Key) secret.Key {
+	GinkgoHelper()
+	s := secret.Secret{Variant: secret.FileSecret{
+		Base:     secret.Base{Name: "Routing key file"},
+		FileName: "routing.key",
+		Rack:     r,
+	}}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return secretSvc.NewWriter(tx).Set(ctx, &s, nil)
 	})).To(Succeed())
 	return s.Base().Key
 }

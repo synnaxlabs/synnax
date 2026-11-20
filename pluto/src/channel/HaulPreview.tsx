@@ -10,7 +10,7 @@
 import { channel, query, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { DataType } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { resolveIcon } from "@/channel/resolveIcon";
 import { Telem } from "@/telem";

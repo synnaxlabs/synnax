@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Tree } from "@synnaxlabs/lyra/tree";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import { compare, id, math, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
@@ -24,11 +24,11 @@ import {
   type KeyedTopic,
   LISTENING,
 } from "@/feature/mqtt/device/browse";
-import { type Device } from "@/feature/mqtt/device/types";
+import type { Device } from "@/feature/mqtt/device/types";
 import { leavesOf, pointerLabel, sampleAt } from "@/feature/mqtt/task/entries";
-import { type Leaf } from "@/feature/mqtt/task/leaves";
+import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
-import { type HeldEntry } from "@/feature/mqtt/task/types";
+import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
@@ -126,8 +126,8 @@ const branchPaths = (topics: ListedTopic[]): string[] =>
   );
 
 /**
- * The values a click on a topic picks: its numbers and booleans, or all of them. A
- * single pick takes the first.
+ * The values a click on a topic picks: each free one. A single pick takes the first
+ * number or boolean, or else the first string.
  */
 const defaultPointers = (
   leaves: Leaf[],
@@ -135,9 +135,9 @@ const defaultPointers = (
   single: boolean,
 ): Set<string> => {
   const free = leaves.filter((l) => taken?.has(l.pointer) !== true);
-  const scalars = free.filter((l) => !l.disabled);
-  const picked = scalars.length > 0 ? scalars : free;
-  return new Set((single ? picked.slice(0, 1) : picked).map((l) => l.pointer));
+  if (!single) return new Set(free.map((l) => l.pointer));
+  const first = free.find((l) => l.type !== "string") ?? free.at(0);
+  return new Set(first == null ? [] : [first.pointer]);
 };
 
 /** The values picked from one topic, with the fields they came from. */

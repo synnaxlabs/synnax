@@ -186,7 +186,8 @@ Command struct {
         """
     }
 
-    @doc value "is a command to execute on a task in the Driver system."
+    @doc value  "is a command to execute on a task in the Driver system."
+    @go marshal
 }
 
 KeyedConfig struct {

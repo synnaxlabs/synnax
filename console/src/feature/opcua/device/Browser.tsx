@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Browser.css";
 
-import { type rack, status, type Synnax as Client } from "@synnaxlabs/client";
+import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -38,7 +38,7 @@ import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview, resolveIcon } from "@/feature/opcua/device/HaulPreview";
 import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
-import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   type BrowseResponse,
@@ -111,13 +111,16 @@ interface Browse extends BrowseResponse {
 
 const browseNodes = async (
   client: Client,
-  rack: rack.Key,
-  connection: ConnectionConfig,
+  device: Device,
   parent?: ScannedNode,
 ): Promise<Browse> => {
-  const res = await sendScanCommand(client, rack, {
+  const res = await sendScanCommand(client, device.rack, {
     type: BROWSE_COMMAND_TYPE,
-    args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
+    args: {
+      device: device.key,
+      node_id: parent?.nodeId ?? "",
+      field: parent?.field ?? "",
+    },
   });
   if (res.variant === "error") throw status.toError(res);
   const warning = res.variant === "warning" ? res.description : undefined;
@@ -172,12 +175,7 @@ export const Browser = ({ device }: BrowserProps) => {
       let warning: string | undefined;
       let failure: status.Status | null = null;
       try {
-        ({ channels, truncated, warning } = await browseNodes(
-          client,
-          device.rack,
-          device.properties.connection,
-          parent,
-        ));
+        ({ channels, truncated, warning } = await browseNodes(client, device, parent));
       } catch (e) {
         failure = status.fromException(e, "Failed to browse OPC UA nodes");
       }

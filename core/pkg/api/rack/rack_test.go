@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -477,7 +477,7 @@ var _ = Describe("Retrieve", func() {
 			grant(ctx, access.ActionCreate, u.ResourceID(), statusType)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
 			grant(ctx, access.ActionRetrieve, u.ResourceID(), r.ResourceID())
-			Expect(fgorp.CreateWriteUnaryHandler(db, statusAPI.Set)(
+			Expect(bind.WriteUnchecked(db, statusAPI.Set)(
 				AuthedCtx(ctx, u),
 				apistatus.SetRequest{Statuses: []status.Status[any]{{
 					Owner:   new(r.ResourceID()),

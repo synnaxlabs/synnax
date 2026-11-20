@@ -13,6 +13,7 @@ import {
   array,
   type CrudeRate,
   DataType,
+  disposable,
   Rate,
   type Reduction,
   Series,
@@ -24,7 +25,7 @@ import {
 
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedProps } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
@@ -610,6 +611,12 @@ const groupSize = (count: number, limit: number, aggregation: Aggregation): numb
 };
 
 class SyntheticStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   keys: channel.Key[];
   private readonly queue: Frame[] = [];
   // waiting resolves the pending pull with the next frame, or with null on close.

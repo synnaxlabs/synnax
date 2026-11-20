@@ -7,13 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping
 from typing import Any, Literal, overload
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
+from synnax.rack import Key as RackKey
 from synnax.resource import ID, CrudeID
 from synnax.secret import actions_gen
 from synnax.secret.payload import New, NewFile, NewStored
@@ -27,6 +30,7 @@ from synnax.secret.types_gen import (
     Where,
     WhereInput,
 )
+from synnax.task import Command, Key as TaskKey
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -53,6 +57,8 @@ class _DeleteRequest(BaseModel):
 class _GrantCreateRequest(BaseModel):
     subject: ID
     secrets: list[Key]
+    certificates: list[UUID]
+    command: Command
 
 
 class _GrantCreateResponse(BaseModel):
@@ -69,7 +75,7 @@ class Client:
     def set(self, *, name: str, value: str) -> Secret: ...
 
     @overload
-    def set(self, *, name: str, file_name: str) -> Secret: ...
+    def set(self, *, name: str, file_name: str, rack: RackKey) -> Secret: ...
 
     @overload
     def set(self, secrets: New) -> Secret: ...
@@ -84,35 +90,49 @@ class Client:
         name: str | None = None,
         value: str | None = None,
         file_name: str | None = None,
+        rack: RackKey | None = None,
     ) -> Secret | list[Secret]:
         """Creates secrets, or replaces the secrets whose keys exist.
 
         :param secrets: A secret or a list of them. When omitted, a stored secret is
-            created from ``name`` and ``value``, or a file secret from ``name`` and
-            ``file_name``.
+            created from ``name`` and ``value``, or a file secret from ``name``,
+            ``file_name``, and ``rack``.
         :param name: The name of the secret when ``secrets`` is omitted.
         :param value: The value of a stored secret. No client can read it back.
         :param file_name: The name of a file secret's file in the secrets folder of
-            the rack that uses it.
+            its rack.
+        :param rack: The key of the rack that reads the file of a file secret.
         :returns: The saved secret, or a list when ``secrets`` is a list. Values are
             never returned.
         :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
-            not give a name and exactly one of a value or a file name.
+            not give a name and exactly one of a value or a file name and rack, or if
+            a replace moves a file secret that a resource uses to another rack.
         :raises PathError: If a secret is not valid, such as a stored secret without a
-            value or a file name that is a path, or if a replace changes the source of a
-            secret.
+            value, a file name that is a path, or a rack that does not exist, or if a
+            replace changes the source of a secret.
         :raises AccessDenied: If the caller cannot create secrets, or cannot update a
             secret that the call replaces.
         """
         is_single = not isinstance(secrets, list)
         if secrets is None:
-            if name is not None and value is not None and file_name is None:
+            if (
+                name is not None
+                and value is not None
+                and file_name is None
+                and rack is None
+            ):
                 secrets = NewStored(name=name, value=value)
-            elif name is not None and file_name is not None and value is None:
-                secrets = NewFile(name=name, file_name=file_name)
+            elif (
+                name is not None
+                and file_name is not None
+                and rack is not None
+                and value is None
+            ):
+                secrets = NewFile(name=name, file_name=file_name, rack=rack)
             else:
                 raise ValidationError(
-                    "A secret needs a name and exactly one of a value or a file name."
+                    "A secret needs a name and exactly one of a value or a file "
+                    "name and rack."
                 )
         req = _SetRequest(secrets=normalize(secrets))
         res = self._client.send("/secret/set", req, _SetResponse)
@@ -140,18 +160,50 @@ class Client:
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/secret/dispatch", req, Empty)
 
-    def grant(self, subject: CrudeID, secrets: Key | list[Key]) -> UUID:
-        """Lets a subject read secrets once, within a minute, such as for a rack to
-        test a connection before the device that uses them is saved.
+    def grant(
+        self,
+        subject: CrudeID,
+        secrets: Key | list[Key],
+        *,
+        task: TaskKey,
+        type_: str,
+        args: Mapping[str, object] | None = None,
+        certificates: UUID | list[UUID] | None = None,
+    ) -> UUID:
+        """Lets a subject run a command once with secrets, within a minute, such as
+        for a rack to test a connection before the device that uses them is saved.
+        The rack runs this command, not the arguments of the command that carries the
+        grant.
 
         :param subject: The resource ID of the subject. Only racks can be subjects.
-        :param secrets: The keys of the secrets that the subject may read.
-        :returns: The key of the grant to send to the subject with the command.
-        :raises NotFoundError: If no secret has one of the keys.
+        :param secrets: The keys of the secrets that the subject reads. The private
+            key of a stored certificate is a secret.
+        :param task: The key of the task that runs the command. It must be on the
+            subject rack.
+        :param type_: The type of the command.
+        :param args: The arguments of the command.
+        :param certificates: The keys of the file certificates that the subject reads.
+            Each must be a file of the subject rack.
+        :returns: The key of the grant to send to the task with the command.
+        :raises NotFoundError: If no secret or certificate has one of the keys, or the
+            task does not exist.
+        :raises ValidationError: If the task or a certificate is not on the subject
+            rack.
         :raises AccessDenied: If the caller cannot create devices or cannot retrieve
-            one of the secrets.
+            one of the secrets or certificates.
         """
-        req = _GrantCreateRequest(subject=ID(subject), secrets=normalize(secrets))
+        command = Command(
+            task=task,
+            type=type_,
+            key=str(uuid4()),
+            args=to_jsonable_python(args) if args is not None else {},
+        )
+        req = _GrantCreateRequest(
+            subject=ID(subject),
+            secrets=normalize(secrets),
+            certificates=normalize(certificates) if certificates is not None else [],
+            command=command,
+        )
         return self._client.send(
             "/secret/grant/create", req, _GrantCreateResponse
         ).grant

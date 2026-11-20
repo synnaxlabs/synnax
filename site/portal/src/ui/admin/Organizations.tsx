@@ -13,7 +13,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type Summary } from "@/server/organization";
+import type { Summary } from "@/server/organization";
 import { RegisterDialog } from "@/ui/admin/RegisterDialog";
 import { expiry, standing } from "@/ui/format";
 import { Empty, Page } from "@/ui/Page";

@@ -9,7 +9,7 @@
 
 export { configureStore, type ConfigureStoreOptions } from "@/configureStore";
 export { NoopRuntime } from "@/noop";
-export { type Runtime } from "@/runtime";
+export type { Runtime } from "@/runtime";
 export {
   selectSliceState,
   selectWindow,

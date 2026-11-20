@@ -19,6 +19,13 @@ pnpm check-site:build && pnpm check-site # static build + link and media crawler
 because the cause can be the host. With `--strict`, which the nightly run and the CI of
 a release set, a broken external link fails too.
 
+## Pages
+
+The pages live in `src/docs`: the reference under `reference/` and the blog under
+`blog/`. The `reference` and `blog` collections in `src/content.config.ts` set the
+frontmatter fields of each, and `src/pages/[...slug].astro` renders every page at its
+path. A file that starts with an underscore is a partial, not a page.
+
 ## Release lookups
 
 Download links and the version in the header read the per-product GitHub releases
@@ -33,16 +40,18 @@ works without them at a lower rate limit. Set both or neither. Without the App, 
 uses `GITHUB_TOKEN` if set, as CI does. Keep `DOCS_GITHUB_TOKEN` in the Vercel project:
 older trains build from release refs whose code reads only that variable.
 
-The release notes in `src/releases` take their date from the same listing: the day, in
-Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with no stable
-Core release show "Unreleased" and no links. Never pass a `date` to the notes of 0.59 or
-later. Earlier notes keep the prop, because their tags are `synnax-v*`.
+Each file in `src/releases` holds the notes of one version. Its frontmatter sets the
+`title`, `version`, and the other fields of the `releases` collection in
+`src/content.config.ts`, and `/releases` lists the notes newest first. The notes take
+their date from the release listing above: the day, in Mountain Time, that the stable
+`core/vX.Y.0` release was published. Notes with no stable Core release show "Unreleased"
+and no links. Never set a `date` in the notes of 0.59 or later. Earlier notes keep it,
+because their tags are `synnax-v*`.
 
 Draft notes for an unreleased version go in `src/releases/X-Y-Z.draft.md`. The site, the
 search index, and the redirects read only `.mdx` files, so a draft is not served. To
-publish a draft, rename it to `.mdx` and copy the frame of the newest `.mdx` notes: its
-imports, export, and `Releases.Release` props, and its import and block in
-`src/pages/releases/index.mdx`.
+publish a draft, rename it to `.mdx` and copy the imports, export, and frontmatter of
+the newest `.mdx` notes.
 
 ## Versions
 
@@ -60,18 +69,16 @@ because a newer train does not always rebuild it.
 To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
 
 To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
-`0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
+`0.62`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
 its newest stable Core tag, or from its `release/X.Y` branch if the branch holds that
-tag. 0.60 and 0.61 shipped while `main` held the docs, so they build from
-`release/docs-0.60` and `release/docs-0.61`. 0.60 starts at the `main` of 2026-11-08,
-and 0.61 at the `core/v0.61.0` tag. Set `ref` to build one version from another ref. A
+tag. 0.60 and 0.61 get no more patches, so their sites keep their last deploy. They
+shipped while `main` held the docs, so they build only from a given `ref`, and `latest`,
+`previous`, and a release skip them. Set `ref` to build one version from another ref. A
 push to `main` deploys `next`. A stable release deploys `next`, `latest`, `previous`,
 and the train it released. An older site keeps the download links of its last deploy.
 
 To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
-train's release branch (`release/docs-X.Y` for 0.60 and 0.61), and deploy the train. If
-a patch of the train shipped from `main`, first merge its tag into the branch. A 0.60 or
-0.61 release deploys its `release/docs-X.Y` branch as it is, so pick the docs of a patch
-onto that branch before the release. Only the root serves release notes, so a note for a
-patch of an older train also goes onto the newest train's branch. From 0.62 on, if that
-branch does not exist, first cut `release/X.Y` from the train's newest stable Core tag.
+train's release branch, and deploy the train. If the branch does not exist, first cut
+`release/X.Y` from the train's newest stable Core tag. If a patch of the train shipped
+from `main`, first merge its tag into the branch. Only the root serves release notes, so
+a note for a patch of an older train also goes onto the newest train's branch.

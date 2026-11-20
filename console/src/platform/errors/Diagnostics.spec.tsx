@@ -11,7 +11,7 @@ import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/platform/errors";

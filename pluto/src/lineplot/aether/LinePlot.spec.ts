@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
   type bounds,
   box,
@@ -36,7 +36,7 @@ import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const stubLineStateZ = z.object({
@@ -47,7 +47,7 @@ const stubLineStateZ = z.object({
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
 class StubLine extends aether.Leaf<typeof stubLineStateZ> {
   static readonly TYPE = line.Line.TYPE;
-  schema = stubLineStateZ;
+  override schema = stubLineStateZ;
 
   get loading(): boolean {
     return this.state.loading;
@@ -323,7 +323,7 @@ describe("LinePlot against a Core", () => {
         [YAxis.TYPE]: YAxis,
         [line.Line.TYPE]: line.Line,
       },
-      synnax: { props: TEST_CLIENT_PARAMS },
+      synnax: { props: testClientParams() },
       render: true,
     });
     const gl = [...stack.basePath, "gl"];

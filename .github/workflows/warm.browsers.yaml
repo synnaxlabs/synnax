@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+    timeout-minutes: 10
     steps:
       - name: Delete older browser caches
         env:
@@ -69,3 +70,14 @@ jobs:
           gh cache list --ref refs/heads/main --key browsers- --sort created_at \
             --order desc --limit 100 --json id --jq '.[1:][].id' |
             xargs -r -n1 gh cache delete
+
+  relay-failure:
+    name: Relay the failure
+    needs: [warm, prune]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

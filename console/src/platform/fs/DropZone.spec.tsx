@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FS } from "@/platform/fs";

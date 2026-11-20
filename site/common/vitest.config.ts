@@ -9,11 +9,17 @@
 
 import react from "@astrojs/react";
 import { getViteConfig } from "astro/config";
-import { type ViteUserConfigFn } from "vitest/config";
+import type { ViteUserConfigFn } from "vitest/config";
+
+import { CDN } from "./src/cdn";
 
 const config: ViteUserConfigFn = getViteConfig(
   { test: { environment: "node" } },
-  { root: import.meta.dirname, integrations: [react()] },
+  {
+    root: import.meta.dirname,
+    integrations: [react()],
+    image: { domains: [new URL(CDN).hostname] },
+  },
 );
 
 export default config;

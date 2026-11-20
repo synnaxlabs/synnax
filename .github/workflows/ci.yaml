@@ -112,6 +112,7 @@ jobs:
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
       arc_cpp: ${{ steps.filter.outputs.arc_cpp }}
       arc_go: ${{ steps.filter.outputs.arc_go }}
+      arc_ts: ${{ steps.filter.outputs.arc_ts }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
       base: ${{ steps.base.outputs.sha }}
@@ -122,6 +123,7 @@ jobs:
       client_ts: ${{ steps.filter.outputs.client_ts }}
       console: ${{ steps.filter.outputs.console }}
       console_build: ${{ steps.filter.outputs.console_build }}
+      console_deps: ${{ steps.filter.outputs.console_deps }}
       core: ${{ steps.filter.outputs.core }}
       core_build: ${{ steps.filter.outputs.core_build }}
       core_image: ${{ steps.filter.outputs.core_image }}
@@ -156,6 +158,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      studio: ${{ steps.filter.outputs.studio }}
       spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
@@ -165,29 +168,19 @@ jobs:
       x_go: ${{ steps.filter.outputs.x_go }}
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
+          persist-credentials: false
 
-      # A merge group diffs against its target branch, not the entry ahead of it. Its
-      # run then covers every pull request ahead of it in the queue. Any other checkout
-      # diffs against its first parent, which for a pull request is its current base.
+      # Each checkout diffs against its first parent: the base of a pull request, or the
+      # group ahead of a merge group. The queue merges a group only after every group
+      # ahead passes, so a group tests only its own pull request.
       - name: Find the base
         id: base
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
-          GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
-            compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
-            base=$(.github/scripts/gh_api.sh \
-              "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
-          else
-            base=$(git rev-parse HEAD^1)
-          fi
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
 
       # A pull request lists its changes through the API and ignores base.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
@@ -198,7 +191,7 @@ jobs:
           filters: .github/filters.yaml
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -304,7 +297,6 @@ jobs:
       coverage_flag: arc-cpp
       directories: arc/cpp
       macos: *full
-      rust: true
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
@@ -326,6 +318,23 @@ jobs:
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  arc-ts:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.arc_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-ts')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: arc-ts
+      directory: arc/ts
+      macos: *full
+      package: arc
+      windows: *full
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   buildifier:
     needs: changes
@@ -449,6 +458,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'console')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: console
       directory: console
@@ -469,7 +479,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'core')
     uses: ./.github/workflows/test.go.yaml
     with:
-      cached: ${{ github.event_name == 'pull_request' }}
+      cached: ${{ !inputs.full }}
       coverage_flag: core
       directory: core
       os_specific: true
@@ -492,6 +502,7 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
+      unused_by_forks: true
 
   # Fails a pull request that adds a runtime or development dependency with a high or
   # critical advisory. A merge group has no diff to review, so the job skips it. The
@@ -502,6 +513,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
         with:
@@ -513,11 +525,27 @@ jobs:
     if:
       inputs.full || needs.changes.outputs.console == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell')
-    # macOS compiles the Tauri shell with no extra system packages.
-    runs-on: macos-latest
+    name: desktop-shell (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        exclude:
+          - os: ${{ !inputs.full && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install the GTK and WebKit libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
@@ -525,15 +553,26 @@ jobs:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
           components: llvm-tools-preview
+          rust-src-dir: console/src-tauri
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+        uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
         with:
-          tool: cargo-llvm-cov
+          tool: cargo-llvm-cov@0.9.1
 
       - name: Create an empty frontend
         # The Tauri context embeds the frontend directory, so it must exist.
+        shell: bash
         run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        working-directory: console/src-tauri
+        run: cargo fmt --check
+
+      - name: Lint
+        working-directory: console/src-tauri
+        run: cargo clippy --all-targets --features desktop --locked -- -D warnings
 
       - name: Test
         working-directory: console/src-tauri
@@ -549,6 +588,26 @@ jobs:
           files: console/src-tauri/lcov.info
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  desktop-shell-audit:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.console_deps == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-audit')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-audit@0.22.2
+
+      - name: Audit
+        working-directory: console/src-tauri
+        run: cargo audit
 
   docs:
     needs: changes
@@ -610,7 +669,6 @@ jobs:
       coverage_flag: driver
       directories: driver
       macos: *full
-      rust: true
       targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
@@ -669,9 +727,12 @@ jobs:
       GOPROXY: https://proxy.golang.org|direct
       MODULES: >-
         alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Select the changed modules and their dependents
         id: modules
@@ -699,7 +760,7 @@ jobs:
       # restores.
       - name: Set up Go
         if: steps.modules.outputs.affected != ''
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: x/go/go.mod
           cache: false
@@ -749,12 +810,15 @@ jobs:
       inputs.full || needs.changes.outputs.exports_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'exports-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -769,12 +833,15 @@ jobs:
       inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -979,9 +1046,12 @@ jobs:
       inputs.full || needs.changes.outputs.knip == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'knip')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1187,15 +1257,32 @@ jobs:
     secrets:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
+  studio:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.studio == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'studio')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: studio
+      package: studio
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   stylelint:
     needs: changes
     if:
       inputs.full || needs.changes.outputs.stylelint == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'stylelint')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -1358,22 +1445,48 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      checks: read
+    # It lasts as long as the run, which can wait for the groups ahead. A GitHub-hosted
+    # job runs at most 360.
+    timeout-minutes: 360
     steps:
+      # GraphQL filters the jobs by conclusion, and its budget is apart from the REST
+      # budget that every job of the repository shares.
       - name: Cancel the run when a job fails
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          url="$run/attempts/$GITHUB_RUN_ATTEMPT/jobs?per_page=100"
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # The check suite keeps the check runs of earlier attempts, so the job reads
+          # only the check runs that this attempt started or ended.
+          since=""
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
+            attempt="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            attempt="$attempt/attempts/$GITHUB_RUN_ATTEMPT"
+            until since=$(gh api "$attempt" --jq .run_started_at); do sleep 90; done
+          fi
+          # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
+          query='query($url: URI!) {
+            resource(url: $url) { ... on WorkflowRun { checkSuite {
+              failed: checkRuns(first: 100, filterBy: {checkType: LATEST,
+                conclusions: [FAILURE, TIMED_OUT, CANCELLED]}) {
+                nodes { name completedAt }
+              }
+              ok: checkRuns(first: 1, filterBy: {checkType: LATEST, checkName: "OK"}) {
+                nodes { status startedAt }
+              }
+            } } }
+          }'
           while true; do
-            # The next poll retries a failed API call.
-            if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
+            # The next poll retries a failed call, or a run GraphQL does not show yet.
+            if ! suite=$(gh api graphql -f url="$url" -f query="$query" \
+              --jq .data.resource.checkSuite) ||
+              ! jq -e '.failed.nodes and .ok.nodes' <<< "$suite" > /dev/null; then
               sleep 90
               continue
             fi
-            failed=$(jq -r '.[] | select(.conclusion == "failure"
-              or .conclusion == "timed_out" or .conclusion == "cancelled")
-              | .name' <<< "$jobs")
+            failed=$(jq -r --arg since "$since" '.failed.nodes[]
+              | select(.completedAt >= $since) | .name' <<< "$suite")
             if [ -n "$failed" ]; then
               echo "$failed"
               echo "::error::A job failed, so the run is cancelled."
@@ -1381,8 +1494,9 @@ jobs:
               exit 1
             fi
             # OK starts only after every other job finished.
-            jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
-              or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
+            jq -e --arg since "$since" '.ok.nodes[] | select(.startedAt >= $since
+              and (.status == "IN_PROGRESS" or .status == "COMPLETED"))' \
+              <<< "$suite" > /dev/null && exit 0
             sleep 90
           done
 
@@ -1399,6 +1513,7 @@ jobs:
       - alamos-ts
       - arc-cpp
       - arc-go
+      - arc-ts
       - buildifier
       - cesium
       - changes
@@ -1413,6 +1528,7 @@ jobs:
       - core-image
       - dependency-review
       - desktop-shell
+      - desktop-shell-audit
       - docs
       - docs-site
       - drift
@@ -1448,6 +1564,7 @@ jobs:
       - runners
       - site-common
       - soem
+      - studio
       - stylelint
       - stylelint-config
       - suppressions-py
@@ -1460,6 +1577,7 @@ jobs:
       - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Fail on a failed or cancelled job
         env:
@@ -1481,6 +1599,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

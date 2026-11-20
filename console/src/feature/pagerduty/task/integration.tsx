@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { AlertSelectable } from "@/feature/pagerduty/task/Alert";
+import { AlertSelectable } from "@/feature/pagerduty/task/create";
 import { PREFIX } from "@/feature/pagerduty/task/types";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

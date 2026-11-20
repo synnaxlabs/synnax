@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type Synnax } from "@synnaxlabs/client";
+import type { label, Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -48,12 +48,11 @@ export interface SelectMultipleProps
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
 ): ReactElement | null => {
-  const { itemKey, onClick } = props;
+  const { itemKey, onClick, onRemove } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
-  const { onSelect } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} onClick={onClick} size="small">
+    <Tag.Tag color={item.color} onClose={onRemove} onClick={onClick} size="small">
       {item.name}
     </Tag.Tag>
   );

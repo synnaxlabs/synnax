@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { type Props as AgitatorProps } from "@/schematic/node/process/Agitator";
+import type { Props as AgitatorProps } from "@/schematic/node/process/Agitator";
 import svg from "@/schematic/node/process/PropellerAgitator.svg?raw";
 
 export interface Props extends AgitatorProps {}

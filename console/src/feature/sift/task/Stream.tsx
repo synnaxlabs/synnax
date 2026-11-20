@@ -9,20 +9,19 @@
 
 import "@/feature/sift/task/Stream.css";
 
-import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import type { channel, Synnax as Client } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Status as PStatus } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Asset } from "@/feature/sift/asset";
-import { MAKE } from "@/feature/sift/device/types";
 import {
   deployStreamConfigZ,
   PROGRESS_KEY_PREFIX,
@@ -32,7 +31,6 @@ import {
 } from "@/feature/sift/task/types";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const path = deep.path<Task.Values<StreamSchemas>>();
@@ -115,15 +113,6 @@ const Form: FC = () => (
   </PForm.Sections>
 );
 
-const getInitialValues: Task.GetInitialValues<StreamSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = STREAM_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Sift stream task", type: STREAM_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<StreamSchemas["config"]> = async (
   client: Client,
   config,
@@ -140,16 +129,3 @@ export const Stream = Task.wrapForm({
   type: STREAM_TYPE,
   onConfigure,
 });
-
-export const useCreateStream = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const StreamSelectable: Selector.Selectable = {
-  type: STREAM_TYPE,
-  title: "Sift stream task",
-  label: "Stream",
-  icon: <Icon.Logo.Sift />,
-  useOnSelect: useCreateStream,
-};

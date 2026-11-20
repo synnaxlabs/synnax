@@ -95,7 +95,7 @@ describe("scheduler", () => {
       await scheduler.nextTask();
       expect(resolved).toBe(false);
       expect(frames).toHaveLength(1);
-      frames[0](0);
+      frames[0]?.(0);
       await frame;
       expect(resolved).toBe(true);
     });

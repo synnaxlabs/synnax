@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Handle } from "@/schematic/node/common/handle";

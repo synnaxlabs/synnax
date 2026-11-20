@@ -37,12 +37,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       os: ${{ steps.pick.outputs.os }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Pick the runner
         id: pick
@@ -106,12 +108,15 @@ jobs:
           - surface: client-cpp
             paths: client/cpp scripts/surface_cpp.py
             uv: true
+    # The Core surfaces build the Core twice without a cache, in up to 21 minutes.
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Find the merge base and changed inputs
         id: base
@@ -130,7 +135,7 @@ jobs:
 
       - name: Set up Go
         if: steps.base.outputs.touched == 'true' && matrix.go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: ${{ matrix.go }}
           # A pull request's cache serves only that pull request, and a Core one holds
@@ -149,7 +154,7 @@ jobs:
 
       - name: Set up uv
         if: steps.base.outputs.touched == 'true' && matrix.uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
           enable-cache: true
@@ -207,6 +212,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+    timeout-minutes: 10
     steps:
       - name: Checkout the default branch scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

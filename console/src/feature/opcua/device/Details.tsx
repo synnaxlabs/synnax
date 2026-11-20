@@ -34,7 +34,7 @@ import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
-import { type Device } from "@/feature/opcua/device/types";
+import type { Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,
   nodeDetailsZ,
@@ -230,10 +230,10 @@ export const Details = ({
       // and a selection that changes meanwhile is never read.
       await reading.current;
       if (signal.aborted) return;
-      const { rack, properties } = deviceRef.current;
+      const { key, rack, properties } = deviceRef.current;
       const read = executeScanCommand(client, rack, {
         type: READ_NODE_COMMAND_TYPE,
-        args: { connection: properties.connection, node_id: nodeId, field },
+        args: { device: key, node_id: nodeId, field },
         schema: nodeDetailsZ,
         timeout: commandTimeout(properties.connection),
       });

@@ -9,14 +9,17 @@
 
 import { capture, fixtures } from "@/index";
 
+import { choose } from "./common/task";
+
 const STATUS = "Engine 1";
 // A stand-in for a routing key. The task never starts, so nothing sends it.
 const ROUTING_KEY = "docs-example-routing-key";
 
 /**
  * Docs `device-drivers/pagerduty/alert-task/create`: run "Create PagerDuty alert
- * task", save the routing key as a new secret, add an alert on the Engine 1 status,
- * treat errors as critical, and fill the incident fields. The task is never started.
+ * task", save the routing key as a new secret, connect from the rack of the Core, add
+ * an alert on the Engine 1 status, treat errors as critical, and fill the incident
+ * fields. The task is never started.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createStatuses([{ key: "engine-1", name: STATUS }]);
@@ -59,6 +62,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   );
   await session.waitForHidden(modal);
   await session.hold(500);
+  await choose(session, form, "Connect from", "Node 1");
 
   await session.click(form.getByRole("button", { name: "Add alert" }).first());
   const trigger = form.getByText("Select status", { exact: true }).first();
