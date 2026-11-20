@@ -161,26 +161,114 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 	})
 }
 
-// checkArrayDefaultSize enforces that a fixed-size array field's own default has
-// exactly as many elements as the array. It does not look inside nested defaults.
+// checkArrayDefaultSize enforces that a fixed-size array in a field's own default has
+// exactly as many elements as the array. It checks the default itself, array elements,
+// and the fields of a struct literal whose type is a struct, an alias of one, or a
+// union variant. It does not check a struct literal typed through a type parameter, a
+// distinct type, or a map, nor a default that a struct inherits.
 func checkArrayDefaultSize(c *analysisCtx) {
 	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
-		if f.Default.Kind != resolution.ValueKindArray {
-			return
-		}
-		size, ok := resolution.ArraySize(f.Type, c.table)
-		if !ok || int64(len(f.Default.Elements)) == size {
-			return
-		}
-		c.diag.Add(diagnostics.Errorf(
-			nil,
-			"default of field %q in %q has %d elements, but its type holds exactly %d",
-			f.Name,
-			typ.Name,
-			len(f.Default.Elements),
-			size,
-		))
+		checkArraySizes(c, typ, f, f.Type, *f.Default)
 	})
+}
+
+func checkArraySizes(
+	c *analysisCtx,
+	typ resolution.Type,
+	f resolution.Field,
+	ref resolution.TypeRef,
+	val resolution.ExpressionValue,
+) {
+	switch val.Kind {
+	case resolution.ValueKindArray:
+		size, ok := resolution.ArraySize(ref, c.table)
+		if ok && int64(len(val.Elements)) != size {
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"default of field %q in %q has an array of %d elements, but its type "+
+					"holds exactly %d",
+				f.Name,
+				typ.Name,
+				len(val.Elements),
+				size,
+			))
+		}
+		elem, ok := arrayElement(ref, c.table)
+		if !ok {
+			return
+		}
+		for _, el := range val.Elements {
+			checkArraySizes(c, typ, f, elem, el)
+		}
+	case resolution.ValueKindStruct:
+		fields, ok := literalFields(ref, val, c.table)
+		if !ok {
+			return
+		}
+		for _, fv := range val.Fields {
+			if field, ok := lo.Find(fields, func(field resolution.Field) bool {
+				return field.Name == fv.Name
+			}); ok {
+				checkArraySizes(c, typ, f, field.Type, fv.Value)
+			}
+		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent:
+	}
+}
+
+// literalFields returns the fields that a struct literal val of type ref can set: the
+// fields of a struct with its type arguments applied, or of the union variant that val
+// names.
+func literalFields(
+	ref resolution.TypeRef,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+) ([]resolution.Field, bool) {
+	resolved, target, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return nil, false
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		args := resolution.TypeArgMap(form.TypeParams, target.TypeArgs)
+		fields := lo.Map(
+			resolution.UnifiedFields(resolved, table),
+			func(field resolution.Field, _ int) resolution.Field {
+				field.Type = resolution.SubstituteTypeRef(field.Type, args)
+				return field
+			},
+		)
+		return fields, true
+	case resolution.UnionForm:
+		disc, ok := lo.Find(val.Fields, func(fv resolution.StructFieldValue) bool {
+			return fv.Name == form.Discriminator
+		})
+		if !ok {
+			return nil, false
+		}
+		variant, ok := form.Variant(disc.Value.StringValue)
+		if !ok {
+			return nil, false
+		}
+		return resolution.UnifiedVariantFields(resolved, variant, table), true
+	}
+	return nil, false
+}
+
+// arrayElement returns the element type of the array that ref resolves to.
+func arrayElement(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	collection, ok := resolution.Collection(ref, table)
+	if !ok || collection.Name != "Array" || len(collection.TypeArgs) == 0 {
+		return resolution.TypeRef{}, false
+	}
+	return collection.TypeArgs[0], true
 }
 
 // forEachDefaultedField calls fn for every field carrying a default on every struct
