@@ -399,9 +399,8 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 	MustSucceed(kadm.NewClient(producer).CreateTopic(ctx, 1, 1, nil, topic))
 	cfg := kafka.ReadConfig{
 		Device:      dev.Key,
-		Topic:       topic,
+		Topics:      oneTopic(topic, benchRecords(ctx, groups, sc)),
 		StartOffset: kafka.StartOffsetEarliest,
-		Records:     benchRecords(ctx, groups, sc),
 	}
 	t := newTask(ctx, kafka.ReadTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))

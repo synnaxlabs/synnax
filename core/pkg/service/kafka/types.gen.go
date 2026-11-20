@@ -50,7 +50,7 @@ type ScanConfig = versions.ScanConfig
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField = versions.ReadField
 
-// ReadConfig configures a Kafka read task, which consumes a topic and writes the fields
+// ReadConfig configures a Kafka read task, which consumes topics and writes the fields
 // of ICD messages into channels.
 type ReadConfig = versions.ReadConfig
 
@@ -63,6 +63,9 @@ type Record = versions.Record
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
 type WriteConfig = versions.WriteConfig
+
+// ReadTopic reads the records of one topic.
+type ReadTopic = versions.ReadTopic
 
 // ReadRecord reads the records with one Kafka key as the messages of an ICD.
 type ReadRecord = versions.ReadRecord

@@ -19,6 +19,8 @@ import (
 // Patch applies the path action at c, which is not done, to the value.
 func (ir *InlineRead) Patch(c patch.Cursor) error {
 	switch c.Segment() {
+	case "topic":
+		return patch.Value(&ir.Topic, c.Next())
 	case "records":
 		return patch.List(&ir.Records, c.Next())
 	default:
@@ -28,6 +30,7 @@ func (ir *InlineRead) Patch(c patch.Cursor) error {
 
 // HashContent writes the content of the value to h, without its keys.
 func (ir *InlineRead) HashContent(h *content.Hash) {
+	h.String(ir.Topic)
 	h.Len(len(ir.Records))
 	for i0 := range ir.Records {
 		ir.Records[i0].HashContent(h)
@@ -81,16 +84,14 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.PersistConfig.DataSavingDisabled, c.Next())
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
-	case "topic":
-		return patch.Value(&rc.Topic, c.Next())
 	case "group":
 		return patch.Value(&rc.Group, c.Next())
 	case "start_offset":
 		return patch.Defaulted(&rc.StartOffset, c.Next(), func(def *ReadConfig) {
 			rc.StartOffset = def.StartOffset
 		})
-	case "records":
-		return patch.List(&rc.Records, c.Next())
+	case "topics":
+		return patch.List(&rc.Topics, c.Next())
 	case "inline":
 		if c = c.Next(); c.Done() || rc.Inline == nil {
 			return patch.OptionalValue(&rc.Inline, c)
@@ -111,12 +112,11 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Bool(rc.PersistConfig.StartConfig.AutoStart)
 	h.Bool(rc.PersistConfig.DataSavingDisabled)
 	h.String(rc.Device)
-	h.String(rc.Topic)
 	h.String(rc.Group)
 	h.String(string(rc.StartOffset))
-	h.Len(len(rc.Records))
-	for i0 := range rc.Records {
-		rc.Records[i0].HashContent(h)
+	h.Len(len(rc.Topics))
+	for i0 := range rc.Topics {
+		rc.Topics[i0].HashContent(h)
 	}
 	if rc.Inline == nil {
 		h.Bool(false)
@@ -170,5 +170,31 @@ func (rr *ReadRecord) HashContent(h *content.Hash) {
 	h.Len(len(rr.Messages))
 	for i0 := range rr.Messages {
 		rr.Messages[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (rt *ReadTopic) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&rt.Key, c.Next())
+	case "name":
+		return patch.Value(&rt.Name, c.Next())
+	case "records":
+		return patch.List(&rt.Records, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (rt *ReadTopic) PatchKey() string { return rt.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (rt *ReadTopic) HashContent(h *content.Hash) {
+	h.String(rt.Name)
+	h.Len(len(rt.Records))
+	for i0 := range rt.Records {
+		rt.Records[i0].HashContent(h)
 	}
 }

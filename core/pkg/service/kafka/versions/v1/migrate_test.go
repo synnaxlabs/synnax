@@ -64,9 +64,9 @@ func fields(msg icd.Message) []icd.JSONField {
 	return p.Fields
 }
 
-// inlineConfig returns a config that holds records inline.
+// inlineConfig returns a config that holds records of the topic plant inline.
 func inlineConfig(records ...v1.InlineRecord) v1.ReadConfig {
-	return v1.ReadConfig{Inline: &v1.InlineRead{Records: records}}
+	return v1.ReadConfig{Inline: &v1.InlineRead{Topic: "plant", Records: records}}
 }
 
 var _ = Describe("ResolveReadConfig", func() {
@@ -146,15 +146,18 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(ic.Messages[1].Name).To(Equal("pump (2)"))
 			Expect(ic.Messages[2].Name).To(Equal("Any key"))
 			Expect(cfg.Inline).To(BeNil())
-			Expect(cfg.Records).To(HaveLen(3))
-			for i, rec := range cfg.Records {
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Key).ToNot(BeEmpty())
+			Expect(cfg.Topics[0].Records).To(HaveLen(3))
+			for i, rec := range cfg.Topics[0].Records {
 				Expect(rec.ICD).To(Equal(ic.Key))
 				Expect(rec.Messages).To(HaveLen(1))
 				Expect(rec.Messages[0].Message).To(Equal(ic.Messages[i].Key))
 			}
-			Expect(cfg.Records[0].Key).To(Equal("r1"))
-			Expect(cfg.Records[0].RecordKey).To(Equal("pump"))
-			Expect(cfg.Records[2].RecordKey).To(BeEmpty())
+			Expect(cfg.Topics[0].Records[0].Key).To(Equal("r1"))
+			Expect(cfg.Topics[0].Records[0].RecordKey).To(Equal("pump"))
+			Expect(cfg.Topics[0].Records[2].RecordKey).To(BeEmpty())
 		},
 	)
 
@@ -180,7 +183,9 @@ var _ = Describe("ResolveReadConfig", func() {
 				[]payload.IntegerEntry{{Label: "ON", Value: 1}},
 			))
 			Expect(f.Base().Pointer).To(Equal("/level"))
-			Expect(cfg.Records[0].Messages[0].Bindings).To(Equal([]v1.ReadBinding{
+			Expect(
+				cfg.Topics[0].Records[0].Messages[0].Bindings,
+			).To(Equal([]v1.ReadBinding{
 				{Field: f.Base().Key, Channel: 7},
 			}))
 			Expect(changes).To(Equal([]string{
@@ -197,7 +202,9 @@ var _ = Describe("ResolveReadConfig", func() {
 				Fields: []v1.ReadField{storedField("level", telem.Int16T)},
 			})
 			ic := resolve(ctx, &cfg)
-			Expect(cfg.Records[0].Messages[0].Bindings).To(Equal([]v1.ReadBinding{
+			Expect(
+				cfg.Topics[0].Records[0].Messages[0].Bindings,
+			).To(Equal([]v1.ReadBinding{
 				{Field: fields(ic.Messages[0])[0].Base().Key, DataType: telem.Int16T},
 			}))
 		},
@@ -218,7 +225,9 @@ var _ = Describe("ResolveReadConfig", func() {
 			stamp, ok := f.Variant.(icd.TimestampJSONField)
 			Expect(ok).To(BeTrue())
 			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
-			Expect(cfg.Records[0].Messages[0].Index).To(Equal(new(f.Base().Key)))
+			Expect(
+				cfg.Topics[0].Records[0].Messages[0].Index,
+			).To(Equal(new(f.Base().Key)))
 		},
 	)
 
@@ -229,7 +238,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Fields: []v1.ReadField{storedField("level", telem.Float64T)},
 		})
 		resolve(ctx, &cfg)
-		Expect(cfg.Records[0].Messages[0].Index).To(BeNil())
+		Expect(cfg.Topics[0].Records[0].Messages[0].Index).To(BeNil())
 		Expect(
 			changes,
 		).To(Equal([]string{"index field gone does not exist and was dropped"}))
@@ -245,8 +254,8 @@ var _ = Describe("ResolveReadConfig", func() {
 			})
 			ic := resolve(ctx, &cfg)
 			Expect(fields(ic.Messages[0])).To(HaveLen(2))
-			Expect(cfg.Records[0].Disabled).To(BeFalse())
-			Expect(cfg.Records[0].Messages[0].Bindings).To(HaveLen(1))
+			Expect(cfg.Topics[0].Records[0].Disabled).To(BeFalse())
+			Expect(cfg.Topics[0].Records[0].Messages[0].Bindings).To(HaveLen(1))
 		},
 	)
 
@@ -255,8 +264,8 @@ var _ = Describe("ResolveReadConfig", func() {
 		off.Disabled = true
 		cfg := inlineConfig(v1.InlineRecord{Key: "r1", Fields: []v1.ReadField{off}})
 		resolve(ctx, &cfg)
-		Expect(cfg.Records[0].Disabled).To(BeTrue())
-		Expect(cfg.Records[0].Messages[0].Bindings).To(BeEmpty())
+		Expect(cfg.Topics[0].Records[0].Disabled).To(BeTrue())
+		Expect(cfg.Topics[0].Records[0].Messages[0].Bindings).To(BeEmpty())
 	})
 
 	It("Should name a field after its pointer and keep names unique",
@@ -275,28 +284,38 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should add the records to the topic of the config with the inline topic",
+		func(ctx SpecContext) {
+			cfg := inlineConfig(v1.InlineRecord{
+				Key:    "r1",
+				Fields: []v1.ReadField{storedField("level", telem.Float64T)},
+			})
+			cfg.Topics = []v1.ReadTopic{
+				{Key: "t0", Name: "other", Records: []v1.ReadRecord{}},
+				{Key: "t1", Name: "plant", Records: []v1.ReadRecord{}},
+			}
+			resolve(ctx, &cfg)
+			Expect(cfg.Topics).To(HaveLen(2))
+			Expect(cfg.Topics[0].Records).To(BeEmpty())
+			Expect(cfg.Topics[1].Key).To(Equal("t1"))
+			Expect(cfg.Topics[1].Records).To(HaveLen(1))
+			Expect(cfg.Topics[1].Records[0].Key).To(Equal("r1"))
+		},
+	)
+
 	It("Should resolve nothing when the config holds no inline records",
 		func(ctx SpecContext) {
-			cfg := v1.ReadConfig{Records: []v1.ReadRecord{{Key: "r1"}}}
+			topics := []v1.ReadTopic{{
+				Key:     "t1",
+				Name:    "plant",
+				Records: []v1.ReadRecord{{Key: "r1"}},
+			}}
+			cfg := v1.ReadConfig{Topics: topics}
 			_, ok := MustSucceed2(v1.ResolveReadConfig(
 				ctx, nil, channels, "Plant", &cfg, func(string, string) {},
 			))
 			Expect(ok).To(BeFalse())
-			Expect(cfg.Records).To(Equal([]v1.ReadRecord{{Key: "r1"}}))
-		},
-	)
-})
-
-var _ = Describe("MigrateReadRecord", func() {
-	It("Should keep the key and the record key and name no ICD or messages",
-		func(ctx SpecContext) {
-			r := MustSucceed(v1.MigrateReadRecord(ctx, v0.ReadRecord{
-				Key:       "r1",
-				RecordKey: "pump",
-				Index:     "ts",
-				Fields:    []v0.ReadField{storedField("level", telem.Float64T)},
-			}))
-			Expect(r).To(Equal(v1.ReadRecord{Key: "r1", RecordKey: "pump"}))
+			Expect(cfg.Topics).To(Equal(topics))
 		},
 	)
 })
@@ -339,26 +358,38 @@ var _ = Describe("MigrateReadConfig", func() {
 			cfg := MustSucceed(v1.MigrateReadConfig(ctx, old))
 			Expect(cfg.Key).To(Equal(old.Key))
 			Expect(cfg.Device).To(Equal(old.Device))
-			Expect(cfg.Topic).To(Equal("plant"))
 			Expect(cfg.Group).To(Equal("group"))
 			Expect(cfg.StartOffset).To(Equal(v1.StartOffsetEarliest))
-			Expect(cfg.Records).To(BeEmpty())
-			Expect(cfg.Inline).To(Equal(&v1.InlineRead{Records: []v1.InlineRecord{{
-				Key:       "r1",
-				RecordKey: "pump",
-				Index:     "ts",
-				Fields:    []v1.ReadField{storedField("level", telem.Uint8T)},
-			}}}))
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Records).To(BeEmpty())
+			Expect(cfg.Inline).To(Equal(&v1.InlineRead{
+				Topic: "plant",
+				Records: []v1.InlineRecord{{
+					Key:       "r1",
+					RecordKey: "pump",
+					Index:     "ts",
+					Fields:    []v1.ReadField{storedField("level", telem.Uint8T)},
+				}},
+			}))
 		},
 	)
 
 	It(
-		"Should hold nothing inline for a config without records",
+		"Should keep the topic of a config without records and hold nothing inline",
 		func(ctx SpecContext) {
 			cfg := MustSucceed(v1.MigrateReadConfig(ctx, v0.ReadConfig{Topic: "plant"}))
 			Expect(cfg.Inline).To(BeNil())
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Records).To(BeEmpty())
 		},
 	)
+
+	It("Should add no topic for a config without one", func(ctx SpecContext) {
+		cfg := MustSucceed(v1.MigrateReadConfig(ctx, v0.ReadConfig{}))
+		Expect(cfg.Topics).To(BeEmpty())
+	})
 })
 
 // storedConfig returns a v0 config with one record of one field, bound to channel 7.
@@ -420,25 +451,31 @@ var _ = Describe("ReadMigration", func() {
 			old := storedConfig()
 			migrate(ctx, old)
 			migrated := read(ctx, old.Key)
-			Expect(migrated.Topic).To(Equal("plant"))
-			Expect(migrated.Records).To(BeEmpty())
+			Expect(migrated.Topics).To(HaveLen(1))
+			Expect(migrated.Topics[0].Name).To(Equal("plant"))
+			Expect(migrated.Topics[0].Records).To(BeEmpty())
 			Expect(migrated.Inline).To(BeNil())
 			b, closer := MustSucceed2(db.Get(v1.StagedRecordsKVKey(old.Key)))
 			var staged v1.InlineRead
 			Expect(json.Unmarshal(b, &staged)).To(Succeed())
 			Expect(closer.Close()).To(Succeed())
-			Expect(staged).To(Equal(v1.InlineRead{Records: []v1.InlineRecord{{
-				Key:       "r1",
-				RecordKey: "pump",
-				Fields:    old.Records[0].Fields,
-			}}}))
+			Expect(staged).To(Equal(v1.InlineRead{
+				Topic: "plant",
+				Records: []v1.InlineRecord{{
+					Key:       "r1",
+					RecordKey: "pump",
+					Fields:    old.Records[0].Fields,
+				}},
+			}))
 		},
 	)
 
 	It("Should stage nothing for a config without records", func(ctx SpecContext) {
 		old := v0.ReadConfig{Key: uuid.New(), Topic: "plant"}
 		migrate(ctx, old)
-		Expect(read(ctx, old.Key).Topic).To(Equal("plant"))
+		topics := read(ctx, old.Key).Topics
+		Expect(topics).To(HaveLen(1))
+		Expect(topics[0].Name).To(Equal("plant"))
 		Expect(db.Get(v1.StagedRecordsKVKey(old.Key))).Error().
 			To(MatchError(query.ErrNotFound))
 	})

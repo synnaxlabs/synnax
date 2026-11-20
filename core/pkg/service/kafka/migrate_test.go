@@ -54,18 +54,25 @@ var _ = Describe("ICDMigration", func() {
 		key := uuid.New()
 		Expect(gorp.WrapWriter[uuid.UUID, kafka.ReadConfig](db).Set(
 			ctx,
-			kafka.ReadConfig{Key: key, Topic: "plant", Records: []kafka.ReadRecord{}},
+			kafka.ReadConfig{Key: key, Topics: []kafka.ReadTopic{{
+				Key:     "t1",
+				Name:    "plant",
+				Records: []kafka.ReadRecord{},
+			}}},
 		)).To(Succeed())
-		b := MustSucceed(json.Marshal(v1.InlineRead{Records: []v1.InlineRecord{{
-			Key:       "r1",
-			RecordKey: "pump",
-			Fields: []v1.ReadField{{
-				Key:      "level",
-				Name:     "level",
-				Pointer:  "/level",
-				DataType: telem.Float64T,
+		b := MustSucceed(json.Marshal(v1.InlineRead{
+			Topic: "plant",
+			Records: []v1.InlineRecord{{
+				Key:       "r1",
+				RecordKey: "pump",
+				Fields: []v1.ReadField{{
+					Key:      "level",
+					Name:     "level",
+					Pointer:  "/level",
+					DataType: telem.Float64T,
+				}},
 			}},
-		}}}))
+		}))
 		Expect(db.Set(ctx, v1.StagedRecordsKVKey(key), b)).To(Succeed())
 		names[key] = name
 		return key
@@ -104,11 +111,13 @@ var _ = Describe("ICDMigration", func() {
 			expectStaged(key, false)
 			cfg := read(ctx, key)
 			Expect(cfg.Inline).To(BeNil())
-			Expect(cfg.Records).To(HaveLen(1))
-			Expect(cfg.Records[0].RecordKey).To(Equal("pump"))
+			Expect(cfg.Topics).To(HaveLen(1))
+			records := cfg.Topics[0].Records
+			Expect(records).To(HaveLen(1))
+			Expect(records[0].RecordKey).To(Equal("pump"))
 			var ic icd.ICD
 			Expect(icdSvc.NewRetrieve().
-				Where(icd.MatchKeys(cfg.Records[0].ICD)).
+				Where(icd.MatchKeys(records[0].ICD)).
 				Entry(&ic).
 				Exec(ctx, db)).To(Succeed())
 			Expect(ic.Name).To(Equal("Pump station"))
@@ -150,6 +159,6 @@ var _ = Describe("ICDMigration", func() {
 		}
 		Expect(run(ctx)).To(MatchError("tasks of Kafka read configs: no task"))
 		expectStaged(key, true)
-		Expect(read(ctx, key).Records).To(BeEmpty())
+		Expect(read(ctx, key).Topics[0].Records).To(BeEmpty())
 	})
 })

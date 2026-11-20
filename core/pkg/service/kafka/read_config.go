@@ -115,24 +115,35 @@ func (r readResolver) hash(
 		return err
 	}
 	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
-	for _, rec := range cfg.Records {
-		if rec.Disabled {
-			continue
-		}
-		for _, rm := range rec.Messages {
-			m, ok := lo.Find(icds[rec.ICD].Messages, func(m icd.Message) bool {
-				return m.Key == rm.Message
-			})
-			h.Bool(ok)
-			if !ok {
-				continue
-			}
-			b, err := json.Marshal(m.Payload, json.Deterministic(true))
-			if err != nil {
+	for _, topic := range cfg.Topics {
+		for _, rec := range topic.Records {
+			if err := hashRecord(rec, icds, h); err != nil {
 				return err
 			}
-			h.Bytes(b)
 		}
+	}
+	return nil
+}
+
+// hashRecord writes to h the payload of each message of rec in icds, unless rec is
+// disabled.
+func hashRecord(rec ReadRecord, icds map[icd.Key]icd.ICD, h *content.Hash) error {
+	if rec.Disabled {
+		return nil
+	}
+	for _, rm := range rec.Messages {
+		m, ok := lo.Find(icds[rec.ICD].Messages, func(m icd.Message) bool {
+			return m.Key == rm.Message
+		})
+		h.Bool(ok)
+		if !ok {
+			continue
+		}
+		b, err := json.Marshal(m.Payload, json.Deterministic(true))
+		if err != nil {
+			return err
+		}
+		h.Bytes(b)
 	}
 	return nil
 }
@@ -167,9 +178,12 @@ func (r readResolver) check(
 			return err
 		}
 	}
-	for i, rec := range cfg.Records {
-		if err := c.checkRecord(rec, []string{"records", strconv.Itoa(i)}); err != nil {
-			return err
+	for t, topic := range cfg.Topics {
+		for i, rec := range topic.Records {
+			path := []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)}
+			if err := c.checkRecord(rec, path); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -181,17 +195,19 @@ func referencedKeys(
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) (icdKeys []icd.Key, channelKeys []channel.Key) {
-	for _, rec := range cfg.Records {
-		if rec.Disabled {
-			continue
-		}
-		if _, ok := icds[rec.ICD]; !ok {
-			icdKeys = append(icdKeys, rec.ICD)
-		}
-		for _, m := range rec.Messages {
-			for _, b := range m.Bindings {
-				if b.Channel != 0 {
-					channelKeys = append(channelKeys, b.Channel)
+	for _, topic := range cfg.Topics {
+		for _, rec := range topic.Records {
+			if rec.Disabled {
+				continue
+			}
+			if _, ok := icds[rec.ICD]; !ok {
+				icdKeys = append(icdKeys, rec.ICD)
+			}
+			for _, m := range rec.Messages {
+				for _, b := range m.Bindings {
+					if b.Channel != 0 {
+						channelKeys = append(channelKeys, b.Channel)
+					}
 				}
 			}
 		}

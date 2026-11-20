@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Kafka } from "@/feature/kafka";
 
 describe("plotChannels", () => {
-  it("should find the bound channels of the enabled records", () => {
+  it("should find the bound channels of the enabled records of every topic", () => {
     const plotChannels = Kafka.Task.INTEGRATION.plotChannels?.[Kafka.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
     const record = (disabled: boolean, ...channels: number[][]) => ({
@@ -25,7 +25,12 @@ describe("plotChannels", () => {
         bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
       })),
     });
-    const config = { records: [record(false, [1, 0], [2]), record(true, [3])] };
-    expect(plotChannels(config)).toEqual([1, 2]);
+    const config = {
+      topics: [
+        { name: "a", records: [record(false, [1, 0], [2]), record(true, [3])] },
+        { name: "b", records: [record(false, [4])] },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 2, 4]);
   });
 });

@@ -79,14 +79,24 @@ type ReadMessage struct {
 	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
 }
 
+// ReadTopic reads the records of one topic.
+type ReadTopic struct {
+	// Key uniquely identifies the topic within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the name of the topic.
+	Name string `json:"name" msgpack:"name"`
+	// Records contains the records the task reads from the topic, one per record key.
+	Records []ReadRecord `json:"records" msgpack:"records"`
+}
+
 // ReadRecord reads the records with one Kafka key as the messages of an ICD.
 type ReadRecord struct {
 	// Key uniquely identifies the record within the task.
 	Key string `json:"key" msgpack:"key"`
 	// Disabled is true when the record is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// RecordKey is the Kafka key of the records read here. Empty reads every record
-	// that no other record of the task claims, keyless ones included.
+	// RecordKey is the Kafka key of the records read here. Empty reads every record of
+	// the topic that no other record of the topic claims, keyless ones included.
 	RecordKey string `json:"record_key" msgpack:"record_key"`
 	// ICD is the key of the ICD that holds the messages of the records.
 	ICD icd.Key `json:"icd" msgpack:"icd"`
@@ -119,6 +129,8 @@ func (in InlineRecord) Validate() error {
 
 // InlineRead holds the records of a read config from before ICDs.
 type InlineRead struct {
+	// Topic is the topic of the records.
+	Topic string `json:"topic" msgpack:"topic"`
 	// Records are the records that hold their fields inline.
 	Records []InlineRecord `json:"records" msgpack:"records"`
 }
@@ -133,21 +145,19 @@ func (in InlineRead) Validate() error {
 	return v.Error()
 }
 
-// ReadConfig configures a Kafka read task, which consumes a topic and writes the fields
+// ReadConfig configures a Kafka read task, which consumes topics and writes the fields
 // of ICD messages into channels.
 type ReadConfig struct {
 	task.PersistConfig
 	// Device is the key of the Kafka cluster device to consume from.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Topic is the topic the task consumes.
-	Topic string `json:"topic" msgpack:"topic"`
 	// Group is the consumer group the task joins. Empty derives the group from the task
 	// key.
 	Group string `json:"group" msgpack:"group"`
 	// StartOffset is where the group starts when it has no committed offset.
 	StartOffset StartOffset `json:"start_offset" msgpack:"start_offset"`
-	// Records contains the records the task reads, one per record key.
-	Records []ReadRecord `json:"records" msgpack:"records"`
+	// Topics contains the topics the task consumes.
+	Topics []ReadTopic `json:"topics" msgpack:"topics"`
 	// Inline holds the records of a config from before ICDs. A write moves their fields
 	// into a new ICD, adds the records, and clears it.
 	Inline *InlineRead `json:"inline,omitzero" msgpack:"inline,omitempty"`

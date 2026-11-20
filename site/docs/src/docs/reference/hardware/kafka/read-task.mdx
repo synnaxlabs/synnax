@@ -1,7 +1,7 @@
 ---
 title: "Kafka read task"
 description:
-  "Consume a Kafka topic and record values from its JSON records in channels."
+  "Consume Kafka topics and record values from their JSON records in channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -13,23 +13,27 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A Kafka read task consumes one topic and records values from its JSON records in
-channels. Before you start,
+A Kafka read task consumes one or more topics and records values from their JSON records
+in channels. Before you start,
 [connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
 
 <Divider.Divider x />
 
-## Records and fields
+## Topics, records, and fields
 
-A record of the task is one Kafka record key. It names an ICD, which holds the layout of
-each message, and the messages of that ICD that records with the key carry. A field of a
-message is one value in the JSON value of the record, found by a
+A topic of the task holds the records that the task reads from it. The task consumes
+each topic that has an enabled record, with one consumer group and one start offset for
+all of its topics.
+
+A record of the task is one Kafka record key of its topic. It names an ICD, which holds
+the layout of each message, and the messages of that ICD that records with the key
+carry. A field of a message is one value in the JSON value of the record, found by a
 [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`.
 The task reads a field into a channel only when the record binds the field to one.
 
-- **Record key** -> the task reads only records with this key as the messages of the
-  record. An empty key, shown as **Any key**, reads each record that no other record of
-  the task claims, records with no key included.
+- **Record key** -> the task reads only records of the topic with this key as the
+  messages of the record. An empty key, shown as **Any key**, reads each record of the
+  topic that no other record of the topic claims, records with no key included.
 - **Messages** -> when one key carries more than one message, the match rule of each
   message picks the message for a record value.
 - **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
@@ -45,21 +49,24 @@ The task reads a field into a channel only when the record binds the field to on
 
 1. In the devices toolbar, right-click the cluster and select **Create read task**. You
    can also run the "Create Kafka read task" command.
-2. Enter the **Topic**, such as `sensor-readings`.
-3. Click **Add data**. The dialog reads up to 100 records of the topic, spread back in
-   time, and groups their keys by the fields that their values hold.
-4. Select the fields to record, then click **Add** _N_ **fields**. Each group becomes a
+2. Click **Add data**, then enter the **Topic**, such as `sensor-readings`. The dialog
+   reads up to 100 records of the topic, spread back in time, and groups their keys by
+   the fields that their values hold.
+3. Select the fields to record, then click **Add** _N_ **fields**. Each group becomes a
    message in the ICD of the task, with a record for each key that has no record yet. A
    timestamp that the dialog finds becomes the index of the message.
-5. Click <Icon.Play /> (**Start**).
+4. Click <Icon.Play /> (**Start**).
 
 The first message creates an ICD named after the task. For a topic with no records yet,
 click **Add an empty record** in the dialog, then click **Add field** to set the
 **Name**, **Pointer**, and **Type** of each field.
 
-A key with no record of its own goes to the **Any key** record. The dialog marks the
-fields that **Any key** reads for the key as **Any key**. A new record of the key reads
-them too, into new channels, so the key keeps every field.
+A key with no record of its own goes to the **Any key** record of its topic. The dialog
+marks the fields that **Any key** reads for the key as **Any key**. A new record of the
+key reads them too, into new channels, so the key keeps every field.
+
+To read another topic, click **Add data** again and enter its name. The tree shows each
+topic above its records. Select a topic to change its **Name**.
 
 The Console creates a channel for each field that the task reads, and an index channel
 for each message with a field of fixed size, such as a number. A message with only
@@ -99,16 +106,22 @@ task = client.tasks.create(
     rack=cluster.rack,
     config=kafka.ReadConfig(
         device=cluster.key,
-        topic="sensor-readings",
-        records=[
-            kafka.ReadRecord(
-                record_key="oven",
-                icd=plant.key,
-                messages=[
-                    kafka.ReadMessage(
-                        message=oven.key,
-                        bindings=[
-                            kafka.ReadBinding(field=field.key, channel=temperature.key)
+        topics=[
+            kafka.ReadTopic(
+                name="sensor-readings",
+                records=[
+                    kafka.ReadRecord(
+                        record_key="oven",
+                        icd=plant.key,
+                        messages=[
+                            kafka.ReadMessage(
+                                message=oven.key,
+                                bindings=[
+                                    kafka.ReadBinding(
+                                        field=field.key, channel=temperature.key
+                                    )
+                                ],
+                            )
                         ],
                     )
                 ],
@@ -161,15 +174,19 @@ const task = await client.tasks.create({
   type: "kafka_read",
   config: kafka.readConfigZ.parse({
     device: cluster.key,
-    topic: "sensor-readings",
-    records: [
+    topics: [
       {
-        recordKey: "oven",
-        icd: plant.key,
-        messages: [
+        name: "sensor-readings",
+        records: [
           {
-            message: oven.key,
-            bindings: [{ field: field.key, channel: temperature.key }],
+            recordKey: "oven",
+            icd: plant.key,
+            messages: [
+              {
+                message: oven.key,
+                bindings: [{ field: field.key, channel: temperature.key }],
+              },
+            ],
           },
         ],
       },
@@ -206,7 +223,7 @@ In code, put the key of the timestamp field in `index` on the read message.
 
 ## Consumer group and start offset
 
-The task reads the topic as a member of a Kafka consumer group. Set **Consumer group**
+The task reads its topics as a member of a Kafka consumer group. Set **Consumer group**
 to share offsets with other consumers. When it is empty, the group is `kafka-` followed
 by the key of the task.
 
@@ -232,7 +249,7 @@ rules in [timestamps](#timestamps), so it can be written again.
 
 | Setting                                           | Default | Notes                                                     |
 | ------------------------------------------------- | ------- | --------------------------------------------------------- |
-| Topic <small>`topic`</small>                      |         | One topic for each task.                                  |
+| Topics <small>`topics`</small>                    |         | See [topic reference](#topic-record-and-field-reference). |
 | Consumer group <small>`group`</small>             | Empty   | Empty uses `kafka-<task key>`.                            |
 | Start from <small>`start_offset`</small>          | Latest  | See [start offset](#consumer-group-and-start-offset).     |
 | Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
@@ -242,7 +259,14 @@ TypeScript uses the same fields in camel case, such as `startOffset`.
 
 <Divider.Divider x />
 
-## Record and field reference
+## Topic, record, and field reference
+
+A topic has these settings:
+
+| Setting                          | Default | Notes                                                 |
+| -------------------------------- | ------- | ----------------------------------------------------- |
+| Name <small>`name`</small>       |         | The name of the Kafka topic. One topic for each name. |
+| Records <small>`records`</small> |         | The records of the topic. One record for each key.    |
 
 A record has these settings:
 
@@ -331,16 +355,17 @@ that has read the topic.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"record key ...: claimed by more than one record"}>
+<Problem.Item message={"topic ...: record key ...: claimed by more than one record"}>
 <Problem.Cause>
 
-Two records of the task have the same record key.
+Two records of one topic have the same record key. Records of different topics can share
+a key.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Give each record its own key. For a key that carries more than one message, read all of
-the messages through one record.
+Give each record of the topic its own key. For a key that carries more than one message,
+read all of the messages through one record.
 
 </Problem.Fix>
 </Problem.Item>

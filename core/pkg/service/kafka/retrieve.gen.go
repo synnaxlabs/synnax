@@ -43,38 +43,44 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
-			Name:     "records.icd",
+			Name:     "topics.records.icd",
 			Table:    "icd",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []icd.Key {
 				var targets []icd.Key
-				for _, v1 := range e.Records {
-					targets = append(targets, v1.ICD)
+				for _, v1 := range e.Topics {
+					for _, v2 := range v1.Records {
+						targets = append(targets, v2.ICD)
+					}
 				}
 				return targets
 			},
 			Detach: func(e *ReadConfig, t icd.Key) {
-				e.Records = slices.DeleteFunc(e.Records, func(v2 ReadRecord) bool {
-					if v2.ICD == t {
-						return true
-					}
-					return false
-				})
+				for i3 := range e.Topics {
+					e.Topics[i3].Records = slices.DeleteFunc(e.Topics[i3].Records, func(v4 ReadRecord) bool {
+						if v4.ICD == t {
+							return true
+						}
+						return false
+					})
+				}
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "records.messages.bindings.channel",
+			Name:     "topics.records.messages.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
-				for _, v1 := range e.Records {
-					for _, v2 := range v1.Messages {
-						for _, v3 := range v2.Bindings {
-							if v3.Channel != 0 {
-								targets = append(targets, v3.Channel)
+				for _, v1 := range e.Topics {
+					for _, v2 := range v1.Records {
+						for _, v3 := range v2.Messages {
+							for _, v4 := range v3.Bindings {
+								if v4.Channel != 0 {
+									targets = append(targets, v4.Channel)
+								}
 							}
 						}
 					}
@@ -82,11 +88,13 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				return targets
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
-				for i4 := range e.Records {
-					for i5 := range e.Records[i4].Messages {
-						for i6 := range e.Records[i4].Messages[i5].Bindings {
-							if e.Records[i4].Messages[i5].Bindings[i6].Channel == t {
-								e.Records[i4].Messages[i5].Bindings[i6].Channel = 0
+				for i5 := range e.Topics {
+					for i6 := range e.Topics[i5].Records {
+						for i7 := range e.Topics[i5].Records[i6].Messages {
+							for i8 := range e.Topics[i5].Records[i6].Messages[i7].Bindings {
+								if e.Topics[i5].Records[i6].Messages[i7].Bindings[i8].Channel == t {
+									e.Topics[i5].Records[i6].Messages[i7].Bindings[i8].Channel = 0
+								}
 							}
 						}
 					}

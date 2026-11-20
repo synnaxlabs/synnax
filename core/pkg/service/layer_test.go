@@ -497,8 +497,10 @@ var _ = Describe("Layer", func() {
 				Entry(&cfg).
 				Exec(ctx, db)).To(Succeed())
 			Expect(cfg.Inline).To(BeNil())
-			Expect(cfg.Records).To(HaveLen(1))
-			Expect(cfg.Records[0].ICD).To(Equal(icds[0].Key))
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Records).To(HaveLen(1))
+			Expect(cfg.Topics[0].Records[0].ICD).To(Equal(icds[0].Key))
 			var upgraded task.Task
 			Expect(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(live)).

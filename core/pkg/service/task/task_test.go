@@ -321,7 +321,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   namedType,
 				Rack:   testRack.Key,
 				Name:   "Created",
-				Config: msgpack.EncodedJSON{"topic": "pumps"},
+				Config: msgpack.EncodedJSON{"group": "pumps"},
 			})).To(Succeed())
 			Expect(names).To(Equal([]string{"Created"}))
 		})
@@ -810,13 +810,13 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   namedType,
 				Rack:   testRack.Key,
 				Name:   "Before",
-				Config: msgpack.EncodedJSON{"topic": "pumps"},
+				Config: msgpack.EncodedJSON{"group": "pumps"},
 			}
 			createCommitted(ctx, named)
 			names = nil
 			MustSucceed(dispatch(ctx, named.Key, "dk", []task.Action{
 				set([]string{"name"}, "After"),
-				set([]string{"config", "topic"}, "valves"),
+				set([]string{"config", "group"}, "valves"),
 			}))
 			Expect(names).To(Equal([]string{"After"}))
 		})

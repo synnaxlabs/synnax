@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -83,20 +84,24 @@ type row struct {
 	ts telem.TimeStamp
 	// pos is the record's position in the group's columns.
 	pos int
-	// partition and offset locate the record in its topic.
+	// topic, partition, and offset locate the record.
+	topic     string
 	partition int32
 	offset    int64
 }
 
-// readTask consumes a topic and writes the fields of ICD messages into channels.
+// readTask consumes topics and writes the fields of ICD messages into channels.
 type readTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        ReadConfig
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
-	// records holds the record of each record key.
-	records map[string]*readRecord
+	// topics are the topics the task consumes: each one with an enabled record, in
+	// config order.
+	topics []string
+	// records holds the record of each record key of each topic.
+	records map[string]map[string]*readRecord
 	// groups holds the groups of every record.
 	groups []*readGroup
 	// writer writes every group's channels, nil once the consumer exits.
@@ -117,7 +122,7 @@ type readTask struct {
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
-	// marks is the offsets the current poll consumed by partition.
+	// marks is the offsets the current poll consumed by topic and partition.
 	marks map[string]map[int32]kgo.EpochOffset
 }
 
@@ -131,9 +136,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	if cfg.Topic == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
-	}
 	if _, err := resolveProperties(
 		ctx,
 		f.cfg.DB,
@@ -142,38 +144,39 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	); err != nil {
 		return nil, err
 	}
-	records, groups, err := f.buildReadRecords(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &readTask{
+	rt := &readTask{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
-		records:    records,
-		groups:     groups,
-		marks:      map[string]map[int32]kgo.EpochOffset{cfg.Topic: {}},
-	}, nil
+		marks:      make(map[string]map[int32]kgo.EpochOffset),
+	}
+	var err error
+	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
+		return nil, err
+	}
+	for _, topic := range cfg.Topics {
+		if _, ok := rt.records[topic.Name]; ok {
+			rt.topics = append(rt.topics, topic.Name)
+			rt.marks[topic.Name] = make(map[int32]kgo.EpochOffset)
+		}
+	}
+	return rt, nil
 }
 
 // buildReadRecords resolves the enabled records of cfg against their ICDs and channels.
-// It returns the records by record key and the groups of every record, and validates
-// that each group writes one even frame per record.
+// It returns the records by topic and record key and the groups of every record, and
+// validates that each group writes one even frame per record.
 func (f *factory) buildReadRecords(
 	ctx context.Context,
 	cfg ReadConfig,
-) (map[string]*readRecord, []*readGroup, error) {
-	enabled := lo.Filter(cfg.Records, func(r ReadRecord, _ int) bool {
-		return !r.Disabled
-	})
-	if len(enabled) == 0 {
-		return nil, nil, errors.Wrap(
-			validate.ErrValidation, "records: at least one record must be enabled",
-		)
+) (map[string]map[string]*readRecord, []*readGroup, error) {
+	enabled, err := enabledRecords(cfg)
+	if err != nil {
+		return nil, nil, err
 	}
 	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(lo.Map(
-		enabled, func(r ReadRecord, _ int) icd.Key { return r.ICD },
+		enabled, func(r topicRecord, _ int) icd.Key { return r.ICD },
 	)))
 	if err != nil {
 		return nil, nil, err
@@ -191,31 +194,78 @@ func (f *factory) buildReadRecords(
 		return nil, nil, err
 	}
 	var (
-		records = make(map[string]*readRecord, len(enabled))
+		records = make(map[string]map[string]*readRecord, len(cfg.Topics))
 		groups  []*readGroup
 		w       = writers{channels: channels, names: make(map[channel.Key]string)}
 	)
 	for _, rec := range enabled {
-		if _, ok := records[rec.RecordKey]; ok {
+		keys, ok := records[rec.topic]
+		if !ok {
+			keys = make(map[string]*readRecord)
+			records[rec.topic] = keys
+		}
+		if _, ok = keys[rec.RecordKey]; ok {
 			return nil, nil, errors.Wrapf(
 				validate.ErrValidation,
-				"record key %q: claimed by more than one record",
-				rec.RecordKey,
+				"topic %q: record key %q: claimed by more than one record",
+				rec.topic, rec.RecordKey,
 			)
 		}
-		rd, err := newReadRecord(rec, icds[rec.ICD], channels)
+		rd, err := newReadRecord(rec.topic, rec.ReadRecord, icds[rec.ICD], channels)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "record key %q", rec.RecordKey)
+			return nil, nil, errors.Wrapf(
+				err, "topic %q: record key %q", rec.topic, rec.RecordKey,
+			)
 		}
 		for _, g := range rd.groups {
 			if err = w.claim(g); err != nil {
 				return nil, nil, err
 			}
 		}
-		records[rec.RecordKey] = rd
+		keys[rec.RecordKey] = rd
 		groups = append(groups, rd.groups...)
 	}
 	return records, groups, nil
+}
+
+// topicRecord is a record of a read task and the name of its topic.
+type topicRecord struct {
+	topic string
+	ReadRecord
+}
+
+// enabledRecords returns the enabled records of cfg. It returns a validation error when
+// a topic has no name, when two topics have one name, or when no record is enabled.
+func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
+	names := make(set.Set[string], len(cfg.Topics))
+	var enabled []topicRecord
+	for i, topic := range cfg.Topics {
+		if topic.Name == "" {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "topics.%d.name: must not be empty", i,
+			)
+		}
+		if names.Contains(topic.Name) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "topic %q: listed more than once", topic.Name,
+			)
+		}
+		names.Add(topic.Name)
+		for _, rec := range topic.Records {
+			if !rec.Disabled {
+				enabled = append(
+					enabled,
+					topicRecord{topic: topic.Name, ReadRecord: rec},
+				)
+			}
+		}
+	}
+	if len(enabled) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "topics: at least one record must be enabled",
+		)
+	}
+	return enabled, nil
 }
 
 // readChannels returns the channels of keys and the index channel of each, so that an
@@ -274,9 +324,10 @@ func (w writers) claim(g *readGroup) error {
 	return nil
 }
 
-// newReadRecord validates rec against ic, the ICD it names, and channels, which holds
-// every channel that a binding of rec names.
+// newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
+// channels, which holds every channel that a binding of rec names.
 func newReadRecord(
+	topic string,
 	rec ReadRecord,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
@@ -294,7 +345,7 @@ func newReadRecord(
 	)
 	for i, rm := range rec.Messages {
 		if rd.groups[i], err = newReadGroup(
-			rec.RecordKey, rm, ic, channels, &decoded[i],
+			topic, rec.RecordKey, rm, ic, channels, &decoded[i],
 		); err != nil {
 			return nil, err
 		}
@@ -306,9 +357,10 @@ func newReadRecord(
 	return rd, nil
 }
 
-// newReadGroup validates rm, a message of the record with recordKey, and fills decoded
-// with what the decoder needs to read it.
+// newReadGroup validates rm, a message of the record of topic with recordKey, and fills
+// decoded with what the decoder needs to read it.
 func newReadGroup(
+	topic string,
 	recordKey string,
 	rm ReadMessage,
 	ic icd.ICD,
@@ -337,7 +389,9 @@ func newReadGroup(
 		)
 	}
 	g := &readGroup{
-		name:      fmt.Sprintf("message %s of key %q", msg.Name, recordKey),
+		name: fmt.Sprintf(
+			"message %s of key %q of topic %q", msg.Name, recordKey, topic,
+		),
 		data:      make([][]byte, len(rm.Bindings)),
 		columns:   make([]column, len(rm.Bindings)),
 		stamp:     -1,
@@ -613,7 +667,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 func (t *readTask) consumerOpts() []kgo.Opt {
 	return []kgo.Opt{
 		kgo.ConsumerGroup(t.group()),
-		kgo.ConsumeTopics(t.cfg.Topic),
+		kgo.ConsumeTopics(t.topics...),
 		kgo.ConsumeResetOffset(resetOffset(t.cfg.StartOffset)),
 		kgo.AutoCommitMarks(),
 		kgo.FetchMaxWait(t.factoryCfg.FetchMaxWait.Duration()),
@@ -644,29 +698,34 @@ func (t *readTask) resetGroups(ctx context.Context) error {
 }
 
 // checkCommitted fails when the consumer group has no committed offset on a partition
-// of the topic. A group the cluster has never seen has none on any partition.
+// of a topic of the task. A group the cluster has never seen has none on any partition.
 func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
-	resp, err := kadm.NewClient(cl).FetchOffsetsForTopics(ctx, t.group(), t.cfg.Topic)
+	resp, err := kadm.NewClient(cl).FetchOffsetsForTopics(ctx, t.group(), t.topics...)
 	if errors.Is(err, kerr.GroupIDNotFound) {
 		return errors.Newf(
 			"consumer group %q has no committed offset on topic %q",
-			t.group(), t.cfg.Topic,
+			t.group(), t.topics[0],
 		)
 	}
 	if err != nil {
 		return errors.Wrap(err, "fetching committed offsets")
 	}
-	var missing []int32
+	missing := make(map[string][]int32)
 	resp.Each(func(o kadm.OffsetResponse) {
 		if o.At < 0 {
-			missing = append(missing, o.Partition)
+			missing[o.Topic] = append(missing[o.Topic], o.Partition)
 		}
 	})
-	if len(missing) > 0 {
-		return errors.Newf(
-			"consumer group %q has no committed offset on partitions %v of topic %q",
-			t.group(), missing, t.cfg.Topic,
-		)
+	for _, topic := range t.topics {
+		if partitions := missing[topic]; len(partitions) > 0 {
+			slices.Sort(partitions)
+			return errors.Newf(
+				"consumer group %q has no committed offset on partitions %v of topic %q",
+				t.group(),
+				partitions,
+				topic,
+			)
+		}
 	}
 	return nil
 }
@@ -869,19 +928,24 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	for _, g := range t.groups {
 		g.reset()
 	}
-	marks := t.marks[t.cfg.Topic]
-	clear(marks)
+	for _, marks := range t.marks {
+		clear(marks)
+	}
+	marked := false
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
 		}
-		if len(p.Records) > 0 {
-			last := p.Records[len(p.Records)-1]
-			head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
-			if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
-				marks[p.Partition] = head
-			}
+		marks, ok := t.marks[p.Topic]
+		if !ok || len(p.Records) == 0 {
+			return
 		}
+		last := p.Records[len(p.Records)-1]
+		head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
+		if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
+			marks[p.Partition] = head
+		}
+		marked = true
 	})
 	var keys, size int
 	for _, g := range t.groups {
@@ -899,7 +963,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	if len(marks) > 0 {
+	if marked {
 		t.client.MarkCommitOffsets(t.marks)
 	}
 	return nil
@@ -923,15 +987,17 @@ func (t *readTask) frame(keyCount, size int) frame.Frame {
 // convert decodes rec into the samples of the group of its message. A record that is
 // not addressed to this task leaves nothing, and neither does one that is skipped.
 func (t *readTask) convert(rec *kgo.Record) {
-	rd, ok := t.records[string(rec.Key)]
+	keys := t.records[rec.Topic]
+	rd, ok := keys[string(rec.Key)]
 	if !ok {
-		if rd, ok = t.records[""]; !ok {
+		if rd, ok = keys[""]; !ok {
 			return
 		}
 	}
 	t.skips.Read()
 	r := row{
 		ts:        telem.NewTimeStamp(rec.Timestamp),
+		topic:     rec.Topic,
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
@@ -1043,7 +1109,11 @@ func (g *readGroup) appendSeries(
 // skip counts the record of r as skipped. reason says why.
 func (t *readTask) skip(r row, reason string) {
 	t.skips.Skip(time.Now(), fmt.Sprintf(
-		"%s (partition %d, offset %d).", reason, r.partition, r.offset,
+		"%s (topic %s, partition %d, offset %d).",
+		reason,
+		r.topic,
+		r.partition,
+		r.offset,
 	))
 }
 
