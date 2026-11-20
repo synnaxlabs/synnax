@@ -155,6 +155,23 @@ describe("useSelect", () => {
       expect(result.current.value).toEqual(["1", "3"]);
     });
 
+    it("should not replace on shift when the anchor left the order", () => {
+      let data = ["1", "2", "3"];
+      const { result, rerender } = renderMultiple(
+        { replaceOnSingle: true },
+        [],
+        () => data,
+      );
+      act(() => result.current.onSelect("1"));
+      act(() => {
+        data = ["2", "3", "4"];
+        rerender();
+      });
+      fireEvent.keyDown(document.body, { code: "Shift" });
+      act(() => result.current.onSelect("3"));
+      expect(result.current.value).toEqual(["1", "3"]);
+    });
+
     it("should clear the selection when clear() is called", () => {
       const { result } = renderMultiple();
       act(() => result.current.onSelect("1"));
