@@ -40,6 +40,9 @@ type Writer struct {
 	// err is the error that broke the writer.
 	err    error
 	closed bool
+	// excluded holds the keys that a Write leaves out, kept between calls so that a
+	// write that skips allocates nothing.
+	excluded []ChannelKey
 }
 
 // ErrWriterClosed is returned by a call to a Writer that is closed.
@@ -125,16 +128,14 @@ func (w *Writer) Write(
 	if err := w.check(); err != nil {
 		return Frame{}, false, err
 	}
-	var (
-		err      error
-		excluded []ChannelKey
-	)
+	var err error
+	w.excluded = w.excluded[:0]
 	for _, idx := range w.internal {
-		if fr, err = idx.write(skip, &excluded, fr); err != nil {
+		if fr, err = idx.write(skip, &w.excluded, fr); err != nil {
 			return Frame{}, false, w.fail(err)
 		}
 	}
-	return fr.ExcludeKeys(excluded), len(excluded) > 0, nil
+	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
 }
 
 // Commit makes the written samples of every channel except the channels for which skip

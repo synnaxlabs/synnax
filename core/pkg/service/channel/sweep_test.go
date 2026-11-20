@@ -347,3 +347,15 @@ var _ = Describe("Sweep", func() {
 		},
 	)
 })
+
+var _ = Describe("KeyList", func() {
+	DescribeTable(
+		"Should list keys as prose",
+		func(keys channel.Keys, want string) {
+			Expect(channel.KeyList(keys)).To(Equal(want))
+		},
+		Entry("one key", channel.Keys{12}, "12"),
+		Entry("two keys", channel.Keys{12, 13}, "12 and 13"),
+		Entry("three keys", channel.Keys{12, 13, 14}, "12, 13, and 14"),
+	)
+})

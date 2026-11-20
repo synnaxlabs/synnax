@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -162,16 +161,8 @@ func checkVersion(ins alamos.Instrumentation, dir, vsn string) error {
 // channels names keys as prose: "channel 12", "channels 12 and 13", or "channels 12,
 // 13, and 14".
 func channels(keys []channel.Key) string {
-	names := make([]string, len(keys))
-	for i, k := range keys {
-		names[i] = strconv.FormatUint(uint64(k), 10)
+	if len(keys) == 1 {
+		return "channel " + channel.KeyList(keys)
 	}
-	switch len(names) {
-	case 1:
-		return "channel " + names[0]
-	case 2:
-		return "channels " + names[0] + " and " + names[1]
-	}
-	last := len(names) - 1
-	return "channels " + strings.Join(names[:last], ", ") + ", and " + names[last]
+	return "channels " + channel.KeyList(keys)
 }

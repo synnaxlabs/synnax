@@ -96,7 +96,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Framer.SetChannelResolver(cfg.Channel.ChannelResolver())
+	cfg.Framer.SetChannelResolver(cfg.Channel.Resolver())
 	return &Service{cfg: cfg}, nil
 }
 

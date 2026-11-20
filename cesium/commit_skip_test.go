@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"fmt"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,4 +77,48 @@ var _ = Describe("Writer Commit with a skip", func() {
 			}
 		},
 	)
+})
+
+var _ = Describe("Writer Write with a skip", func() {
+	It("Should allocate nothing for a write that skips every channel", func(
+		ctx SpecContext,
+	) {
+		db := mustOpenDBOnFS(ctx, xfs.NewMem())
+		index, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      index,
+				Name:     "index",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key:      data,
+				Name:     "data",
+				Index:    index,
+				DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{index, data},
+			Start:    10 * telem.SecondTS,
+		}))
+		fr := telem.MultiFrame([]cesium.ChannelKey{index, data}, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11),
+			telem.NewSeriesV[int64](1, 2),
+		})
+		skipAll := func(cesium.ChannelKey) bool { return true }
+		var (
+			skipped bool
+			err     error
+		)
+		allocs := testing.AllocsPerRun(100, func() {
+			_, skipped, err = w.Write(ctx, fr, skipAll)
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(skipped).To(BeTrue())
+		Expect(allocs).To(BeZero())
+		Expect(w.Close()).To(Succeed())
+	})
 })

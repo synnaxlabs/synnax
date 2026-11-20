@@ -106,7 +106,6 @@ func (c WriteTaskConfig) Validate() error {
 	v.NotNil("sink", c.Sink)
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
-	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotEmptySlice("channels", c.Channels)
 	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
