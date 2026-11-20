@@ -17,7 +17,7 @@ import {
 import {
   createSeverableProxy,
   createTestClient,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -66,7 +66,7 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
     ...status.REGISTRY,
   });
   const connParams = {
-    ...TEST_CLIENT_PARAMS,
+    ...testClientParams(),
     // The proxy listens on this machine, even when the Core runs on another.
     host: "localhost",
     port,
