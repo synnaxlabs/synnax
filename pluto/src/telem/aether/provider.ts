@@ -42,11 +42,11 @@ export const createProvider = (
   class BaseProvider extends aether.Composite<typeof providerStateZ, InternalState> {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
-    schema = BaseProvider.stateZ;
+    override schema = BaseProvider.stateZ;
     prevCore: Synnax | null = null;
     private feed: framer.Feed | null = null;
 
-    afterUpdate(ctx: aether.Context): void {
+    override afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
       const core = synnax.use(ctx);
       i.instrumentation = alamos.useInstrumentation(ctx, "telem").child("provider");
@@ -69,7 +69,7 @@ export const createProvider = (
       setContext(ctx, new Context(createFactory(client)));
     }
 
-    afterDelete(): void {
+    override afterDelete(): void {
       this.closeFeed();
     }
 

@@ -401,6 +401,14 @@ describe("close", () => {
     expect(performance.now() - start).toBeLessThan(5000);
   }, 10_000);
 
+  it("should close the client at the end of an await using block", async () => {
+    const client = createTestClient();
+    {
+      await using _ = client;
+    }
+    expect(client.connection.status.variant).toEqual("disabled");
+  });
+
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();
     await client.connect();
