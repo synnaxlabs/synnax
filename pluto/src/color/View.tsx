@@ -24,14 +24,15 @@ import { CSS } from "@/css";
 interface RowProps {
   label: string;
   labelID?: string;
+  required?: boolean;
   children: ReactNode;
 }
 
 const labelClass = CSS.BE("color-view", "label");
 
-const Row = ({ label, labelID, children }: RowProps): ReactElement => (
+const Row = ({ label, labelID, required, children }: RowProps): ReactElement => (
   <Flex.Box x gap="small" align="start">
-    <Input.Label id={labelID} className={labelClass}>
+    <Input.Label id={labelID} className={labelClass} required={required}>
       {label}
     </Input.Label>
     {children}
@@ -40,8 +41,9 @@ const Row = ({ label, labelID, children }: RowProps): ReactElement => (
 
 const NameField = ({ onEnter }: { onEnter?: () => void }): ReactElement => {
   const id = useId();
+  const required = Form.useFieldState<string>(formPath.name)?.required ?? false;
   return (
-    <Row label="Name" labelID={id}>
+    <Row label="Name" labelID={id} required={required}>
       <Form.Field<string>
         path={formPath.name}
         showLabel={false}
