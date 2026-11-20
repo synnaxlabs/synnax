@@ -329,8 +329,10 @@ interface InternalState {
   // loaded is true once both sources leave loading, until either source or spec
   // changes.
   loaded?: boolean;
-  // drawn holds the ops of the last render, and groupSize the size that reduced them.
+  // drawn holds the ops of the last render, xBounds the bounds of its x data, and
+  // groupSize the size that reduced them.
   drawn: DrawOperation[];
+  xBounds: bounds.Bounds;
   groupSize: number;
 }
 
@@ -360,6 +362,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
     i.drawn ??= [];
+    i.xBounds ??= bounds.INVALID;
     i.groupSize ??= 1;
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
@@ -414,7 +417,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
     const valueProps = this.read(view(props));
-    const [, xData] = xTelem.value(valueProps).data;
+    const [xBounds, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -424,6 +427,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (valid) [index, series] = [v, i];
       return valid;
     });
+    // A target past every sample takes the last one, and reaches decides.
+    if (index === -1) {
+      series = xData.series.findLastIndex((x) => x.length > 0);
+      if (series !== -1) index = xData.series[series].length - 1;
+    }
     const { key } = this;
     const { color, label } = this.state;
     const result = {
@@ -450,7 +458,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       },
     );
     if (ySeries == null) return result;
-    result.value.x = safelyGetDataValue(series, index, xData);
+    const x = safelyGetDataValue(series, index, xData);
+    if (!reaches(props, xBounds, target, x)) return result;
+    result.value.x = x;
 
     result.value.y = Number(ySeries.atAlignment(alignment, true));
 
@@ -483,10 +493,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const found = visible ? nearest(drawn, target) : null;
     if (found == null) return result;
     const [{ x, y, xOffset, yOffset }, i] = found;
-    result.value = {
-      x: Number(x.at(xOffset + i, true)),
-      y: Number(y.at(yOffset + i, true)),
-    };
+    const foundX = Number(x.at(xOffset + i, true));
+    if (!reaches(props, this.internal.xBounds, target, foundX)) return result;
+    result.value = { x: foundX, y: Number(y.at(yOffset + i, true)) };
     result.bounds = bounds.union(
       drawn.map((op) => op.y.boundsFor(op.yOffset, op.yOffset + op.count)),
     );
@@ -527,6 +536,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const valueProps = this.read(v);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
+    i.xBounds = x.data[0];
     i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
     if (!isLoading(x) && !isLoading(y)) i.loaded = true;
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
@@ -604,6 +614,24 @@ const nearest = (
     }
   }
   return found;
+};
+
+// HOVER_DISTANCE is how far in pixels a found point may sit from a target outside the
+// line's window, so a short range stays easy to point at when zoomed out.
+const HOVER_DISTANCE = 12;
+
+// reaches is true if a line has a value at target: target is inside xBounds, the bounds
+// of the line's x data (its window when x is time), or x, the x of the point found, is
+// within HOVER_DISTANCE pixels of it.
+const reaches = (
+  { dataToDecimalScale: { x: scale }, region }: LineProps,
+  xBounds: bounds.Bounds,
+  target: number,
+  x: number,
+): boolean => {
+  if (target >= xBounds.lower && target <= xBounds.upper) return true;
+  const pixels = Math.abs(scale.pos(x) - scale.pos(target)) * box.width(region);
+  return pixels <= HOVER_DISTANCE;
 };
 
 /**
