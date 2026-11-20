@@ -49,6 +49,9 @@ export type Result = { topic: string } & (
 
 const FRAME = "records";
 
+const HINT =
+  "Select the fields to read. Records that hold the same fields share a message.";
+
 const INDEX: ICD.Picker.Lock = { checked: true, label: "Index" };
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
@@ -297,7 +300,7 @@ const Content = ({
           placeholder="Topic"
         />
       </ICD.Picker.Bar>
-      <ICD.Picker.Frame itemKey={FRAME}>
+      <ICD.Picker.Frame itemKey={FRAME} hint={HINT}>
         <ICD.Picker.Status status={status} loading={loading} onListen={listen} />
         <ICD.Picker.Side>
           <ICD.Picker.SideList>{list}</ICD.Picker.SideList>
@@ -315,11 +318,11 @@ const Content = ({
         onAdd={() => close({ topic, variant: "picks", shapes, picks })}
         onCancel={() => close()}
       >
-        <Text.Text level="small" color={count > 0 ? 10 : 9}>
-          {count > 0
-            ? `${pluralize("field", count, true)} selected`
-            : "Select the fields to read. Records that hold the same fields share a message."}
-        </Text.Text>
+        {count > 0 && (
+          <Text.Text level="small" color={10}>
+            {`${pluralize("field", count, true)} selected`}
+          </Text.Text>
+        )}
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );

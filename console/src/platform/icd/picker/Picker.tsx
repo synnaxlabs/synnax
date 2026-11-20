@@ -25,6 +25,7 @@ import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { HintContext } from "@/platform/icd/picker/hint";
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -68,27 +69,31 @@ export const Bar = ({ children }: PropsWithChildren): ReactElement => (
 
 export interface FrameProps extends PropsWithChildren {
   itemKey: string;
+  /** Says what a pick of the frame becomes, under the title of each pane. */
+  hint: string;
 }
 
 /**
  * The body of one tab. It mounts its children the first time it shows and keeps them
  * mounted while hidden, so a picker listens only once opened and keeps what it shows.
  */
-export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null => {
+export const Frame = ({ itemKey, hint, children }: FrameProps): ReactElement | null => {
   const active = useActiveContext("Picker.Frame") === itemKey;
   const [opened, setOpened] = useState(active);
   if (active && !opened) setOpened(true);
   if (!opened) return null;
   return (
     <FrameContext value={itemKey}>
-      <Flex.Box
-        x
-        grow
-        empty
-        className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
-      >
-        {children}
-      </Flex.Box>
+      <HintContext value={hint}>
+        <Flex.Box
+          x
+          grow
+          empty
+          className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
+        >
+          {children}
+        </Flex.Box>
+      </HintContext>
     </FrameContext>
   );
 };
@@ -202,7 +207,7 @@ export interface FooterProps extends PropsWithChildren {
   onCancel: () => void;
 }
 
-/** The footer of the dialog: its children, then Cancel and the add button. */
+/** The footer of the dialog: a summary of the picks, then Cancel and the add button. */
 export const Footer = ({
   counts,
   idle,
@@ -210,7 +215,7 @@ export const Footer = ({
   onCancel,
   children,
 }: FooterProps): ReactElement => (
-  <Modal.Footer>
+  <Modal.Footer bordered className={CSS.BE("icd-picker", "footer")}>
     <Nav.Bar.Start>{children}</Nav.Bar.Start>
     <Nav.Bar.End x align="center" gap="small">
       <Button.Button variant="outlined" onClick={onCancel}>

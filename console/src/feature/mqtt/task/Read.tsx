@@ -145,6 +145,7 @@ const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
   hint: "Select the values to read. Each one becomes a field of the message format.",
+  tagHint: "Select the tags to read. Each one becomes a channel.",
   noun: "field",
   tagNoun: "tag",
   create: ({ topics, tags }) => [

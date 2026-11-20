@@ -20,6 +20,7 @@
         flex-shrink: 0;
         padding: 0 2rem;
         background: var(--pluto-gray-l2);
+        border-top: var(--pluto-border);
     }
 
     .console-icd-picker__frame {
@@ -44,7 +45,7 @@
         min-width: 38rem;
         max-width: 62rem;
         background: var(--pluto-gray-l1);
-        border-right: var(--console-divider);
+        border-right: var(--pluto-border);
     }
 
     .console-icd-picker__side-list {
@@ -56,6 +57,11 @@
         flex-shrink: 0;
         align-self: flex-start;
         margin: 0.5rem 1rem 1.5rem;
+    }
+
+    /* Its border sets the footer apart from the panes, so it pads its top too. */
+    .console-icd-picker__footer {
+        padding-top: var(--pluto-modal-inset);
     }
 
     .console-icd-picker__notice {
@@ -90,7 +96,12 @@
 
     .console-icd-picker__pane-header {
         flex-shrink: 0;
-        padding: 2.5rem 3rem 2rem;
+        padding: 2.5rem 3rem 0;
+    }
+
+    .console-icd-picker__hint {
+        flex-shrink: 0;
+        padding: 0.5rem 3rem 2rem;
     }
 
     .console-icd-picker__values {
