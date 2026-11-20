@@ -181,7 +181,8 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				}
 			}
 		}
-		for _, l := range c.Added {
+		added, removed := placementChanges(c)
+		for _, l := range added {
 			if l.Target == owner || createdOrDeleted.Contains(l.Target) {
 				continue
 			}
@@ -193,7 +194,7 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				return err
 			}
 		}
-		for _, l := range c.Removed {
+		for _, l := range removed {
 			if l.Kind != gorp.Place ||
 				l.Target == owner ||
 				createdOrDeleted.Contains(l.Target) {
@@ -243,24 +244,65 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 	if c.Kind != gorp.ChangeUpdate {
 		return usesSubject(c.Links)
 	}
-	before := append(
+	return usesSubject(c.Links) && usesSubject(linksBefore(c))
+}
+
+// ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
+func (s *Service) ownedPlace(l placement) bool {
+	return l.Kind == gorp.Place && slices.Contains(s.cfg.OwnedPlaces, l.Target.Table)
+}
+
+// placement is a link without its tag. Access maps by kind, so a change to the tag of
+// a link alone needs no check.
+type placement struct {
+	Target gorp.Target
+	Kind   gorp.LinkKind
+}
+
+// placementsOf returns the placements of links, once each, in their order.
+func placementsOf(links []gorp.Link) []placement {
+	out := make([]placement, 0, len(links))
+	for _, l := range links {
+		if p := (placement{Target: l.Target, Kind: l.Kind}); !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// linksBefore returns the links that the record of c held before the transaction.
+func linksBefore(c gorp.Change) []gorp.Link {
+	switch c.Kind {
+	case gorp.ChangeCreate:
+		return nil
+	case gorp.ChangeDelete:
+		return c.Links
+	}
+	return append(
 		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
 			return slices.Contains(c.Added, l)
 		}),
 		c.Removed...,
 	)
-	return usesSubject(c.Links) && usesSubject(before)
 }
 
-// ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
-func (s *Service) ownedPlace(l gorp.Link) bool {
-	return l.Kind == gorp.Place && slices.Contains(s.cfg.OwnedPlaces, l.Target.Table)
+// placementChanges returns the placements that c adds and the ones it removes.
+func placementChanges(c gorp.Change) (added, removed []placement) {
+	before := placementsOf(linksBefore(c))
+	var after []placement
+	if c.Kind != gorp.ChangeDelete {
+		after = placementsOf(c.Links)
+	}
+	held := func(in []placement) func(placement, int) bool {
+		return func(p placement, _ int) bool { return slices.Contains(in, p) }
+	}
+	return lo.Reject(after, held(before)), lo.Reject(before, held(after))
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error
 // unless the record holds exactly one place link.
 func ownerOf(c gorp.Change) (gorp.Target, error) {
-	places := lo.Filter(c.Links, func(l gorp.Link, _ int) bool {
+	places := lo.Filter(placementsOf(c.Links), func(l placement, _ int) bool {
 		return l.Kind == gorp.Place
 	})
 	if len(places) != 1 {
