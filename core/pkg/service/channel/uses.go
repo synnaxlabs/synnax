@@ -93,3 +93,13 @@ func (s *Service) Uses(
 	}
 	return out, nil
 }
+
+// PlanDelete returns what a delete of the channels with keys would do to the records
+// that hold them, as seen by snap, as gorp.Table.PlanDelete does. It writes nothing.
+func (s *Service) PlanDelete(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys []Key,
+) (gorp.DeleteEffects, error) {
+	return s.table.PlanDelete(ctx, snap, keys)
+}
