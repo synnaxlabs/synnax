@@ -11,7 +11,8 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import FeatureSection from "@/components/common/FeatureSection.astro";
 import PanelTab from "@/components/common/PanelTab.astro";
-import CdnPicture from "@/components/common/CdnPicture.astro";
+import CdnPicture from "@synnaxlabs/site-common/CdnPicture.astro";
+import { cdn } from "@/cdn";
 ---
 
 <FeatureSection label="5.2 -> Alarms">
@@ -30,7 +31,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             </PanelTab>
             <CdnPicture
                 class="alarm-flow"
-                path="images/alarm-flow.png"
+                src={cdn("images/alarm-flow.png")}
                 sizes="(max-width: 900px) 90vw, 900px"
                 alt="Visual Arc alarm editor showing a node graph with source, constant, comparison, stable-for, and change-status nodes"
             />

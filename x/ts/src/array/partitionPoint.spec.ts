@@ -13,10 +13,11 @@ import { array } from "@/array";
 import { compare } from "@/compare";
 
 describe("partitionPoint", () => {
+  // partitionPoint only probes indexes below arr.length.
   const lowerBound = (arr: number[], v: number): number =>
-    array.partitionPoint(arr.length, (i) => arr[i] >= v);
+    array.partitionPoint(arr.length, (i) => arr[i]! >= v);
   const upperBound = (arr: number[], v: number): number =>
-    array.partitionPoint(arr.length, (i) => arr[i] > v);
+    array.partitionPoint(arr.length, (i) => arr[i]! > v);
 
   it("should return 0 when n is 0", () => {
     const pred = vi.fn(() => true);
@@ -59,7 +60,7 @@ describe("partitionPoint", () => {
     const names = ["alpha", "Bravo", "charlie"];
     const at = array.partitionPoint(
       names.length,
-      (i) => compare.text(names[i], "beta") >= 0,
+      (i) => compare.text(names[i]!, "beta") >= 0,
     );
     expect(at).toBe(1);
   });

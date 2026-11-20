@@ -903,7 +903,7 @@ export class StreamMultiChannelLog
     this.valid = false;
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.reset();
     this.failures.reset();
   }
