@@ -58,11 +58,10 @@ func newCalculationGrantMigration(
 				if len(granted) == 0 {
 					continue
 				}
-				p.Objects = append(p.Objects, granted...)
-				if err := w.Delete(ctx, p.Key); err != nil {
-					return err
-				}
-				if err := w.Create(ctx, &p); err != nil {
+				if err := w.Apply(ctx, p.Key, policy.NewSetAction(policy.SetPayload{
+					Path:  []string{"objects"},
+					Value: slices.Concat(p.Objects, granted),
+				})); err != nil {
 					return err
 				}
 			}
