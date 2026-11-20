@@ -125,7 +125,7 @@ func (s *Server) renameTextEdits(
 	// in-scope reference to the same name resolves to the same global symbol.
 	matchByAST := targetSym.AST != nil
 	var edits []protocol.TextEdit
-	for _, t := range tokenizeContent(doc.Content) {
+	for _, t := range tokenizeContent(doc.Content, s.parserConfig()) {
 		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
 			continue
 		}

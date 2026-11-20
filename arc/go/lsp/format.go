@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/formatter"
-	"github.com/synnaxlabs/arc/parser"
 	"go.lsp.dev/protocol"
 )
 
@@ -27,7 +26,7 @@ func (s *Server) Formatting(
 	}
 	formatted := formatter.Format(
 		doc.Content,
-		parser.Config{AllowDashedNames: s.cfg.AllowDashedNames},
+		s.parserConfig(),
 	)
 	if formatted == doc.Content {
 		return nil, nil
@@ -66,7 +65,7 @@ func (s *Server) RangeFormatting(
 		doc.Content,
 		startLine,
 		endLine,
-		parser.Config{AllowDashedNames: s.cfg.AllowDashedNames},
+		s.parserConfig(),
 	)
 	if formatted == doc.Content {
 		return nil, nil

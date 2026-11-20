@@ -190,6 +190,10 @@ func New(cfgs ...Config) (*Server, error) {
 	}, nil
 }
 
+func (s *Server) parserConfig() parser.Config {
+	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+}
+
 // SetClient sets the LSP client for sending notifications.
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
@@ -496,7 +500,7 @@ func (s *Server) analyze(
 		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 	})
 	s.cfg.L.Debug("analyzing program")
-	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+	cfg := s.parserConfig()
 
 	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
