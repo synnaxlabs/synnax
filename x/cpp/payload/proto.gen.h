@@ -24,39 +24,6 @@
 
 namespace x::payload {
 
-inline std::pair<::x::payload::pb::TimeFormat, x::errors::Error>
-time_format_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::x::payload::pb::TimeFormat> kMap = {
-        {TIME_FORMAT_ISO_8601, ::x::payload::pb::TIME_FORMAT_ISO_8601},
-        {TIME_FORMAT_UNIX_SEC, ::x::payload::pb::TIME_FORMAT_UNIX_SEC},
-        {TIME_FORMAT_UNIX_MS, ::x::payload::pb::TIME_FORMAT_UNIX_MS},
-        {TIME_FORMAT_UNIX_US, ::x::payload::pb::TIME_FORMAT_UNIX_US},
-        {TIME_FORMAT_UNIX_NS, ::x::payload::pb::TIME_FORMAT_UNIX_NS},
-    };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized TimeFormat value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-time_format_from_pb(::x::payload::pb::TimeFormat pb) {
-    switch (pb) {
-        case ::x::payload::pb::TIME_FORMAT_ISO_8601:
-            return {TIME_FORMAT_ISO_8601, x::errors::NIL};
-        case ::x::payload::pb::TIME_FORMAT_UNIX_SEC:
-            return {TIME_FORMAT_UNIX_SEC, x::errors::NIL};
-        case ::x::payload::pb::TIME_FORMAT_UNIX_MS:
-            return {TIME_FORMAT_UNIX_MS, x::errors::NIL};
-        case ::x::payload::pb::TIME_FORMAT_UNIX_US:
-            return {TIME_FORMAT_UNIX_US, x::errors::NIL};
-        case ::x::payload::pb::TIME_FORMAT_UNIX_NS:
-            return {TIME_FORMAT_UNIX_NS, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized TimeFormat protobuf value")};
-    }
-}
-
 inline std::pair<::x::payload::pb::Kind, x::errors::Error>
 kind_to_pb(const std::string &cpp) {
     static const std::unordered_map<std::string, ::x::payload::pb::Kind> kMap = {
@@ -102,82 +69,36 @@ kind_from_pb(::x::payload::pb::Kind pb) {
     }
 }
 
-inline std::pair<::x::payload::pb::JSONType, x::errors::Error>
-json_type_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::x::payload::pb::JSONType> kMap = {
-        {JSON_TYPE_NUMBER, ::x::payload::pb::JSON_TYPE_NUMBER},
-        {JSON_TYPE_STRING, ::x::payload::pb::JSON_TYPE_STRING},
-        {JSON_TYPE_BOOLEAN, ::x::payload::pb::JSON_TYPE_BOOLEAN},
+inline std::pair<::x::payload::pb::TimeFormat, x::errors::Error>
+time_format_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::payload::pb::TimeFormat> kMap = {
+        {TIME_FORMAT_ISO_8601, ::x::payload::pb::TIME_FORMAT_ISO_8601},
+        {TIME_FORMAT_UNIX_SEC, ::x::payload::pb::TIME_FORMAT_UNIX_SEC},
+        {TIME_FORMAT_UNIX_MS, ::x::payload::pb::TIME_FORMAT_UNIX_MS},
+        {TIME_FORMAT_UNIX_US, ::x::payload::pb::TIME_FORMAT_UNIX_US},
+        {TIME_FORMAT_UNIX_NS, ::x::payload::pb::TIME_FORMAT_UNIX_NS},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized JSONType value: " + cpp)};
+        return {{}, x::errors::Error("unrecognized TimeFormat value: " + cpp)};
     return {it->second, x::errors::NIL};
 }
 
 inline std::pair<std::string, x::errors::Error>
-json_type_from_pb(::x::payload::pb::JSONType pb) {
+time_format_from_pb(::x::payload::pb::TimeFormat pb) {
     switch (pb) {
-        case ::x::payload::pb::JSON_TYPE_NUMBER:
-            return {JSON_TYPE_NUMBER, x::errors::NIL};
-        case ::x::payload::pb::JSON_TYPE_STRING:
-            return {JSON_TYPE_STRING, x::errors::NIL};
-        case ::x::payload::pb::JSON_TYPE_BOOLEAN:
-            return {JSON_TYPE_BOOLEAN, x::errors::NIL};
+        case ::x::payload::pb::TIME_FORMAT_ISO_8601:
+            return {TIME_FORMAT_ISO_8601, x::errors::NIL};
+        case ::x::payload::pb::TIME_FORMAT_UNIX_SEC:
+            return {TIME_FORMAT_UNIX_SEC, x::errors::NIL};
+        case ::x::payload::pb::TIME_FORMAT_UNIX_MS:
+            return {TIME_FORMAT_UNIX_MS, x::errors::NIL};
+        case ::x::payload::pb::TIME_FORMAT_UNIX_US:
+            return {TIME_FORMAT_UNIX_US, x::errors::NIL};
+        case ::x::payload::pb::TIME_FORMAT_UNIX_NS:
+            return {TIME_FORMAT_UNIX_NS, x::errors::NIL};
         default:
-            return {"", x::errors::Error("unrecognized JSONType protobuf value")};
-    }
-}
-
-inline std::pair<::x::payload::pb::GeneratorType, x::errors::Error>
-generator_type_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::x::payload::pb::GeneratorType> kMap =
-        {
-            {GENERATOR_TYPE_UUID, ::x::payload::pb::GENERATOR_TYPE_UUID},
-            {GENERATOR_TYPE_TIMESTAMP, ::x::payload::pb::GENERATOR_TYPE_TIMESTAMP},
-    };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized GeneratorType value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-generator_type_from_pb(::x::payload::pb::GeneratorType pb) {
-    switch (pb) {
-        case ::x::payload::pb::GENERATOR_TYPE_UUID:
-            return {GENERATOR_TYPE_UUID, x::errors::NIL};
-        case ::x::payload::pb::GENERATOR_TYPE_TIMESTAMP:
-            return {GENERATOR_TYPE_TIMESTAMP, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized GeneratorType protobuf value")};
-    }
-}
-
-inline std::pair<::x::payload::pb::Format, x::errors::Error>
-format_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::x::payload::pb::Format> kMap = {
-        {FORMAT_JSON, ::x::payload::pb::FORMAT_JSON},
-        {FORMAT_TEXT, ::x::payload::pb::FORMAT_TEXT},
-        {FORMAT_BINARY, ::x::payload::pb::FORMAT_BINARY},
-    };
-    auto it = kMap.find(cpp);
-    if (it == kMap.end())
-        return {{}, x::errors::Error("unrecognized Format value: " + cpp)};
-    return {it->second, x::errors::NIL};
-}
-
-inline std::pair<std::string, x::errors::Error>
-format_from_pb(::x::payload::pb::Format pb) {
-    switch (pb) {
-        case ::x::payload::pb::FORMAT_JSON:
-            return {FORMAT_JSON, x::errors::NIL};
-        case ::x::payload::pb::FORMAT_TEXT:
-            return {FORMAT_TEXT, x::errors::NIL};
-        case ::x::payload::pb::FORMAT_BINARY:
-            return {FORMAT_BINARY, x::errors::NIL};
-        default:
-            return {"", x::errors::Error("unrecognized Format protobuf value")};
+            return {"", x::errors::Error("unrecognized TimeFormat protobuf value")};
     }
 }
 
@@ -256,175 +177,6 @@ BooleanEntry::to_proto() const {
 inline std::pair<BooleanEntry, x::errors::Error>
 BooleanEntry::from_proto(const ::x::payload::pb::BooleanEntry &pb) {
     BooleanEntry cpp;
-    cpp.label = pb.label();
-    cpp.value = pb.value();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::FloatRead, x::errors::Error>
-FloatRead::to_proto() const {
-    ::x::payload::pb::FloatRead pb;
-    if (this->data_type.has_value()) pb.set_data_type(this->data_type->to_proto());
-    for (const auto &item: this->enum_values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_enum_values() = v;
-    }
-    if (this->fill.has_value()) pb.set_fill(this->fill->to_proto());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<FloatRead, x::errors::Error>
-FloatRead::from_proto(const ::x::payload::pb::FloatRead &pb) {
-    FloatRead cpp;
-    if (pb.has_data_type())
-        cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
-    if (auto err = x::pb::from_proto_repeated<FloatEntry>(
-            cpp.enum_values,
-            pb.enum_values()
-        ))
-        return {{}, err};
-    if (pb.has_fill()) cpp.fill = Float::from_proto(pb.fill());
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::IntegerRead, x::errors::Error>
-IntegerRead::to_proto() const {
-    ::x::payload::pb::IntegerRead pb;
-    if (this->data_type.has_value()) pb.set_data_type(this->data_type->to_proto());
-    for (const auto &item: this->enum_values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_enum_values() = v;
-    }
-    if (this->fill.has_value()) pb.set_fill(this->fill->to_proto());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<IntegerRead, x::errors::Error>
-IntegerRead::from_proto(const ::x::payload::pb::IntegerRead &pb) {
-    IntegerRead cpp;
-    if (pb.has_data_type())
-        cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
-    if (auto err = x::pb::from_proto_repeated<IntegerEntry>(
-            cpp.enum_values,
-            pb.enum_values()
-        ))
-        return {{}, err};
-    if (pb.has_fill()) cpp.fill = Integer::from_proto(pb.fill());
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::UnsignedRead, x::errors::Error>
-UnsignedRead::to_proto() const {
-    ::x::payload::pb::UnsignedRead pb;
-    if (this->data_type.has_value()) pb.set_data_type(this->data_type->to_proto());
-    for (const auto &item: this->enum_values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_enum_values() = v;
-    }
-    if (this->fill.has_value()) pb.set_fill(this->fill->to_proto());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<UnsignedRead, x::errors::Error>
-UnsignedRead::from_proto(const ::x::payload::pb::UnsignedRead &pb) {
-    UnsignedRead cpp;
-    if (pb.has_data_type())
-        cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
-    if (auto err = x::pb::from_proto_repeated<UnsignedEntry>(
-            cpp.enum_values,
-            pb.enum_values()
-        ))
-        return {{}, err};
-    if (pb.has_fill()) cpp.fill = Unsigned::from_proto(pb.fill());
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::StringRead, x::errors::Error>
-StringRead::to_proto() const {
-    ::x::payload::pb::StringRead pb;
-    for (const auto &item: this->enum_values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_enum_values() = v;
-    }
-    if (this->fill.has_value()) pb.set_fill(*this->fill);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<StringRead, x::errors::Error>
-StringRead::from_proto(const ::x::payload::pb::StringRead &pb) {
-    StringRead cpp;
-    if (auto err = x::pb::from_proto_repeated<StringEntry>(
-            cpp.enum_values,
-            pb.enum_values()
-        ))
-        return {{}, err};
-    if (pb.has_fill()) cpp.fill = pb.fill();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::BooleanRead, x::errors::Error>
-BooleanRead::to_proto() const {
-    ::x::payload::pb::BooleanRead pb;
-    for (const auto &item: this->enum_values) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_enum_values() = v;
-    }
-    if (this->fill.has_value()) pb.set_fill(*this->fill);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<BooleanRead, x::errors::Error>
-BooleanRead::from_proto(const ::x::payload::pb::BooleanRead &pb) {
-    BooleanRead cpp;
-    if (auto err = x::pb::from_proto_repeated<BooleanEntry>(
-            cpp.enum_values,
-            pb.enum_values()
-        ))
-        return {{}, err};
-    if (pb.has_fill()) cpp.fill = pb.fill();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::TimestampRead, x::errors::Error>
-TimestampRead::to_proto() const {
-    ::x::payload::pb::TimestampRead pb;
-    {
-        auto [v, err] = time_format_to_pb(this->time_format);
-        if (err) return {{}, err};
-        pb.set_time_format(v);
-    }
-    if (this->fill.has_value()) pb.set_fill(this->fill->to_proto());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<TimestampRead, x::errors::Error>
-TimestampRead::from_proto(const ::x::payload::pb::TimestampRead &pb) {
-    TimestampRead cpp;
-    {
-        auto [v, err] = time_format_from_pb(pb.time_format());
-        if (err) return {{}, err};
-        cpp.time_format = v;
-    }
-    if (pb.has_fill()) cpp.fill = ::x::telem::TimeStamp::from_proto(pb.fill());
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::x::payload::pb::EnumEntry, x::errors::Error>
-EnumEntry::to_proto() const {
-    ::x::payload::pb::EnumEntry pb;
-    pb.set_label(this->label);
-    pb.set_value(this->value);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<EnumEntry, x::errors::Error>
-EnumEntry::from_proto(const ::x::payload::pb::EnumEntry &pb) {
-    EnumEntry cpp;
     cpp.label = pb.label();
     cpp.value = pb.value();
     return {cpp, x::errors::NIL};

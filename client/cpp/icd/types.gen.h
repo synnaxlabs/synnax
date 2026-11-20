@@ -179,12 +179,6 @@ struct ReadBinding {
 
     static ReadBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::ReadBinding;
-    [[nodiscard]] std::pair<::service::icd::pb::ReadBinding, x::errors::Error>
-    to_proto() const;
-    static std::pair<ReadBinding, x::errors::Error>
-    from_proto(const ::service::icd::pb::ReadBinding &pb);
 };
 
 /// @brief CanIdentifier matches a CAN frame by arbitration identifier.
@@ -495,12 +489,6 @@ struct ReadMessage {
 
     static ReadMessage parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::icd::pb::ReadMessage;
-    [[nodiscard]] std::pair<::service::icd::pb::ReadMessage, x::errors::Error>
-    to_proto() const;
-    static std::pair<ReadMessage, x::errors::Error>
-    from_proto(const ::service::icd::pb::ReadMessage &pb);
 };
 
 /// @brief FloatJSONField is a JSON number read as a float.

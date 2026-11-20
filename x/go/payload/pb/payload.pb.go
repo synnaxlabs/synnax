@@ -32,62 +32,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// TimeFormat is the encoding of a timestamp value within a payload.
-type TimeFormat int32
-
-const (
-	TimeFormat_TIME_FORMAT_ISO_8601 TimeFormat = 0
-	TimeFormat_TIME_FORMAT_UNIX_SEC TimeFormat = 1
-	TimeFormat_TIME_FORMAT_UNIX_MS  TimeFormat = 2
-	TimeFormat_TIME_FORMAT_UNIX_US  TimeFormat = 3
-	TimeFormat_TIME_FORMAT_UNIX_NS  TimeFormat = 4
-)
-
-// Enum value maps for TimeFormat.
-var (
-	TimeFormat_name = map[int32]string{
-		0: "TIME_FORMAT_ISO_8601",
-		1: "TIME_FORMAT_UNIX_SEC",
-		2: "TIME_FORMAT_UNIX_MS",
-		3: "TIME_FORMAT_UNIX_US",
-		4: "TIME_FORMAT_UNIX_NS",
-	}
-	TimeFormat_value = map[string]int32{
-		"TIME_FORMAT_ISO_8601": 0,
-		"TIME_FORMAT_UNIX_SEC": 1,
-		"TIME_FORMAT_UNIX_MS":  2,
-		"TIME_FORMAT_UNIX_US":  3,
-		"TIME_FORMAT_UNIX_NS":  4,
-	}
-)
-
-func (x TimeFormat) Enum() *TimeFormat {
-	p := new(TimeFormat)
-	*p = x
-	return p
-}
-
-func (x TimeFormat) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (TimeFormat) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_payload_pb_payload_proto_enumTypes[0].Descriptor()
-}
-
-func (TimeFormat) Type() protoreflect.EnumType {
-	return &file_x_go_payload_pb_payload_proto_enumTypes[0]
-}
-
-func (x TimeFormat) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use TimeFormat.Descriptor instead.
-func (TimeFormat) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{0}
-}
-
 // Kind is the kind of value a payload field holds.
 type Kind int32
 
@@ -140,11 +84,11 @@ func (x Kind) String() string {
 }
 
 func (Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_payload_pb_payload_proto_enumTypes[1].Descriptor()
+	return file_x_go_payload_pb_payload_proto_enumTypes[0].Descriptor()
 }
 
 func (Kind) Type() protoreflect.EnumType {
-	return &file_x_go_payload_pb_payload_proto_enumTypes[1]
+	return &file_x_go_payload_pb_payload_proto_enumTypes[0]
 }
 
 func (x Kind) Number() protoreflect.EnumNumber {
@@ -153,154 +97,63 @@ func (x Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Kind.Descriptor instead.
 func (Kind) EnumDescriptor() ([]byte, []int) {
+	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{0}
+}
+
+// TimeFormat is the encoding of a timestamp value within a payload.
+type TimeFormat int32
+
+const (
+	TimeFormat_TIME_FORMAT_ISO_8601 TimeFormat = 0
+	TimeFormat_TIME_FORMAT_UNIX_SEC TimeFormat = 1
+	TimeFormat_TIME_FORMAT_UNIX_MS  TimeFormat = 2
+	TimeFormat_TIME_FORMAT_UNIX_US  TimeFormat = 3
+	TimeFormat_TIME_FORMAT_UNIX_NS  TimeFormat = 4
+)
+
+// Enum value maps for TimeFormat.
+var (
+	TimeFormat_name = map[int32]string{
+		0: "TIME_FORMAT_ISO_8601",
+		1: "TIME_FORMAT_UNIX_SEC",
+		2: "TIME_FORMAT_UNIX_MS",
+		3: "TIME_FORMAT_UNIX_US",
+		4: "TIME_FORMAT_UNIX_NS",
+	}
+	TimeFormat_value = map[string]int32{
+		"TIME_FORMAT_ISO_8601": 0,
+		"TIME_FORMAT_UNIX_SEC": 1,
+		"TIME_FORMAT_UNIX_MS":  2,
+		"TIME_FORMAT_UNIX_US":  3,
+		"TIME_FORMAT_UNIX_NS":  4,
+	}
+)
+
+func (x TimeFormat) Enum() *TimeFormat {
+	p := new(TimeFormat)
+	*p = x
+	return p
+}
+
+func (x TimeFormat) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TimeFormat) Descriptor() protoreflect.EnumDescriptor {
+	return file_x_go_payload_pb_payload_proto_enumTypes[1].Descriptor()
+}
+
+func (TimeFormat) Type() protoreflect.EnumType {
+	return &file_x_go_payload_pb_payload_proto_enumTypes[1]
+}
+
+func (x TimeFormat) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TimeFormat.Descriptor instead.
+func (TimeFormat) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{1}
-}
-
-// JSONType is the JSON type a channel value is serialized as in a payload.
-type JSONType int32
-
-const (
-	JSONType_JSON_TYPE_NUMBER  JSONType = 0
-	JSONType_JSON_TYPE_STRING  JSONType = 1
-	JSONType_JSON_TYPE_BOOLEAN JSONType = 2
-)
-
-// Enum value maps for JSONType.
-var (
-	JSONType_name = map[int32]string{
-		0: "JSON_TYPE_NUMBER",
-		1: "JSON_TYPE_STRING",
-		2: "JSON_TYPE_BOOLEAN",
-	}
-	JSONType_value = map[string]int32{
-		"JSON_TYPE_NUMBER":  0,
-		"JSON_TYPE_STRING":  1,
-		"JSON_TYPE_BOOLEAN": 2,
-	}
-)
-
-func (x JSONType) Enum() *JSONType {
-	p := new(JSONType)
-	*p = x
-	return p
-}
-
-func (x JSONType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (JSONType) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_payload_pb_payload_proto_enumTypes[2].Descriptor()
-}
-
-func (JSONType) Type() protoreflect.EnumType {
-	return &file_x_go_payload_pb_payload_proto_enumTypes[2]
-}
-
-func (x JSONType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use JSONType.Descriptor instead.
-func (JSONType) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{2}
-}
-
-// GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType int32
-
-const (
-	GeneratorType_GENERATOR_TYPE_UUID      GeneratorType = 0
-	GeneratorType_GENERATOR_TYPE_TIMESTAMP GeneratorType = 1
-)
-
-// Enum value maps for GeneratorType.
-var (
-	GeneratorType_name = map[int32]string{
-		0: "GENERATOR_TYPE_UUID",
-		1: "GENERATOR_TYPE_TIMESTAMP",
-	}
-	GeneratorType_value = map[string]int32{
-		"GENERATOR_TYPE_UUID":      0,
-		"GENERATOR_TYPE_TIMESTAMP": 1,
-	}
-)
-
-func (x GeneratorType) Enum() *GeneratorType {
-	p := new(GeneratorType)
-	*p = x
-	return p
-}
-
-func (x GeneratorType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (GeneratorType) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_payload_pb_payload_proto_enumTypes[3].Descriptor()
-}
-
-func (GeneratorType) Type() protoreflect.EnumType {
-	return &file_x_go_payload_pb_payload_proto_enumTypes[3]
-}
-
-func (x GeneratorType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use GeneratorType.Descriptor instead.
-func (GeneratorType) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{3}
-}
-
-// Format is the encoding of a whole payload.
-type Format int32
-
-const (
-	Format_FORMAT_JSON   Format = 0
-	Format_FORMAT_TEXT   Format = 1
-	Format_FORMAT_BINARY Format = 2
-)
-
-// Enum value maps for Format.
-var (
-	Format_name = map[int32]string{
-		0: "FORMAT_JSON",
-		1: "FORMAT_TEXT",
-		2: "FORMAT_BINARY",
-	}
-	Format_value = map[string]int32{
-		"FORMAT_JSON":   0,
-		"FORMAT_TEXT":   1,
-		"FORMAT_BINARY": 2,
-	}
-)
-
-func (x Format) Enum() *Format {
-	p := new(Format)
-	*p = x
-	return p
-}
-
-func (x Format) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Format) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_payload_pb_payload_proto_enumTypes[4].Descriptor()
-}
-
-func (Format) Type() protoreflect.EnumType {
-	return &file_x_go_payload_pb_payload_proto_enumTypes[4]
-}
-
-func (x Format) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Format.Descriptor instead.
-func (Format) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{4}
 }
 
 // FloatEntry maps a payload label to a float channel value.
@@ -578,419 +431,6 @@ func (x *BooleanEntry) GetValue() bool {
 	return false
 }
 
-// FloatRead holds the options of a field that reads a float.
-type FloatRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// data_type is the data type of a new channel. Absent for an existing one.
-	DataType *string `protobuf:"bytes,1,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
-	// enum_values maps payload labels to channel values.
-	EnumValues []*FloatEntry `protobuf:"bytes,2,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *float64 `protobuf:"fixed64,3,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FloatRead) Reset() {
-	*x = FloatRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FloatRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FloatRead) ProtoMessage() {}
-
-func (x *FloatRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FloatRead.ProtoReflect.Descriptor instead.
-func (*FloatRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *FloatRead) GetDataType() string {
-	if x != nil && x.DataType != nil {
-		return *x.DataType
-	}
-	return ""
-}
-
-func (x *FloatRead) GetEnumValues() []*FloatEntry {
-	if x != nil {
-		return x.EnumValues
-	}
-	return nil
-}
-
-func (x *FloatRead) GetFill() float64 {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return 0
-}
-
-// IntegerRead holds the options of a field that reads a signed integer.
-type IntegerRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// data_type is the data type of a new channel. Absent for an existing one.
-	DataType *string `protobuf:"bytes,1,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
-	// enum_values maps payload labels to channel values.
-	EnumValues []*IntegerEntry `protobuf:"bytes,2,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *int64 `protobuf:"varint,3,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *IntegerRead) Reset() {
-	*x = IntegerRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *IntegerRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*IntegerRead) ProtoMessage() {}
-
-func (x *IntegerRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use IntegerRead.ProtoReflect.Descriptor instead.
-func (*IntegerRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *IntegerRead) GetDataType() string {
-	if x != nil && x.DataType != nil {
-		return *x.DataType
-	}
-	return ""
-}
-
-func (x *IntegerRead) GetEnumValues() []*IntegerEntry {
-	if x != nil {
-		return x.EnumValues
-	}
-	return nil
-}
-
-func (x *IntegerRead) GetFill() int64 {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return 0
-}
-
-// UnsignedRead holds the options of a field that reads an unsigned integer.
-type UnsignedRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// data_type is the data type of a new channel. Absent for an existing one.
-	DataType *string `protobuf:"bytes,1,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
-	// enum_values maps payload labels to channel values.
-	EnumValues []*UnsignedEntry `protobuf:"bytes,2,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *uint64 `protobuf:"varint,3,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UnsignedRead) Reset() {
-	*x = UnsignedRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UnsignedRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UnsignedRead) ProtoMessage() {}
-
-func (x *UnsignedRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UnsignedRead.ProtoReflect.Descriptor instead.
-func (*UnsignedRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *UnsignedRead) GetDataType() string {
-	if x != nil && x.DataType != nil {
-		return *x.DataType
-	}
-	return ""
-}
-
-func (x *UnsignedRead) GetEnumValues() []*UnsignedEntry {
-	if x != nil {
-		return x.EnumValues
-	}
-	return nil
-}
-
-func (x *UnsignedRead) GetFill() uint64 {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return 0
-}
-
-// StringRead holds the options of a field that reads a string.
-type StringRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// enum_values maps payload labels to channel values.
-	EnumValues []*StringEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *string `protobuf:"bytes,2,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StringRead) Reset() {
-	*x = StringRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StringRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StringRead) ProtoMessage() {}
-
-func (x *StringRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StringRead.ProtoReflect.Descriptor instead.
-func (*StringRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *StringRead) GetEnumValues() []*StringEntry {
-	if x != nil {
-		return x.EnumValues
-	}
-	return nil
-}
-
-func (x *StringRead) GetFill() string {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return ""
-}
-
-// BooleanRead holds the options of a field that reads a boolean.
-type BooleanRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// enum_values maps payload labels to channel values.
-	EnumValues []*BooleanEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *bool `protobuf:"varint,2,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *BooleanRead) Reset() {
-	*x = BooleanRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BooleanRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BooleanRead) ProtoMessage() {}
-
-func (x *BooleanRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use BooleanRead.ProtoReflect.Descriptor instead.
-func (*BooleanRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *BooleanRead) GetEnumValues() []*BooleanEntry {
-	if x != nil {
-		return x.EnumValues
-	}
-	return nil
-}
-
-func (x *BooleanRead) GetFill() bool {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return false
-}
-
-// TimestampRead holds the options of a field that reads a timestamp.
-type TimestampRead struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// time_format is the encoding of the timestamp in the payload.
-	TimeFormat TimeFormat `protobuf:"varint,1,opt,name=time_format,json=timeFormat,proto3,enum=x.payload.pb.TimeFormat" json:"time_format,omitempty"`
-	// fill is written when the payload has no value. Absent requires one.
-	Fill          *int64 `protobuf:"varint,2,opt,name=fill,proto3,oneof" json:"fill,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TimestampRead) Reset() {
-	*x = TimestampRead{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TimestampRead) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TimestampRead) ProtoMessage() {}
-
-func (x *TimestampRead) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TimestampRead.ProtoReflect.Descriptor instead.
-func (*TimestampRead) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *TimestampRead) GetTimeFormat() TimeFormat {
-	if x != nil {
-		return x.TimeFormat
-	}
-	return TimeFormat_TIME_FORMAT_ISO_8601
-}
-
-func (x *TimestampRead) GetFill() int64 {
-	if x != nil && x.Fill != nil {
-		return *x.Fill
-	}
-	return 0
-}
-
-// EnumEntry maps a string label in a payload to a numeric channel value for enum-style
-// parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// label is the string label in the payload.
-	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
-	// value is the numeric channel value the label maps to.
-	Value         float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EnumEntry) Reset() {
-	*x = EnumEntry{}
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EnumEntry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EnumEntry) ProtoMessage() {}
-
-func (x *EnumEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_payload_pb_payload_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EnumEntry.ProtoReflect.Descriptor instead.
-func (*EnumEntry) Descriptor() ([]byte, []int) {
-	return file_x_go_payload_pb_payload_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *EnumEntry) GetLabel() string {
-	if x != nil {
-		return x.Label
-	}
-	return ""
-}
-
-func (x *EnumEntry) GetValue() float64 {
-	if x != nil {
-		return x.Value
-	}
-	return 0
-}
-
 var File_x_go_payload_pb_payload_proto protoreflect.FileDescriptor
 
 const file_x_go_payload_pb_payload_proto_rawDesc = "" +
@@ -1011,57 +451,7 @@ const file_x_go_payload_pb_payload_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value\":\n" +
 	"\fBooleanEntry\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\bR\x05value\"\x98\x01\n" +
-	"\tFloatRead\x12 \n" +
-	"\tdata_type\x18\x01 \x01(\tH\x00R\bdataType\x88\x01\x01\x129\n" +
-	"\venum_values\x18\x02 \x03(\v2\x18.x.payload.pb.FloatEntryR\n" +
-	"enumValues\x12\x17\n" +
-	"\x04fill\x18\x03 \x01(\x01H\x01R\x04fill\x88\x01\x01B\f\n" +
-	"\n" +
-	"_data_typeB\a\n" +
-	"\x05_fill\"\x9c\x01\n" +
-	"\vIntegerRead\x12 \n" +
-	"\tdata_type\x18\x01 \x01(\tH\x00R\bdataType\x88\x01\x01\x12;\n" +
-	"\venum_values\x18\x02 \x03(\v2\x1a.x.payload.pb.IntegerEntryR\n" +
-	"enumValues\x12\x17\n" +
-	"\x04fill\x18\x03 \x01(\x03H\x01R\x04fill\x88\x01\x01B\f\n" +
-	"\n" +
-	"_data_typeB\a\n" +
-	"\x05_fill\"\x9e\x01\n" +
-	"\fUnsignedRead\x12 \n" +
-	"\tdata_type\x18\x01 \x01(\tH\x00R\bdataType\x88\x01\x01\x12<\n" +
-	"\venum_values\x18\x02 \x03(\v2\x1b.x.payload.pb.UnsignedEntryR\n" +
-	"enumValues\x12\x17\n" +
-	"\x04fill\x18\x03 \x01(\x04H\x01R\x04fill\x88\x01\x01B\f\n" +
-	"\n" +
-	"_data_typeB\a\n" +
-	"\x05_fill\"j\n" +
-	"\n" +
-	"StringRead\x12:\n" +
-	"\venum_values\x18\x01 \x03(\v2\x19.x.payload.pb.StringEntryR\n" +
-	"enumValues\x12\x17\n" +
-	"\x04fill\x18\x02 \x01(\tH\x00R\x04fill\x88\x01\x01B\a\n" +
-	"\x05_fill\"l\n" +
-	"\vBooleanRead\x12;\n" +
-	"\venum_values\x18\x01 \x03(\v2\x1a.x.payload.pb.BooleanEntryR\n" +
-	"enumValues\x12\x17\n" +
-	"\x04fill\x18\x02 \x01(\bH\x00R\x04fill\x88\x01\x01B\a\n" +
-	"\x05_fill\"l\n" +
-	"\rTimestampRead\x129\n" +
-	"\vtime_format\x18\x01 \x01(\x0e2\x18.x.payload.pb.TimeFormatR\n" +
-	"timeFormat\x12\x17\n" +
-	"\x04fill\x18\x02 \x01(\x03H\x00R\x04fill\x88\x01\x01B\a\n" +
-	"\x05_fill\"7\n" +
-	"\tEnumEntry\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x01R\x05value*\x8b\x01\n" +
-	"\n" +
-	"TimeFormat\x12\x18\n" +
-	"\x14TIME_FORMAT_ISO_8601\x10\x00\x12\x18\n" +
-	"\x14TIME_FORMAT_UNIX_SEC\x10\x01\x12\x17\n" +
-	"\x13TIME_FORMAT_UNIX_MS\x10\x02\x12\x17\n" +
-	"\x13TIME_FORMAT_UNIX_US\x10\x03\x12\x17\n" +
-	"\x13TIME_FORMAT_UNIX_NS\x10\x04*\xa0\x01\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value*\xa0\x01\n" +
 	"\x04Kind\x12\x0e\n" +
 	"\n" +
 	"KIND_FLOAT\x10\x00\x12\x10\n" +
@@ -1073,18 +463,14 @@ const file_x_go_payload_pb_payload_proto_rawDesc = "" +
 	"\tKIND_JSON\x10\x06\x12\r\n" +
 	"\tKIND_UUID\x10\a\x12\x0e\n" +
 	"\n" +
-	"KIND_BYTES\x10\b*M\n" +
-	"\bJSONType\x12\x14\n" +
-	"\x10JSON_TYPE_NUMBER\x10\x00\x12\x14\n" +
-	"\x10JSON_TYPE_STRING\x10\x01\x12\x15\n" +
-	"\x11JSON_TYPE_BOOLEAN\x10\x02*F\n" +
-	"\rGeneratorType\x12\x17\n" +
-	"\x13GENERATOR_TYPE_UUID\x10\x00\x12\x1c\n" +
-	"\x18GENERATOR_TYPE_TIMESTAMP\x10\x01*=\n" +
-	"\x06Format\x12\x0f\n" +
-	"\vFORMAT_JSON\x10\x00\x12\x0f\n" +
-	"\vFORMAT_TEXT\x10\x01\x12\x11\n" +
-	"\rFORMAT_BINARY\x10\x02B\x96\x01\n" +
+	"KIND_BYTES\x10\b*\x8b\x01\n" +
+	"\n" +
+	"TimeFormat\x12\x18\n" +
+	"\x14TIME_FORMAT_ISO_8601\x10\x00\x12\x18\n" +
+	"\x14TIME_FORMAT_UNIX_SEC\x10\x01\x12\x17\n" +
+	"\x13TIME_FORMAT_UNIX_MS\x10\x02\x12\x17\n" +
+	"\x13TIME_FORMAT_UNIX_US\x10\x03\x12\x17\n" +
+	"\x13TIME_FORMAT_UNIX_NS\x10\x04B\x96\x01\n" +
 	"\x10com.x.payload.pbB\fPayloadProtoP\x01Z\"github.com/synnaxlabs/x/payload/pb\xa2\x02\x03XPP\xaa\x02\fX.Payload.Pb\xca\x02\fX\\Payload\\Pb\xe2\x02\x18X\\Payload\\Pb\\GPBMetadata\xea\x02\x0eX::Payload::Pbb\x06proto3"
 
 var (
@@ -1099,39 +485,23 @@ func file_x_go_payload_pb_payload_proto_rawDescGZIP() []byte {
 	return file_x_go_payload_pb_payload_proto_rawDescData
 }
 
-var file_x_go_payload_pb_payload_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_x_go_payload_pb_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_x_go_payload_pb_payload_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_x_go_payload_pb_payload_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_x_go_payload_pb_payload_proto_goTypes = []any{
-	(TimeFormat)(0),       // 0: x.payload.pb.TimeFormat
-	(Kind)(0),             // 1: x.payload.pb.Kind
-	(JSONType)(0),         // 2: x.payload.pb.JSONType
-	(GeneratorType)(0),    // 3: x.payload.pb.GeneratorType
-	(Format)(0),           // 4: x.payload.pb.Format
-	(*FloatEntry)(nil),    // 5: x.payload.pb.FloatEntry
-	(*IntegerEntry)(nil),  // 6: x.payload.pb.IntegerEntry
-	(*UnsignedEntry)(nil), // 7: x.payload.pb.UnsignedEntry
-	(*StringEntry)(nil),   // 8: x.payload.pb.StringEntry
-	(*BooleanEntry)(nil),  // 9: x.payload.pb.BooleanEntry
-	(*FloatRead)(nil),     // 10: x.payload.pb.FloatRead
-	(*IntegerRead)(nil),   // 11: x.payload.pb.IntegerRead
-	(*UnsignedRead)(nil),  // 12: x.payload.pb.UnsignedRead
-	(*StringRead)(nil),    // 13: x.payload.pb.StringRead
-	(*BooleanRead)(nil),   // 14: x.payload.pb.BooleanRead
-	(*TimestampRead)(nil), // 15: x.payload.pb.TimestampRead
-	(*EnumEntry)(nil),     // 16: x.payload.pb.EnumEntry
+	(Kind)(0),             // 0: x.payload.pb.Kind
+	(TimeFormat)(0),       // 1: x.payload.pb.TimeFormat
+	(*FloatEntry)(nil),    // 2: x.payload.pb.FloatEntry
+	(*IntegerEntry)(nil),  // 3: x.payload.pb.IntegerEntry
+	(*UnsignedEntry)(nil), // 4: x.payload.pb.UnsignedEntry
+	(*StringEntry)(nil),   // 5: x.payload.pb.StringEntry
+	(*BooleanEntry)(nil),  // 6: x.payload.pb.BooleanEntry
 }
 var file_x_go_payload_pb_payload_proto_depIdxs = []int32{
-	5, // 0: x.payload.pb.FloatRead.enum_values:type_name -> x.payload.pb.FloatEntry
-	6, // 1: x.payload.pb.IntegerRead.enum_values:type_name -> x.payload.pb.IntegerEntry
-	7, // 2: x.payload.pb.UnsignedRead.enum_values:type_name -> x.payload.pb.UnsignedEntry
-	8, // 3: x.payload.pb.StringRead.enum_values:type_name -> x.payload.pb.StringEntry
-	9, // 4: x.payload.pb.BooleanRead.enum_values:type_name -> x.payload.pb.BooleanEntry
-	0, // 5: x.payload.pb.TimestampRead.time_format:type_name -> x.payload.pb.TimeFormat
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_x_go_payload_pb_payload_proto_init() }
@@ -1139,19 +509,13 @@ func file_x_go_payload_pb_payload_proto_init() {
 	if File_x_go_payload_pb_payload_proto != nil {
 		return
 	}
-	file_x_go_payload_pb_payload_proto_msgTypes[5].OneofWrappers = []any{}
-	file_x_go_payload_pb_payload_proto_msgTypes[6].OneofWrappers = []any{}
-	file_x_go_payload_pb_payload_proto_msgTypes[7].OneofWrappers = []any{}
-	file_x_go_payload_pb_payload_proto_msgTypes[8].OneofWrappers = []any{}
-	file_x_go_payload_pb_payload_proto_msgTypes[9].OneofWrappers = []any{}
-	file_x_go_payload_pb_payload_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_payload_pb_payload_proto_rawDesc), len(file_x_go_payload_pb_payload_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   12,
+			NumEnums:      2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
