@@ -99,6 +99,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{
 		FileSize:    1 * telem.Gigabyte,
 		GCThreshold: 0.2,
+		Clock:       xtime.Real,
 	}, configs...)
 	if err != nil {
 		return nil, err
