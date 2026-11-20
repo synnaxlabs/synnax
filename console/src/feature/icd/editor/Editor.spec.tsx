@@ -13,6 +13,7 @@ import {
   createTestClientWithRole,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -313,6 +314,25 @@ describe("ICD editor", () => {
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "0" } });
     expect(await screen.findByText("Cycle time must be 1ns or more")).toBeTruthy();
+    fireEvent.blur(input);
+    expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+      TimeSpan.milliseconds(250),
+    );
+  });
+
+  it("should refuse a cycle time past the largest time span", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Cycle time");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "3000000h" } });
+    expect(
+      await screen.findByText(
+        `Cycle time must be ${Input.formatTimeSpan(TimeSpan.MAX)} or less`,
+      ),
+    ).toBeTruthy();
     fireEvent.blur(input);
     expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
       TimeSpan.milliseconds(250),
