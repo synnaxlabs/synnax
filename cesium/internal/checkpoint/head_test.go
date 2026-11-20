@@ -184,16 +184,6 @@ func le32(vs ...uint32) []byte {
 // refusals mutate a head of sample(2) before reseal. Each refusal names the error it
 // wraps and a part of its message.
 var _ = Describe("Head checks", func() {
-	put32 := func(b []byte, off uint64, v uint32) {
-		binary.LittleEndian.PutUint32(b[off:], v)
-	}
-	put64 := func(b []byte, off, v uint64) { binary.LittleEndian.PutUint64(b[off:], v) }
-	table := func(b []byte) uint64 { return binary.LittleEndian.Uint64(b[72:]) }
-	at := func(b []byte, kind int, record, field uint64) uint64 {
-		off, _ := section(b, kind)
-		size := []uint64{0, 48, 1, 24, 20, 32, 36, 80, 4, 4}[kind]
-		return off + record*size + field
-	}
 	DescribeTable(
 		"Should refuse a head that breaks a rule of the format",
 		func(mutate func(b []byte) []byte, wraps error, msg string) {
@@ -203,106 +193,7 @@ var _ = Describe("Head checks", func() {
 				MatchError(ContainSubstring(msg)),
 			))
 		},
-		Entry("format version", func(b []byte) []byte {
-			b[8] = 2
-			return b
-		}, log.ErrUnknown, "head format version 2"),
-		Entry("file kind", func(b []byte) []byte {
-			b[10] = 5
-			return b
-		}, place.ErrCorrupt, "kind 5"),
-		Entry("section count", func(b []byte) []byte {
-			put32(b, 80, 10)
-			return b
-		}, log.ErrUnknown, "head with 10 sections"),
-		Entry("reserved byte", func(b []byte) []byte {
-			b[200] = 1
-			return b
-		}, place.ErrCorrupt, "set reserved byte"),
-		Entry("file length", func(b []byte) []byte {
-			return append(b, 0)
-		}, place.ErrCorrupt, "but its header says"),
-		Entry("table offset", func(b []byte) []byte {
-			put64(b, 72, table(b)+8)
-			return b
-		}, place.ErrCorrupt, "do not fit"),
-		Entry("section kind", func(b []byte) []byte {
-			binary.LittleEndian.PutUint16(b[table(b)+24:], 3)
-			return b
-		}, place.ErrCorrupt, "section 2 of the table has kind 3"),
-		Entry("record version", func(b []byte) []byte {
-			binary.LittleEndian.PutUint16(b[table(b)+24*4+2:], 2)
-			return b
-		}, log.ErrUnknown, "section 5 version 2"),
-		Entry("record size", func(b []byte) []byte {
-			put32(b, table(b)+24*5+4, 40)
-			return b
-		}, place.ErrCorrupt, "section 6 has records of 40 bytes"),
-		Entry("section offset", func(b []byte) []byte {
-			put64(b, table(b)+24*3+8, at(b, 4, 0, 8))
-			return b
-		}, place.ErrCorrupt, "section 4 at"),
-		Entry("huge count", func(b []byte) []byte {
-			put64(b, table(b)+24*5+16, 1<<60)
-			return b
-		}, place.ErrCorrupt, "out of place"),
-		Entry("a count that wraps to the table", func(b []byte) []byte {
-			put64(b, table(b)+24*8+16, 1<<62+2)
-			return b
-		}, place.ErrCorrupt, "section 9 at"),
-		Entry("a part", func(b []byte) []byte {
-			put64(b, table(b)+16, 1)
-			put64(b, table(b)+24*1+8, table(b))
-			return b
-		}, place.ErrCorrupt, "out of place"),
-		Entry("keys out of order", func(b []byte) []byte {
-			put32(b, at(b, 4, 1, 0), 5)
-			return b
-		}, place.ErrCorrupt, "key 5 is not above key 5"),
-		Entry("segment index", func(b []byte) []byte {
-			put32(b, at(b, 4, 0, 4), 1)
-			return b
-		}, place.ErrCorrupt, "key 5 has segment records 1 to 2"),
-		Entry("a tombstone index", func(b []byte) []byte {
-			put32(b, at(b, 4, 0, 8), 1)
-			return b
-		}, place.ErrCorrupt, "names tombstones or parts"),
-		Entry("a part index", func(b []byte) []byte {
-			put32(b, at(b, 4, 2, 16), 0)
-			return b
-		}, place.ErrCorrupt, "names tombstones or parts"),
-		Entry("segment flag", func(b []byte) []byte {
-			b[at(b, 5, 2, 27)] = 2
-			return b
-		}, place.ErrCorrupt, "segment 3 has unknown flags"),
-		Entry("segment reserved byte", func(b []byte) []byte {
-			b[at(b, 5, 2, 30)] = 1
-			return b
-		}, place.ErrCorrupt, "segment 3 has unknown flags or a set reserved byte"),
-		Entry("segments out of order", func(b []byte) []byte {
-			put64(b, at(b, 5, 0, 0), 13)
-			return b
-		}, place.ErrCorrupt, "segment 12 of key 5 is not above segment 13"),
-		Entry("a segment named twice in a key", func(b []byte) []byte {
-			put64(b, at(b, 5, 1, 0), 2)
-			return b
-		}, place.ErrCorrupt, "segment 2 of key 5 is not above segment 2"),
-		Entry("pointer index", func(b []byte) []byte {
-			put32(b, at(b, 5, 0, 20), 1)
-			return b
-		}, place.ErrCorrupt, "segment 2 has pointer records 1 to 1"),
-		Entry("a clock the section leaves out", func(b []byte) []byte {
-			put32(b, at(b, 5, 2, 8), 8)
-			return b
-		}, place.ErrCorrupt, "2 clocks, but the segments name 3"),
-		Entry("a clock the segments do not name", func(b []byte) []byte {
-			put32(b, at(b, 8, 1, 0), 8)
-			return b
-		}, place.ErrCorrupt, "clock 1 is 8"),
-		Entry("intents out of order", func(b []byte) []byte {
-			put32(b, at(b, 9, 1, 0), 2)
-			return b
-		}, place.ErrCorrupt, "intent of key 2 is not above key 2"),
+		headRefusalEntries(),
 	)
 
 	It("Should refuse a head with parts or tombstones as unknown", func() {
