@@ -355,6 +355,7 @@ driver: &driver
   - *cpp
   - *freighter_cpp
   - *x_cpp
+  - core/pkg/service/icd/testdata/decode/**
   - driver/**
   - vendor/**
 

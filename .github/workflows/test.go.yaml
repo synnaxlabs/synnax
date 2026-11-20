@@ -327,6 +327,7 @@ jobs:
       SUITE:
         "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
         .Module.Path)}}{{end}}"
+    timeout-minutes: 180
     steps:
       # The matrix holds four shards, so a larger count would skip suites.
       - name: Check the shard count
