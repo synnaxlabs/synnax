@@ -20,6 +20,7 @@ from classify import (
     BOT,
     HUMAN,
     MARKER,
+    NO_TIER,
     Surface,
     fence,
     needs_human,
@@ -112,26 +113,69 @@ class TestNeedsHuman:
         assert needs_human(ALL_SAME, reasons=["fork"])
 
 
-class TestPlanLabels:
-    """Tests that the classifier only raises a tier."""
+def plan(
+    current: set[str],
+    *,
+    human: bool,
+    raised_from: str | None = None,
+    own_label: bool = False,
+) -> tuple[list[str], list[str], str | None]:
+    return plan_labels(
+        current, human=human, raised_from=raised_from, own_label=own_label
+    )
 
-    def test_sets_human_and_removes_bot(self) -> None:
-        assert plan_labels({BOT}, human=True) == ([HUMAN], [BOT])
+
+class TestPlanLabels:
+    """Tests that the classifier raises a tier and lowers only its own raise."""
+
+    def test_sets_human_removes_bot_and_records_the_raise(self) -> None:
+        assert plan({BOT}, human=True) == ([HUMAN], [BOT], BOT)
+
+    def test_records_a_raise_from_no_tier(self) -> None:
+        assert plan(set(), human=True) == ([HUMAN], [], NO_TIER)
 
     def test_sets_no_tier_when_none_is_set(self) -> None:
-        assert plan_labels(set(), human=False) == ([], [])
+        assert plan(set(), human=False) == ([], [], None)
 
-    def test_never_removes_human(self) -> None:
-        assert plan_labels({HUMAN}, human=False) == ([], [])
-        assert plan_labels({HUMAN, BOT}, human=False) == ([], [BOT])
+    def test_never_removes_a_human_tier_it_did_not_add(self) -> None:
+        assert plan({HUMAN}, human=False) == ([], [], None)
+        assert plan({HUMAN, BOT}, human=False) == ([], [BOT], None)
+
+    def test_never_removes_human_when_another_actor_added_it_last(self) -> None:
+        assert plan({HUMAN}, human=False, raised_from=BOT) == ([], [], None)
+
+    def test_lowers_its_own_raise_to_the_tier_before(self) -> None:
+        assert plan({HUMAN}, human=False, raised_from=BOT, own_label=True) == (
+            [BOT],
+            [HUMAN],
+            None,
+        )
+        assert plan({HUMAN}, human=False, raised_from=NO_TIER, own_label=True) == (
+            [],
+            [HUMAN],
+            None,
+        )
+
+    def test_keeps_the_record_while_its_raise_still_applies(self) -> None:
+        assert plan({HUMAN}, human=True, raised_from=BOT, own_label=True) == (
+            [],
+            [],
+            BOT,
+        )
+
+    def test_records_no_raise_for_a_human_tier_already_set(self) -> None:
+        assert plan({HUMAN}, human=True) == ([], [], None)
 
     def test_treats_old_human_tiers_as_human(self) -> None:
-        assert plan_labels({"review/light"}, human=False) == ([HUMAN], [])
-        assert plan_labels({"review/thorough", BOT}, human=False) == ([HUMAN], [BOT])
+        assert plan({"review/light"}, human=False) == ([HUMAN], [], None)
+        assert plan({"review/thorough", BOT}, human=False) == (
+            [HUMAN],
+            [BOT],
+            None,
+        )
 
     def test_changes_nothing_when_the_label_is_right(self) -> None:
-        assert plan_labels({HUMAN}, human=True) == ([], [])
-        assert plan_labels({BOT}, human=False) == ([], [])
+        assert plan({BOT}, human=False) == ([], [], None)
 
 
 class TestTrustReasons:
@@ -160,14 +204,14 @@ class TestRender:
             *ALL_SAME[:4],
             Surface(name="driver", status="changed", diff="+flag --x\n"),
         ]
-        body = render(surfaces, reasons=[], kept=False)
+        body = render(surfaces, reasons=[], kept=False, raised_from=None)
         assert body.startswith(MARKER)
         assert f"`{HUMAN}`" in body
         assert "| Driver commands and config keys | Changed |" in body
         assert "+flag --x" in body
 
     def test_explains_a_kept_human_label(self) -> None:
-        body = render(ALL_SAME, reasons=[], kept=True)
+        body = render(ALL_SAME, reasons=[], kept=True, raised_from=None)
         assert f"## Review tier: `{HUMAN}`" in body
         assert "already set" in body
 
@@ -176,18 +220,19 @@ class TestRender:
             ALL_SAME,
             reasons=["The pull request comes from a fork."],
             kept=False,
+            raised_from=None,
         )
         assert f"## Review tier: `{HUMAN}`" in body
         assert "- The pull request comes from a fork." in body
 
     def test_says_the_author_picks_when_nothing_changed(self) -> None:
         assert "## Review tier: the author picks" in render(
-            ALL_SAME, reasons=[], kept=False
+            ALL_SAME, reasons=[], kept=False, raised_from=None
         )
 
     def test_shows_a_skipped_surface_without_raising_the_tier(self) -> None:
         skipped = Surface(name="core", status="skipped", diff="")
-        body = render([*ALL_SAME, skipped], reasons=[], kept=False)
+        body = render([*ALL_SAME, skipped], reasons=[], kept=False, raised_from=None)
         assert "## Review tier: the author picks" in body
         assert "Not compared" in body
         assert "<details>" not in body
@@ -439,3 +484,50 @@ class TestMain:
         gh.heads = ["abc", "def"]
         classify.main()
         assert gh.writes == []
+
+    def test_records_the_tier_it_raised_from_in_the_comment(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        (tmp_path / "surface-core" / "status").write_text("error\n")
+        gh.labels = [BOT]
+        classify.main()
+        body = json.loads(str(gh.writes[-1][1]))["body"]
+        assert f"<!-- review-classifier-raised-from: {BOT} -->" in body
+
+    def test_lowers_its_own_raise_once_the_reports_pass(self, gh: FakeGH) -> None:
+        """Should undo a raise that a failed report caused, such as a cancelled job."""
+        gh.labels = [HUMAN]
+        raised = f"<!-- review-classifier-raised-from: {BOT} -->"
+        gh.comments = [{"id": 9, "body": f"{MARKER}\n{raised}", "login": "app[bot]"}]
+        gh.timeline = [
+            {
+                "event": "labeled",
+                "label": {"name": HUMAN},
+                "actor": {"login": "app[bot]"},
+            }
+        ]
+        classify.main()
+        writes = [args for args, _ in gh.writes]
+        assert writes[:2] == [
+            ("api", "-X", "POST", LABELS, "-f", f"labels[]={BOT}"),
+            ("api", "-X", "DELETE", f"{LABELS}/review%2Fhuman"),
+        ]
+        body = json.loads(str(gh.writes[-1][1]))["body"]
+        assert "the author picks" in body
+        assert "raised-from" not in body
+
+    def test_keeps_human_that_a_person_added_after_its_raise(self, gh: FakeGH) -> None:
+        gh.labels = [HUMAN]
+        raised = f"<!-- review-classifier-raised-from: {BOT} -->"
+        gh.comments = [{"id": 9, "body": f"{MARKER}\n{raised}", "login": "app[bot]"}]
+        gh.timeline = [
+            {
+                "event": "labeled",
+                "label": {"name": HUMAN},
+                "actor": {"login": "app[bot]"},
+            },
+            {"event": "unlabeled", "label": {"name": HUMAN}, "actor": {"login": "p"}},
+            {"event": "labeled", "label": {"name": HUMAN}, "actor": {"login": "p"}},
+        ]
+        classify.main()
+        assert not any(LABELS in str(args) for args, _ in gh.writes)

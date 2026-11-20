@@ -61,8 +61,9 @@ a maintainer approves the head, and Sedosaur scores the head 5/5.
 ## Review tiers
 
 The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
-report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
-label.
+report that `Check - Classify` compares changes or fails, and lowers it again when a
+later run passes. A reviewer can raise it by swapping the label, and the classifier
+never lowers a tier that a person set.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                                                                                                                 |
 | -------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

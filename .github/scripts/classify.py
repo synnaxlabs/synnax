@@ -14,8 +14,9 @@
 A pull request needs review/human when a surface report differs between its base and
 head, a report is missing, or a trust check fails. A surface the head predates reports
 skipped, which does not raise the tier. Otherwise the author picks the tier, so the
-script adds no label. The script only raises: it never removes review/human. It reads
-the pull request number from PR, or else <results-dir>/pr/number, and refuses it
+script adds no label. It lowers review/human only when it added the label itself and
+nothing flags the pull request now, which restores the tier from before. It reads the
+pull request number from PR, or else <results-dir>/pr/number, and refuses it
 unless the pull request's head is HEAD_SHA. When a pull request that a bot opened needs
 review/human, it requests a review from REVIEWER, if set, since no author will. It asks
 only while nobody was ever asked to review the pull request or reviewed it.
@@ -56,6 +57,9 @@ CLASSIFIER_PATHS = (
     "scripts/surface_py_state.py",
 )
 MARKER = "<!-- review-classifier -->"
+# Records in the comment that the classifier added review/human, and the tier before.
+RAISED = re.compile(r"<!-- review-classifier-raised-from: (review/bot|none) -->")
+NO_TIER = "none"
 SURFACES = {
     "oracle": "Oracle schemas",
     "client-ts": "TypeScript client API",
@@ -122,13 +126,25 @@ def needs_human(surfaces: list[Surface], *, reasons: list[str]) -> bool:
     return any(s.status in FLAGGED for s in surfaces) or bool(reasons)
 
 
-def plan_labels(current: set[str], *, human: bool) -> tuple[list[str], list[str]]:
-    """Returns the labels to add and to remove. Raises to review/human when needed and
-    otherwise leaves the author's tier alone. An existing human tier counts as
-    review/human."""
-    if human or current & HUMAN_TIERS:
-        return ([] if HUMAN in current else [HUMAN]), ([BOT] if BOT in current else [])
-    return [], []
+def plan_labels(
+    current: set[str], *, human: bool, raised_from: str | None, own_label: bool
+) -> tuple[list[str], list[str], str | None]:
+    """Returns the labels to add and to remove, and the tier to record as raised from.
+    Raises to review/human when needed and otherwise leaves the author's tier alone. An
+    existing human tier counts as review/human. Lowers review/human only when the
+    classifier raised it from raised_from and still owns the label (own_label)."""
+    bot = [BOT] if BOT in current else []
+    if human:
+        if current & HUMAN_TIERS:
+            recorded = raised_from if HUMAN in current and own_label else None
+            return ([] if HUMAN in current else [HUMAN]), bot, recorded
+        return [HUMAN], bot, (BOT if bot else NO_TIER)
+    if raised_from is not None and own_label and HUMAN in current:
+        restore = [BOT] if raised_from == BOT and not bot else []
+        return restore, [HUMAN], None
+    if current & HUMAN_TIERS:
+        return ([] if HUMAN in current else [HUMAN]), bot, None
+    return [], [], None
 
 
 def fence(text: str) -> str:
@@ -145,6 +161,7 @@ def render(
     *,
     reasons: list[str],
     kept: bool,
+    raised_from: str | None,
 ) -> str:
     changed = any(s.status in FLAGGED for s in surfaces)
     tier = f"`{HUMAN}`" if changed or reasons or kept else "the author picks"
@@ -159,6 +176,11 @@ def render(
     rows = [f"| {SURFACES[s.name]} | {STATUS_TEXT[s.status]} |" for s in surfaces]
     lines = [
         MARKER,
+        *(
+            [f"<!-- review-classifier-raised-from: {raised_from} -->"]
+            if raised_from
+            else []
+        ),
         f"## Review tier: {tier}",
         "",
         summary,
@@ -182,7 +204,7 @@ def render(
         ]
     lines += [
         "",
-        f"The classifier only raises the tier. It never removes `{HUMAN}`.",
+        f"The classifier removes `{HUMAN}` only when it added the label itself.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -203,7 +225,7 @@ def find_comment(repo: str, *, number: int) -> dict[str, Any] | None:
         "--paginate",
         f"repos/{repo}/issues/{number}/comments",
         "--jq",
-        ".[] | {id, body}",
+        ".[] | {id, body, login: .user.login}",
     )
     return next((c for c in comments if c["body"].startswith(MARKER)), None)
 
@@ -227,6 +249,19 @@ def write_comment(
         "-",
         stdin=json.dumps({"body": body}),
     )
+
+
+def last_human_labeler(repo: str, *, number: int) -> str | None:
+    """Returns the login that last added review/human to the pull request."""
+    logins = gh(
+        "api",
+        "--paginate",
+        f"repos/{repo}/issues/{number}/timeline",
+        "--jq",
+        f'.[] | select(.event == "labeled" and .label.name == "{HUMAN}")'
+        " | .actor.login",
+    ).split()
+    return logins[-1] if logins else None
 
 
 def reviewers_engaged(repo: str, *, number: int) -> bool:
@@ -268,7 +303,20 @@ def main() -> None:
         print(f"#{number} moved past {head_sha}; a newer run classifies it")
         return
     current = {label["name"] for label in pull["labels"]}
-    add, remove = plan_labels(current, human=needs_human(surfaces, reasons=reasons))
+    match = RAISED.search(comment["body"]) if comment is not None else None
+    raised_from = match.group(1) if match else None
+    own_label = (
+        comment is not None
+        and raised_from is not None
+        and HUMAN in current
+        and last_human_labeler(repo, number=number) == comment["login"]
+    )
+    add, remove, raised_from = plan_labels(
+        current,
+        human=needs_human(surfaces, reasons=reasons),
+        raised_from=raised_from,
+        own_label=own_label,
+    )
     for label in add:
         gh(
             "api",
@@ -297,12 +345,12 @@ def main() -> None:
             "-f",
             f"reviewers[]={reviewer}",
         )
-    kept = bool(current & HUMAN_TIERS)
+    kept = bool(current & HUMAN_TIERS) and HUMAN not in remove
     write_comment(
         repo,
         number=number,
         comment=comment,
-        body=render(surfaces, reasons=reasons, kept=kept),
+        body=render(surfaces, reasons=reasons, kept=kept, raised_from=raised_from),
     )
     print(f"#{number}: add {add}, remove {remove}")
 
