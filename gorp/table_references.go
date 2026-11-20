@@ -252,6 +252,16 @@ func (t *Table[K, E]) DependentsEach(
 	return t.db.registry.dependents(ctx, snap, t.name, targets, keys)
 }
 
+// Targets returns each target that e holds through the references of the table, in the
+// order of the references.
+func (t *Table[K, E]) Targets(e *E) []Target {
+	targets := make([]Target, 0, len(t.references))
+	for _, r := range t.references {
+		targets = append(targets, r.targets(e)...)
+	}
+	return targets
+}
+
 // check validates the references e holds against tx. It reports whether every index
 // already holds the targets of e for its entry, with the changes of tx applied.
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) (bool, error) {
