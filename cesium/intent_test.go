@@ -544,6 +544,8 @@ var _ = Describe("Delete intents", func() {
 					restarted.Sweep(ctx, nil),
 				).Error().
 					To(MatchError(xfstestutil.ErrFault))
+				Expect(restarted.Sweep(ctx, nil)).Error().
+					To(MatchError(xfstestutil.ErrFault))
 				again := xfs.NewMem()
 				Expect(xfs.CopyDir(cp, again, "")).To(Succeed())
 				last := mustOpenDBOnFS(ctx, again)

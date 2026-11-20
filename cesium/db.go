@@ -87,8 +87,11 @@ type DB struct {
 		virtualDirs set.Set[ChannelKey]
 		// skipped holds the keys whose directories Open skipped for their intent.
 		skipped set.Set[ChannelKey]
-		// kept holds the keys that the first Sweep kept, and is nil before it runs.
-		kept set.Set[ChannelKey]
+		// swept is true once Sweep has run. kept holds the keys that it kept, and
+		// sweepErr its error.
+		swept    bool
+		kept     set.Set[ChannelKey]
+		sweepErr error
 		sync.RWMutex
 	}
 }

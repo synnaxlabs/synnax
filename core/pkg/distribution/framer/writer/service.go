@@ -432,15 +432,23 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		maps.Copy(freeAlignments, leasedAlignment)
 	}
 	// A writer on a leased virtual channel holds it against a delete, as a writer on a
-	// stored channel does. Free channels have no delete claim.
-	releaseLeased, err := s.claims.hold(leased.Keys)
-	if err != nil {
-		return nil, err
-	}
-	leasedGates, transfers, err := s.controls.openGates(leased, virtualChannels)
-	if err != nil {
-		releaseLeased()
-		return nil, err
+	// stored channel does. Free channels have no delete claim and no control.
+	var (
+		releaseLeased func()
+		leasedGates   = &gates{controls: s.controls}
+		transfers     []transfer
+	)
+	if len(leased.Keys) > 0 {
+		if releaseLeased, err = s.claims.hold(leased.Keys); err != nil {
+			return nil, err
+		}
+		if leasedGates, transfers, err = s.controls.openGates(
+			leased,
+			virtualChannels,
+		); err != nil {
+			releaseLeased()
+			return nil, err
+		}
 	}
 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
@@ -455,7 +463,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
 			leasedGates.release()
-			releaseLeased()
+			if releaseLeased != nil {
+				releaseLeased()
+			}
 			return nil, err
 		}
 		pipe.SetSegment(storageWriterAddr, w)

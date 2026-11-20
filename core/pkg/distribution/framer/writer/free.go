@@ -114,7 +114,8 @@ type freeWriter struct {
 	// channel. Free channels have no control.
 	gates    *gates
 	controls *controls
-	// release releases the writer's hold on its leased virtual channels.
+	// release releases the writer's hold on its leased virtual channels. It is nil for
+	// a writer that holds none.
 	release func()
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
@@ -126,6 +127,10 @@ type freeWriter struct {
 // Flow implements confluence.Flow. The writer releases its gates and its hold when it
 // exits.
 func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
+	if w.release == nil {
+		w.LinearTransform.Flow(ctx, opts...)
+		return
+	}
 	w.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
 		w.controls.notify(w.gates.release())
 		w.release()
