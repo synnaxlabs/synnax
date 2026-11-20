@@ -644,6 +644,26 @@ describe("lineplot reducer", () => {
       expect(lineplot.kindOf([action])).toEqual("axis:x1");
     });
 
+    it("setAxisTimeMode returns the bounds to auto on a change of mode", () => {
+      const manual = apply(
+        createEmpty(),
+        lineplot.setAxisBounds({
+          key: "x1",
+          bounds: { lower: 10, upper: 20 },
+          manualBounds: { lower: true, upper: true },
+        }),
+      );
+      const absolute = lineplot.setAxisTimeMode({ key: "x1", timeMode: "absolute" });
+      expect(apply(manual, absolute).axes.x1.manualBounds).toEqual(
+        manual.axes.x1.manualBounds,
+      );
+      const relative = lineplot.setAxisTimeMode({ key: "x1", timeMode: "relative" });
+      const out = apply(manual, relative).axes.x1;
+      expect(out.bounds).toEqual({ lower: 0, upper: 0 });
+      expect(out.manualBounds).toEqual({ lower: false, upper: false });
+      expect(roundTrip(manual, relative).axes.x1).toEqual(manual.axes.x1);
+    });
+
     it("targets the edited axis so distinct axes are independent", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
         lineplot.setAxisLabel({ key: "y3", label: "x" }),

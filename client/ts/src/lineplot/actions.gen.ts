@@ -168,7 +168,10 @@ export const setRangeColorPayloadZ = z.object({
 
 export type SetRangeColorPayload = z.infer<typeof setRangeColorPayloadZ>;
 
-/** SetAxisTimeMode sets where the x axis named by key draws the ranges. */
+/**
+ * SetAxisTimeMode sets where the x axis named by key draws the ranges. A change of mode
+ * returns the axis bounds to auto.
+ */
 export const setAxisTimeModePayloadZ = z.object({
   key: xAxisKeyZ,
   timeMode: timeModeZ.optional(),

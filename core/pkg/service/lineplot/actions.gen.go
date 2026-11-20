@@ -212,7 +212,8 @@ type SetRangeColorPayload struct {
 	Color color.Ref  `json:"color" msgpack:"color"`
 }
 
-// SetAxisTimeModePayload sets where the x axis named by key draws the ranges.
+// SetAxisTimeModePayload sets where the x axis named by key draws the ranges. A change
+// of mode returns the axis bounds to auto.
 type SetAxisTimeModePayload struct {
 	Key      XAxisKey  `json:"key" msgpack:"key"`
 	TimeMode *TimeMode `json:"time_mode,omitzero" msgpack:"time_mode,omitempty"`

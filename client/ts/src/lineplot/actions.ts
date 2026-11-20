@@ -340,9 +340,24 @@ const handlers: Handlers = {
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
+  // A change of mode returns the bounds to auto: bounds in one mode mean nothing in the
+  // other.
   setAxisTimeMode: (state, payload) => {
     const axis = state.axes[payload.key];
-    const inverse = [setAxisTimeMode({ key: payload.key, timeMode: axis.timeMode })];
+    const inverse: Action[] = [
+      setAxisTimeMode({ key: payload.key, timeMode: axis.timeMode }),
+    ];
+    if ((axis.timeMode === "relative") !== (payload.timeMode === "relative")) {
+      inverse.push(
+        setAxisBounds({
+          key: payload.key,
+          bounds: actions.snapshotDraft(axis.bounds),
+          manualBounds: actions.snapshotDraft(axis.manualBounds),
+        }),
+      );
+      axis.bounds = { lower: 0, upper: 0 };
+      axis.manualBounds = { lower: false, upper: false };
+    }
     axis.timeMode = payload.timeMode;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
