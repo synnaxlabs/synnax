@@ -40,13 +40,14 @@ type deleteCases struct {
 	cutRemoval int
 	// cutClear is an intent whose directory is gone: a crash came before its clear.
 	cutClear int
-	// tornTail is an intents file that ends in a record that a crash tore.
+	// tornTail is an intents file that ends in a batch that a crash tore.
 	tornTail int
 }
 
 // files counts the states that the Cesium files of image show, and returns the keys
-// with an intent. Each record of the intents file is a key, flags, and a CRC32C of the
-// record's offset, key, and flags. A record with the clear flag clears its key.
+// with an intent. Each batch of the intents file is a count, a CRC32C of the batch's
+// offset and records, then the records. A record is a key and flags, and a record with
+// the clear flag clears its key.
 func (c *deleteCases) files(image *fault.FS) []cesium.ChannelKey {
 	GinkgoHelper()
 	if !MustSucceed(image.Exists("cesium")) {
@@ -66,26 +67,34 @@ func (c *deleteCases) files(image *fault.FS) []cesium.ChannelKey {
 	if len(data) > 0 {
 		MustSucceed(f.ReadAt(data, 0))
 	}
-	const recordSize, clearFlag = 12, 1
+	const headerSize, recordSize, clearFlag = 8, 8, 1
 	var (
 		keys  = set.New[cesium.ChannelKey]()
 		table = crc32.MakeTable(crc32.Castagnoli)
 		good  int
 	)
-	for off := 0; off+recordSize <= len(data); off += recordSize {
-		var b [16]byte
+	for off := 0; off+headerSize <= len(data); {
+		count := int(binary.LittleEndian.Uint32(data[off:]))
+		end := off + headerSize + count*recordSize
+		if count == 0 || end > len(data) {
+			break
+		}
+		records := data[off+headerSize : end]
+		var b [8]byte
 		binary.LittleEndian.PutUint64(b[:], uint64(off))
-		copy(b[8:], data[off:off+8])
-		if binary.LittleEndian.Uint32(data[off+8:]) != crc32.Checksum(b[:], table) {
-			continue
+		sum := crc32.Update(crc32.Checksum(b[:], table), table, records)
+		if binary.LittleEndian.Uint32(data[off+4:]) == sum {
+			good = end
+			for at := 0; at < len(records); at += recordSize {
+				key := binary.LittleEndian.Uint32(records[at:])
+				if binary.LittleEndian.Uint32(records[at+4:])&clearFlag != 0 {
+					keys.Remove(key)
+				} else {
+					keys.Add(key)
+				}
+			}
 		}
-		good = off + recordSize
-		key := binary.LittleEndian.Uint32(data[off:])
-		if binary.LittleEndian.Uint32(data[off+4:])&clearFlag != 0 {
-			keys.Remove(key)
-		} else {
-			keys.Add(key)
-		}
+		off = end
 	}
 	if good < len(data) {
 		c.tornTail++

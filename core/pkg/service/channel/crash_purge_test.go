@@ -147,7 +147,7 @@ var _ = Describe("Crash adapter, purge", func() {
 						}
 					},
 				})))
-				whole := MustSucceed(ts.Sweep(ctx, nil))
+				whole, _ := MustSucceed2(ts.Sweep(ctx, nil))
 				Expect(whole).To(HaveLen(1))
 				armed = true
 				Expect(channel.Purge(ctx, db, ts, []channel.Key{channel.Key(key)})).
@@ -163,7 +163,7 @@ var _ = Describe("Crash adapter, purge", func() {
 						))
 						continue
 					}
-					kept := MustSucceed(re.Sweep(ctx, nil))
+					kept, _ := MustSucceed2(re.Sweep(ctx, nil))
 					if len(kept) > 0 && (len(kept) > 1 || kept[0] != whole[0]) {
 						failures = append(failures, fmt.Sprintf(
 							"run key %d, image %d: kept %v, want none or %v",
