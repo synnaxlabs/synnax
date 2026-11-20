@@ -148,6 +148,9 @@ type tdmsChannel struct {
 	// outputs holds a column for each data type, in the order of their first sample.
 	// Only the first can share the timestamps of the index.
 	outputs []tdmsOutput
+	// taken maps each name of the file to the channel that holds it. The file's
+	// channels share it.
+	taken map[string]channel.Key
 }
 
 // tdmsOutput is the column of the file that holds the samples of one data type of a
@@ -181,7 +184,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	names, err := tdmsNames(indexGroups)
+	names, taken, err := tdmsNames(indexGroups)
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +207,7 @@ func newTDMSFile(res ReadResponse) (*tdmsFile, error) {
 				declared:  ch.DataType,
 				tdmsType:  t,
 				shared:    tdmsNaN(t) != nil,
+				taken:     taken,
 			}
 			if c.shared {
 				g.channels = append(g.channels, c)
@@ -235,7 +239,8 @@ func (c *tdmsChannel) start() {
 
 // output returns the column for the samples the channel points at, adding one in a
 // group of its own when the channel has none of their type. A column of a type other
-// than the declared one takes the name "<name> (<type>)".
+// than the declared one takes the name "<name> (<type>)", and it returns a validation
+// error when another channel holds that name.
 func (c *tdmsChannel) output() (*tdmsOutput, error) {
 	for i := range c.outputs {
 		if c.outputs[i].dataType == c.dataType {
@@ -249,6 +254,10 @@ func (c *tdmsChannel) output() (*tdmsOutput, error) {
 	name := c.fileName
 	if c.dataType != c.declared {
 		name = typedName(name, c.dataType)
+		if other, ok := c.taken[name]; ok {
+			return nil, nameClashError(other, c.key, name)
+		}
+		c.taken[name] = c.key
 	}
 	o := tdmsOutput{dataType: c.dataType, tdmsType: t}
 	o.own(name, c.indexName)
@@ -263,11 +272,12 @@ func (o *tdmsOutput) own(name, indexName string) {
 	o.timePath = tdmsPath(name, indexName)
 }
 
-// tdmsNames returns the name each channel of groups takes in the file: its own name, or
-// its name and key when another channel shares the name. It returns a validation error
-// when two channels still take the same name, or when a channel takes the name of a
-// typed column of another, so a read fails before the first byte.
-func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
+// tdmsNames returns the name each channel of groups takes in the file, its own name or
+// its name and key when another channel shares the name, and the channel that holds
+// each name. It returns a validation error when two channels still take the same name.
+func tdmsNames(
+	groups [][]channel.Channel,
+) (map[channel.Key]string, map[string]channel.Key, error) {
 	counts := make(map[string]int)
 	for _, group := range groups {
 		for _, ch := range group {
@@ -285,37 +295,22 @@ func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 				name = fmt.Sprintf("%s (%s)", name, ch.Key())
 			}
 			if other, ok := taken[name]; ok {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channels %s and %s both take the name %s in a TDMS file",
-					other,
-					ch.Key(),
-					name,
-				)
+				return nil, nil, nameClashError(other, ch.Key(), name)
 			}
 			names[ch.Key()], taken[name] = name, ch.Key()
 		}
 	}
-	for _, group := range groups {
-		for _, ch := range group[1:] {
-			for code := telem.DataTypeCodeUint8; code <= telem.DataTypeCodeBoolean; code++ {
-				if code.DataType() == ch.DataType {
-					continue
-				}
-				name := typedName(names[ch.Key()], code.DataType())
-				if other, ok := taken[name]; ok {
-					return nil, errors.Wrapf(
-						validate.ErrValidation,
-						"channels %s and %s both take the name %s in a TDMS file",
-						other,
-						ch.Key(),
-						name,
-					)
-				}
-			}
-		}
-	}
-	return names, nil
+	return names, taken, nil
+}
+
+func nameClashError(a, b channel.Key, name string) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"channels %s and %s both take the name %s in a TDMS file",
+		a,
+		b,
+		name,
+	)
 }
 
 // typedName returns the name of the column of a channel's samples of type dt.

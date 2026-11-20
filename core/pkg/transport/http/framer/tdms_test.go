@@ -852,8 +852,30 @@ var _ = Describe("TDMS", func() {
 			)
 
 			It(
-				"Should fail before the first byte a read where a typed column takes the "+
-					"name of a channel",
+				"Should export two channels of one type whose names differ by a type "+
+					"suffix",
+				func(ctx SpecContext) {
+					index, channels := createIndexed(
+						ctx,
+						telem.Float32T,
+						telem.Float32T,
+					)
+					write(
+						ctx,
+						index,
+						telem.NewSeriesSecondsTSV(1, 2),
+						channels,
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesV[float32](3, 4),
+					)
+					channels[1].Name = channels[0].Name + " (int16)"
+					res := read(ctx, index, channels...)
+					Expect(framer.NewTDMSEncoder(ctx).Encode(res)).Error().To(Succeed())
+				},
+			)
+
+			It(
+				"Should fail a read where a typed column takes the name of a channel",
 				func(ctx SpecContext) {
 					index, channels := createIndexed(ctx, telem.Int16T, telem.Float32T)
 					write(
@@ -878,7 +900,6 @@ var _ = Describe("TDMS", func() {
 							channels[1].Name,
 						))),
 					))
-					Expect(body.Len()).To(BeZero())
 				},
 			)
 		})
