@@ -585,8 +585,8 @@ const Records: FC<RecordsProps> = ({
     let held = heldMessages();
     for (const { topic, shapes, picks } of result.topics) {
       const records = topicRecords(topic);
-      extend(createExtensions(shapes, picks, records, messagesOf));
       const reads = readsOf(records, messagesOf);
+      extend(createExtensions(shapes, picks, records, messagesOf));
       const added = createAdditions(shapes, picks, reads, held, label);
       if (added.length === 0) continue;
       additions.set(topic, added);
