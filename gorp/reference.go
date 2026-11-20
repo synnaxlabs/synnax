@@ -711,10 +711,10 @@ func (r *reference[K, E, T]) check(
 		if r.onDelete == Weak {
 			issued, err := table.issued(target.Key)
 			if err != nil {
-				return err
+				return false, err
 			}
 			if !issued {
-				return r.fieldErr(
+				return false, r.fieldErr(
 					"%s %s was never issued",
 					target.Table,
 					target.Key,
