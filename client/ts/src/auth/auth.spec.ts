@@ -190,7 +190,7 @@ describe("auth", () => {
           username: TEST_CREDENTIALS.username,
           password: "x",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toThrow(InvalidCredentialsError);
     });
   });
 
@@ -765,6 +765,30 @@ describe("auth", () => {
       return { unary, sent };
     };
 
+    it("should end the session that replaces its own when released", async () => {
+      const replacement = { ...SESSION, key: uuid.create() };
+      const sent: { target: string; req: unknown }[] = [];
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async (target, req, _, resSchema) => {
+          sent.push({ target, req });
+          if (target.endsWith("/auth/session/create"))
+            return resSchema.parse({ token: "sys_token", session: SESSION });
+          if (target.endsWith("/auth/password/set"))
+            return resSchema.parse({ token: "sys_new", session: replacement });
+          return resSchema.parse({});
+        },
+      };
+      const client = new auth.Client(unary, { oidc: CODE });
+      await client.middleware()(DUMMY_CTX, async (ctx) => ctx);
+      await client.setPassword({ password: "new" });
+      await client.release();
+      expect(sent.at(-1)).toEqual({
+        target: "/auth/session/delete",
+        req: { keys: [replacement.key] },
+      });
+    });
+
     it("should log in once with the code, then resume its session", async () => {
       const { unary, sent } = createRecordingUnary();
       const client = new auth.Client(unary, { oidc: CODE });
@@ -926,6 +950,19 @@ describe("auth", () => {
       await makeClient({
         credentials: { username, password: "new" },
       }).retrieveSessions();
+    });
+
+    it("should end the replacement session when released", async () => {
+      const { username } = await createUser();
+      const self = makeClient({ credentials: { username, password: "old" } });
+      await self.retrieveSessions();
+      await self.setPassword({ password: "new", currentPassword: "old" });
+      const replacement = self.session?.key;
+      expect(replacement).toBeDefined();
+      await self.release();
+      const observer = makeClient({ credentials: { username, password: "new" } });
+      const sessions = await observer.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(replacement);
     });
 
     it("should keep new credentials set while a password change runs", async () => {
