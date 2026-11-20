@@ -7,134 +7,333 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import "@/components/diagram/Block.css";
+
+import {
+    AIN0,
+    BLOCK,
+    BLOCKS,
+    GND,
+    LENGTH,
+    NOTCHES,
+    POCKET,
+    SCREW,
+} from "@/components/blog/labjack/t7";
+
+/** Pixels per millimeter. */
+const K = 6;
+const FRONT = 196;
+const HEIGHT = 330;
+/** How far the leads drop below the terminal face before they meet. */
+const DROP = 76;
+
+const view = (from: number, left: number, width: number) => {
+    const X = (x: number): number => left + (x - from) * K;
+    const Y = (y: number): number => FRONT - y * K;
+    const [notch] = NOTCHES;
+    const lid = [
+        `M ${X(from - 20)} ${Y(POCKET.depth)}`,
+        `H ${X(POCKET.x1)} V ${Y(0)} H ${X(LENGTH)}`,
+        `V ${Y(notch.y - notch.radius)} H ${X(notch.x)}`,
+        `A ${notch.radius * K} ${notch.radius * K} 0 0 1 ${X(notch.x)} ${Y(notch.y + notch.radius)}`,
+        `H ${X(LENGTH)} V ${Y(40)}`,
+    ].join(" ");
+    const blocks = BLOCKS.filter(({ x1 }) => x1 > from - 10).map(
+        ({ x0, x1, terminals }) => ({
+            x: X(x0),
+            width: (x1 - x0) * K,
+            terminals: terminals.map(({ label, x }) => ({
+                label,
+                x: X(x),
+                wired: x === AIN0.x || x === GND.x,
+            })),
+        }),
+    );
+    const leads = [AIN0, GND].map(({ x }) => X(x));
+    const tip = (leads[0] + leads[1]) / 2;
+    const bend = FRONT + DROP;
+    const join = bend + (leads[1] - leads[0]) / 2;
+    return {
+        width,
+        lid,
+        pocket: { x: X(from - 20), width: (POCKET.x1 - from + 20) * K },
+        ledge: [
+            `M ${X(LENGTH)} ${Y(notch.y - notch.radius)} H ${X(notch.x)}`,
+            `A ${notch.radius * K} ${notch.radius * K} 0 0 1 ${X(notch.x)} ${Y(notch.y + notch.radius)}`,
+            `H ${X(LENGTH)} Z`,
+        ].join(" "),
+        hole: { x: X(notch.x), y: Y(notch.y), r: notch.hole * K },
+        blocks,
+        leads: leads.map(
+            (x) => `M ${x} ${FRONT + 2} V ${bend} L ${tip} ${join} V ${join + 6}`,
+        ),
+        bare: leads.map((x) => `M ${x} ${FRONT - 4} V ${FRONT + 8}`),
+        tip: { x: tip, y: join + 8 },
+        labels: { positive: leads[0] - 14, negative: leads[1] + 14, y: FRONT + 46 },
+        device: left,
+    };
+};
+
+const views = [
+    { name: "wide", ...view(98, 30, 600) },
+    { name: "narrow", ...view(136, 14, 340) },
+];
+const SCREW_R = SCREW.radius * K;
+const BLOCK_DEPTH = BLOCK.depth * K;
+const LABEL =
+    "A type K thermocouple with its yellow positive lead in AIN0 and its red negative lead in GND of a LabJack T7";
 ---
 
-<figure class="labjack-wiring">
-    <svg
-        viewBox="0 0 720 250"
-        role="img"
-        aria-label="A type K thermocouple with its yellow positive lead on AIN0 and its red negative lead on GND of a LabJack T7"
-    >
-        <path class="cable" d="M0 120 H64"></path>
-        <text class="caption" x="0" y="100">
-            USB
-        </text>
-
-        <rect class="device" x="64" y="52" width="200" height="136" rx="12"></rect>
-        <text class="title" x="64" y="34">
-            LabJack T7
-        </text>
-
-        <text class="terminal" x="88" y="99">
-            AIN0
-        </text>
-        <circle class="screw" cx="232" cy="94" r="13"></circle>
-        <path class="slot" d="M224 94 H240"></path>
-
-        <text class="terminal" x="88" y="151">
-            GND
-        </text>
-        <circle class="screw" cx="232" cy="146" r="13"></circle>
-        <path class="slot" d="M224 146 H240"></path>
-
-        <path class="wire positive" d="M245 94 C 380 94, 430 114, 600 118"></path>
-        <path class="wire negative" d="M245 146 C 380 146, 430 126, 600 122"></path>
-        <text class="lead" x="330" y="82">
-            + yellow
-        </text>
-        <text class="lead" x="330" y="174">
-            − red
-        </text>
-
-        <circle class="junction" cx="610" cy="120" r="10"></circle>
-        <text class="caption" x="610" y="160" text-anchor="middle">
-            Type K junction
-        </text>
-    </svg>
+<figure class="block-diagram labjack-wiring">
+    {views.map((v) => (
+        <svg
+            class={`block-diagram__svg block-diagram__svg--${v.name}`}
+            viewBox={`0 0 ${v.width} ${HEIGHT}`}
+            width={v.width}
+            height={HEIGHT}
+            role="img"
+            aria-label={LABEL}
+        >
+            <defs>
+                <linearGradient id={`labjack-wiring-x-${v.name}`}>
+                    <stop offset="0" stop-color="white" stop-opacity="0" />
+                    <stop offset="0.2" stop-color="white" />
+                </linearGradient>
+                <linearGradient
+                    id={`labjack-wiring-y-${v.name}`}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                >
+                    <stop offset="0" stop-color="white" stop-opacity="0" />
+                    <stop offset="0.25" stop-color="white" />
+                </linearGradient>
+                <mask id={`labjack-wiring-fade-x-${v.name}`}>
+                    <rect
+                        width={v.width}
+                        height={HEIGHT}
+                        fill={`url(#labjack-wiring-x-${v.name})`}
+                    />
+                </mask>
+                <mask id={`labjack-wiring-fade-y-${v.name}`}>
+                    <rect
+                        width={v.width}
+                        height={HEIGHT}
+                        fill={`url(#labjack-wiring-y-${v.name})`}
+                    />
+                </mask>
+            </defs>
+            <g mask={`url(#labjack-wiring-fade-x-${v.name})`}>
+                <g mask={`url(#labjack-wiring-fade-y-${v.name})`}>
+                    <path
+                        class="labjack-wiring__body"
+                        d={`${v.lid} H ${v.pocket.x} Z`}
+                    />
+                    <rect
+                        class="labjack-wiring__pocket"
+                        x={v.pocket.x}
+                        y={FRONT - POCKET.depth * K}
+                        width={v.pocket.width}
+                        height={POCKET.depth * K}
+                    />
+                    <path class="labjack-wiring__ledge" d={v.ledge} />
+                    <circle
+                        class="labjack-wiring__hole"
+                        cx={v.hole.x}
+                        cy={v.hole.y}
+                        r={v.hole.r}
+                    />
+                    <path class="labjack-wiring__outline" d={v.lid} />
+                    {v.blocks.map((b) => (
+                        <>
+                            <rect
+                                class="labjack-wiring__block"
+                                x={b.x}
+                                y={FRONT - BLOCK_DEPTH}
+                                width={b.width}
+                                height={BLOCK_DEPTH}
+                                rx="2"
+                            />
+                            {b.terminals.map((t) => (
+                                <>
+                                    <circle
+                                        class="labjack-wiring__screw"
+                                        cx={t.x}
+                                        cy={FRONT - SCREW.y * K}
+                                        r={SCREW_R}
+                                    />
+                                    <path
+                                        class="labjack-wiring__slot"
+                                        d={`M ${t.x - 5} ${FRONT - SCREW.y * K + 5} L ${t.x + 5} ${FRONT - SCREW.y * K - 5}`}
+                                    />
+                                    <text
+                                        class:list={[
+                                            "labjack-wiring__terminal",
+                                            {
+                                                "labjack-wiring__terminal--wired":
+                                                    t.wired,
+                                            },
+                                        ]}
+                                        x={t.x}
+                                        y={FRONT - POCKET.depth * K - 10}
+                                        text-anchor="middle"
+                                    >
+                                        {t.label}
+                                    </text>
+                                </>
+                            ))}
+                        </>
+                    ))}
+                </g>
+            </g>
+            {v.bare.map((d) => (
+                <path class="labjack-wiring__bare" d={d} />
+            ))}
+            <path
+                class="labjack-wiring__edge labjack-wiring__edge--positive"
+                d={v.leads[0]}
+            />
+            <path
+                class="labjack-wiring__edge labjack-wiring__edge--negative"
+                d={v.leads[1]}
+            />
+            <path
+                class="labjack-wiring__lead labjack-wiring__lead--positive"
+                d={v.leads[0]}
+            />
+            <path
+                class="labjack-wiring__lead labjack-wiring__lead--negative"
+                d={v.leads[1]}
+            />
+            <circle class="labjack-wiring__tip" cx={v.tip.x} cy={v.tip.y} r="5" />
+            <text
+                class="labjack-wiring__note"
+                x={v.labels.positive}
+                y={v.labels.y}
+                text-anchor="end"
+            >
+                + yellow
+            </text>
+            <text class="labjack-wiring__note" x={v.labels.negative} y={v.labels.y}>
+                − red
+            </text>
+            <text class="labjack-wiring__caption" x={v.tip.x + 14} y={v.tip.y + 4}>
+                type K junction
+            </text>
+            <text class="labjack-wiring__caption" x={v.device} y={HEIGHT - 8}>
+                LabJack T7, top view
+            </text>
+        </svg>
+    ))}
 </figure>
 
 <style>
-    /* The tint of an inset hero in the pink-orange palette, to match the stills. */
     .labjack-wiring {
-        margin: 3rem 0 var(--docs-block-gap);
-        padding: clamp(1.5rem, 7vw, 4rem) clamp(1rem, 8vw, 5rem);
-        border-radius: 1.5rem;
-        background: linear-gradient(
-            135deg in oklab,
-            color-mix(in oklab, #ff007b 18%, var(--pluto-gray-l2)),
-            color-mix(in oklab, #ff9b42 18%, var(--pluto-gray-l3))
-        );
-        box-shadow: inset 0 0 0 1px var(--pluto-gray-l4);
-
-        & svg {
-            display: block;
-            width: 100%;
-            height: auto;
-        }
+        margin-top: 2rem;
     }
 
-    text {
-        font-family: var(--pluto-font-family);
-        fill: var(--pluto-gray-l10);
+    .labjack-wiring__body {
+        fill: var(--pluto-gray-l1);
     }
 
-    .title {
-        font-size: 17px;
+    .labjack-wiring__outline {
+        fill: none;
+        stroke: var(--pluto-gray-l6);
+        stroke-width: 1;
+    }
+
+    .labjack-wiring__pocket {
+        fill: var(--pluto-gray-l2);
+        stroke: var(--pluto-gray-l5);
+        stroke-width: 0.75;
+    }
+
+    .labjack-wiring__ledge {
+        fill: var(--pluto-gray-l2);
+    }
+
+    .labjack-wiring__hole {
+        fill: var(--pluto-gray-l3);
+        stroke: var(--pluto-gray-l5);
+        stroke-width: 0.75;
+    }
+
+    .labjack-wiring__block {
+        fill: var(--pluto-gray-l3);
+        stroke: var(--pluto-gray-l6);
+        stroke-width: 0.75;
+    }
+
+    .labjack-wiring__screw {
+        fill: var(--pluto-gray-l1);
+        stroke: var(--pluto-gray-l7);
+        stroke-width: 1;
+    }
+
+    .labjack-wiring__slot {
+        stroke: var(--pluto-gray-l8);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+    }
+
+    .labjack-wiring__terminal,
+    .labjack-wiring__caption {
+        fill: var(--pluto-gray-l7);
+        font: 400 11px / 1 var(--pluto-code-font-family);
+    }
+
+    .labjack-wiring__terminal--wired {
+        fill: var(--pluto-gray-l11);
         font-weight: 500;
     }
 
-    .terminal {
-        font-family: var(--pluto-code-font-family);
-        font-size: 16px;
-    }
-
-    .caption,
-    .lead {
-        font-size: 14px;
-        fill: var(--pluto-gray-l8);
-    }
-
-    .device {
-        fill: var(--pluto-gray-l1);
-        stroke: var(--pluto-gray-l5);
-        stroke-width: 1.5;
-    }
-
-    .screw {
-        fill: var(--pluto-gray-l4);
-        stroke: var(--pluto-gray-l6);
-        stroke-width: 1.5;
-    }
-
-    .slot {
+    .labjack-wiring__bare {
         stroke: var(--pluto-gray-l8);
-        stroke-width: 2.5;
+        stroke-width: 2;
         stroke-linecap: round;
     }
 
-    .cable {
-        stroke: var(--pluto-gray-l7);
-        stroke-width: 8;
-        stroke-linecap: round;
-    }
-
-    .wire {
+    .labjack-wiring__edge,
+    .labjack-wiring__lead {
         fill: none;
-        stroke-width: 5;
         stroke-linecap: round;
+        stroke-linejoin: round;
     }
 
-    .positive {
-        stroke: #f4ca25;
+    .labjack-wiring__edge {
+        stroke-width: 6;
     }
 
-    .negative {
-        stroke: #f5242e;
+    .labjack-wiring__lead {
+        stroke-width: 4;
     }
 
-    .junction {
-        fill: var(--pluto-gray-l7);
-        stroke: var(--pluto-gray-l9);
-        stroke-width: 1.5;
+    .labjack-wiring__edge--positive {
+        stroke: var(--pluto-warning-m1);
+    }
+
+    .labjack-wiring__lead--positive {
+        stroke: var(--pluto-dark-warning-z);
+    }
+
+    .labjack-wiring__edge--negative {
+        stroke: var(--pluto-error-m1);
+    }
+
+    .labjack-wiring__lead--negative {
+        stroke: var(--pluto-error-z);
+    }
+
+    .labjack-wiring__tip {
+        fill: var(--pluto-gray-l8);
+        stroke: var(--pluto-gray-l10);
+        stroke-width: 1;
+    }
+
+    .labjack-wiring__note {
+        fill: var(--pluto-gray-l9);
+        font: 400 13px / 1 var(--pluto-font-family);
     }
 </style>

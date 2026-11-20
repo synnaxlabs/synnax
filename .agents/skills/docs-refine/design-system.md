@@ -104,6 +104,8 @@ two-color gradient, from `Hero.Hero`.
 - The outline title is a Label. At the top of a page, the outline marks its first entry.
   A page loads with its sidebar entry in view.
 - Cards: 3rem gaps, and the card name is a Title.
+- Each blog card's artwork has its own palette, distinct from the cards next to it. A
+  new card never reuses the blueprint blue of the Desktop and Arc cards.
 - On a phone, the breadcrumb wraps between segments, never inside one. Nothing on a page
   scrolls sideways except code, tables, and tab bars.
 

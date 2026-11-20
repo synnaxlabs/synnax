@@ -8,25 +8,301 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** Where a hand closes on the thermocouple, and the newest sample. */
-const GRIP = 210;
-const NOW = 520;
+import {
+    AIN0,
+    BLOCK,
+    BLOCKS,
+    DEPTH,
+    ENTRY,
+    GND,
+    HEIGHT,
+    LENGTH,
+    LIGHTS,
+    NOTCHES,
+    PARTING,
+    POCKET,
+    SCREW,
+} from "@/components/blog/labjack/t7";
 
-/** A thermocouple at room temperature that warms in a hand, with a little noise. */
-const y = (x: number): number => {
-    const warmth = x < GRIP ? 0 : 1 - Math.exp(-(x - GRIP) / 58);
-    const noise = 1.4 * Math.sin(x * 0.9) + 0.9 * Math.sin(x * 2.7 + 1);
-    return 232 - 150 * warmth + noise;
+type Point = readonly [number, number, number];
+
+const SCALE = 1.4;
+const ORIGIN = [168, 140] as const;
+const COS = Math.cos(Math.PI / 6);
+const SIN = Math.sin(Math.PI / 6);
+
+// An isometric projection that shows the lid, the terminal face, and the mounting end.
+const project = ([x, y, z]: Point): [number, number] => [
+    ORIGIN[0] + SCALE * COS * (x + y),
+    ORIGIN[1] + SCALE * (SIN * (x - y) - z),
+];
+
+const at = (p: Point): string =>
+    project(p)
+        .map((v) => v.toFixed(2))
+        .join(" ");
+const open = (points: Point[]): string => `M ${points.map(at).join(" L ")}`;
+const closed = (points: Point[]): string => `${open(points)} Z`;
+
+const arc = (
+    center: Point,
+    radius: number,
+    from: number,
+    to: number,
+    steps = 16,
+): Point[] =>
+    Array.from({ length: steps + 1 }, (_, i) => {
+        const a = from + ((to - from) * i) / steps;
+        return [
+            center[0] + radius * Math.cos(a),
+            center[1] + radius * Math.sin(a),
+            center[2],
+        ] as const;
+    });
+
+const circleOnLid = (center: Point, radius: number): string =>
+    closed(arc(center, radius, 0, 2 * Math.PI, 32).slice(0, -1));
+
+const circleOnFace = (x: number, z: number, radius: number): string =>
+    closed(
+        Array.from({ length: 32 }, (_, i) => {
+            const a = (2 * Math.PI * i) / 32;
+            return [x + radius * Math.cos(a), 0, z + radius * Math.sin(a)] as const;
+        }),
+    );
+
+const H = HEIGHT;
+const L = LENGTH;
+
+// A notch's rim at height z runs in from the far end, around its curve, and back out.
+const rim = ({ x, y, radius }: (typeof NOTCHES)[number], z: number): Point[] => [
+    [L, y - radius, z],
+    [x, y - radius, z],
+    ...arc([x, y, z], radius, (3 * Math.PI) / 2, Math.PI / 2),
+    [x, y + radius, z],
+    [L, y + radius, z],
+];
+
+const screwHead = (x: number): string =>
+    circleOnLid([x, SCREW.y, BLOCK.top], SCREW.radius);
+
+const lid = closed([
+    [0, 0, H],
+    [POCKET.x0, 0, H],
+    [POCKET.x0, POCKET.depth, H],
+    [POCKET.x1, POCKET.depth, H],
+    [POCKET.x1, 0, H],
+    [L, 0, H],
+    ...NOTCHES.flatMap((notch) => rim(notch, H)),
+    [L, DEPTH, H],
+    [0, DEPTH, H],
+]);
+
+const front = closed([
+    [0, 0, 0],
+    [L, 0, 0],
+    [L, 0, H],
+    [POCKET.x1, 0, H],
+    [POCKET.x1, 0, POCKET.floor],
+    [POCKET.x0, 0, POCKET.floor],
+    [POCKET.x0, 0, H],
+    [0, 0, H],
+]);
+
+const end = closed([
+    [L, 0, 0],
+    [L, DEPTH, 0],
+    [L, DEPTH, H],
+    ...[...NOTCHES].reverse().flatMap(({ y, radius, ledge }): Point[] => [
+        [L, y + radius, H],
+        [L, y + radius, ledge],
+        [L, y - radius, ledge],
+        [L, y - radius, H],
+    ]),
+    [L, 0, H],
+]);
+
+const notches = NOTCHES.map((notch) => {
+    const { x, y, radius, ledge, hole } = notch;
+    return {
+        wall: closed([...rim(notch, H), ...rim(notch, ledge).reverse()]),
+        ledge: closed(rim(notch, ledge)),
+        hole: circleOnLid([x, y, ledge], hole),
+        edge: open([
+            [x - radius, y, H],
+            [x - radius, y, ledge],
+        ]),
+    };
+});
+
+const pocket = {
+    back: closed([
+        [POCKET.x0, POCKET.depth, POCKET.floor],
+        [POCKET.x1, POCKET.depth, POCKET.floor],
+        [POCKET.x1, POCKET.depth, H],
+        [POCKET.x0, POCKET.depth, H],
+    ]),
+    floor: closed([
+        [POCKET.x0, 0, POCKET.floor],
+        [POCKET.x1, 0, POCKET.floor],
+        [POCKET.x1, POCKET.depth, POCKET.floor],
+        [POCKET.x0, POCKET.depth, POCKET.floor],
+    ]),
+    side: closed([
+        [POCKET.x0, 0, POCKET.floor],
+        [POCKET.x0, POCKET.depth, POCKET.floor],
+        [POCKET.x0, POCKET.depth, H],
+        [POCKET.x0, 0, H],
+    ]),
 };
 
-const points = Array.from({ length: NOW / 5 + 1 }, (_, i) => {
-    const x = i * 5;
-    return `${x} ${y(x).toFixed(1)}`;
-});
-const curve = `M ${points.join(" L ")}`;
-const area = `${curve} L ${NOW} 320 L 0 320 Z`;
-const now = { x: NOW, y: y(NOW) };
-const grid = [70, 130, 190, 250];
+const blocks = BLOCKS.map(({ x0, x1, terminals }) => ({
+    top: closed([
+        [x0, 0, BLOCK.top],
+        [x1, 0, BLOCK.top],
+        [x1, BLOCK.depth, BLOCK.top],
+        [x0, BLOCK.depth, BLOCK.top],
+    ]),
+    front: closed([
+        [x0, 0, POCKET.floor],
+        [x1, 0, POCKET.floor],
+        [x1, 0, BLOCK.top],
+        [x0, 0, BLOCK.top],
+    ]),
+    end: closed([
+        [x1, 0, POCKET.floor],
+        [x1, BLOCK.depth, POCKET.floor],
+        [x1, BLOCK.depth, BLOCK.top],
+        [x1, 0, BLOCK.top],
+    ]),
+    screws: terminals.map(({ x }) => ({
+        head: screwHead(x),
+        slot: open([
+            [x - SCREW.radius * 0.7, SCREW.y, BLOCK.top],
+            [x + SCREW.radius * 0.7, SCREW.y, BLOCK.top],
+        ]),
+        entry: closed([
+            [x - ENTRY.size / 2, 0, ENTRY.z - ENTRY.size / 2],
+            [x + ENTRY.size / 2, 0, ENTRY.z - ENTRY.size / 2],
+            [x + ENTRY.size / 2, 0, ENTRY.z + ENTRY.size / 2],
+            [x - ENTRY.size / 2, 0, ENTRY.z + ENTRY.size / 2],
+        ]),
+    })),
+}));
+
+const seam = [
+    open([
+        [0, 0, PARTING],
+        [POCKET.x0, 0, PARTING],
+    ]),
+    open([
+        [POCKET.x1, 0, PARTING],
+        [L, 0, PARTING],
+    ]),
+    open([
+        [L, 0, PARTING],
+        [L, NOTCHES[0].y - NOTCHES[0].radius, PARTING],
+    ]),
+    open([
+        [L, NOTCHES[0].y + NOTCHES[0].radius, PARTING],
+        [L, NOTCHES[1].y - NOTCHES[1].radius, PARTING],
+    ]),
+    open([
+        [L, NOTCHES[1].y + NOTCHES[1].radius, PARTING],
+        [L, DEPTH, PARTING],
+    ]),
+];
+
+const lights = LIGHTS.map(({ x, z, radius }) => circleOnFace(x, z, radius));
+
+// The thermocouple leads leave the AIN0 and GND entries toward the reader and meet.
+const LEAD = 40;
+const tip: Point = [(AIN0.x + GND.x) / 2, -LEAD - (GND.x - AIN0.x) / 2, ENTRY.z];
+const leads = [AIN0, GND].map(({ x }): Point[] => [
+    [x, 0, ENTRY.z],
+    [x, -LEAD, ENTRY.z],
+    tip,
+]);
+const [tipX, tipY] = project(tip);
+const [ain0X, ain0Y] = project([AIN0.x, -LEAD * 0.6, ENTRY.z]);
+
+const DIM = 10;
+const EXT = [2, 13];
+const dimensions = [
+    open([
+        [0, DEPTH + DIM, H],
+        [L, DEPTH + DIM, H],
+    ]),
+    open([
+        [0, DEPTH + EXT[0], H],
+        [0, DEPTH + EXT[1], H],
+    ]),
+    open([
+        [L, DEPTH + EXT[0], H],
+        [L, DEPTH + EXT[1], H],
+    ]),
+    open([
+        [L + DIM, 0, 0],
+        [L + DIM, DEPTH, 0],
+    ]),
+    open([
+        [L + EXT[0], 0, 0],
+        [L + EXT[1], 0, 0],
+    ]),
+    open([
+        [L + EXT[0], DEPTH, 0],
+        [L + EXT[1], DEPTH, 0],
+    ]),
+    open([
+        [L, -DIM, 0],
+        [L, -DIM, H],
+    ]),
+    open([
+        [L, -EXT[0], 0],
+        [L, -EXT[1], 0],
+    ]),
+    open([
+        [L, -EXT[0], H],
+        [L, -EXT[1], H],
+    ]),
+];
+const [lengthX, lengthY] = project([L / 2, DEPTH + DIM, H]);
+const [depthX, depthY] = project([L + DIM, DEPTH / 2, 0]);
+const [heightX, heightY] = project([L, -DIM, H / 2]);
+
+// The name on the lid, laid on the lid plane so it reads like the print on a real T7.
+const PRINT = { x: 86, y: 39, size: 14 };
+const print = [
+    SCALE * COS,
+    SCALE * SIN,
+    -SCALE * COS,
+    SCALE * SIN,
+    ORIGIN[0] + SCALE * COS * (PRINT.x + PRINT.y),
+    ORIGIN[1] + SCALE * (SIN * (PRINT.x - PRINT.y) - H),
+]
+    .map((v) => v.toFixed(3))
+    .join(" ");
+const corner = project([L, 0, 0]);
+// The warm case lines run from the communication end to the near corner.
+const warm = [project([0, DEPTH, H]), corner];
+const guides = [
+    open([
+        [-30, 0, 0],
+        [L + 40, 0, 0],
+    ]),
+    open([
+        [L, -40, 0],
+        [L, DEPTH + 30, 0],
+    ]),
+    open([
+        [L, 0, -20],
+        [L, 0, H + 40],
+    ]),
+];
+
+const dots = Array.from({ length: 30 }, (_, i) =>
+    Array.from({ length: 16 }, (_, j) => [10 + i * 20, 10 + j * 20] as const),
+).flat();
 ---
 
 <svg
@@ -37,51 +313,104 @@ const grid = [70, 130, 190, 250];
     focusable="false"
 >
     <defs>
-        <linearGradient
-            id="labjack-art-heat"
-            x1="0"
-            y1="0"
-            x2={NOW}
-            y2="0"
+        <radialGradient
+            id="labjack-art-fade"
+            cx={corner[0] - 60}
+            cy={corner[1] - 100}
+            r="250"
             gradientUnits="userSpaceOnUse"
         >
-            <stop class="cool" stop-opacity="0" />
-            <stop class="cool" offset="0.18" />
-            <stop class="violet" offset="0.42" />
-            <stop class="pink" offset="0.6" />
-            <stop class="orange" offset="0.95" />
+            <stop stop-color="white" />
+            <stop offset="1" stop-color="white" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient
+            id="labjack-art-warm"
+            x1={warm[0][0]}
+            y1={warm[0][1]}
+            x2={warm[1][0]}
+            y2={warm[1][1]}
+            gradientUnits="userSpaceOnUse"
+        >
+            <stop class="warm-from" />
+            <stop class="warm-to" offset="1" />
         </linearGradient>
-        <linearGradient id="labjack-art-glow" x1="0" y1="0" x2="0" y2="1">
-            <stop class="pink" stop-opacity="0.2" />
-            <stop class="pink" offset="0.7" stop-opacity="0" />
-        </linearGradient>
-        <linearGradient id="labjack-art-fade" x1="0" y1="0" x2="1" y2="0">
-            <stop stop-color="white" offset="0.3" stop-opacity="0" />
-            <stop stop-color="white" offset="0.65" />
-            <stop stop-color="white" offset="0.87" stop-opacity="0" />
-        </linearGradient>
-        <mask id="labjack-art-mask">
-            <rect width="600" height="320" fill="url(#labjack-art-fade)"></rect>
+        <mask id="labjack-art-field">
+            <rect width="600" height="320" fill="url(#labjack-art-fade)" />
         </mask>
-        <filter id="labjack-art-halo" x="-10%" y="-30%" width="120%" height="160%">
-            <feGaussianBlur stdDeviation="4"></feGaussianBlur>
-        </filter>
     </defs>
-    <g class="grid">
-        {grid.map((at) => (
-            <path d={`M 24 ${at} H 576`} />
+    <g mask="url(#labjack-art-field)">
+        {dots.map(([x, y]) => (
+            <circle class="dot" cx={x} cy={y} r="0.8" />
+        ))}
+        {guides.map((d) => (
+            <path class="guide" d={d} />
         ))}
     </g>
-    <path class="area" d={area} mask="url(#labjack-art-mask)"></path>
-    <path class="halo" d={curve} filter="url(#labjack-art-halo)"></path>
-    <path class="line" d={curve}></path>
-    <circle class="pulse" cx={now.x} cy={now.y} r="5"></circle>
-    <circle class="dot" cx={now.x} cy={now.y} r="5"></circle>
-    <text class="reading start" x="120" y="262">
-        21.4 °C
+    {notches.map(({ wall, ledge, hole, edge }) => (
+        <>
+            <path class="face face--shade detail" d={wall} />
+            <path class="face detail" d={ledge} />
+            <path class="detail" d={hole} />
+            <path class="detail" d={edge} />
+        </>
+    ))}
+    <path class="face face--shade detail" d={pocket.back} />
+    <path class="face face--shade detail" d={pocket.floor} />
+    <path class="face detail" d={pocket.side} />
+    {blocks.map(({ top, front, end, screws }) => (
+        <>
+            <path class="face face--block terminal" d={front} />
+            <path class="face face--block terminal" d={end} />
+            <path class="face face--block terminal" d={top} />
+            {screws.map(({ head, slot, entry }) => (
+                <>
+                    <path class="terminal" d={head} />
+                    <path class="terminal" d={slot} />
+                    <path class="terminal" d={entry} />
+                </>
+            ))}
+        </>
+    ))}
+    <path class="face face--lid body" d={lid} />
+    <text
+        class="print"
+        transform={`matrix(${print})`}
+        font-size={PRINT.size}
+        text-anchor="middle"
+    >
+        LabJack T7
     </text>
-    <text class="reading" x={now.x} y={now.y - 20} text-anchor="middle">
-        31.8 °C
+    <path class="face body" d={front} />
+    <path class="face face--end body" d={end} />
+    {seam.map((d) => (
+        <path class="detail" d={d} />
+    ))}
+    {lights.map((d) => (
+        <path class="detail" d={d} />
+    ))}
+    {dimensions.map((d) => (
+        <path class="dimension" d={d} />
+    ))}
+    <text class="label" x={lengthX} y={lengthY - 8} text-anchor="middle">
+        {L}
+    </text>
+    <text class="label" x={depthX + 12} y={depthY + 12}>
+        {Math.round(DEPTH)}
+    </text>
+    <text class="label" x={heightX - 6} y={heightY + 4} text-anchor="end">
+        {H}
+    </text>
+    <path class="lead lead--positive" d={screwHead(AIN0.x)} />
+    {leads.map((points, i) => (
+        <path
+            class:list={["lead", i === 0 ? "lead--positive" : "lead--negative"]}
+            d={open(points)}
+        />
+    ))}
+    <path class="pulse" d={open([...leads[0]].reverse())} pathLength="100" />
+    <circle class="tip" cx={tipX} cy={tipY} r="2.4" />
+    <text class="label" x={ain0X - 8} y={ain0Y + 4} text-anchor="end">
+        AIN0
     </text>
 </svg>
 
@@ -93,82 +422,134 @@ const grid = [70, 130, 190, 250];
         overflow: visible;
         stroke-linecap: round;
         stroke-linejoin: round;
+
+        --labjack-art-face: light-dark(var(--pluto-gray-l0), var(--pluto-gray-l1));
+        --labjack-art-pink: light-dark(#e6006f, #ff3d8f);
+        --labjack-art-orange: light-dark(#ea7a14, #ffa65a);
     }
 
-    .grid {
-        stroke: var(--pluto-gray-l4);
+    .warm-from {
+        stop-color: var(--labjack-art-pink);
+    }
+
+    .warm-to {
+        stop-color: var(--labjack-art-orange);
+    }
+
+    .dot {
+        fill: light-dark(#e3bccb, #4a2c38);
+    }
+
+    .guide {
+        stroke: light-dark(#e3bccb90, #6e3d5080);
+        stroke-width: 0.65;
+    }
+
+    .face {
+        fill: var(--labjack-art-face);
+    }
+
+    .face--lid {
+        fill: color-mix(in srgb, var(--labjack-art-face) 95%, var(--labjack-art-pink));
+    }
+
+    .face--end {
+        fill: color-mix(
+            in srgb,
+            var(--labjack-art-face) 96%,
+            var(--labjack-art-orange)
+        );
+    }
+
+    .face--shade {
+        fill: color-mix(in srgb, var(--labjack-art-face) 91%, var(--labjack-art-pink));
+    }
+
+    .face--block {
+        fill: color-mix(in srgb, var(--labjack-art-face) 80%, var(--pluto-gray-l4));
+    }
+
+    .body {
+        stroke: url("#labjack-art-warm");
+        stroke-width: 1.1;
+    }
+
+    .detail {
+        stroke: url("#labjack-art-warm");
+        stroke-width: 0.7;
+        stroke-opacity: 0.7;
+    }
+
+    .print {
+        fill: none;
+        stroke: color-mix(
+            in srgb,
+            var(--labjack-art-pink) 55%,
+            var(--labjack-art-orange)
+        );
         stroke-width: 1;
-        stroke-dasharray: 2 6;
+        vector-effect: non-scaling-stroke;
+        font-family: var(--pluto-font-family);
+        font-weight: 600;
+        letter-spacing: -0.01em;
     }
 
-    .area {
-        fill: url("#labjack-art-glow");
+    .terminal {
+        stroke: var(--pluto-gray-l7);
+        stroke-width: 0.7;
     }
 
-    .halo {
-        stroke: url("#labjack-art-heat");
-        stroke-width: 7;
-        opacity: 0.35;
+    .dimension {
+        stroke: url("#labjack-art-warm");
+        stroke-width: 0.75;
+        stroke-opacity: 0.55;
     }
 
-    .line {
-        stroke: url("#labjack-art-heat");
-        stroke-width: 2.6;
+    .lead {
+        stroke-width: 1.6;
     }
 
-    .dot,
+    .lead--positive {
+        stroke: var(--pluto-dark-warning-z);
+    }
+
+    .lead--negative {
+        stroke: var(--pluto-error-z);
+    }
+
+    .tip {
+        fill: var(--pluto-gray-l9);
+    }
+
     .pulse {
-        fill: light-dark(#f08a2c, #ff9b42);
-    }
-
-    .pulse {
-        transform-box: fill-box;
-        transform-origin: center;
+        stroke: light-dark(#8a5a00, #fff);
+        stroke-width: 1.8;
+        stroke-dasharray: 10 200;
+        stroke-dashoffset: 10;
         opacity: 0;
     }
 
-    .reading {
-        fill: var(--pluto-gray-l9);
-        font-family: var(--pluto-code-font-family);
-        font-size: 13px;
+    .label {
+        fill: var(--pluto-gray-l8);
+        font: 400 11px / 1 var(--pluto-code-font-family);
         letter-spacing: 0.04em;
-    }
-
-    .start {
-        fill: var(--pluto-gray-l7);
-    }
-
-    .cool {
-        stop-color: light-dark(#376bb0, #548cce);
-    }
-
-    .violet {
-        stop-color: #a855f7;
-    }
-
-    .pink {
-        stop-color: light-dark(#e6006f, #ff2d8f);
-    }
-
-    .orange {
-        stop-color: light-dark(#f08a2c, #ff9b42);
     }
 
     @media (prefers-reduced-motion: no-preference) {
         .pulse {
-            animation: labjack-art-pulse 2.4s ease-out infinite;
+            opacity: 1;
+            animation: labjack-art-flow 4.8s cubic-bezier(0.32, 0.72, 0, 1) infinite;
         }
     }
 
-    @keyframes labjack-art-pulse {
-        from {
-            transform: scale(1);
-            opacity: 0.55;
+    @keyframes labjack-art-flow {
+        0% {
+            stroke-dashoffset: 10;
         }
 
-        to {
-            transform: scale(3.6);
-            opacity: 0;
+        40%,
+        100% {
+            stroke-dashoffset: -100;
         }
     }
 </style>
