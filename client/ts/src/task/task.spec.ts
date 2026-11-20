@@ -1529,13 +1529,26 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
-      onTestFinished(() => commands.close());
+      // A sever during the command write fails the write first, so it severs after it.
+      const written = Promise.withResolvers<void>();
+      const openWriter = proxied.openWriter.bind(proxied);
+      const watch = vi
+        .spyOn(proxied, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          const w = await openWriter(cfg);
+          const close = w.close.bind(w);
+          vi.spyOn(w, "close").mockImplementationOnce(async () => {
+            await close();
+            written.resolve();
+          });
+          return w;
+        });
+      onTestFinished(() => watch.mockRestore());
       const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
       const ended = expect(wait).rejects.toThrow(
         new DisconnectedError("The connection to the Core dropped."),
       );
-      await readCommand(commands, t.key);
+      await written.promise;
       await proxy.sever();
       await ended;
     });
