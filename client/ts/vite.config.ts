@@ -78,6 +78,7 @@ export default defineConfig({
         test: {
           name: "provided-core",
           include: [PROVIDED_CORE_SPECS],
+          benchmark: { include: [] },
           provide: { synnaxTestCore: { host: "provided", port: 1 } },
         },
       },

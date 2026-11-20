@@ -176,6 +176,7 @@ export default defineConfig({
         // and fails the specs that are running.
         optimizeDeps: {
           include: [
+            "@tauri-apps/plugin-deep-link",
             "@tauri-apps/plugin-dialog",
             "@tauri-apps/plugin-fs",
             "@tauri-apps/plugin-shell",
