@@ -277,13 +277,15 @@ func linksBefore(c gorp.Change) []gorp.Link {
 		return nil
 	case gorp.ChangeDelete:
 		return c.Links
+	case gorp.ChangeUpdate:
+		return append(
+			lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
+				return slices.Contains(c.Added, l)
+			}),
+			c.Removed...,
+		)
 	}
-	return append(
-		lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
-			return slices.Contains(c.Added, l)
-		}),
-		c.Removed...,
-	)
+	panic(errors.Newf("[bind] - unknown change kind %d", c.Kind))
 }
 
 // placementChanges returns the placements that c adds and the ones it removes.
