@@ -32,6 +32,30 @@ const logSize = 2 << 20
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
 
+func noDurable(uint64, []log.Record) {}
+
+func noSeals() ([]log.Record, error) { return nil, nil }
+
+// durables collects what a log hands its OnDurable hook.
+type durables struct {
+	mu      sync.Mutex
+	seqs    []uint64
+	records [][]log.Record
+}
+
+func (d *durables) on(seq uint64, records []log.Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.seqs = append(d.seqs, seq)
+	d.records = append(d.records, records)
+}
+
+func (d *durables) get() ([]uint64, [][]log.Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]uint64(nil), d.seqs...), append([][]log.Record(nil), d.records...)
+}
+
 // bigEntry returns an entry of n bytes, a multiple of 8, that holds no Commit.
 func bigEntry(n int) *log.Entry {
 	GinkgoHelper()
@@ -71,7 +95,13 @@ var logName = log.Name(generation)
 // fileBytes returns the bytes of the log file in fs.
 func fileBytes(fs xfs.FS) []byte {
 	GinkgoHelper()
-	f := MustSucceed(fs.Open(logName, os.O_RDONLY))
+	return logBytes(fs, generation)
+}
+
+// logBytes returns the bytes of the file of the log of gen in fs.
+func logBytes(fs xfs.FS, gen uint64) []byte {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(log.Name(gen), os.O_RDONLY))
 	defer func() { Expect(f.Close()).To(Succeed()) }()
 	return MustSucceed(io.ReadAll(f))
 }
@@ -81,7 +111,13 @@ func fileBytes(fs xfs.FS) []byte {
 // link of each.
 func walk(b []byte) []log.Frame {
 	GinkgoHelper()
-	h := MustSucceed(log.DecodeHeader(b, db, generation, 0))
+	return walkLog(b, generation)
+}
+
+// walkLog returns the frames of the file of the log of gen, as walk does.
+func walkLog(b []byte, gen uint64) []log.Frame {
+	GinkgoHelper()
+	h := MustSucceed(log.DecodeHeader(b, db, gen, 0))
 	var (
 		frames []log.Frame
 		at     = int64(log.FramesStart)
@@ -89,19 +125,14 @@ func walk(b []byte) []log.Frame {
 		link   = binary.LittleEndian.Uint32(b[60:])
 	)
 	for {
-		f, err := log.DecodeFrame(b[at:], db, generation, uint64(at))
+		f, err := log.DecodeFrame(b[at:], db, gen, uint64(at))
 		if err != nil {
 			aligned := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
 			if aligned == at {
 				return frames
 			}
 			at = aligned
-			if f, err = log.DecodeFrame(
-				b[at:],
-				db,
-				generation,
-				uint64(at),
-			); err != nil {
+			if f, err = log.DecodeFrame(b[at:], db, gen, uint64(at)); err != nil {
 				return frames
 			}
 		}
@@ -155,6 +186,10 @@ var _ = Describe("Log", func() {
 			cfg := log.Config{
 				FS:         xfs.NewMem(),
 				Executor:   goExec,
+				OnDurable:  noDurable,
+				Prepare:    func(uint64) {},
+				Seals:      noSeals,
+				Switched:   func(uint64) {},
 				Generation: 1,
 				Sequence:   1,
 			}
@@ -167,6 +202,10 @@ var _ = Describe("Log", func() {
 		},
 		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
 		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
+		Entry("durable hook", func(c *log.Config) { c.OnDurable = nil }, "on_durable"),
+		Entry("prepare hook", func(c *log.Config) { c.Prepare = nil }, "prepare"),
+		Entry("seals hook", func(c *log.Config) { c.Seals = nil }, "seals"),
+		Entry("switched hook", func(c *log.Config) { c.Switched = nil }, "switched"),
 		Entry("generation", func(c *log.Config) { c.Generation = 0 }, "generation"),
 		Entry("sequence", func(c *log.Config) { c.Sequence = 0 }, "sequence"),
 	)
@@ -178,18 +217,26 @@ var _ = Describe("Log", func() {
 				l     *log.Log
 				ran   chan error
 				steps chan struct{}
+				hook  *durables
+				// prepare answers each Prepare of the log under test.
+				prepare func(next uint64)
 			)
 
 			start := func(size int64, sequence uint64) {
 				GinkgoHelper()
 				Expect(log.Prepare(fs, generation, size)).To(Succeed())
 				steps = make(chan struct{}, 1<<16)
+				hook = &durables{}
 				l = MustSucceed(log.Start(log.Config{
 					FS: fs,
 					Executor: func(f func()) {
 						steps <- struct{}{}
 						go f()
 					},
+					OnDurable:  hook.on,
+					Prepare:    func(next uint64) { prepare(next) },
+					Seals:      noSeals,
+					Switched:   func(uint64) {},
 					DB:         db,
 					Generation: generation,
 					Sequence:   sequence,
@@ -212,7 +259,10 @@ var _ = Describe("Log", func() {
 				Eventually(ran).Should(Receive(BeNil()))
 			}
 
-			BeforeEach(func() { fs = newOpFS(makeFS()) })
+			BeforeEach(func() {
+				fs = newOpFS(makeFS())
+				prepare = func(next uint64) { l.Prepared(next, errors.New("no space")) }
+			})
 
 			Describe("Prepare", func() {
 				It("Should make a synced file of zeros and sync its entry", func() {
@@ -237,6 +287,10 @@ var _ = Describe("Log", func() {
 					Expect(log.Start(log.Config{
 						FS:         fs,
 						Executor:   goExec,
+						OnDurable:  noDurable,
+						Prepare:    func(uint64) {},
+						Seals:      noSeals,
+						Switched:   func(uint64) {},
 						Generation: generation,
 						Sequence:   1,
 					})).Error().To(SatisfyAll(
@@ -286,6 +340,48 @@ var _ = Describe("Log", func() {
 					f := walk(fileBytes(fs))[0]
 					Expect(f.Count).To(Equal(uint32(1)))
 					Expect(f.Entries).To(Equal(entry))
+				},
+			)
+
+			It(
+				"Should hand each synced entry's records to its hook in log order, "+
+					"before its ack",
+				func() {
+					open(logSize)
+					DeferCleanup(closeLog)
+					release := fs.Hold()
+					first := l.Append(of(&log.Drop{Key: 1}))
+					Eventually(fs.held).Should(Receive())
+					second := l.Append(of(&log.Drop{Key: 2}, &log.Intent{Key: 2}))
+					third := l.Append(of(&log.Restart{}))
+					Expect(hook.get()).To(BeEmpty())
+					fs.Unhold()
+					release <- struct{}{}
+					Expect(first.Wait()).To(Equal(uint64(5)))
+					seqs, _ := hook.get()
+					Expect(seqs).To(ContainElement(uint64(5)))
+					Expect(second.Wait()).To(Equal(uint64(6)))
+					Expect(third.Wait()).To(Equal(uint64(7)))
+					seqs, records := hook.get()
+					Expect(seqs).To(Equal([]uint64{5, 6, 7}))
+					Expect(records).To(Equal([][]log.Record{
+						{&log.Drop{Key: 1}},
+						{&log.Drop{Key: 2}, &log.Intent{Key: 2}},
+						{&log.Restart{}},
+					}))
+				},
+			)
+
+			It(
+				"Should hand no record of a frame whose sync failed to its hook",
+				func() {
+					open(logSize)
+					fs.FailSync(errors.New("disk fault"))
+					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+						To(MatchError(ContainSubstring("disk fault")))
+					Expect(hook.get()).To(BeEmpty())
+					Expect(l.Close()).To(MatchError(ContainSubstring("disk fault")))
+					Eventually(ran).Should(Receive(BeNil()))
 				},
 			)
 

@@ -16,28 +16,29 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Entry builds the bytes of one entry, which applies all or nothing. The zero value is
-// an empty entry.
+// Entry builds one entry, which applies all or nothing: its bytes and its records. The
+// zero value is an empty entry.
 type Entry struct {
-	b      []byte
-	count  uint32
-	commit bool
+	b       []byte
+	records []Record
+	commit  bool
 }
 
-// Add appends r to the entry.
+// Add appends r to the entry. The entry keeps r, and Log.Append hands it to the
+// OnDurable hook of the log, so r must not change after Add.
 func (e *Entry) Add(r Record) {
 	if len(e.b) == 0 {
 		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
 	e.b = r.append(e.b)
-	e.count++
+	e.records = append(e.records, r)
 	if _, ok := r.(*Commit); ok {
 		e.commit = true
 	}
 }
 
 // Len returns the number of records in the entry.
-func (e *Entry) Len() int { return int(e.count) }
+func (e *Entry) Len() int { return len(e.records) }
 
 // Bytes returns the encoded entry. The bytes stay valid until the next Add or Reset.
 func (e *Entry) Bytes() []byte {
@@ -45,14 +46,15 @@ func (e *Entry) Bytes() []byte {
 		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
 	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-headerSize))
-	binary.LittleEndian.PutUint32(e.b[4:], e.count)
+	binary.LittleEndian.PutUint32(e.b[4:], uint32(len(e.records)))
 	return e.b
 }
 
-// Reset empties the entry and keeps its buffer.
+// Reset empties the entry and keeps its byte buffer. It does not reuse the slice of
+// records that an Append took.
 func (e *Entry) Reset() {
 	e.b = e.b[:0]
-	e.count = 0
+	e.records = nil
 	e.commit = false
 }
 
