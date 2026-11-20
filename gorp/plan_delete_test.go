@@ -310,3 +310,147 @@ var _ = Describe("PlanDelete", func() {
 		},
 	)
 })
+
+var _ = Describe("Planned delete", func() {
+	var (
+		db       *gorp.DB
+		channels *gorp.Table[uint32, pdChannel]
+		calcs    *gorp.Table[string, pdCalc]
+		holders  *gorp.Table[string, pdHolder]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
+		channels = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, pdChannel]{
+			DB:     db,
+			Name:   "channel",
+			Issued: func(uint32) bool { return true },
+		}))
+		calcs = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, pdCalc]{
+			DB:   db,
+			Name: "calc",
+			References: []gorp.Reference[string, pdCalc]{
+				pdChannelRef("output", gorp.Cascade, func(c *pdCalc) []uint32 {
+					return []uint32{c.Output}
+				}, 0),
+			},
+		}))
+		holders = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, pdHolder]{
+			DB:   db,
+			Name: "holder",
+			References: []gorp.Reference[string, pdHolder]{
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, pdHolder, uint32]{
+					Name:     "plotted",
+					Table:    "channel",
+					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
+					Targets:  func(h *pdHolder) []uint32 { return h.Plotted },
+					Detach: func(h *pdHolder, t uint32) {
+						h.Plotted = slices.DeleteFunc(h.Plotted, func(k uint32) bool {
+							return k == t
+						})
+					},
+				}),
+				pdChannelRef("tasks", gorp.Restrict, func(h *pdHolder) []uint32 {
+					return slices.Clone(h.Tasks)
+				}, 0),
+			},
+		}))
+		for k := uint32(1); k <= 2; k++ {
+			Expect(channels.NewCreate().Entry(&pdChannel{Key: k}).Exec(ctx, db)).
+				To(Succeed())
+		}
+		Expect(calcs.NewCreate().Entry(&pdCalc{Key: "c", Output: 1}).Exec(ctx, db)).
+			To(Succeed())
+		Expect(holders.NewCreate().
+			Entry(&pdHolder{Key: "p", Plotted: []uint32{1, 2}}).
+			Exec(ctx, db)).To(Succeed())
+	})
+	deletePlanned := func(ctx SpecContext, tx gorp.Tx, effects gorp.DeleteEffects) error {
+		return channels.NewDelete().
+			Where(gorp.MatchKeys[uint32, pdChannel](1)).
+			Planned(effects).
+			Exec(ctx, tx)
+	}
+	retrieveHolder := func(ctx SpecContext, k string) pdHolder {
+		GinkgoHelper()
+		var h pdHolder
+		Expect(holders.NewRetrieve().
+			Where(gorp.MatchKeys[string, pdHolder](k)).
+			Entry(&h).
+			Exec(ctx, db)).To(Succeed())
+		return h
+	}
+
+	It("Should apply the planned cascades and detaches", func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			effects, err := channels.PlanDelete(ctx, tx, []uint32{1})
+			if err != nil {
+				return err
+			}
+			return deletePlanned(ctx, tx, effects)
+		})).To(Succeed())
+		Expect(channels.NewRetrieve().
+			Where(gorp.MatchKeys[uint32, pdChannel](1)).
+			Exists(ctx, db)).To(BeFalse())
+		Expect(calcs.NewRetrieve().
+			Where(gorp.MatchKeys[string, pdCalc]("c")).
+			Exists(ctx, db)).To(BeFalse())
+		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{2}))
+	})
+
+	It("Should apply only the plan, with no walk of its own", func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deletePlanned(ctx, tx, gorp.DeleteEffects{})
+		})).To(Succeed())
+		Expect(calcs.NewRetrieve().
+			Where(gorp.MatchKeys[string, pdCalc]("c")).
+			Exists(ctx, db)).To(BeTrue())
+		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{1, 2}))
+	})
+
+	It("Should refuse while a planned Restrict holder still exists", func(
+		ctx SpecContext,
+	) {
+		Expect(holders.NewCreate().
+			Entry(&pdHolder{Key: "t", Tasks: []uint32{1}}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			effects, err := channels.PlanDelete(ctx, tx, []uint32{1})
+			if err != nil {
+				return err
+			}
+			return deletePlanned(ctx, tx, effects)
+		})).To(MatchError(gorp.RestrictError{
+			Target:    gorp.NewTarget("channel", uint32(1)),
+			Holder:    gorp.Target{Table: "holder", Key: "t"},
+			Reference: "tasks",
+		}))
+		Expect(channels.NewRetrieve().
+			Where(gorp.MatchKeys[uint32, pdChannel](1)).
+			Exists(ctx, db)).To(BeTrue())
+	})
+
+	It("Should delete once the caller removes each planned Restrict holder", func(
+		ctx SpecContext,
+	) {
+		Expect(holders.NewCreate().
+			Entry(&pdHolder{Key: "t", Tasks: []uint32{1}}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			effects, err := channels.PlanDelete(ctx, tx, []uint32{1})
+			if err != nil {
+				return err
+			}
+			if err = holders.NewDelete().
+				Where(gorp.MatchKeys[string, pdHolder]("t")).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			return deletePlanned(ctx, tx, effects)
+		})).To(Succeed())
+		Expect(channels.NewRetrieve().
+			Where(gorp.MatchKeys[uint32, pdChannel](1)).
+			Exists(ctx, db)).To(BeFalse())
+	})
+})

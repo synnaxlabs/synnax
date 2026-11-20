@@ -33,6 +33,9 @@ type registeredTable interface {
 	issued(k string) (bool, error)
 	// deleteKeys deletes the entries with the text keys keys as a cascade.
 	deleteKeys(ctx context.Context, tx Tx, keys []string) error
+	// referenceIndex returns the index of the reference named name among the references
+	// of the table, and false when the table has none of that name.
+	referenceIndex(name string) (int, bool)
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
@@ -437,6 +440,58 @@ func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
 	return nil
 }
 
+// planned returns the plan that effects describe, for a delete from the table named
+// table that PlanDelete planned in tx. It fails with the RestrictError of a holder in
+// effects.Restricts that tx still holds, and on a detach through a reference that its
+// holder's table does not have.
+func (r *registry) planned(
+	ctx context.Context,
+	tx Tx,
+	table string,
+	effects DeleteEffects,
+) (*deletePlan, error) {
+	for _, e := range effects.Restricts {
+		holder, err := r.table(e.Holder.Table)
+		if err != nil {
+			return nil, err
+		}
+		held, err := holder.exists(ctx, tx, e.Holder.Key)
+		if err != nil {
+			return nil, err
+		}
+		if held {
+			return nil, RestrictError{
+				Target:    e.Target,
+				Holder:    e.Holder,
+				Reference: e.Reference,
+			}
+		}
+	}
+	p := newDeletePlan(table)
+	for _, e := range effects.Cascades {
+		p.cascade(e.Holder)
+	}
+	for _, e := range effects.Detaches {
+		holder, err := r.table(e.Holder.Table)
+		if err != nil {
+			return nil, err
+		}
+		i, ok := holder.referenceIndex(e.Reference)
+		if !ok {
+			return nil, errors.Newf(
+				"[gorp] - table %s has no reference %s",
+				e.Holder.Table,
+				e.Reference,
+			)
+		}
+		p.detaches[e.Holder] = append(
+			p.detaches[e.Holder],
+			detachOp{ref: i, target: e.Target},
+		)
+	}
+	return p, nil
+}
+
 // restriction is a Restrict reference through which dependent holds target.
 type restriction struct {
 	ref       registeredReference
@@ -474,14 +529,18 @@ func (w *planWalk) record(ref registeredReference, dep, target Target) {
 	}
 }
 
+func newDeletePlan(table string) *deletePlan {
+	return &deletePlan{
+		table:     table,
+		requested: set.New[string](),
+		cascades:  make(map[string]set.Set[string]),
+		detaches:  make(map[Target][]detachOp),
+	}
+}
+
 func newPlanWalk(table string, keys []string, limit int) *planWalk {
 	w := &planWalk{
-		plan: &deletePlan{
-			table:     table,
-			requested: set.New[string](),
-			cascades:  make(map[string]set.Set[string]),
-			detaches:  make(map[Target][]detachOp),
-		},
+		plan:       newDeletePlan(table),
 		keys:       keys,
 		limit:      limit,
 		restricted: set.New[Target](),

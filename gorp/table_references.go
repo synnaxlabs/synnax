@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -164,14 +165,33 @@ func (t *Table[K, E]) detach(
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference
-// that points at them.
-func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
+// that points at them, from planned when it is not nil.
+func (t *Table[K, E]) delete(
+	ctx context.Context,
+	tx Tx,
+	keys []K,
+	planned *DeleteEffects,
+) error {
 	if t.registered {
-		formatted := make([]string, len(keys))
-		for i, k := range keys {
-			formatted[i] = FormatKey(k)
+		var (
+			plan *deletePlan
+			err  error
+		)
+		if planned != nil {
+			plan, err = t.db.registry.planned(ctx, tx, t.name, *planned)
+		} else {
+			formatted := make([]string, len(keys))
+			for i, k := range keys {
+				formatted[i] = FormatKey(k)
+			}
+			plan, err = t.db.registry.plan(
+				ctx,
+				tx,
+				t.name,
+				formatted,
+				t.db.MaxDeleteSize,
+			)
 		}
-		plan, err := t.db.registry.plan(ctx, tx, t.name, formatted, t.db.MaxDeleteSize)
 		if err != nil {
 			return err
 		}
@@ -181,6 +201,14 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	}
 	w := t.writer(tx, false)
 	return w.Delete(ctx, keys...)
+}
+
+// referenceIndex implements registeredTable.
+func (t *Table[K, E]) referenceIndex(name string) (int, bool) {
+	i := slices.IndexFunc(t.references, func(r Reference[K, E]) bool {
+		return r.referenceName() == name
+	})
+	return i, i >= 0
 }
 
 // watches implements registeredTable.
