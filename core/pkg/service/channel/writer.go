@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -97,12 +98,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	acts = normalizeNameActions(acts)
 	next, err := Reduce(prev, acts...)
 	if err != nil {
 		return nil, err
-	}
-	if next.Name != prev.Name {
-		next.Name = validate.NormalizeName(next.Name)
 	}
 	if err = next.Validate(); err != nil {
 		return nil, err
@@ -270,14 +269,15 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
-// true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels with the given names, compared in NFC. Unless
+// allowInternal is true, deleting any internal channel returns an error and no channels
+// are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNames(normalizeNames(names)...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -352,6 +352,7 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
+	newNames = normalizeNames(newNames)
 	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
 		return err
 	}
@@ -380,15 +381,19 @@ func (w Writer) create(
 	if err := w.prepareCreate(channels); err != nil {
 		return err
 	}
-	if err := w.resetStoredKeys(ctx, channels, opts); err != nil {
+	stored, err := w.resetStoredKeys(ctx, channels, opts)
+	if err != nil {
 		return err
 	}
 	// Reset channels that already exist by name to their stored records before index
 	// synthesis, so an existing calculated channel keeps its stored index.
 	if opts.retrieveIfNameExists {
-		if err := w.resetStoredNames(ctx, channels); err != nil {
+		if err = w.resetStoredNames(ctx, channels, stored); err != nil {
 			return err
 		}
+	}
+	if err = checkCreatedNames(channels, stored); err != nil {
+		return err
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index).
@@ -419,13 +424,9 @@ func (w Writer) create(
 	return w.attachCreates(ctx, lo.Uniq(written))
 }
 
-// validateCreate puts the name of each channel in NFC and validates each channel, its
-// group, and the names of channels. The name index refuses a name that another channel
-// holds when the create writes.
+// validateCreate validates each channel and its group. checkCreatedNames checks the
+// names once the create knows which channels exist.
 func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
-	for i := range channels {
-		channels[i].Name = validate.NormalizeName(channels[i].Name)
-	}
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
@@ -440,7 +441,24 @@ func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 	}
-	return validateNames(Names(channels))
+	return nil
+}
+
+// checkCreatedNames puts the name of each channel that the create writes in NFC and
+// checks it against the name rule. A channel at a position in stored keeps the name of
+// its stored record, which a Core that ran with the old flag may have made. The name
+// index refuses a name that another channel holds when the create writes.
+func checkCreatedNames(channels []Channel, stored set.Set[int]) error {
+	for i := range channels {
+		if stored.Contains(i) {
+			continue
+		}
+		channels[i].Name = validate.NormalizeName(channels[i].Name)
+		if err := checkNameRule(channels[i].Name); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i), "name")
+		}
+	}
+	return checkRepeatedNames(Names(channels))
 }
 
 // prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
@@ -476,11 +494,12 @@ func (w Writer) resetStoredKeys(
 	ctx context.Context,
 	channels []Channel,
 	opts createOptions,
-) error {
+) (set.Set[int], error) {
+	reset := make(set.Set[int])
 	keys := KeysFromChannels(channels)
 	keyed := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
 	if len(keyed) == 0 {
-		return nil
+		return reset, nil
 	}
 	var stored []Channel
 	if err := w.svc.table.NewRetrieve().
@@ -488,38 +507,65 @@ func (w Writer) resetStoredKeys(
 		SkipMissingKeys().
 		Entries(&stored).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	keyPositions := positions(keys)
 	for _, c := range stored {
 		if !opts.retrieveIfNameExists {
-			return errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation,
 				"%s %s already exists",
 				tableName,
 				c.Key(),
 			)
 		}
-		channels[keyPositions[c.Key()][0]] = c
+		at := keyPositions[c.Key()][0]
+		channels[at] = c
+		reset.Add(at)
 	}
-	return nil
+	return reset, nil
 }
 
 // resetStoredNames resets each channel whose name exists to its stored record.
-func (w Writer) resetStoredNames(ctx context.Context, channels []Channel) error {
+func (w Writer) resetStoredNames(
+	ctx context.Context,
+	channels []Channel,
+	reset set.Set[int],
+) error {
 	names := Names(channels)
+	normal := normalizeNames(names)
 	var existing []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
 		Entries(&existing).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	namePositions := positions(names)
+	exact, normalPositions := positions(names), positions(normal)
+	// A record whose name the request holds exactly wins over one that holds its NFC.
+	slices.SortStableFunc(existing, func(a, b Channel) int {
+		_, aExact := exact[a.Name]
+		_, bExact := exact[b.Name]
+		return cmp.Compare(boolRank(bExact), boolRank(aExact))
+	})
 	for _, e := range existing {
-		channels[namePositions[e.Name][0]] = e
+		at, ok := exact[e.Name]
+		if !ok {
+			at = normalPositions[e.Name]
+		}
+		if !reset.Contains(at[0]) {
+			channels[at[0]] = e
+			reset.Add(at[0])
+		}
 	}
 	return nil
+}
+
+func boolRank(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // synthesizeIndexes returns a new index channel for each calculated channel without
@@ -836,22 +882,22 @@ func indexesFirst(a, b Channel) int {
 	}
 }
 
-// validateNames rejects names that break the name rule (validate.IsPathSegment) or that
-// repeat. It leaves an empty name to Channel.Validate.
-func validateNames(names []string) error {
-	for i, name := range names {
-		if name != "" && !validate.IsPathSegment(name) {
-			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"channel name '%s' must hold a visible character, and no '.' or "+
-						"invisible character",
-					name,
-				),
-				fmt.Sprintf("[%d]", i), "name",
-			)
-		}
+// checkNameRule returns a validation error when name breaks the name rule
+// (validate.IsPathSegment). It leaves an empty name to Channel.Validate.
+func checkNameRule(name string) error {
+	if name == "" || validate.IsPathSegment(name) {
+		return nil
 	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"channel name '%s' must hold a visible character, and no '.' or invisible "+
+			"character",
+		name,
+	)
+}
+
+// checkRepeatedNames rejects a request that names one channel name twice.
+func checkRepeatedNames(names []string) error {
 	namesSeen := make(set.Set[string], len(names))
 	for i, name := range names {
 		if namesSeen.Contains(name) {
@@ -869,9 +915,6 @@ func validateNames(names []string) error {
 	return nil
 }
 
-// nameTaken returns err as a validation error at the name of the channel at position i
-// of a request when err is a clash of the name index, and returns err unchanged
-// otherwise.
 // takenName returns the name of a clash of the name index, or "" when err is not one.
 func takenName(err error) string {
 	var clash gorp.UniqueError
@@ -937,11 +980,8 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	names = slices.Clone(names)
-	for i := range names {
-		names[i] = validate.NormalizeName(names[i])
-	}
-	if err := validateNames(names); err != nil {
+	names = normalizeNames(names)
+	if err := checkRepeatedNames(names); err != nil {
 		return err
 	}
 	renameMap := make(map[Key]string, len(keys))
@@ -958,7 +998,14 @@ func (w Writer) rename(
 					c.Name,
 				)
 			}
-			c.Name = renameMap[c.Key()]
+			// A stored name that the rule refuses stays writable while a rename keeps
+			// it.
+			if next := renameMap[c.Key()]; next != c.Name {
+				if err := checkNameRule(next); err != nil {
+					return Channel{}, err
+				}
+				c.Name = next
+			}
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
