@@ -185,7 +185,7 @@ describe("range tree", () => {
 
   it("should repaint a bar when its named color changes", async () => {
     const named = await client.colors.create({ name: "tree", light: "#123456" });
-    const { key } = await client.labels.create({
+    const { key } = await createTestLabel(client, {
       name: "tree",
       color: { type: "fixed", value: "#000000" },
     });

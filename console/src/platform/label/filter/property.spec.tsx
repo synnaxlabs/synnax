@@ -107,7 +107,7 @@ describe("Label.Filter.createProperty", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: { type: "named", key: named.key },
       });

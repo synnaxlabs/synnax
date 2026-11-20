@@ -149,7 +149,7 @@ describe("range/toolbar/Card", () => {
       parent: rng.key,
       color: { type: "named", key: child.key },
     });
-    const lbl = await client.labels.create({
+    const lbl = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "named", key: tag.key },
     });
