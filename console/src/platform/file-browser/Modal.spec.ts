@@ -599,10 +599,30 @@ describe("FileBrowser.useModal", () => {
       );
     });
 
-    it("should open the field with a ~ typed in the list", async () => {
+    it("should open a typed file that came after its folder listed", async () => {
+      const listings = [...LISTINGS];
+      await openBrowser(listings);
+      await openEtc();
+      const added: FileBrowser.Entry = {
+        name: "new.crt",
+        path: "/etc/new.crt",
+        kind: "file",
+      };
+      listings[2] = { ...ETC, entries: [...ETC.entries, added] };
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "/etc/new.crt" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("new.crt", true)).toBeDefined();
+    });
+
+    it.each([
+      ["", {}],
+      [" with AltGr", { ctrlKey: true, altKey: true, modifierAltGraph: true }],
+    ])("should open the field with a ~ typed in the list%s", async (_, mods) => {
       await openBrowser(LISTINGS);
       await openEtc();
-      fireEvent.keyDown(findFiles(), { key: "~" });
+      fireEvent.keyDown(findFiles(), { key: "~", ...mods });
       expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
         "value",
         "~",

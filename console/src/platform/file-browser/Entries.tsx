@@ -345,7 +345,9 @@ export const Entries = ({
     scrollToIndex(i);
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
-    if (e.ctrlKey || e.metaKey || e.altKey) keyboard.onKeyDown(e);
+    // AltGr reports Ctrl and Alt on Windows, and still types a character.
+    if ((e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph"))
+      keyboard.onKeyDown(e);
     else if (e.key === "/" || e.key === "~") {
       e.preventDefault();
       onEditPath(e.key);
