@@ -20,6 +20,8 @@ import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
 import { createItemCounter } from "@/feature/range/tree/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
@@ -79,17 +81,20 @@ const createRanges = async (): Promise<{
   label: label.Key;
   ranges: ranger.Range[];
 }> => {
-  const { key } = await client.labels.create({
+  const { key } = await createTestLabel(client, {
     name: "tree",
     color: { type: "fixed", value: "#000000" },
   });
   const end = TimeStamp.now().sub(TimeSpan.days(1));
-  const ranges = await client.ranges.create(
-    ["a", "b", "c"].map((name) => ({
-      name,
-      timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
-      labels: [key],
-    })),
+  const ranges = await Promise.all(
+    ["a", "b", "c"].map(
+      async (name) =>
+        await createTestRange(client, {
+          name,
+          timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+          labels: [key],
+        }),
+    ),
   );
   return { label: key, ranges };
 };
@@ -111,21 +116,24 @@ const renderTree = async (
 
 describe("range tree", () => {
   it("should show a short start for a narrow list", async () => {
-    const { key } = await client.labels.create({
+    const { key } = await createTestLabel(client, {
       name: "short",
       color: { type: "fixed", value: "#000000" },
     });
     const now = TimeStamp.now();
     const old = now.sub(TimeSpan.days(400));
-    const ranges = await client.ranges.create(
+    const ranges = await Promise.all(
       [
         { name: "new", start: now },
         { name: "old", start: old },
-      ].map(({ name, start }) => ({
-        name,
-        timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
-        labels: [key],
-      })),
+      ].map(
+        async ({ name, start }) =>
+          await createTestRange(client, {
+            name,
+            timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
+            labels: [key],
+          }),
+      ),
     );
     await renderTree(key, ranges, "list");
     // A narrow list shows this form in place of the full start.
@@ -177,12 +185,12 @@ describe("range tree", () => {
 
   it("should repaint a bar when its named color changes", async () => {
     const named = await client.colors.create({ name: "tree", light: "#123456" });
-    const { key } = await client.labels.create({
+    const { key } = await createTestLabel(client, {
       name: "tree",
       color: { type: "fixed", value: "#000000" },
     });
     const end = TimeStamp.now().sub(TimeSpan.days(1));
-    const rng = await client.ranges.create({
+    const rng = await createTestRange(client, {
       name: "a",
       timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
       labels: [key],
@@ -222,7 +230,7 @@ describe("range tree", () => {
     const { label, ranges } = await createRanges();
     await renderTree(label, ranges);
     const end = TimeStamp.now().sub(TimeSpan.days(1));
-    await client.ranges.create({
+    await createTestRange(client, {
       name: "d",
       timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
       labels: [label],

@@ -15,7 +15,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Card } from "@/feature/range/toolbar/Card";
-import { dotColorBeside } from "@/platform/label/testutil";
+import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
 import { createTestRange, rangeColorBeside } from "@/platform/range/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
@@ -34,7 +34,7 @@ const createAgo = async (
   parent?: ranger.Key,
 ): Promise<ranger.Range> => {
   const now = TimeStamp.now();
-  return await client.ranges.create({
+  return await createTestRange(client, {
     name,
     parent,
     timeRange: new TimeRange(
@@ -94,7 +94,7 @@ describe("range/toolbar/Card", () => {
   });
 
   it("should show no end or total for a planned range with no end", async () => {
-    const rng = await client.ranges.create({
+    const rng = await createTestRange(client, {
       name: uniqueName("planned"),
       timeRange: new TimeRange(TimeStamp.now().add(TimeSpan.HOUR), TimeStamp.MAX),
     });
@@ -125,7 +125,7 @@ describe("range/toolbar/Card", () => {
 
   it("should show the labels of the range", async () => {
     const rng = await createAgo(uniqueName("labeled"), TimeSpan.minutes(1), null);
-    const lbl = await client.labels.create({
+    const lbl = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "fixed", value: "#FF0000" },
     });
@@ -149,7 +149,7 @@ describe("range/toolbar/Card", () => {
       parent: rng.key,
       color: { type: "named", key: child.key },
     });
-    const lbl = await client.labels.create({
+    const lbl = await createTestLabel(client, {
       name: uniqueName("label"),
       color: { type: "named", key: tag.key },
     });

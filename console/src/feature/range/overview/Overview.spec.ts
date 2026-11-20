@@ -13,10 +13,11 @@ import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, describe, expect, it, onTestFinished } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { CORE, renderOverview } from "@/feature/range/overview/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import { createTestRange, rangeColorBeside } from "@/platform/range/testutil";
 import {
   createTestClientWithGrants,
@@ -44,7 +45,7 @@ const createChildAt = async (
   parent: ranger.Range,
   start: TimeStamp,
 ): Promise<ranger.Range> =>
-  await client.ranges.create({
+  await createTestRange(client, {
     name: uniqueName("child"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
     parent: parent.key,
@@ -66,7 +67,7 @@ describe("range/overview", () => {
 
     it("should add a picked label to the range", async () => {
       const rng = await createTestRange(client);
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: { type: "fixed", value: "#FF0000" },
       });
@@ -83,9 +84,15 @@ describe("range/overview", () => {
 
     it("should remove a label when its tag closes", async () => {
       const rng = await createTestRange(client);
-      const [removed, kept] = await client.labels.create([
-        { name: uniqueName("removed"), color: { type: "fixed", value: "#FF0000" } },
-        { name: uniqueName("kept"), color: { type: "fixed", value: "#00FF00" } },
+      const [removed, kept] = await Promise.all([
+        createTestLabel(client, {
+          name: uniqueName("removed"),
+          color: { type: "fixed", value: "#FF0000" },
+        }),
+        createTestLabel(client, {
+          name: uniqueName("kept"),
+          color: { type: "fixed", value: "#00FF00" },
+        }),
       ]);
       await client.labels.label(rng.resourceID, [removed.key, kept.key]);
       await renderOverview(rng.key);
@@ -354,12 +361,10 @@ describe("range/overview", () => {
 
     it("should show the children of a range that has not started on a timeline", async () => {
       const now = TimeStamp.now();
-      const parent = await client.ranges.create({
+      const parent = await createTestRange(client, {
         name: uniqueName("planned"),
         timeRange: new TimeRange(now.add(TimeSpan.days(3)), TimeStamp.MAX),
       });
-      // A range that has not started sorts above every other in the explorer.
-      onTestFinished(async () => await client.ranges.delete(parent.key));
       const child = await createChildAt(parent, now);
       await renderOverview(parent.key, createTestClient());
       await screen.findByRole("listitem", { name: child.name });
@@ -368,7 +373,7 @@ describe("range/overview", () => {
 
     it("should list the children of an open child newest first in the tree", async () => {
       const end = TimeStamp.now();
-      const parent = await client.ranges.create({
+      const parent = await createTestRange(client, {
         name: uniqueName("campaign"),
         timeRange: new TimeRange(end.sub(TimeSpan.days(2)), end),
       });

@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Label } from "@/platform/label";
-import { dotColorBeside } from "@/platform/label/testutil";
+import { createTestLabel, dotColorBeside } from "@/platform/label/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { renderSuspended } from "@/testutil";
@@ -74,7 +74,7 @@ const createLabels = async (count: number): Promise<label.Label[]> =>
     Array.from(
       { length: count },
       async (_, i) =>
-        await client.labels.create({
+        await createTestLabel(client, {
           name: uniqueName(`label-${i}`),
           color: { type: "fixed", value: "#F00000" },
         }),
@@ -107,7 +107,7 @@ describe("Label.Filter.createProperty", () => {
         name: uniqueName("color"),
         light: "#123456",
       });
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: { type: "named", key: named.key },
       });

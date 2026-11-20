@@ -382,6 +382,25 @@ var _ = Describe("Writer", func() {
 					))
 				},
 			)
+			It("Should refuse to add a private key to a certificate saved without one",
+				func(ctx SpecContext) {
+					key := newKey()
+					c := e.create(
+						ctx,
+						stored("Plant", newCertificate(key, "a", time.Hour)),
+						nil,
+					)
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, encodeKey(key))
+					})).To(MatchError(ContainSubstring(
+						"private_key_pem: must be empty for a certificate saved " +
+							"without a private key",
+					)))
+					Expect(
+						storedOf(e.retrieve(ctx, c.Base().Key)).PrivateKey,
+					).To(BeNil())
+				},
+			)
 			It("Should refuse a replace of a stored certificate with a file",
 				func(ctx SpecContext) {
 					key := newKey()
@@ -398,6 +417,42 @@ var _ = Describe("Writer", func() {
 						"source: cannot change from stored to file",
 					)))
 					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
+				},
+			)
+			It(
+				"Should refuse to add a private key file to a certificate saved without one",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					keyed := fileOf(c)
+					keyed.PrivateKeyFile = new("client.pem")
+					c.Variant = keyed
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, nil)
+					})).To(MatchError(ContainSubstring(
+						"private_key_file: must be empty for a certificate saved " +
+							"without a private key file",
+					)))
+					Expect(
+						fileOf(e.retrieve(ctx, c.Base().Key)).PrivateKeyFile,
+					).To(BeNil())
+				},
+			)
+			It("Should let a file certificate change its private key file",
+				func(ctx SpecContext) {
+					keyed := file("Plant", coreRack)
+					variant := fileOf(keyed)
+					variant.PrivateKeyFile = new("client.pem")
+					keyed.Variant = variant
+					c := e.create(ctx, keyed, nil)
+					variant = fileOf(c)
+					variant.PrivateKeyFile = new("other.pem")
+					c.Variant = variant
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, nil)
+					})).To(Succeed())
+					Expect(
+						*fileOf(e.retrieve(ctx, c.Base().Key)).PrivateKeyFile,
+					).To(Equal("other.pem"))
 				},
 			)
 			It("Should refuse a replace of a file certificate with a stored one",
@@ -512,6 +567,78 @@ var _ = Describe("Writer", func() {
 			})).
 				To(MatchError(query.ErrNotFound))
 		})
+	})
+
+	Describe("Status", func() {
+		// warn writes a warning that c owns, as the OPC UA migration does.
+		warn := func(ctx SpecContext, c certificate.Certificate) {
+			GinkgoHelper()
+			st := status.Status[any]{
+				Owner:   new(c.ResourceID()),
+				Name:    c.Base().Name,
+				Time:    telem.Now(),
+				Variant: status.VariantWarning,
+				Message: "Private key file renamed",
+			}
+			Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.status.NewWriter(tx).Set(ctx, &st)
+			})).To(Succeed())
+		}
+		It("Should keep the status of a certificate with no details on rename, under "+
+			"the new name", func(ctx SpecContext) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			warn(ctx, c)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "Line")
+			})).To(Succeed())
+			st := e.expiry(ctx, c.Base().Key)
+			Expect(st.Message).To(Equal("Private key file renamed"))
+			Expect(st.Name).To(Equal("Line"))
+		})
+		It("Should rename a certificate with no details and no status", func(
+			ctx SpecContext,
+		) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			Expect(e.write(ctx, func(w certificate.Writer) error {
+				return w.Rename(ctx, c.Base().Key, "Line")
+			})).To(Succeed())
+			Expect(e.retrieve(ctx, c.Base().Key).Base().Name).To(Equal("Line"))
+		})
+		It("Should keep the status of a certificate with no details on a replace "+
+			"with no details", func(ctx SpecContext) {
+			c := e.create(ctx, file("Plant", coreRack), nil)
+			warn(ctx, c)
+			replaced := file("Plant", coreRack)
+			replaced.SetBase(c.Base())
+			variant := fileOf(replaced)
+			variant.CertificatePath = "/etc/plant/new.pem"
+			replaced.Variant = variant
+			e.create(ctx, replaced, nil)
+			Expect(e.expiry(ctx, c.Base().Key).Message).
+				To(Equal("Private key file renamed"))
+		})
+		It("Should delete the expiry status of a certificate that loses its details",
+			func(ctx SpecContext) {
+				c := file("Plant", coreRack)
+				variant := fileOf(c)
+				variant.Details = &certificate.Details{
+					NotAfter: telem.NewTimeStamp(start.Add(time.Hour)),
+				}
+				c.Variant = variant
+				c = e.create(ctx, c, nil)
+				Expect(e.expiry(ctx, c.Base().Key).Message).
+					To(Equal("Certificate expires soon"))
+				replaced := file("Plant", coreRack)
+				replaced.SetBase(c.Base())
+				e.create(ctx, replaced, nil)
+				var found []status.Status[any]
+				Expect(e.status.NewRetrieve[any]().
+					Where(status.MatchOwners[any](c.ResourceID())).
+					Entries(&found).
+					Exec(ctx, e.db)).To(Succeed())
+				Expect(found).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Delete", func() {
