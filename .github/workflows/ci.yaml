@@ -644,9 +644,6 @@ jobs:
       ubuntu: false
     secrets: inherit
 
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
   vite-plugin:
     needs: changes
     if: inputs.full || needs.changes.outputs.vite_plugin == 'true'
@@ -805,7 +802,6 @@ jobs:
       - scripts
       - site-common
       - soem
-      - versions
       - vite-plugin
       - www
       - x-cpp
