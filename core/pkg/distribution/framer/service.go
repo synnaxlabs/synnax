@@ -172,11 +172,12 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 	return s.relay.NewStreamer(cfg)
 }
 
-// SetFreeIndexResolver injects the resolver the writer service uses to look up free
-// channel indexes at open time. It must be called before opening writers on free
-// channels; the service layer registers its channel service here at startup.
-func (s *Service) SetFreeIndexResolver(resolver writer.FreeIndexResolver) {
-	s.writer.SetFreeIndexResolver(resolver)
+// SetChannelResolver injects the resolver the writer service uses to look up the
+// records of free and virtual channels at open time. It must be called before opening
+// writers on such channels; the service layer registers its channel service here at
+// startup.
+func (s *Service) SetChannelResolver(resolver writer.ChannelResolver) {
+	s.writer.SetChannelResolver(resolver)
 }
 
 // ClaimDelete claims keys for a delete and returns the function that releases the

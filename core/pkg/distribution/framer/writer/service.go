@@ -14,6 +14,7 @@ package writer
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"uuid"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
@@ -130,25 +132,31 @@ func DefaultConfig() Config {
 	}
 }
 
-// splitFree returns a copy of c holding only the channels that have storage, each with
-// its own authority, and the keys of the free channels. It must only be called after c
-// has been validated.
-func (c Config) splitFree() (stored Config, free channel.Keys) {
-	stored = c
+// split returns a copy of c holding only the channels that Cesium stores, the copy
+// holding only the leased virtual channels, and the keys of the free channels. Each
+// copy gives each of its channels its own authority. It must only be called after c has
+// been validated.
+func (c Config) split(
+	virtual set.Set[channel.Key],
+) (stored, leased Config, free channel.Keys) {
+	stored, leased = c, c
 	stored.Keys = make(channel.Keys, 0, len(c.Keys))
 	stored.Authorities = make([]control.Authority, 0, len(c.Keys))
+	leased.Keys, leased.Authorities = nil, nil
 	for i, key := range c.Keys {
-		if key.Free() {
+		auth := c.Authorities[i%len(c.Authorities)]
+		switch {
+		case key.Free():
 			free = append(free, key)
-			continue
+		case virtual.Contains(key):
+			leased.Keys = append(leased.Keys, key)
+			leased.Authorities = append(leased.Authorities, auth)
+		default:
+			stored.Keys = append(stored.Keys, key)
+			stored.Authorities = append(stored.Authorities, auth)
 		}
-		stored.Keys = append(stored.Keys, key)
-		stored.Authorities = append(
-			stored.Authorities,
-			c.Authorities[i%len(c.Authorities)],
-		)
 	}
-	return stored, free
+	return stored, leased, free
 }
 
 func (c Config) toStorage() cesium.WriterConfig {
@@ -245,17 +253,15 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return cfg
 }
 
-// FreeIndexResolver resolves the index channels of free channels, whose records live
-// above the distribution layer. The service-layer channel service implements this
-// interface and is registered via Service.SetFreeIndexResolver.
-type FreeIndexResolver interface {
-	// ResolveFreeIndexes returns the index channel key for each free channel in keys
-	// that has an index. Free frames are stamped with per-index alignments derived from
-	// this map, and a free channel it leaves out counts its own alignments. Any error
-	// is propagated to the caller opening the writer.
-	ResolveFreeIndexes(
-		ctx context.Context, keys channel.Keys,
-	) (map[channel.Key]channel.Key, error)
+// ChannelResolver resolves the records of channels, which live above the distribution
+// layer. The service-layer channel service implements it, and
+// Service.SetChannelResolver registers it.
+type ChannelResolver interface {
+	// Resolve returns the record of each channel in keys that has one.
+	Resolve(
+		ctx context.Context,
+		keys channel.Keys,
+	) (map[channel.Key]channel.Channel, error)
 }
 
 // Service is the central service for the writer package, allowing the caller to open
@@ -265,9 +271,10 @@ type Service struct {
 	// opened on this service, so concurrent free writers stamp distinct alignment
 	// domains.
 	freeWriteAlignments *freeWriteAlignments
-	// resolver looks up free channel indexes at open time. Set once at startup via
-	// SetFreeIndexResolver; opening a writer on free channels fails until it is set.
-	resolver atomic.Pointer[FreeIndexResolver]
+	// resolver looks up the records of free and virtual channels at open time. Set once
+	// at startup via SetChannelResolver; opening a writer on such channels fails until
+	// it is set.
+	resolver atomic.Pointer[ChannelResolver]
 	claims   *claims
 	controls *controls
 	cfg      ServiceConfig
@@ -287,13 +294,16 @@ func (s *Service) OnControlUpdate(
 // claim. While the claim is held, a writer on one of keys fails to open. ClaimDelete
 // fails with ErrChannelInUse when a writer holds one of keys.
 func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
-	return s.claims.claim(keys)
+	if release, err = s.claims.claim(keys); err == nil {
+		s.controls.forget(keys)
+	}
+	return release, err
 }
 
-// SetFreeIndexResolver injects the resolver used to look up free channel indexes when
-// a writer is opened. It must be called before opening writers on free channels; the
-// service layer registers its channel service here at startup.
-func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&r) }
+// SetChannelResolver injects the resolver used to look up the records of free and
+// virtual channels when a writer is opened. It must be called before opening writers on
+// such channels; the service layer registers its channel service here at startup.
+func (s *Service) SetChannelResolver(r ChannelResolver) { s.resolver.Store(&r) }
 
 // NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -362,25 +372,46 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
+	stored, virtualChannels, records, err := s.resolve(ctx, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
 	var (
-		stored, freeKeys  = cfg.splitFree()
-		hasStorage        = len(stored.Keys) > 0
-		hasFree           = len(freeKeys) > 0
-		pipe              = plumber.New()
-		receiverAddresses []address.Address
-		routeSequencerTo  address.Address
+		virtual = set.New(lo.Map(
+			virtualChannels,
+			func(ch cesium.Channel, _ int) channel.Key { return channel.Key(ch.Key) },
+		)...)
+		storedCfg, leased, freeKeys     = cfg.split(virtual)
+		hasStorage                      = len(storedCfg.Keys) > 0
+		hasFree                         = len(freeKeys) > 0 || len(leased.Keys) > 0
+		pipe                            = plumber.New()
+		receiverAddresses               []address.Address
+		routeSequencerTo                address.Address
+		freeIndexes                     map[channel.Key]channel.Key
+		freeAlignments, leasedAlignment map[channel.Key]telem.Alignment
 	)
 
-	// Resolve free channel indexes and alignments before any pipeline resources are
-	// opened, so a failure requires no cleanup.
-	var (
-		freeIndexes    map[channel.Key]channel.Key
-		freeAlignments map[channel.Key]telem.Alignment
-	)
-	if hasFree {
-		if freeIndexes, freeAlignments, err = s.resolveFree(ctx, freeKeys); err != nil {
+	// Reserve the write alignments before any pipeline resources are opened, so a
+	// failure requires no cleanup.
+	if len(freeKeys) > 0 {
+		freeIndexes = freeIndexesOf(freeKeys, records)
+		if freeAlignments, err = s.freeWriteAlignments.reserve(
+			freeKeys,
+			freeIndexes,
+		); err != nil {
 			return nil, err
 		}
+	}
+	if leasedAlignment, err = s.freeWriteAlignments.reserve(
+		leased.Keys,
+		nil,
+	); err != nil {
+		return nil, err
+	}
+	freeAlignments = lo.Assign(freeAlignments, leasedAlignment)
+	leasedGates, transfers, err := s.controls.openGates(leased, virtualChannels)
+	if err != nil {
+		return nil, err
 	}
 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
@@ -392,23 +423,26 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	if hasStorage {
 		routeSequencerTo = storageWriterAddr
-		w, err := s.newStorage(ctx, stored)
+		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
+			leasedGates.release()
 			return nil, err
 		}
 		pipe.SetSegment(storageWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, storageWriterAddr)
 	}
+	s.controls.notify(transfers)
 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
 		w := s.newFree(
 			cfg.Mode,
 			*cfg.Sync,
-			freeKeys,
+			append(slices.Clone(freeKeys), leased.Keys...),
 			freeIndexes,
 			freeAlignments,
 			cfg.ControlSubject.Group,
+			leasedGates,
 		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
@@ -417,30 +451,90 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasStorage && hasFree {
 		routeSequencerTo = switchAddr
 	}
-	return newSegment(pipe, receiverAddresses, routeSequencerTo), nil
+	return newSegment(
+		pipe,
+		receiverAddresses,
+		routeSequencerTo,
+		newSwitch(set.New(storedCfg.Keys...)),
+	), nil
 }
 
-// resolveFree resolves the indexes of the given free channels and reserves their write
-// alignments.
-func (s *Service) resolveFree(
+// resolve returns the Cesium channels of the keys that Cesium stores, the channels of
+// the leased virtual keys, and the records of the free and leased virtual keys. Cesium
+// holds the facts of the channels it stores, and the resolver holds the facts of the
+// others. From Phase 6, Cesium keeps no channel facts, and every key resolves here.
+func (s *Service) resolve(
 	ctx context.Context,
-	freeKeys channel.Keys,
-) (map[channel.Key]channel.Key, map[channel.Key]telem.Alignment, error) {
+	keys channel.Keys,
+) (
+	stored, virtual []cesium.Channel,
+	records map[channel.Key]channel.Channel,
+	err error,
+) {
+	var (
+		unresolved channel.Keys
+		notFound   = make(map[channel.Key]error)
+	)
+	for _, k := range keys {
+		if k.Free() {
+			unresolved = append(unresolved, k)
+			continue
+		}
+		ch, err := s.cfg.TS.RetrieveChannel(ctx, uint32(k))
+		if errors.Is(err, cesium.ErrChannelNotFound) {
+			unresolved = append(unresolved, k)
+			notFound[k] = err
+			continue
+		}
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		stored = append(stored, ch)
+	}
+	if len(unresolved) == 0 {
+		return stored, nil, nil, nil
+	}
 	rp := s.resolver.Load()
 	if rp == nil || *rp == nil {
-		return nil, nil, errors.New(
-			"cannot open a writer on free channels: no free index resolver configured",
+		return nil, nil, nil, errors.New(
+			"cannot open a writer on free or virtual channels: no channel resolver " +
+				"configured",
 		)
 	}
-	freeIndexes, err := (*rp).ResolveFreeIndexes(ctx, freeKeys)
-	if err != nil {
-		return nil, nil, err
+	if records, err = (*rp).Resolve(ctx, unresolved); err != nil {
+		return nil, nil, nil, err
 	}
-	freeAlignments, err := s.freeWriteAlignments.reserve(freeKeys, freeIndexes)
-	if err != nil {
-		return nil, nil, err
+	for _, k := range unresolved {
+		if k.Free() {
+			continue
+		}
+		r, ok := records[k]
+		if !ok || !r.Virtual {
+			return nil, nil, nil, notFound[k]
+		}
+		virtual = append(virtual, cesium.Channel{
+			Key:         uint32(k),
+			Name:        r.Name,
+			DataType:    r.DataType,
+			Virtual:     true,
+			Concurrency: r.Concurrency,
+		})
 	}
-	return freeIndexes, freeAlignments, nil
+	return stored, virtual, records, nil
+}
+
+// freeIndexesOf returns the index of each free channel in keys whose record has one.
+func freeIndexesOf(
+	keys channel.Keys,
+	records map[channel.Key]channel.Channel,
+) map[channel.Key]channel.Key {
+	indexes := make(map[channel.Key]channel.Key)
+	for _, k := range keys {
+		if r, ok := records[k]; ok && r.Index() != 0 {
+			indexes[k] = r.Index()
+		}
+	}
+	return indexes
 }
 
 // newSegment connects the sequencer to routeSequencerTo and the receivers to the
@@ -450,11 +544,12 @@ func newSegment(
 	pipe *plumber.Pipeline,
 	receiverAddresses []address.Address,
 	routeSequencerTo address.Address,
+	sw func(context.Context, Request, map[address.Address]Request) error,
 ) *plumber.Segment[Request, Response] {
 	if routeSequencerTo == switchAddr {
 		pipe.SetSegment(
 			switchAddr,
-			&confluence.BatchSwitch[Request, Request]{Switch: switchFree},
+			&confluence.BatchSwitch[Request, Request]{Switch: sw},
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{switchAddr},

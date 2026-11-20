@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/stringer"
@@ -35,7 +34,6 @@ import (
 type Writer struct {
 	WriterConfig
 	internal []*idxWriter
-	virtual  *virtualWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
@@ -108,9 +106,6 @@ func (w *Writer) Close() error {
 	for _, idx := range w.internal {
 		err = errors.Join(err, idx.Close())
 	}
-	if w.virtual.internal != nil {
-		err = errors.Join(err, w.virtual.Close())
-	}
 	w.err = errors.Join(w.err, err)
 	return w.err
 }
@@ -122,23 +117,19 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 	return written, err
 }
 
-// WriteExcept writes fr except the channels in skip, and returns it without them, with
-// the alignment and time range of each written series set. A skipped index also skips
-// the data channels it indexes in the writer. The returned bool is true when
-// WriteExcept
-// skipped a series of fr, and the next commit of that index then commits nothing.
-// WriteExcept validates every series of fr, and returns an error for a key in skip that
-// the writer does not write.
+// WriteExcept writes fr except the channels for which skip returns true, and returns it
+// without them, with the alignment and time range of each written series set. A skipped
+// index also skips the data channels it indexes in the writer. The returned bool is
+// true when WriteExcept skipped a series of fr, and the next commit of that index then
+// commits nothing. WriteExcept validates every series of fr, and calls skip under the
+// lock of each channel's claim. A nil skip skips nothing.
 func (w *Writer) WriteExcept(
 	ctx context.Context,
 	fr Frame,
-	skip set.Set[ChannelKey],
+	skip func(ChannelKey) bool,
 ) (Frame, bool, error) {
 	if err := w.check(); err != nil {
 		return Frame{}, false, err
-	}
-	if err := w.checkSkip(skip); err != nil {
-		return Frame{}, false, w.fail(err)
 	}
 	var (
 		err      error
@@ -149,29 +140,7 @@ func (w *Writer) WriteExcept(
 			return Frame{}, false, w.fail(err)
 		}
 	}
-	if w.virtual.internal != nil {
-		if fr, err = w.virtual.write(skip, &excluded, fr); err != nil {
-			return Frame{}, false, w.fail(err)
-		}
-	}
 	return fr.ExcludeKeys(excluded), len(excluded) > 0, nil
-}
-
-// checkSkip returns an error for a key in skip that the writer does not write.
-func (w *Writer) checkSkip(skip set.Set[ChannelKey]) error {
-	for k := range skip {
-		if _, ok := w.keyToIdx[k]; ok {
-			continue
-		}
-		if _, ok := w.virtual.internal[k]; ok {
-			continue
-		}
-		return channel.Wrap(k, errors.Wrap(
-			validate.ErrValidation,
-			"cannot skip a channel that the writer does not write",
-		))
-	}
-	return nil
 }
 
 // Commit makes the written samples available to reads and returns the end of the
@@ -181,20 +150,17 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end, err
 }
 
-// CommitExcept commits every channel except the channels in skip. The returned bool is
-// true when it skipped a channel of an index with samples to commit, and the end is
-// then zero. The samples of a skipped channel stay uncommitted. CommitExcept returns an
-// error
-// for a key in skip that the writer does not write.
+// CommitExcept commits every channel except the channels for which skip returns true.
+// The returned bool is true when it skipped a channel of an index with samples to
+// commit, and the end is then zero. The samples of a skipped channel stay uncommitted.
+// CommitExcept calls skip under the lock of each channel's claim. A nil skip skips
+// nothing.
 func (w *Writer) CommitExcept(
 	ctx context.Context,
-	skip set.Set[ChannelKey],
+	skip func(ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
 	if err := w.check(); err != nil {
 		return 0, false, err
-	}
-	if err := w.checkSkip(skip); err != nil {
-		return 0, false, w.fail(err)
 	}
 	var (
 		maxTS   = telem.TimeStampMin
@@ -314,7 +280,7 @@ type indexWrite struct {
 }
 
 func (w *idxWriter) write(
-	skip set.Set[ChannelKey],
+	skip func(ChannelKey) bool,
 	excluded *[]ChannelKey,
 	fr Frame,
 ) (Frame, error) {
@@ -357,15 +323,18 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		if skip.Contains(key) {
-			if err = skipSeries(uWriter.Channel, key, series, excluded); err != nil {
-				return fr, err
-			}
+		var keySkipped bool
+		if _, keySkipped, err = uWriter.WriteAtUnless(
+			series,
+			alignment,
+			skip,
+		); err != nil {
+			return fr, err
+		}
+		if keySkipped {
+			*excluded = append(*excluded, key)
 			skipped = true
 			continue
-		}
-		if _, err := uWriter.WriteAt(series, alignment); err != nil {
-			return fr, err
 		}
 		if !incrementedSampleCount {
 			w.countSamples(alignment, series.Len())
@@ -381,20 +350,6 @@ func (w *idxWriter) write(
 		w.hasUncommittedData = false
 	}
 	return fr, nil
-}
-
-// skipSeries validates the series of a skipped channel and adds key to excluded.
-func skipSeries(
-	ch Channel,
-	key ChannelKey,
-	series telem.Series,
-	excluded *[]ChannelKey,
-) error {
-	if err := ch.ValidateSeries(series); err != nil {
-		return err
-	}
-	*excluded = append(*excluded, key)
-	return nil
 }
 
 // dataSeries returns the series at raw position i of fr and the writer of its data
@@ -419,7 +374,7 @@ func (w *idxWriter) dataSeries(
 // writeIndex writes the index series of fr when the group writes its index. When skip
 // holds the index, it adds the index to excluded and returns with skipped set.
 func (w *idxWriter) writeIndex(
-	skip set.Set[ChannelKey],
+	skip func(ChannelKey) bool,
 	excluded *[]ChannelKey,
 	fr Frame,
 ) (idx indexWrite, err error) {
@@ -440,12 +395,15 @@ func (w *idxWriter) writeIndex(
 		}
 		first := series.ValueAt[telem.TimeStamp](0)
 		uWriter.SetDomainStart(first)
-		if skip.Contains(key) {
-			idx.skipped = true
-			return idx, skipSeries(uWriter.Channel, key, series, excluded)
-		}
-		if idx.alignment, err = uWriter.Write(series); err != nil {
+		if idx.alignment, idx.skipped, err = uWriter.WriteUnless(
+			series,
+			skip,
+		); err != nil {
 			return idx, err
+		}
+		if idx.skipped {
+			*excluded = append(*excluded, key)
+			return idx, nil
 		}
 		idx.written = true
 		w.sampleCount = int64(idx.alignment.SampleIndex()) + series.Len()
@@ -478,7 +436,7 @@ func (w *idxWriter) countSamples(alignment telem.Alignment, n int64) {
 // true when it skipped a channel and the group had samples to commit.
 func (w *idxWriter) Commit(
 	ctx context.Context,
-	skip set.Set[ChannelKey],
+	skip func(ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
 	if w.sampleCount == 0 || !w.hasUncommittedData {
 		return w.lastCommitEnd, false, nil
@@ -493,24 +451,24 @@ func (w *idxWriter) Commit(
 	// read finds an index sample without its data.
 	defer w.group.Publish()
 	skipped := false
-	commit := func(key ChannelKey, chW *unaryWriterState) {
-		if skip.Contains(key) {
-			skipped = true
-			return
-		}
+	commit := func(chW *unaryWriterState) {
+		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
+		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
-		if cErr := chW.CommitWithEnd(ctx, end.Lower, &w.group); err == nil {
+		if err == nil {
 			err = cErr
 		}
 	}
 	// The index persists first: after a restart, a reader resolves a data domain
 	// through the index.
 	if w.writingToIdx {
-		commit(w.idx.ch.Key, w.internal[w.idx.ch.Key])
+		commit(w.internal[w.idx.ch.Key])
 	}
+	// A skipped index leaves its data channels with no stamps of this writer, so the
+	// group waits.
 	for key, chW := range w.internal {
-		if key != w.idx.ch.Key {
-			commit(key, chW)
+		if key != w.idx.ch.Key && !skipped {
+			commit(chW)
 		}
 	}
 	if err != nil {
@@ -723,46 +681,4 @@ func (w *idxWriter) resolveCommitEnd(
 		return approx, index.NewDiscontinuousStampError(w.start)
 	}
 	return approx, nil
-}
-
-type virtualWriter struct {
-	internal map[ChannelKey]*virtual.Writer
-}
-
-func (w virtualWriter) write(
-	skip set.Set[ChannelKey],
-	excluded *[]ChannelKey,
-	fr Frame,
-) (Frame, error) {
-	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) {
-			continue
-		}
-		v, ok := w.internal[k]
-		if !ok {
-			continue
-		}
-		s := fr.RawSeriesAt(rawI)
-		if skip.Contains(k) {
-			if err := skipSeries(v.Channel, k, s, excluded); err != nil {
-				return fr, err
-			}
-			continue
-		}
-		alignment, err := v.Write(s)
-		if err != nil {
-			return fr, err
-		}
-		s.Alignment = alignment
-		fr.SetRawSeriesAt(rawI, s)
-	}
-	return fr, nil
-}
-
-func (w virtualWriter) Close() error {
-	var err error
-	for _, chW := range w.internal {
-		err = errors.Join(err, chW.Close())
-	}
-	return err
 }

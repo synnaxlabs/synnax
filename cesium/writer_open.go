@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -46,11 +45,11 @@ type WriterConfig struct {
 	// Channels sets the channels that the writer will write to. If a channel does not
 	// exist, the writer fill fail to open.
 	Channels []channel.Key
-	// Start marks the start of the writer's claim. When Start is zero, the
-	// region starts at the time the writer opens. If a sample exists for any channel at
-	// a non-zero Start, the writer fails to open. The domains of each index start at
-	// the first timestamp written to that index, not at Start. The region moves back to
-	// a domain that starts before it.
+	// Start marks the start of the writer's claim. When Start is zero, the region
+	// starts at the time the writer opens. If a sample exists for any channel at a
+	// non-zero Start, the writer fails to open. The domains of each index start at the
+	// first timestamp written to that index, not at Start. The region moves back to a
+	// domain that starts before it.
 	//
 	// A writer that writes data channels without their index needs a Start that is a
 	// sample of that index.
@@ -114,49 +113,41 @@ func (db *DB) newWriter(
 		return nil, err
 	}
 	var (
-		domainWriters  = make(map[ChannelKey]*idxWriter)
-		virtualWriters map[ChannelKey]*virtual.Writer
-		keyToIdx       = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
+		domainWriters = make(map[ChannelKey]*idxWriter)
+		keyToIdx      = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
 	)
 	defer func() {
 		if err != nil {
-			err = closeWriters(err, domainWriters, virtualWriters)
+			err = closeWriters(err, domainWriters)
 		}
 	}()
 
 	// Two passes:
-	//   Pass 1: Open virtual writers and index-channel writers.
+	//   Pass 1: Open index-channel writers.
 	//   Pass 2: Open all non-index unary writers (both fixed-density and
 	//     variable-length) and attach them to the appropriate idxWriter group.
 	// Alignment is not decided here. Data channels resolve it from their index on every
 	// write, so a writer that joins an existing claim cannot end up in a different
 	// alignment space than the index it is being written against.
-	if virtualWriters, err = db.openIndexWriters(
-		ctx,
-		cfg,
-		domainWriters,
-		keyToIdx,
-	); err != nil {
+	if err = db.openIndexWriters(ctx, cfg, domainWriters, keyToIdx); err != nil {
 		return nil, err
 	}
 	if err = db.openDataWriters(ctx, cfg, domainWriters, keyToIdx); err != nil {
 		return nil, err
 	}
 
-	return db.assembleWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
+	return db.assembleWriter(cfg, domainWriters, keyToIdx), nil
 }
 
 // assembleWriter returns a Writer over the opened writers.
 func (db *DB) assembleWriter(
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
-	virtualWriters map[ChannelKey]*virtual.Writer,
 	keyToIdx map[ChannelKey]*idxWriter,
 ) *Writer {
 	w := &Writer{
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		virtual:      &virtualWriter{internal: virtualWriters},
 		keyToIdx:     keyToIdx,
 	}
 	for _, idx := range domainWriters {
@@ -167,60 +158,37 @@ func (db *DB) assembleWriter(
 
 // closeWriters closes the given writers and returns err combined with any errors from
 // closing them.
-func closeWriters(
-	err error,
-	domainWriters map[ChannelKey]*idxWriter,
-	virtualWriters map[ChannelKey]*virtual.Writer,
-) error {
+func closeWriters(err error, domainWriters map[ChannelKey]*idxWriter) error {
 	for _, idx := range domainWriters {
 		err = errors.Combine(idx.Close(), err)
-	}
-	for _, vw := range virtualWriters {
-		err = errors.Combine(vw.Close(), err)
 	}
 	return err
 }
 
-// openIndexWriters opens a writer for each virtual and index channel in cfg, adding
-// the index writers to domainWriters and keyToIdx. It returns the virtual writers,
-// including those opened before an error.
+// openIndexWriters opens a writer for each index channel in cfg, adding the index
+// writers to domainWriters and keyToIdx.
 func (db *DB) openIndexWriters(
 	ctx context.Context,
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	keyToIdx map[ChannelKey]*idxWriter,
-) (virtualWriters map[ChannelKey]*virtual.Writer, err error) {
+) error {
 	for i, key := range cfg.Channels {
-		u, isUnary := db.mu.dbs.unary[key]
-		v, isVirtual := db.mu.dbs.virtual[key]
-		if !isVirtual && !isUnary {
-			return virtualWriters, channel.NewNotFoundError(key)
+		u, ok := db.mu.dbs.unary[key]
+		if !ok {
+			return channel.NewNotFoundError(key)
 		}
-		if isUnary && !u.Channel().IsIndex {
+		if !u.Channel().IsIndex {
 			continue
 		}
-		if isVirtual && !cfg.Mode.Stream() {
-			continue
+		idxW, err := db.openIndexWriter(ctx, cfg, &u, i)
+		if err != nil {
+			return err
 		}
-		if isVirtual {
-			vW, err := v.OpenWriter(ctx, virtual.WriterConfig{Start: cfg.Start})
-			if err != nil {
-				return virtualWriters, err
-			}
-			if virtualWriters == nil {
-				virtualWriters = make(map[ChannelKey]*virtual.Writer)
-			}
-			virtualWriters[key] = vW
-		} else {
-			idxW, err := db.openIndexWriter(ctx, cfg, &u, i)
-			if err != nil {
-				return virtualWriters, err
-			}
-			domainWriters[u.Channel().Index] = idxW
-			keyToIdx[key] = idxW
-		}
+		domainWriters[u.Channel().Index] = idxW
+		keyToIdx[key] = idxW
 	}
-	return virtualWriters, nil
+	return nil
 }
 
 // openIndexWriter opens the writer for the index channel u at position i of cfg.

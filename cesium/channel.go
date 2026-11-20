@@ -73,9 +73,6 @@ func (db *DB) retrieveChannel(key ChannelKey) (Channel, error) {
 	if u, ok := db.mu.dbs.unary[key]; ok {
 		return u.Channel(), nil
 	}
-	if v, ok := db.mu.dbs.virtual[key]; ok {
-		return v.Channel(), nil
-	}
 	return Channel{}, channel.NewNotFoundError(key)
 }
 
@@ -98,7 +95,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 		ch.Index = ch.Key
 	}
 	ch.Version = channel.VersionCurrent
-	err = db.openVirtualOrUnary(ctx, ch)
+	err = db.openChannel(ctx, ch)
 	return err
 }
 
@@ -115,16 +112,18 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		return err
 	}
 	_, unaryExists := db.mu.dbs.unary[ch.Key]
-	_, virtualExists := db.mu.dbs.virtual[ch.Key]
 	_, hiddenExists := db.mu.dbs.hidden[ch.Key]
-	if unaryExists || virtualExists || hiddenExists {
+	if unaryExists || hiddenExists || db.mu.virtualDirs.Contains(ch.Key) {
 		return channel.Wrap(ch.Key, errors.Wrap(
 			validate.ErrValidation,
 			"cannot create the channel because it already exists",
 		))
 	}
 	if ch.Virtual {
-		return nil
+		return channel.Wrap(ch.Key, errors.Wrap(
+			validate.ErrValidation,
+			"cannot create a virtual channel, which has no storage",
+		))
 	}
 	if ch.Index != 0 && !ch.IsIndex {
 		indexDB, ok := db.mu.dbs.unary[ch.Index]

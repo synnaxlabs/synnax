@@ -13,9 +13,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -31,9 +29,9 @@ type KeptChannel struct {
 // before any writer opens. A key with an intent and a record lost the commit of its
 // delete, so Sweep clears the intent and opens the channel. Sweep drops a key with an
 // intent and no record, and a key with no record and no samples. It keeps a key with
-// samples, no record, and no intent: writers and iterators on it fail, and Sweep
-// returns it. An index that a kept or recorded channel uses stays, with any intent of
-// the index.
+// samples, no record, and no intent: writers and iterators on it fail, Sweep returns
+// it, and only an intent and a Drop of its key remove it. An index that a kept or
+// recorded channel uses stays, with any intent of the index.
 func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -41,12 +39,17 @@ func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, erro
 		return nil, ErrDBClosed
 	}
 	records := set.New(keys...)
+	// A later Sweep decides again on the channels an earlier one kept.
+	for k, u := range db.mu.dbs.hidden {
+		db.mu.dbs.unary[k] = u
+		delete(db.mu.dbs.hidden, k)
+	}
 	if err := db.reopenFailedDeletes(ctx, records); err != nil {
 		return nil, err
 	}
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
-	for k := range db.mu.dbs.virtual {
+	for k := range db.mu.virtualDirs {
 		if !records.Contains(k) {
 			drop = append(drop, k)
 		}
@@ -99,7 +102,7 @@ func (db *DB) removeOrphanIntents(records, hidden set.Set[ChannelKey]) error {
 		if _, open := db.mu.dbs.unary[k]; open {
 			continue
 		}
-		if _, open := db.mu.dbs.virtual[k]; open {
+		if db.mu.virtualDirs.Contains(k) {
 			continue
 		}
 		err = errors.Join(err, rm.remove(db, k))
@@ -121,7 +124,7 @@ func (db *DB) reopenFailedDeletes(
 		failed = append(failed, k)
 		if db.mu.skipped.Contains(k) {
 			db.mu.skipped.Remove(k)
-			if err := db.openVirtualOrUnary(ctx, Channel{Key: k}); err != nil {
+			if err := db.openChannel(ctx, Channel{Key: k}); err != nil {
 				return err
 			}
 		}
@@ -143,24 +146,4 @@ func (db *DB) usedIndexes(records, kept set.Set[ChannelKey]) set.Set[ChannelKey]
 		}
 	}
 	return used
-}
-
-// Purge drops each key that Sweep kept. It returns an error naming a key that Sweep did
-// not keep, and purges no key then.
-func (db *DB) Purge(keys []ChannelKey) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	for _, k := range keys {
-		if _, ok := db.mu.dbs.hidden[k]; !ok {
-			return channel.Wrap(k, errors.Wrap(query.ErrNotFound, "not a kept channel"))
-		}
-	}
-	for _, k := range keys {
-		db.mu.dbs.unary[k] = db.mu.dbs.hidden[k]
-		delete(db.mu.dbs.hidden, k)
-	}
-	return db.dropLocked(keys)
 }

@@ -38,9 +38,11 @@ type session struct {
 	// gates gate the writes of the session on its control of each channel.
 	gates    *gates
 	controls *controls
+	// lacks reports whether the session lacks control of a channel. Cesium calls it
+	// under the channel's claim lock.
+	lacks func(cesium.ChannelKey) bool
 	// release releases the hold of the session on its channels.
 	release func()
-	stamper *unindexedStamper[cesium.ChannelKey]
 	// autoIndex is nil when the writer does not stamp its indexes.
 	autoIndex *indexStamper
 	// autoCommit is true when the session commits after each write.
@@ -68,7 +70,6 @@ type session struct {
 func (s *Service) newSession(
 	w *cesium.Writer,
 	cfg Config,
-	virtual []cesium.ChannelKey,
 	autoIndex *indexStamper,
 	release func(),
 	g *gates,
@@ -77,8 +78,8 @@ func (s *Service) newSession(
 		w:               w,
 		gates:           g,
 		controls:        s.controls,
+		lacks:           g.lacks,
 		release:         release,
-		stamper:         newUnindexedStamper(virtual),
 		autoIndex:       autoIndex,
 		writes:          s.cfg.Writes,
 		autoCommit:      *cfg.EnableAutoCommit,
@@ -187,11 +188,10 @@ func (s *session) write(
 	fr frame.Frame,
 ) (authorized bool, err error) {
 	st := fr.ToStorage()
-	s.stamper.stamp(st)
 	if s.autoIndex != nil {
 		st = s.autoIndex.stamp(st)
 	}
-	written, refused, err := s.w.WriteExcept(ctx, st, s.gates.refused())
+	written, refused, err := s.w.WriteExcept(ctx, st, s.lacks)
 	if err != nil {
 		return false, s.fail(err)
 	}
@@ -210,7 +210,7 @@ func (s *session) write(
 // the persist rule asks, also after a commit refused for no control. It returns true
 // when the session lacked control of a channel with samples to commit.
 func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
-	end, refused, err := s.w.CommitExcept(ctx, s.gates.refused())
+	end, refused, err := s.w.CommitExcept(ctx, s.lacks)
 	if err != nil {
 		return 0, false, s.fail(err)
 	}
@@ -226,7 +226,7 @@ func (s *session) commit(ctx context.Context) (telem.TimeStamp, bool, error) {
 func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
 	ended, skip, refusal := s.gates.endDomain(indexes)
 	if skip != nil {
-		if _, _, err := s.w.CommitExcept(ctx, skip); err != nil {
+		if _, _, err := s.w.CommitExcept(ctx, skip.Contains); err != nil {
 			return s.fail(err)
 		}
 	}

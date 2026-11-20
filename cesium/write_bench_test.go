@@ -221,8 +221,7 @@ func openBenchWriter(
 }
 
 // retryWrites writes the same frame to w with every channel skipped, in a loop until
-// the
-// returned function runs.
+// the returned function runs.
 func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func() {
 	b.Helper()
 	var (
@@ -238,7 +237,7 @@ func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func(
 				return
 			default:
 			}
-			if _, _, err := w.WriteExcept(b.Context(), f, skip); err != nil {
+			if _, _, err := w.WriteExcept(b.Context(), f, skip.Contains); err != nil {
 				b.Error(err)
 				return
 			}

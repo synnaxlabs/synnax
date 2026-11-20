@@ -908,7 +908,7 @@ var _ = Describe("Writer", func() {
 				streamer.Flow(sCtx)
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
-				s.dist.Framer.SetFreeIndexResolver(indexResolver{
+				s.dist.Framer.SetChannelResolver(indexResolver{
 					idxCh.Key():  idxCh.Key(),
 					dataCh.Key(): idxCh.Key(),
 				})
@@ -979,7 +979,7 @@ var _ = Describe("Writer", func() {
 				streamer.Flow(sCtx)
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
-				s.dist.Framer.SetFreeIndexResolver(indexResolver{})
+				s.dist.Framer.SetChannelResolver(indexResolver{})
 				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
@@ -1024,7 +1024,7 @@ var _ = Describe("Writer", func() {
 				streamer.Flow(sCtx)
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
-				s.dist.Framer.SetFreeIndexResolver(indexResolver{})
+				s.dist.Framer.SetChannelResolver(indexResolver{})
 				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
@@ -1062,12 +1062,12 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 				}
 				ch = MustSucceed(s.dist.CreateChannels(ctx, []channel.Channel{ch}))[0]
-				s.dist.Framer.SetFreeIndexResolver(nil)
+				s.dist.Framer.SetChannelResolver(nil)
 				Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  channel.Keys{ch.Key()},
 					Start: 10 * telem.SecondTS,
 				})).Error().To(MatchError(
-					ContainSubstring("no free index resolver configured"),
+					ContainSubstring("no channel resolver configured"),
 				))
 			},
 		)
@@ -1265,7 +1265,7 @@ var _ = Describe("Writer", func() {
 					},
 				}))
 				data, unindexed := created[0], created[1]
-				s.dist.Framer.SetFreeIndexResolver(indexResolver{
+				s.dist.Framer.SetChannelResolver(indexResolver{
 					idx.Key():  idx.Key(),
 					data.Key(): idx.Key(),
 				})
@@ -1301,20 +1301,24 @@ var _ = Describe("Writer", func() {
 	})
 })
 
-// indexResolver resolves free channel indexes from a fixed key-to-index map.
+// indexResolver resolves the records of free channels from a fixed key-to-index map.
 type indexResolver map[channel.Key]channel.Key
 
-func (r indexResolver) ResolveFreeIndexes(
+func (r indexResolver) Resolve(
 	_ context.Context,
 	keys channel.Keys,
-) (map[channel.Key]channel.Key, error) {
-	indexes := make(map[channel.Key]channel.Key, len(keys))
+) (map[channel.Key]channel.Channel, error) {
+	records := make(map[channel.Key]channel.Channel, len(keys))
 	for _, k := range keys {
 		if idx, ok := r[k]; ok {
-			indexes[k] = idx
+			records[k] = channel.Channel{
+				Leaseholder: k.Lease(),
+				LocalKey:    k.LocalKey(),
+				LocalIndex:  idx.LocalKey(),
+			}
 		}
 	}
-	return indexes, nil
+	return records, nil
 }
 
 type scenario struct {

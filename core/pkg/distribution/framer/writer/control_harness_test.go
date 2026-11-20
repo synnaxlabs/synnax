@@ -11,6 +11,7 @@ package writer_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,11 +36,14 @@ import (
 // testDB and storageWriter give framer writers the Cesium API those specs use, so their
 // assertions run unchanged.
 
-// testDB is a Cesium DB whose writers are framer writers.
+// testDB is a Cesium DB whose writers are framer writers. It holds the records of the
+// virtual channels, which Cesium does not store, and resolves them for the framer.
 type testDB struct {
 	*cesium.DB
-	svc    *writer.Service
-	writes *confluence.Stream[relay.Response]
+	svc     *writer.Service
+	writes  *confluence.Stream[relay.Response]
+	virtual map[channel.Key]channel.Channel
+	mu      sync.Mutex
 }
 
 // storageConfig is the configuration of a Cesium writer before control moved to the
@@ -65,8 +69,8 @@ func GenerateChannelKey() cesium.ChannelKey {
 	return uint32(channel.NewKey(1, channel.LocalKey(60_000+testKeys.Add(1))))
 }
 
-// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it. The DB
-// closes when the spec or container that opens it ends.
+// mustOpenDBOnFS opens a Cesium DB on fsys with a writer service over it. The DB closes
+// when the spec or container that opens it ends.
 func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 	GinkgoHelper()
 	db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))))
@@ -77,7 +81,56 @@ func mustOpenDBOnFS(ctx context.Context, fsys fs.FS) *testDB {
 		Writes: writes,
 		Clock:  xtime.Real,
 	}))
-	return &testDB{DB: db, svc: svc, writes: writes}
+	tdb := &testDB{
+		DB:      db,
+		svc:     svc,
+		writes:  writes,
+		virtual: make(map[channel.Key]channel.Channel),
+	}
+	svc.SetChannelResolver(tdb)
+	return tdb
+}
+
+// CreateChannel creates the stored channels of chs in Cesium and keeps the records of
+// the virtual ones.
+func (db *testDB) CreateChannel(ctx context.Context, chs ...cesium.Channel) error {
+	var stored []cesium.Channel
+	db.mu.Lock()
+	for _, ch := range chs {
+		if !ch.Virtual {
+			stored = append(stored, ch)
+			continue
+		}
+		key := channel.Key(ch.Key)
+		db.virtual[key] = channel.Channel{
+			Name:        ch.Name,
+			Leaseholder: key.Lease(),
+			LocalKey:    key.LocalKey(),
+			DataType:    ch.DataType,
+			Virtual:     true,
+		}
+	}
+	db.mu.Unlock()
+	if len(stored) == 0 {
+		return nil
+	}
+	return db.DB.CreateChannel(ctx, stored...)
+}
+
+// Resolve implements writer.ChannelResolver.
+func (db *testDB) Resolve(
+	_ context.Context,
+	keys channel.Keys,
+) (map[channel.Key]channel.Channel, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	records := make(map[channel.Key]channel.Channel, len(keys))
+	for _, k := range keys {
+		if r, ok := db.virtual[k]; ok {
+			records[k] = r
+		}
+	}
+	return records, nil
 }
 
 // OpenWriter opens a framer writer on the channels of cfg.
@@ -100,18 +153,22 @@ func (db *testDB) OpenWriter(
 	if err != nil {
 		return nil, err
 	}
-	channels, err := db.RetrieveChannels(ctx, cfg.Channels...)
-	if err != nil {
-		return nil, errors.Join(err, w.Close())
+	db.mu.Lock()
+	virtual := lo.CountBy(cfg.Channels, func(k cesium.ChannelKey) bool {
+		_, ok := db.virtual[channel.Key(k)]
+		return ok
+	})
+	db.mu.Unlock()
+	relays := 0
+	if cfg.Mode == 0 || cfg.Mode.Stream() {
+		relays = lo.Ternary(virtual > 0, 1, 0) +
+			lo.Ternary(virtual < len(cfg.Channels), 1, 0)
 	}
 	return &storageWriter{
 		w:       w,
 		writes:  db.writes,
-		streams: cfg.Mode == 0 || cfg.Mode.Stream(),
-		virtual: lo.EveryBy(
-			channels,
-			func(ch cesium.Channel) bool { return ch.Virtual },
-		),
+		relays:  relays,
+		virtual: virtual == len(cfg.Channels),
 	}, nil
 }
 
@@ -176,9 +233,11 @@ func toStorageState(s *writer.ControlState) *xcontrol.State[cesium.ChannelKey] {
 // storageWriter gives a framer writer the API of a Cesium writer: a refusal for no
 // control is an error that wraps control.ErrUnauthorized.
 type storageWriter struct {
-	w       *writer.Writer
-	writes  *confluence.Stream[relay.Response]
-	streams bool
+	w      *writer.Writer
+	writes *confluence.Stream[relay.Response]
+	// relays is the number of frames the writer streams for each write: one for its
+	// stored channels and one for its virtual channels.
+	relays int
 	// virtual is true when the writer holds only virtual channels, which commit
 	// nothing.
 	virtual bool
@@ -193,15 +252,18 @@ func (w *storageWriter) Write(
 	if err != nil {
 		return cesium.Frame{}, err
 	}
-	var written cesium.Frame
-	if w.streams {
+	var written frame.Frame
+	for range w.relays {
 		res := <-w.writes.Outlet()
-		written = res.Frame.ToStorage()
+		written = written.Extend(res.Frame)
 	}
 	if !authorized {
-		return written, errors.Wrap(xcontrol.ErrUnauthorized, "write refused")
+		return written.ToStorage(), errors.Wrap(
+			xcontrol.ErrUnauthorized,
+			"write refused",
+		)
 	}
-	return written, nil
+	return written.ToStorage(), nil
 }
 
 // Commit commits the channels the writer controls. A commit that only follows a refused

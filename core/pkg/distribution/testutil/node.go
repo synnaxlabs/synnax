@@ -32,6 +32,8 @@ type Node struct {
 	Storage *storage.Layer
 	// ownedStorage is Storage when the Node opened it, and nil otherwise.
 	ownedStorage io.Closer
+	// records resolves the channels that the Node creates.
+	records *records
 }
 
 // Close closes the distribution layer, then the storage layer if the Node opened it. It
@@ -58,6 +60,7 @@ func (n Node) CreateChannels(
 	if err = n.Storage.TS.CreateChannel(ctx, stored...); err != nil {
 		return nil, err
 	}
+	n.records.add(allocated)
 	return allocated, nil
 }
 
@@ -99,6 +102,7 @@ func openNode(
 	cfg := distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}
 	cfgs := append([]distribution.LayerConfig{cfg}, overrides...)
 	n.Layer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
-	n.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
+	n.records = &records{byKey: make(map[channel.Key]channel.Channel)}
+	n.Framer.SetChannelResolver(n.records)
 	return n
 }

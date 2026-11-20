@@ -29,9 +29,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// errVirtual is returned when the caller tried to open a unary database on a virtual
+// ErrVirtual is returned when the caller tried to open a unary database on a virtual
 // channel.
-var errVirtual = errors.New("cannot open a unary database on a virtual channel")
+var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -108,7 +108,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
-		return nil, wrapError(errVirtual)
+		return nil, wrapError(ErrVirtual)
 	}
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,

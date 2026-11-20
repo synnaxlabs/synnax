@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -70,12 +69,6 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			}
 			internal = append(internal, iter)
 			continue
-		}
-		if vdb, ok := db.mu.dbs.virtual[key]; ok {
-			return nil, channel.Wrap(vdb.Channel().Key, errors.Wrap(
-				query.ErrUnsupported,
-				"cannot open an iterator on a virtual channel",
-			))
 		}
 		return nil, channel.NewNotFoundError(key)
 	}

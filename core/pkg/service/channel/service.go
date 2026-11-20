@@ -346,14 +346,15 @@ func calculationReads(
 	return reads, nil
 }
 
-// freeIndexResolver adapts the Service to the distribution framer writer's
-// FreeIndexResolver interface without exposing resolution on the Service itself.
-type freeIndexResolver struct{ svc *Service }
+// channelResolver adapts the Service to the distribution framer writer's
+// ChannelResolver interface without exposing resolution on the Service itself.
+type channelResolver struct{ svc *Service }
 
-func (r freeIndexResolver) ResolveFreeIndexes(
+// Resolve implements writer.ChannelResolver.
+func (r channelResolver) Resolve(
 	ctx context.Context,
 	keys Keys,
-) (map[Key]Key, error) {
+) (map[Key]channel.Channel, error) {
 	var channels []Channel
 	if err := r.svc.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return r.svc.NewRetrieve().
@@ -363,19 +364,17 @@ func (r freeIndexResolver) ResolveFreeIndexes(
 	}); err != nil {
 		return nil, err
 	}
-	indexes := make(map[Key]Key)
+	records := make(map[Key]channel.Channel, len(channels))
 	for _, ch := range channels {
-		if ch.Free() && ch.Index() != 0 {
-			indexes[ch.Key()] = ch.Index()
-		}
+		records[ch.Key()] = ch.Distribution()
 	}
-	return indexes, nil
+	return records, nil
 }
 
-// FreeIndexResolver returns the resolver the distribution framer writer uses to stamp
-// free frames with per-index alignments.
-func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
-	return freeIndexResolver{svc: s}
+// ChannelResolver returns the resolver the distribution framer writer uses for the
+// records of free and virtual channels.
+func (s *Service) ChannelResolver() writer.ChannelResolver {
+	return channelResolver{svc: s}
 }
 
 // NewWriter returns a Writer scoped to tx.

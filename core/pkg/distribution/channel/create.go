@@ -18,6 +18,22 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
+// Reserve raises the key counter of the host so that no new channel gets the key of a
+// channel in keys that the host leases. It ignores the keys of other leaseholders.
+func (s *Service) Reserve(ctx context.Context, keys Keys) error {
+	var highest LocalKey
+	for _, k := range keys {
+		if k.Lease() == s.cfg.HostKey {
+			highest = max(highest, k.LocalKey())
+		}
+	}
+	if current := LocalKey(s.leasedCounter.ctr.Value()); highest > current {
+		_, err := s.leasedCounter.add(ctx, highest-current)
+		return err
+	}
+	return nil
+}
+
 // Allocate assigns local keys to the provided new channels (those with a zero
 // LocalKey). The returned channels carry their assigned keys, in the same order as the
 // input. Free channels draw their keys from a separate counter. A channel with an

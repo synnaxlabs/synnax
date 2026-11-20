@@ -114,8 +114,8 @@ var _ = Describe("LSP", func() {
 	BeforeEach(func(ctx SpecContext) {
 		ch = channel.Channel{
 			Name:     "api_lsp_ch",
-			DataType: telem.Float32T,
-			Virtual:  true,
+			DataType: telem.TimestampT,
+			IsIndex:  true,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &ch)

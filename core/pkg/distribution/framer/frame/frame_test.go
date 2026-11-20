@@ -15,35 +15,11 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Frame", func() {
-	Describe("SplitFree", func() {
-		It("Should split a frame into a stored and a free frame", func() {
-			storedCh := channel.NewKey(1, 1)
-			freeCh := channel.NewKey(node.KeyFree, 1)
-			f := frame.NewMulti(
-				[]channel.Key{storedCh, freeCh},
-				[]telem.Series{
-					telem.NewSeriesV[int64](1, 2, 3),
-					telem.NewSeriesV[int64](4, 5, 6),
-				},
-			)
-			stored, free := f.SplitFree()
-			Expect(stored).To(Equal(frame.NewUnary(
-				storedCh,
-				telem.NewSeriesV[int64](1, 2, 3),
-			)))
-			Expect(free).To(Equal(frame.NewUnary(
-				freeCh,
-				telem.NewSeriesV[int64](4, 5, 6),
-			)))
-		})
-	})
-
 	Describe("ToStorage", func() {
 		It("Should convert to storage frame", func() {
 			f := frame.NewMulti(

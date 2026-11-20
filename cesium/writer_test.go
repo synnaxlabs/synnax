@@ -2203,7 +2203,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 
 					Specify(
-						"Alignment holds across a rollover and a control handoff",
+						"Alignment holds across a rollover and a second writer of the claim",
 						func(ctx SpecContext) {
 							db2 = MustOpen(cesium.Open(ctx, "size-capped-db",
 								cesium.WithFS(fs),
@@ -2257,7 +2257,7 @@ var _ = Describe("Writer Behavior", func() {
 							write(low)
 
 							By(
-								"Handing control to a higher-authority writer mid-domain",
+								"Opening a second writer of the claim mid-domain",
 							)
 							high := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{index, basic},
@@ -3446,7 +3446,7 @@ var _ = Describe("Writer Behavior", func() {
 					},
 				)
 				It(
-					"Should start a new domain for a writer that takes control back",
+					"Should start a new domain for the first writer after a second one ends a domain",
 					func(ctx SpecContext) {
 						low := openLive(ctx)
 						MustSucceed(low.Write(ctx, frame(10, 11)))
@@ -4145,117 +4145,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
-			Describe("Virtual Channel", func() {
-				It("Should write to virtual channel", func(ctx SpecContext) {
-					virtual1 := GenerateChannelKey()
-					By("Creating a channel")
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{
-							Name:     "Knew",
-							Key:      virtual1,
-							DataType: telem.Int64T,
-							Virtual:  true,
-						},
-					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels: []cesium.ChannelKey{virtual1},
-						Start:    10 * telem.SecondTS,
-					}))
-
-					MustSucceed(w.Write(ctx, telem.MultiFrame(
-						[]cesium.ChannelKey{virtual1},
-						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
-					)))
-
-					Expect(w.Close()).To(Succeed())
-				})
-
-				It("Should validate series data types on write", func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					Expect(
-						db.CreateChannel(ctx, virtualChannel(key, "validated")),
-					).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels: []cesium.ChannelKey{key},
-						Start:    10 * telem.SecondTS,
-					}))
-					Expect(
-						w.Write(
-							ctx,
-							telem.UnaryFrame(key, telem.NewSeriesV[float32](1, 2)),
-						),
-					).
-						Error().
-						To(SatisfyAll(
-							MatchError(validate.ErrValidation),
-							MatchError(ContainSubstring("invalid data type")),
-						))
-					Expect(
-						w.Close(),
-					).To(MatchError(ContainSubstring("invalid data type")))
-				})
-
-				It(
-					"Should advance a virtual channel's alignment with each write",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(
-							db.CreateChannel(ctx, virtualChannel(key, "aligned")),
-						).To(Succeed())
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{key},
-							Start:    10 * telem.SecondTS,
-						}))
-						res := MustSucceed(
-							w.Write(
-								ctx,
-								telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)),
-							),
-						)
-						Expect(
-							res.SeriesAt(0).Alignment,
-						).To(Equal(telem.LeadingAlignment(1, 0)))
-
-						res = MustSucceed(
-							w.Write(
-								ctx,
-								telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5)),
-							),
-						)
-						Expect(
-							res.SeriesAt(0).Alignment,
-						).To(Equal(telem.LeadingAlignment(1, 3)))
-
-						Expect(w.Close()).To(Succeed())
-					},
-				)
-
-				It(
-					"Should return the written series of a virtual channel with its alignment",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(
-							db.CreateChannel(ctx, virtualChannel(key, "Heisenberg")),
-						).To(Succeed())
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{key},
-							Start:    10 * telem.SecondTS,
-						}))
-
-						written := telem.NewSeriesV[int64](1, 2, 3)
-						res := MustSucceed(w.Write(ctx, telem.MultiFrame(
-							[]cesium.ChannelKey{key},
-							[]telem.Series{written},
-						)))
-						Expect(res.Count()).To(Equal(1))
-						written.Alignment = telem.LeadingAlignment(1, 0)
-						Expect(res.SeriesAt(0)).To(Equal(written))
-						Expect(w.Close()).To(Succeed())
-					},
-				)
-			})
-
 			Describe("Regressions", func() {
 				Specify(
 					"A commit after each write with multiple index groups should not fail after control transfer",
@@ -4816,7 +4705,7 @@ var _ = Describe("Writer commit order", func() {
 			Expect(count(ctx, dataKey)).To(Equal(int64(3)))
 		})
 
-		It("Should show the index and data together across a control handoff",
+		It("Should show the index and data together across two writers of one claim",
 			func(ctx SpecContext) {
 				var counts [][2]int64
 				onPersist = func() {

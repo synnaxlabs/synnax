@@ -40,10 +40,9 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to True
 	EnableAutoCommit *bool
-	// Start marks the start of the writer's claim and, unless
-	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
-	// the time the writer opens. A non-zero Start fails the open when stored data holds
-	// it.
+	// Start marks the start of the writer's claim and, unless Writer.SetDomainStart
+	// sets another, of the domain it writes. A zero Start means the time the writer
+	// opens. A non-zero Start fails the open when stored data holds it.
 	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
@@ -122,11 +121,10 @@ type sharedWriter struct {
 	// one goroutine may write alignment through Authorize while another reads it
 	// through PeekResource concurrently.
 	alignment atomic.Uint64
-	// tracker holds per-domain offset state shared across every Writer of the claim.
-	// It is created once when the resource is opened, so that per-sample byte offsets,
-	// the cumulative session sample count, and the current domain start stay
-	// consistent across writers. Reset on rollover via the domain.Writer's OnRollover
-	// hook.
+	// tracker holds per-domain offset state shared across every Writer of the claim. It
+	// is created once when the resource is opened, so that per-sample byte offsets, the
+	// cumulative session sample count, and the current domain start stay consistent
+	// across writers. Reset on rollover via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
 	// highWaterMark is the last index timestamp that any owner persisted. Only valid
 	// for index channels.
@@ -273,7 +271,18 @@ func Write(
 // index channels, whose sample positions define the alignment space that every channel
 // they index is expressed in. Data channels must use WriteAt.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
-	return w.write(series, 0, true)
+	a, _, err := w.write(series, 0, true, nil)
+	return a, err
+}
+
+// WriteUnless writes series as Write does, unless skip returns true for the channel. It
+// calls skip under the claim's lock, so the decision holds for the write. It returns
+// true when it skipped the series.
+func (w *Writer) WriteUnless(
+	series telem.Series,
+	skip func(channel.Key) bool,
+) (telem.Alignment, bool, error) {
+	return w.write(series, 0, true, skip)
 }
 
 // WriteAt validates and writes the given series, stamping it with a, an alignment
@@ -283,21 +292,39 @@ func (w *Writer) WriteAt(
 	series telem.Series,
 	a telem.Alignment,
 ) (telem.Alignment, error) {
-	return w.write(series, a, false)
+	a, _, err := w.write(series, a, false, nil)
+	return a, err
+}
+
+// WriteAtUnless writes series as WriteAt does, unless skip returns true for the
+// channel. It calls skip under the claim's lock, so the decision holds for the write.
+// It returns true when it skipped the series.
+func (w *Writer) WriteAtUnless(
+	series telem.Series,
+	a telem.Alignment,
+	skip func(channel.Key) bool,
+) (telem.Alignment, bool, error) {
+	return w.write(series, a, false, skip)
 }
 
 func (w *Writer) write(
 	series telem.Series,
 	a telem.Alignment,
 	derive bool,
-) (telem.Alignment, error) {
+	skip func(channel.Key) bool,
+) (telem.Alignment, bool, error) {
 	if w.closed {
-		return 0, w.wrapError(ErrWriterClosed)
+		return 0, false, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
-		return 0, w.wrapError(err)
+		return 0, false, w.wrapError(err)
 	}
+	skipped := false
 	err := w.claim.Use(func(dw *sharedWriter) error {
+		if skip != nil && skip(w.Channel.Key) {
+			skipped = true
+			return nil
+		}
 		mark := dw.highWaterMark
 		if w.Channel.IsIndex && *w.cfg.Persist {
 			var err error
@@ -341,9 +368,9 @@ func (w *Writer) write(
 		return nil
 	})
 	if err != nil {
-		return 0, w.wrapError(err)
+		return 0, false, w.wrapError(err)
 	}
-	return a, nil
+	return a, skipped, nil
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
@@ -397,7 +424,7 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
 	}
-	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0), nil)
+	ts, _, err := w.commitWithEnd(ctx, telem.TimeStamp(0), nil, nil)
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
@@ -411,19 +438,38 @@ func (w *Writer) CommitWithEnd(
 	end telem.TimeStamp,
 	g *domain.Group,
 ) (err error) {
+	_, err = w.CommitWithEndUnless(ctx, end, g, nil)
+	return err
+}
+
+// CommitWithEndUnless commits as CommitWithEnd does, unless skip returns true for the
+// channel. It calls skip under the claim's lock, so the decision holds for the commit.
+// It returns true when it skipped the commit.
+func (w *Writer) CommitWithEndUnless(
+	ctx context.Context,
+	end telem.TimeStamp,
+	g *domain.Group,
+	skip func(channel.Key) bool,
+) (bool, error) {
 	if w.closed {
-		return w.wrapError(ErrWriterClosed)
+		return false, w.wrapError(ErrWriterClosed)
 	}
-	_, err = w.commitWithEnd(ctx, end, g)
-	return w.wrapError(err)
+	_, skipped, err := w.commitWithEnd(ctx, end, g, skip)
+	return skipped, w.wrapError(err)
 }
 
 func (w *Writer) commitWithEnd(
 	ctx context.Context,
 	end telem.TimeStamp,
 	g *domain.Group,
-) (telem.TimeStamp, error) {
+	skip func(channel.Key) bool,
+) (telem.TimeStamp, bool, error) {
+	skipped := false
 	err := w.claim.Use(func(dw *sharedWriter) error {
+		if skip != nil && skip(w.Channel.Key) {
+			skipped = true
+			return nil
+		}
 		if end.IsZero() && w.Channel.IsIndex {
 			end = dw.highWaterMark + 1
 		} else if end.IsZero() {
@@ -458,9 +504,9 @@ func (w *Writer) commitWithEnd(
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return end, nil
+	return end, skipped, nil
 }
 
 // Close releases the writer's claim, and closes the shared domain writer when the claim

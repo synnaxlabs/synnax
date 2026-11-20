@@ -943,7 +943,19 @@ func validateNameSyntax(names []string) error {
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
-	stored := lo.Reject(keys, func(key Key, _ int) bool { return key.Free() })
+	// Only a key with a record has data to drop: a key with data and no record is data
+	// that Sweep keeps, and only a purge removes it.
+	var existing []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		SkipMissingKeys().
+		Entries(&existing).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	stored := lo.Reject(KeysFromChannels(existing), func(key Key, _ int) bool {
+		return key.Free()
+	})
 	release, err := w.svc.cfg.Framer.ClaimDelete(stored)
 	if err != nil {
 		return err
