@@ -438,16 +438,17 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		leasedGates   *gates
 		transfers     []transfer
 		clocks        map[channel.Key]channel.Key
-		autoIndex     *indexStamper
+		storedStamps  *storedStamps
 	)
 	if cfg.Mode == ModeStreamOnly && len(leased.Keys) > 0 {
-		if leased, leasedChannels, clocks, autoIndex, err = s.streamClocks(
+		if leased, leasedChannels, storedStamps, err = s.streamClocks(
 			ctx,
 			leased,
 			leasedChannels,
 		); err != nil {
 			return nil, err
 		}
+		clocks = storedStamps.clockOf
 	}
 	if len(leased.Keys) > 0 {
 		if leasedAlignment, err = s.freeWriteAlignments.reserve(
@@ -511,7 +512,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			cfg.ControlSubject.Group,
 			leasedGates,
 			releaseLeased,
-			autoIndex,
+			storedStamps,
 		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
@@ -541,15 +542,15 @@ func (s *Service) holdLeased(
 	return release, g, transfers, nil
 }
 
-// streamClocks returns the clock of each stored channel of the leased channels of a
+// streamClocks returns the stamps of the stored channels of the leased channels of a
 // stream-only writer, so that the channels of a clock share its alignments. When leased
 // auto indexes, it adds the indexes of its data channels to leased and to channels, and
-// returns the stamper of those indexes.
+// the stamps also stamp those indexes.
 func (s *Service) streamClocks(
 	ctx context.Context,
 	leased Config,
 	channels []cesium.Channel,
-) (Config, []cesium.Channel, map[channel.Key]channel.Key, *indexStamper, error) {
+) (Config, []cesium.Channel, *storedStamps, error) {
 	var (
 		clocks  = make(map[channel.Key]channel.Key, len(channels))
 		indexes = make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
@@ -564,14 +565,14 @@ func (s *Service) streamClocks(
 		}
 	}
 	if !*leased.AutoIndex {
-		return leased, channels, clocks, nil, nil
+		return leased, channels, newStoredStamps(clocks, nil), nil
 	}
 	n := len(leased.Keys)
 	leased = withIndexes(leased, indexes)
 	if len(leased.Keys) > n {
 		added, err := s.cfg.TS.RetrieveChannels(ctx, leased.Keys[n:].Uint32()...)
 		if err != nil {
-			return leased, nil, nil, nil, err
+			return leased, nil, nil, err
 		}
 		for _, ch := range added {
 			clocks[channel.Key(ch.Key)] = channel.Key(ch.Key)
@@ -579,7 +580,7 @@ func (s *Service) streamClocks(
 		channels = append(channels, added...)
 	}
 	stamper := newIndexStamper(leased.Keys.Uint32(), indexes, leased.Start)
-	return leased, channels, clocks, stamper, nil
+	return leased, channels, newStoredStamps(clocks, stamper), nil
 }
 
 // resolve returns the Cesium channels of the keys that Cesium stores, the channels of

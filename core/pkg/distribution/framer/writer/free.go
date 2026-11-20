@@ -61,6 +61,83 @@ func (f *freeWriteAlignments) reserve(
 	return alignments, nil
 }
 
+// storedStamps stamps the stored channels of a stream-only writer as Cesium stamps
+// them. A series takes the time range of its clock's series in the frame, and a frame
+// of
+// data without its clock moves the alignment of the clock by the data length. It is not
+// safe for concurrent use.
+type storedStamps struct {
+	// autoIndex is nil when the writer does not stamp its indexes.
+	autoIndex *indexStamper
+	// clockOf maps each stored channel to its clock.
+	clockOf map[channel.Key]channel.Key
+	// scans holds the scan of the current frame for each clock.
+	scans map[channel.Key]*clockScan
+}
+
+// clockScan is the scan of one frame for a clock: the time range of the clock's series,
+// whether the frame holds that series, and the length of the first data series.
+type clockScan struct {
+	timeRange telem.TimeRange
+	indexed   bool
+	dataLen   int64
+}
+
+func newStoredStamps(
+	clockOf map[channel.Key]channel.Key,
+	autoIndex *indexStamper,
+) *storedStamps {
+	scans := make(map[channel.Key]*clockScan)
+	for _, clock := range clockOf {
+		if _, ok := scans[clock]; !ok {
+			scans[clock] = &clockScan{}
+		}
+	}
+	return &storedStamps{autoIndex: autoIndex, clockOf: clockOf, scans: scans}
+}
+
+// stamp sets the time range of each stored series of fr, and moves the alignment of
+// each clock whose data fr holds without the clock's series.
+func (st *storedStamps) stamp(
+	fr frame.Frame,
+	alignments map[channel.Key]telem.Alignment,
+) {
+	for _, sc := range st.scans {
+		*sc = clockScan{}
+	}
+	for rawI, key := range fr.RawKeys() {
+		clock, ok := st.clockOf[key]
+		if !ok || fr.ShouldExcludeRaw(rawI) {
+			continue
+		}
+		sc, s := st.scans[clock], fr.RawSeriesAt(rawI)
+		switch {
+		case key == clock && s.Len() > 0:
+			sc.indexed = true
+			sc.timeRange = telem.TimeRange{
+				Start: s.ValueAt[telem.TimeStamp](0),
+				End:   s.ValueAt[telem.TimeStamp](int(s.Len()-1)) + 1,
+			}
+		case key != clock && sc.dataLen == 0:
+			sc.dataLen = s.Len()
+		}
+	}
+	for rawI, key := range fr.RawKeys() {
+		clock, ok := st.clockOf[key]
+		if !ok || fr.ShouldExcludeRaw(rawI) || !st.scans[clock].indexed {
+			continue
+		}
+		s := fr.RawSeriesAt(rawI)
+		s.TimeRange = st.scans[clock].timeRange
+		fr.SetRawSeriesAt(rawI, s)
+	}
+	for clock, sc := range st.scans {
+		if !sc.indexed && sc.dataLen > 0 {
+			alignments[clock] = alignments[clock].AddSamples(uint32(sc.dataLen))
+		}
+	}
+}
+
 func (s *Service) newFree(
 	mode Mode,
 	sync bool,
@@ -70,7 +147,7 @@ func (s *Service) newFree(
 	group uint32,
 	g *gates,
 	release func(),
-	autoIndex *indexStamper,
+	stored *storedStamps,
 ) StreamWriter {
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
@@ -90,7 +167,7 @@ func (s *Service) newFree(
 		gates:      g,
 		controls:   s.controls,
 		release:    release,
-		autoIndex:  autoIndex,
+		stored:     stored,
 	}
 	w.Transform = w.transform
 	return w
@@ -120,9 +197,8 @@ type freeWriter struct {
 	// release releases the writer's hold on its leased channels. It is nil for a writer
 	// that holds none.
 	release func()
-	// autoIndex is nil when the writer does not stamp the indexes of its stored
-	// channels.
-	autoIndex *indexStamper
+	// stored is nil when the writer streams no stored channels.
+	stored *storedStamps
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
 	// writeRefused is true when a write was refused for no control since the last
@@ -224,6 +300,9 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 		s := fr.RawSeriesAt(rawI)
 		w.alignments[idx] = w.alignments[idx].AddSamples(uint32(s.Len()))
 	}
+	if w.stored != nil {
+		w.stored.stamp(fr, w.alignments)
+	}
 	return fr
 }
 
@@ -235,8 +314,8 @@ func (w *freeWriter) transform(
 	switch req.Command {
 	case CommandWrite:
 		fr := req.Frame
-		if w.autoIndex != nil {
-			fr = frame.NewFromStorage(w.autoIndex.stamp(fr.ToStorage()))
+		if w.stored != nil && w.stored.autoIndex != nil {
+			fr = frame.NewFromStorage(w.stored.autoIndex.stamp(fr.ToStorage()))
 		}
 		fr, refused := w.exclude(fr)
 		w.writeRefused = w.writeRefused || refused

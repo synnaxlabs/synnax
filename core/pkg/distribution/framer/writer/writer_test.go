@@ -906,6 +906,53 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
+			"Should give each stored series the time range of its index series",
+			func(ctx SpecContext) {
+				frames := stream(ctx)
+				keys := channel.Keys{idx.Key(), data.Key()}
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Mode:  writer.ModeStreamOnly,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12),
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(frames).Should(Receive(&res))
+				want := (10 * telem.SecondTS).Range(12*telem.SecondTS + 1)
+				Expect(res.Frame.Get(idx.Key()).Series[0].TimeRange).To(Equal(want))
+				Expect(res.Frame.Get(data.Key()).Series[0].TimeRange).To(Equal(want))
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should move the alignment of a clock by the length of data written without "+
+				"its index",
+			func(ctx SpecContext) {
+				frames := stream(ctx)
+				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.Keys{data.Key()},
+					Start: 10 * telem.SecondTS,
+					Mode:  writer.ModeStreamOnly,
+				}))
+				write := func(values ...int64) telem.Alignment {
+					GinkgoHelper()
+					Expect(w.Write(frame.NewUnary(
+						data.Key(),
+						telem.NewSeriesV(values...),
+					))).To(BeTrue())
+					var res framer.StreamerResponse
+					Eventually(frames).Should(Receive(&res))
+					return res.Frame.Get(data.Key()).Series[0].Alignment
+				}
+				first := write(1, 2, 3)
+				Expect(write(4, 5)).To(Equal(first.AddSamples(3)))
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		It(
 			"Should stamp the index that a stream-only writer with auto index omits",
 			func(ctx SpecContext) {
 				frames := stream(ctx)
