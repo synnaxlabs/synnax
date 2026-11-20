@@ -79,14 +79,14 @@ the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller                                        | Does                                       |
-| --------------------- | --------------------------------------------- | ------------------------------------------ |
-| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it |
-| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values             |
-| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename |
-| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only                                   | Returns stored values; refuses file values |
+| Endpoint              | Caller                                        | Does                                                                                                  |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it                                                            |
+| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values                                                                        |
+| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename                                                            |
+| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret                                                                |
+| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)                                                                        |
+| `secret/resolve`      | A rack only                                   | Spends a grant and returns its command, or checks uses (§3.3); file values reach only the Core's rack |
 
 The write binder (`core/pkg/api/bind/write.go`) makes the create, update, and delete
 checks on each record that a write changes. Owner and Engineer get every action on
