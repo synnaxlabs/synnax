@@ -166,6 +166,12 @@ describe("Input", () => {
       expect(pressed()).toBe(0);
     });
 
+    it("should leave a slot button of a disabled input inert", async () => {
+      const { button, pressed } = await renderSlotButton({ disabled: true });
+      await userEvent.click(button, { force: true });
+      expect(pressed()).toBe(0);
+    });
+
     it("should not focus the input on a press of a slot button", async () => {
       const { button, input } = await renderSlotButton();
       await userEvent.click(button);

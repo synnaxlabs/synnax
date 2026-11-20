@@ -9,9 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { ReadSelectable } from "@/feature/ethercat/task/Read";
+import { ReadSelectable, WriteSelectable } from "@/feature/ethercat/task/create";
 import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/ethercat/task/types";
-import { WriteSelectable } from "@/feature/ethercat/task/Write";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>
