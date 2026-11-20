@@ -32,8 +32,7 @@ import (
 )
 
 // NewCmd returns the purge command of a Core at version vsn. The command calls
-// configure
-// for its instrumentation once its flags are parsed.
+// configure for its instrumentation once its flags are parsed.
 func NewCmd(vsn string, configure func() alamos.Instrumentation) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "purge [channel...]",

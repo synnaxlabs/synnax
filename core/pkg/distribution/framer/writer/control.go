@@ -367,8 +367,8 @@ func (g *gates) authorities(cfg Config) map[channel.Key]control.Authority {
 
 // endDomain returns the indexes of indexes whose domains the session may end, the
 // channels it must not commit, and the refusal of the other indexes. The session must
-// control an index and the channels it indexes in the session, and no other session
-// may control a channel the index indexes.
+// control an index and the channels it indexes in the session, and no other session may
+// control a channel the index indexes.
 func (g *gates) endDomain(
 	indexes channel.Keys,
 ) (ended []cesium.ChannelKey, skip set.Set[cesium.ChannelKey], refusal error) {

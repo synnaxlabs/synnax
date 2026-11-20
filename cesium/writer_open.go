@@ -45,11 +45,11 @@ type WriterConfig struct {
 	// Channels sets the channels that the writer will write to. If a channel does not
 	// exist, the writer fill fail to open.
 	Channels []channel.Key
-	// Start marks the start of the writer's claim. When Start is zero, the
-	// region starts at the time the writer opens. If a sample exists for any channel at
-	// a non-zero Start, the writer fails to open. The domains of each index start at
-	// the first timestamp written to that index, not at Start. The region moves back to
-	// a domain that starts before it.
+	// Start marks the start of the writer's claim. When Start is zero, the region
+	// starts at the time the writer opens. If a sample exists for any channel at a
+	// non-zero Start, the writer fails to open. The domains of each index start at the
+	// first timestamp written to that index, not at Start. The region moves back to a
+	// domain that starts before it.
 	//
 	// A writer that writes data channels without their index needs a Start that is a
 	// sample of that index.

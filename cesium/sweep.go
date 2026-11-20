@@ -31,8 +31,7 @@ type KeptChannel struct {
 // intent and no record, and a key with no record and no samples. It keeps a key with
 // samples, no record, and no intent: writers and iterators on it fail, Sweep returns
 // it, and only an intent and a Drop of its key remove it. An index that a kept or
-// recorded channel uses stays, with any intent of
-// the index.
+// recorded channel uses stays, with any intent of the index.
 func (db *DB) Sweep(ctx context.Context, keys []ChannelKey) ([]KeptChannel, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()

@@ -255,8 +255,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // ChannelResolver resolves the records of channels, which live above the distribution
 // layer. The service-layer channel service implements it, and
-// Service.SetChannelResolver
-// registers it.
+// Service.SetChannelResolver registers it.
 type ChannelResolver interface {
 	// Resolve returns the record of each channel in keys that has one.
 	Resolve(

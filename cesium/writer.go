@@ -118,11 +118,11 @@ func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
 }
 
 // WriteExcept writes fr except the channels for which skip returns true, and returns it
-// without them, with the alignment and time range of each written series set. A
-// skipped index also skips the data channels it indexes in the writer. The returned
-// bool is true when WriteExcept skipped a series of fr, and the next commit of that
-// index then commits nothing. WriteExcept validates every series of fr, and calls skip
-// under the lock of each channel's claim. A nil skip skips nothing.
+// without them, with the alignment and time range of each written series set. A skipped
+// index also skips the data channels it indexes in the writer. The returned bool is
+// true when WriteExcept skipped a series of fr, and the next commit of that index then
+// commits nothing. WriteExcept validates every series of fr, and calls skip under the
+// lock of each channel's claim. A nil skip skips nothing.
 func (w *Writer) WriteExcept(
 	ctx context.Context,
 	fr Frame,

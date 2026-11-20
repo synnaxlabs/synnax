@@ -943,8 +943,8 @@ func validateNameSyntax(names []string) error {
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
-	// Only a key with a record has data to drop: a key with data and no record is
-	// data that Sweep keeps, and only a purge removes it.
+	// Only a key with a record has data to drop: a key with data and no record is data
+	// that Sweep keeps, and only a purge removes it.
 	var existing []Channel
 	if err := w.svc.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).

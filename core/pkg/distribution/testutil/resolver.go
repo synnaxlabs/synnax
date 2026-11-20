@@ -17,8 +17,8 @@ import (
 )
 
 // records holds the channels that a Node creates, so that distribution-layer tests can
-// write to free and virtual channels without a service layer. It is safe for
-// concurrent use.
+// write to free and virtual channels without a service layer. It is safe for concurrent
+// use.
 type records struct {
 	byKey map[channel.Key]channel.Channel
 	mu    sync.RWMutex

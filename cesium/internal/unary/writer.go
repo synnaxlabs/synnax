@@ -40,10 +40,9 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to True
 	EnableAutoCommit *bool
-	// Start marks the start of the writer's claim and, unless
-	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
-	// the time the writer opens. A non-zero Start fails the open when stored data holds
-	// it.
+	// Start marks the start of the writer's claim and, unless Writer.SetDomainStart
+	// sets another, of the domain it writes. A zero Start means the time the writer
+	// opens. A non-zero Start fails the open when stored data holds it.
 	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
@@ -122,11 +121,10 @@ type sharedWriter struct {
 	// one goroutine may write alignment through Authorize while another reads it
 	// through PeekResource concurrently.
 	alignment atomic.Uint64
-	// tracker holds per-domain offset state shared across every Writer of the claim.
-	// It is created once when the resource is opened, so that per-sample byte offsets,
-	// the cumulative session sample count, and the current domain start stay
-	// consistent across writers. Reset on rollover via the domain.Writer's OnRollover
-	// hook.
+	// tracker holds per-domain offset state shared across every Writer of the claim. It
+	// is created once when the resource is opened, so that per-sample byte offsets, the
+	// cumulative session sample count, and the current domain start stay consistent
+	// across writers. Reset on rollover via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
 	// highWaterMark is the last index timestamp that any owner persisted. Only valid
 	// for index channels.

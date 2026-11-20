@@ -290,15 +290,13 @@ func (r *offsetResolver) newTracker() *offsetTracker {
 	return t
 }
 
-// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker
-// is owned by the sharedWriter, so all Writers of one claim observe the same tracker
-// state.
-// Fixed-density and variable-length channels share the cumulative-count behavior at
-// the alignment math site by deriving it from the underlying domain.Writer for
+// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker is
+// owned by the sharedWriter, so all Writers of one claim observe the same tracker
+// state. Fixed-density and variable-length channels share the cumulative-count behavior
+// at the alignment math site by deriving it from the underlying domain.Writer for
 // fixed-density and from the tracker's running counter for variable-length, both of
 // which advance monotonically across writers. Variable-length channels additionally
-// track per-domain byte offsets so they can publish them to the offset cache on
-// commit.
+// track per-domain byte offsets so they can publish them to the offset cache on commit.
 type offsetTracker struct {
 	// resolver is the offsetResolver this tracker was created from. Used by publish to
 	// install committed offsets into the resolver's cache.
@@ -318,11 +316,10 @@ type offsetTracker struct {
 	// domainOffsets is the running list of per-sample byte offsets within the current
 	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
 	domainOffsets []uint32
-	// sessionSamples is the cumulative sample count for variable-length trackers
-	// across every domain in the shared resource's lifetime. Used for alignment math
-	// and the end-timestamp lookup at commit time. The writers of a claim share it
-	// through sharedWriter. Unused for fixed-density (count derives from dw.Len()
-	// instead).
+	// sessionSamples is the cumulative sample count for variable-length trackers across
+	// every domain in the shared resource's lifetime. Used for alignment math and the
+	// end-timestamp lookup at commit time. The writers of a claim share it through
+	// sharedWriter. Unused for fixed-density (count derives from dw.Len() instead).
 	sessionSamples int64
 }
 

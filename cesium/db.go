@@ -57,8 +57,8 @@ type DB struct {
 	closed         *atomic.Bool
 	// intents makes the delete intents of the DB durable.
 	intents *intents
-	// corruptIntents is the number of intent records that Open found bad before a
-	// good one.
+	// corruptIntents is the number of intent records that Open found bad before a good
+	// one.
 	corruptIntents int
 	// lifecycle orders the start of Run against Close.
 	lifecycle struct {
@@ -68,8 +68,8 @@ type DB struct {
 	mu struct {
 		dbs struct {
 			unary map[ChannelKey]unary.DB
-			// hidden holds the channels that Sweep keeps: they hold samples but have
-			// no record and no intent. Writers and iterators cannot open on them.
+			// hidden holds the channels that Sweep keeps: they hold samples but have no
+			// record and no intent. Writers and iterators cannot open on them.
 			hidden map[ChannelKey]unary.DB
 		}
 		// virtualDirs holds the keys of the directories whose metadata names a virtual
