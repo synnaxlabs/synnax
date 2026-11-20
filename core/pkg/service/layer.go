@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -279,6 +280,8 @@ type Layer struct {
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
+	// Calculation stores the calculation of each calculated channel.
+	Calculation *calculation.Service
 	// Control reads the control state of channels and publishes every transfer on the
 	// control channel.
 	Control *control.Service
@@ -436,6 +439,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
+	if l.Calculation, err = calculation.OpenService(ctx, calculation.ServiceConfig{
+		Instrumentation: cfg.Child("calculation"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+	}); !ok(err, l.Calculation) {
+		return nil, err
+	}
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
@@ -553,6 +563,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Name:     "sy_color_action_set",
 			Actions:  l.Color.Actions(),
 			Resource: color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[calculation.Key, calculation.Calculation]{
+			SetName:    "sy_calculation_set",
+			DeleteName: "sy_calculation_delete",
+			Changes:    l.Calculation.Changes,
+			Resource:   calculation.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[calculation.Key, calculation.Action]{
+			Name:     "sy_calculation_action_set",
+			Actions:  l.Calculation.Actions(),
+			Resource: calculation.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err
