@@ -18,7 +18,7 @@ import {
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { aether } from "@/aether/aether";
 

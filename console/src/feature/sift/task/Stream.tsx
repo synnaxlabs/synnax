@@ -9,17 +9,17 @@
 
 import "@/feature/sift/task/Stream.css";
 
-import { type channel, type Synnax as Client } from "@synnaxlabs/client";
+import type { channel, Synnax as Client } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Select } from "@synnaxlabs/lyra/select";
+import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Status as PStatus } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Asset } from "@/feature/sift/asset";
 import {

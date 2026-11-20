@@ -22,9 +22,9 @@ import {
   xyZ,
 } from "@/spatial/base";
 import { direction as dir, type direction } from "@/spatial/direction";
-import { type location } from "@/spatial/location";
+import type { location } from "@/spatial/location";
 
-export { type ClientXY as Client, NumberCouple as Couple, type XY, xyZ };
+export { type ClientXY as Client, type NumberCouple as Couple, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([

@@ -11,7 +11,7 @@ import { certificate, type rack, type Synnax as Client } from "@synnaxlabs/clien
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { deep, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -23,7 +23,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 

@@ -9,7 +9,7 @@
 
 import "@/select/Item.css";
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import {
   type MouseEvent,
   type ReactElement,

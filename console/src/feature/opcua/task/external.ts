@@ -9,7 +9,7 @@
 
 import { READ_TYPE, WRITE_TYPE } from "@/feature/opcua/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/opcua/task/commands";
 export * from "@/feature/opcua/task/create";

@@ -13,7 +13,7 @@ import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, color as xcolor, id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { Color } from "@/color";

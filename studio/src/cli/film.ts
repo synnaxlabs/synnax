@@ -13,7 +13,7 @@ import { parseArgs } from "node:util";
 import { OUT_ROOT, ROOT, run } from "@/cli/common";
 import { loadTimeline, runCapture, runFilmRender, runFilmStills } from "@/cli/pipeline";
 import { DSF, edit as parseEdit, formatZ, overlays as parseOverlays } from "@/film";
-import { type Timeline } from "@/timeline";
+import type { Timeline } from "@/timeline";
 
 const usage = `usage: pnpm film <id> [options]
   <id>              film file at films/<id>.ts (default export: the capture script,

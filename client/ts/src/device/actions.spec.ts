@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { createOf, reduceAll } from "@/device/actions";
 import { create, set, setRack } from "@/device/actions.gen";
-import { type Device } from "@/device/types.gen";
+import type { Device } from "@/device/types.gen";
 
 const DEVICE: Omit<Device, "status"> = {
   key: "d1",

@@ -1146,6 +1146,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	// The composition migrations can change configs and the records they hash, so the
+	// tasks store their hashes after them and before the Driver configures the tasks.
+	if err = l.Task.SyncHashes(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	if err = deleteRetiredChannels(
 		ctx,
 		cfg.Distribution.DB,

@@ -12,11 +12,13 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
+import { CDN } from "@synnaxlabs/site-common/cdn";
 import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
 
+import { ORIGIN as ALGOLIA } from "./src/components/search/algolia";
 import { HASHES } from "./src/inline";
 import { tokenSource } from "./src/util/githubApp";
 import { IMAGES } from "./src/util/images";
@@ -35,9 +37,6 @@ const RELEASE_REDIRECTS = Object.fromEntries(
     `/releases/#${anchor}`,
   ]),
 );
-
-const ALGOLIA = "https://ywd9t0jxcs-dsn.algolia.net";
-const CDN = "https://synnax.nyc3.cdn.digitaloceanspaces.com";
 
 // One resolution serves every page, so a deployment never mixes statuses, and a page
 // that renders per request never asks GitHub for its version.

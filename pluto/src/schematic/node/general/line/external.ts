@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 
 import { LineForm } from "@/schematic/node/general/line/Form";
 import { Preview, Symbol } from "@/schematic/node/general/line/Symbol";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"line", schematic.LineNodeConfig> = {
   key: "line",

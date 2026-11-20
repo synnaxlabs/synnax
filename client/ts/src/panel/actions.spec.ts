@@ -11,7 +11,7 @@ import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 const a = uuid.create();
 const b = uuid.create();

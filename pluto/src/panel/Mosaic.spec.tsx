@@ -26,7 +26,7 @@ import {
   type RenderResult,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";

@@ -35,6 +35,15 @@ namespace x::strings {
     return out;
 }
 
+/// @brief removes every '\n' and '\r' at the end of s, such as the line break that an
+/// editor adds at the end of a file.
+/// @param s the string to trim.
+/// @returns s without its trailing line breaks. Spaces and inner line breaks stay.
+[[nodiscard]] inline std::string trim_trailing_line_breaks(std::string s) {
+    s.erase(s.find_last_not_of("\r\n") + 1);
+    return s;
+}
+
 /// @brief writes v as a zero-padded decimal of the given width into the buffer at p.
 /// @param p pointer to at least width writable chars.
 /// @param v non-negative integer value to write.

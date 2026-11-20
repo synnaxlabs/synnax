@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Log } from "@/platform/log";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export const Selectable: Selector.Selectable = {
   type: log.TYPE_RESOURCE_ID.type,
