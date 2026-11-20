@@ -22,7 +22,8 @@ const channelTable = string(resource.TypeChannel)
 
 // channelsReference returns the reference from a line plot to the channels on its axes.
 // Deleting a channel removes it from every axis and drops its lines. Deleting the x
-// channel plots the lines against time and keeps their styles.
+// channel plots the lines against time and keeps their styles. A retarget moves each
+// line with its style, and an axis keeps the first of two entries for one channel.
 func channelsReference() *gorp.KeyReference[Key, LinePlot, channel.Key] {
 	return gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, channel.Key]{
 		Name:     "channels",
@@ -51,6 +52,30 @@ func channelsReference() *gorp.KeyReference[Key, LinePlot, channel.Key] {
 			}
 			for _, y := range []*[]channel.Key{&c.Y1, &c.Y2, &c.Y3, &c.Y4} {
 				*y = slices.DeleteFunc(*y, held)
+			}
+			p.Lines = v10.ReconcileLines(p.Key, p.Channels, p.Lines)
+		},
+		Retarget: func(p *LinePlot, to map[channel.Key]channel.Key) {
+			move := func(k channel.Key) channel.Key {
+				if t, ok := to[k]; ok {
+					return t
+				}
+				return k
+			}
+			c := &p.Channels
+			c.X1, c.X2 = move(c.X1), move(c.X2)
+			for _, y := range []*[]channel.Key{&c.Y1, &c.Y2, &c.Y3, &c.Y4} {
+				moved := make([]channel.Key, 0, len(*y))
+				for _, k := range *y {
+					if k = move(k); !slices.Contains(moved, k) {
+						moved = append(moved, k)
+					}
+				}
+				*y = moved
+			}
+			for i := range p.Lines {
+				l := &p.Lines[i]
+				l.YChannel, l.XChannel = move(l.YChannel), move(l.XChannel)
 			}
 			p.Lines = v10.ReconcileLines(p.Key, p.Channels, p.Lines)
 		},

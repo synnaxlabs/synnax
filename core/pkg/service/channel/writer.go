@@ -267,6 +267,17 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
+// Retarget moves the links that holders keep from each key of to onto its value, as
+// gorp.Table.Retarget does. It can fail after it writes other holders, so discard the
+// transaction on an error.
+func (w Writer) Retarget(
+	ctx context.Context,
+	to map[Key]Key,
+	holders []gorp.Dependent,
+) error {
+	return w.svc.table.Retarget(ctx, w.tx, to, holders)
+}
+
 // DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
 // true, deleting any internal channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
