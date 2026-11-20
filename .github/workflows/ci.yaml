@@ -174,24 +174,12 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
 
-      # A merge group diffs against its target branch, not the entry ahead of it. Its
-      # run then covers every pull request ahead of it in the queue. Any other checkout
-      # diffs against its first parent, which for a pull request is its current base.
+      # Each checkout diffs against its first parent: the base of a pull request, or the
+      # group ahead of a merge group. The queue merges a group only after every group
+      # ahead passes, so a group tests only its own pull request.
       - name: Find the base
         id: base
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
-          GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
-            compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
-            base=$(.github/scripts/gh_api.sh \
-              "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
-          else
-            base=$(git rev-parse HEAD^1)
-          fi
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
 
       # A pull request lists its changes through the API and ignores base.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
