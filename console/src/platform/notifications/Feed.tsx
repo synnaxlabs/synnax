@@ -11,10 +11,11 @@ import "@/platform/notifications/Feed.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { usePopover } from "@synnaxlabs/lyra/hooks";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { getRootElement } from "@synnaxlabs/lyra/util";
-import { type FC, type ReactElement, useEffect, useState } from "react";
+import { type FC, type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -60,9 +61,20 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
     if (overflow <= 0) setExpanded(false);
   }, [overflow]);
   const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
+  // Portal.Above moves the feed when a modal opens or closes, which hides it.
+  const [moves, setMoves] = useState(0);
+  useEffect(() => {
+    const handleMove = (): void => setMoves((m) => m + 1);
+    document.addEventListener(Portal.MODAL_CHANGE_EVENT, handleMove);
+    return () => document.removeEventListener(Portal.MODAL_CHANGE_EVENT, handleMove);
+  }, []);
+  // A new notification shows over every overlay open when it arrives.
+  const ref = useRef<HTMLDivElement>(null);
+  const shown = statuses.map(({ key, count }) => `${key}:${count}`).join();
+  usePopover(ref, true, `${moves}|${shown}`);
   return (
     <Portal.Above element={getRootElement()}>
-      <Flex.Box y className={CSS.B("notifications")}>
+      <Flex.Box y className={CSS.B("notifications")} ref={ref} popover="manual">
         <Flex.Box y className={CSS.BE("notifications", "stack")}>
           {visible.map(({ status, Render }) => (
             <Render key={status.key} status={status} silence={silence} />
