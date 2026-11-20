@@ -89,7 +89,7 @@ class FixedSeries
   }
 
   value(): Result<[bounds.Bounds, MultiSeries]> {
-    const b = bounds.max(this.data.map((x) => x.bounds));
+    const b = bounds.union(this.data.map((x) => x.bounds));
     return success([b, new MultiSeries(this.data)]);
   }
 }
@@ -144,14 +144,14 @@ export class IterativeSeries
       };
       return success([b, new MultiSeries(d)]);
     }
-    const b = bounds.max(d.map((x) => x.bounds));
+    const b = bounds.union(d.map((x) => x.bounds));
     return success([b, new MultiSeries(d)]);
   }
 
   start(rate: Rate): void {
     if (this.interval != null) clearInterval(this.interval);
     this.interval = setInterval(() => {
-      this.notify?.();
+      this.observer.notify();
       this.position++;
     }, rate.period.milliseconds) as unknown as number;
   }
@@ -223,7 +223,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     const period = this.props.period.milliseconds;
     const delay = period - (TimeStamp.now().milliseconds % period);
     this.timeout = setTimeout(() => {
-      this.notify();
+      this.observer.notify();
       this.schedule();
     }, delay);
   }

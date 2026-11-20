@@ -14,29 +14,19 @@ import { render, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
-import { aether } from "@/aether/aether";
 import { Light } from "@/schematic/node/general/light";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { light } from "@/vis/light/aether";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 
 const COLOR_VAR = "--pluto-symbol-color";
 const STROKE = "0, 255, 0, 1";
 const ON = "255, 0, 0, 1";
 
-// Stands in for the light worker component and reports its source as stale.
-class StaleLight extends aether.Leaf<typeof light.stateZ> {
-  static readonly TYPE = light.Light.TYPE;
-  schema = light.stateZ;
-
-  afterUpdate(): void {
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
-
 const Wrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { [StaleLight.TYPE]: StaleLight },
+  additionalRegistry: stalenessTest.createRegistry(light.Light.TYPE, light.stateZ),
   telemFactories: [],
 });
 

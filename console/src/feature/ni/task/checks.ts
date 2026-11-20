@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ni } from "@synnaxlabs/client";
-import { type spatial, unique } from "@synnaxlabs/x";
+import { type bounds, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type Device } from "@/feature/ni/device/types";
@@ -123,7 +123,7 @@ interface RangedChannel {
  */
 const checkRange = (
   channel: RangedChannel,
-  ranges: spatial.Bounds[],
+  ranges: bounds.Bounds[],
   unit: string,
   path: (string | number)[],
   report: Task.ReportIssue,

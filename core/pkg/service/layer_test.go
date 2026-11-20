@@ -26,9 +26,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	sectestutil "github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -42,6 +46,7 @@ import (
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
+	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pagerdutyv1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
@@ -55,6 +60,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -67,6 +73,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
@@ -76,6 +83,37 @@ import (
 )
 
 var _ = Describe("Layer", func() {
+	It("Should report the expiry of the Core's CA and listener certificates",
+		func(ctx SpecContext) {
+			certFS := xfs.NewMem()
+			sectestutil.GenerateCerts(certFS)
+			certsDir := MustSucceed(certFS.Sub(cert.DefaultLoaderConfig.CertsDir))
+			n := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, n, service.LayerConfig{
+				CA: MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: certFS})),
+				Listeners: []certificate.Listener{{
+					Address: "localhost:9090",
+					Source: MustSucceed(
+						file.NewSource(certsDir, "node.crt", "node.key"),
+					),
+				}},
+			}))
+			prefix := svcnode.ResourceID(n.Identity.HostKey).String() + ":certificate:"
+			Eventually(func(g Gomega) {
+				var found []status.Status[any]
+				g.Expect(layer.Status.NewRetrieve[any]().
+					WherePrefix(prefix).
+					Entries(&found).
+					Exec(ctx, n.DB)).To(Succeed())
+				g.Expect(lo.Map(found, func(s status.Status[any], _ int) string {
+					return s.Name
+				})).To(ConsistOf(
+					HavePrefix("CA certificate "),
+					Equal("Certificate of localhost:9090"),
+				))
+			}).Should(Succeed())
+		})
+
 	It("Should cap external channels at the license's limit", func(ctx SpecContext) {
 		signer := svctestutil.NewSigner()
 		lic := svctestutil.NewLicense()

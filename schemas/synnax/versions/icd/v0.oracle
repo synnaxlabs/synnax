@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/x/versions/payload/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -72,7 +73,8 @@ BaseField struct {
         @doc value "is the unique identifier for the field within its message."
     }
     name   string   {
-        @doc value "is the name of the field, unique within its message."
+        @doc value           "is the name of the field, unique within its message."
+        @validate min_length 1
     }
     scale  float64 = 1 {
         @doc value "multiplies the raw value on decode."
@@ -109,7 +111,9 @@ BinaryField struct extends BaseField {
         """
     }
     bit_length       uint8 = 8 {
-        @doc value "is the number of bits in the field, from 1 to 64."
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
     }
     byte_order       ByteOrder = little_endian {
         @doc value "is the byte order of the field."
@@ -314,7 +318,8 @@ Payload union on format payload.Format {
     }
     text {
         delimiter string = "," {
-            @doc value "splits the items of the line."
+            @doc value           "splits the items of the line."
+            @validate min_length 1
         }
         prefix    string = "" {
             @doc value """
@@ -351,7 +356,8 @@ Message struct {
         @doc value "is the unique identifier for the message within its ICD."
     }
     name    string     {
-        @doc value "is the name of the message, unique within its ICD."
+        @doc value           "is the name of the message, unique within its ICD."
+        @validate min_length 1
     }
     payload Payload    {
         @doc value "is the layout of the message's payload."
@@ -367,7 +373,8 @@ ICD struct {
         @key
     }
     name     string    {
-        @doc value "is a human-readable name for the ICD."
+        @doc value           "is a human-readable name for the ICD."
+        @validate min_length 1
     }
     messages Message[] = [] {
         @doc value "are the messages the ICD holds."
@@ -380,4 +387,41 @@ ICD struct {
     @go imex
     @go marshal
     @go migrate
+}
+
+ReadBinding struct {
+    field     FieldKey       {
+        @doc value "is the key of the message field to read."
+    }
+    channel   channel.Key = 0 {
+        @doc value "is the channel the value of the field is written to."
+    }
+    data_type telem.DataType = "" {
+        @doc value """
+            is the data type of the channel that a client creates for the field. Empty
+            takes the default of the field's kind. The Core ignores it once the channel
+            exists.
+        """
+    }
+
+    @doc value  "writes the value of one message field to a channel."
+    @go marshal
+}
+
+ReadMessage struct {
+    message  MessageKey    {
+        @doc value "is the key of the ICD message to read."
+    }
+    index    FieldKey?     {
+        @doc value """
+            is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival.
+        """
+    }
+    bindings ReadBinding[] = [] {
+        @doc value "are the fields the task reads. A field with no binding is not read."
+    }
+
+    @doc value  "reads the documents of one ICD message."
+    @go marshal
 }

@@ -37,6 +37,7 @@ import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   DELETED_STATUS,
+  type Edge,
   LOADING_STATUS,
   type NumberSourceSpec,
   type Result,
@@ -240,7 +241,7 @@ class ChannelValue<V>
     this.converted = null;
     this.loading = false;
     this.failures.delete();
-    this.notify();
+    this.observer.notify();
   }
 
   /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
@@ -272,13 +273,13 @@ class ChannelValue<V>
         // redraws. Consumers that count arrivals compare its appended count.
         if (this.converted === this.notified) return;
         this.notified = this.converted;
-        this.notify();
+        this.observer.notify();
       });
     } catch (e) {
       if (generation !== this.generation) return;
       this.loading = false;
       this.valid = this.failures.report(e, "Failed to stream channel value");
-      if (this.valid) this.notify();
+      if (this.valid) this.observer.notify();
     }
   }
 }
@@ -357,6 +358,8 @@ export class ChannelData
   private boundsPoints = 0;
   // boundsRead is true when a bounds read ran since the last draw.
   private boundsRead = false;
+  // streaming is true when the last snapshot said the window takes streamed samples.
+  private streaming = false;
   // drawn holds the series of the last draw snapshot. The line buffers them to the GPU,
   // and releasing a series' last reference frees its buffer.
   private drawn = new MultiSeries();
@@ -418,10 +421,11 @@ export class ChannelData
         status: sourceStatus(this.loading, this.failures),
         aggregation: this.aggregation(),
       };
-    const { series, time } =
+    const { series, time, streaming } =
       extremesKept && !this.xy
         ? this.readBounds(client, ch.key, view)
         : this.readDraw(client, ch.key, view, points != null);
+    this.streaming = streaming === true;
     const status = this.status();
     this.failures.observe(status);
     const timestamps = ch.dataType.equals(DataType.TIMESTAMP) && !this.xy;
@@ -431,7 +435,7 @@ export class ChannelData
       status,
       aggregation: this.aggregation(),
       sorted: ch.isIndex,
-      rolling: timestamps && this.live,
+      edge: timestamps ? this.edge() : undefined,
     };
   }
 
@@ -502,16 +506,17 @@ export class ChannelData
   }
 
   // Reads the samples that bound the home view, reduced with min_max so they keep the
-  // extremes that other aggregations drop. A live window ends at the newest sample of
-  // every line on its axis, so it bounds the view the caller passes instead. The draw
-  // serves until the first ones load.
+  // extremes that other aggregations drop. A window that streams ends at the newest
+  // sample of every line on its axis, so it bounds the view the caller passes instead.
+  // The draw serves until the first ones load.
   private readBounds(
     client: Client,
     key: channel.Key,
     view: bounds.Bounds | undefined,
   ): framer.Snapshot {
     this.boundsRead = true;
-    const range = this.live && view != null ? viewRange(view) : undefined;
+    const range =
+      (this.live || this.streaming) && view != null ? viewRange(view) : undefined;
     const target = range == null ? undefined : view;
     if (
       this.bounds == null ||
@@ -557,7 +562,7 @@ export class ChannelData
     request: framer.PointsRequest,
   ): framer.Subscription {
     const subscription = client.feed.subscribe(request);
-    subscription.onChange(() => this.notify());
+    subscription.onChange(() => this.observer.notify());
     return subscription;
   }
 
@@ -576,11 +581,23 @@ export class ChannelData
     return this.xy ? "decimate" : this.props.aggregation;
   }
 
-  // A live window ends at the channel's newest sample, so a live channel with none has
-  // no bounds. A static window resolves the same at any time.
+  // A window that streams ends at the channel's newest sample, so one with none has no
+  // bounds. A static window that stopped streaming resolves the same at any time.
   private windowBounds(time: TimeStamp | undefined): bounds.Bounds {
-    if (this.live && time == null) return bounds.INVALID;
-    return resolveWindow(this.props.window, time ?? TimeStamp.ZERO).numericBounds;
+    const { window } = this.props;
+    if (!this.live && !this.streaming)
+      return resolveWindow(window, TimeStamp.ZERO).numericBounds;
+    if (time == null) return bounds.INVALID;
+    const home = resolveWindow(window, time);
+    if (this.live) return home.numericBounds;
+    return new TimeRange(home.start, TimeStamp.min(home.end, time)).numericBounds;
+  }
+
+  // A dynamic window keeps its span as samples arrive. A static window that streams
+  // keeps its start.
+  private edge(): Edge | undefined {
+    if (this.live) return "rolling";
+    return this.streaming ? "growing" : undefined;
   }
 
   /**
@@ -594,7 +611,7 @@ export class ChannelData
     if (client == null) {
       this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
-      return this.notify();
+      return this.observer.notify();
     }
     const { channel, useIndexOfChannel, xChannel } = this.props;
     while (generation === this.generation)
@@ -607,14 +624,14 @@ export class ChannelData
         [this.channel, this.xy] = [ch, xy];
         this.breaker.reset();
         this.failures.reset();
-        return this.notify();
+        return this.observer.notify();
       } catch (e) {
         if (generation !== this.generation) return;
         const deleted = this.failures.report(e, "Failed to read channel data");
         // Retries never hold loading, so a failure wakes observers of the status.
         if (this.loading) {
           this.loading = false;
-          this.notify();
+          this.observer.notify();
         }
         if (deleted || framer.retry.isDefinitive(e) || !(await this.breaker.wait()))
           return;
@@ -629,6 +646,7 @@ export class ChannelData
     this.drawStatus = undefined;
     this.closeBounds();
     this.boundsRead = false;
+    this.streaming = false;
     this.hold(new MultiSeries());
     this.valid = false;
     this.channel = null;

@@ -21,6 +21,7 @@ or generator logic and schemas disagree.
 
 - Never sync on `main` — sync writes generated files repo-wide. Sync only on the branch
   owning the schema changes.
+- CI pins buf 1.75.0 and `buf.gen.yaml` pins its plugins. Use the same buf locally.
 - `oracle check` verifies generated files match schemas — read-only, safe anywhere.
 - Confirm with the user before `oracle migrate` (version-affecting: scaffolds the next
   version file).

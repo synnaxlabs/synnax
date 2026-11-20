@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, notation, type numeric } from "@synnaxlabs/x";
+import { bounds, color, math, notation, type numeric } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -98,7 +98,7 @@ export class WithinBounds
   schema = WithinBounds.propsZ;
 
   protected transform(value: number): boolean {
-    return bounds.contains(this.props.trueBound, value);
+    return bounds.contains(bounds.construct(this.props.trueBound), value);
   }
 }
 
@@ -201,7 +201,7 @@ export class RollingAverage extends UnarySourceTransformer<
   protected transform(value: numeric.Value): number {
     const num = Number(value);
     if (this.props.windowSize < 2 || isNaN(num) || this.window.length === 0) return num;
-    return this.window.reduce((a, b) => a + b, 0) / this.window.length;
+    return math.mean(this.window);
   }
 
   // The window advances here, once per change that grows the appended count or comes

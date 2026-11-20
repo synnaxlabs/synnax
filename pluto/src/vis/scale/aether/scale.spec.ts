@@ -179,6 +179,13 @@ describe("scale/aether/Scale", () => {
       expect(recorder.upper2d.calls.some(({ op }) => op === "fillText")).toBe(true);
       expect(recorder.lower2d.calls.some(({ op }) => op === "fillText")).toBe(false);
     });
+
+    it("should measure the fill from a stored lower above the upper", () => {
+      const reversed = setup({ bounds: { lower: 100, upper: 0 } }, 25);
+      const ordered = setup({ bounds: { lower: 0, upper: 100 } }, 75);
+      expect(fillRegions(reversed.recorder)).toEqual(fillRegions(ordered.recorder));
+      expect(fillRegions(ordered.recorder).length).toBeGreaterThan(0);
+    });
   });
 
   describe("staleness", () => {
@@ -186,6 +193,18 @@ describe("scale/aether/Scale", () => {
     afterEach(() => vi.useRealTimers());
 
     const STALE = color.hex(THEME.colors.warning.m1);
+
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
+      source.setValue(50);
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(2000);
+      expect(component.state.stale).toBe(true);
+      source.setValue(60);
+      expect(component.state.stale).toBe(false);
+    });
 
     it("should recolor the fill once the source stops sending", () => {
       const { recorder, source } = setup({

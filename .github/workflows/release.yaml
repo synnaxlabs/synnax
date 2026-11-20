@@ -230,6 +230,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Resolve Console version
         id: console
@@ -351,6 +352,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -411,6 +413,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Write updater manifest
         uses: ./.github/actions/publish-updater-manifest
@@ -418,7 +422,6 @@ jobs:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
-          linux: true
 
   draft-driver:
     name: Draft Driver
@@ -434,6 +437,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -500,6 +504,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -631,6 +637,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       # The stage reads only the tarballs, so no dependency code runs in this job.
       - name: Set up pnpm and Node.js
@@ -718,9 +726,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -798,9 +808,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -873,6 +885,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -949,6 +962,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download Core binary
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1002,6 +1017,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -1028,7 +1044,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       driver: true
       core: true
       desktop: true
@@ -1070,7 +1085,6 @@ jobs:
     with:
       windows: true
       macos: true
-      ubuntu: true
       core: true
       desktop: true
       sign_binaries: true
@@ -1096,6 +1110,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Download bundles
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -1115,7 +1131,6 @@ jobs:
           tag: ${{ needs.resolve.outputs.desktop_tag }}
           version: ${{ needs.resolve.outputs.desktop_version }}
           app: Synnax Desktop
-          linux: true
 
   # The only job that makes a release public. It runs after Verify, the migration audit,
   # and every build of the run pass. A publish of a release that is already public

@@ -15,12 +15,12 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 
-import { aether } from "@/aether/aether";
 import { Node } from "@/schematic/node";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { Staleness } from "@/vis/staleness";
+import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { toggle } from "@/vis/toggle/aether";
 
 const SynnaxWrapper = createSynnaxWrapper({
@@ -53,7 +53,6 @@ describe("createToggle", () => {
   });
 });
 
-// Stands in for the toggle worker component and reports its source as stale.
 describe("deleted channel", () => {
   const client = createTestClient();
   const createChannel = async (): Promise<channel.Channel> =>
@@ -118,18 +117,12 @@ describe("deleted channel", () => {
   });
 });
 
-class StaleToggle extends aether.Leaf<typeof toggle.toggleStateZ> {
-  static readonly TYPE = toggle.Toggle.TYPE;
-  schema = toggle.toggleStateZ;
-
-  afterUpdate(): void {
-    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
-  }
-}
-
 const StaleWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: { [StaleToggle.TYPE]: StaleToggle },
+  additionalRegistry: stalenessTest.createRegistry(
+    toggle.Toggle.TYPE,
+    toggle.toggleStateZ,
+  ),
   telemFactories: [],
 });
 

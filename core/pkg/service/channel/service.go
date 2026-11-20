@@ -312,7 +312,7 @@ func calculationReads(
 		return nil, nil
 	}
 	result, err := analyzer.Analyze(ctx, ch)
-	if errors.As(err, new(*diagnostics.Diagnostics)) {
+	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
 		return nil, nil
 	}
 	if err != nil {

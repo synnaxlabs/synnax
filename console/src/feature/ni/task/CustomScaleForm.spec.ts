@@ -212,9 +212,31 @@ describe("CustomScaleForm", () => {
       expect(table.cell(2, 1).value).toBe("30");
     });
 
-    it("should reject a CSV whose columns hold a different number of values", async () => {
+    it("should reject a CSV with an empty cell", async () => {
       const csvPath = join(dir, "ragged.csv");
       await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,\n3,30\n");
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await screen.findByText("Column scaled_col has an empty cell");
+      expect(getInputTable("Values").rows).toHaveLength(0);
+    });
+
+    it("should load the chosen columns of a CSV whose other column is longer", async () => {
+      const csvPath = join(dir, "notes.csv");
+      await writeFile(csvPath, "raw_col,scaled_col,notes\n1,10,a\n2,20,b\n,,c\n");
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(2));
+      expect(getInputTable("Values").cell(1, 1).value).toBe("20");
+    });
+
+    it("should reject a CSV whose chosen column ends early", async () => {
+      const csvPath = join(dir, "short.csv");
+      await writeFile(csvPath, "raw_col,scaled_col\n1,10\n2,20\n3,\n");
       openMock.mockResolvedValue(csvPath);
       await renderWithScale(NI.Task.createScale("table"));
       await screen.findByText("Table CSV");
@@ -223,6 +245,21 @@ describe("CustomScaleForm", () => {
         "Pre-scaled 3 values and scaled 2 values must be the same length",
       );
       expect(getInputTable("Values").rows).toHaveLength(0);
+    });
+
+    it("should load a CSV with quoted fields", async () => {
+      const csvPath = join(dir, "quoted.csv");
+      await writeFile(csvPath, '"raw_col","scaled_col"\n"1","10"\n"2","20"\n');
+      openMock.mockResolvedValue(csvPath);
+      await renderWithScale(NI.Task.createScale("table"));
+      await screen.findByText("Table CSV");
+      fireEvent.click(screen.getByText("Select file"));
+      await findDialogTriggerByText("raw_col");
+      await findDialogTriggerByText("scaled_col");
+      await waitFor(() => expect(getInputTable("Values").rows).toHaveLength(2));
+      const table = getInputTable("Values");
+      expect(table.cell(1, 0).value).toBe("2");
+      expect(table.cell(1, 1).value).toBe("20");
     });
 
     it("should flag a stored scale whose columns are unpaired", async () => {

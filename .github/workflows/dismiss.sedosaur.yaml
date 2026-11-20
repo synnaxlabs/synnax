@@ -77,7 +77,7 @@ jobs:
 
       - name: Mint the GitHub App token
         id: app
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
@@ -143,8 +143,8 @@ jobs:
 
       - name: Install Claude Code
         run: |
-          npm install --no-save --prefix "$RUNNER_TEMP/claude" \
-            @anthropic-ai/claude-code@latest
+          cp -R .github/agents/cli "$RUNNER_TEMP/claude"
+          npm ci --prefix "$RUNNER_TEMP/claude"
           echo "$RUNNER_TEMP/claude/node_modules/.bin" >> "$GITHUB_PATH"
 
       # The fleet controller started the runner on a shared Claude login, which only
@@ -194,7 +194,7 @@ jobs:
       - name: Mint the GitHub App token
         id: app
         if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}

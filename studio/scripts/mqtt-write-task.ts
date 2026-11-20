@@ -50,7 +50,8 @@ export default serverTaskScript(MQTT, {
     await session.hold(600);
     const pointer = form.getByPlaceholder("/field", { exact: true }).first();
     await session.waitFor(pointer);
-    await pointer.scrollIntoViewIfNeeded();
+    // Scroll the pane to its end. Starting the task adds a line above the field.
+    await session.page.mouse.wheel(0, 200);
     await session.settle(300);
     await session.click(pointer);
     await session.type("/source");
