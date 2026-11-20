@@ -236,6 +236,44 @@ describe("range/Toolbar", () => {
       expect(parseInt(count, 10)).toBeGreaterThan(100);
     });
 
+    it("should keep Show more enabled during a read after a running range is deleted", async () => {
+      const page = await client.ranges.create(
+        Array.from({ length: 120 }, () => ({
+          name: uniqueName("page"),
+          timeRange: new TimeRange(TimeStamp.now().sub(TimeSpan.SECOND), TimeStamp.MAX),
+        })),
+      );
+      onTestFinished(async () => await client.ranges.delete(page.map((r) => r.key)));
+      const newest = await createRunning(uniqueName("newest"), {
+        since: TimeSpan.ZERO,
+      });
+      await renderToolbar();
+      await findLine("Running", newest.name);
+      await waitFor(() => expect(queryShowMore("Running")).not.toBeNull());
+      const reads = holdListReads();
+      await client.ranges.delete(newest.key);
+      await endRange(page[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
+      const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("true"), {
+        timeout: 10_000,
+      });
+      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
+      reads.release();
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      // Show more stays disabled until its own read lands.
+      const pageReads = holdListReads();
+      const showMore = queryShowMore("Running");
+      if (showMore == null) throw new Error("Running has no Show more");
+      fireEvent.click(showMore);
+      await waitFor(() => expect(showMore.getAttribute("aria-disabled")).toBe("true"));
+      pageReads.release();
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+    });
+
     it("should read a later start or end only after the reads in flight land", async () => {
       const first = await createRunning(uniqueName("first"));
       const second = await createRunning(uniqueName("second"));

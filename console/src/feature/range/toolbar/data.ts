@@ -68,6 +68,12 @@ export const useGroups = (): Groups => {
     initialSize: runningSize,
     eager: true,
   });
+  // Show more pages until its read lands. The render that grows the size still has the
+  // status of the last read, so the page waits to see its own read start.
+  const [page, setPage] = useState<"idle" | "asked" | "reading">("idle");
+  const runningReads = runningList.variant === "loading";
+  if (page === "asked" && runningReads) setPage("reading");
+  else if (page === "reading" && !runningReads) setPage("idle");
   const recentList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("completed", at), order: LATEST_END },
@@ -115,13 +121,12 @@ export const useGroups = (): Groups => {
     recent,
     favorites,
     runningComplete: runningList.complete,
-    moreRunning: () => setRunningSize((size) => size + RUNNING_PAGE),
+    moreRunning: () => {
+      setRunningSize((size) => size + RUNNING_PAGE);
+      setPage("asked");
+    },
     reading,
-    // Show more grows the size past the answer shown, so a crossing's read never pages.
-    paging:
-      runningList.variant === "loading" &&
-      !runningList.complete &&
-      runningList.data.length < runningSize,
+    paging: page !== "idle",
     getItem: runningList.getItem,
     subscribe: runningList.subscribe,
   };
