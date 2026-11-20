@@ -376,30 +376,30 @@ records, and applies all or nothing. A record is an 8-byte header (`uint16` type
 `uint16` zero, `uint32` body bytes) and its body. Bit 15 of the type lets an older
 binary skip a record it does not know. Without the bit, that binary refuses to open.
 
-| Record        | Offset   | Size | Type                    | Meaning                                                                                                                 |
-| ------------- | -------- | ---- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Reserve (1)   | 0        | 16   | `uint64` each           | Segment identity limit, then alignment number limit (at most 2^31). Every value given out is below its limit            |
-| Create (2)    | 0        | 8    | `uint64`                | Segment identity                                                                                                        |
-|               | 8        | 8    | `uint32` each           | Key, then clock key. They are equal for a clock                                                                         |
-|               | 16       | 8    | mixed                   | Segment format version (`uint16`), data type code of RFC 0117 (`uint8`), zero (5 bytes)                                 |
-| Commit (3)    | 0        | 8    | `uint32` each           | Slot count `k`, then the samples that each slot gains                                                                   |
-|               | 8        | 8    | `uint64`                | Alignment of the first sample                                                                                           |
-|               | 16       | 16   | `int64` each            | Stamp of the first sample, then stamp of the last sample                                                                |
-|               | 32 + 16i | 8    | `uint64`                | Slot `i`: segment identity. Slots are in rising order                                                                   |
-|               | 40 + 16i | 8    | `uint32` each           | Slot `i`: new committed length, then `tail_crc` there. The range starts at the length before                            |
-| Seal (4)      | 0        | 16   | `uint64`, `uint32` each | Segment identity, then its committed length and `tail_crc` there. The segment seals at that length                      |
-| Tombstone (5) | 0        | 8    | `uint32` each           | Key, then flags. Bit 0: a left cut. Bit 1: a right cut                                                                  |
-|               | 8        | 16   | `int64` each            | Deleted time range. The end is not included                                                                             |
-|               | 24       | 24   | cut                     | Left: segment (`uint64`), stream offset and zero (`uint32` each), alignment of the first dead sample (`uint64`)         |
-|               | 48       | 24   | cut                     | Right: the same fields, for the first live sample                                                                       |
-| Replace (6)   | 0        | 16   | `uint64` each           | Old sealed segment, then new segment, created earlier in the entry and sealed by this record                            |
-|               | 16       | 8    | `uint32` each           | Final length of the new segment (a version 2 reader finds the footer there), then its `tail_crc`                        |
-|               | 24       | 8    | `uint32` each           | Pointer count, then zero                                                                                                |
-|               | 32 + 40j | 40   | pointer                 | Stream offset, byte length, samples, zero (`uint32` each), alignment (`uint64`), first stamp, last stamp (`int64` each) |
-| Drop (7)      | 0        | 8    | `uint32` each           | Key, then zero                                                                                                          |
-| Restart (8)   | -        | 0    | -                       | No body. Replay seals every open segment at its committed length                                                        |
-| Check (9)     | 0        | 8    | `uint64`                | Version 0 segment that now has a check file                                                                             |
-| Intent (10)   | 0        | 8    | `uint32` each           | Key, then zero. A delete intent (§4.1); the key's Drop clears it                                                        |
+| Record        | Offset   | Size | Type                    | Meaning                                                                                                                                               |
+| ------------- | -------- | ---- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reserve (1)   | 0        | 16   | `uint64` each           | Segment identity limit, then alignment number limit (at most 2^31). Every value given out is below its limit                                          |
+| Create (2)    | 0        | 8    | `uint64`                | Segment identity                                                                                                                                      |
+|               | 8        | 8    | `uint32` each           | Key, then clock key. They are equal for a clock                                                                                                       |
+|               | 16       | 8    | mixed                   | Segment format version (`uint16`), data type code of RFC 0117 (`uint8`), zero (5 bytes)                                                               |
+| Commit (3)    | 0        | 8    | `uint32` each           | Slot count `k`, then the samples that each slot gains                                                                                                 |
+|               | 8        | 8    | `uint64`                | Alignment of the first sample                                                                                                                         |
+|               | 16       | 16   | `int64` each            | Stamp of the first sample, then stamp of the last sample                                                                                              |
+|               | 32 + 16i | 8    | `uint64`                | Slot `i`: segment identity. Slots are in rising order                                                                                                 |
+|               | 40 + 16i | 8    | `uint32` each           | Slot `i`: new committed length, then `tail_crc` there. The range starts at the length before                                                          |
+| Seal (4)      | 0        | 16   | `uint64`, `uint32` each | Segment identity, then its committed length and `tail_crc` there. The segment seals at that length                                                    |
+| Tombstone (5) | 0        | 8    | `uint32` each           | Key, then flags. Bit 0: a left cut. Bit 1: a right cut                                                                                                |
+|               | 8        | 16   | `int64` each            | Deleted time range. The end is not included                                                                                                           |
+|               | 24       | 24   | cut                     | Left: segment (`uint64`), stream offset and zero (`uint32` each), alignment of the first dead sample (`uint64`)                                       |
+|               | 48       | 24   | cut                     | Right: the same fields, for the first live sample                                                                                                     |
+| Replace (6)   | 0        | 16   | `uint64` each           | Old sealed segment, then new segment, created earlier in the entry and sealed by this record                                                          |
+|               | 16       | 8    | `uint32` each           | Final length of the new segment (a version 2 reader finds the footer there), then its `tail_crc`                                                      |
+|               | 24       | 8    | `uint32` each           | Pointer count, then zero                                                                                                                              |
+|               | 32 + 40j | 40   | pointer                 | Stream offset, byte length, samples, zero (`uint32` each), alignment (`uint64`), first stamp, last stamp (`int64` each)                               |
+| Drop (7)      | 0        | 8    | `uint32` each           | Key, then zero                                                                                                                                        |
+| Restart (8)   | -        | 0    | -                       | No body. Replay seals every open segment at its committed length                                                                                      |
+| Check (9)     | 0        | 8    | `uint64`                | Version 0 segment that now has a check file                                                                                                           |
+| Intent (10)   | 0        | 8    | `uint32` each           | Key, then flags. A delete intent (§4.1). Bit 0 set clears the key's intent, which `Sweep` logs for a key with a record; the key's Drop also clears it |
 
 - **Commit**: One clock write is one Commit: 32 bytes plus 16 per channel. Its clock key
   is that of the segments in its slots. A Commit extends the newest pointer of a segment
