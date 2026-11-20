@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/certificate/v1"
 import "schemas/synnax/versions/resource/v0"
 import "schemas/synnax/versions/secret/v1"
 import "schemas/synnax/versions/task/v4"
@@ -16,7 +17,10 @@ Key = v0.Key
 
 Grant struct extends v0.Grant {
     secrets
-    command task.Command {
+    certificates certificate.Key[] {
+        @doc value "are the file certificates whose key files the subject may read."
+    }
+    command      task.Command      {
         @doc value """
             is the command the subject runs with the secrets. Its task is on the subject
             rack, and answers on the key of the command that carries the grant.

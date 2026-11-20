@@ -21,12 +21,14 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/read_task.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::opcua {
 /// @brief Allowed relative error of a task's achieved sample rate.
@@ -53,6 +55,7 @@ protected:
     std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    std::shared_ptr<secret::Reader> reader;
     synnax::device::Device dev;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
@@ -263,6 +266,7 @@ protected:
         task_cfg_json = task_cfg;
 
         ctx = std::make_shared<task::MockContext>(client);
+        reader = std::make_shared<secret::Reader>(client, secret::Config{});
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
         conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 
@@ -279,6 +283,7 @@ protected:
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
+            reader,
             std::move(cfg)
         );
     }
@@ -342,6 +347,7 @@ protected:
             std::make_unique<UnaryReadTaskSource>(
                 ctx->client,
                 conn_pool,
+                reader,
                 std::move(*cfg)
             ),
             mock_factory
@@ -990,7 +996,10 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     conn_cfg.endpoint = "opc.tcp://localhost:4861";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *ctx->client,
+        server_id.certificate.pem()
+    );
     ASSERT_NIL(ctx->client->devices.dispatch(
         task_cfg_json["device"].get<std::string>(),
         {synnax::device::set(
@@ -999,7 +1008,8 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
         )}
     ));
     auto p = x::json::Parser(task_cfg_json);
-    UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    UnaryReadTaskSource
+        source(ctx->client, conn_pool, reader, ReadTaskConfig(ctx->client, p));
     ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
@@ -1010,6 +1020,49 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+}
+
+/// @brief it should log in to the device's server with the password in its secret.
+TEST_F(TestReadTask, testReadLogsInWithPasswordSecret) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto secured_cfg = testutil::ServerConfig::create_default();
+    secured_cfg.port = 4862;
+    secured_cfg.identity = server_id;
+    secured_cfg.users = {{"user", x::x509::testutil::KEY}};
+    const auto secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4862";
+    conn_cfg.security_mode = "SignAndEncrypt";
+    conn_cfg.security_policy = "Basic256Sha256";
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *ctx->client,
+        server_id.certificate.pem()
+    );
+    conn_cfg.username = "user";
+    conn_cfg.password_secret = secret::testutil::create_secret(*ctx->client);
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        this->dev.key,
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(conn_cfg)}
+        )}
+    ));
+    reader = std::make_shared<secret::Reader>(
+        std::make_shared<synnax::Synnax>(
+            rack_client_config(*ctx->client, this->dev.rack)
+        ),
+        secret::Config{.rack = this->dev.rack}
+    );
+    auto p = x::json::Parser(task_cfg_json);
+    UnaryReadTaskSource
+        source(ctx->client, conn_pool, reader, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
     ASSERT_NIL(source.read(breaker, fr).error);
     ASSERT_NIL(source.stop());
 }
@@ -1069,7 +1122,12 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1265,7 +1323,12 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1355,7 +1418,12 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1436,7 +1504,12 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1517,7 +1590,12 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
@@ -1632,7 +1710,12 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            reader,
+            std::move(*cfg)
+        ),
         mock_factory
     );
 
