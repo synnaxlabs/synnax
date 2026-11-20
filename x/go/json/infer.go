@@ -26,6 +26,9 @@ import (
 const (
 	// maxEnumLabels is the most distinct strings of a field that infers as an enum.
 	maxEnumLabels = 16
+	// maxEnumLabelLength is the longest string, in bytes, of a field that infers as an
+	// enum.
+	maxEnumLabelLength = 64
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
 )
@@ -79,7 +82,7 @@ type Shape struct {
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
 //     gives uint8. The JSON type of most values wins, and the rest are mismatched.
-//   - A string field that repeats a few values gives an enum.
+//   - A string field that repeats a few values of at most 64 bytes gives an enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
 //   - The index is the timestamp nearest the document time that rises in each source.
@@ -146,15 +149,11 @@ type Inferrer struct{ group *inferGroup }
 // NewInferrer returns an Inferrer that holds no documents.
 func NewInferrer() *Inferrer { return &Inferrer{group: newInferGroup()} }
 
-// Add adds data, written at t. Zero t selects the time of the call. Data that is not
-// one JSON value adds nothing.
+// Add adds data, written at t. Data that is not one JSON value adds nothing.
 func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 	leaves, err := parseLeaves(data)
 	if err != nil {
 		return
-	}
-	if t <= 0 {
-		t = telem.Now()
 	}
 	i.group.addDocument("", parsedDocument{leaves: leaves, time: t})
 }
@@ -297,7 +296,9 @@ type fieldStats struct {
 	// floating is true when a number has a fraction or does not fit a 64-bit integer.
 	floating, unsigned, negative bool
 	labels                       set.Set[string]
-	time                         timeStats
+	// longLabel is true once a string is longer than an enum label can be.
+	longLabel bool
+	time      timeStats
 }
 
 // timeStats tracks whether the values of a field are timestamps.
@@ -343,15 +344,27 @@ func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp) {
 		}
 	case '"':
 		s.strings++
-		if len(s.labels) <= maxEnumLabels {
-			if text, err := jsontext.AppendUnquote(nil, l.raw); err == nil {
-				s.labels.Add(string(text))
-			}
-		}
+		s.addLabel(l.raw)
 	default:
 		s.booleans++
 	}
 	s.addTime(source, l, ref)
+}
+
+// addLabel keeps the text of raw as a label while the field can still infer as an enum.
+func (s *fieldStats) addLabel(raw []byte) {
+	if s.longLabel || len(s.labels) > maxEnumLabels {
+		return
+	}
+	text, err := jsontext.AppendUnquote(nil, raw)
+	if err != nil {
+		return
+	}
+	if len(text) > maxEnumLabelLength {
+		s.longLabel = true
+		return
+	}
+	s.labels.Add(string(text))
 }
 
 func (s *fieldStats) addTime(source string, l leaf, ref telem.TimeStamp) {
@@ -393,7 +406,8 @@ func (s *fieldStats) field() InferredField {
 		f.TimeFormat, f.Mismatched = new(s.time.format), 0
 		return f
 	}
-	if f.Type == String && len(s.labels) <= maxEnumLabels && len(s.labels) < s.strings {
+	if f.Type == String && !s.longLabel && len(s.labels) <= maxEnumLabels &&
+		len(s.labels) < s.strings {
 		f.Enum = make([]string, 0, len(s.labels))
 		for label := range s.labels {
 			f.Enum = append(f.Enum, label)
