@@ -147,7 +147,9 @@ class SetRangeColorPayload(BaseModel):
 
 
 class SetAxisTimeModePayload(BaseModel):
-    """Sets where the x axis named by key draws the ranges."""
+    """Sets where the x axis named by key draws the ranges. A change of mode returns the
+    axis bounds to auto.
+    """
 
     key: XAxisKey
     time_mode: TimeMode | None = None
