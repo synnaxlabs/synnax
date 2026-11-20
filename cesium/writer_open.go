@@ -120,12 +120,6 @@ func (db *DB) openClockWriter(
 			err = errors.Combine(err, idx.Close())
 		}
 	}()
-	if !idx.idx.ch.IsIndex {
-		return nil, channel.Wrap(cfg.Clock, errors.Wrap(
-			validate.ErrValidation,
-			"writer clock is not an index",
-		))
-	}
 	// The clock opens first, so that it holds its claim before its channels do.
 	if slices.Contains(cfg.Channels, cfg.Clock) {
 		if err = db.openChannelWriter(ctx, cfg, idx, cfg.Clock); err != nil {
@@ -188,6 +182,12 @@ func (db *DB) openDomainIdxWriter(
 	u, ok := db.mu.dbs.unary[idxKey]
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
+	}
+	if !u.Channel().IsIndex {
+		return nil, channel.Wrap(idxKey, errors.Wrap(
+			validate.ErrValidation,
+			"writer clock is not an index",
+		))
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()

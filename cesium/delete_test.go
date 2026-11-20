@@ -778,7 +778,7 @@ var _ = Describe("Delete", func() {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 								Start:    20 * telem.SecondTS,
 								Channels: []cesium.ChannelKey{data3},
-								Clock:    data3,
+								Clock:    index2,
 							}))
 							Expect(
 								db.Drop([]cesium.ChannelKey{data2, data3}),
@@ -1401,7 +1401,7 @@ var _ = Describe("Delete", func() {
 									ctx,
 									cesium.WriterConfig{
 										Channels: []cesium.ChannelKey{data},
-										Clock:    data,
+										Clock:    index,
 										Start:    9 * telem.SecondTS,
 									},
 								),
@@ -1525,7 +1525,7 @@ var _ = Describe("Delete", func() {
 									ctx,
 									cesium.WriterConfig{
 										Channels: []cesium.ChannelKey{data},
-										Clock:    data,
+										Clock:    index,
 										Start:    9 * telem.SecondTS,
 									},
 								),
