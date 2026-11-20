@@ -147,7 +147,10 @@ export const spans = (traces: Trace[], type: TickType): Map<string, bounds.Bound
   if (type === "linear") return result;
   const groups = new Map<string, Trace[]>();
   finite.forEach((t) => {
-    if (t.group != null) groups.set(t.group, [...(groups.get(t.group) ?? []), t]);
+    if (t.group == null) return;
+    const members = groups.get(t.group);
+    if (members == null) groups.set(t.group, [t]);
+    else members.push(t);
   });
   groups.forEach((members) => split(members).forEach((b, key) => result.set(key, b)));
   return result;
@@ -172,13 +175,15 @@ const split = (traces: Trace[]): Map<string, bounds.Bounds> => {
   );
   const result = new Map<string, bounds.Bounds>();
   const owned: Array<[string, bounds.Bounds]> = [];
+  const taken: bounds.Bounds[] = [];
   ordered.forEach(({ key, bounds: b }) => {
-    const piece = newestLeft(
-      b,
-      owned.map(([, o]) => o),
-    );
-    if (piece == null) result.set(key, EMPTY);
-    else owned.push([key, piece]);
+    const piece = newestLeft(b, taken);
+    if (piece == null) {
+      result.set(key, EMPTY);
+      return;
+    }
+    owned.push([key, piece]);
+    taken.push(piece);
   });
   owned.sort(([, a], [, b]) => a.lower - b.lower);
   owned.forEach(([key, piece], i) => {

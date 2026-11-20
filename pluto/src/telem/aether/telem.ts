@@ -82,7 +82,7 @@ export interface ValueProps {
    * The span of x the caller draws. A source that reads by span reads no data wholly
    * outside it, but may return data that crosses its edges.
    */
-  bound?: bounds.Bounds;
+  span?: bounds.Bounds;
 }
 
 export interface Telem {
