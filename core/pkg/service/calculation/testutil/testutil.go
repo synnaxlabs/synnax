@@ -72,10 +72,7 @@ func (c Creator) CreateMany(
 		}
 	}
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := c.Channel.NewWriter(tx).CreateMany(ctx, &channels); err != nil {
-			return err
-		}
-		return c.Calculation.NewWriter(tx).SyncChannels(ctx, channels[:len(calcs)])
+		return c.Calculation.NewWriter(tx).CreateChannels(ctx, &channels, false)
 	}); err != nil {
 		return nil, err
 	}

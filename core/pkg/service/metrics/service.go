@@ -192,14 +192,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		for i := range calculatedChannels {
 			calculatedChannels[i].Group = &s.group.Key
 		}
-		if err := cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
-			return err
-		}
-		return cfg.Calculation.NewWriter(tx).SyncChannels(ctx, calculatedChannels)
+		return cfg.Calculation.NewWriter(tx).
+			CreateChannels(ctx, &calculatedChannels, true)
 	}); err != nil {
 		return nil, err
 	}

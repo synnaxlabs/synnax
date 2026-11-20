@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -194,16 +195,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	opts := []channel.CreateOption{}
-	if req.RetrieveIfNameExists {
-		opts = append(opts, channel.RetrieveIfNameExists())
-	}
-	if err := s.internal.NewWriter(tx).
-		CreateMany(ctx, &translated, opts...); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.calculations.NewWriter(tx).
-		SyncChannels(ctx, translated); err != nil {
+		CreateChannels(ctx, &translated, req.RetrieveIfNameExists); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{
@@ -457,22 +450,32 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
+	var prev, next channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(req.Key)).
+		Entry(&prev).
+		Exec(ctx, tx); err != nil {
+		return DispatchResponse{}, err
+	}
 	computed, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	var ch channel.Channel
 	if err = s.internal.NewRetrieve().
 		Where(channel.MatchKeys(req.Key)).
-		Entry(&ch).
+		Entry(&next).
 		Exec(ctx, tx); err != nil {
 		return DispatchResponse{}, err
 	}
-	if err = s.calculations.NewWriter(tx).
-		SyncChannels(ctx, []channel.Channel{ch}); err != nil {
-		return DispatchResponse{}, err
+	// Only an edit of the expression or the operations writes the calculation, so the
+	// other edits keep what the calculation API wrote.
+	if next.Expression != prev.Expression ||
+		!slices.Equal(next.Operations, prev.Operations) {
+		if err = s.calculations.NewWriter(tx).SetFromChannel(ctx, next); err != nil {
+			return DispatchResponse{}, err
+		}
 	}
 	return DispatchResponse{Actions: computed}, nil
 }

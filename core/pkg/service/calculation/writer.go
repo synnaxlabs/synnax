@@ -11,7 +11,6 @@ package calculation
 
 import (
 	"context"
-	"reflect"
 	"slices"
 	"uuid"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -150,46 +150,102 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// SyncChannels makes the calculation of each of the given channels match the channel's
-// expression and operations. It creates the calculation of a channel that has an
-// expression and none, deletes the calculation of a channel that has no expression,
-// and updates a calculation that differs.
-func (w Writer) SyncChannels(ctx context.Context, channels []channel.Channel) error {
-	stored := make([]Calculation, 0, len(channels))
-	if err := (Retrieve{gorp: w.table.NewRetrieve(), indexes: w.indexes}).
-		Where(MatchOutputs(channel.KeysFromChannels(channels)...)).
-		Entries(&stored).
-		Exec(ctx, w.tx); err != nil {
+// CreateChannels creates channels with the channel service, then the calculation of
+// each created channel that has an expression. When retrieveIfExists is true, a channel
+// whose name or key is stored is found as channel.RetrieveIfNameExists finds it, and
+// CreateChannels writes no calculation for it.
+func (w Writer) CreateChannels(
+	ctx context.Context,
+	channels *[]channel.Channel,
+	retrieveIfExists bool,
+) error {
+	n := len(*channels)
+	var (
+		found = set.New[channel.Key]()
+		opts  []channel.CreateOption
+	)
+	if retrieveIfExists {
+		opts = append(opts, channel.RetrieveIfNameExists())
+		stored, err := w.storedChannels(ctx, *channels)
+		if err != nil {
+			return err
+		}
+		found.Add(channel.KeysFromChannels(stored)...)
+	}
+	if err := w.channels.NewWriter(w.tx).
+		CreateMany(ctx, channels, opts...); err != nil {
 		return err
 	}
-	byOutput := make(map[channel.Key]Calculation, len(stored))
-	for _, c := range stored {
-		byOutput[c.Output] = c
-	}
-	for _, ch := range channels {
-		c, ok := byOutput[ch.Key()]
-		ops := FromChannelOperations(ch.Operations)
-		var err error
-		switch {
-		case ch.Expression == "" && ok:
-			err = w.Delete(ctx, c.Key)
-		case ch.Expression == "":
-		case !ok:
-			c = Calculation{
-				Output:     ch.Key(),
-				Expression: ch.Expression,
-				Operations: ops,
-			}
-			err = w.Create(ctx, &c)
-		case c.Expression != ch.Expression || !slices.EqualFunc(
-			c.Operations, ops, func(a, b Operation) bool { return reflect.DeepEqual(a, b) },
-		):
-			c.Expression, c.Operations = ch.Expression, ops
-			err = w.Update(ctx, c)
+	// The channel writer appends the index channels it creates after channels.
+	for _, ch := range (*channels)[:n] {
+		if ch.Expression == "" || found.Contains(ch.Key()) {
+			continue
 		}
-		if err != nil {
+		c := Calculation{
+			Output:     ch.Key(),
+			Expression: ch.Expression,
+			Operations: FromChannelOperations(ch.Operations),
+		}
+		if err := w.Create(ctx, &c); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// storedChannels returns the stored channels that have the name or key of a channel in
+// channels.
+func (w Writer) storedChannels(
+	ctx context.Context,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	var byName []channel.Channel
+	if err := w.channels.NewRetrieve().
+		Where(channel.MatchNames(channel.Names(channels)...)).
+		Entries(&byName).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	var keys []channel.Key
+	for _, ch := range channels {
+		if ch.LocalKey != 0 {
+			keys = append(keys, ch.Key())
+		}
+	}
+	if len(keys) == 0 {
+		return byName, nil
+	}
+	var byKey []channel.Channel
+	if err := w.channels.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		SkipMissingKeys().
+		Entries(&byKey).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	return slices.Concat(byName, byKey), nil
+}
+
+// SetFromChannel writes the expression and operations of ch to its calculation, and
+// creates the calculation when ch has none. It writes nothing for a channel with no
+// expression.
+func (w Writer) SetFromChannel(ctx context.Context, ch channel.Channel) error {
+	if ch.Expression == "" {
+		return nil
+	}
+	var stored []Calculation
+	if err := (Retrieve{gorp: w.table.NewRetrieve(), indexes: w.indexes}).
+		Where(MatchOutputs(ch.Key())).
+		Entries(&stored).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	ops := FromChannelOperations(ch.Operations)
+	if len(stored) == 0 {
+		c := Calculation{Output: ch.Key(), Expression: ch.Expression, Operations: ops}
+		return w.Create(ctx, &c)
+	}
+	c := stored[0]
+	c.Expression, c.Operations = ch.Expression, ops
+	return w.Update(ctx, c)
 }
