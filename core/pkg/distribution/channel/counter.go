@@ -23,6 +23,8 @@ type counter struct {
 	// durable is the highest value that storage holds. A failed write moves ctr but not
 	// durable.
 	durable atomic.Int64
+	// atOpen is the value that storage held when the counter opened.
+	atOpen int64
 }
 
 func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
@@ -30,9 +32,15 @@ func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, er
 	if err != nil {
 		return nil, err
 	}
-	c := &counter{ctr: ctr}
-	c.durable.Store(ctr.Value())
+	c := &counter{ctr: ctr, atOpen: ctr.Value()}
+	c.durable.Store(c.atOpen)
 	return c, nil
+}
+
+// issuedAtOpen reports whether storage held a value of the counter at or past local
+// when the counter opened.
+func (c *counter) issuedAtOpen(local LocalKey) bool {
+	return local != 0 && int64(local) <= c.atOpen
 }
 
 // issued reports whether storage holds a value of the counter at or past local, so no

@@ -28,6 +28,20 @@ func (t *Table[K, E]) DropDangling(
 	snap Snapshot,
 	e *E,
 ) (bool, error) {
+	return t.dropDangling(ctx, snap, e, nil)
+}
+
+// IssuedFunc reports whether the table of target issued its key.
+type IssuedFunc func(target Target) (bool, error)
+
+// dropDangling is DropDangling, asking issued in place of a weak target's table when
+// issued is not nil.
+func (t *Table[K, E]) dropDangling(
+	ctx context.Context,
+	snap Snapshot,
+	e *E,
+	issued IssuedFunc,
+) (bool, error) {
 	dropped := false
 	for _, ref := range t.references {
 		if !ref.canDetach() {
@@ -41,9 +55,12 @@ func (t *Table[K, E]) DropDangling(
 			}
 			if table.canonical(target.Key) {
 				var ok bool
-				if weak {
+				switch {
+				case weak && issued != nil:
+					ok, err = issued(target)
+				case weak:
 					ok, err = table.issued(target.Key)
-				} else {
+				default:
 					ok, err = table.exists(ctx, snap, target.Key)
 				}
 				if err != nil {
@@ -64,7 +81,18 @@ func (t *Table[K, E]) DropDangling(
 // every entry of the table and writes each entry it changes. It decodes entries as E,
 // so it runs after the migrations that convert them to E.
 func (t *Table[K, E]) DanglingMigration(key string) Migration {
-	return danglingMigration{key: key, run: t.dropAllDangling}
+	return t.IssuedDanglingMigration(key, nil)
+}
+
+// IssuedDanglingMigration is DanglingMigration that asks issued, when it is not nil,
+// whether the table of a weak target issued its key.
+func (t *Table[K, E]) IssuedDanglingMigration(key string, issued IssuedFunc) Migration {
+	return danglingMigration{
+		key: key,
+		run: func(ctx context.Context, tx Tx, ins alamos.Instrumentation, key string) error {
+			return t.dropAllDangling(ctx, tx, ins, key, issued)
+		},
+	}
 }
 
 // DanglingMigration returns Table.DanglingMigration for the table that a TableConfig
@@ -113,6 +141,7 @@ func (t *Table[K, E]) dropAllDangling(
 	tx Tx,
 	ins alamos.Instrumentation,
 	key string,
+	issued IssuedFunc,
 ) (err error) {
 	var (
 		writer = WrapWriter[K, E](tx)
@@ -129,7 +158,7 @@ func (t *Table[K, E]) dropAllDangling(
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		if dropped, err = t.DropDangling(ctx, tx, e); err != nil {
+		if dropped, err = t.dropDangling(ctx, tx, e, issued); err != nil {
 			return err
 		}
 		if dropped {

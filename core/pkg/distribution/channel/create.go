@@ -73,6 +73,18 @@ func (s *Service) Issued(k Key) bool {
 	return true
 }
 
+// IssuedAtOpen reports whether Issued(k) held when the service opened, before any
+// Allocate of this run.
+func (s *Service) IssuedAtOpen(k Key) bool {
+	switch {
+	case k.Free():
+		return s.freeCounter.issuedAtOpen(k.LocalKey())
+	case k.Lease() == s.cfg.HostKey:
+		return s.leasedCounter.issuedAtOpen(k.LocalKey())
+	}
+	return true
+}
+
 // Create creates the storage channels for the provided channels, which carry the keys
 // that Allocate assigned. Free channels have no storage registration and are skipped.
 func (s *Service) Create(ctx context.Context, channels []Channel) error {
