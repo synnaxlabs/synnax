@@ -270,8 +270,6 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(byOutput).To(HaveKey(doubled.Key()))
 		Expect(byOutput).To(HaveKey(windowed.Key()))
 		Expect(byOutput).ToNot(HaveKey(plain.Key()))
-		// A UUIDv5 of the channel key names each record.
-		Expect(byOutput[doubled.Key()].Key[6] >> 4).To(Equal(byte(5)))
 		Expect(byOutput[doubled.Key()].Expression).To(Equal("return 2"))
 		Expect(byOutput[doubled.Key()].Operations).To(BeEmpty())
 		Expect(byOutput[windowed.Key()].Operations).To(Equal([]calculation.Operation{
@@ -285,6 +283,24 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
 			Where(gorp.MatchKeys[status.Key, status.Status[any]](v062StatusKey)).
 			Exists(ctx, n.DB)).To(BeFalse())
+	})
+
+	It("Should give a calculated channel the same calculation key on each store", func(
+		ctx SpecContext,
+	) {
+		keyOn := func() (channel.Key, calculation.Key) {
+			var plain, doubled, windowed channelv1.Channel
+			n := openUpgraded(ctx, func(n testutil.Node) {
+				createV062Store(ctx, n, &plain, &doubled, &windowed)
+			})
+			l := MustOpen(svctestutil.OpenLayer(ctx, n))
+			c := calculationOf(ctx, n, l.Calculation, doubled.Key())
+			return doubled.Key(), c.Key
+		}
+		firstOutput, first := keyOn()
+		secondOutput, second := keyOn()
+		Expect(secondOutput).To(Equal(firstOutput))
+		Expect(second).To(Equal(first))
 	})
 
 	It("Should warn on a calculation whose operation it drops for no type", func(

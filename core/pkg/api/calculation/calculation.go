@@ -143,8 +143,6 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
-// channelsAllowed returns true when the subject can retrieve the output of c and each
-// primary and reset channel of c.
 // channelsAllowed reports whether the subject of snap can retrieve each channel that c
 // links. It returns the denial when the request names c.
 func (s *Service) channelsAllowed(

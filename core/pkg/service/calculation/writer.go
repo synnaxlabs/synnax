@@ -171,7 +171,7 @@ func (w Writer) CreateChannels(
 		c := Calculation{
 			Output:     ch.Key(),
 			Expression: ch.Expression,
-			Operations: FromChannelOperations(ch.Operations),
+			Operations: fromChannelOperations(ch.Operations),
 		}
 		if err := w.Create(ctx, &c); err != nil {
 			return err
@@ -227,7 +227,7 @@ func (w Writer) SetFromChannel(ctx context.Context, ch channel.Channel) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	ops := FromChannelOperations(ch.Operations)
+	ops := fromChannelOperations(ch.Operations)
 	if len(stored) == 0 {
 		c := Calculation{Output: ch.Key(), Expression: ch.Expression, Operations: ops}
 		return w.Create(ctx, &c)

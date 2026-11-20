@@ -63,7 +63,7 @@ func (s *Service) Migration(
 					Key:        migratedKey(ch.Key()),
 					Output:     ch.Key(),
 					Expression: ch.Expression,
-					Operations: FromChannelOperations(ops),
+					Operations: fromChannelOperations(ops),
 				}
 				if err := s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
 					return err
