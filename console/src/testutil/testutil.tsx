@@ -20,6 +20,7 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
@@ -233,15 +234,17 @@ const composeConsole = (
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <FileBrowser.Provider>
-        <Triggers.Provider>
-          <Provider store={store}>
-            <Session.Modals.Context>
-              <div style={WINDOW_STYLE}>{children}</div>
-            </Session.Modals.Context>
-          </Provider>
-        </Triggers.Provider>
-      </FileBrowser.Provider>
+      <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+        <FileBrowser.Provider>
+          <Triggers.Provider>
+            <Provider store={store}>
+              <Session.Modals.Context>
+                <div style={WINDOW_STYLE}>{children}</div>
+              </Session.Modals.Context>
+            </Provider>
+          </Triggers.Provider>
+        </FileBrowser.Provider>
+      </Theming.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;
