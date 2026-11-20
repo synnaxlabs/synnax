@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, icd, mqtt, type rack } from "@synnaxlabs/client";
-import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
+import { type device, icd, mqtt, type rack, type Synnax } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  holdRequests,
+  rejectRequests,
+} from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -72,6 +76,8 @@ interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
    * ICD edit here would make invalid.
    */
   beforeRender?: (dev: device.Device) => Promise<unknown>;
+  /** The client that renders the form, when not the one that saves the task. */
+  as?: Synnax;
 }
 
 /** Creates an ICD that holds one message, and an entry that reads it. */
@@ -111,6 +117,7 @@ const renderRead = async ({
   properties,
   entries = [],
   beforeRender,
+  as,
 }: RenderParams = {}) => {
   const dev = await createBroker(client, { properties });
   const first = fields == null ? [] : [await createEntry({ fields, index, bound })];
@@ -126,6 +133,7 @@ const renderRead = async ({
   const statuses: Status.NotificationSpec[] = [];
   const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
     client,
+    as,
     taskKey: draft.key,
     onStatuses: (next) => {
       statuses.length = 0;
@@ -917,6 +925,388 @@ describe("MQTT read form", () => {
     });
   });
 
+  describe("message format", () => {
+    /** Creates an ICD that holds one message of the fields, with a unique name. */
+    const createShared = async (fields: icd.JSONField[]) => {
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("status"),
+        payload: { format: "json", fields },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [message],
+      });
+      return { shared, message };
+    };
+
+    /**
+     * Picks the message format of the open topic, from the one it reads now. Pass the
+     * name of the ICD of the next message when another ICD has a message of its name.
+     */
+    const pickFormat = async (current: string, next: string, icdName = "") => {
+      fireEvent.click(await findDialogTriggerByText(current));
+      const dialogs = await screen.findAllByRole("dialog");
+      const names = await within(dialogs[dialogs.length - 1]).findAllByText(next);
+      const [name] = names.filter((n) =>
+        n.parentElement?.textContent?.includes(icdName),
+      );
+      fireEvent.click(name);
+    };
+
+    const openTopic = async (topic = TOPIC) =>
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`JSON.*${topic}`) }),
+      );
+
+    /** Adds a topic through the Add data dialog. @returns its entry. */
+    const addTopic = async (taskKey: string, topic: string) => {
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+      // The new topic has no name until the input sets one.
+      const input = await waitFor(() => {
+        const [empty] = screen
+          .getAllByPlaceholderText<HTMLInputElement>("plant/line1/telemetry")
+          .filter(({ value }) => value === "");
+        if (empty == null) throw new Error("no new topic");
+        return empty;
+      });
+      fireEvent.change(input, { target: { value: topic } });
+      fireEvent.blur(input);
+      return await waitFor(async () => {
+        const entry = (await retrieveEntries(taskKey)).find(
+          (e) => e.type === "plain" && e.topic === topic,
+        );
+        return plainOf(entry);
+      });
+    };
+
+    /** @returns the key of each message of the ICD. */
+    const messageKeys = async (key: string) =>
+      (await client.icds.retrieve({ key })).messages.map(({ key }) => key);
+
+    it("should read a message of another ICD with each of its fields", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const pressure = createField("pressure", "float");
+      const mode = createField("mode", "string");
+      const { shared, message } = await createShared([pressure, mode]);
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0])).toMatchObject({
+          icd: shared.key,
+          messages: [
+            {
+              message: message.key,
+              bindings: [
+                { field: pressure.key, channel: 0, dataType: "" },
+                { field: mode.key, channel: 0, dataType: "" },
+              ],
+            },
+          ],
+        }),
+      );
+      await screen.findByRole("treeitem", { name: /^pressure/ });
+      await screen.findByRole("treeitem", { name: /^mode/ });
+      const { messages } = await client.icds.retrieve({ key: entry.icd });
+      expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should delete a message with no fields that the task made when its topic stops reading it", async () => {
+      const { message } = await createShared([createField("pressure", "float")]);
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
+    });
+
+    it("should keep a message with fields that the task made when its topic stops reading it", async () => {
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await waitFor(async () =>
+        expect(
+          (await client.icds.retrieve({ key: entry.icd })).messages[0].payload,
+        ).toMatchObject({ fields: [{ name: "Field 1" }] }),
+      );
+      await openTopic();
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+      );
+      expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should keep a message that the task made when another topic reads it", async () => {
+      const stove = await createEntry({
+        fields: [createField("temperature", "float")],
+        topic: "plant/stove",
+      });
+      const { name: home } = await client.icds.retrieve({ key: stove.icd });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead({ entries: [stove] });
+      const oven = await addTopic(draft.key, TOPIC);
+      const made = oven.messages[0].message;
+      await openTopic("plant/stove");
+      await pickFormat("plant/stove", "Untitled", home);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toMatchObject([
+          { message: made },
+        ]),
+      );
+      await openTopic();
+      await pickFormat("Untitled", message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[1]).icd).toBe(shared.key),
+      );
+      expect(await messageKeys(stove.icd)).toEqual([stove.messages[0].message, made]);
+    });
+
+    it("should keep a message with no fields that the task did not make", async () => {
+      const entry = await createEntry({ fields: [] });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+      );
+      expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should delete a message with no fields from Add message when its topic stops reading it", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { message } = await createShared([createField("pressure", "float")]);
+      const { draft } = await renderRead({ entries: [entry] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: TOPIC }));
+      fireEvent.click(await screen.findByText("Remove"));
+      await waitFor(async () => {
+        const { messages } = plainOf((await retrieveEntries(draft.key))[0]);
+        expect(messages).toHaveLength(1);
+        expect(messages[0].message).not.toBe(entry.messages[0].message);
+      });
+      await openTopic();
+      await pickFormat(`${TOPIC} 2`, message.name);
+      await waitFor(async () =>
+        expect(await messageKeys(entry.icd)).toEqual([entry.messages[0].message]),
+      );
+    });
+
+    it("should delete a message with no fields from Add data for a topic whose message is gone", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { message } = await createShared([createField("pressure", "float")]);
+      await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+      await screen.findByText("Message not found");
+      const dialog = await openAddData();
+      fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
+        target: { value: TOPIC },
+      });
+      fireEvent.click(
+        await dialog.findByRole("button", { name: `Add “${TOPIC}” as a topic` }),
+      );
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toHaveLength(1));
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      await waitFor(async () => expect(await messageKeys(entry.icd)).toEqual([]));
+    });
+
+    it.each([
+      { name: "one timestamp field", times: ["time"], indexed: true },
+      { name: "no timestamp field", times: [], indexed: false },
+      { name: "two timestamp fields", times: ["time", "sent"], indexed: false },
+    ])(
+      "should take the time from the payload only for a message with $name",
+      async ({ times, indexed }) => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const stamps = times.map((name) => ({
+          ...createTimeField(),
+          name,
+          pointer: `/${name}`,
+        }));
+        const pressure = createField("pressure", "float");
+        const { message } = await createShared([...stamps, pressure]);
+        const { draft } = await renderRead({ entries: [entry] });
+        await openTopic();
+        await pickFormat(TOPIC, message.name);
+        await waitFor(async () => {
+          const [read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+          expect(read.message).toBe(message.key);
+          expect(read.index).toBe(indexed ? stamps[0].key : undefined);
+          expect(read.bindings).toContainEqual({
+            field: pressure.key,
+            channel: 0,
+            dataType: "",
+          });
+        });
+      },
+    );
+
+    it("should list a message that is renamed while the topic is open", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      fireEvent.click(await findDialogTriggerByText(TOPIC));
+      await screen.findByText(message.name);
+      const renamed = uniqueName("alarm");
+      await client.icds.dispatch(
+        shared.key,
+        icd.set({ path: ["messages", message.key, "name"], value: renamed }),
+      );
+      await screen.findByText(renamed);
+    });
+
+    /**
+     * Renders a topic whose float temperature field the device stores in a channel,
+     * then switches it to a shared message whose temperature field has the kind.
+     */
+    const switchTemperature = async (kind: payload.Kind) => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const next = createField("temperature", kind);
+      const { message } = await createShared([next]);
+      const stored = `${TOPIC}#${entry.messages[0].message}`;
+      const { draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: { [stored]: { index: 0, channels: { "/temperature": ch.key } } },
+        },
+      });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      return { ch, next, draft };
+    };
+
+    it("should keep the channel of a pointer whose new field fits its data type", async () => {
+      const { ch, next, draft } = await switchTemperature("integer");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: ch.key, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should wait for the data types of the stored channels before it binds", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature, createField("pressure", "float")],
+        bound: { [temperature.key]: ch.key },
+      });
+      // A new client has no channels cached, so the form fetches the stored one.
+      const viewer = createTestClient();
+      await viewer.connect();
+      const { release } = holdRequests(viewer, "/channel/retrieve");
+      await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${entry.messages[0].message}`]: {
+              index: 0,
+              channels: { "/temperature": ch.key },
+            },
+          },
+        },
+        as: viewer,
+      });
+      await openTopic();
+      const add = await screen.findByRole("button", { name: "Add data" });
+      const addField = await screen.findByRole("button", { name: "Add field" });
+      const format = await findDialogTriggerByText(TOPIC);
+      const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+        name: "Read temperature",
+      });
+      expect(add.getAttribute("aria-disabled")).toBe("true");
+      expect(addField.getAttribute("aria-disabled")).toBe("true");
+      expect(format.getAttribute("aria-disabled")).toBe("true");
+      expect(read.disabled).toBe(true);
+      const pressure = () => screen.findByRole("treeitem", { name: /^pressure/ });
+      fireEvent.contextMenu(await pressure());
+      await screen.findByText("Remove");
+      expect(screen.queryByText("Enable")).toBeNull();
+      release();
+      await waitFor(() => {
+        expect(add.getAttribute("aria-disabled")).toBeNull();
+        expect(addField.getAttribute("aria-disabled")).toBeNull();
+        expect(format.getAttribute("aria-disabled")).toBeNull();
+        expect(read.disabled).toBe(false);
+      });
+      fireEvent.contextMenu(await pressure());
+      await screen.findByText("Enable");
+    });
+
+    it("should give a new channel to a pointer whose new field does not fit its data type", async () => {
+      const { next, draft } = await switchTemperature("string");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should add a new topic to the ICD that most topics read", async () => {
+      const lone = await createEntry({ fields: [createField("temperature", "float")] });
+      const pump = await createEntry({
+        fields: [createField("pressure", "float")],
+        topic: "plant/pump/1",
+      });
+      const twin = mqtt.plainReadEntryZ.parse({
+        type: "plain",
+        icd: pump.icd,
+        topic: "plant/pump/2",
+        messages: [{ message: pump.messages[0].message }],
+      });
+      const { draft } = await renderRead({ entries: [lone, pump, twin] });
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+      await waitFor(async () => {
+        const entries = (await retrieveEntries(draft.key)).map(plainOf);
+        expect(entries).toHaveLength(4);
+        expect(entries[3].icd).toBe(pump.icd);
+        const { messages } = await client.icds.retrieve({ key: pump.icd });
+        expect(messages.map(({ key }) => key)).toContain(
+          entries[3].messages[0].message,
+        );
+      });
+    });
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({
@@ -1276,6 +1666,91 @@ describe("MQTT read form", () => {
     const input = await screen.findByPlaceholderText(`${dev.name}_plant_line1_flow`);
     fireEvent.change(input, { target: { value: typed } });
     await screen.findByText(`Saves as ${typed}_2`);
+  });
+
+  it("should say the numbered name that a name typed in an earlier tag saves as", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [createTagEntry("flow", { name: typed }), createTagEntry("level")],
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/level/ }),
+    );
+    const input = await screen.findByPlaceholderText(`${dev.name}_plant_line1_level`);
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
+  });
+
+  it("should leave a disabled tag out of the numbering of typed names", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [
+        createTagEntry("flow", { name: typed, disabled: true }),
+        createTagEntry("level", { name: typed }),
+        createTagEntry("pressure"),
+      ],
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/pressure/ }),
+    );
+    const input = await screen.findByPlaceholderText(
+      `${dev.name}_plant_line1_pressure`,
+    );
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
+  });
+
+  it("should number the planned name of a field renamed in its ICD", async () => {
+    const temperature = createField("temperature", "float");
+    const later = await createEntry({ fields: [temperature], topic: "plant_oven" });
+    const { dev } = await renderRead({
+      entries: [
+        await createEntry({ fields: [createField("pressure", "float")] }),
+        later,
+      ],
+    });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature`);
+    const { message } = later.messages[0];
+    await client.icds.dispatch(
+      later.icd,
+      icd.set({
+        path: ["messages", message, "payload", "fields", temperature.key, "name"],
+        value: "pressure",
+      }),
+    );
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_pressure_2`);
+  });
+
+  it("should preview its own name for each of two entries that read one message", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const { dev } = await renderRead({
+      entries: [entry, { ...entry, key: uuid.create() }],
+      beforeRender: async (dev) =>
+        await client.channels.create({
+          name: `${dev.name}_plant_oven_temperature`,
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        }),
+    });
+    const items = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(items[1]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_3`);
+    fireEvent.click(items[0]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+  });
+
+  it("should preview a numbered name for a field whose name an earlier topic takes", async () => {
+    const fields = () => [createField("temperature", "float")];
+    const { dev } = await renderRead({
+      entries: [
+        await createEntry({ fields: fields(), topic: "plant/oven" }),
+        await createEntry({ fields: fields(), topic: "plant_oven" }),
+      ],
+    });
+    const items = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(items[1]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
   describe("Sparkplug B entries", () => {
