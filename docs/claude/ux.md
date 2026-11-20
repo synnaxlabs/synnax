@@ -445,6 +445,8 @@ bound, a log precision, or the line plot X channel.
   that integration.
 - A submenu of targets keeps a target that already has the change, with a check, and
   disables it. Add to plot does this for a plot that shows the range.
+- A selection of two or more ranges has Compare under Add to plot. It opens a new plot
+  in relative time with the ranges, named "Compare A and B".
 - In a selection, an option that only some of the items have shows a minus mark. The
   first click adds it to all of them, and the next click removes it from all of them.
 - A picker leaves out a choice that the Core would reject. The Parent picker leaves out

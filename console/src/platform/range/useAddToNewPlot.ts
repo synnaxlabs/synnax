@@ -7,25 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 
 import { LinePlot } from "@/platform/lineplot";
 
-export const useAddToNewPlot = (): ((keys: string[]) => void) => {
+/**
+ * @returns a function that opens a new line plot of the ranges with the given keys. A
+ * relative time mode draws each range from its start, to compare the ranges.
+ */
+export const useAddToNewPlot = (): ((
+  keys: string[],
+  timeMode?: lineplot.TimeMode,
+) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const create = LinePlot.useCreate();
-  return (keys: string[]) => {
+  return (keys, timeMode) => {
     if (client == null) return;
-    handleError(async () => {
-      const ranges = await client.ranges.retrieve(keys);
-      const names = ranges.map(({ name }) => name);
-      create({
-        name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-        ranges: ranges.map(({ key }) => ({ variant: "key", key })),
-      });
-    }, "Failed to add ranges to plot");
+    const relative = timeMode === "relative";
+    handleError(
+      async () => {
+        const ranges = await client.ranges.retrieve(keys);
+        const names = strings.naturalLanguageJoin(
+          ranges.map(({ name }) => name),
+          "range",
+        );
+        create({
+          name: relative ? `Compare ${names}` : `Plot for ${names}`,
+          ranges: ranges.map(({ key }) => ({ variant: "key", key })),
+          axes: { x1: { key: "x1", timeMode } },
+        });
+      },
+      relative ? "Failed to compare ranges" : "Failed to add ranges to plot",
+    );
   };
 };

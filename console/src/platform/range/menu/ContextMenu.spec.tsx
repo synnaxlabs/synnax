@@ -25,6 +25,9 @@ import {
   createTestClientWithGrants,
   openSubmenu,
   renderSuspended,
+  resolveFocusedTab,
+  selectTestProject,
+  type TestStore,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -33,8 +36,8 @@ const client = createTestClient();
 const renderMenu = async (
   ranges: ranger.Range[],
   { as = client, analytics }: { as?: Client; analytics?: Analytics.Sink } = {},
-): Promise<void> => {
-  const { wrapper: base } = await createConsoleWrapper({ client: as });
+): Promise<TestStore> => {
+  const { wrapper: base, store } = await createConsoleWrapper({ client: as });
   const wrapper = analytics == null ? base : wrapWithSink(base, analytics);
   await renderSuspended(
     <>
@@ -44,6 +47,7 @@ const renderMenu = async (
     { wrapper },
   );
   await screen.findByRole("menuitem", { name: "Labels" });
+  return store;
 };
 
 const searchIn = (dialog: HTMLElement, placeholder: string, term: string): void => {
@@ -437,6 +441,33 @@ describe("Range.ContextMenu", () => {
           const { color: stored } = await client.ranges.retrieve(r.key);
           expect(stored == null ? null : color.hex(stored)).toBe(hex);
         }
+      });
+    });
+  });
+
+  describe("compare", () => {
+    it("should not offer Compare for one range", async () => {
+      await renderMenu([await createTestRange(client)]);
+      await screen.findByRole("menuitem", { name: "Plot" });
+      expect(screen.queryByRole("menuitem", { name: "Compare" })).toBeNull();
+    });
+
+    it("should open a relative plot of the ranges on Compare", async () => {
+      const a = await createTestRange(client, { name: uniqueName("compared") });
+      const b = await createTestRange(client, { name: uniqueName("compared") });
+      const store = await renderMenu([a, b]);
+      await selectTestProject(store, client);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Compare" }));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      await waitFor(async () => {
+        const plot = await client.lineplots.retrieve(tab.resource.key);
+        expect(plot.name).toEqual(`Compare ${a.name} and ${b.name}`);
+        expect(plot.axes.x1.timeMode).toEqual("relative");
+        expect(plot.ranges).toEqual([
+          expect.objectContaining({ variant: "key", key: a.key }),
+          expect.objectContaining({ variant: "key", key: b.key }),
+        ]);
       });
     });
   });

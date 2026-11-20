@@ -17,6 +17,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode } from "react";
 
+import { FLAGS } from "@/flags";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Framer } from "@/platform/framer";
 import { Modals } from "@/platform/modals";
@@ -123,6 +124,12 @@ export const ContextMenu = ({
             Plot
           </Menu.Item>
           <AddToPlot ranges={ranges} />
+          {FLAGS.compare && ranges.length > 1 && (
+            <Menu.Item itemKey="compare" onClick={() => plot(keys, "relative")}>
+              <Icon.Align.Left />
+              Compare
+            </Menu.Item>
+          )}
         </>
       )}
       <Menu.Divider />
