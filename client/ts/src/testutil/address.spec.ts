@@ -19,7 +19,7 @@ describe("testCoreAddress", () => {
   it("should throw where there is no process", () => {
     vi.stubGlobal("process", undefined);
     expect(() => testCoreAddress()).toThrow(
-      "no process: pass an explicit host and port",
+      "no process to read SYNNAX_TEST_HOST and SYNNAX_TEST_PORT from: build the client with an explicit host and port, not with createTestClient",
     );
   });
 });
