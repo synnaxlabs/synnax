@@ -17,6 +17,7 @@ import { Value } from "@/vis/value/aether/value";
 
 export const basePropsZ = Value.z
   .partial({ color: true })
+  .omit({ stale: true })
   .extend({ level: text.levelZ.optional() });
 
 export interface UseProps extends z.input<typeof basePropsZ> {
@@ -25,6 +26,7 @@ export interface UseProps extends z.input<typeof basePropsZ> {
 
 export interface UseReturn {
   width: number;
+  stale: boolean;
 }
 
 export const use = ({
@@ -71,5 +73,5 @@ export const use = ({
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return { width: state.width ?? state.minWidth };
+  return { width: state.width ?? state.minWidth, stale: state.stale };
 };

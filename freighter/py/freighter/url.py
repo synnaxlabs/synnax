@@ -101,4 +101,4 @@ class URL:
 
 def _format_path(path: str) -> str:
     path = path if path.endswith("/") else f"{path}/"
-    return path[1:] if path.startswith("/") else path
+    return path.removeprefix("/")
