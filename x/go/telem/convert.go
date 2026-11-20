@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
+	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -122,7 +123,9 @@ func Convert(s Series, dt DataType) (Series, error) {
 func ValueAs[T NumericSample](s Series, i int) (T, error) {
 	dt := InferDataType[T]()
 	if s.DataType == dt {
-		return s.ValueAt[T](i), nil
+		// The data type fixes the density, so the read skips the lookup of it.
+		data := unsafe.CastSlice[byte, T](s.Data)
+		return data[xslices.ConvertNegativeIndex(i, len(data))], nil
 	}
 	t, ok := targetOf(dt)
 	if !ok {
