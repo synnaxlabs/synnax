@@ -1800,7 +1800,8 @@ public:
         return write_casted(data.data(), data.size());
     }
 
-    /// @brief writes the data from another series to this series
+    /// @brief writes the data from another series to this series. A string or JSON
+    /// series grows its buffer to fit the data.
     /// @param other the series to write from
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
@@ -1811,6 +1812,20 @@ public:
                 this->data_type().name() + " series"
             );
         this->ensure_exclusive();
+        if (this->data_type().is_variable()) {
+            const auto needed = this->byte_size() + other.byte_size();
+            if (needed > this->byte_cap())
+                this->reserve_bytes(std::max(needed, 2 * this->byte_cap()));
+            memcpy(
+                this->buffer.get() + this->byte_size(),
+                other.buffer.get(),
+                other.byte_size()
+            );
+            this->cached_byte_size = needed;
+            this->sample_count += other.size();
+            this->capacity = this->sample_count;
+            return other.size();
+        }
         const size_t byte_count = std::min(
             other.byte_size(),
             this->byte_cap() - this->byte_size()
