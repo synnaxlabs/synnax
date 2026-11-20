@@ -104,14 +104,24 @@ func (db *testDB) OpenWriter(
 	if err != nil {
 		return nil, errors.Join(err, w.Close())
 	}
+	virtual := lo.CountBy(channels, func(ch cesium.Channel) bool { return ch.Virtual })
+	relays := 0
+	if cfg.Mode == 0 || cfg.Mode.Stream() {
+		relays = lo.Ternary(
+			virtual > 0,
+			1,
+			0,
+		) + lo.Ternary(
+			virtual < len(channels),
+			1,
+			0,
+		)
+	}
 	return &storageWriter{
 		w:       w,
 		writes:  db.writes,
-		streams: cfg.Mode == 0 || cfg.Mode.Stream(),
-		virtual: lo.EveryBy(
-			channels,
-			func(ch cesium.Channel) bool { return ch.Virtual },
-		),
+		relays:  relays,
+		virtual: virtual == len(channels),
 	}, nil
 }
 
@@ -176,9 +186,11 @@ func toStorageState(s *writer.ControlState) *xcontrol.State[cesium.ChannelKey] {
 // storageWriter gives a framer writer the API of a Cesium writer: a refusal for no
 // control is an error that wraps control.ErrUnauthorized.
 type storageWriter struct {
-	w       *writer.Writer
-	writes  *confluence.Stream[relay.Response]
-	streams bool
+	w      *writer.Writer
+	writes *confluence.Stream[relay.Response]
+	// relays is the number of frames the writer streams for each write: one for its
+	// stored channels and one for its virtual channels.
+	relays int
 	// virtual is true when the writer holds only virtual channels, which commit
 	// nothing.
 	virtual bool
@@ -193,15 +205,18 @@ func (w *storageWriter) Write(
 	if err != nil {
 		return cesium.Frame{}, err
 	}
-	var written cesium.Frame
-	if w.streams {
+	var written frame.Frame
+	for range w.relays {
 		res := <-w.writes.Outlet()
-		written = res.Frame.ToStorage()
+		written = written.Extend(res.Frame)
 	}
 	if !authorized {
-		return written, errors.Wrap(xcontrol.ErrUnauthorized, "write refused")
+		return written.ToStorage(), errors.Wrap(
+			xcontrol.ErrUnauthorized,
+			"write refused",
+		)
 	}
-	return written, nil
+	return written.ToStorage(), nil
 }
 
 // Commit commits the channels the writer controls. A commit that only follows a refused

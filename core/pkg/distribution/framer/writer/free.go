@@ -68,6 +68,7 @@ func (s *Service) newFree(
 	freeIndexes map[channel.Key]channel.Key,
 	alignments map[channel.Key]telem.Alignment,
 	group uint32,
+	g *gates,
 ) StreamWriter {
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
@@ -84,6 +85,8 @@ func (s *Service) newFree(
 		indexes:    freeIndexes,
 		alignments: alignments,
 		stamper:    newUnindexedStamper(unindexed),
+		gates:      g,
+		controls:   s.controls,
 	}
 	w.Transform = w.transform
 	return w
@@ -105,8 +108,41 @@ type freeWriter struct {
 	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
+	// gates gate the writes of the writer on its control of each leased virtual
+	// channel. Free channels have no control.
+	gates    *gates
+	controls *controls
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
+	// writeRefused is true when a write was refused for no control since the last
+	// commit.
+	writeRefused bool
+}
+
+// Flow implements confluence.Flow. The writer releases its gates when it exits.
+func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
+	w.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
+		w.controls.notify(w.gates.release())
+	}))...)
+}
+
+// exclude returns fr without the leased virtual channels that the writer does not
+// control, and true when it left one out.
+func (w *freeWriter) exclude(fr frame.Frame) (frame.Frame, bool) {
+	refused := w.gates.refused()
+	if len(refused) == 0 {
+		return fr, false
+	}
+	var keys channel.Keys
+	for _, key := range fr.KeysSlice() {
+		if refused.Contains(uint32(key)) {
+			keys = append(keys, key)
+		}
+	}
+	if len(keys) == 0 {
+		return fr, false
+	}
+	return fr.ExcludeKeys(keys), true
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
@@ -147,22 +183,32 @@ func (w *freeWriter) transform(
 	ctx context.Context,
 	req Request,
 ) (res Response, ok bool, err error) {
-	if req.Command == CommandWrite {
+	res = Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}
+	switch req.Command {
+	case CommandWrite:
+		fr, refused := w.exclude(req.Frame)
+		w.writeRefused = w.writeRefused || refused
 		if w.mode.Stream() {
 			if err = signal.SendUnderContext(
 				ctx, w.writes.Inlet(),
-				relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
+				relay.Response{Frame: w.alignFrame(fr), Group: w.group},
 			); err != nil {
 				return res, false, err
 			}
 		}
-		if !w.sync {
-			return res, false, nil
+		res.Authorized = !refused
+		return res, w.sync, nil
+	case CommandCommit:
+		res.Authorized = !w.writeRefused
+		w.writeRefused = false
+	case CommandSetAuthority:
+		transfers, err := w.gates.setAuthority(req.Config)
+		if err != nil {
+			res.Authorized, res.Err = false, err
+			return res, true, nil
 		}
+		w.controls.notify(transfers)
+	case CommandOpen, CommandEndDomain:
 	}
-	return Response{
-		Command:    req.Command,
-		SeqNum:     req.SeqNum,
-		Authorized: true,
-	}, true, nil
+	return res, true, nil
 }

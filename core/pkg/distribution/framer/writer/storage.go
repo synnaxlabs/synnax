@@ -17,23 +17,20 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// newStorage opens the session that writes the stored channels of cfg.
-func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, error) {
-	channels, err := s.cfg.TS.RetrieveChannels(ctx, cfg.Keys.Uint32()...)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		virtual []cesium.ChannelKey
-		indexes = make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
-	)
+// newStorage opens the session that writes the stored channels of cfg, which are
+// channels.
+func (s *Service) newStorage(
+	ctx context.Context,
+	cfg Config,
+	channels []cesium.Channel,
+) (StreamWriter, error) {
+	indexes := make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
 	for _, ch := range channels {
-		if ch.Virtual {
-			virtual = append(virtual, ch.Key)
-		} else if !ch.IsIndex && ch.Index != 0 {
+		if !ch.IsIndex && ch.Index != 0 {
 			indexes[ch.Key] = ch.Index
 		}
 	}
+	var err error
 	var autoIndex *indexStamper
 	if *cfg.AutoIndex {
 		cfg = withIndexes(cfg, indexes)
@@ -63,7 +60,7 @@ func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, err
 		return nil, named
 	}
 	s.controls.notify(transfers)
-	return s.newSession(w, cfg, virtual, autoIndex, release, g), nil
+	return s.newSession(w, cfg, autoIndex, release, g), nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one

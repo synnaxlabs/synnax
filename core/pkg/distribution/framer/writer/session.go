@@ -40,7 +40,6 @@ type session struct {
 	controls *controls
 	// release releases the hold of the session on its channels.
 	release func()
-	stamper *unindexedStamper[cesium.ChannelKey]
 	// autoIndex is nil when the writer does not stamp its indexes.
 	autoIndex *indexStamper
 	// autoCommit is true when the session commits after each write.
@@ -68,7 +67,6 @@ type session struct {
 func (s *Service) newSession(
 	w *cesium.Writer,
 	cfg Config,
-	virtual []cesium.ChannelKey,
 	autoIndex *indexStamper,
 	release func(),
 	g *gates,
@@ -78,7 +76,6 @@ func (s *Service) newSession(
 		gates:           g,
 		controls:        s.controls,
 		release:         release,
-		stamper:         newUnindexedStamper(virtual),
 		autoIndex:       autoIndex,
 		writes:          s.cfg.Writes,
 		autoCommit:      *cfg.EnableAutoCommit,
@@ -187,7 +184,6 @@ func (s *session) write(
 	fr frame.Frame,
 ) (authorized bool, err error) {
 	st := fr.ToStorage()
-	s.stamper.stamp(st)
 	if s.autoIndex != nil {
 		st = s.autoIndex.stamp(st)
 	}

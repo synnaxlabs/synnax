@@ -14,6 +14,7 @@ package writer
 
 import (
 	"context"
+	"slices"
 	"sync/atomic"
 	"uuid"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
@@ -130,25 +132,31 @@ func DefaultConfig() Config {
 	}
 }
 
-// splitFree returns a copy of c holding only the channels that have storage, each with
-// its own authority, and the keys of the free channels. It must only be called after c
-// has been validated.
-func (c Config) splitFree() (stored Config, free channel.Keys) {
-	stored = c
+// split returns a copy of c holding only the channels that Cesium stores, the copy
+// holding only the leased virtual channels, and the keys of the free channels. Each
+// copy gives each of its channels its own authority. It must only be called after c has
+// been validated.
+func (c Config) split(
+	virtual set.Set[channel.Key],
+) (stored, leased Config, free channel.Keys) {
+	stored, leased = c, c
 	stored.Keys = make(channel.Keys, 0, len(c.Keys))
 	stored.Authorities = make([]control.Authority, 0, len(c.Keys))
+	leased.Keys, leased.Authorities = nil, nil
 	for i, key := range c.Keys {
-		if key.Free() {
+		auth := c.Authorities[i%len(c.Authorities)]
+		switch {
+		case key.Free():
 			free = append(free, key)
-			continue
+		case virtual.Contains(key):
+			leased.Keys = append(leased.Keys, key)
+			leased.Authorities = append(leased.Authorities, auth)
+		default:
+			stored.Keys = append(stored.Keys, key)
+			stored.Authorities = append(stored.Authorities, auth)
 		}
-		stored.Keys = append(stored.Keys, key)
-		stored.Authorities = append(
-			stored.Authorities,
-			c.Authorities[i%len(c.Authorities)],
-		)
 	}
-	return stored, free
+	return stored, leased, free
 }
 
 func (c Config) toStorage() cesium.WriterConfig {
@@ -362,25 +370,46 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
+	channels, err := s.cfg.TS.RetrieveChannels(
+		ctx,
+		lo.Reject(cfg.Keys, func(k channel.Key, _ int) bool { return k.Free() }).
+			Uint32()...,
+	)
+	if err != nil {
+		return nil, err
+	}
 	var (
-		stored, freeKeys  = cfg.splitFree()
-		hasStorage        = len(stored.Keys) > 0
-		hasFree           = len(freeKeys) > 0
-		pipe              = plumber.New()
-		receiverAddresses []address.Address
-		routeSequencerTo  address.Address
+		virtual, stored                 = splitVirtual(channels)
+		storedCfg, leased, freeKeys     = cfg.split(virtual)
+		hasStorage                      = len(storedCfg.Keys) > 0
+		hasFree                         = len(freeKeys) > 0 || len(leased.Keys) > 0
+		pipe                            = plumber.New()
+		receiverAddresses               []address.Address
+		routeSequencerTo                address.Address
+		freeIndexes                     map[channel.Key]channel.Key
+		freeAlignments, leasedAlignment map[channel.Key]telem.Alignment
 	)
 
 	// Resolve free channel indexes and alignments before any pipeline resources are
 	// opened, so a failure requires no cleanup.
-	var (
-		freeIndexes    map[channel.Key]channel.Key
-		freeAlignments map[channel.Key]telem.Alignment
-	)
-	if hasFree {
+	if len(freeKeys) > 0 {
 		if freeIndexes, freeAlignments, err = s.resolveFree(ctx, freeKeys); err != nil {
 			return nil, err
 		}
+	}
+	if leasedAlignment, err = s.freeWriteAlignments.reserve(
+		leased.Keys,
+		nil,
+	); err != nil {
+		return nil, err
+	}
+	freeAlignments = lo.Assign(freeAlignments, leasedAlignment)
+	leasedGates, transfers, err := s.controls.openGates(
+		leased,
+		virtualChannels(channels),
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
@@ -392,23 +421,26 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	if hasStorage {
 		routeSequencerTo = storageWriterAddr
-		w, err := s.newStorage(ctx, stored)
+		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
+			leasedGates.release()
 			return nil, err
 		}
 		pipe.SetSegment(storageWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, storageWriterAddr)
 	}
+	s.controls.notify(transfers)
 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
 		w := s.newFree(
 			cfg.Mode,
 			*cfg.Sync,
-			freeKeys,
+			append(slices.Clone(freeKeys), leased.Keys...),
 			freeIndexes,
 			freeAlignments,
 			cfg.ControlSubject.Group,
+			leasedGates,
 		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
@@ -417,7 +449,36 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasStorage && hasFree {
 		routeSequencerTo = switchAddr
 	}
-	return newSegment(pipe, receiverAddresses, routeSequencerTo), nil
+	return newSegment(
+		pipe,
+		receiverAddresses,
+		routeSequencerTo,
+		newSwitch(set.New(storedCfg.Keys...)),
+	), nil
+}
+
+// splitVirtual returns the keys of the virtual channels of channels, and the other
+// channels.
+func splitVirtual(
+	channels []cesium.Channel,
+) (virtual set.Set[channel.Key], stored []cesium.Channel) {
+	virtual = set.New[channel.Key]()
+	for _, ch := range channels {
+		if ch.Virtual {
+			virtual.Add(channel.Key(ch.Key))
+		} else {
+			stored = append(stored, ch)
+		}
+	}
+	return virtual, stored
+}
+
+// virtualChannels returns the virtual channels of channels.
+func virtualChannels(channels []cesium.Channel) []cesium.Channel {
+	return lo.Filter(
+		channels,
+		func(ch cesium.Channel, _ int) bool { return ch.Virtual },
+	)
 }
 
 // resolveFree resolves the indexes of the given free channels and reserves their write
@@ -450,11 +511,12 @@ func newSegment(
 	pipe *plumber.Pipeline,
 	receiverAddresses []address.Address,
 	routeSequencerTo address.Address,
+	sw func(context.Context, Request, map[address.Address]Request) error,
 ) *plumber.Segment[Request, Response] {
 	if routeSequencerTo == switchAddr {
 		pipe.SetSegment(
 			switchAddr,
-			&confluence.BatchSwitch[Request, Request]{Switch: switchFree},
+			&confluence.BatchSwitch[Request, Request]{Switch: sw},
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{switchAddr},

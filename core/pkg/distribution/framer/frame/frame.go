@@ -43,19 +43,6 @@ func NewMulti(keys []channel.Key, series []telem.Series) Frame {
 // expected number of series is known.
 func Alloc(capacity int) Frame { return Frame{telem.AllocFrame[channel.Key](capacity)} }
 
-// SplitFree splits the frame into the series of channels that have storage and the
-// series of free channels.
-func (f Frame) SplitFree() (stored, free Frame) {
-	for key, series := range f.Entries() {
-		if key.Free() {
-			free = free.Append(key, series)
-		} else {
-			stored = stored.Append(key, series)
-		}
-	}
-	return stored, free
-}
-
 // Extend appends the keys and series from another frame to this frame.
 func (f Frame) Extend(frame Frame) Frame { return Frame{f.Frame.Extend(frame.Frame)} }
 
