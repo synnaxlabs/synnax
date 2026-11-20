@@ -388,7 +388,7 @@ func (w Writer) create(
 	// Reset channels that already exist by name to their stored records before index
 	// synthesis, so an existing calculated channel keeps its stored index.
 	if opts.retrieveIfNameExists {
-		if err = w.resetStoredNames(ctx, channels, stored); err != nil {
+		if stored, err = w.resetStoredNames(ctx, channels, stored); err != nil {
 			return err
 		}
 	}
@@ -495,11 +495,11 @@ func (w Writer) resetStoredKeys(
 	channels []Channel,
 	opts createOptions,
 ) (set.Set[int], error) {
-	reset := make(set.Set[int])
+	var reset set.Set[int]
 	keys := KeysFromChannels(channels)
 	keyed := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
 	if len(keyed) == 0 {
-		return reset, nil
+		return nil, nil
 	}
 	var stored []Channel
 	if err := w.svc.table.NewRetrieve().
@@ -521,9 +521,19 @@ func (w Writer) resetStoredKeys(
 		}
 		at := keyPositions[c.Key()][0]
 		channels[at] = c
-		reset.Add(at)
+		reset = addPosition(reset, at)
 	}
 	return reset, nil
+}
+
+// addPosition adds at to positions, making positions on first use, so a create that
+// resets no channel allocates no set.
+func addPosition(positions set.Set[int], at int) set.Set[int] {
+	if positions == nil {
+		positions = make(set.Set[int])
+	}
+	positions.Add(at)
+	return positions
 }
 
 // resetStoredNames resets each channel whose name exists to its stored record.
@@ -531,7 +541,7 @@ func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
 	reset set.Set[int],
-) error {
+) (set.Set[int], error) {
 	names := Names(channels)
 	normal := NormalizeNames(names)
 	var existing []Channel
@@ -539,7 +549,7 @@ func (w Writer) resetStoredNames(
 		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
 		Entries(&existing).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	exact, normalPositions := positions(names), positions(normal)
 	// A record whose name the request holds exactly wins over one that holds its NFC.
@@ -555,10 +565,10 @@ func (w Writer) resetStoredNames(
 		}
 		if !reset.Contains(at[0]) {
 			channels[at[0]] = e
-			reset.Add(at[0])
+			reset = addPosition(reset, at[0])
 		}
 	}
-	return nil
+	return reset, nil
 }
 
 func boolRank(b bool) int {
@@ -974,6 +984,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	return nil
 }
 
+// rename renames the channels with keys to names, which must be in NFC.
 func (w Writer) rename(
 	ctx context.Context,
 	keys Keys,
@@ -986,7 +997,6 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	names = NormalizeNames(names)
 	if err := checkRepeatedNames(names); err != nil {
 		return err
 	}

@@ -24,8 +24,11 @@ const pathSeparator = '.'
 // not empty after trimming spaces, and with no '.' and no character that shows as
 // nothing or as a space other than U+0020.
 func IsPathSegment(s string) bool {
-	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" ||
-		!norm.NFC.IsNormalString(s) {
+	if ascii, ok := asciiPathSegment(s); ascii {
+		return ok
+	}
+	// String returns s itself when s is in NFC, so the check allocates nothing.
+	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" || norm.NFC.String(s) != s {
 		return false
 	}
 	for _, r := range s {
@@ -34,6 +37,25 @@ func IsPathSegment(s string) bool {
 		}
 	}
 	return true
+}
+
+// asciiPathSegment reports whether s is all ASCII, which is always in NFC, and if so
+// whether it passes the rule of IsPathSegment. It reports true for a refused byte
+// before it sees the rest of s, since s then fails either way.
+func asciiPathSegment(s string) (ascii, ok bool) {
+	visible := false
+	for i := range len(s) {
+		c := s[i]
+		switch {
+		case c >= utf8.RuneSelf:
+			return false, false
+		case c == pathSeparator || c < ' ' || c == 0x7f:
+			return true, false
+		case c != ' ':
+			visible = true
+		}
+	}
+	return true, visible
 }
 
 // NormalizeName returns s in Unicode Normalization Form C, the one form in which names
@@ -52,14 +74,16 @@ func isInvisible(r rune) bool {
 	if r == brailleBlank {
 		return true
 	}
-	return unicode.In(
-		r,
-		unicode.Cc,
-		unicode.Cf,
-		unicode.Zl,
-		unicode.Zp,
-		unicode.Zs,
-		unicode.Other_Default_Ignorable_Code_Point,
-		unicode.Variation_Selector,
-	)
+	return unicode.In(r, invisibleTables...)
+}
+
+// invisibleTables are the tables of the characters that isInvisible refuses.
+var invisibleTables = []*unicode.RangeTable{
+	unicode.Cc,
+	unicode.Cf,
+	unicode.Zl,
+	unicode.Zp,
+	unicode.Zs,
+	unicode.Other_Default_Ignorable_Code_Point,
+	unicode.Variation_Selector,
 }
