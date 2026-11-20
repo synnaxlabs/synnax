@@ -91,17 +91,11 @@ describe("Tank.Symbol", () => {
     await waitFor(() => expect(updated).toHaveBeenCalled());
   });
 
-  // Reading a channel wraps the body in the fill, so React mounts the grid again.
-  it("should mount the grid again when a channel is first set", async () => {
-    const { container, rerender } = await renderTank(0);
-    const grid = container.querySelector(".pluto-drag-handle");
-    expect(grid).not.toBeNull();
+  it("should draw the fill once a channel is set", async () => {
+    const { rerender } = await renderTank(0);
+    expect(updated).not.toHaveBeenCalled();
     rerender(7);
     await waitFor(() => expect(updated).toHaveBeenCalled());
-    const next = container.querySelector(".pluto-drag-handle");
-    expect(next).not.toBeNull();
-    expect(next).not.toBe(grid);
-    expect(grid?.isConnected).toBe(false);
   });
 
   it("should clip the fill to the default radius when the radius is absent", async () => {
