@@ -166,7 +166,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 			key.Format(k),
 		)
 	}
-	current := len(w.references) == 0
+	var current bool
 	if w.table != nil {
 		if current, err = w.table.check(ctx, w.tx, &entry); err != nil {
 			return err
@@ -179,8 +179,8 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
-	links, kept := changes.links(s)
-	if !current || !kept {
+	links, indexed := s.indexedBefore()
+	if !current || !indexed {
 		links = w.links(&entry)
 	}
 	changes.set(s, data, links, w.derived)
@@ -227,28 +227,30 @@ func (w *Writer[K, E]) find(
 		w.tx,
 		NewTarget(w.tableName, k),
 		encoded,
-		func(stored []byte) ([]Link, error) { return w.storedLinks(k, stored) },
+		func(stored []byte) ([]Link, bool, error) { return w.storedLinks(k, stored) },
 	)
 }
 
 // storedLinks returns the links that the record with key k holds at its first write in
-// tx. It reads them from the index of each reference that has loaded, and else from
-// stored, the encoded record. A record that cannot be decoded fails the write, so that
-// no change misses a removed link.
-func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, error) {
+// tx, and whether the index of every reference gave them. It reads them from the index
+// of each reference that has loaded, and else from stored, the encoded record. A record
+// that cannot be decoded fails the write, so that no change misses a removed link.
+func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, bool, error) {
 	var (
-		links []Link
-		known bool
-		e     *E
+		links   []Link
+		known   bool
+		indexed = true
+		e       *E
 	)
 	for _, r := range w.references {
 		if links, known = r.indexedLinks(links, w.tx, k); known {
 			continue
 		}
+		indexed = false
 		if e == nil {
 			e = new(E)
 			if err := w.tx.Decode(stored, e); err != nil {
-				return nil, errors.Wrapf(
+				return nil, false, errors.Wrapf(
 					err,
 					"[gorp] - read the links of %s %s",
 					w.tableName,
@@ -258,7 +260,7 @@ func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, error) {
 		}
 		links = r.links(links, e)
 	}
-	return links, nil
+	return links, indexed, nil
 }
 
 // links returns the links that e holds.

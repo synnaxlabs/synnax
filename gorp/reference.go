@@ -102,7 +102,9 @@ type Reference[K Key, E Entry[K]] interface {
 	canDetach() bool
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
-	// check validates the targets that e holds against tx, for a write of e to t.
+	// check validates the targets that e holds against tx, for a write of e to t. It
+	// reports whether the index already holds those targets for e, with the changes of
+	// tx applied.
 	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) (bool, error)
 	// links appends the links that e holds to out.
 	links(out []Link, e *E) []Link
@@ -388,7 +390,8 @@ func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
 
 func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
 	k, held := entry.GorpKey(), r.targetsOf(&entry)
-	// A write that keeps the targets of an entry leaves the index as it is.
+	// Transactions run one at a time, so no other one stages k between the check and
+	// the skip.
 	if r.store.Current(scopeOf(tx), k, held) {
 		return
 	}
@@ -620,9 +623,9 @@ func (r *reference[K, E, T]) check(
 	t *Table[K, E],
 	e *E,
 ) (bool, error) {
-	held := r.targetsOf(e)
-	stored, known := r.store.Held(scopeOf(tx), (*e).GorpKey())
-	current := known && slices.Equal(held, stored)
+	k, held := (*e).GorpKey(), r.targetsOf(e)
+	stored, known := r.store.Held(scopeOf(tx), k)
+	current := r.store.Current(scopeOf(tx), k, held)
 	for i, v := range held {
 		if current || (known && indexedAt(stored, i, v)) {
 			continue

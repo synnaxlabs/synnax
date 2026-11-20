@@ -214,11 +214,11 @@ func (t *Table[K, E]) Dependents(
 func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) (bool, error) {
 	current := true
 	for _, r := range t.references {
-		held, err := r.check(ctx, tx, t, e)
+		refCurrent, err := r.check(ctx, tx, t, e)
 		if err != nil {
 			return false, err
 		}
-		current = current && held
+		current = current && refCurrent
 	}
 	return current, nil
 }
