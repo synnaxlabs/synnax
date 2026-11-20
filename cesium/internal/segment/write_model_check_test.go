@@ -53,7 +53,10 @@ func (f *shortFile) WriteAt(p []byte, off int64) (int, error) {
 	f.s.mu.Unlock()
 	if n >= 0 {
 		n = min(n, len(p))
-		m, _ := f.File.WriteAt(p[:n], off)
+		m, err := f.File.WriteAt(p[:n], off)
+		if err != nil {
+			return m, err
+		}
 		return m, syscall.ENOSPC
 	}
 	return f.File.WriteAt(p, off)

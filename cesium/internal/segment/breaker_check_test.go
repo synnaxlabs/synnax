@@ -132,8 +132,8 @@ var _ = Describe("Breaker check", func() {
 			}
 			Expect(h.Close()).To(Succeed())
 		}
-		Expect(len(broken)).To(
-			BeZero(),
+		Expect(broken).To(
+			BeEmpty(),
 			"%s",
 			strings.Join(broken[:min(3, len(broken))], "\n"),
 		)
