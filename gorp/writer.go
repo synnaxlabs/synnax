@@ -166,8 +166,9 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 			key.Format(k),
 		)
 	}
+	current := len(w.references) == 0
 	if w.table != nil {
-		if err := w.table.check(ctx, w.tx, &entry); err != nil {
+		if current, err = w.table.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}
@@ -178,7 +179,11 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err = w.tx.Set(ctx, encoded, data); err != nil {
 		return err
 	}
-	changes.set(s, data, w.links(&entry), w.derived)
+	links, kept := changes.links(s)
+	if !current || !kept {
+		links = w.links(&entry)
+	}
+	changes.set(s, data, links, w.derived)
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}

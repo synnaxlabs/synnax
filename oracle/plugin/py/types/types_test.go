@@ -139,14 +139,31 @@ var _ = Describe("Python Types Plugin", func() {
 					"type StringInput = str | list[str] | StringDict | String",
 					"class BoolDict(TypedDict, total=False):\n    eq: bool",
 					"type BoolInput = bool | BoolDict | Bool",
+					`T = TypeVar("T")`,
 					"{\"eq\": \"T\", \"in\": \"list[T]\"},\n    total=False,",
 					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
-					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
+					"class ContainsDict[T](TypedDict, total=False):\n"+
 						"    any: list[T]",
 					"type ContainsInput[T] = T | list[T] | ContainsDict[T] | "+
 						"Contains[T]",
 				)
 			})
+
+			It("Should reject call-syntax dicts whose same-named type params differ",
+				func() {
+					loader.Add("schemas/x/filter", `
+						@go output "x/go/filter"
+						@py output "x/py/x/filter"
+						@ts output "x/ts/src/filter"
+						@cpp output "x/cpp/filter"
+						@pb
+					`+strings.Replace(FilterSchema, "Ordered struct<T>", "Ordered struct<T?>", 1))
+					req := MustGenerateRequest(ThingFilter, "thing", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						ContainSubstring("type parameter T of OrderedDict conflicts"),
+					))
+				},
+			)
 
 			It("Should declare the partial record of a filter", func() {
 				resp := MustGenerate(thing+`
@@ -2008,7 +2025,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("generic structs", func() {
 			It(
-				"Should generate Generic[T] for struct with type parameter",
+				"Should scope a struct's type parameter to its class",
 				func() {
 					source := `
 					@py output "out"
@@ -2021,18 +2038,16 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing import Generic`,
-							`TypeVar`,
-							`T = TypeVar("T")`,
-							`class Response(BaseModel, Generic[T]):`,
+							`class Response[T](BaseModel):`,
 							`data: T`,
 							`status: int = Field(ge=-2147483648, le=2147483647)`,
-						)
+						).
+						ToNotContain(`Generic`, `TypeVar`)
 				},
 			)
 
 			It(
-				"Should generate constrained TypeVar for bounded type param",
+				"Should bound a bounded type param",
 				func() {
 					source := `
 					@py output "out"
@@ -2044,8 +2059,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`V = TypeVar("V", bound=dict[str, JsonValue])`,
-							`class Container(BaseModel, Generic[V]):`,
+							`class Container[V: dict[str, JsonValue]](BaseModel):`,
 							`value: V`,
 						)
 				},
@@ -2065,13 +2079,11 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing import Generic, TypeVar`,
 							`from pydantic import BaseModel, JsonValue`,
-							`Details = TypeVar("Details", default=JsonValue)`,
-							`class Status(BaseModel, Generic[Details]):`,
+							`class Status[Details = JsonValue](BaseModel):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`typing_extensions`)
+						ToNotContain(`typing_extensions`, `TypeVar`)
 				},
 			)
 
@@ -2088,15 +2100,14 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing import Generic, TypeVar`,
-							`T = TypeVar("T", bound=str, default=str)`,
+							`class Box[T: str = str](BaseModel):`,
 						).
 						ToNotContain(`JsonValue`)
 				},
 			)
 
 			It(
-				"Should skip type params with defaults in Generic[]",
+				"Should skip type params with defaults in the type parameter list",
 				func() {
 					source := `
 					@py output "out"
@@ -2130,7 +2141,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`class Status(BaseModel, Generic[D]):`,
+							`class Status[D](BaseModel):`,
 							`class TaskStatus(Status[dict[str, JsonValue]]):`,
 							`task_key: UUID`,
 						)
@@ -2425,7 +2436,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "color", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").ToContain(
 						`from x.color.color import Color as Color_`,
-						`Color = TypeVar("Color")`,
+						`class Box[Color](BaseModel):`,
 						`value: Color`,
 						`color: Color_`,
 					)
@@ -2890,14 +2901,13 @@ ChannelStatus = status.Status<nil>
 				resp := MustGenerate(source, "api", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`P = TypeVar("P", bound=Priority)`,
-						`class Ranked(BaseModel, Generic[P]):`,
+						`class Ranked[P: Priority](BaseModel):`,
 					)
 			})
 		})
 
 		Context("constrained type param with struct", func() {
-			It("Should use struct name as TypeVar bound", func() {
+			It("Should use struct name as the type param bound", func() {
 				source := `
 					@py output "out"
 
@@ -2912,14 +2922,13 @@ ChannelStatus = status.Status<nil>
 				resp := MustGenerate(source, "api", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`T = TypeVar("T", bound=Base)`,
-						`class Collection(BaseModel, Generic[T]):`,
+						`class Collection[T: Base](BaseModel):`,
 					)
 			})
 		})
 
 		It(
-			"Should reject same-named type params with different defaults",
+			"Should scope same-named type params with different defaults to each class",
 			func() {
 				source := `
 					@py output "out"
@@ -2932,10 +2941,11 @@ ChannelStatus = status.Status<nil>
 						value T
 					}
 				`
-				req := MustGenerateRequest(source, "api", loader)
-				Expect(typesPlugin.Generate(req)).Error().To(MatchError(
-					ContainSubstring("type parameter T of Optional conflicts"),
-				))
+				resp := MustGenerate(source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`class Required[T](BaseModel):`,
+					`class Optional[T = JsonValue](BaseModel):`,
+				)
 			},
 		)
 
@@ -2954,11 +2964,9 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing import Generic, TypeVar`,
-							`R = TypeVar("R")`,
-							`class State(BaseModel, Generic[R]):`,
+							`class State[R](BaseModel):`,
 						).
-						ToNotContain(`Any`, `typing_extensions`)
+						ToNotContain(`Any`, `typing_extensions`, `TypeVar`)
 				},
 			)
 		})

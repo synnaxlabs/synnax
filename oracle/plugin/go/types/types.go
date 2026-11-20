@@ -1484,7 +1484,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-{{"//"}}go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate go tool stringer -type={{$enum.Name}}
 {{- if eq (len $enum.Values) 1}}
 {{- with index $enum.Values 0}}
 

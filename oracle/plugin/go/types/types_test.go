@@ -650,7 +650,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`PriorityHigh`))
 					Expect(
 						content,
-					).To(ContainSubstring(`//go:generate stringer -type=Priority`))
+					).To(ContainSubstring(`//go:generate go tool stringer -type=Priority`))
 				},
 			)
 

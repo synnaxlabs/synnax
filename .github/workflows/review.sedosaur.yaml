@@ -91,6 +91,7 @@ jobs:
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
       fork: ${{ steps.pr.outputs.fork }}
+      approved: ${{ steps.skip.outputs.approved }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
     steps:
@@ -139,11 +140,16 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           KEY: ${{ steps.pr.outputs.key }}
           FORK: ${{ steps.pr.outputs.fork }}
+          PR: ${{ inputs.pr }}
           REPEAT: ${{ inputs.repeat }}
           REPLAY: ${{ inputs.replay }}
         run: |
           skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$FORK" = true ]; then
+            approved=$(.github/scripts/fork_approved.sh "$PR" "$HEAD_SHA")
+            echo "approved=$approved" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Mint the GitHub App token
         id: app
@@ -232,9 +238,10 @@ jobs:
           PR: ${{ inputs.pr }}
           HEAD_SHA: ${{ needs.start.outputs.head }}
           FORK: ${{ needs.start.outputs.fork }}
+          APPROVED: ${{ needs.start.outputs.approved }}
         run: |
-          if [ "$FORK" = true ]; then
-            body="Sedosaur does not review a pull request from a fork."
+          if [ "$FORK" = true ] && [ "$APPROVED" != true ]; then
+            body="Sedosaur reviews a fork only after a maintainer approves its head."
           else
             body="Sedosaur already reviewed $HEAD_SHA under the current rules."
             body+=" To review it again, comment \`@sedosaur review repeat=true\`."
@@ -534,3 +541,13 @@ jobs:
           BASE_SHA: ${{ steps.pr.outputs.base }}
           KEY: ${{ steps.pr.outputs.key }}
         run: python3 -m review restore
+
+  relay-failure:
+    name: Relay the failure
+    needs: [start, react, decline, review, unwatch, end, restore]
+    if: always() && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      requeue: true

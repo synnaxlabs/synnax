@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Generic, TypeAlias, TypeVar
+from typing import TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,9 +22,6 @@ Authority: TypeAlias = int
 class Concurrency(IntEnum):
     exclusive = 0
     shared = 1
-
-
-R = TypeVar("R")
 
 
 class Subject(BaseModel):
@@ -43,7 +40,7 @@ class Subject(BaseModel):
     group: int = Field(default=0, ge=0, le=4294967295)
 
 
-class State(BaseModel, Generic[R]):
+class State[R](BaseModel):
     """Represents the state of control over a resource at a point in time, capturing who
     controls what and with how much authority.
 
@@ -58,7 +55,7 @@ class State(BaseModel, Generic[R]):
     authority: Authority = Field(ge=0, le=255)
 
 
-class Transfer(BaseModel, Generic[R]):
+class Transfer[R](BaseModel):
     """Represents a transfer of control over a resource. It is represented as a
     transition from one state to another over the same resource.
 
@@ -79,7 +76,7 @@ class Transfer(BaseModel, Generic[R]):
     to: State[R] | None = None
 
 
-class Update(BaseModel, Generic[R]):
+class Update[R](BaseModel):
     """Represents a batch of control transfers that occurred atomically.
 
     Attributes:

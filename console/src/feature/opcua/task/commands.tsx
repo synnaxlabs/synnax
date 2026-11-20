@@ -9,8 +9,7 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { useCreateRead } from "@/feature/opcua/task/Read";
-import { useCreateWrite } from "@/feature/opcua/task/Write";
+import { useCreateRead, useCreateWrite } from "@/feature/opcua/task/create";
 import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({

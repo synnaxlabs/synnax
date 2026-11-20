@@ -106,7 +106,7 @@ type Reference[K Key, E Entry[K]] interface {
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
 	// check validates the targets that e holds against tx, for a write of e to t.
-	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
+	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) (bool, error)
 	// links appends the links that e holds to out.
 	links(out []Link, e *E) []Link
 	// indexedLinks appends to out the links that the index holds for the entry with key
@@ -397,7 +397,12 @@ func (r *reference[K, E, T]) set(entry E) {
 func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
 
 func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
-	r.store.Stage(tx.txIdentity(), entry.GorpKey(), r.targetsOf(&entry))
+	k, held := entry.GorpKey(), r.targetsOf(&entry)
+	// A write that keeps the targets of an entry leaves the index as it is.
+	if r.store.Current(scopeOf(tx), k, held) {
+		return
+	}
+	r.store.Stage(tx.txIdentity(), k, held)
 }
 
 func (r *reference[K, E, T]) stageDelete(tx Tx, key K) {
@@ -679,16 +684,17 @@ func (r *reference[K, E, T]) check(
 	tx Tx,
 	t *Table[K, E],
 	e *E,
-) error {
+) (bool, error) {
 	held := r.targetsOf(e)
 	stored, known := r.store.Held(scopeOf(tx), (*e).GorpKey())
-	for _, v := range held {
-		if known && slices.Contains(stored, v) {
+	current := known && slices.Equal(held, stored)
+	for i, v := range held {
+		if current || (known && indexedAt(stored, i, v)) {
 			continue
 		}
 		target := r.format(v)
 		if r.textKeys && !slices.Contains(r.tables, target.Table) {
-			return r.fieldErr(
+			return false, r.fieldErr(
 				"%s cannot reference %s %s",
 				t.name,
 				target.Table,
@@ -697,10 +703,10 @@ func (r *reference[K, E, T]) check(
 		}
 		table, err := t.db.registry.table(target.Table)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if r.textKeys && !table.canonical(target.Key) {
-			return r.fieldErr("%q is not a key of %s", target.Key, target.Table)
+			return false, r.fieldErr("%q is not a key of %s", target.Key, target.Table)
 		}
 		if r.onDelete == Weak {
 			issued, err := table.issued(target.Key)
@@ -718,21 +724,28 @@ func (r *reference[K, E, T]) check(
 		}
 		ok, err := table.exists(ctx, tx, target.Key)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !ok {
-			return r.fieldErr("%s %s does not exist", target.Table, target.Key)
+			return false, r.fieldErr("%s %s does not exist", target.Table, target.Key)
 		}
 	}
 	if r.unique {
 		if err := r.checkUnique(ctx, tx, t.name, e, held); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if r.acyclic {
-		return r.checkAcyclic(ctx, tx, t, e)
+		return current, r.checkAcyclic(ctx, tx, t, e)
 	}
-	return nil
+	return current, nil
+}
+
+// indexedAt reports whether stored holds v, the target at position i of an entry. An
+// edit keeps most targets at their positions, so it scans stored only for the targets
+// that moved.
+func indexedAt[T comparable](stored []T, i int, v T) bool {
+	return (i < len(stored) && stored[i] == v) || slices.Contains(stored, v)
 }
 
 func (r *reference[K, E, T]) checkUnique(
