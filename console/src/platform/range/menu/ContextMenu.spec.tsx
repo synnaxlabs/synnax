@@ -489,7 +489,7 @@ describe("Range.ContextMenu", () => {
       });
     });
 
-    it("should create and edit named colors in the picker and commit once on close", async () => {
+    it("should create a named color from a palette and commit once on close", async () => {
       const palette = await client.groups.create({
         scope: "color",
         name: uniqueName("palette"),
@@ -509,17 +509,15 @@ describe("Range.ContextMenu", () => {
       const input = await within(dialog).findByPlaceholderText("Color name");
       fireEvent.change(input, { target: { value: name } });
       fireEvent.keyDown(input, { key: "Enter" });
-      const swatch = await within(dialog).findByRole("button", { name });
+      await waitFor(() =>
+        expect(within(dialog).queryByPlaceholderText("Color name")).toBeNull(),
+      );
+      const swatch = within(dialog).getByRole("button", { name });
       fireEvent.contextMenu(swatch);
-      expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeTruthy();
+      await act(async () => {});
+      expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
       for (const r of ranges)
         expect((await client.ranges.retrieve(r.key)).color).toBeUndefined();
-      act(() => {
-        fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
-      });
-      await waitFor(() =>
-        expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull(),
-      );
       fireEvent.keyDown(swatch, { key: "ArrowLeft" });
       await waitFor(() =>
         expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),

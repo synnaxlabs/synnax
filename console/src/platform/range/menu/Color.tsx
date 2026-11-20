@@ -37,7 +37,19 @@ const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
   );
   const shown = pending == null ? value : pending.value;
   const binding = PColor.useBinding(shown, (ref) => setPending({ value: ref }));
-  return <Base.Picker {...binding} fallback={fallback} />;
+  // The swatch menu would draw under this submenu.
+  const library =
+    binding.library == null
+      ? undefined
+      : { ...binding.library, swatchMenu: undefined, hasSwatchMenu: undefined };
+  return (
+    <Base.Picker
+      value={binding.value}
+      onChange={binding.onChange}
+      fallback={fallback}
+      library={library}
+    />
+  );
 };
 
 // The key of the named color that every range links to, if they all link to one.
