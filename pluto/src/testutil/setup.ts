@@ -18,7 +18,7 @@ import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
 
-shortenKeepAlive();
+await shortenKeepAlive();
 
 // Live-Core round-trips share the single test Core with the rest of the suite, so allow
 // more than the 1s waitFor default.

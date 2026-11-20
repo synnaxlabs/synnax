@@ -129,7 +129,7 @@ export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
@@ -151,7 +151,7 @@ export abstract class BaseAxis<
     );
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

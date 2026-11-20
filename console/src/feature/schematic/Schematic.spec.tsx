@@ -24,17 +24,17 @@ const stateZ = z.looseObject({});
 // the control workers.
 class DiagramStub extends aether.Composite<typeof stateZ> {
   static readonly TYPE = "Diagram";
-  schema = stateZ;
+  override schema = stateZ;
 }
 
 class ControllerStub extends aether.Composite<typeof stateZ> {
   static readonly TYPE = "Controller";
-  schema = stateZ;
+  override schema = stateZ;
 }
 
 class LegendStub extends aether.Leaf<typeof stateZ> {
   static readonly TYPE = "Legend";
-  schema = stateZ;
+  override schema = stateZ;
 }
 
 const REGISTRY = {

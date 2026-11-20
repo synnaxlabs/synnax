@@ -13,11 +13,15 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/number.h"
 #include "x/cpp/telem/types.gen.h"
+
+#include "x/go/payload/pb/payload.pb.h"
 
 namespace x::payload {
 
@@ -70,6 +74,12 @@ struct StringEntry {
 
     static StringEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::StringEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::StringEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<StringEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::StringEntry &pb);
 };
 
 /// @brief BooleanEntry maps a payload label to a boolean channel value.
@@ -81,6 +91,12 @@ struct BooleanEntry {
 
     static BooleanEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::BooleanEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::BooleanEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<BooleanEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::BooleanEntry &pb);
 };
 
 /// @brief EnumEntry maps a string label in a payload to a numeric channel value for
@@ -126,6 +142,12 @@ struct FloatEntry {
 
     static FloatEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::FloatEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::FloatEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<FloatEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::FloatEntry &pb);
 };
 
 /// @brief IntegerEntry maps a payload label to a signed integer channel value.
@@ -137,6 +159,12 @@ struct IntegerEntry {
 
     static IntegerEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::IntegerEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::IntegerEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<IntegerEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::IntegerEntry &pb);
 };
 
 /// @brief UnsignedEntry maps a payload label to an unsigned integer channel value.
@@ -148,6 +176,12 @@ struct UnsignedEntry {
 
     static UnsignedEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::UnsignedEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::UnsignedEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<UnsignedEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::UnsignedEntry &pb);
 };
 
 /// @brief TimestampRead holds the options of a field that reads a timestamp.

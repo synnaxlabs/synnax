@@ -31,9 +31,9 @@ export class LatestSample extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "LatestSample";
   static readonly z = stateZ;
 
-  schema = LatestSample.z;
+  override schema = LatestSample.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.source = telem.useSource(ctx, this.state.source, i.source);
     i.stopListening?.();
@@ -49,7 +49,7 @@ export class LatestSample extends aether.Leaf<typeof stateZ, InternalState> {
     this.setState((p) => ({ ...p, time }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.source.cleanup?.();

@@ -13,6 +13,6 @@ import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
 import { shortenKeepAlive } from "@/testutil/keepAlive";
 
-shortenKeepAlive();
+await shortenKeepAlive();
 
 failOnConsoleOutput();

@@ -33,9 +33,9 @@ export class Light
   static readonly TYPE = "Light";
   static readonly z = stateZ;
 
-  schema = Light.z;
+  override schema = Light.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
     i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
@@ -53,7 +53,7 @@ export class Light
       this.setState((p) => ({ ...p, enabled: nextEnabled }));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.stopListening?.();
     this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();
