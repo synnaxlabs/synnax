@@ -953,10 +953,15 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	stored := lo.Reject(KeysFromChannels(existing), func(key Key, _ int) bool {
+	// A writer can hold a leased virtual channel, so the claim covers it, but only a
+	// stored channel has storage to drop.
+	claimed := lo.Reject(KeysFromChannels(existing), func(key Key, _ int) bool {
 		return key.Free()
 	})
-	release, err := w.svc.cfg.Framer.ClaimDelete(stored)
+	stored := KeysFromChannels(lo.Filter(existing, func(c Channel, _ int) bool {
+		return c.Distribution().Stored()
+	}))
+	release, err := w.svc.cfg.Framer.ClaimDelete(claimed)
 	if err != nil {
 		return err
 	}

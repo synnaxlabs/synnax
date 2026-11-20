@@ -291,6 +291,28 @@ var _ = Describe("Sweep", func() {
 		Expect(fsys.Exists(fmt.Sprint(data))).To(BeFalse())
 	})
 
+	It("Should log no intent for the delete of a virtual channel", func(
+		ctx SpecContext,
+	) {
+		fsys := xfs.NewMem()
+		node := nodeOn(ctx, fsys)
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		svc := DeferClose(start(ctx, cfg))
+		ch := channel.Channel{
+			Name:        UniqueChannelName(),
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: 1,
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+		})).To(Succeed())
+		Expect(MustSucceed(fsys.Stat("delete-intents")).Size()).To(BeZero())
+	})
+
 	It(
 		"Should refuse a delete whose intent cannot be made durable",
 		func(ctx SpecContext) {

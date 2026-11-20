@@ -126,12 +126,15 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key())
 }
 
+// Stored reports whether c has a storage channel. Free and virtual channels have none.
+func (c Channel) Stored() bool { return !c.Key().Free() && !c.Virtual }
+
 // ToStorage returns the storage representation of each channel that has a storage
-// channel. Free and virtual channels have none, so ToStorage leaves them out.
+// channel, and leaves out the others.
 func ToStorage(channels []Channel) []cesium.Channel {
 	stored := make([]cesium.Channel, 0, len(channels))
 	for _, c := range channels {
-		if c.Key().Free() || c.Virtual {
+		if !c.Stored() {
 			continue
 		}
 		stored = append(stored, cesium.Channel{

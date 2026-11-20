@@ -151,6 +151,20 @@ var _ = Describe("Channel", func() {
 			Expect(c.String()).To(Equal("<5>"))
 		})
 	})
+	DescribeTable(
+		"Should report whether a channel has a storage channel",
+		func(ch channel.Channel, stored bool) {
+			Expect(ch.Stored()).To(Equal(stored))
+		},
+		Entry("stored", channel.Channel{Leaseholder: 1, LocalKey: 5}, true),
+		Entry(
+			"virtual",
+			channel.Channel{Leaseholder: 1, LocalKey: 5, Virtual: true},
+			false,
+		),
+		Entry("free", channel.Channel{Leaseholder: node.KeyFree, LocalKey: 5}, false),
+	)
+
 	Describe("ToStorage", func() {
 		It("Should map each channel to its storage representation", func() {
 			c := channel.Channel{
