@@ -242,6 +242,45 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Replace", func() {
+		It("Should delete the first enumeration and keep the other", func(
+			ctx SpecContext,
+		) {
+			from, to := breaker(), enumeration.Enumeration{Name: "Valve"}
+			Expect(createOne(ctx, w, &from)).To(Succeed())
+			Expect(createOne(ctx, w, &to)).To(Succeed())
+			Expect(w.Replace(ctx, from.Key, to.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(enumeration.MatchKeys(from.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+			Expect(retrieve(ctx, to.Key).Name).To(Equal("Valve"))
+		})
+		It("Should refuse a built-in enumeration", func(ctx SpecContext) {
+			to := breaker()
+			Expect(createOne(ctx, w, &to)).To(Succeed())
+			Expect(w.Replace(ctx, enumeration.Builtins()[0].Key, to.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot delete built-in enumeration")),
+			))
+		})
+		It("Should refuse an enumeration replaced by itself", func(ctx SpecContext) {
+			e := breaker()
+			Expect(createOne(ctx, w, &e)).To(Succeed())
+			Expect(w.Replace(ctx, e.Key, e.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("to itself")),
+			))
+		})
+		It("Should return an error for a key with no enumeration", func(
+			ctx SpecContext,
+		) {
+			e := breaker()
+			Expect(createOne(ctx, w, &e)).To(Succeed())
+			Expect(w.Replace(ctx, e.Key, uuid.New())).
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should delete the enumerations", func(ctx SpecContext) {
 			a, b := breaker(), enumeration.Enumeration{Name: "Valve"}

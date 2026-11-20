@@ -201,6 +201,20 @@ describe("queries", () => {
     });
   });
 
+  describe("useReplace", () => {
+    it("should delete the replaced enumeration and keep the other", async () => {
+      const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+      const { result } = renderHook(Enumeration.useReplace, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ from: from.key, to: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      const other = createTestClient();
+      await expect(other.enumerations.retrieve(from.key)).rejects.toThrow();
+      expect((await other.enumerations.retrieve(to.key)).key).toEqual(to.key);
+    });
+  });
+
   describe("useForm", () => {
     it("should send an entry rename", async () => {
       const created = await createEnumeration();

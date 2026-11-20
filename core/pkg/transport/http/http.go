@@ -509,6 +509,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathEnumerationDispatch,
 		),
+		EnumerationReplace: unary[enumeration.ReplaceRequest, struct{}](
+			router,
+			"/api/v1/enumeration/replace",
+		),
 		EnumerationRetrieveBuiltins: unary[
 			struct{},
 			enumeration.RetrieveBuiltinsResponse,

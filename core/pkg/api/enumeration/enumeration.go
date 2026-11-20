@@ -183,6 +183,33 @@ func (s *Service) Dispatch(
 		Apply(ctx, req.Key, req.Actions...)
 }
 
+// ReplaceRequest names the enumeration to replace and the one that replaces it.
+type ReplaceRequest struct {
+	// From is the key of the enumeration to delete.
+	From enumeration.Key `json:"from" msgpack:"from"`
+	// To is the key of the enumeration that each user of From moves to.
+	To enumeration.Key `json:"to" msgpack:"to"`
+}
+
+var _ bind.Copy = ReplaceRequest{}
+
+// Sources implements bind.Copy. The subject needs retrieve on To even when nothing uses
+// From.
+func (r ReplaceRequest) Sources() []resource.ID {
+	return []resource.ID{enumeration.ResourceID(r.To)}
+}
+
+// Replace moves each record that uses the enumeration From to the enumeration To, then
+// deletes From. It returns a validation error when From is built in or equals To, and a
+// not found error when From or To does not exist.
+func (s *Service) Replace(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ReplaceRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.NewWriter(tx).Replace(ctx, req.From, req.To)
+}
+
 // DeleteRequest selects the enumerations to delete.
 type DeleteRequest struct {
 	// Keys are the keys of the enumerations to delete.

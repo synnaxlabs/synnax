@@ -37,6 +37,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+// Reads what the Core holds, without the edits that the cache of client shows at once.
+const core = createTestClient();
 
 const createEnumeration = async (
   entries: enumeration.Entry[] = [
@@ -72,10 +74,25 @@ const findEntry = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
-  (await client.enumerations.retrieve(key)).entries;
+  (await core.enumerations.retrieve(key)).entries;
 
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
+
+// The delete dialog enables its button once it knows what uses the enumeration.
+const clickWhenEnabled = async (name: string): Promise<void> => {
+  const button = await screen.findByRole("button", { name });
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
+  await act(async () => {
+    fireEvent.click(button);
+  });
+};
+
+/** Waits for the delete dialog to close, which it does once the Core commits. */
+const waitForDialogToClose = async (): Promise<void> =>
+  await waitFor(() =>
+    expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
+  );
 
 const OWN_VALUE = "Each entry needs its own value.";
 
@@ -399,18 +416,39 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("should delete an enumeration after confirming", async () => {
+  it("should delete an unused enumeration with no replace field", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    const item = await screen.findByText("Delete");
+    // A synchronous act renders the dialog before the Core can say what uses it.
+    act(() => {
+      fireEvent.click(item);
+    });
+    expect(screen.getByText(/This action cannot be undone/)).toBeTruthy();
+    expect(screen.queryByText(/Nothing uses it/)).toBeNull();
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Replace with/ })).toBeNull();
+    await clickWhenEnabled("Delete");
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
+  });
+
+  it("should disable Cancel and Delete while the delete runs", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
     await clickAndSettle("Delete");
-    const confirm = await screen.findByRole("button", { name: "Delete" });
-    await act(async () => {
-      fireEvent.click(confirm);
+    const remove = await screen.findByRole("button", { name: "Delete" });
+    await waitFor(() => expect(remove.getAttribute("aria-disabled")).toBeNull());
+    act(() => {
+      fireEvent.click(remove);
     });
-    await waitFor(() => expect(screen.queryByText(e.name)).toBeNull());
-    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
-      "enumeration was deleted",
-    );
+    expect(remove.getAttribute("aria-disabled")).toBe("true");
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.getAttribute("aria-disabled")).toBe("true");
+    await waitForDialogToClose();
   });
 });

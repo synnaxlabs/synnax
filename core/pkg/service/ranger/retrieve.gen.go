@@ -69,6 +69,21 @@ func newIndexes() indexes {
 					return v == t
 				})
 			},
+			Retarget: func(e *Range, from, to label.Key) {
+				if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {
+					return k1 == to
+				}) {
+					e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {
+						return k1 == from
+					})
+				} else {
+					for i2 := range e.Labels {
+						if e.Labels[i2] == from {
+							e.Labels[i2] = to
+						}
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Range, Key]{
 			Name:     "parent",
@@ -81,6 +96,11 @@ func newIndexes() indexes {
 					return nil
 				}
 				return []Key{*e.Parent}
+			},
+			Retarget: func(e *Range, from, to Key) {
+				if e.Parent != nil && *e.Parent == from {
+					*e.Parent = to
+				}
 			},
 		}),
 		search: gorp.NewSearchIndex[Key, Range](
