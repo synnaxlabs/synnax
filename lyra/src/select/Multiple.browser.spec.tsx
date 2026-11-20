@@ -324,7 +324,9 @@ describe("Select.Multiple", () => {
           <SelectMultiple haulType="test-item" {...props} />
         </Haul.Provider>,
       );
-      fireEvent.dragStart(c.getByText("First Item"));
+      fireEvent.dragStart(c.getByText("First Item"), {
+        dataTransfer: new DataTransfer(),
+      });
       return document.querySelector(".lyra-haul__layer")?.textContent;
     };
 

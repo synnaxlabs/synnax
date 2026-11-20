@@ -547,23 +547,23 @@ describe("Select.Single", () => {
     it("should copy the selection into a select it is dropped on", () => {
       const { source, target, onSingleChange, onMultipleChange } = renderPair();
       expect(source.draggable).toBe(true);
-      fireEvent.dragStart(source);
-      fireEvent.drop(target);
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
       expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
       expect(onSingleChange).not.toHaveBeenCalled();
     });
 
     it("should drop only the entries of its own type on a single select", () => {
       const { source, mixed, onSingleChange } = renderPair();
-      fireEvent.dragStart(mixed);
-      fireEvent.drop(source);
+      fireEvent.dragStart(mixed, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(source, { dataTransfer: new DataTransfer() });
       expect(onSingleChange).toHaveBeenCalledExactlyOnceWith("3", expect.anything());
     });
 
     it("should drop only the entries of its own type on a multiple select", () => {
       const { target, mixed, onMultipleChange } = renderPair();
-      fireEvent.dragStart(mixed);
-      fireEvent.drop(target);
+      fireEvent.dragStart(mixed, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
       expect(onMultipleChange).toHaveBeenCalledExactlyOnceWith(
         ["3"],
         expect.anything(),
@@ -577,7 +577,7 @@ describe("Select.Single", () => {
 
     it("should picture the selection by its name", () => {
       const { source } = renderPair();
-      fireEvent.dragStart(source);
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
       const layer = document.querySelector(".lyra-haul__layer");
       expect(layer?.textContent).toBe("Second Item");
     });
@@ -588,7 +588,7 @@ describe("Select.Single", () => {
           renderHaulPreview: (entry) => `Custom ${(entry as TestEntry).name}`,
         },
       });
-      fireEvent.dragStart(source);
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
       const layer = document.querySelector(".lyra-haul__layer");
       expect(layer?.textContent).toBe("Custom Second Item");
     });
@@ -596,8 +596,8 @@ describe("Select.Single", () => {
     it("should not drag a selected key with no entry", () => {
       const { source, target, onMultipleChange } = renderPair({ value: "0" });
       expect(source.draggable).toBe(false);
-      fireEvent.dragStart(source);
-      fireEvent.drop(target);
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
       expect(onMultipleChange).not.toHaveBeenCalled();
     });
   });

@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
@@ -48,6 +48,10 @@ const getTooltip = (): HTMLElement | null =>
 const mockRect = (el: HTMLElement, rect: DOMRect = BUTTON_RECT): void => {
   el.getBoundingClientRect = () => (el.isConnected ? rect : ZERO_RECT);
 };
+
+// The left edge that centers the tooltip's real width on x.
+const centeredLeft = (tip: HTMLElement, x: number): string =>
+  `${Math.round(x - tip.offsetWidth / 2)}px`;
 
 const Wrapper = ({ children }: { children: ReactNode }): ReactElement => (
   <Triggers.Provider>
@@ -103,8 +107,9 @@ describe("Tooltip.Dialog", () => {
       advance(PAST_DELAY);
       const tooltip = getTooltip();
       expect(tooltip).not.toBeNull();
-      expect(tooltip?.style.left).toBe("150px");
-      expect(tooltip?.style.top).toBe("94px");
+      assert(tooltip != null);
+      expect(tooltip.style.left).toBe(centeredLeft(tooltip, 150));
+      expect(tooltip.style.top).toBe(`${94 - tooltip.offsetHeight}px`);
       expect(tooltip?.textContent).toBe("Tip content");
     });
 
@@ -320,14 +325,8 @@ describe("Tooltip.Dialog", () => {
 
     it("should open instantly on keyboard focus and close on blur", () => {
       const { btn } = mountButton();
-      // jsdom parses :focus-visible but never matches it; treat focus as
-      // focus-visible like a keyboard-driven browser would
-      const matches = btn.matches.bind(btn);
-      btn.matches = ((sel: string) =>
-        sel === ":focus-visible"
-          ? document.activeElement === btn
-          : matches(sel)) as typeof btn.matches;
       act(() => btn.focus());
+      expect(btn.matches(":focus-visible")).toBe(true);
       expect(getTooltip()).not.toBeNull();
       act(() => btn.blur());
       expect(getTooltip()).toBeNull();

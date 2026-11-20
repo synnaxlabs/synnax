@@ -96,6 +96,27 @@ describe("Input", () => {
       expect(textOf(c).value).toEqual("Fault");
     });
 
+    it("should keep the link when the user commits a name that is also a color", () => {
+      const coral: Color.Library = {
+        ...FAULT,
+        palettes: [
+          {
+            key: "p",
+            name: "Alarms",
+            colors: [{ key: "fault", name: "Coral", light: RED }],
+          },
+        ],
+      };
+      const onChange = vi.fn();
+      const c = renderInput({ value: RED, library: coral, onChange });
+      act(() => textOf(c).focus());
+      fireEvent.change(textOf(c), { target: { value: "Cora" } });
+      fireEvent.change(textOf(c), { target: { value: "Coral" } });
+      fireEvent.keyDown(textOf(c), { key: "Enter" });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(textOf(c).value).toEqual("Coral");
+    });
+
     it("should take the link only from the library", () => {
       expectTypeOf<Color.InputProps>().not.toHaveProperty("named");
     });
