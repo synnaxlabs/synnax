@@ -49,6 +49,8 @@ const PALETTES = {
 interface BaseProps {
     /** The two colors of the gradient. */
     palette: keyof typeof PALETTES;
+    /** Describes what the hero shows, for screen readers. */
+    alt: string;
 }
 
 interface CoverProps {
@@ -106,7 +108,7 @@ export type Props = (StillProps | ImageMediaProps | VideoMediaProps) &
     (CoverProps | InsetProps);
 
 const props = Astro.props;
-const { layout, palette } = props;
+const { layout, palette, alt } = props;
 const [from, to] = PALETTES[palette];
 let toolbar: Rect | undefined;
 let still: string | undefined;
@@ -150,16 +152,23 @@ const style = [
 >
     <div class="window">
         {still != null ? (
-            <Image id={still} extension="webp" />
+            <Image id={still} extension="webp" alt={alt} />
         ) : "image" in props ? (
-            <Image id={props.image} themed={props.themed} extension={props.extension} />
+            <Image
+                id={props.image}
+                themed={props.themed}
+                extension={props.extension}
+                alt={alt}
+            />
         ) : (
-            "video" in props && <Video id={props.video} themed={props.themed} />
+            "video" in props && (
+                <Video id={props.video} themed={props.themed} label={alt} />
+            )
         )}
     </div>
     {layout === "layered" && still != null && (
         <div class="toolbar">
-            <Image id={still} extension="webp" />
+            <Image id={still} extension="webp" alt="" />
         </div>
     )}
 </div>
