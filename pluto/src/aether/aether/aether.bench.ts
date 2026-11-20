@@ -34,16 +34,16 @@ const complexSchema = z.object({
 });
 
 class BenchRoot extends aether.Composite<typeof complexSchema, {}, BenchL1> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     ctx.set("rootTime", TimeStamp.now().milliseconds);
     ctx.set("rootValue", this.state.value);
   }
 }
 
 class BenchL1 extends aether.Composite<typeof complexSchema, {}, BenchL2> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     const rootValue = ctx.getOptional<number>("rootValue") ?? 0;
     ctx.set("l1Value", rootValue * 2);
     ctx.set("l1Status", this.state.status);
@@ -51,8 +51,8 @@ class BenchL1 extends aether.Composite<typeof complexSchema, {}, BenchL2> {
 }
 
 class BenchL2 extends aether.Composite<typeof complexSchema, {}, BenchL3> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     const l1Value = ctx.getOptional<number>("l1Value") ?? 0;
     ctx.set("l2Value", l1Value * 1.5);
     ctx.set("l2Status", this.state.status);
@@ -60,8 +60,8 @@ class BenchL2 extends aether.Composite<typeof complexSchema, {}, BenchL3> {
 }
 
 class BenchL3 extends aether.Leaf<typeof complexSchema, { computedValue: number }> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     const l2Value = ctx.getOptional<number>("l2Value") ?? 0;
     this.internal.computedValue = l2Value + this.state.value;
   }
@@ -72,8 +72,8 @@ class BenchL3 extends aether.Leaf<typeof complexSchema, { computedValue: number 
 // the root's value. A root update therefore re-runs only those subscribers, not the
 // whole subtree — the case the broadcast model could not exploit.
 class SparseRoot extends aether.Composite<typeof complexSchema, {}, SparseMid> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     ctx.set("rootValue", this.state.value);
   }
 }
@@ -83,12 +83,12 @@ class SparseMid extends aether.Composite<
   {},
   SparseMid | SparseLeaf
 > {
-  schema = complexSchema;
+  override schema = complexSchema;
 }
 
 class SparseLeaf extends aether.Leaf<typeof complexSchema, { computedValue: number }> {
-  schema = complexSchema;
-  afterUpdate(ctx: aether.Context): void {
+  override schema = complexSchema;
+  override afterUpdate(ctx: aether.Context): void {
     if (this.state.value % 15 !== 0) return;
     this.internal.computedValue = ctx.getOptional<number>("rootValue") ?? 0;
   }

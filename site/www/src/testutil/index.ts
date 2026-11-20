@@ -9,4 +9,3 @@
 
 export * from "@/testutil/astro";
 export * from "@/testutil/canvas";
-export * from "@/testutil/image";

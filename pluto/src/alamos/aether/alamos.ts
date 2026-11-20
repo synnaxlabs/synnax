@@ -27,9 +27,9 @@ export interface InternalState {
 
 export class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
   static readonly TYPE = "alamos.Provider";
-  schema = providerStateZ;
+  override schema = providerStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const v = ctx.getOptional<alamos.Instrumentation>(CONTEXT_KEY);
     if (v != null) return;
 
