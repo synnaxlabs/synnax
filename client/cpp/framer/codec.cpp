@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
