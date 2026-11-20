@@ -250,6 +250,10 @@ func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
+// ReferencedTables returns the names of the tables that a reference of an open table
+// may point at, in ascending order.
+func (db *DB) ReferencedTables() []string { return db.registry.referenced() }
+
 // KV returns the underlying key-value storage backing the DB.
 func (db *DB) KV() kv.DB { return db.DB }
 

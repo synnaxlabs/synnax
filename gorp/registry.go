@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 	"sync"
@@ -150,6 +151,14 @@ func (r *registry) register(name string, prefix []byte, table registeredTable) e
 	r.tables[name] = table
 	r.names[string(prefix)] = name
 	return nil
+}
+
+// referenced returns the names of the tables that a reference may point at, in
+// ascending order.
+func (r *registry) referenced() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slices.Sorted(maps.Keys(r.referencing))
 }
 
 // tableName returns the name of the registered table that stores under prefix.
