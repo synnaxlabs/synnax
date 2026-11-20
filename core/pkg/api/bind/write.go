@@ -259,14 +259,14 @@ type placement struct {
 	Kind   gorp.LinkKind
 }
 
-// linearPlacementLimit is the most comparisons for which a placement walk scans instead
-// of building a set. A scan of a small record allocates no set.
-const linearPlacementLimit = 1024
+// linearLimit is the most comparisons for which a walk of the links of a record scans
+// instead of building a set. A scan of a small record allocates no set.
+const linearLimit = 1024
 
 // placementsOf returns the placements of links, once each, in their order.
 func placementsOf(links []gorp.Link) []placement {
 	out := make([]placement, 0, len(links))
-	if len(links)*len(links) <= linearPlacementLimit {
+	if len(links)*len(links) <= linearLimit {
 		for _, l := range links {
 			p := placement{Target: l.Target, Kind: l.Kind}
 			if !slices.Contains(out, p) {
@@ -286,16 +286,16 @@ func placementsOf(links []gorp.Link) []placement {
 	return out
 }
 
-// subtractPlacements returns the placements of from that are not in minus.
-func subtractPlacements(from, minus []placement) []placement {
-	if len(from)*len(minus) <= linearPlacementLimit {
-		return lo.Reject(from, func(p placement, _ int) bool {
-			return slices.Contains(minus, p)
+// subtract returns the values of from that are not in minus.
+func subtract[T comparable](from, minus []T) []T {
+	if len(from)*len(minus) <= linearLimit {
+		return lo.Reject(from, func(v T, _ int) bool {
+			return slices.Contains(minus, v)
 		})
 	}
-	in := make(set.Set[placement], len(minus))
+	in := make(set.Set[T], len(minus))
 	in.Add(minus...)
-	return lo.Reject(from, func(p placement, _ int) bool { return in.Contains(p) })
+	return lo.Reject(from, func(v T, _ int) bool { return in.Contains(v) })
 }
 
 // linksBefore returns the links that the record of c held before the transaction.
@@ -306,12 +306,7 @@ func linksBefore(c gorp.Change) []gorp.Link {
 	case gorp.ChangeDelete:
 		return c.Links
 	case gorp.ChangeUpdate:
-		return append(
-			lo.Reject(c.Links, func(l gorp.Link, _ int) bool {
-				return slices.Contains(c.Added, l)
-			}),
-			c.Removed...,
-		)
+		return append(subtract(c.Links, c.Added), c.Removed...)
 	}
 	panic(errors.Newf("[bind] - unknown change kind %d", c.Kind))
 }
@@ -323,7 +318,7 @@ func placementChanges(c gorp.Change) (added, removed []placement) {
 	if c.Kind != gorp.ChangeDelete {
 		after = placementsOf(c.Links)
 	}
-	return subtractPlacements(after, before), subtractPlacements(before, after)
+	return subtract(after, before), subtract(before, after)
 }
 
 // ownerOf returns the record that the record of c is placed in. It returns an error
