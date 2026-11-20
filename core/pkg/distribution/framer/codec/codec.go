@@ -403,14 +403,15 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 	}
 }
 
-// mergeable returns true when s2 can join s1 in one series: both have the same
-// alignment multiple, clock, and data type, and s2 starts at the alignment where s1
-// ends.
+// mergeable returns true when s2 can join s1 in one series: both have the same clock,
+// data type, and alignment multiple, and s2 starts at the alignment where s1 ends. The
+// type compare comes before the alignment bounds, which a type with no density cannot
+// compute.
 func mergeable(s1, s2 telem.Series) bool {
-	return s1.Multiple() == s2.Multiple() &&
-		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower &&
-		s1.Clock == s2.Clock &&
-		s1.DataType == s2.DataType
+	return s1.Clock == s2.Clock &&
+		s1.DataType == s2.DataType &&
+		s1.Multiple() == s2.Multiple() &&
+		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower
 }
 
 // mergedSeriesInfo holds information about a series that may be merged or original.
@@ -818,75 +819,61 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
 	var h decodeHeader
-	fr, err := c.decode(reader, &h)
-	if err != nil {
-		if h.state != nil {
-			h.state.dec.dropped = true
-		}
-		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			err = invalidf("remote sent a frame that ends early")
-		}
-		return framer.Frame{}, err
+	if err := c.readHeader(&h); err != nil {
+		return framer.Frame{}, drop(&h, err)
 	}
-	return fr, nil
-}
-
-func (c *Codec) decode(src io.Reader, h *decodeHeader) (framer.Frame, error) {
-	if err := c.readHeader(h); err != nil {
-		return framer.Frame{}, err
+	if !h.fgs.allChannelsPresent {
+		return c.decodeKeyedSeries(&h)
 	}
-	var (
-		fr  framer.Frame
-		err error
-	)
-	if h.fgs.allChannelsPresent {
-		fr, err = c.decodeAllSeries(src, h)
-	} else {
-		fr, err = c.decodeKeyedSeries(h)
-	}
-	if err != nil {
-		return framer.Frame{}, err
-	}
-	if h.next != noOverride {
-		return framer.Frame{}, invalidf(
-			"remote ended the frame with the override for series %d pending",
-			h.next,
-		)
-	}
-	return fr, nil
-}
-
-// decodeAllSeries decodes one series for each key of the state, in key order, from
-// the frame that src holds.
-func (c *Codec) decodeAllSeries(src io.Reader, h *decodeHeader) (framer.Frame, error) {
+	// The frame is built here, not in a helper, since each return copies it.
 	var (
 		ag = &h.state.dec
 		n  = uint32(len(ag.all))
 		fr = frame.Alloc(len(ag.all))
-		i  uint32
 	)
-	for {
+	for i := uint32(0); ; i++ {
 		for end := min(h.next, n); i < end; i++ {
-			s, err := c.decodeSeries(h, &ag.series[i])
+			s, err := c.decodeSeries(&h, &ag.series[i])
 			if err != nil {
-				return framer.Frame{}, err
+				return framer.Frame{}, drop(&h, err)
 			}
 			fr = fr.Append(ag.all[i], s)
 		}
 		if i == n {
 			break
 		}
-		s, err := c.decodeOverridden(h, i, int(i))
+		s, err := c.decodeOverridden(&h, i, int(i))
 		if err != nil {
-			return framer.Frame{}, err
+			return framer.Frame{}, drop(&h, err)
 		}
 		fr = fr.Append(ag.all[i], s)
-		i++
 	}
-	if err := c.readEnd(src); err != nil {
-		return framer.Frame{}, err
+	if err := c.readEnd(reader); err != nil {
+		return framer.Frame{}, drop(&h, err)
+	}
+	if h.next != noOverride {
+		return framer.Frame{}, drop(&h, pendingError(h.next))
 	}
 	return fr, nil
+}
+
+// drop marks the state of a frame that failed to decode with err, and returns the error
+// to report.
+func drop(h *decodeHeader, err error) error {
+	if h.state != nil {
+		h.state.dec.dropped = true
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return invalidf("remote sent a frame that ends early")
+	}
+	return err
+}
+
+func pendingError(next uint32) error {
+	return invalidf(
+		"remote ended the frame with the override for series %d pending",
+		next,
+	)
 }
 
 // readEnd fails when src holds bytes after the last series.
@@ -916,7 +903,7 @@ func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
 	for ordinal := uint32(0); h.next != noOverride; ordinal++ {
 		pos, err := c.readKey(h)
 		if err != nil {
-			return endKeyed(fr, err)
+			return endKeyed(h, fr, err)
 		}
 		var s telem.Series
 		if ordinal == h.next {
@@ -925,29 +912,33 @@ func (c *Codec) decodeKeyedSeries(h *decodeHeader) (framer.Frame, error) {
 			s, err = c.decodeSeries(h, &ag.series[pos])
 		}
 		if err != nil {
-			return framer.Frame{}, err
+			return framer.Frame{}, drop(h, err)
 		}
 		fr = fr.Append(ag.all[pos], s)
 	}
 	for {
 		pos, err := c.readKey(h)
 		if err != nil {
-			return endKeyed(fr, err)
+			return endKeyed(h, fr, err)
 		}
 		s, err := c.decodeSeries(h, &ag.series[pos])
 		if err != nil {
-			return framer.Frame{}, err
+			return framer.Frame{}, drop(h, err)
 		}
 		fr = fr.Append(ag.all[pos], s)
 	}
 }
 
-// endKeyed returns fr when err is the end of the frame, and err otherwise.
-func endKeyed(fr framer.Frame, err error) (framer.Frame, error) {
-	if errors.Is(err, io.EOF) {
-		return fr, nil
+// endKeyed returns fr when err is the end of a frame with no override pending, and
+// drops the state otherwise.
+func endKeyed(h *decodeHeader, fr framer.Frame, err error) (framer.Frame, error) {
+	if !errors.Is(err, io.EOF) {
+		return framer.Frame{}, drop(h, err)
 	}
-	return framer.Frame{}, err
+	if h.next != noOverride {
+		return framer.Frame{}, drop(h, pendingError(h.next))
+	}
+	return fr, nil
 }
 
 // readKey reads the key of the next series and returns its position in the keys of
@@ -1044,12 +1035,13 @@ func (c *Codec) decodeOverridden(
 
 // decodeSeries reads one series that decodes as a, and adds its size to h.decoded.
 func (c *Codec) decodeSeries(h *decodeHeader, a *agreed) (telem.Series, error) {
-	s := telem.Series{
-		TimeRange: h.tr,
-		Alignment: h.alignment,
-		DataType:  a.dataType,
-		Clock:     a.clock,
-	}
+	// Each field is set alone: a literal that reads them builds in a temporary, whose
+	// copy stalls on amd64 store forwarding.
+	var s telem.Series
+	s.TimeRange = h.tr
+	s.Alignment = h.alignment
+	s.DataType = a.dataType
+	s.Clock = a.clock
 	dataLenOrSize := h.dataLen
 	var err error
 	if !h.fgs.equalLens {
