@@ -655,6 +655,27 @@ func (r *reference[K, E, T]) dependentsOf(
 	return out, nil
 }
 
+// heldTargets implements registeredReference.
+func (r *reference[K, E, T]) heldTargets(
+	ctx context.Context,
+	snap Snapshot,
+	table string,
+	add any,
+	text func(string),
+) error {
+	if err := r.store.Wait(ctx); err != nil {
+		return err
+	}
+	typed, direct := add.(func(T))
+	return r.store.Values(scopeOf(snap), func(t T) {
+		if direct {
+			typed(t)
+		} else if target := r.format(t); target.Table == table {
+			text(target.Key)
+		}
+	})
+}
+
 // values returns the values of targets that the reference can hold, and the position
 // in targets of each, or nil positions when every target is a value. It reads typed
 // when it holds values of type T.

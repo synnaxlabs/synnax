@@ -11,11 +11,13 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -250,6 +252,62 @@ func (t *Table[K, E]) DependentsEach(
 		targets[i] = Target{Table: t.name, Key: FormatKey(k)}
 	}
 	return t.db.registry.dependents(ctx, snap, t.name, targets, keys)
+}
+
+// FilterReferenced returns a Filter matching the entries of the table that an entry of
+// any open table holds through a reference with one of tags, or through any reference
+// when tags is empty. With referenced false, it matches the entries that no such
+// reference holds. It reads the reference indexes only, with the changes staged
+// against the snapshot applied, and never decodes an entry it leaves out. A Retrieve
+// with the filter fails with ErrIndexInvalid when an index of one of those references
+// failed to populate.
+func (t *Table[K, E]) FilterReferenced(referenced bool, tags ...uint8) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			held, err := t.heldKeys(ctx, snap, tags)
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			// A scan that skips by key costs less than a read per held key.
+			codec := key.NewCodec[K](t.keyPrefix)
+			return resolved[K, E]{
+				raw: func(k, _ []byte) (bool, error) {
+					return held.Contains(codec.Decode(k)) == referenced, nil
+				},
+			}, nil
+		},
+	}
+}
+
+// heldKeys returns the keys of the table that an entry holds through a reference with
+// one of tags, or through any reference when tags is empty, as seen by snap.
+func (t *Table[K, E]) heldKeys(
+	ctx context.Context,
+	snap Snapshot,
+	tags []uint8,
+) (set.Set[K], error) {
+	var (
+		held     = make(set.Set[K])
+		parseErr error
+		add      = func(k K) { held.Add(k) }
+		text     = func(s string) {
+			k, err := key.Parse[K](s)
+			if err != nil {
+				parseErr = errors.Combine(parseErr, err)
+				return
+			}
+			held.Add(k)
+		}
+	)
+	for _, ref := range t.db.registry.referencesTo(t.name) {
+		if len(tags) > 0 && !slices.Contains(tags, ref.referenceTag()) {
+			continue
+		}
+		if err := ref.heldTargets(ctx, snap, t.name, add, text); err != nil {
+			return nil, err
+		}
+	}
+	return held, parseErr
 }
 
 // check validates the references e holds against tx. It reports whether every index

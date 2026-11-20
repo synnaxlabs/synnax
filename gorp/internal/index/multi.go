@@ -356,6 +356,41 @@ func (m *Multi[S, K, V]) HeldValues(
 	return held, nil
 }
 
+// Values calls add once with each value that at least one key holds, with the changes
+// of scope applied. It blocks until the bulk load finishes, and calls add with the
+// index locked.
+func (m *Multi[S, K, V]) Values(scope S, add func(V)) error {
+	<-m.population.done
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if err := m.population.err; err != nil {
+		return err
+	}
+	d, staged := m.overlay.get(scope)
+	if !staged {
+		for v := range m.forward {
+			add(v)
+		}
+		return nil
+	}
+	// kept reports whether a committed holder keeps its values under the changes.
+	kept := func(k K) bool {
+		_, changed := d.state[k]
+		return !changed
+	}
+	for v, h := range m.forward {
+		if h.some(kept) || d.forward[v].len() > 0 {
+			add(v)
+		}
+	}
+	for v := range d.forward {
+		if _, committed := m.forward[v]; !committed {
+			add(v)
+		}
+	}
+	return nil
+}
+
 // Held returns the values that key holds, with the changes of scope applied. It
 // returns false when the bulk load has not finished or failed.
 func (m *Multi[S, K, V]) Held(scope S, key K) ([]V, bool) {

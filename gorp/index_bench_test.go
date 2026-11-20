@@ -679,3 +679,82 @@ func BenchmarkDependents(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkFilterReferenced measures a retrieve of the targets that some holder holds,
+// and of those that none holds, at 100,000 targets and 300,000 links spread over
+// dependentsBenchRefs references. A quarter of the targets have no holder.
+func BenchmarkFilterReferenced(b *testing.B) {
+	db, targets := openReferencedBench(b, 100_000)
+	for _, referenced := range []bool{true, false} {
+		b.Run(fmt.Sprintf("referenced=%t", referenced), func(b *testing.B) {
+			filter := targets.FilterReferenced(referenced)
+			var found []benchEntry
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				found = found[:0]
+				if err := targets.NewRetrieve().
+					Where(filter).
+					Entries(&found).
+					Exec(b.Context(), db); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// openReferencedBench returns a DB and its target table of n entries, of which the
+// first 3n/4 have holders, with 3 links per holder and n holders.
+func openReferencedBench(
+	b *testing.B,
+	n int,
+) (*gorp.DB, *gorp.Table[int32, benchEntry]) {
+	b.Helper()
+	db := openBenchDB(b)
+	ctx := b.Context()
+	targets, err := gorp.OpenTable(ctx, gorp.TableConfig[int32, benchEntry]{
+		DB:     db,
+		Name:   "target",
+		Issued: func(int32) bool { return true },
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	holderTable, err := gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[int32, dependentsBenchHolder]{
+			DB:         db,
+			Name:       "holder",
+			References: newDependentsBenchRefs(),
+		},
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		if err := errors.Join(holderTable.Close(), targets.Close()); err != nil {
+			b.Error(err)
+		}
+	})
+	entries := make([]benchEntry, n)
+	for i := range entries {
+		entries[i] = benchEntry{ID: int32(i), Data: "target-" + strconv.Itoa(i)}
+	}
+	if err = targets.NewCreate().Entries(&entries).Exec(ctx, db); err != nil {
+		b.Fatal(err)
+	}
+	held := int32(3 * n / 4)
+	holders := make([]dependentsBenchHolder, n)
+	for i := range holders {
+		k := int32(i)
+		holders[i] = dependentsBenchHolder{
+			Key:     k,
+			Targets: []int32{k % held, (k + 1) % held, (k + 2) % held},
+		}
+	}
+	if err = holderTable.NewCreate().Entries(&holders).Exec(ctx, db); err != nil {
+		b.Fatal(err)
+	}
+	return db, targets
+}

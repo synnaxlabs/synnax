@@ -74,6 +74,8 @@ type evalFunc[K Key, E Entry[K]] func(ctx Context, e *E, key, value []byte) (boo
 type resolved[K Key, E Entry[K]] struct {
 	keys keyset.Set[K]
 	eval evalFunc[K, E]
+	// raw, when non-nil, replaces Filter.raw for the duration of this Exec.
+	raw func(key, value []byte) (bool, error)
 }
 
 // resolveFilter is the signature for a deferred Filter resolver. It produces the
@@ -145,38 +147,7 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 	f.eval = andEval(filters)
-
-	var firstRaw func(key, value []byte) (bool, error)
-	rawCount := 0
-	for _, child := range filters {
-		if child.raw != nil {
-			if rawCount == 0 {
-				firstRaw = child.raw
-			}
-			rawCount++
-		}
-	}
-	switch rawCount {
-	case 0:
-	case 1:
-		f.raw = firstRaw
-	default:
-		raws := make([]func([]byte, []byte) (bool, error), 0, rawCount)
-		for _, child := range filters {
-			if child.raw != nil {
-				raws = append(raws, child.raw)
-			}
-		}
-		f.raw = func(key, value []byte) (bool, error) {
-			for _, r := range raws {
-				ok, err := r(key, value)
-				if err != nil || !ok {
-					return false, err
-				}
-			}
-			return true, nil
-		}
-	}
+	f.raw = andRaw(filters)
 
 	if anyHasResolver(filters) {
 		f.resolve = func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
@@ -191,6 +162,7 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return resolved[K, E]{
 				keys: keyset.Intersect(filterKeys(materialized)...),
 				eval: andEval(materialized),
+				raw:  andRaw(materialized),
 			}, nil
 		}
 		return f
@@ -254,6 +226,40 @@ func narrowSpans[K Key, E Entry[K]](
 // andEval returns the eval closure used by And composition, or nil when no child has
 // an eval. It does not check the keys of each child, because the keys of the And are
 // their intersection.
+// andRaw returns the AND of the raw pre-screens of filters, or nil when none has one.
+func andRaw[K Key, E Entry[K]](
+	filters []Filter[K, E],
+) func(key, value []byte) (bool, error) {
+	var firstRaw func(key, value []byte) (bool, error)
+	rawCount := 0
+	for _, child := range filters {
+		if child.raw != nil {
+			if rawCount == 0 {
+				firstRaw = child.raw
+			}
+			rawCount++
+		}
+	}
+	if rawCount <= 1 {
+		return firstRaw
+	}
+	raws := make([]func([]byte, []byte) (bool, error), 0, rawCount)
+	for _, child := range filters {
+		if child.raw != nil {
+			raws = append(raws, child.raw)
+		}
+	}
+	return func(key, value []byte) (bool, error) {
+		for _, r := range raws {
+			ok, err := r(key, value)
+			if err != nil || !ok {
+				return false, err
+			}
+		}
+		return true, nil
+	}
+}
+
 func andEval[K Key, E Entry[K]](filters []Filter[K, E]) evalFunc[K, E] {
 	if !slices.ContainsFunc(
 		filters,
@@ -399,6 +405,9 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 				if res.eval != nil {
 					m.eval = res.eval
 				}
+				if res.raw != nil {
+					m.raw = res.raw
+				}
 				return resolved[K, E]{eval: notEval(m)}, nil
 			},
 		}
@@ -490,6 +499,9 @@ func materializeFilters[K Key, E Entry[K]](
 		out[i].keys = res.keys
 		if res.eval != nil {
 			out[i].eval = res.eval
+		}
+		if res.raw != nil {
+			out[i].raw = res.raw
 		}
 	}
 	return out, nil

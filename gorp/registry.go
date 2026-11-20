@@ -65,6 +65,17 @@ type registeredReference interface {
 	) ([][]string, error)
 	// dependentsOf returns the text keys of the entries that hold target.
 	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
+	// heldTargets calls add with each key of the table named table that an entry holds,
+	// as seen by snap. add is a func(K) for the key type K of that table. A reference
+	// whose values have type K calls it directly, and any other calls text with the
+	// key in its text form.
+	heldTargets(
+		ctx context.Context,
+		snap Snapshot,
+		table string,
+		add any,
+		text func(string),
+	) error
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.

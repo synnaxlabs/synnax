@@ -268,6 +268,9 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error
 	if res.eval != nil {
 		r.filter.eval = res.eval
 	}
+	if res.raw != nil {
+		r.filter.raw = res.raw
+	}
 	return nil
 }
 
