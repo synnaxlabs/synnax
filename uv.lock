@@ -46,7 +46,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-dev = [
+uptrace = [
     { name = "uptrace" },
 ]
 
@@ -64,9 +64,9 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = ">=1.45.2,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.2,<2" },
     { name = "pydantic", specifier = ">=2.14.4,<3" },
-    { name = "uptrace", marker = "extra == 'dev'", specifier = ">=1.45.0,<2" },
+    { name = "uptrace", marker = "extra == 'uptrace'", specifier = ">=1.45.0,<2" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["uptrace"]
 
 [package.metadata.requires-dev]
 dev = [

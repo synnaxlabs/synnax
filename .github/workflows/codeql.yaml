@@ -156,3 +156,14 @@ jobs:
           .github/scripts/gh_api.sh \
             "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \
             -X POST -f ref="$REF" -f "inputs[pr]=$PR"
+
+  relay-failure:
+    name: Relay the failure
+    needs: [changes, analyze, shepherd]
+    if:
+      always() && github.event_name == 'schedule' && contains(needs.*.result, 'failure')
+    permissions:
+      actions: write
+    uses: ./.github/workflows/relay.failure.yaml
+    with:
+      report: true

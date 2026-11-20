@@ -431,8 +431,8 @@ export abstract class Node implements Component {
  * @example
  * ```typescript
  * const buttonMethodsZ = {
- *   onMouseDown: z.function(),
- *   onMouseUp: z.function().returns(z.number()),
+ *   onMouseDown: z.function({ input: z.tuple([]), output: z.void() }),
+ *   onMouseUp: z.function({ input: z.tuple([]), output: z.number() }),
  * };
  *
  * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
