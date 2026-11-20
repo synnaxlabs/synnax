@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
 	. "github.com/synnaxlabs/x/testutil"
-	"golang.org/x/text/unicode/norm"
 )
 
 var _ = Describe("AST Utilities", func() {
@@ -502,47 +501,6 @@ var _ = Describe("AST Utilities", func() {
 		It("Should keep spaces, dashes, and dots", func() {
 			Expect(pathOf("'stand_a.Stand A.pt-01'")).To(Equal("stand_a.Stand A.pt-01"))
 		})
-	})
-
-	Describe("ChannelText", func() {
-		never := func(string) bool { return false }
-		pathOf := func(code string) string {
-			GinkgoHelper()
-			primary := parser.GetPrimaryExpression(parseExpr(code))
-			Expect(primary).ToNot(BeNil())
-			return parser.PrimaryNameParts(primary).Head
-		}
-
-		It("Should write an identifier bare", func() {
-			Expect(parser.ChannelText("pt_01", never)).To(Equal("pt_01"))
-		})
-
-		DescribeTable("Should quote a name that is not a free identifier",
-			func(name, text string) {
-				Expect(parser.ChannelText(name, never)).To(Equal(text))
-			},
-			Entry("dashes", "PT-FU-01", "'PT-FU-01'"),
-			Entry("a space", "Stand A", "'Stand A'"),
-			Entry("a leading digit", "1st", "'1st'"),
-			Entry("a keyword", "func", "'func'"),
-			Entry("a type name", "f64", "'f64'"),
-			Entry("a quote and a backslash", `it's a\b`, `'it\'s a\\b'`),
-		)
-
-		It("Should quote an identifier that clashes", func() {
-			clashes := func(name string) bool { return name == "x" }
-			Expect(parser.ChannelText("x", clashes)).To(Equal("'x'"))
-		})
-
-		DescribeTable("Should write a text that names the channel again",
-			func(name string) {
-				Expect(pathOf(parser.ChannelText(name, never))).
-					To(Equal(norm.NFC.String(name)))
-			},
-			Entry("dashes", "PT-FU-01"),
-			Entry("a quote and a backslash", `it's a\b`),
-			Entry("a decomposed letter", "e\u0301"),
-		)
 	})
 
 	Describe("AssignmentName", func() {

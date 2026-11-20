@@ -422,12 +422,7 @@ func (n Name) String() string {
 // decodeChannelName returns the path that a quoted channel name token holds, with its
 // escapes decoded, in NFC.
 func decodeChannelName(token antlr.TerminalNode) string {
-	return DecodeChannelName(token.GetText())
-}
-
-// DecodeChannelName returns the path that text, the text of a quoted channel name
-// token, holds, with its escapes decoded, in NFC.
-func DecodeChannelName(text string) string {
+	text := token.GetText()
 	text = text[1 : len(text)-1]
 	var b strings.Builder
 	b.Grow(len(text))
@@ -571,36 +566,4 @@ func GetExpressionText(expr IExpressionContext) string {
 		}
 	}
 	return expr.GetText()
-}
-
-// ChannelText returns the Arc text that names the channel name: the name itself when it
-// lexes as one identifier, so it is no keyword, literal, or type name, and clashes
-// reports false for it; otherwise one quoted token, with each backslash and quote
-// escaped. clashes reports whether a bare name means something else where the text
-// goes, such as a variable or a module member.
-func ChannelText(name string, clashes func(string) bool) string {
-	if isBareIdentifier(name) && !clashes(name) {
-		return name
-	}
-	var b strings.Builder
-	b.Grow(len(name) + 2)
-	b.WriteByte('\'')
-	for i := range len(name) {
-		if name[i] == '\\' || name[i] == '\'' {
-			b.WriteByte('\\')
-		}
-		b.WriteByte(name[i])
-	}
-	b.WriteByte('\'')
-	return b.String()
-}
-
-// isBareIdentifier reports whether text lexes as exactly one identifier token.
-func isBareIdentifier(text string) bool {
-	lexer := NewArcLexer(antlr.NewInputStream(text))
-	lexer.RemoveErrorListeners()
-	tokens := lexer.GetAllTokens()
-	return len(tokens) == 1 &&
-		tokens[0].GetTokenType() == ArcLexerIDENTIFIER &&
-		tokens[0].GetText() == text
 }

@@ -108,9 +108,9 @@ func (s *Server) Rename(
 	}, nil
 }
 
-// renameTextEdits walks every identifier and quoted channel token in doc, keeps the
-// ones that name targetSym, and emits a TextEdit per occurrence that replaces the
-// token with newName, written for a channel as parser.ChannelText gives it.
+// renameTextEdits walks every identifier token in doc, keeps the ones that
+// resolve to the same symbol as targetSym, and emits a TextEdit per
+// occurrence that replaces the token with newName.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
 	doc *document,
@@ -124,52 +124,37 @@ func (s *Server) renameTextEdits(
 	// channels) have no AST and instead match by kind + name, since every
 	// in-scope reference to the same name resolves to the same global symbol.
 	matchByAST := targetSym.AST != nil
-	channel := targetSym.Kind == symbol.KindChannel
 	var edits []protocol.TextEdit
 	for _, t := range tokenizeContent(doc.Content) {
+		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
+			continue
+		}
 		tokenText := t.GetText()
+		if tokenText != targetSym.Name {
+			continue
+		}
 		start := protocol.Position{
 			Line:      uint32(t.GetLine() - 1),
 			Character: uint32(t.GetColumn()),
 		}
 		scope := doc.findScopeAtPosition(start)
-		switch t.GetTokenType() {
-		case parser.ArcLexerIDENTIFIER:
-			if tokenText != targetSym.Name {
+		sym, err := scope.Resolve(ctx, tokenText, symbol.WithoutUsageTracking)
+		if !isRenameable(sym, err) {
+			continue
+		}
+		s.logUnexpectedSymbolError(sym, err)
+		if matchByAST {
+			if sym.AST != targetSym.AST {
 				continue
 			}
-			sym, err := scope.Resolve(ctx, tokenText, symbol.WithoutUsageTracking)
-			if !isRenameable(sym, err) {
-				continue
-			}
-			s.logUnexpectedSymbolError(sym, err)
-			if matchByAST {
-				if sym.AST != targetSym.AST {
-					continue
-				}
-			} else if sym.Kind != targetSym.Kind || sym.AST != nil {
-				continue
-			}
-		case parser.ArcLexerCHANNEL_NAME:
-			// A quoted token always names a channel.
-			if !channel || parser.DecodeChannelName(tokenText) != targetSym.Name {
-				continue
-			}
-		default:
+		} else if sym.Kind != targetSym.Kind || sym.AST != nil {
 			continue
 		}
 		end := start
 		end.Character += uint32(len(tokenText))
-		text := newName
-		if channel {
-			text = parser.ChannelText(newName, func(name string) bool {
-				sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
-				return err == nil && sym.Kind != symbol.KindChannel
-			})
-		}
 		edits = append(edits, protocol.TextEdit{
 			Range:   protocol.Range{Start: start, End: end},
-			NewText: text,
+			NewText: newName,
 		})
 	}
 	return edits
