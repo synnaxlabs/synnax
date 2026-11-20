@@ -25,9 +25,8 @@ func NewReferenceFeedAppend(
 ) func(gorp.Commit) (framer.Frame, []ReferenceChange) {
 	f := newReferenceFeed(holderOf)
 	var delivered []ReferenceChange
-	f.changes.OnChange(func(_ context.Context, changes []ReferenceChange) {
-		delivered = changes
-	})
+	record := func(_ context.Context, changes []ReferenceChange) { delivered = changes }
+	ReferenceChanges{feed: f}.OnChange(record)
 	return func(c gorp.Commit) (framer.Frame, []ReferenceChange) {
 		delivered = nil
 		fr := f.append(c, framer.Frame{})
