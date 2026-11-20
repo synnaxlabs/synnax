@@ -51,7 +51,7 @@ import {
   dirnameOf,
   expandHome,
   hidden,
-  trimSeparator,
+  normalize,
   withSeparator,
 } from "@/platform/file-browser/path";
 import { PathBar } from "@/platform/file-browser/PathBar";
@@ -100,8 +100,9 @@ export interface ModalParams {
   /** The rack whose files the modal lists. */
   rack: rack.Key;
   /**
-   * A file whose folder the modal opens first, with the file selected. Without it, the
-   * folder of the last file picked on the rack opens, or else the home folder.
+   * A file whose folder the modal opens first, with the file selected. Without it, or
+   * when it is not absolute, the folder of the last file picked on the rack opens, or
+   * else the home folder.
    */
   path?: string;
 }
@@ -123,14 +124,15 @@ const Content = ({
   const rackResult = Rack.useResult({ key: rack });
   const dispatch = useDispatch();
   const recent = FileBrowser.useSelectRecent(rack);
+  const startFile = normalize(start.trim());
   const [history, setHistory] = useState<History>(() => ({
-    stack: [start.trim() === "" ? (recent[0] ?? "") : dirnameOf(start.trim())],
+    stack: [startFile === "" ? (recent[0] ?? "") : dirnameOf(startFile)],
     index: 0,
   }));
   const [selected, setSelected] = useState<string | null>(() =>
-    start.trim() === "" ? null : start.trim(),
+    startFile === "" ? null : startFile,
   );
-  const [hiddenShown, setHiddenShown] = useState(() => hidden(basenameOf(start)));
+  const [hiddenShown, setHiddenShown] = useState(() => hidden(basenameOf(startFile)));
   const [filter, setFilter] = useState<Filter>({ path: "", text: "" });
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
@@ -140,6 +142,10 @@ const Content = ({
   const holderRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  // Each navigation counts, so a typed path that resolves late does not undo a later
+  // one.
+  const navigations = useRef(0);
+  const [resolving, setResolving] = useState(false);
 
   const path = history.stack[history.index];
   const places = placesOf(snapshot.listings.get(""));
@@ -153,9 +159,10 @@ const Content = ({
   useEffect(() => session?.prefetch(""), [session]);
 
   // Each visit lists the folder again. The snapshot shows the result or the failure.
-  useEffect(() => {
+  const relist = (): void => {
     session?.list(path).catch(() => {});
-  }, [session, path]);
+  };
+  useEffect(relist, [session, path]);
 
   const listing = snapshot.listings.get(path);
   if (listing != null && shownPath !== path) setShownPath(path);
@@ -165,6 +172,8 @@ const Content = ({
   const stale = listing == null;
   const loading = snapshot.loading.has(path);
   const failure = snapshot.failures.get(path);
+  // While a folder loads or fails, the dimmed last folder offers no file to pick.
+  const current = !stale && failure == null;
   const query = filter.path === path ? filter.text : "";
   const setQuery = (text: string): void => setFilter({ path, text });
   const visible = shown?.entries.filter((e) => hiddenShown || !hidden(e.name)) ?? [];
@@ -182,7 +191,12 @@ const Content = ({
     if (key != null && hidden(basenameOf(key))) setHiddenShown(true);
   };
   // A folder opens with the entry selected, such as the folder the user came up from.
+  const countNavigation = (): void => {
+    navigations.current++;
+    setResolving(false);
+  };
   const go = (to: string, entry: string | null = null): void => {
+    countNavigation();
     select(entry);
     if (to === path) return;
     setHistory((h) => ({
@@ -192,11 +206,13 @@ const Content = ({
   };
   const back = (): void => {
     if (history.index === 0) return;
+    countNavigation();
     select(path);
     setHistory((h) => ({ ...h, index: h.index - 1 }));
   };
   const forward = (): void => {
     if (history.index === history.stack.length - 1) return;
+    countNavigation();
     setSelected(null);
     setHistory((h) => ({ ...h, index: h.index + 1 }));
   };
@@ -211,7 +227,7 @@ const Content = ({
   };
   const open = (entry: Entry): void => {
     if (entry.kind === "directory") go(entry.path);
-    else if (pickable(entry, type)) pick(entry);
+    else if (current && pickable(entry, type)) pick(entry);
   };
   const listAhead = (folder: string): void => session?.prefetch(folder);
   // A folder the user points at lists in the background, so it often opens at once.
@@ -225,7 +241,9 @@ const Content = ({
   };
   const selectedEntry = selected == null ? undefined : getItem(selected);
   const picked =
-    selectedEntry != null && pickable(selectedEntry, type) ? selectedEntry : undefined;
+    current && selectedEntry != null && pickable(selectedEntry, type)
+      ? selectedEntry
+      : undefined;
 
   const focusList = (): void => (listRef.current ?? holderRef.current)?.focus();
   const cancelEditing = (): void => {
@@ -242,15 +260,19 @@ const Content = ({
   const goTyped = async (text: string): Promise<void> => {
     cancelEditing();
     let typed = text.trim();
+    if (typed === "") return;
+    const navigation = ++navigations.current;
+    setResolving(true);
     if (typed.startsWith("~"))
       typed = expandHome(
         typed,
         placesOf(await listingOf("")).find((p) => p.kind === "home")?.path,
       );
-    const target = trimSeparator(typed);
-    if (target === "") return;
+    // The Driver says why it cannot list a path that is not absolute.
+    const target = normalize(typed) || typed;
     const folder = dirnameOf(target);
     const entry = (await listingOf(folder))?.entries.find((e) => e.path === target);
+    if (navigations.current !== navigation) return;
     if (entry?.kind === "file") go(folder, target);
     else go(target);
   };
@@ -302,11 +324,16 @@ const Content = ({
         <Text.Text level="small" color={10}>
           {failure.description}
         </Text.Text>
-        {history.index > 0 && (
-          <Button.Button variant="text" size="small" textColor={9} onClick={back}>
-            Go back
+        <Flex.Box x gap="small">
+          <Button.Button variant="text" size="small" textColor={9} onClick={relist}>
+            Try again
           </Button.Button>
-        )}
+          {history.index > 0 && (
+            <Button.Button variant="text" size="small" textColor={9} onClick={back}>
+              Go back
+            </Button.Button>
+          )}
+        </Flex.Box>
       </State>
     );
   else if (shown == null)
@@ -363,6 +390,8 @@ const Content = ({
   else
     body = (
       <Entries
+        folder={shownPath}
+        selected={selected}
         ref={listRef}
         now={now}
         type={type}
@@ -420,7 +449,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Back"
+                  aria-label="Back"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowLeft"]} level="small">
+                      Back
+                    </PTriggers.Text>
+                  }
                   disabled={history.index === 0}
                   onClick={back}
                 >
@@ -430,7 +464,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Forward"
+                  aria-label="Forward"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowRight"]} level="small">
+                      Forward
+                    </PTriggers.Text>
+                  }
                   disabled={history.index >= history.stack.length - 1}
                   onClick={forward}
                 >
@@ -440,7 +479,12 @@ const Content = ({
                   variant="text"
                   size="small"
                   textColor={9}
-                  tooltip="Up"
+                  aria-label="Up"
+                  tooltip={
+                    <PTriggers.Text trigger={["Alt", "ArrowUp"]} level="small">
+                      Up
+                    </PTriggers.Text>
+                  }
                   disabled={!canGoUp}
                   onClick={up}
                 >
@@ -481,7 +525,7 @@ const Content = ({
                 >
                   {hiddenShown ? <Icon.Visible /> : <Icon.Hidden />}
                 </Button.Button>
-                {loading && stale && (
+                {((loading && stale) || resolving) && (
                   <Progress.Progress
                     thin
                     className={CSS.BE("file-browser", "progress")}

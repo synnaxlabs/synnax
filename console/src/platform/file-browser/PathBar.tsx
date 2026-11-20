@@ -28,6 +28,7 @@ import {
   dirnameOf,
   expandHome,
   hidden,
+  normalize,
   segmentsOf,
   separatorOf,
   withSeparator,
@@ -127,7 +128,7 @@ const Field = ({
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => ref.current?.focus(), []);
   const expanded = expandHome(text, home);
-  const dir = dirnameOf(expanded);
+  const dir = normalize(dirnameOf(expanded));
   const sep = separatorOf(expanded === "" ? "/" : expanded);
   const cut = expanded.lastIndexOf(sep);
   const prefix = expanded.slice(cut + 1);
@@ -164,7 +165,12 @@ const Field = ({
       e.preventDefault();
       if (suggestions.length === 0) return;
       const step = e.key === "ArrowDown" ? 1 : -1;
-      setActive((a) => (a + step + suggestions.length) % suggestions.length);
+      // With nothing highlighted, ArrowUp starts at the last suggestion.
+      setActive((a) =>
+        a < 0 && step < 0
+          ? suggestions.length - 1
+          : (a + step + suggestions.length) % suggestions.length,
+      );
     } else if (e.key === "Tab") {
       // Tab completes the highlighted or only match, else the prefix that all share.
       e.preventDefault();

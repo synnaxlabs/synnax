@@ -19,6 +19,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type Ref,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -129,13 +130,27 @@ export const Head = ({ sort, onSort }: HeadProps): ReactElement => (
   </div>
 );
 
-/** @returns the most specific name in a subject: its CN, else its O, else its OU. */
+/**
+ * @returns the most specific name in a subject in RFC 2253 form: its CN, else its O,
+ * else its OU.
+ */
 const subjectName = (subject: string): string => {
-  for (const attr of ["CN", "O", "OU"]) {
-    const match = new RegExp(`(?:^|,)\\s*${attr}=([^,]+)`).exec(subject);
-    if (match != null) return match[1];
+  const values = new Map<string, string>();
+  let attr = "";
+  const end = (): void => {
+    const i = attr.indexOf("=");
+    const type = attr.slice(0, i);
+    if (i > 0 && !values.has(type)) values.set(type, attr.slice(i + 1));
+    attr = "";
+  };
+  for (let i = 0; i < subject.length; i++) {
+    const c = subject[i];
+    if (c === "\\") attr += subject[++i] ?? "";
+    else if (c === "," || c === "+") end();
+    else attr += c;
   }
-  return subject;
+  end();
+  return values.get("CN") ?? values.get("O") ?? values.get("OU") ?? subject;
 };
 
 const DATE = new Intl.DateTimeFormat(undefined, {
@@ -156,16 +171,21 @@ const formatModified = (modified: TimeStamp | undefined, now: TimeStamp): string
 
 const SIZE_UNITS = ["kB", "MB", "GB", "TB"];
 
+// One decimal below 10, whole numbers above.
+const roundSize = (value: number): number =>
+  value < 10 ? Math.round(value * 10) / 10 : Math.round(value);
+
 const formatSize = (bytes: number | undefined): string => {
   if (bytes == null) return "";
   if (bytes < 1000) return `${bytes} B`;
-  let value = bytes;
-  let unit = -1;
-  while (value >= 1000 && unit < SIZE_UNITS.length - 1) {
+  let value = bytes / 1000;
+  let unit = 0;
+  while (roundSize(value) >= 1000 && unit < SIZE_UNITS.length - 1) {
     value /= 1000;
     unit++;
   }
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${SIZE_UNITS[unit]}`;
+  const rounded = roundSize(value);
+  return `${rounded < 10 ? rounded.toFixed(1) : rounded} ${SIZE_UNITS[unit]}`;
 };
 
 interface ExpiryProps {
@@ -262,6 +282,9 @@ export interface EntriesProps extends Pick<
   ItemProps,
   "now" | "type" | "onOpen" | "onPoint"
 > {
+  /** The folder of the entries. Each new folder scrolls to its selected entry. */
+  folder: string | null;
+  selected: string | null;
   ref?: Ref<HTMLDivElement>;
   /** Selects the entry with the path. */
   onSelect: (path: string) => void;
@@ -280,6 +303,8 @@ const TYPE_AHEAD_RESET = TimeSpan.milliseconds(900);
  * the list keeps the focus in its holder, so keys still reach the dialog.
  */
 export const Entries = ({
+  folder,
+  selected,
   ref: propsRef,
   onSelect,
   onUp,
@@ -288,6 +313,10 @@ export const Entries = ({
 }: EntriesProps): ReactElement => {
   const keyboard = Select.useKeyboard();
   const { getData, getItem, scrollToIndex } = List.useUtilContext<string, KeyedEntry>();
+  useEffect(() => {
+    const index = selected == null ? -1 : getData().indexOf(selected);
+    scrollToIndex(Math.max(index, 0));
+  }, [folder]);
   const ref = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(ref, propsRef);
   const typed = useRef({ text: "", at: TimeStamp.ZERO });

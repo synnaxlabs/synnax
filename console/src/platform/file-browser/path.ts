@@ -11,6 +11,25 @@
 export const separatorOf = (path: string): string =>
   path.includes("\\") && !path.includes("/") ? "\\" : "/";
 
+/**
+ * @returns the absolute path in the form that the Driver lists it: a Windows path with
+ * backslashes, and no `.`, `..`, or repeated separators. Returns an empty string for a
+ * path that is not absolute.
+ */
+export const normalize = (path: string): string => {
+  let root: string;
+  if (/^[A-Za-z]:[\\/]/.test(path)) root = `${path.slice(0, 2)}\\`;
+  else if (path.startsWith("\\\\")) root = "\\\\";
+  else if (path.startsWith("/")) root = "/";
+  else return "";
+  const sep = root === "/" ? "/" : "\\";
+  const parts: string[] = [];
+  for (const part of path.slice(root.length).split(sep === "/" ? "/" : /[\\/]/))
+    if (part === "..") parts.pop();
+    else if (part !== "" && part !== ".") parts.push(part);
+  return `${root}${parts.join(sep)}`;
+};
+
 /** @returns the folder that holds the path, or an empty string for a relative name. */
 export const dirnameOf = (path: string): string => {
   const sep = separatorOf(path);
@@ -21,26 +40,16 @@ export const dirnameOf = (path: string): string => {
   return /^[A-Za-z]:$/.test(dir) ? `${dir}${sep}` : dir;
 };
 
-const DRIVE_ROOT = /^[A-Za-z]:\\$/;
-
 /** @returns the path with one separator at its end, as a folder is typed. */
 export const withSeparator = (path: string): string => {
   const sep = separatorOf(path);
   return path.endsWith(sep) ? path : `${path}${sep}`;
 };
 
-/** @returns the path without a separator at its end, unless it is a root. */
-export const trimSeparator = (path: string): string => {
-  const sep = separatorOf(path);
-  if (path === sep || DRIVE_ROOT.test(path) || !path.endsWith(sep)) return path;
-  return path.slice(0, -1);
-};
-
 /** @returns the last name in the path, or the path itself for a root. */
 export const basenameOf = (path: string): string => {
-  const trimmed = trimSeparator(path);
-  const name = trimmed.slice(trimmed.lastIndexOf(separatorOf(trimmed)) + 1);
-  return name === "" ? trimmed : name;
+  const name = path.slice(path.lastIndexOf(separatorOf(path)) + 1);
+  return name === "" ? path : name;
 };
 
 /** @returns whether a name is hidden, as a name that starts with a dot is. */
