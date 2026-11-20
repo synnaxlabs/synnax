@@ -15,7 +15,7 @@ import {
   type HookParameters,
 } from "astro";
 
-export { API_HOST as POSTHOG } from "./analytics";
+import { API_HOST as POSTHOG } from "./analytics";
 
 type Csp = Exclude<
   NonNullable<AstroUserConfig["security"]>["csp"],
@@ -57,6 +57,15 @@ const TOOLBAR: Record<Directive | "script-src" | "style-src", string[]> = {
   "style-src": [VERCEL_LIVE],
 };
 
+/**
+ * POSTHOG_SOURCES lists what PostHog loads. Its session recorder reads `blob:` URLs,
+ * which WebKit checks against `connect-src`.
+ */
+const POSTHOG_SOURCES: Partial<Record<keyof typeof TOOLBAR, string[]>> = {
+  "connect-src": [POSTHOG, "blob:"],
+  "script-src": [POSTHOG],
+};
+
 export interface PolicyConfig {
   /** Sources for each directive. A fetch directive needs `'self'` listed. */
   sources?: Partial<Record<Directive, string[]>>;
@@ -64,6 +73,8 @@ export interface PolicyConfig {
   scripts?: string[];
   /** Hashes of the `is:inline` scripts, which Astro does not hash. */
   hashes?: `sha256-${string}`[];
+  /** Allows the analytics that `Analytics.astro` loads. */
+  posthog?: boolean;
   /** Allows every inline style element, not only the hashed ones. */
   inlineStyles?: boolean;
   /** The `VERCEL_ENV` of the build. A preview also allows the Vercel toolbar. */
@@ -78,11 +89,15 @@ export const policy = ({
   sources = {},
   scripts = [],
   hashes = [],
+  posthog = false,
   inlineStyles = false,
   vercelEnv,
 }: PolicyConfig): Csp => {
   const toolbar = vercelEnv === "preview";
-  const extra = (d: keyof typeof TOOLBAR): string[] => (toolbar ? TOOLBAR[d] : []);
+  const extra = (d: keyof typeof TOOLBAR): string[] => [
+    ...(posthog ? (POSTHOG_SOURCES[d] ?? []) : []),
+    ...(toolbar ? TOOLBAR[d] : []),
+  ];
   const directives: `${Directive} ${string}`[] = [];
   for (const d of DIRECTIVES) {
     const own = sources[d];
@@ -101,7 +116,7 @@ export const policy = ({
     ],
     scriptDirective: {
       resources: ["'self'", ...scripts, ...extra("script-src")],
-      hashes,
+      hashes: posthog ? [...hashes, hash(LOADER)] : hashes,
     },
     styleDirective: {
       resources: elements
@@ -156,6 +171,3 @@ export const LOADER = `(function (posthog) {
   };
   posthog.__SV = 1;
 })(window.posthog || []);`;
-
-/** HASHES let the inline scripts of the shared components run. */
-export const HASHES = [hash(LOADER)];

@@ -11,7 +11,7 @@
 
 import reactRenderer from "@astrojs/react/server.js";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { hash, HASHES as SHARED } from "@synnaxlabs/site-common/csp";
+import { hash, LOADER } from "@synnaxlabs/site-common/csp";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
@@ -79,7 +79,7 @@ describe("inline", () => {
           }),
       );
       expect(hashes).toContain(hash(COLLAPSE));
-      for (const h of hashes) expect([...SHARED, ...HASHES]).toContain(h);
+      for (const h of hashes) expect([hash(LOADER), ...HASHES]).toContain(h);
     });
   });
 

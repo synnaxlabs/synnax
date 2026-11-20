@@ -12,7 +12,7 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import * as Common from "@synnaxlabs/site-common/csp";
+import { policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
 import { defineConfig, envField } from "astro/config";
@@ -36,7 +36,6 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
-const { POSTHOG } = Common;
 const ALGOLIA = "https://ywd9t0jxcs-dsn.algolia.net";
 const CDN = "https://synnax.nyc3.cdn.digitaloceanspaces.com";
 
@@ -72,14 +71,14 @@ export default defineConfig({
   adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
   image: { domains: IMAGES.domains },
   security: {
-    csp: Common.policy({
+    csp: policy({
       sources: {
-        "connect-src": ["'self'", ALGOLIA, POSTHOG, "https://formspree.io"],
+        "connect-src": ["'self'", ALGOLIA, "https://formspree.io"],
         "img-src": ["'self'", "data:", CDN],
         "media-src": ["'self'", CDN],
       },
-      scripts: [POSTHOG],
-      hashes: [...Common.HASHES, ...HASHES],
+      hashes: HASHES,
+      posthog: true,
       // Shiki colors code with style attributes, and transitions add style elements
       // that differ by page while the client router keeps the first page's policy.
       inlineStyles: true,
