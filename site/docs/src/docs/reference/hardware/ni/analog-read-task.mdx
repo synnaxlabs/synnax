@@ -174,66 +174,37 @@ Tare sets the current value of a channel to zero. The task must be running.
 
 ## Channel settings
 
-Most channel types share these settings. The [channel reference](#channel-reference)
-lists the other settings of each type.
-
 ### Range
 
-**Range** is the lowest and highest value that you expect from the sensor, in the units
-of the channel type. NI-DAQmx uses the range to select the input range of the device. It
-selects the smallest input range that holds your values, which gives the best
-resolution. Set the range near the real signal. A signal outside the input range that
-NI-DAQmx selects reads as the limit of that input range.
-
-For a **Voltage** channel, and for a **Current** channel whose **Shunt resistor
-location** is not **External**, the Console compares the range with the input ranges of
-the device. If no input range holds the values, the Console shows "The device has no
-range from ... to ...". The Console skips this check when the device reports no input
-ranges.
-
-With a [custom scale](#custom-scaling), the range is in the scaled units. For example, a
-0 to 500 psi transducer with a 0 to 10 V output and a linear scale to psi takes a range
-of `0` to `500`, not `0` to `10`. The Console does not compare a scaled range with the
-input ranges of the device.
+NI-DAQmx uses **Range** to select the smallest input range of the device that holds it.
+With a [custom scale](#custom-scaling), the range is in the scaled units. Unless the
+channel has a custom scale, the Console checks the range of **Voltage** channels, and of
+**Current** channels whose shunt is not **External**, against the input ranges that the
+device reports.
 
 ### Terminal configuration
 
-**Terminal configuration** sets the pins that measure the signal, and the reference that
-the device measures it against. Select the configuration that matches the wiring of the
-sensor, and whether the sensor has its own ground:
+Select the configuration that matches the wiring of the sensor:
 
-| Console option              | Code value    | Measures                                                            | Use when                                                                    |
-| --------------------------- | ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Default                     | `Cfg_Default` | The configuration that NI-DAQmx gives the port.                     | You do not know the wiring yet.                                             |
-| Differential                | `Diff`        | The voltage between two inputs.                                     | The source is grounded, the signal is small, or wires are long.             |
-| Referenced single ended     | `RSE`         | One input against the device ground, AI GND.                        | The source floats, such as a battery or an isolated output.                 |
-| Non-referenced single ended | `NRSE`        | One input against the AI SENSE pin.                                 | The source is grounded, and you need more channels than differential gives. |
-| Pseudo-Differential         | `PseudoDiff`  | One input against a negative input that has a resistance to ground. | The module is a dynamic signal module, such as one for IEPE sensors.        |
+| Console option              | Code value    | Use when                                                           |
+| --------------------------- | ------------- | ------------------------------------------------------------------ |
+| Default                     | `Cfg_Default` | You want what the port gives, shown as **Default (Differential)**. |
+| Differential                | `Diff`        | The source is grounded, the signal is small, or wires are long.    |
+| Referenced single ended     | `RSE`         | The source floats, such as a battery. Measures against AI GND.     |
+| Non-referenced single ended | `NRSE`        | The source is grounded and you need more channels. Uses AI SENSE.  |
+| Pseudo-Differential         | `PseudoDiff`  | The module is a dynamic signal module, such as for IEPE sensors.   |
 
-- **Default** -> the list shows what Default gives on the selected port, such as
-  **Default (Differential)**. The Driver reads this value when it finds the device.
-- **Differential** -> each channel uses two ports. On E, M, and X Series devices and the
-  NI 9204, 9205, and 9206, `ai0` pairs with `ai8`, `ai1` with `ai9`, and so on. On the
-  NI USB-6001, 6002, 6003, 6008, and 6009, `ai0` pairs with `ai4`. Another channel
-  cannot use the negative port, and the **Port** grid shows the pair as one cell.
-  Devices with a negative pin for each input, such as many C Series modules, use no
-  second port.
-- **Floating sources in Differential or NRSE** -> connect bias resistors from the
-  negative input to AI GND. Without them, the readings drift or saturate.
-
-The list shows only the configurations that the port takes. If the Driver could not read
-them from the device, the list shows all of them, and NI-DAQmx rejects a configuration
-that the port does not take when the task starts.
+A differential channel also takes a negative port: `ai8` for `ai0` on E, M, and X Series
+devices and the NI 9204, 9205, and 9206, and `ai4` for `ai0` on the NI USB-6001, 6002,
+6003, 6008, and 6009. For a floating source in **Differential** or **NRSE**, connect
+bias resistors from the negative input to AI GND. See NI's
+[field wiring guide](https://www.ni.com/en/shop/data-acquisition/measurement-fundamentals/field-wiring-and-noise-considerations-for-analog-signals.html).
 
 <Note.Note variant="warning">
 
-Do not use **Referenced single ended** with a grounded source. The two grounds make a
-ground loop, which adds error to the readings.
+Do not use **Referenced single ended** with a grounded source: it makes a ground loop.
 
 </Note.Note>
-
-For wiring diagrams of each configuration, see NI's
-[field wiring and noise considerations for analog signals](https://www.ni.com/en/shop/data-acquisition/measurement-fundamentals/field-wiring-and-noise-considerations-for-analog-signals.html).
 
 <Divider.Divider x />
 
@@ -243,8 +214,7 @@ Every channel has a `channel`, the Synnax channel that records the value, a `dev
 the key of the device (**Device**), and a `port` (**Port**). The built-in temperature
 sensor has no port. In Python, a channel with no `device` uses the `device` of the task.
 
-Each table shows the Console label of a setting, with its Python field under it. See
-[channel settings](#channel-settings) for **Range** and **Terminal configuration**. The
+Each table shows the Console label of a setting, with its Python field under it. The
 **Notes** column lists the values that code uses, such as `MetersPerSecondSquared`. The
 Console shows the same values as symbols, such as m/s². Every type except the
 temperature types also has **Custom scaling**.
@@ -956,10 +926,8 @@ Reads sound pressure from a microphone.
 
 ### Custom scaling
 
-A custom scale converts the value that the device measures, the pre-scaled value, to the
-value that the channel records, the scaled value. For example, a linear scale can
-convert volts from a pressure transducer to psi. NI-DAQmx applies the scale, and the
-[range](#range) of the channel is then in the scaled units.
+A custom scale converts the measured value (pre-scaled, such as volts) to the recorded
+value (scaled, such as psi).
 
 In the Console, select the scale in **Custom scaling**, in the **Scale** section of the
 channel. In code, set `custom_scale` to one of these scales:
