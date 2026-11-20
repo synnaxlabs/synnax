@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, TimeSpan } from "@synnaxlabs/x";
+import { bounds, box, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { join, Layout, segments, spans, type Trace } from "@/lineplot/aether/layout";
+import {
+  join,
+  Layout,
+  segments,
+  shownSpans,
+  spans,
+  type Trace,
+} from "@/lineplot/aether/layout";
 
 describe("Layout", () => {
   describe("one segment", () => {
@@ -391,5 +398,44 @@ describe("Layout breaks", () => {
   it("should find no closed gap inside one segment or across an open gap", () => {
     expect(layout([]).closedBetween(1, 9)).toBe(false);
     expect(layout([10]).closedBetween(5, 105)).toBe(false);
+  });
+});
+
+describe("shownSpans", () => {
+  const HOUR = Number(TimeSpan.HOUR.valueOf());
+  const window = (start: number, hours: number) =>
+    new TimeRange(start * HOUR, (start + hours) * HOUR);
+  const ns = (t: { valueOf: () => bigint }) => Number(t.valueOf());
+
+  it("should leave out the gaps between windows far apart", () => {
+    const shown = shownSpans([window(0, 1), window(100, 1)]);
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].start)).toEqual(0);
+    expect(ns(shown[1].end)).toEqual(101 * HOUR);
+    expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
+    expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
+  });
+
+  it("should hold the time between windows close together in one span", () => {
+    const shown = shownSpans([window(0, 1), window(1.05, 1)]);
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].end)).toBeCloseTo(2.05 * HOUR, -1);
+  });
+
+  it("should keep the outer edges to the nanosecond", () => {
+    const start = TimeStamp.now().add(1n);
+    const first = new TimeRange(start, start.add(TimeSpan.HOUR));
+    const later = new TimeRange(
+      start.add(TimeSpan.days(2)),
+      start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
+    );
+    const shown = shownSpans([first, later]);
+    expect(shown[0].start).toEqual(first.start);
+    expect(shown[1].end).toEqual(later.end);
+  });
+
+  it("should list the spans in time order", () => {
+    const shown = shownSpans([window(100, 1), window(0, 1)]);
+    expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
   });
 });

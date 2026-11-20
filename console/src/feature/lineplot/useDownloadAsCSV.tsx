@@ -18,6 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot, Synnax } from "@synnaxlabs/pluto";
 import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
+import { FLAGS } from "@/flags";
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
 
@@ -97,8 +98,10 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       }));
       const live = windows.some((w) => w.variant === "dynamic");
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
-      // With no breaks, the plot shows all the time from its first range to its last.
-      const shown = TimeRange.merge(...windows.map((w) => resolveWindow(w, end)));
-      downloadAsCSV({ timeRanges: [shown], lines, name });
+      const resolved = windows.map((w) => resolveWindow(w, end));
+      const timeRanges = FLAGS.breaks
+        ? LinePlot.shownSpans(resolved)
+        : [TimeRange.merge(...resolved)];
+      downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

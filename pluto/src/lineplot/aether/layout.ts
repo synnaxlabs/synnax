@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, TimeSpan } from "@synnaxlabs/x";
+import { bounds, box, scale, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import type { TickType } from "@/vis/axis/ticks";
 import type { line } from "@/vis/line/aether";
@@ -276,6 +276,24 @@ export const segments = (
   result[0] = { ...result[0], lower: result[0].lower - pad };
   result[last] = { ...result[last], upper: result[last].upper + pad };
   return result;
+};
+
+/**
+ * @returns the spans of time that a plot of windows shows with its gaps collapsed and
+ * every break closed, in time order. Each span holds one or more windows and the
+ * margins and time between them.
+ */
+export const shownSpans = (windows: TimeRange[]): TimeRange[] => {
+  const traces = windows.map((w) => ({ bounds: w.numericBounds, loading: false }));
+  const shown = segments(traces, 0);
+  if (shown.length === 0) return [];
+  // A number cannot hold a timestamp to the nanosecond, so the outer edges come from
+  // the windows.
+  const { start, end } = TimeRange.merge(...windows);
+  const last = shown.length - 1;
+  return shown.map(
+    (b, i) => new TimeRange(i === 0 ? start : b.lower, i === last ? end : b.upper),
+  );
 };
 
 // margined returns the window of a trace with a margin on each side. A window that ends
