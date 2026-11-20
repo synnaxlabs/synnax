@@ -59,4 +59,31 @@ describe("MultiEdit", () => {
       ).toThrow(z.ZodError);
     });
   });
+
+  describe("colorRefs with value fields", () => {
+    it("should reference each color value as a value only fixed color", () => {
+      const refs = MultiEdit.colorRefs(
+        "a",
+        { strokeColor: "#ff0000", fillColor: undefined },
+        ["strokeColor", "fillColor"],
+        { strokeColor: true },
+      );
+      expect(refs).toEqual([
+        {
+          key: "a",
+          path: "strokeColor",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+          valueOnly: true,
+        },
+      ]);
+    });
+
+    it("should throw when a value field holds a value that is not a color", () => {
+      expect(() =>
+        MultiEdit.colorRefs("a", { fillColor: { type: "named" } }, ["fillColor"], {
+          fillColor: true,
+        }),
+      ).toThrow(z.ZodError);
+    });
+  });
 });

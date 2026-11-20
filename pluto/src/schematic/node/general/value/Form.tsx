@@ -13,6 +13,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -23,7 +24,10 @@ import { Value } from "@/vis/value";
 const path = deep.path<schematic.ValueNodeConfig>();
 
 export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => {
-  const fill = Base.useFieldValue(path.fillColor, { optional: true }) ?? undefined;
+  const resolve = Color.useResolve();
+  const fill = resolve(
+    Base.useFieldValue(path.fillColor, { optional: true }) ?? undefined,
+  );
   return (
     <Properties.Tabs
       tabs={["telemetry", "style", "redline"]}

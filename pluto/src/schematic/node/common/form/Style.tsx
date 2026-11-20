@@ -14,7 +14,7 @@ import type { ReactElement } from "react";
 
 import { Errors } from "@/errors";
 import { Custom } from "@/schematic/node/common/custom";
-import { ColorField } from "@/schematic/node/common/form/Color";
+import { ColorValueField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -54,7 +54,9 @@ export const StyleForm = ({
         <Label.Form omit={omit} path={path.label} />
       </Form.Section>
       <Form.Section title="Appearance">
-        {!hasStateOverrides && <ColorField path={path.strokeColor} label="Stroke" />}
+        {!hasStateOverrides && (
+          <ColorValueField path={path.strokeColor} label="Stroke" />
+        )}
         <Form.SwitchField
           path={path.normallyOpen}
           label="Normally open"
