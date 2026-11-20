@@ -91,6 +91,9 @@ type delta[K, V comparable] struct {
 	// so a batch of staged keys allocates a few arrays instead of slices per key.
 	arena []V
 	keys  []K
+	// added counts the entries added to forward since the last reset. forward drops an
+	// entry when its last holder goes, so its length can be less than its peak.
+	added int
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -99,14 +102,16 @@ func newDelta[K, V comparable]() *delta[K, V] {
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 
-func (d *delta[K, V]) size() int { return len(d.state) }
+func (d *delta[K, V]) footprint() int {
+	return max(len(d.state), d.added, cap(d.arena), cap(d.keys))
+}
 
 func (d *delta[K, V]) reset() {
 	clear(d.state)
 	clear(d.forward)
 	clear(d.arena)
 	clear(d.keys)
-	d.arena, d.keys = d.arena[:0], d.keys[:0]
+	d.arena, d.keys, d.added = d.arena[:0], d.keys[:0], 0
 }
 
 // set stages values for key. The delta owns values from then on.
@@ -147,6 +152,7 @@ func (d *delta[K, V]) addHolder(value V, key K) {
 	n := len(d.keys)
 	h.few = d.keys[n-1 : n : n]
 	d.forward[value] = h
+	d.added++
 }
 
 // arenaMin is the size of the first arena of a delta.
@@ -211,8 +217,9 @@ func AnyOf[V comparable](values []V) func(V) bool {
 // changes is the set of changes that one scope has staged against an index.
 type changes interface {
 	isEmpty() bool
-	// size returns the number of keys staged in the changes.
-	size() int
+	// footprint returns at least the most entries that any map or slice of the changes
+	// has held since the last reset.
+	footprint() int
 	// reset empties the changes, keeping their storage for the next scope.
 	reset()
 }
@@ -244,9 +251,9 @@ func (o *overlay[S, D]) load(scope S) D {
 	if o.deltas == nil {
 		o.deltas = make(map[S]D)
 	}
-	var d D
+	var d, none D
 	if o.hasSpare {
-		d, o.hasSpare = o.spare, false
+		d, o.spare, o.hasSpare = o.spare, none, false
 	} else {
 		d = o.create()
 	}
@@ -255,24 +262,21 @@ func (o *overlay[S, D]) load(scope S) D {
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
-		// A map keeps the buckets it grew to, and iterating it costs them all, so only
-		// the changes of a small scope are worth reusing.
-		reuse := d.size() <= spareSize
-		if reuse {
-			d.reset()
-		}
 		o.mu.Lock()
+		defer o.mu.Unlock()
 		delete(o.deltas, scope)
-		if reuse {
+		// A map keeps the buckets it grew to, and iterating it costs them all, so only
+		// small changes are worth reusing. The reset runs under mu because readers of
+		// committing scopes walk the changes while they hold it.
+		if d.footprint() <= spareSize {
+			d.reset()
 			o.spare, o.hasSpare = d, true
 		}
-		o.mu.Unlock()
 	})
 	return d
 }
 
-// spareSize is the most staged keys that a scope's changes may hold for the next scope
-// to reuse them.
+// spareSize is the largest footprint of changes that the next scope may reuse.
 const spareSize = 64
 
 // get returns the changes of scope, or false when scope has staged none.
