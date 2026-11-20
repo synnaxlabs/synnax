@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 
 /** How each non-error connection variant reads to the user. */
 export const VARIANT_LABELS: Record<connection.NonErrorStatus["variant"], string> = {

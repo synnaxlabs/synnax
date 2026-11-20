@@ -25,7 +25,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Entry } from "@/platform/file-browser/list";
+import type { Entry } from "@/platform/file-browser/list";
 import { Validity } from "@/platform/secret/validity";
 
 /** An entry keyed by its path, as the list holds it. */

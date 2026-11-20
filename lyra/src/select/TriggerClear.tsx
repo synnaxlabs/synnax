@@ -10,7 +10,7 @@
 import "@/select/TriggerClear.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement } from "react";
+import type { KeyboardEvent, ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";

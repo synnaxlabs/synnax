@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter, narrow } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -42,7 +42,7 @@ import {
   shortcutZ,
 } from "@/certificate/where.gen";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";

@@ -25,7 +25,7 @@ import {
   zod,
 } from "@synnaxlabs/x";
 import { type RefObject, useEffect, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Synnax } from "@/synnax";
 

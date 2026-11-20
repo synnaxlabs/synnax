@@ -13,8 +13,8 @@ import { resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Flux } from "@synnaxlabs/pluto";
-import { type state } from "@synnaxlabs/x";
+import type { Flux } from "@synnaxlabs/pluto";
+import type { state } from "@synnaxlabs/x";
 import {
   createContext,
   type KeyboardEvent,
@@ -26,8 +26,8 @@ import {
 
 import { CSS } from "@/platform/css";
 import { Toolbar } from "@/platform/toolbar";
-import { type Results } from "@/platform/tree/store";
-import { type Resource } from "@/platform/tree/types";
+import type { Results } from "@/platform/tree/store";
+import type { Resource } from "@/platform/tree/types";
 
 /** How a search shows its matches: in one list, or inside their groups. */
 export type SearchLayout = "flat" | "groups";

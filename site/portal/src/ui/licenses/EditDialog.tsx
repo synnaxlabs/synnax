@@ -11,9 +11,9 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
+import type { License } from "@/server/db/schema";
 import { post, reload } from "@/ui/api";
 import {
   bodyOf,

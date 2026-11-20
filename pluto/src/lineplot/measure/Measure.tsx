@@ -15,7 +15,7 @@ import { type ReactElement, useEffect, useRef } from "react";
 import { Aether } from "@/aether";
 import { useViewport } from "@/lineplot/Frame";
 import { measure } from "@/lineplot/measure/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
   defaultMode: "one",

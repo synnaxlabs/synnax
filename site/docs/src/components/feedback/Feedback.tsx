@@ -9,7 +9,7 @@
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Form } from "@/components/feedback/Form";
 

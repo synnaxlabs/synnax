@@ -20,7 +20,7 @@ import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
 import { primitive, type record, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 

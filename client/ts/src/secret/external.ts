@@ -10,4 +10,4 @@
 export * from "@/secret/actions.gen";
 export * from "@/secret/client";
 export * from "@/secret/types.gen";
-export { type WhereInput } from "@/secret/where.gen";
+export type { WhereInput } from "@/secret/where.gen";
