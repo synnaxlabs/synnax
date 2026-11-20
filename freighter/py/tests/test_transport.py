@@ -69,6 +69,20 @@ class TestMiddlewareCollector:
         collector.exec(_context(), finalizer=_finalizer(calls))
         assert calls == ["a", "finalizer", "a", "finalizer"]
 
+    def test_repeat_next(self) -> None:
+        """Should run the later middleware again when a middleware calls next twice."""
+        calls: list[str] = []
+
+        def twice(ctx: Context, next: Next) -> Context:
+            calls.append("a")
+            next(ctx)
+            return next(ctx)
+
+        collector = MiddlewareCollector()
+        collector.use(twice, _recorder(calls, "b"))
+        collector.exec(_context(), finalizer=_finalizer(calls))
+        assert calls == ["a", "b", "finalizer", "b", "finalizer"]
+
 
 class TestAsyncMiddlewareCollector:
     @pytest.mark.asyncio
@@ -85,3 +99,22 @@ class TestAsyncMiddlewareCollector:
 
         await collector.exec(_context(), finalizer=finalizer)
         assert calls == ["a", "b", "c", "finalizer"]
+
+    @pytest.mark.asyncio
+    async def test_repeat_next(self) -> None:
+        """Should run the later middleware again when a middleware calls next twice."""
+        calls: list[str] = []
+
+        async def twice(ctx: Context, next: AsyncNext) -> Context:
+            calls.append("a")
+            await next(ctx)
+            return await next(ctx)
+
+        async def finalizer(ctx: Context) -> Context:
+            calls.append("finalizer")
+            return ctx
+
+        collector = AsyncMiddlewareCollector()
+        collector.use(twice, _async_recorder(calls, "b"))
+        await collector.exec(_context(), finalizer=finalizer)
+        assert calls == ["a", "b", "finalizer", "b", "finalizer"]

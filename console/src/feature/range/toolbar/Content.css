@@ -108,7 +108,7 @@
     & svg {
         width: 1.75rem;
         height: 1.75rem;
-        transition: transform var(--pluto-btn-transition);
+        transition: transform 0.2s ease;
     }
 
     &.console-range-toolbar__caret--expanded svg {
@@ -239,7 +239,8 @@
     }
 }
 
-.console-range-toolbar__all {
+.console-range-toolbar__all,
+.console-range-toolbar__show-more {
     align-self: flex-start;
     margin: 0.5rem 0 0 calc(var(--mark-x) - 1.5rem);
 }

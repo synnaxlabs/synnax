@@ -714,6 +714,24 @@ TEST_F(IGHMasterTest, ScanReadsOnlyTheSIIOfAStartingSlave) {
     EXPECT_TRUE(slaves[1].properties.settings.has_value());
 }
 
+/// @brief it should read a slave that was starting at the scan again at a later scan,
+/// once the slave has left INIT.
+TEST_F(IGHMasterTest, ScanReadsAStartingSlaveAgainOnceItLeavesInit) {
+    auto &slave = this->api
+                      ->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG);
+    slave.info.al_state = EC_AL_STATE_INIT;
+    slave.objects = testutil::stg_objects(0);
+    slave.wide_objects[{0x1018, 4}] = 9;
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master.scan())[0].status.starting);
+    slave.info.al_state = EC_AL_STATE_PREOP;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_TRUE(slaves[0].properties.settings.has_value());
+}
+
 /// @brief it should read the CoE objects of each slave that was starting at the scan
 /// once it reaches PRE-OP, disabled ones included, and start without one that stays in
 /// INIT.
@@ -1061,6 +1079,29 @@ TEST_F(IGHMasterTest, ActivateWaitsWhileTheSlavesReachOPOneAtATime) {
     EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(21));
 }
 
+/// @brief it should report each slave that reaches OP.
+TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
+    for (int i = 1; i <= 3; ++i)
+        this->api->add_slave().reads_to_reach = 700 * i;
+    ASSERT_NIL_P(this->master.scan());
+    std::vector<std::pair<size_t, size_t>> reports;
+    ASSERT_NIL(this->master
+                   .activate(
+                       {
+                           .period = PERIOD,
+                           .slaves = this->configs,
+                           .progress = [&reports](
+                                           const size_t operational,
+                                           const size_t total
+                                       ) { reports.emplace_back(operational, total); },
+                       },
+                       [](const master::Image &) {}
+                   )
+                   .err);
+    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}, {3, 3}};
+    EXPECT_EQ(reports, expected);
+}
+
 /// @brief it should fail once no slave has reached OP for the OP timeout, counted from
 /// the latest slave that reached OP.
 TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
@@ -1194,6 +1235,16 @@ TEST_F(IGHMasterTest, ScanReadsTheModesOfEachSlaveFromItsSII) {
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
     EXPECT_TRUE(slaves[1].properties.op_modes.empty());
+}
+
+/// @brief it should read no word past the end marker of an SII, as IgH logs a kernel
+/// error for each such read.
+TEST_F(IGHMasterTest, ScanReadsNoWordPastTheEndOfTheSII) {
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
+    EXPECT_EQ(this->api->slaves[0].sii_overreads, 0);
 }
 
 /// @brief it should fail the scan when it cannot read the SII of a slave.
@@ -2017,6 +2068,59 @@ TEST_F(IGHMasterTest, SendFailsWhenADomainCannotBeQueued) {
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "failed to queue a domain: Input/output error");
+}
+
+/// @brief it should not read or write the process data of a slave that IgH reports
+/// below SAFE-OP, and report the slave as inputless until it reaches SAFE-OP.
+TEST_F(IGHMasterTest, SendSkipsTheProcessDataOfASlaveBelowSafeOp) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[1].info.al_state = EC_AL_STATE_PREOP;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: 3 of 6");
+    EXPECT_EQ(
+        std::vector(this->master.inputless().begin(), this->master.inputless().end()),
+        (std::vector<uint16_t>{2})
+    );
+    this->api->slaves[1].info.al_state = EC_AL_STATE_SAFEOP;
+    this->api->queued.clear();
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0, 1}));
+    ASSERT_NIL(this->master.receive());
+}
+
+/// @brief it should keep the process data of a slave while IgH scans the bus and
+/// reports no state.
+TEST_F(IGHMasterTest, SendKeepsTheProcessDataOfASlaveWhileIgHScans) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->scanning = true;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
+}
+
+/// @brief it should not read the state of a slave whose latest cycle was full.
+TEST_F(IGHMasterTest, SendReadsNoStateOfASlaveWithAFullCycle) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.receive());
+    this->api->slaves[0].state_unreadable = true;
+    ASSERT_NIL(this->master.send());
+}
+
+/// @brief it should fail when it cannot read the state of a slave that missed a full
+/// cycle.
+TEST_F(IGHMasterTest, SendFailsWhenTheStateOfASlaveCannotBeRead) {
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    this->api->slaves[0].state_unreadable = true;
+    const auto err = this->master.send();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "failed to read the state of module 1: Input/output error");
 }
 
 /// @brief it should report a slave whose state or info it cannot read as lost.

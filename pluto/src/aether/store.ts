@@ -12,6 +12,7 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  map,
   type record,
   state,
   TimeSpan,
@@ -338,12 +339,7 @@ export class Store {
    * detach-attach cycles. Returns an unsubscribe function. */
   subscribe(path: readonly string[], listener: Listener): () => void {
     const id = pathID(path);
-    let set = this.listeners.get(id);
-    if (set == null) {
-      set = new Set();
-      this.listeners.set(id, set);
-    }
-    set.add(listener);
+    map.getOrInsert(this.listeners, id, () => new Set()).add(listener);
     return () => {
       const s = this.listeners.get(id);
       if (s == null) return;
@@ -505,10 +501,7 @@ export class Store {
     ): void => {
       if (entry.displaced) return;
       const prev = entry.state;
-      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
-        next,
-        prev,
-      );
+      const raw = state.resolve<z.input<StateSchema>, z.infer<StateSchema>>(next, prev);
       entry.state = zod.parse(entry.schema, raw, { label: entry.type });
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges
