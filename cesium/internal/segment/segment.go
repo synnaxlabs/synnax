@@ -14,6 +14,7 @@ package segment
 
 import (
 	"encoding/binary"
+	"io"
 	"os"
 
 	"github.com/synnaxlabs/cesium/internal/place"
@@ -26,11 +27,19 @@ const (
 	BlockSize = 65_536
 	// FixedTrailer is the size of the trailer of a block of a fixed-density type.
 	FixedTrailer = 4
+	// VariableTrailer is the size of the trailer of a block of a variable-density type:
+	// first_pos, first_off, crc, and tcrc.
+	VariableTrailer = 16
+	// NoStart is the first_off of a block in which no sample starts.
+	NoStart uint32 = 0xFFFFFFFF
 	// Version is the segment format version that this package writes.
 	Version uint16 = 1
+	// lengthSize is the size of the length that starts each variable-density sample.
+	lengthSize = 4
 )
 
-// Config is the identity of a segment, which every checksum of its blocks binds.
+// Config is the identity of a segment, which every checksum of its blocks binds, and
+// the layout of its blocks.
 type Config struct {
 	// DB is the identity of the database.
 	DB uint64
@@ -40,29 +49,59 @@ type Config struct {
 	DataType uint8
 	// Clock is the key of the clock that times the samples.
 	Clock uint32
+	// Variable is true for a variable-density type. Each of its samples is a uint32
+	// length and then that many bytes, and a sample can cross blocks.
+	Variable bool
 }
 
 func (c Config) place(offset int64) place.Place {
 	return place.Segment(c.DB, c.ID, uint64(offset), Version, c.DataType, c.Clock)
 }
 
-// FileOffset returns the file offset of stream offset x of a fixed-density segment.
-func FileOffset(x int64) int64 { return x + FixedTrailer*(x/BlockSize) }
+func (c Config) trailer() int64 {
+	if c.Variable {
+		return VariableTrailer
+	}
+	return FixedTrailer
+}
 
-// Writer appends the samples of a fixed-density type to one open segment. It is not
-// safe for concurrent use.
-type Writer struct {
-	cfg  Config
-	file xfs.File
-	// length and crc are the stream length and the running checksum of the last block.
+// FileOffset returns the file offset of stream offset x of the segment.
+func (c Config) FileOffset(x int64) int64 { return x + c.trailer()*(x/BlockSize) }
+
+// ReadAt reads len(p) stream bytes from stream offset off of the segment in r, with no
+// check, and leaves out the trailers.
+func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
+	for len(p) > 0 {
+		n := min(BlockSize-int(off%BlockSize), len(p))
+		if _, err := r.ReadAt(p[:n], c.FileOffset(off)); err != nil {
+			return errors.Wrapf(err, "read of %d bytes at stream offset %d", n, off)
+		}
+		p, off = p[n:], off+int64(n)
+	}
+	return nil
+}
+
+// cursor is the position of a writer in its stream.
+type cursor struct {
+	// length is the stream length, and crc the running checksum of the unfinished
+	// block.
 	length int64
 	crc    uint32
-	// committed holds length and crc at the last commit.
-	committed struct {
-		length int64
-		crc    uint32
-	}
-	buf []byte
+	// The fields below count only variable-density samples. samples is the number of
+	// samples that start before length, blockPos the number that start before the
+	// unfinished block, and blockOff where the first sample in it starts, or NoStart.
+	samples  uint32
+	blockPos uint32
+	blockOff uint32
+}
+
+// Writer appends samples to one open segment. It is not safe for concurrent use.
+type Writer struct {
+	cfg       Config
+	file      xfs.File
+	at        cursor
+	committed cursor
+	buf       []byte
 }
 
 // Create creates the file name in fs for the segment of cfg, and returns its writer.
@@ -72,26 +111,42 @@ func Create(fs xfs.FS, name string, cfg Config) (*Writer, error) {
 		return nil, err
 	}
 	w := &Writer{cfg: cfg, file: file}
-	w.crc = cfg.place(0).Start()
-	w.committed.crc = w.crc
+	w.at = cursor{crc: cfg.place(0).Start(), blockOff: NoStart}
+	w.committed = w.at
 	return w, nil
 }
 
 // Write appends p to the stream, with the trailer of each block that p fills, in one
-// write and with no sync. A failed write puts the writer back to its last commit.
+// write and with no sync. p holds whole samples. A failed write puts the writer back to
+// its last commit. A variable-density write that ends inside a sample fails and
+// changes nothing.
 func (w *Writer) Write(p []byte) error {
-	start := FileOffset(w.length)
+	if w.cfg.Variable {
+		if err := wholeSamples(p); err != nil {
+			return err
+		}
+	}
+	start := w.cfg.FileOffset(w.at.length)
 	w.buf = w.buf[:0]
-	for len(p) > 0 {
-		room := BlockSize - int(w.length%BlockSize)
-		n := min(room, len(p))
-		w.crc = place.Update(w.crc, p[:n])
-		w.buf = append(w.buf, p[:n]...)
-		w.length += int64(n)
-		p = p[n:]
-		if n == room {
-			w.buf = binary.LittleEndian.AppendUint32(w.buf, w.crc)
-			w.crc = w.cfg.place(FileOffset(w.length)).Start()
+	// next is the offset in p of the next variable-density sample.
+	next := 0
+	for i := 0; i < len(p); {
+		inBlock := int(w.at.length % BlockSize)
+		n := min(BlockSize-inBlock, len(p)-i)
+		if w.cfg.Variable {
+			for ; next < i+n; w.at.samples++ {
+				if w.at.blockOff == NoStart {
+					w.at.blockOff = uint32(inBlock + next - i)
+				}
+				next += lengthSize + int(binary.LittleEndian.Uint32(p[next:]))
+			}
+		}
+		w.at.crc = place.Update(w.at.crc, p[i:i+n])
+		w.buf = append(w.buf, p[i:i+n]...)
+		w.at.length += int64(n)
+		i += n
+		if inBlock+n == BlockSize {
+			w.buf = w.appendTrailer(w.buf)
 		}
 	}
 	if _, err := w.file.WriteAt(w.buf, start); err != nil {
@@ -101,35 +156,61 @@ func (w *Writer) Write(p []byte) error {
 	return nil
 }
 
+// appendTrailer appends the trailer of the block that just filled to dst, and starts
+// the next block.
+func (w *Writer) appendTrailer(dst []byte) []byte {
+	next := w.cfg.FileOffset(w.at.length)
+	if w.cfg.Variable {
+		t := len(dst)
+		dst = binary.LittleEndian.AppendUint32(dst, w.at.blockPos)
+		dst = binary.LittleEndian.AppendUint32(dst, w.at.blockOff)
+		dst = binary.LittleEndian.AppendUint32(dst, w.at.crc)
+		tcrc := w.cfg.place(next - VariableTrailer).Sum(dst[t:])
+		dst = binary.LittleEndian.AppendUint32(dst, tcrc)
+		w.at.blockPos, w.at.blockOff = w.at.samples, NoStart
+	} else {
+		dst = binary.LittleEndian.AppendUint32(dst, w.at.crc)
+	}
+	w.at.crc = w.cfg.place(next).Start()
+	return dst
+}
+
+func wholeSamples(p []byte) error {
+	for i := 0; i < len(p); {
+		if len(p)-i < lengthSize {
+			return errors.Newf(
+				"variable-density write of %d bytes ends inside the length at %d",
+				len(p),
+				i,
+			)
+		}
+		i += lengthSize + int(binary.LittleEndian.Uint32(p[i:]))
+		if i > len(p) {
+			return errors.Newf(
+				"variable-density write of %d bytes ends inside a sample",
+				len(p),
+			)
+		}
+	}
+	return nil
+}
+
 // Commit marks the written bytes as committed, and returns the committed length and the
 // running checksum of the unfinished last block there.
 func (w *Writer) Commit() (length, tailCRC uint32) {
-	w.committed.length, w.committed.crc = w.length, w.crc
-	return uint32(w.length), w.crc
+	w.committed = w.at
+	return uint32(w.at.length), w.at.crc
 }
 
-// PutBack puts the length and the running checksum back to the last commit. Later
-// writes overwrite the bytes past it.
-func (w *Writer) PutBack() { w.length, w.crc = w.committed.length, w.committed.crc }
+// PutBack puts the writer back to its last commit. Later writes overwrite the bytes
+// past it.
+func (w *Writer) PutBack() { w.at = w.committed }
 
 // Len returns the stream length of the written bytes.
-func (w *Writer) Len() int64 { return w.length }
+func (w *Writer) Len() int64 { return w.at.length }
 
 // Sync makes the written bytes durable.
 func (w *Writer) Sync() error { return w.file.Sync() }
 
 // Close closes the file of the segment.
 func (w *Writer) Close() error { return w.file.Close() }
-
-// ReadAt reads len(p) stream bytes from stream offset off of the fixed-density segment
-// in file, with no check, and leaves out the trailers.
-func ReadAt(file xfs.File, p []byte, off int64) error {
-	for len(p) > 0 {
-		n := min(BlockSize-int(off%BlockSize), len(p))
-		if _, err := file.ReadAt(p[:n], FileOffset(off)); err != nil {
-			return errors.Wrapf(err, "read of %d bytes at stream offset %d", n, off)
-		}
-		p, off = p[n:], off+int64(n)
-	}
-	return nil
-}
