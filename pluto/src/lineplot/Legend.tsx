@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Text } from "@synnaxlabs/lyra/text";
 import { compare, type optional } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
 import { Legend as Base } from "@/vis/legend";
@@ -53,25 +53,23 @@ const groupLines = (lines: LineSpec[]): Base.GroupData[] => {
   return groups;
 };
 
-const Floating = memo(
-  ({
-    onLineColorChange,
-    onLineLabelChange,
-    onLineVisibleChange,
-    ...rest
-  }: FloatingProps): ReactElement => {
-    const { lines } = useContext("LinePlot.Legend");
-    const groups = groupLines(lines);
-    const handlers: LineHandlers = {
-      onColorChange: onLineColorChange,
-      onLabelChange: onLineLabelChange,
-      onVisibleChange: onLineVisibleChange,
-    };
-    if (groups.length === 1)
-      return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
-    return <Base.Grouped data={groups} {...handlers} {...rest} />;
-  },
-);
+const Floating = ({
+  onLineColorChange,
+  onLineLabelChange,
+  onLineVisibleChange,
+  ...rest
+}: FloatingProps): ReactElement => {
+  const { lines } = useContext("LinePlot.Legend");
+  const groups = groupLines(lines);
+  const handlers: LineHandlers = {
+    onColorChange: onLineColorChange,
+    onLabelChange: onLineLabelChange,
+    onVisibleChange: onLineVisibleChange,
+  };
+  if (groups.length === 1)
+    return <Base.Simple data={groups[0].data} {...handlers} {...rest} />;
+  return <Base.Grouped data={groups} {...handlers} {...rest} />;
+};
 Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<
