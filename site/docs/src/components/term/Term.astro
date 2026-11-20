@@ -9,10 +9,22 @@
 // included in the file licenses/APL.txt.
 
 // One defined term: an h3, a definition, and an example. The paragraph after the
-// definition renders as the example.
+// definition renders as the example. An icon sits beside the h3.
+
+import { type ComponentType } from "react";
+
+import { Part } from "@/components/part";
+
+interface Props {
+    /** The Console icon of the term. */
+    icon?: ComponentType;
+}
+
+const { icon } = Astro.props;
 ---
 
 <div class="docs-term">
+    {icon != null && <Part.Icon icon={icon} />}
     <slot />
 </div>
 
@@ -35,6 +47,25 @@
         & > p + p {
             color: var(--pluto-gray-l8);
             font-size: var(--pluto-small-size);
+        }
+
+        &:has(> .part-icon) {
+            display: grid;
+            grid-template-columns: 6rem minmax(0, 1fr);
+            gap: 1.5rem 3rem;
+            align-content: start;
+            align-items: center;
+
+            & > :not(.part-icon, h3) {
+                grid-column: 1 / -1;
+            }
+
+            /* A square marker, so the blue chips stay with the diagram. */
+            & > .part-icon {
+                border-color: var(--pluto-gray-l3);
+                background: var(--pluto-gray-l2);
+                color: var(--pluto-gray-l9);
+            }
         }
     }
 </style>

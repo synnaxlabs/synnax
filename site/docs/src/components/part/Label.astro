@@ -1,0 +1,27 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+---
+
+<p class="part-label">
+    <slot />
+</p>
+
+<style>
+    .part-label {
+        margin: 8rem 0 3rem;
+        color: var(--pluto-gray-l8);
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+
+    :global(h2) + .part-label {
+        margin-top: 0;
+    }
+</style>

@@ -1,0 +1,43 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ComponentType } from "react";
+
+interface Props {
+    icon: ComponentType;
+}
+
+const { icon: Icon } = Astro.props;
+---
+
+<span class="part-icon">
+    <Icon />
+</span>
+
+<style>
+    /* The icon chip of a block in `Diagram.Block`. */
+    .part-icon {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        width: 6rem;
+        height: 6rem;
+        border: var(--pluto-border-width) solid var(--pluto-primary-p1);
+        border-radius: 1rem;
+        background: var(--pluto-primary-z-20);
+        color: var(--pluto-primary-p1);
+
+        & :global(svg) {
+            width: 3rem;
+            height: 3rem;
+        }
+    }
+</style>

@@ -8,6 +8,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Grid from "@/components/card/Grid.astro";
 import { Diagram } from "@/components/diagram";
+import { Part } from "@/components/part";
 import Term from "@/components/term/Term.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -84,29 +85,8 @@ To compare the two, see [Synnax editions](/reference/get-started/editions).
 
 ## Parts of Synnax
 
-<Grid columns={2}>
-<Term>
-
-### Core
-
-The Synnax Core stores your data and streams it live to everything that connects to it.
-It also stores your channels, ranges, projects, and Arc automations.
-
-In Synnax Desktop, the Core starts when you open the app.
-
-</Term>
-<Term>
-
-### Console
-
-The Synnax Console is the app where you do your work. You use it to set up hardware,
-build plots and schematics, operate your system, and review past tests.
-
-In the sample project, the Console shows the Tank schematic and the Tank pressure line
-plot.
-
-</Term>
-<Term>
+<Part.Flow label="Programs">
+<Part.Item icon={Icon.Rack}>
 
 ### Driver
 
@@ -116,8 +96,32 @@ tasks and your Arc automations close to the hardware.
 Synnax Desktop includes a Driver. Synnax Enterprise can run a Driver on each computer
 that has hardware connected.
 
-</Term>
-<Term>
+</Part.Item>
+<Part.Item icon={Icon.Core}>
+
+### Core
+
+The Synnax Core stores your data and streams it live to everything that connects to it.
+It also stores your channels, ranges, projects, and Arc automations.
+
+In Synnax Desktop, the Core starts when you open the app.
+
+</Part.Item>
+<Part.Item icon={Icon.Visualize}>
+
+### Console
+
+The Synnax Console is the app where you do your work. You use it to set up hardware,
+build plots and schematics, operate your system, and review past tests.
+
+In the sample project, the Console shows the Tank schematic and the Tank pressure line
+plot.
+
+</Part.Item>
+</Part.Flow>
+
+<Part.List label="Code">
+<Part.Item icon={Icon.Arc}>
 
 ### Arc
 
@@ -126,27 +130,51 @@ reacts when channel values change, and moves through stages such as pressurize, 
 and vent.
 
 In the sample project, the Press sequence fills the tank to 300 psi, waits 10 seconds,
-then vents the tank.
+then vents the tank:
 
-</Term>
-<Term>
+```arc
+import time
+
+sequence press {
+    stage pressurize {
+        1 -> sample_press_vlv_cmd
+        sample_tank_pt > 300 => hold
+    }
+    stage hold {
+        0 -> sample_press_vlv_cmd
+        time.wait(duration=10s) => vent
+    }
+    stage vent {
+        1 -> sample_vent_vlv_cmd
+    }
+}
+```
+
+</Part.Item>
+<Part.Item icon={Icon.Python}>
 
 ### Client libraries
 
 The [Python and TypeScript client libraries](/reference/client) read, write, and stream
 data from your own scripts and apps.
 
-For example, a Python script reads the data of a test run into a pandas DataFrame.
+For example, a Python script reads the data of a test run into a pandas DataFrame:
 
-</Term>
-</Grid>
+```python
+test = client.ranges.retrieve(name="Tank test 1")
+frame = client.read(test.time_range, ["sample_time", "sample_tank_pt"])
+df = frame.to_df()
+```
+
+</Part.Item>
+</Part.List>
 
 <Divider.Divider x />
 
 ## Words the docs use
 
 <Grid columns={2}>
-<Term>
+<Term icon={Icon.Channel}>
 
 ### Channel
 
@@ -157,7 +185,7 @@ In the sample project, `sample_tank_pt` holds the tank pressure, and
 `sample_press_vlv_cmd` holds the commands to the press valve.
 
 </Term>
-<Term>
+<Term icon={Icon.Device}>
 
 ### Device
 
@@ -168,7 +196,7 @@ The sample project has no devices. The Tank simulator Arc automation writes the 
 pressure instead.
 
 </Term>
-<Term>
+<Term icon={Icon.Task}>
 
 ### Task
 
@@ -178,7 +206,7 @@ commands from channels to a device. The Driver runs each task in the background.
 For example, an NI analog read task reads a pressure transducer into a channel.
 
 </Term>
-<Term>
+<Term icon={Icon.Range}>
 
 ### Range
 
@@ -189,7 +217,7 @@ For example, mark each tank pressurization as a range, then plot two ranges toge
 compare them.
 
 </Term>
-<Term>
+<Term icon={Icon.Project}>
 
 ### Project
 
@@ -200,7 +228,7 @@ The sample project is a project that holds the Tank schematic and the Tank press
 plot.
 
 </Term>
-<Term>
+<Term icon={Icon.LinePlot}>
 
 ### Line plot
 
@@ -210,7 +238,7 @@ shows live data as it arrives, or data from the past.
 In the sample project, the Tank pressure line plot shows `sample_tank_pt`.
 
 </Term>
-<Term>
+<Term icon={Icon.Schematic}>
 
 ### Schematic
 
@@ -221,7 +249,7 @@ In the sample project, the Tank schematic shows the tank pressure and has Start 
 Abort buttons.
 
 </Term>
-<Term>
+<Term icon={Icon.Control}>
 
 ### Control authority
 
@@ -234,7 +262,7 @@ at 1. To take a valve from the sequence, an operator clicks its control chip, wh
 writes at 255.
 
 </Term>
-<Term>
+<Term icon={Icon.Status}>
 
 ### Status
 

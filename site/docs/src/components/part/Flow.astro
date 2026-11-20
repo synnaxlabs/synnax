@@ -1,0 +1,67 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Programs side by side in the order of the diagram above them, joined by its line. The
+// paragraph after the definition renders as a note.
+
+import Label from "@/components/part/Label.astro";
+
+interface Props {
+    label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<Label>{label}</Label>
+<ol class="part-flow" role="list">
+    <slot />
+</ol>
+
+<style>
+    .part-flow {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0 5rem;
+        margin: 0 0 var(--docs-block-gap);
+        padding: 0;
+        list-style: none;
+
+        & > :global(.part-item) {
+            margin: 0;
+        }
+
+        & :global(.part-item__body > p + p) {
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+        }
+
+        @media (width > 600px) {
+            & > :global(.part-item) {
+                display: flex;
+                flex-direction: column;
+                gap: 3rem;
+            }
+
+            & > :global(.part-item:not(:last-child) .part-item__head)::after {
+                content: "";
+                flex: 1;
+                height: 1.5px;
+                margin-right: -5rem;
+                background: var(--pluto-primary-z-30);
+            }
+        }
+
+        @media (width <= 600px) {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 5rem;
+        }
+    }
+</style>
