@@ -63,13 +63,17 @@ const OpenInEditor: FC<OpenInEditorProps> = FLAGS.icds ? EditorButton : () => nu
 
 export interface AddFieldProps {
   onClick: () => void;
+  disabled?: boolean;
 }
 
-export const AddField = ({ onClick }: AddFieldProps): ReactElement | null => {
+export const AddField = ({
+  onClick,
+  disabled = false,
+}: AddFieldProps): ReactElement | null => {
   const isPreview = Task.useIsPreview();
   if (isPreview) return null;
   return (
-    <Button.Button variant="text" size="small" onClick={onClick}>
+    <Button.Button variant="text" size="small" onClick={onClick} disabled={disabled}>
       <Icon.Add />
       Add field
     </Button.Button>
@@ -335,6 +339,7 @@ export interface MessageDetailsProps extends MessageSectionsProps {
   /** Names the match option that takes every payload, such as "Any document". */
   anyLabel: string;
   onAddField: () => void;
+  addFieldDisabled?: boolean;
 }
 
 /** The name and match of a message of a source that reads several. */
@@ -342,6 +347,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
   matchTitle,
   anyLabel,
   onAddField,
+  addFieldDisabled = false,
   ...rest
 }) => {
   const { path, read, format } = rest;
@@ -360,7 +366,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
               title="Message"
               actions={
                 <>
-                  <AddField onClick={onAddField} />
+                  <AddField onClick={onAddField} disabled={addFieldDisabled} />
                   <OpenInEditor icdKey={icdKey} />
                 </>
               }

@@ -13,13 +13,17 @@ import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
-import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
+import {
+  createPlannedTestRange,
+  createTestRange,
+  createTestRangeName,
+} from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
   createTestClientWithGrants,
@@ -68,7 +72,7 @@ const createSiblings = async (): Promise<{
   const ranges = await Promise.all(
     [0, 30].map(
       async (offset) =>
-        await client.ranges.create({
+        await createTestRange(client, {
           name: uniqueName("moved"),
           timeRange: new TimeRange(
             start.add(TimeSpan.seconds(offset)),
@@ -229,20 +233,12 @@ describe("Range.ContextMenu", () => {
         name: uniqueName("self"),
         ...at(0),
       });
-      const nested = await client.ranges.create(
+      await client.ranges.create(
         Array.from({ length: 60 }, (_, i) => ({
           name: uniqueName("nested"),
           parent: self.key,
           ...at(i + 1),
         })),
-      );
-      onTestFinished(
-        async () =>
-          await client.ranges.delete([
-            other.key,
-            self.key,
-            ...nested.map((r) => r.key),
-          ]),
       );
       await renderMenu([self]);
       const parent = await openSubmenu("Parent");
@@ -316,7 +312,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -331,13 +327,10 @@ describe("Range.ContextMenu", () => {
       const {
         ranges: [started],
       } = await createSiblings();
-      const planned = await client.ranges.create({
-        name: uniqueName("planned"),
-        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
-      });
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
       await renderMenu([started, planned]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -351,7 +344,7 @@ describe("Range.ContextMenu", () => {
       const loose = await createTestRange(client, { name: uniqueName("loose") });
       await renderMenu([nested, loose]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -367,7 +360,7 @@ describe("Range.ContextMenu", () => {
         analytics,
       });
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       await waitFor(() =>
@@ -388,7 +381,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Parent")).getByText("New range"));
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       fireEvent.change(await screen.findByPlaceholderText("Range name"), {
         target: { value: name },
       });
