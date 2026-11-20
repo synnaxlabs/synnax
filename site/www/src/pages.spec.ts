@@ -9,6 +9,7 @@
 
 // @vitest-environment node
 
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import Company from "@/pages/company.astro";
@@ -17,7 +18,7 @@ import Privacy from "@/pages/privacy.astro";
 import { GET } from "@/pages/sitemap.xml";
 import Sponsorships from "@/pages/sponsorships.astro";
 import Terms from "@/pages/terms.astro";
-import { renderAstro, stubImageSize } from "@/testutil";
+import { renderAstro } from "@/testutil";
 
 import config from "../astro.config";
 

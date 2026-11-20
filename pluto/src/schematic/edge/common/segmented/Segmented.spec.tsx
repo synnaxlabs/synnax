@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import {
+  type Node,
+  ReactFlowProvider,
+  type ReactFlowStoreApi,
+  useReactFlowStoreApi,
+} from "@xyflow/react";
 import { Profiler, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,8 +21,6 @@ import { Jumps } from "@/schematic/edge/common/jumps";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { diagram } from "@/vis/diagram/aether";
-
-type Store = ReturnType<typeof useStoreApi>;
 
 const SIZE = { width: 40, height: 40 };
 
@@ -28,9 +31,15 @@ const NODES: Node[] = [
   { id: "c", position: { x: 400, y: 400 }, measured: SIZE, data: {} },
 ];
 
-const updateNode = (store: Store, id: string, change: Partial<Node>): void => {
-  const { nodes, setNodes } = store.getState();
-  setNodes(nodes.map((n) => (n.id === id ? { ...n, ...change } : n)));
+const updateNode = (
+  { nodesStore, optionsStore }: ReactFlowStoreApi,
+  id: string,
+  change: Partial<Node>,
+): void => {
+  const { nodes } = nodesStore.getState();
+  optionsStore
+    .getState()
+    .setNodes(nodes.map((n) => (n.id === id ? { ...n, ...change } : n)));
 };
 
 const Line = ({
@@ -43,13 +52,13 @@ const Line = ({
 
 const spec = Segmented.createSpec("electric", "Electric", Line);
 
-const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
-  onStore(useStoreApi());
+const StoreProbe = ({ onStore }: { onStore: (s: ReactFlowStoreApi) => void }): null => {
+  onStore(useReactFlowStoreApi());
   return null;
 };
 
 const renderEdge = (config: { strokeWidth?: number } = {}) => {
-  let store!: Store;
+  let store!: ReactFlowStoreApi;
   let renders = 0;
   const jumps = Jumps.createStore();
   const ui = (edgeKey: string): ReactElement => (
@@ -91,7 +100,7 @@ describe("Segmented", () => {
   it("should draw the edge for the current zoom after the viewport zooms", () => {
     const { store, path, remount } = renderEdge();
     const atStart = path();
-    act(() => store().setState({ transform: [0, 0, 2] }));
+    act(() => store().viewportStore.setState({ transform: [0, 0, 2] }));
     const zoomed = path();
     remount();
     expect(zoomed).toEqual(path());

@@ -46,11 +46,13 @@ const path = deep.path<Task.Values<AlertSchemas>>();
 
 const RoutingKeyField = () => {
   const name = PForm.useFieldValue(path.name);
+  const rackKey = PForm.useFieldValue(path.rack);
   return (
     <Secret.Field
       path={deep.present(path.config.routingKey)}
       label="Routing key"
       defaultName={`${name} routing key`}
+      rack={rackKey}
       grow
       className={CSS.B("pagerduty-routing-key")}
     />

@@ -49,8 +49,7 @@ describe("ControlSystemGraphic", () => {
     for (const svg of [a, b]) {
       const names = keyframes(svg);
       const animations = [...svg.querySelectorAll<SVGElement>("[style*='animation']")];
-      for (const el of animations)
-        expect(names).toContain(el.style.animation.split(" ")[0]);
+      for (const el of animations) expect(names).toContain(el.style.animationName);
       for (const el of svg.querySelectorAll("[fill^='url(#']"))
         expect(svg.querySelector(el.getAttribute("fill")!.slice(4, -1))).not.toBeNull();
     }

@@ -9,13 +9,13 @@
 
 // @vitest-environment node
 
-import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer } from "astro/container";
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import Blog from "@/layouts/Blog.astro";
+import { createContainer } from "@/testutil/container";
 import { type Release, Releases } from "@/util/releases";
 
 const elements = (node: Root | Element): Element[] =>
@@ -38,14 +38,16 @@ const RELEASES: Release[] = [
 
 const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));
 
+// The Desktop band reads the size of a CDN image.
+beforeEach(() => {
+  stubImageSize(3840, 2400);
+});
+
 const renderPost = async (
   path: string,
   fetch: typeof globalThis.fetch = listing,
 ): Promise<Element[]> => {
-  const container = await experimental_AstroContainer.create({
-    astroConfig: { site: "https://docs.synnaxlabs.com" },
-  });
-  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  const container = await createContainer("https://docs.synnaxlabs.com");
   const releases = new Releases({ fetch });
   const html = await container.renderToString(Blog, {
     locals: { releases },

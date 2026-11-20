@@ -16,28 +16,28 @@ export interface Stop {
 }
 
 export const fromGradient = (gradient: Stop[], position: number): Color => {
-  if (gradient.length === 0) return TRANSPARENT;
+  const sorted = gradient.toSorted((a, b) => a.position - b.position);
+  const first = sorted[0];
+  const last = sorted.at(-1);
+  if (first == null || last == null) return TRANSPARENT;
+  if (position <= first.position) return construct(first.color);
+  if (position >= last.position) return construct(last.color);
 
-  gradient = gradient.slice().sort((a, b) => a.position - b.position);
-  if (position <= gradient[0].position) return construct(gradient[0].color);
-  if (position >= gradient[gradient.length - 1].position)
-    return construct(gradient[gradient.length - 1].color);
-
-  for (let i = 0; i < gradient.length - 1; i++) {
-    const start = gradient[i];
-    const end = gradient[i + 1];
-
-    if (position < start.position || position > end.position) continue;
+  let start = first;
+  for (const end of sorted.slice(1)) {
+    if (position < start.position || position > end.position) {
+      start = end;
+      continue;
+    }
     if (position === start.position) return construct(start.color);
     if (position === end.position) return construct(end.color);
     const t = (position - start.position) / (end.position - start.position);
-    const startColor = construct(start.color);
-    const endColor = construct(end.color);
-
-    const mix = (i: number): number =>
-      Math.round(startColor[i] + t * (endColor[i] - startColor[i]));
-    return [mix(0), mix(1), mix(2), mix(3)];
+    const [r0, g0, b0, a0] = construct(start.color);
+    const [r1, g1, b1, a1] = construct(end.color);
+    const mix = (from: number, to: number): number =>
+      Math.round(from + t * (to - from));
+    return [mix(r0, r1), mix(g0, g1), mix(b0, b1), mix(a0, a1)];
   }
 
-  return construct(gradient[gradient.length - 1].color);
+  return construct(last.color);
 };

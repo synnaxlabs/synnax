@@ -152,19 +152,19 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         shard: [1, 2, 3, 4]
-        # An empty node is the one in devEngines. The test tooling (undici 8) needs
-        # 22.19.0, so it stands in for the 22.12 floor.
-        node: ${{ fromJSON(inputs.node_lts && '["", "22.19.0", "24"]' || '[""]') }}
+        # An empty node is the one in devEngines. The test tooling (jsdom 31 and
+        # Stylelint 18) needs 22.22.2, so it stands in for the 22.12 floor.
+        node: ${{ fromJSON(inputs.node_lts && '["", "22.22.2", "24"]' || '[""]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
           - os: macos-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: macos-latest
             node: "24"
           - os: windows-latest
-            node: "22.19.0"
+            node: "22.22.2"
           - os: windows-latest
             node: "24"
           - shard: ${{ inputs.shards < 2 && 2 }}
@@ -236,6 +236,8 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
+          # Typed linting of the Console needs more than 4 GB of heap.
+          NODE_OPTIONS: "--max_old_space_size=6144"
         run: pnpm lint:"$PACKAGE"
 
       # The packages are ES modules only, so the profile skips CommonJS and node10.
