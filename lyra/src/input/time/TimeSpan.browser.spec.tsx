@@ -16,7 +16,6 @@ import { Dialog } from "@/dialog";
 import { Input } from "@/input";
 import { loadLanguage } from "@/input/time/suggest";
 import { renderThemed } from "@/styletest";
-import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
 
 const HINT = "Try 2h 30min, 1:30:00, 90, or an hour and a half";
@@ -61,9 +60,6 @@ describe("Input.TimeSpan", () => {
   };
 
   beforeAll(loadLanguage);
-  beforeAll(() => {
-    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-  });
 
   it("should not commit an unedited value finer than a microsecond", () => {
     const onChange = vi.fn();
