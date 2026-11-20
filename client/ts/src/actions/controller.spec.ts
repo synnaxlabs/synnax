@@ -18,7 +18,7 @@ import {
   type SendDispatch,
 } from "@/actions/controller";
 import { batch } from "@/batch";
-import { AccessDeniedError } from "@/errors";
+import { AccessDeniedError, NotCachedError } from "@/errors";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -148,9 +148,11 @@ const prime = (
 
 describe("actions.Controller", () => {
   describe("dispatch", () => {
-    it("returns false and sends nothing when the doc is not cached", async () => {
+    it("throws and sends nothing when the doc is not cached", async () => {
       const { controller, send } = setupStore();
-      expect(await controller.dispatch("missing", [set("a", 1)])).toBe(false);
+      await expect(controller.dispatch("missing", [set("a", 1)])).rejects.toThrow(
+        NotCachedError,
+      );
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -940,12 +942,18 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(false);
     });
 
-    it("returns false from commit when the doc is not cached", async () => {
-      const { controller, send } = setupStore();
-      const tx = controller.transaction("missing");
-      tx.add({ type: "set", key: "a", value: 1 });
-      const ok = await tx.commit();
-      expect(ok).toBe(false);
+    it("throws when the doc is not cached", () => {
+      const { controller } = setupStore();
+      expect(() => controller.transaction("missing")).toThrow(NotCachedError);
+    });
+
+    it("throws from add when the doc is no longer cached", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k");
+      docs.delete("k");
+      expect(() => tx.add(set("a", 1))).toThrow(NotCachedError);
+      expect(await tx.commit()).toBe(false);
       expect(send).not.toHaveBeenCalled();
     });
 

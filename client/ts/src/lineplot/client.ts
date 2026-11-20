@@ -171,8 +171,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached line plot and sends them to the server, recording an
-   * undoable entry. Returns false without side effects when the line plot isn't cached.
-   * Rolls back the local apply and rethrows on send failure.
+   * undoable entry. Rolls back the local apply and rethrows on send failure.
+   * @throws {NotCachedError} if the line plot isn't cached, before any change.
    */
   async dispatch(
     key: Key,
@@ -225,7 +225,10 @@ export class Client extends query.Retriever<
     return this.dispatcher.onUndoStateChange(callback, key);
   }
 
-  /** Stages actions committed atomically as one undoable entry. */
+  /**
+   * Stages actions committed atomically as one undoable entry.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
   }

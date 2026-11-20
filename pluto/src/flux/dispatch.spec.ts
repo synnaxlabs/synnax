@@ -12,6 +12,7 @@ import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { array, destructor, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -230,21 +231,36 @@ describe("Flux.createDispatch", () => {
       expect(result.current.undo.canUndo).toBe(false);
     });
 
-    it("returns false from dispatchAsync when the doc is not cached", async () => {
+    it("reports an error status when the doc is not cached", async () => {
       const send = vi.fn<SendFn>(async () => {});
       const { domain } = createHarness(send);
       const td = makeDispatch(domain);
-      // Don't seed the store — dispatch on an unknown key.
-      const { result } = renderHook(() => td.useDispatch(), { wrapper });
+      const { result } = renderHook(
+        () => ({
+          dispatch: td.useDispatch(),
+          statuses: Status.useNotifications().statuses,
+        }),
+        { wrapper },
+      );
+      const key = uuid.create();
       let ok = true;
       await act(async () => {
-        ok = await result.current.dispatchAsync({
-          key: uuid.create(),
+        ok = await result.current.dispatch.dispatchAsync({
+          key,
           actions: schematic.setNodePosition({ key: "n", position: { x: 0, y: 0 } }),
         });
       });
       expect(ok).toBe(false);
       expect(send).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(result.current.statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to apply changes",
+            description: expect.stringContaining(key),
+          }),
+        ),
+      );
     });
 
     it("dispatch (sync) fires the action without awaiting", async () => {
