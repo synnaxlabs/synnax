@@ -177,7 +177,7 @@ func (f *Factory) readCAKey() (crypto.Signer, error) {
 // CreateCAPairIfMissing creates the CA certificate and its private key if the
 // certificate does not exist. An existing certificate is left untouched, even without
 // its key. When AllowKeyReuse is set, a new certificate is signed with the existing
-// key.
+// key. Otherwise an existing key is replaced, with a warning.
 func (f *Factory) CreateCAPairIfMissing() error {
 	exists, err := f.cfg.FS.Exists(f.cfg.CACertPath)
 	if err != nil || exists {
@@ -197,6 +197,12 @@ func (f *Factory) CreateCAPairIfMissing() error {
 			return sErr
 		}
 		return f.writePEM(f.cfg.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
+	}
+	if keyExists {
+		f.cfg.L.Warn(
+			"replacing CA key: the CA certificate is missing and key reuse is not allowed",
+			zap.String("key", f.cfg.CAKeyPath),
+		)
 	}
 	return f.replacePair(f.cfg.CACertPath, f.cfg.CAKeyPath, f.writeCAPair)
 }

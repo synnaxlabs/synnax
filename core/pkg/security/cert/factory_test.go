@@ -187,7 +187,7 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateNodePairIfStale()).To(Succeed())
 			Expect(fs.Remove(f.Config().AbsoluteNodeKeyPath())).To(Succeed())
 			Expect(f.CreateNodePairIfStale()).To(Succeed())
-			Expect(f.Loader.LoadNodeTLS()).Error().ToNot(HaveOccurred())
+			MustSucceed(f.Loader.LoadNodeTLS())
 		})
 		It("Should fail on a node certificate it cannot parse", func() {
 			f := newFactory("synnaxlabs.com")
