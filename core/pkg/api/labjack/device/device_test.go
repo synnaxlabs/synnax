@@ -176,10 +176,10 @@ var _ = Describe("Service", func() {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Base().Rack)
 			d = edit(d, func(b *device.Base) { b.Name = "Replaced" })
-			Expect(create(
+			MustSucceed(create(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.CreateRequest{Devices: []device.Device{d}},
-			)).Error().ToNot(HaveOccurred())
+			))
 			Expect(retrieveDevice(ctx, d.Base().Key).Base().Name).To(Equal("Replaced"))
 		})
 
