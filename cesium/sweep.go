@@ -36,7 +36,9 @@ type KeptChannel struct {
 // it, and only an intent and a Drop of its key remove it. An index that a kept or
 // recorded channel uses stays, with any intent of the index. Each drop is a durable
 // intent first. Sweep also returns the highest key that the DB holds in any form, so
-// that no new channel takes it. Sweep runs once per open of the DB.
+// that no new channel takes it. Only the first Sweep in one open of the DB decides. A
+// later call ignores keys, drops nothing, and returns the channels that the first kept
+// and that are still kept, with the highest key.
 func (db *DB) Sweep(
 	ctx context.Context,
 	keys []ChannelKey,
@@ -46,12 +48,10 @@ func (db *DB) Sweep(
 	if db.closed.Load() {
 		return nil, 0, ErrDBClosed
 	}
-	if db.mu.swept {
-		return nil, 0, errors.New(
-			"Sweep runs once per open of a DB, and it already ran",
-		)
+	if db.mu.kept != nil {
+		return db.keptChannels(db.mu.kept), db.highestKey(), nil
 	}
-	db.mu.swept = true
+	db.mu.kept = set.New[ChannelKey]()
 	records := set.New(keys...)
 	if err := db.reopenFailedDeletes(ctx, records); err != nil {
 		return nil, 0, err
@@ -93,15 +93,19 @@ func (db *DB) Sweep(
 	if err != nil {
 		return nil, 0, err
 	}
+	db.mu.kept = kept
 	return db.keptChannels(kept), db.highestKey(), nil
 }
 
-// keptChannels returns the hidden channels of kept, in rising order of key. The caller
-// must hold db.mu.
+// keptChannels returns the channels of kept that are still hidden, in rising order of
+// key. The caller must hold db.mu.
 func (db *DB) keptChannels(kept set.Set[ChannelKey]) []KeptChannel {
 	out := make([]KeptChannel, 0, len(kept))
 	for k := range kept {
-		u := db.mu.dbs.hidden[k]
+		u, ok := db.mu.dbs.hidden[k]
+		if !ok {
+			continue
+		}
 		out = append(out, KeptChannel{Key: k, Index: u.Channel().Index, Size: u.Size()})
 	}
 	slices.SortFunc(out, func(a, b KeptChannel) int { return int(a.Key) - int(b.Key) })

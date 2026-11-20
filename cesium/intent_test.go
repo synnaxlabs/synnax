@@ -208,10 +208,23 @@ var _ = Describe("Delete intents", func() {
 			},
 		)
 
-		It("Should refuse a second Sweep on one open of the DB", func(ctx SpecContext) {
-			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, data})).To(BeEmpty())
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx, data})).Error().
-				To(MatchError(ContainSubstring("Sweep runs once per open of a DB")))
+		It("Should decide once per open, and drop nothing on a later Sweep", func(
+			ctx SpecContext,
+		) {
+			empty := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: empty, Name: "empty", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, empty})).
+				To(ConsistOf(HaveField("Key", data)))
+			// A first Sweep would drop empty, which has no record and no samples here.
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).
+				To(ConsistOf(HaveField("Key", data)))
+			Expect(mem.Exists(channelKeyToPath(empty))).To(BeTrue())
+			Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(BeEmpty())
 		})
 
 		It("Should return the highest key that the DB holds, with an intent included",
