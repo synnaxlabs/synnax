@@ -213,8 +213,8 @@ describe("Synnax.Provider", () => {
         return res;
       checks += 1;
       const body = (await res.text()).replace(
-        /"node_time":(\d+)/,
-        (_, t: string) => `"node_time":${BigInt(t) - skew.valueOf()}`,
+        /"node_time":"(\d+)"/,
+        (_, t: string) => `"node_time":"${BigInt(t) - skew.valueOf()}"`,
       );
       return new Response(body, { status: res.status });
     });
