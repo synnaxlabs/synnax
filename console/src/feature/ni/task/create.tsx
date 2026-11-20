@@ -38,16 +38,23 @@ import {
 import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
+const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = async ({
+  client,
   deviceKeys,
   config,
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
-  if (config == null) {
-    cfg.channels = [];
-    if (deviceKeys.length === 0) cfg.channels.push(createNextAIChannel([]));
-    for (const device of deviceKeys)
-      cfg.channels.push(createNextAIChannel(cfg.channels, { device }));
+  if (config == null && deviceKeys.length === 0)
+    cfg.channels = [createNextAIChannel([])];
+  else if (config == null) {
+    const devices = await client.devices.retrieve({
+      key: deviceKeys,
+      schemas: SCHEMAS,
+    });
+    // No channel copies another, so each takes the voltage range of its own device.
+    cfg.channels = deviceKeys.map((device) =>
+      createNextAIChannel([], { device }, devices),
+    );
   }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
