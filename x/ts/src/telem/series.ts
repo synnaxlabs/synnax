@@ -228,7 +228,7 @@ export class Series<T extends TelemValue = TelemValue> {
         stringArrayZ,
         nullArrayZ,
         z.instanceof(ArrayBuffer),
-        z.instanceof(Uint8Array),
+        z.instanceof(Uint8Array).transform((b) => b.slice().buffer),
       ])
       .default(() => new Uint8Array().buffer),
     glBufferUsage: glBufferUsageZ.default("static").optional(),
@@ -247,6 +247,8 @@ export class Series<T extends TelemValue = TelemValue> {
    *
    * @throws Error when the data type is neither given nor inferable, which is the case
    * for an ArrayBuffer and for an empty JS array.
+   * @throws RangeError when an ArrayBuffer's byte length is not a multiple of the
+   * data type's density.
    */
   constructor(props: SeriesParams | CrudeSeries) {
     if (isCrudeSeries(props)) props = { data: props };
@@ -312,8 +314,14 @@ export class Series<T extends TelemValue = TelemValue> {
         );
     } else this.dataType = new DataType(data);
 
-    if (!isArray && !isSingle) this._data = data as ArrayBuffer;
-    else if (isArray && data.length === 0)
+    if (!isArray && !isSingle) {
+      const density = this.dataType.density.valueOf();
+      if (data instanceof ArrayBuffer && density > 0 && data.byteLength % density !== 0)
+        throw new RangeError(
+          `cannot construct a ${this.dataType.toString()} Series from ${data.byteLength} bytes: the byte length is not a multiple of the density ${density}`,
+        );
+      this._data = data as ArrayBuffer;
+    } else if (isArray && data.length === 0)
       this._data = new this.dataType.Array([]).buffer;
     else {
       let data_ = isSingle ? [data] : data;

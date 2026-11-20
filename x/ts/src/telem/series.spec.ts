@@ -129,6 +129,40 @@ describe("Series", () => {
       });
     });
 
+    describe("from a byte view", () => {
+      it("should read the bytes of a Uint8Array as samples of the data type", () => {
+        const bytes = new Uint8Array(new Float32Array([1.5, 2.5]).buffer);
+        const s = Series.z.parse({ data: bytes, dataType: "float32" });
+        expect(s.length).toEqual(2);
+        expect(Array.from(s)).toEqual([1.5, 2.5]);
+      });
+
+      it("should throw when the byte length is not a multiple of the density", () => {
+        expect(() =>
+          Series.z.parse({ data: new Uint8Array(7), dataType: "float32" }),
+        ).toThrow(RangeError);
+      });
+
+      it("should read only the bytes inside the view", () => {
+        const backing = new Uint8Array(12);
+        new DataView(backing.buffer).setFloat64(2, 3.25, true);
+        const s = Series.z.parse({
+          data: backing.subarray(2, 10),
+          dataType: "float64",
+        });
+        expect(s.length).toEqual(1);
+        expect(s.at(0)).toEqual(3.25);
+      });
+    });
+
+    it("should convert the values of a typed array of another data type", () => {
+      const s = new Series({
+        data: new Int32Array([1, 2]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(Array.from(s)).toEqual([1, 2]);
+    });
+
     it("should read a plain object as params", () => {
       expect(() => new Series({})).toThrow(
         "cannot infer data type from a zero length JS array",
