@@ -216,6 +216,7 @@ const config: Linter.Config[] = [
         "error",
         { fixStyle: "inline-type-imports" },
       ],
+      "@typescript-eslint/no-import-type-side-effects": "error",
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
       "@stylistic/jsx-curly-brace-presence": [

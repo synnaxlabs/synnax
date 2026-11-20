@@ -11,8 +11,8 @@
 
 import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { type ComponentProps } from "astro/types";
-import { type Element, type Root } from "hast";
+import type { ComponentProps } from "astro/types";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 

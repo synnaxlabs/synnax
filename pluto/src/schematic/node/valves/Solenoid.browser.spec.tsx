@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { computed, renderThemed } from "@synnaxlabs/lyra/styletest";
-import { type FC } from "react";
+import type { FC } from "react";
 import { describe, expect, it } from "vitest";
 import { server, userEvent } from "vitest/browser";
 

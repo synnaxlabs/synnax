@@ -76,9 +76,11 @@ const FOOTER_COLUMNS = [
         ],
     },
 ];
+// The root transition takes a name, since Astro numbers an unnamed one by render order,
+// and the order differs between page types.
 ---
 
-<html lang="en" transition:animate="none">
+<html lang="en" transition:animate="none" transition:name="root">
     <head>
         <Head
             title={fullTitle}

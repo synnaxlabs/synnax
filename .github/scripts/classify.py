@@ -16,9 +16,10 @@ head, a report is missing, or a trust check fails. A surface the head predates r
 skipped, which does not raise the tier. Otherwise the author picks the tier, so the
 script adds no label. The script only raises: it never removes review/human. It reads
 the pull request number from PR, or else <results-dir>/pr/number, and refuses it
-unless the pull request's head is HEAD_SHA. When it raises a pull request that a bot
-opened, it requests a review from REVIEWER, if set, since no author will. Environment:
-GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
+unless the pull request's head is HEAD_SHA. When a pull request that a bot opened needs
+review/human, it requests a review from REVIEWER, if set, since no author will. It asks
+only while nobody was ever asked to review the pull request or reviewed it.
+Environment: GH_TOKEN, GITHUB_REPOSITORY, HEAD_SHA, and optionally PR and REVIEWER.
 """
 
 import json
@@ -228,6 +229,20 @@ def write_comment(
     )
 
 
+def reviewers_engaged(repo: str, *, number: int) -> bool:
+    """Returns whether anyone was ever asked to review the pull request, or a person
+    reviewed it. A bot's review, such as Sedosaur's, does not count."""
+    events = gh(
+        "api",
+        "--paginate",
+        f"repos/{repo}/issues/{number}/timeline",
+        "--jq",
+        '.[] | select(.event == "review_requested"'
+        ' or (.event == "reviewed" and .user.type != "Bot")) | .event',
+    )
+    return bool(events.strip())
+
+
 def main() -> None:
     root = Path(sys.argv[1])
     repo = os.environ["GITHUB_REPOSITORY"]
@@ -270,8 +285,10 @@ def main() -> None:
             "DELETE",
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
-    reviewer = os.environ.get("REVIEWER", "")
-    if HUMAN in add and reviewer and pull.get("user", {}).get("type") == "Bot":
+    reviewer = os.environ.get("REVIEWER", "").strip()
+    human = HUMAN in add or HUMAN in current
+    bot = pull.get("user", {}).get("type") == "Bot"
+    if human and reviewer and bot and not reviewers_engaged(repo, number=number):
         gh(
             "api",
             "-X",

@@ -13,7 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary, type deep } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { Section } from "@/platform/section";

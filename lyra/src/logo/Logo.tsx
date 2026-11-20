@@ -10,11 +10,11 @@
 import "@/logo/Logo.css";
 
 import clsx from "clsx";
-import {
-  type ComponentPropsWithoutRef,
-  type ComponentType,
-  type HTMLAttributes,
-  type ReactElement,
+import type {
+  ComponentPropsWithoutRef,
+  ComponentType,
+  HTMLAttributes,
+  ReactElement,
 } from "react";
 
 export type LogoVariant = "icon" | "title";

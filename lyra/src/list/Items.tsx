@@ -9,13 +9,13 @@
 
 import "@/list/Items.css";
 
-import { type record } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { ReactNode } from "react";
 
 import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
-import { type ItemRenderProp, type ItemRenderProps } from "@/list/Item";
+import type { ItemRenderProp, ItemRenderProps } from "@/list/Item";
 import { ItemsContext, useElementsContext, useScrollContext } from "@/list/scope";
 
 /** Props for {@link Items}. */

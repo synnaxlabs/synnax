@@ -13,16 +13,16 @@ import { state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import { type Icon } from "@/icon";
+import type { Icon } from "@/icon";
 import { ItemBoundary, useItemStatus } from "@/input/Item";
 import { Text } from "@/input/Text";
 import { Effect } from "@/input/time/Effect";
-import { type Suggestion } from "@/input/time/suggest";
-import { type Variant } from "@/input/types";
+import type { Suggestion } from "@/input/time/suggest";
+import type { Variant } from "@/input/types";
 import { Menu } from "@/menu";
 import { Text as BaseText } from "@/text";
 
