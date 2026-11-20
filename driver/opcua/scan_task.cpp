@@ -66,6 +66,22 @@ bool server_answered(const x::errors::Error &err) {
            err.matches(errors::CLIENT_CERTIFICATE_REJECTED);
 }
 
+/// @brief reads the password of a connection that a command sends. Only a grant may
+/// give it, so a command cannot send a saved password to a server of its choice.
+x::errors::Error read_sent_password(
+    connection::Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant
+) {
+    if (!cfg.password_secret.is_nil() && !grant.has_value())
+        return x::errors::Error(
+            x::errors::VALIDATION,
+            "The command sends a connection with a password, so it must carry a "
+            "grant."
+        );
+    return connection::read_password(cfg, reader, grant);
+}
+
 /// @returns an error status for the reply to cmd, which each handler fills in.
 synnax::task::Status
 command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
@@ -87,12 +103,14 @@ Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
     std::shared_ptr<connection::Pool> conn_pool,
-    std::shared_ptr<certificate::Store> store
+    std::shared_ptr<certificate::Store> store,
+    std::shared_ptr<secret::Reader> reader
 ):
     ctx(std::move(ctx)),
     task(std::move(task)),
     conn_pool(std::move(conn_pool)),
-    store(std::move(store)) {}
+    store(std::move(store)),
+    reader(std::move(reader)) {}
 
 common::ScannerConfig Scanner::config() const {
     return common::ScannerConfig{
@@ -128,20 +146,36 @@ bool Scanner::exec(
     const synnax::task::Task &,
     const std::shared_ptr<task::Context> &
 ) {
+    auto [grant, err] = this->reader->spend(cmd);
+    if (err) {
+        auto status = command_status(this->task, cmd);
+        status.message = "Failed to spend grant";
+        status.description = err.data;
+        ctx->set_status(status);
+        return true;
+    }
+    if (!grant.has_value()) return this->run(cmd, std::nullopt);
+    return this->run(grant->command, grant);
+}
+
+bool Scanner::run(
+    const synnax::task::Command &cmd,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
     if (cmd.type == BROWSE_CMD_TYPE) {
-        this->browse_nodes(cmd);
+        this->browse_nodes(cmd, grant);
         return true;
     }
     if (cmd.type == BROWSE_VARIABLES_CMD_TYPE) {
-        this->browse_variables(cmd);
+        this->browse_variables(cmd, grant);
         return true;
     }
     if (cmd.type == READ_NODE_CMD_TYPE) {
-        this->read_node(cmd);
+        this->read_node(cmd, grant);
         return true;
     }
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
-        this->test_connection(cmd);
+        this->test_connection(cmd, grant);
         return true;
     }
     if (cmd.type == GET_ENDPOINTS_CMD_TYPE) {
@@ -179,7 +213,15 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         dev.status = status;
         return parser.error();
     }
-    const auto &cfg = props.connection;
+    auto cfg = props.connection;
+    if (const auto err = connection::read_password(cfg, *this->reader)) {
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.message = "Failed to read password";
+        status.description = err.data;
+        status.details.connected = false;
+        dev.status = status;
+        return err;
+    }
     const auto previous = this->checked[dev.key];
     const bool pin = cfg.secured() && !cfg.certificate_validation_disabled &&
                      !cfg.server_certificate.has_value();
@@ -253,12 +295,16 @@ Scanner::renew_certificate(const std::vector<synnax::device::Device> &devices) {
         if (parser.error() || !props.connection.secured() ||
             props.connection.uses_files())
             continue;
+        auto cfg = props.connection;
+        if (connection::read_password(cfg, *this->reader)) {
+            all_accepted = false;
+            continue;
+        }
         const connection::Security sec{
             .identity = next,
             .first_certificate_trusted = true,
         };
-        const auto err = connection::connect(props.connection, sec, SCAN_LOG_PREFIX)
-                             .second;
+        const auto err = connection::connect(cfg, sec, SCAN_LOG_PREFIX).second;
         if (err && !err.matches(errors::CLIENT_CERTIFICATE_REJECTED)) {
             all_accepted = false;
             continue;
@@ -741,9 +787,21 @@ std::pair<x::json::json, x::errors::Error> read_details(
 }
 }
 
+std::pair<connection::Config, x::errors::Error> Scanner::connection_of(
+    const ScanCommandArgs &args,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
+    if (!args.device.empty())
+        return device::read_connection(*this->ctx->client, *this->reader, args.device);
+    auto cfg = args.connection;
+    auto err = read_sent_password(cfg, *this->reader, grant);
+    return {std::move(cfg), err};
+}
+
 std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::target(
     const x::json::Parser &parser,
     const ScanCommandArgs &args,
+    const std::optional<synnax::secret::Grant> &grant,
     synnax::task::Status &status,
     const std::string &failure
 ) const {
@@ -754,7 +812,14 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
         ctx->set_status(status);
         return std::nullopt;
     }
-    auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
+    auto [cfg, cfg_err] = this->connection_of(args, grant);
+    if (cfg_err) {
+        status.message = "Failed to connect to server";
+        status.description = cfg_err.data;
+        ctx->set_status(status);
+        return std::nullopt;
+    }
+    auto [connection, err] = conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
     if (err) {
         status.message = "Failed to connect to server";
         status.description = err.data;
@@ -784,12 +849,15 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     return std::pair{std::move(connection), node.value()};
 }
 
-void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
+void Scanner::browse_nodes(
+    const synnax::task::Command &cmd,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
     const auto deadline = std::chrono::steady_clock::now() + BROWSE_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to browse nodes");
+    auto target = this->target(parser, args, grant, status, "Failed to browse nodes");
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
 
@@ -842,12 +910,15 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     ctx->set_status(status);
 }
 
-void Scanner::browse_variables(const synnax::task::Command &cmd) const {
+void Scanner::browse_variables(
+    const synnax::task::Command &cmd,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
     const auto deadline = std::chrono::steady_clock::now() + SEARCH_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to find variables");
+    auto target = this->target(parser, args, grant, status, "Failed to find variables");
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
     auto [search, search_err] = find_variables(connection, start, deadline);
@@ -883,11 +954,14 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     ctx->set_status(status);
 }
 
-void Scanner::read_node(const synnax::task::Command &cmd) const {
+void Scanner::read_node(
+    const synnax::task::Command &cmd,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, status, "Failed to read node");
+    auto target = this->target(parser, args, grant, status, "Failed to read node");
     if (!target.has_value()) return;
     auto &[connection, id] = *target;
     auto [data, details_err] = read_details(connection, id, args.field);
@@ -903,9 +977,12 @@ void Scanner::read_node(const synnax::task::Command &cmd) const {
     ctx->set_status(status);
 }
 
-void Scanner::test_connection(const synnax::task::Command &cmd) const {
+void Scanner::test_connection(
+    const synnax::task::Command &cmd,
+    const std::optional<synnax::secret::Grant> &grant
+) const {
     x::json::Parser parser(cmd.args);
-    const ScanCommandArgs args(parser);
+    connection::Config cfg(parser.child("connection"));
     auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
@@ -914,24 +991,22 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    auto [sec, sec_err] = connection::resolve_security(args.connection, *this->store);
+    if (const auto err = read_sent_password(cfg, *this->reader, grant)) {
+        status.message = "Failed to connect to server";
+        status.description = err.data;
+        ctx->set_status(status);
+        return;
+    }
+    auto [sec, sec_err] = connection::resolve_security(cfg, *this->store);
     if (sec_err) {
-        status.message = failure_message(
-            sec_err,
-            args.connection,
-            "Failed to connect to server"
-        );
+        status.message = failure_message(sec_err, cfg, "Failed to connect to server");
         status.description = sec_err.data;
         ctx->set_status(status);
         return;
     }
-    auto [client, err] = connection::connect(args.connection, sec, SCAN_LOG_PREFIX);
+    auto [client, err] = connection::connect(cfg, sec, SCAN_LOG_PREFIX);
     if (err) {
-        status.message = failure_message(
-            err,
-            args.connection,
-            "Failed to connect to server"
-        );
+        status.message = failure_message(err, cfg, "Failed to connect to server");
         status.description = err.data;
         if (err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED))
             if (const auto cert = connection::server_certificate(client.get()))

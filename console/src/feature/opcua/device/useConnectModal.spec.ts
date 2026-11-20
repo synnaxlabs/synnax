@@ -25,17 +25,18 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import {
   answerCommand,
   answerNextCommand,
   awaitCommand,
   commitFieldInput,
-  selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   captureBrowserDownloads,
   findDialogTriggerByText,
   getIconButton,
+  getInputItem,
   isPlutoDisabled,
 } from "@/testutil";
 
@@ -95,6 +96,13 @@ const ENDPOINTS: OPCUA.Task.Endpoint[] = [
 
 const GET_ENDPOINTS = { type: OPCUA.Task.GET_ENDPOINTS_COMMAND_TYPE };
 
+const createPassword = async () =>
+  await client.secrets.set({
+    name: uniqueName("opc_password"),
+    source: "stored",
+    value: "hunter2",
+  });
+
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
     name: uniqueName("opcua_scan"),
@@ -134,6 +142,21 @@ const openWithDriverCertificate = async () => {
   return { scan, result };
 };
 
+// The endpoint select sits in the Mode field, beside the security mode buttons.
+const queryEndpointTrigger = (): HTMLElement | null =>
+  getInputItem("Mode").querySelector<HTMLElement>('[aria-haspopup="dialog"]');
+
+const findEndpointTrigger = async (): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const trigger = queryEndpointTrigger();
+    if (trigger == null) throw new Error("the endpoint select is not shown");
+    return trigger;
+  });
+
+const clickSecurityMode = (mode: string): void => {
+  fireEvent.click(within(getInputItem("Mode")).getByText(mode));
+};
+
 const toDER = (pem: string): Uint8Array =>
   new Uint8Array(
     Buffer.from(pem.replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, ""), "base64"),
@@ -145,12 +168,13 @@ afterEach(() => {
 
 describe("OPCUA.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
+    const password = await createPassword();
     const dev = await createOPCDevice(client, {
       properties: {
         connection: {
           endpoint: "opc.tcp://existing-server:4840",
           username: "operator",
-          password: "secret",
+          password: password.key,
           securityMode: "Sign",
           securityPolicy: "Basic256",
           clientCertificate: "",
@@ -172,6 +196,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("2min")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
     expect(screen.getByDisplayValue("operator")).toBeTruthy();
+    expect(await screen.findByText(password.name)).toBeTruthy();
     await screen.findByText("Client certificate");
   });
 
@@ -182,7 +207,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     await screen.findByText("Client certificate");
     expect(screen.getByText("Server certificate")).toBeTruthy();
     expect(screen.getByText("Validate server certificate")).toBeTruthy();
-    fireEvent.click(screen.getByText("None"));
+    clickSecurityMode("None");
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
   });
 
@@ -218,7 +243,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     );
     fireEvent.click(await screen.findByText("Sign"));
     await screen.findByText("Basic 256-bit with SHA-256");
-    fireEvent.click(screen.getByText("None"));
+    clickSecurityMode("None");
     await waitFor(() =>
       expect(screen.queryByText("Basic 256-bit with SHA-256")).toBeNull(),
     );
@@ -648,7 +673,14 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    await selectFromDropdown("None", "Sign and encrypt, AES 256-bit with SHA-256");
+    fireEvent.click(await findEndpointTrigger());
+    fireEvent.click(
+      await waitFor(() =>
+        within(screen.getAllByRole("dialog").at(-1) ?? document.body).getByText(
+          "Sign and encrypt, AES 256-bit with SHA-256",
+        ),
+      ),
+    );
     await screen.findByText("Client certificate");
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
@@ -674,7 +706,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    fireEvent.click(await findDialogTriggerByText("None"));
+    fireEvent.click(await findEndpointTrigger());
     const list = await waitFor(() => screen.getAllByRole("dialog").at(-1));
     if (list == null) throw new Error("the endpoint list did not open");
     const names = within(list)
@@ -721,7 +753,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    await findDialogTriggerByText("None");
+    await findEndpointTrigger();
     fireEvent.click(await findDialogTriggerByText(first.name));
     const search = await waitFor(() => {
       const dialog = screen.getAllByRole("dialog").at(-1);
@@ -731,15 +763,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(search, { target: { value: second.name } });
     fireEvent.click(await screen.findByText(second.name));
     await findDialogTriggerByText(second.name);
-    expect(
-      screen
-        .getAllByRole("button")
-        .some(
-          (b) =>
-            b.getAttribute("aria-haspopup") === "dialog" &&
-            b.textContent?.includes("None"),
-        ),
-    ).toBe(false);
+    expect(queryEndpointTrigger()).toBeNull();
   });
 
   it("should save the timeouts the user enters", async () => {
@@ -765,9 +789,10 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
   });
 
-  it("should save the username and the password the user enters", async () => {
+  it("should test a password through a grant and save its secret", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);
+    const password = await createPassword();
     const { result } = await renderModalOpener(
       OPCUA.Device.useConnectModal,
       [{ rack: rack.key }],
@@ -776,19 +801,33 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByLabelText("Username"), {
       target: { value: "operator" },
     });
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "secret" },
-    });
+    fireEvent.click(await findDialogTriggerByText("No secret"));
+    // The list pages, so a search finds the secret however many the Core holds.
+    fireEvent.click(await findOption("secret", password.name));
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
-    await answered;
+    expect((await answered).args).toEqual({ grant: expect.any(String) });
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
     expect(dev.properties.connection).toMatchObject({
       username: "operator",
-      password: "secret",
+      password: password.key,
     });
+  });
+
+  it("should test a connection with no password without a grant", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    await screen.findByLabelText("Username");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    const { args } = await answered;
+    expect(args).not.toHaveProperty("grant");
+    expect(args).toHaveProperty("connection.password", "");
   });
 
   it("should name a timeout that is not a whole number of milliseconds", async () => {

@@ -15,11 +15,13 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/opcua/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
@@ -32,6 +34,7 @@ protected:
     std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    std::shared_ptr<secret::Reader> reader;
     connection::Config conn_cfg;
     synnax::device::Device dev;
 
@@ -212,6 +215,7 @@ protected:
         auto server_cfg = testutil::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
+        reader = std::make_shared<secret::Reader>(client, secret::Config{});
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
 
         // Create test frames with different data types
@@ -286,7 +290,12 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<WriteTaskSink>(ctx->client, conn_pool, std::move(*cfg)),
+            std::make_unique<WriteTaskSink>(
+                ctx->client,
+                conn_pool,
+                reader,
+                std::move(*cfg)
+            ),
             nullptr,
             mock_factory
         );
@@ -297,8 +306,13 @@ protected:
     synnax::channel::Channel secured_cmd_channel;
 
     /// @brief creates a command channel, and a device for the secured server that
-    /// presents server_cert.
-    void create_secured_device(const x::x509::Certificate &server_cert) {
+    /// presents server_cert. The device logs in as username with the password in
+    /// password_secret when username is not empty.
+    void create_secured_device(
+        const x::x509::Certificate &server_cert,
+        const std::string &username = "",
+        const x::uuid::UUID &password_secret = {}
+    ) {
         this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create(
             make_unique_channel_name("secured_cmd"),
             x::telem::UINT32_T,
@@ -310,6 +324,8 @@ protected:
         secured_cfg.security_mode = "SignAndEncrypt";
         secured_cfg.security_policy = "Basic256Sha256";
         secured_cfg.server_certificate = server_cert;
+        secured_cfg.username = username;
+        secured_cfg.password_secret = password_secret;
         this->secured_dev = synnax::device::Device{
             .key = make_unique_channel_name("secured_write_device"),
             .rack = rack.key,
@@ -343,6 +359,7 @@ protected:
         return std::make_unique<WriteTaskSink>(
             ctx->client,
             conn_pool,
+            reader,
             std::move(write_cfg)
         );
     }
@@ -413,6 +430,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -441,6 +459,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -493,6 +512,7 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -532,6 +552,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -586,6 +607,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(write_cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -633,7 +655,12 @@ std::unique_ptr<WriteTaskSink> sink_for(
     auto p = x::json::Parser(task_cfg);
     auto write_cfg = WriteTaskConfig(client, p);
     EXPECT_NIL(p.error());
-    return std::make_unique<WriteTaskSink>(client, pool, std::move(write_cfg));
+    return std::make_unique<WriteTaskSink>(
+        client,
+        pool,
+        std::make_shared<secret::Reader>(client, secret::Config{}),
+        std::move(write_cfg)
+    );
 }
 
 /// @brief it should write a node by the URI of its namespace.
@@ -807,6 +834,7 @@ TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -848,6 +876,7 @@ TEST_F(TestWriteTask, testStartsWhileServerOff) {
     const auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,
         conn_pool,
+        reader,
         std::move(*cfg)
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
@@ -897,6 +926,38 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
     secured = std::make_unique<testutil::Server>(server_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(sink->write(fr));
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should log in to the device's server with the password in its secret.
+TEST_F(TestWriteTask, testWriteLogsInWithPasswordSecret) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = SECURED_PORT;
+    server_cfg.identity = server_id;
+    server_cfg.users = {{"user", x::x509::testutil::KEY}};
+    testutil::Server secured(server_cfg);
+    secured.start();
+    ASSERT_TRUE(secured.wait_until_ready());
+    this->create_secured_device(
+        server_id.certificate,
+        "user",
+        secret::testutil::create_secret(*ctx->client)
+    );
+    reader = std::make_shared<secret::Reader>(
+        std::make_shared<synnax::Synnax>(
+            rack_client_config(*ctx->client, this->secured_dev.rack)
+        ),
+        secret::Config{.rack = this->secured_dev.rack}
+    );
+    const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->secured_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
     ASSERT_NIL(sink->write(fr));
     ASSERT_NIL(sink->stop());
 }

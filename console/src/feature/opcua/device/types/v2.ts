@@ -39,6 +39,8 @@ const TIMEOUTS = {
 const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
 
 export const connectionConfigZ = baseConnectionConfigZ.extend({
+  /** The key of the secret that holds the password, or empty for none. */
+  password: z.union([z.uuid(), z.literal("")]).default(""),
   certificateValidationDisabled: z.boolean().default(false),
   clientTimeoutMs: wholeNumberZ("Request timeout")
     .positive()
@@ -53,6 +55,7 @@ export const connectionConfigZ = baseConnectionConfigZ.extend({
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   ...BASE_ZERO_CONNECTION_CONFIG,
+  password: "",
   certificateValidationDisabled: false,
   ...TIMEOUTS,
 };
@@ -92,6 +95,7 @@ export const propertiesMigration = (p: BaseProperties): Properties => {
     read: { ...p.read, fields: [] },
     connection: {
       ...p.connection,
+      password: p.connection.password ?? "",
       serverCertificate: serverCertificate.includes(PEM_CERTIFICATE_HEADER)
         ? serverCertificate
         : "",

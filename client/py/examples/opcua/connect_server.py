@@ -149,7 +149,13 @@ if response in ("", "y", "yes"):
                 str(CERT_DIR / "client-private-key.pem") if encrypted else ""
             ),
             username=TLS_AUTH_USERNAME if args.tls_auth else "",
-            password=TLS_AUTH_PASSWORD if args.tls_auth else "",
+            password=(
+                client.secrets.set(
+                    name=f"{DEVICE_NAME} password", value=TLS_AUTH_PASSWORD
+                ).key
+                if args.tls_auth
+                else None
+            ),
         )
         created_device = client.devices.create(device)
 

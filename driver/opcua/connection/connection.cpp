@@ -304,6 +304,18 @@ x::errors::Error lost(UA_Client *client) {
     return {errors::NO_CONNECTION, "The connection to the server is lost."};
 }
 
+x::errors::Error read_password(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant
+) {
+    if (cfg.password_secret.is_nil()) return x::errors::NIL;
+    auto [values, err] = reader.read({cfg.password_secret}, grant);
+    if (err) return err;
+    cfg.password = std::move(values.at(cfg.password_secret));
+    return x::errors::NIL;
+}
+
 std::pair<Security, x::errors::Error>
 resolve_security(const Config &cfg, certificate::Store &store) {
     Security sec;

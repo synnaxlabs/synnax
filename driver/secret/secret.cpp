@@ -17,6 +17,7 @@
 
 #include "x/cpp/fs/fs.h"
 #include "x/cpp/strings/strings.h"
+#include "x/cpp/uuid/uuid.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/secret/secret.h"
@@ -116,6 +117,23 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
     if (resolve_err) return {{}, resolve_err};
     values.merge(resolved);
     return {std::move(values), x::errors::NIL};
+}
+
+std::pair<std::optional<synnax::secret::Grant>, x::errors::Error>
+Reader::spend(const synnax::task::Command &cmd) const {
+    const auto arg = cmd.args.find("grant");
+    if (arg == cmd.args.end()) return {std::nullopt, x::errors::NIL};
+    const x::errors::Error invalid(
+        x::errors::VALIDATION,
+        "The grant argument must be the key of a grant."
+    );
+    if (!arg->second.is_string()) return {std::nullopt, invalid};
+    auto [key, parse_err] = x::uuid::UUID::parse(arg->second.get<std::string>());
+    if (parse_err) return {std::nullopt, invalid};
+    auto [grant, err] = this->client->secrets.resolve(key, cmd.task);
+    if (err) return {std::nullopt, err};
+    grant.command.key = cmd.key;
+    return {std::move(grant), x::errors::NIL};
 }
 
 std::pair<Certificate, x::errors::Error> Reader::read_certificate(

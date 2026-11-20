@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
@@ -56,6 +59,43 @@ class TestOPCDevice:
         assert connection["client_timeout_ms"] == 2_000
         assert connection["secure_channel_lifetime_ms"] == 60_000
         assert connection["session_timeout_ms"] == 120_000
+
+    def test_password_properties(self) -> None:
+        """Should write the key of the password secret, and no password when none."""
+        key = uuid4()
+        dev = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            endpoint="opc.tcp://localhost:4840",
+            username="operator",
+            password=key,
+        )
+        connection = dev.properties["connection"]
+        assert isinstance(connection, dict)
+        assert connection["username"] == "operator"
+        assert connection["password"] == str(key)
+        anonymous = sy.opcua.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            endpoint="opc.tcp://localhost:4840",
+        )
+        connection = anonymous.properties["connection"]
+        assert isinstance(connection, dict)
+        assert "password" not in connection
+
+    def test_plain_text_password(self) -> None:
+        """Should refuse a password that is not the key of a secret."""
+        plain: Any = "hunter2"
+        with pytest.raises(TypeError, match="password must be the key of a secret"):
+            sy.opcua.Device(
+                name="Test Device",
+                location="Test Location",
+                rack=1,
+                endpoint="opc.tcp://localhost:4840",
+                password=plain,
+            )
 
 
 @pytest.mark.opcua

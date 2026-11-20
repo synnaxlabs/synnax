@@ -46,7 +46,7 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   };
   return (
     <Flex.Box y gap="small" grow>
-      <Picker.Select<certificate.Key, certificate.Certificate>
+      <Picker.Select<certificate.Certificate>
         value={value}
         resourceName="certificate"
         icon={Icon.Certificate}

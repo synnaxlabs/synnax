@@ -68,6 +68,14 @@ public:
         const std::optional<synnax::secret::Grant> &grant = std::nullopt
     ) const;
 
+    /// @brief spends the grant that cmd carries in its "grant" argument, for the task
+    /// of cmd.
+    /// @returns the command that the grant stores, under the key of cmd, and the values
+    /// of its secrets, or nothing when cmd carries no grant. Returns VALIDATION when
+    /// the argument is not the key of a grant.
+    [[nodiscard]] std::pair<std::optional<synnax::secret::Grant>, x::errors::Error>
+    spend(const synnax::task::Command &cmd) const;
+
 private:
     std::shared_ptr<synnax::Synnax> client;
     Config cfg;

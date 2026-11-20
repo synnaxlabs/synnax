@@ -57,6 +57,7 @@ const TEST_RECORD: TestCase[] = [
         endpoint: "opc.tcp://localhost:48",
         securityMode: "Sign",
         securityPolicy: "Basic256",
+        password: "",
         serverCertificate: "",
         certificateValidationDisabled: false,
         clientTimeoutMs: 5000,

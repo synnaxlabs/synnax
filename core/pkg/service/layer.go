@@ -893,6 +893,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Rack:            l.Rack,
 		References: []gorp.Reference[device.Key, device.Device]{
 			sift.APIKeyReference(l.Secret),
+			opcua.PasswordReference(l.Secret),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err
@@ -1142,6 +1143,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
 			l.PagerDuty.SecretMigration(taskNames(l.Task)),
+			opcua.PasswordMigration(l.Secret),
 		),
 	}); !ok(err, nil) {
 		return nil, err

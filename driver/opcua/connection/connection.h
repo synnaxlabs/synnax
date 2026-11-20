@@ -26,11 +26,13 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
 #include "driver/opcua/types/types.h"
+#include "driver/secret/secret.h"
 
 namespace driver::opcua::connection {
 /// @brief how often a task tries again to read what failed while its connection stays
@@ -47,7 +49,10 @@ struct Config {
     std::string endpoint;
     /// @brief the username to use for authentication. Optional.
     std::string username;
-    /// @brief the password to use for authentication. Optional.
+    /// @brief the key of the secret that holds the password. Nil for no password.
+    x::uuid::UUID password_secret;
+    /// @brief the password to use for authentication, which read_password fills in
+    /// from password_secret. Optional.
     std::string password;
     /// @brief the security mode.
     std::string security_mode = "None";
@@ -76,7 +81,6 @@ struct Config {
     explicit Config(x::json::Parser parser):
         endpoint(parser.field<std::string>("endpoint")),
         username(parser.field<std::string>("username", "")),
-        password(parser.field<std::string>("password", "")),
         security_mode(parser.field<std::string>("security_mode", "None")),
         security_policy(parser.field<std::string>("security_policy", "None")),
         client_cert(parser.field<std::string>("client_certificate", "")),
@@ -89,6 +93,13 @@ struct Config {
         ),
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
         client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {
+        if (const auto key = parser.field<std::string>("password", ""); !key.empty()) {
+            auto [secret, err] = x::uuid::UUID::parse(key);
+            if (err)
+                parser.field_err("password", "must be the key of a secret");
+            else
+                this->password_secret = secret;
+        }
         const auto server = parser.field<std::string>("server_certificate", "");
         // A value that is not PEM is a path from an earlier release, which had no
         // effect.
@@ -110,6 +121,15 @@ struct Config {
         return !this->client_cert.empty() || !this->client_private_key.empty();
     }
 };
+
+/// @brief reads the password of cfg from the secret that it names, when it names one.
+/// @param grant a spent grant, as for secret::Reader::read.
+/// @returns the error of the read.
+[[nodiscard]] x::errors::Error read_password(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant = std::nullopt
+);
 
 /// @brief the security inputs of a connection that do not come from its Config.
 struct Security {

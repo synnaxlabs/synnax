@@ -15,7 +15,6 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/secret/secret.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::secret {
 namespace {
@@ -60,6 +59,27 @@ Client::retrieve(const std::vector<Key> &keys) const {
     auto [decoded, decode_err] = RetrieveResponse::from_proto(res);
     if (decode_err) return {{}, decode_err};
     return {std::move(decoded.secrets), x::errors::NIL};
+}
+
+std::pair<Grant, x::errors::Error>
+Client::resolve(const x::uuid::UUID &grant, const synnax::task::Key &task) const {
+    grpc::secret::ResolveRequest req;
+    req.set_grant(grant.to_string());
+    req.set_task(task.to_string());
+    auto [res, err] = this->resolve_client->send("/secret/resolve", req);
+    if (err) return {Grant{}, err};
+    auto [cmd, cmd_err] = synnax::task::Command::from_proto(res.command());
+    if (cmd_err) return {Grant{}, cmd_err};
+    Grant out{.command = std::move(cmd)};
+    for (const auto &k: res.secrets()) {
+        auto [key, key_err] = x::uuid::UUID::parse(k);
+        if (key_err) return {Grant{}, key_err};
+        out.secrets.push_back(key);
+    }
+    auto [values, values_err] = to_values(res);
+    if (values_err) return {Grant{}, values_err};
+    out.values = std::move(values);
+    return {std::move(out), x::errors::NIL};
 }
 
 std::pair<Values, x::errors::Error>

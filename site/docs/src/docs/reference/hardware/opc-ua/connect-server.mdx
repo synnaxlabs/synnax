@@ -42,7 +42,8 @@ Synnax, an OPC UA server is one endpoint with its login and security settings. T
    `opc.tcp://192.168.1.50:4840`.
 4. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has OPC UA enabled, the Console selects it for you.
-5. If the server needs a login, enter the **Username** and the **Password**.
+5. If the server needs a login, enter the **Username**. Under **Password**, select the
+   secret that holds the password. To add one, select **New secret** and paste it.
 6. Set the [security](#security).
 7. Click **Connect**.
 
@@ -200,7 +201,8 @@ finish.
 ### Login
 
 The Driver logs in to the server as an anonymous user, or with the **Username** and
-**Password** when you enter one of them. It cannot log in with a user certificate.
+**Password** when you enter one of them. Synnax keeps the password as a secret, never in
+plain text. The Driver cannot log in with a user certificate.
 
 <Divider.Divider x />
 
@@ -211,7 +213,7 @@ The Driver logs in to the server as an anonymous user, or with the **Username** 
 | Connect from                | `rack`                            |                            | The key of the rack that runs the Driver.                                               |
 | Endpoint                    | `endpoint`                        | `opc.tcp://localhost:4840` | Required in Python.                                                                     |
 | Username                    | `username`                        | Empty                      | Empty for an anonymous login.                                                           |
-| Password                    | `password`                        | Empty                      |                                                                                         |
+| Password                    | `password`                        | Empty                      | The key of the secret that holds the password.                                          |
 | Mode                        | `security_mode`                   | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                              |
 | Policy                      | `security_policy`                 | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies). |
 | Certificate file            | `client_cert`                     | Empty                      | A path on the Driver computer. Empty, with an empty key, uses the Driver certificate.   |
