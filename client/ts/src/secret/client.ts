@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter } from "@synnaxlabs/x";
+import { array, caseconv, filter, id } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -33,6 +33,7 @@ import {
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
+import { LINES } from "@/secret/where";
 import {
   compareCursors,
   cursor,
@@ -42,6 +43,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/secret/where.gen";
+import { task } from "@/task";
 
 export const ACTION_CHANNEL_NAME = "sy_secret_action_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
@@ -67,8 +69,24 @@ const emptyResZ = z.object({});
 const grantKeyZ = z.uuid();
 /** GrantKey is the key of a grant that lets a subject read secrets once. */
 export type GrantKey = z.infer<typeof grantKeyZ>;
-const grantCreateReqZ = z.object({ subject: resource.idZ, secrets: keyZ.array() });
-export interface GrantParams extends z.input<typeof grantCreateReqZ> {}
+const grantCreateReqZ = z.object({
+  subject: resource.idZ,
+  secrets: keyZ.array(),
+  command: task.commandZ,
+});
+
+/** A grant to create. */
+export interface GrantParams {
+  /** subject is the rack that may run the command with the secrets. */
+  subject: resource.ID;
+  /** secrets are the secrets that the rack reads to run the command. */
+  secrets: Key[];
+  /**
+   * command is the command that the rack runs once. Its task must be on the rack. The
+   * rack runs this command, not the arguments of the command that carries the grant.
+   */
+  command: task.NewCommand;
+}
 const grantCreateResZ = z.object({ grant: grantKeyZ });
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -145,8 +163,8 @@ export class Client extends query.Retriever<
         fetch: async (req) => await uses.fetch(req),
         // A secret whose uses the client does not hold fetches the query again.
         matches: (secret, req) =>
-          uses.lacks(secret, req) ? null : matches(secret, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+          uses.lacks(secret, req) ? null : matches(LINES, secret, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         triggers: [uses.trigger],
       },
       compose: (record, q) => uses.compose(record, q),
@@ -218,17 +236,21 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Lets a subject read secrets once, within a minute, such as for a rack to test a
-   * connection before the device that uses them is saved. Only racks can be subjects.
-   * @returns the key of the grant to send to the subject with the command.
+   * Lets a subject run a command once with secrets, within a minute, such as for a rack
+   * to test a connection before the device that uses them is saved. Only racks can be
+   * subjects.
+   * @returns the key of the grant to send to the task of the command.
    * @throws {AccessDeniedError} if the caller cannot create devices or cannot retrieve
    * one of the secrets.
-   * @throws {NotFoundError} if a secret does not exist.
+   * @throws {NotFoundError} if a secret or the task of the command does not exist.
+   * @throws {PathError} if the task of the command is not on the subject rack.
    */
-  async grant(params: GrantParams): Promise<GrantKey> {
+  async grant({ command, ...rest }: GrantParams): Promise<GrantKey> {
+    // A task reads args in snake case, as the command writer sends them.
+    const args = caseconv.camelToSnake(command.args ?? {});
     const res = await this.cfg.unary.send(
       "/secret/grant/create",
-      params,
+      { ...rest, command: { ...command, args, key: id.create() } },
       grantCreateReqZ,
       grantCreateResZ,
     );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import {
   box,
   color as xcolor,
@@ -63,7 +63,7 @@ const renderProps = (
 const mount = (recorder = canvasTest.record()): range.Provider => {
   const h = renderAether(Requestor, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     render: recorder,
     registry: { [range.Provider.TYPE]: range.Provider },
     children: {
