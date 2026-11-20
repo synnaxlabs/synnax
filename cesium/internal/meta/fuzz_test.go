@@ -35,6 +35,9 @@ func FuzzOpen(f *testing.F) {
 		// Version 2, a virtual channel that also claims to be an index.
 		`{"name":"Faraday","data_type":"timestamp","key":3,"index":0,"IsIndex":true,` +
 			`"Virtual":true,"version":2}`,
+		// Version 2, a virtual channel.
+		`{"name":"cmd","data_type":"string","key":6,"index":0,"is_index":false,` +
+			`"virtual":true,"version":2}`,
 		// Version 1, stored under Go field names.
 		`{"name":"Faraday","data_type":"int64","key":4,"index":0,"IsIndex":true,` +
 			`"Virtual":false,"Concurrency":1,"version":1}`,
@@ -44,8 +47,16 @@ func FuzzOpen(f *testing.F) {
 		f.Add([]byte(file))
 	}
 	codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
+	// dir returns a channel directory, since Read names the directory in its errors.
+	dir := func(t *testing.T) fs.FS {
+		sub, err := fs.NewMem().Sub("1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sub
+	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		in := fs.NewMem()
+		in := dir(t)
 		if err := fs.WriteFile(in, meta.File, data); err != nil {
 			t.Fatal(err)
 		}
@@ -73,14 +84,11 @@ func FuzzOpen(f *testing.F) {
 				channel.VersionCurrent,
 			)
 		}
-		if after, err := fs.ReadFile(
-			in,
-			meta.File,
-		); err != nil ||
-			!bytes.Equal(after, data) {
+		after, err := fs.ReadFile(in, meta.File)
+		if err != nil || !bytes.Equal(after, data) {
 			t.Fatalf("open changed the file to %q (%v)", after, err)
 		}
-		out := fs.NewMem()
+		out := dir(t)
 		if err = meta.Create(t.Context(), out, codec, ch); err != nil {
 			t.Fatal(err)
 		}
