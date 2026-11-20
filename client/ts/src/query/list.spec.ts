@@ -502,7 +502,7 @@ describe("Lists", () => {
         onError: () => {},
       });
       const table = new query.Table<string, Rec>({ onError: () => {} });
-      const { fetch } = createCore(records);
+      const { core, fetch } = createCore(records);
       const lists = new Lists<
         Q,
         Rec & { variant?: string },
@@ -516,17 +516,35 @@ describe("Lists", () => {
           table,
           fetch,
           compose: (r) => ({ ...r, variant: statuses.get(r.key)?.variant }),
-          // A pending status leaves the match undecided.
-          matches: (r, q) =>
-            statuses.get(r.key)?.variant === "pending" ? null : matches(r, q),
+          // A pending status leaves the match undecided, and a hidden one rejects it.
+          matches: (r, q) => {
+            const variant = statuses.get(r.key)?.variant;
+            if (variant === "pending") return null;
+            return variant !== "hidden" && matches(r, q);
+          },
           cursor,
           compare: compareCursors,
           triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
-      return { statuses, table, fetch, lists };
+      return { statuses, table, core, fetch, lists };
     };
+
+    it("should fill a window that a watched change leaves short", async () => {
+      const { statuses, core, lists } = setupWatched([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      const list = lists.list({ order: byName, limit: 1 });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      core.records = core.records.filter((r) => r.key !== "1");
+      statuses.set("1", { key: "1", variant: "hidden" });
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      release();
+    });
 
     it("should compose a member again when a watched table changes it", async () => {
       const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);

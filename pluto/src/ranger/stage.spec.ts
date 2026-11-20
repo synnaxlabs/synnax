@@ -223,7 +223,7 @@ describe("useNextRanges", () => {
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     // Far past the ranges of other specs, so none of them starts between these.
-    at = TimeStamp.now().add(TimeSpan.days(365 * (100 + Math.random() * 100)));
+    at = TimeStamp.now().add(TimeSpan.days(365 * 150));
     created = [];
   });
   afterEach(async () => {
