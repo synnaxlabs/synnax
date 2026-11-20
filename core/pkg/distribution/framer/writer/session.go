@@ -60,7 +60,8 @@ type session struct {
 	writes confluence.Inlet[relay.Response]
 	mode   Mode
 	group  uint32
-	// err is the first error of the session.
+	// err is the first error that the session raised itself. Each Cesium writer keeps
+	// its own first error and returns it from every later call.
 	err     error
 	errSent bool
 	// writeRefused is true when a write was refused for no control since the last
@@ -125,7 +126,7 @@ func (s *session) run(ctx context.Context) error {
 func (s *session) close(cause error) error {
 	err := s.err
 	for _, w := range s.ws {
-		err = errors.Combine(err, w.Close())
+		err = errors.Join(err, w.Close())
 	}
 	s.controls.notify(s.gates.release())
 	s.release()
@@ -266,11 +267,11 @@ func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
 	return refusal
 }
 
-// fail names the holder in a claim refusal of err and makes err the error of the
-// session. An error of one Cesium writer then also ends the writes of the others.
+// fail names the holder in a claim refusal of err and makes the named refusal the error
+// of the session.
 func (s *session) fail(err error) error {
-	named, _ := s.controls.nameHolder(err)
-	if s.err == nil {
+	named, ok := s.controls.nameHolder(err)
+	if ok && s.err == nil {
 		s.err = named
 	}
 	return named
@@ -288,7 +289,7 @@ func (s *session) maybeSync() error {
 	}
 	for _, w := range s.ws {
 		if err := w.Sync(); err != nil {
-			return s.fail(err)
+			return err
 		}
 	}
 	return nil
@@ -296,7 +297,7 @@ func (s *session) maybeSync() error {
 
 // relay sends fr to the relay when the writer streams.
 func (s *session) relay(ctx context.Context, fr cesium.Frame) error {
-	if !s.mode.Stream() {
+	if !s.mode.stream() {
 		return nil
 	}
 	return signal.SendUnderContext(ctx, s.writes.Inlet(), relay.Response{

@@ -76,10 +76,7 @@ func (s *Service) openClocks(
 		keys   = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
 	)
 	for _, ch := range channels {
-		clock := ch.Index
-		if ch.IsIndex {
-			clock = ch.Key
-		}
+		clock := ch.Clock()
 		if _, ok := keys[clock]; !ok {
 			clocks = append(clocks, clock)
 		}
@@ -88,7 +85,7 @@ func (s *Service) openClocks(
 	defer func() {
 		if err != nil {
 			for _, w := range ws {
-				err = errors.Combine(err, w.Close())
+				err = errors.Join(err, w.Close())
 			}
 			ws = nil
 		}
@@ -101,6 +98,7 @@ func (s *Service) openClocks(
 			Clock:    clock,
 			Start:    cfg.Start,
 			Bounded:  cfg.Mode == ModePersistOnly,
+			Unstored: cfg.Mode == ModeStreamOnly,
 		}); err != nil {
 			return ws, err
 		}

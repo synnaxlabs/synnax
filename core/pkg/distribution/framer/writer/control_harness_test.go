@@ -160,7 +160,7 @@ func (db *testDB) OpenWriter(
 	})
 	db.mu.Unlock()
 	relays := 0
-	if cfg.Mode == 0 || cfg.Mode.Stream() {
+	if cfg.Mode != writer.ModePersistOnly {
 		relays = lo.Ternary(virtual > 0, 1, 0) +
 			lo.Ternary(virtual < len(cfg.Channels), 1, 0)
 	}

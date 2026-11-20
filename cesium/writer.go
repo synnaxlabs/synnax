@@ -144,10 +144,7 @@ func (w *Writer) Commit(
 	if err != nil {
 		return 0, false, w.fail(err)
 	}
-	if skipped {
-		return 0, true, nil
-	}
-	return end, false, nil
+	return end, skipped, nil
 }
 
 // EndStretch commits, then ends the stretch of the writer's clock and of the channels

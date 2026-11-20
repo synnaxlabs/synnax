@@ -61,10 +61,7 @@ func write(
 		if err != nil {
 			return err
 		}
-		clock := ch.Index
-		if ch.IsIndex {
-			clock = ch.Key
-		}
+		clock := ch.Clock()
 		if _, ok := byClock[clock]; !ok {
 			clocks = append(clocks, clock)
 		}
@@ -109,10 +106,7 @@ func openClocks(
 	var clocks []cesium.ChannelKey
 	for _, key := range keys {
 		ch := MustSucceed(db.RetrieveChannel(ctx, key))
-		clock := ch.Index
-		if ch.IsIndex {
-			clock = ch.Key
-		}
+		clock := ch.Clock()
 		if _, ok := byClock[clock]; !ok {
 			clocks = append(clocks, clock)
 		}
@@ -3129,6 +3123,58 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
+			Describe("Unstored", func() {
+				It("Should not persist data", func(ctx SpecContext) {
+					var (
+						basic1      = GenerateChannelKey()
+						basic1Index = GenerateChannelKey()
+					)
+					By("Creating a channel")
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Name:     "U",
+							Key:      basic1Index,
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Name:     "A",
+							Key:      basic1,
+							Index:    basic1Index,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{basic1, basic1Index},
+						Clock:    basic1Index,
+						Start:    10 * telem.SecondTS,
+						Unstored: true,
+					}))
+
+					By("Writing data to the channel")
+					mustWrite(ctx, w, telem.MultiFrame(
+						[]cesium.ChannelKey{basic1Index, basic1},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+							telem.NewSeriesV[int64](1, 2, 3, 4),
+						},
+					))
+
+					end := mustCommit(ctx, w)
+					Expect(end).To(Equal(13*telem.SecondTS + 1))
+
+					By("Reading the data back")
+					frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
+					Expect(frame.Count()).To(Equal(0))
+					tsFrame := MustSucceed(
+						db.Read(ctx, telem.TimeRangeMax, basic1Index),
+					)
+					Expect(tsFrame.Count()).To(Equal(0))
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Domain start", func() {
 				createPair := func(ctx SpecContext, name string) (idx, data cesium.ChannelKey) {
 					GinkgoHelper()
@@ -3457,13 +3503,9 @@ var _ = Describe("Writer Behavior", func() {
 					first := MustSucceed(
 						db.RetrieveChannel(context.Background(), channels[0]),
 					)
-					clock := first.Index
-					if first.IsIndex {
-						clock = first.Key
-					}
 					return cesium.WriterConfig{
 						Channels: channels,
-						Clock:    clock,
+						Clock:    first.Clock(),
 						Start:    start,
 					}
 				}
@@ -3729,6 +3771,20 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(series).To(HaveLen(2))
 						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
 						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+					},
+				)
+				It(
+					"Should store nothing when an unstored writer ends its stretch",
+					func(
+						ctx SpecContext,
+					) {
+						cfg := config("unstored", keys, 10*telem.SecondTS, 1)
+						cfg.Unstored = true
+						w := MustSucceed(db.OpenWriter(ctx, cfg))
+						mustWrite(ctx, w, frame(10, 11))
+						Expect(w.EndStretch(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(read(ctx, data).Series).To(BeEmpty())
 					},
 				)
 				It(

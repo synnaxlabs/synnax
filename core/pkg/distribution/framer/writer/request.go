@@ -47,8 +47,8 @@ const (
 	ModeStreamOnly
 )
 
-// Stream returns true when the mode streams written frames.
-func (m Mode) Stream() bool { return m != ModePersistOnly }
+// stream returns true when the mode streams written frames.
+func (m Mode) stream() bool { return m != ModePersistOnly }
 
 // AlwaysIndexPersistOnAutoCommit is the AutoIndexPersistInterval of a writer that syncs
 // every auto commit.

@@ -95,6 +95,15 @@ const (
 // String implements fmt.Stringer to return nicely formatted channel info.
 func (c Channel) String() string { return fmt.Sprintf("<%d>", c.Key) }
 
+// Clock returns the key of the clock that times the channel: its own key for an index,
+// and its index for a data channel.
+func (c Channel) Clock() Key {
+	if c.IsIndex {
+		return c.Key
+	}
+	return c.Index
+}
+
 // ValidateSeries ensures that a given series is compatible with the channel and returns
 // an error if it is not.
 func (c Channel) ValidateSeries(series telem.Series) error {

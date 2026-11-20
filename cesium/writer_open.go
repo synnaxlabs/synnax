@@ -51,6 +51,12 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	Bounded bool
+	// Unstored makes the writer check, claim, stamp, and commit its frames as any
+	// writer does, and write no sample to disk. It does not check the order of the
+	// clock's stamps.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Unstored bool
 }
 
 // commitsNeverPersist is the persist interval of the internal writers. Their commits
@@ -73,6 +79,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Channels = override.Slice(c.Channels, other.Channels)
 	c.Clock = override.Numeric(c.Clock, other.Clock)
 	c.Bounded = c.Bounded || other.Bounded
+	c.Unstored = c.Unstored || other.Unstored
 	return c
 }
 
@@ -82,6 +89,7 @@ func (c WriterConfig) unaryConfig() unary.WriterConfig {
 		AutoIndexPersistInterval: commitsNeverPersist,
 		Start:                    c.Start,
 		Bounded:                  new(c.Bounded),
+		Unstored:                 new(c.Unstored),
 	}
 }
 
