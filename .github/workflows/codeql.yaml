@@ -43,8 +43,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # Keyed by CodeQL language, so analyze looks each one up by its matrix value.
     outputs:
-      cpp: ${{ steps.filter.outputs.codeql_cpp }}
+      actions: ${{ steps.filter.outputs.codeql_actions }}
+      c-cpp: ${{ steps.filter.outputs.codeql_cpp }}
+      go: ${{ steps.filter.outputs.codeql_go }}
+      javascript-typescript: ${{ steps.filter.outputs.codeql_ts }}
+      python: ${{ steps.filter.outputs.codeql_python }}
       rust: ${{ steps.filter.outputs.codeql_rust }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,18 +73,19 @@ jobs:
       fail-fast: false
       matrix:
         language: [actions, c-cpp, go, javascript-typescript, python, rust]
+    # A pull request that leaves a language unchanged uploads an empty analysis for it,
+    # so the code scanning rule still finds a result for every language.
     env:
       PLACEHOLDER:
-        ${{ github.event_name == 'pull_request' && (matrix.language == 'c-cpp' &&
-        needs.changes.outputs.cpp != 'true' || matrix.language == 'rust' &&
-        needs.changes.outputs.rust != 'true') }}
+        ${{ github.event_name == 'pull_request' &&
+        needs.changes.outputs[matrix.language] != 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       # The proxy drops streams at times, so a failed fetch falls back to the source.
       - name: Download the Go modules
-        if: matrix.language == 'go'
+        if: matrix.language == 'go' && env.PLACEHOLDER != 'true'
         env:
           GOPROXY: https://proxy.golang.org|direct
         run: |
