@@ -296,9 +296,9 @@ Compresses old log files on disk.
 
 <Field.Item name="--disable-channel-name-validation" env="SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION">
 
-Lets channels have any name, including special characters and spaces. By default, a
-channel name can contain only letters, digits, and underscores, and cannot start with a
-digit.
+Reads a dashed name in Arc text, such as `pt-01`, as one channel name, as programs
+written before quoted names expect. The flag does not change which channel names the
+Core accepts.
 
 </Field.Item>
 

@@ -156,14 +156,15 @@ gives each calculated channel an index named `<name>_time`. See
 
 ## Names
 
-A channel name contains only letters, digits, and underscores, and it cannot start with
-a digit. Each name is unique, and names are case-sensitive. Arc automations and
-calculated channels use names to refer to channels, so a name must also be a valid Arc
-identifier.
+A channel name can hold letters, digits, spaces, dashes, and other symbols, such as
+`PT-FU-01` or `Stand A`. A name cannot be empty, hold a `.`, or hold a character that
+shows as nothing, such as a tab or a zero-width space. Each name is unique, and names
+are case-sensitive. Arc automations and calculated channels use names to refer to
+channels. In Arc, a name that is not an identifier goes in single quotes: `'PT-FU-01'`.
 
 These rules give names that are easy to find:
 
-- Use lowercase letters and underscores.
+- Use lowercase letters and underscores, so Arc needs no quotes.
 - Put the system first, then the measurement: `ox_tank_pressure`, not
   `pressure_ox_tank`. Channels of one system then sort together.
 - Put the unit last when the channel has one: `ox_tank_pressure_psi`. Channels have no
