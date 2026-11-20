@@ -40,11 +40,15 @@ var _ = Describe("Clock", func() {
 			Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 		})).To(Succeed())
 		keys := []cesium.ChannelKey{idx}
-		live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: keys}))
+		live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Clock:    idx,
+		}))
 		fill := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    400 * telem.SecondTS,
-			Mode:     cesium.WriterModePersistOnly,
+			Bounded:  true,
 		}))
 		mustWrite(ctx, fill, telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(400, 550)))
 		// The live writer holds the time from the clock's reading, 500 s, on.
