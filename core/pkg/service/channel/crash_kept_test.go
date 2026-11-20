@@ -50,9 +50,11 @@ var _ = Describe("Crash adapter, kept data", func() {
 		GinkgoHelper()
 		data := e.samples("d" + strconv.FormatUint(id, 10))
 		Expect(e.create(ctx, &data)).To(Succeed())
-		Expect(e.cesium.Write(ctx, telem.TimeStamp(id)*telem.SecondTS, telem.MultiFrame(
+		clock := cesium.ChannelKey(e.clock.Key())
+		start := telem.TimeStamp(id) * telem.SecondTS
+		Expect(commitFrame(ctx, e.cesium, clock, start, telem.MultiFrame(
 			[]cesium.ChannelKey{
-				cesium.ChannelKey(e.clock.Key()),
+				clock,
 				cesium.ChannelKey(data.Key()),
 			},
 			[]telem.Series{stamps(id, len(payload)), telem.NewSeries(payload)},
@@ -93,9 +95,10 @@ var _ = Describe("Crash adapter, kept data", func() {
 			Expect(e.read(ctx, data)).To(Equal([]byte("taco")))
 			Expect((&deleteCases{}).files(disk)).
 				ToNot(ContainElement(cesium.ChannelKey(data.Key())))
-			Expect(e.cesium.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
+			clock := cesium.ChannelKey(e.clock.Key())
+			Expect(commitFrame(ctx, e.cesium, clock, 2*telem.SecondTS, telem.MultiFrame(
 				[]cesium.ChannelKey{
-					cesium.ChannelKey(e.clock.Key()),
+					clock,
 					cesium.ChannelKey(data.Key()),
 				},
 				[]telem.Series{stamps(2, 2), telem.NewSeries([]byte("ab"))},

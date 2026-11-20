@@ -106,7 +106,7 @@ func (e *crashEngine) Commit(
 		},
 	)
 	start := telem.TimeStamp(r.ID) * telem.SecondTS
-	if err := e.db.Write(ctx, start, frame); err != nil {
+	if err := commitFrame(ctx, e.db, crashClock, start, frame); err != nil {
 		return 0, err
 	}
 	return e.ack, nil
@@ -291,7 +291,10 @@ var _ = Describe("Crash adapter", func() {
 		for i, k := range keys {
 			series[i] = all[k]
 		}
-		Expect(e.db.Write(ctx, start, telem.MultiFrame(keys, series))).To(Succeed())
+		Expect(
+			commitFrame(ctx, e.db, crashClock, start, telem.MultiFrame(keys, series)),
+		).
+			To(Succeed())
 	}
 
 	DescribeTable("Should return no payload for a commit whose channels do not agree",
@@ -328,7 +331,7 @@ var _ = Describe("Crash adapter", func() {
 				[]cesium.ChannelKey{crashClock},
 				[]telem.Series{telem.NewSeries([]telem.TimeStamp{after})},
 			)
-			Expect(e.db.Write(ctx, after, extra)).To(Succeed())
+			Expect(commitFrame(ctx, e.db, crashClock, after, extra)).To(Succeed())
 			records := testutil.MustSucceed(e.Recovered(ctx))
 			Expect(records).To(HaveLen(1))
 			Expect(records[0].ID).To(Equal(uint64(2)))
@@ -377,3 +380,26 @@ var _ = Describe("Crash adapter", func() {
 		}),
 	)
 })
+
+// commitFrame writes fr from start with one writer on clock, commits it, and closes the
+// writer.
+func commitFrame(
+	ctx context.Context,
+	db *cesium.DB,
+	clock cesium.ChannelKey,
+	start telem.TimeStamp,
+	fr cesium.Frame,
+) error {
+	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+		Channels: fr.KeysSlice(),
+		Clock:    clock,
+		Start:    start,
+	})
+	if err != nil {
+		return err
+	}
+	if _, _, err = w.Write(ctx, fr, nil); err == nil {
+		_, _, err = w.Commit(ctx, nil)
+	}
+	return errors.Join(err, w.Close())
+}
