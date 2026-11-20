@@ -39,12 +39,15 @@ export const captureBrowserDownloads = (): CapturedDownloads => {
   });
   // A browser with a save picker writes the file through it, so the picker is hidden
   // for the test.
+  const picker = Object.getOwnPropertyDescriptor(window, "showSaveFilePicker");
   Object.defineProperty(window, "showSaveFilePicker", {
     configurable: true,
+    writable: true,
     value: undefined,
   });
   onTestFinished(() => {
-    Reflect.deleteProperty(window, "showSaveFilePicker");
+    if (picker == null) Reflect.deleteProperty(window, "showSaveFilePicker");
+    else Object.defineProperty(window, "showSaveFilePicker", picker);
   });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
     this: HTMLAnchorElement,
