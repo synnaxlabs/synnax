@@ -48,7 +48,11 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     return bound;
   }
 
-  render(props: YAxisProps): void {
+  /**
+   * Draws the axis, its rules, and its lines that are not raised. Adds a draw of each
+   * raised line to raised, for the plot to run after every axis draws.
+   */
+  render(props: YAxisProps, raised: Array<() => void>): void {
     if (this.deleted) return;
     const [dataToDecimalScale, , error] = this.dataToDecimalScale(
       props.hold,
@@ -58,7 +62,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     // We need to invert scale because the y-axis is inverted in decimal space.
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
-    this.renderLines(props, dataToDecimalScale);
+    this.renderLines(props, dataToDecimalScale, raised);
     this.renderRules(props, decimalToDataScale);
 
     // Throw the error we encounter here so that the user still has a visible axis.
@@ -68,14 +72,17 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   private renderLines(
     { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
     yScale: scale.Scale,
+    raised: Array<() => void>,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
     const props: line.LineProps = {
       region: plot,
       dataToDecimalScale: new scale.XY(xScale, yScale),
     };
-    this.lines.forEach((el) => !el.raised && el.render(props));
-    this.lines.forEach((el) => el.raised && el.render(props));
+    this.lines.forEach((el) => {
+      if (el.raised) raised.push(() => el.render(props));
+      else el.render(props);
+    });
   }
 
   private renderRules(
