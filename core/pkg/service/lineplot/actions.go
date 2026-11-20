@@ -342,9 +342,7 @@ func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // Handle sets where the x axis named by Key draws the ranges. A nil mode is absolute. A
-// change of mode returns the bounds of the axis to auto, because bounds in one mode
-// mean
-// nothing in the other.
+// change of mode resets the axis bounds to auto, as they mean nothing in another mode.
 func (p SetAxisTimeModePayload) Handle(state LinePlot) (LinePlot, error) {
 	var axis *Axis
 	switch p.Key {

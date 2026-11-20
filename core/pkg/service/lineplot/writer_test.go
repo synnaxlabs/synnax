@@ -1890,6 +1890,29 @@ var _ = Describe("Range compare", func() {
 				}))
 			})
 
+		It("Should compare the colors of ranges only inside one theme",
+			func(ctx SpecContext) {
+				// The dark value is the light value of the third series color, which
+				// no theme shows next to it.
+				custom := color.Named{
+					Name:  "Custom",
+					Light: xcolor.Color{R: 0x40, G: 0x40, B: 0x40, A: 255},
+					Dark:  &xcolor.Color{R: 0x45, G: 0xA7, B: 0x3A, A: 255},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &custom)
+				})).To(Succeed())
+				p := create(ctx, lineplot.LinePlot{
+					Ranges: []ranger.Ref{
+						colored(createRange(ctx, nil), named(series[0])),
+						colored(createRange(ctx, nil), named(series[1])),
+						colored(createRange(ctx, nil), named(custom.Key)),
+						createRange(ctx, nil),
+					},
+				})
+				Expect(refColors(p)[3]).To(Equal(named(series[2])))
+			})
+
 		It("Should skip a series color close to the own color of another range",
 			func(ctx SpecContext) {
 				near := xcolor.Color{R: 0xDC, G: 0x15, B: 0x6C, A: 255}
