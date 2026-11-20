@@ -30,6 +30,7 @@ import { useLabelsRoom } from "@/feature/range/tree/room";
 import { Timeline } from "@/feature/range/tree/Timeline";
 import { type Node, NodeProvider } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
+import { View } from "@/platform/view";
 
 export const ORDERS: Record<view.RangeSort, ranger.Order> = {
   newest: { field: "time_range_start", descending: true },
@@ -56,6 +57,9 @@ const LAYOUTS: Record<view.RangeLayout, LayoutInfo> = {
   timeline: { name: "Timeline", icon: <Icon.Timeline /> },
 };
 
+const LAYOUT_CLASS = CSS.BE("range-tree", "layout");
+const LAYOUT_NAME_CLASS = CSS.BE("range-tree", "layout-name");
+
 export interface LayoutSelectProps {
   value: view.RangeLayout;
   onChange: (value: view.RangeLayout) => void;
@@ -80,9 +84,18 @@ export const LayoutSelect = ({
     preview={preview}
   >
     {layouts.map((layout) => (
-      <Select.Item<view.RangeLayout> key={layout} itemKey={layout} size={size}>
+      <Select.Item<view.RangeLayout>
+        key={layout}
+        itemKey={layout}
+        size={size}
+        className={LAYOUT_CLASS}
+        aria-label={LAYOUTS[layout].name}
+        tooltip={LAYOUTS[layout].name}
+        tooltipLocation="bottom"
+        hideTooltip={View.textShown(LAYOUT_NAME_CLASS)}
+      >
         {LAYOUTS[layout].icon}
-        {LAYOUTS[layout].name}
+        <span className={LAYOUT_NAME_CLASS}>{LAYOUTS[layout].name}</span>
       </Select.Item>
     ))}
   </Select.Buttons>
