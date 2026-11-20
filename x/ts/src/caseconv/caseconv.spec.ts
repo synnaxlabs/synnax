@@ -145,9 +145,9 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.node_a1).toBeDefined();
-      expect(configs.node_a1.backgroundColor).toBe("#fff");
-      expect(configs.node_a1.strokeWidth).toBe(2);
-      expect(configs.node_a1.background_color).toBeUndefined();
+      expect(configs.node_a1?.backgroundColor).toBe("#fff");
+      expect(configs.node_a1?.strokeWidth).toBe(2);
+      expect(configs.node_a1?.background_color).toBeUndefined();
     });
 
     it("should keep record keys but convert value keys on camelToSnake", () => {
@@ -163,9 +163,9 @@ describe("caseconv", () => {
       const configs = result.configs as Record<string, R>;
       expect(configs.nodeA1).toBeDefined();
       const value = configs.nodeA1;
-      expect(value.background_color).toBe("#fff");
-      expect(value.stroke_width).toBe(2);
-      expect(value.backgroundColor).toBeUndefined();
+      expect(value?.background_color).toBe("#fff");
+      expect(value?.stroke_width).toBe(2);
+      expect(value?.backgroundColor).toBeUndefined();
     });
 
     it("should convert nested arrays inside record values", () => {
@@ -184,7 +184,7 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.edge_b2).toBeDefined();
-      expect(configs.edge_b2.textColor).toBe("#000");
+      expect(configs.edge_b2?.textColor).toBe("#000");
     });
   });
 
@@ -198,7 +198,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through pipes", () => {
@@ -210,7 +210,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should resolve the value schema through unions, skipping non-records", () => {
@@ -222,7 +222,7 @@ describe("caseconv", () => {
       const input = { configs: { node_a1: { stroke_width: 2 } } };
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
-      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1?.strokeWidth).toBe(2);
     });
 
     it("should preserve keys with primitive record values", () => {
@@ -742,7 +742,7 @@ describe("caseconv", () => {
         type Schema = z.infer<typeof schema>;
         const v: Schema = { values: [{ data: { One: 1 } }] };
         const result = caseconv.snakeToCamel(v, { schema });
-        expect(result.values[0].data.One).toBe(1);
+        expect(result.values[0]?.data.One).toBe(1);
       });
 
       it("should resolve array element schema through wrapper schemas (default, optional, nullable)", () => {
