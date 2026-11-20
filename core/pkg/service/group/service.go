@@ -85,7 +85,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
 		Name:            tableName,
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), siblingIndexes()...),
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -258,11 +258,14 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 			return err
 		}
 	}
+	if err := checkName(g); err != nil {
+		return err
+	}
 	if err := g.Validate(); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(g).Exec(ctx, w.tx); err != nil {
-		return err
+		return SiblingError(err)
 	}
 	w.dispatcher.Attach(w.tx, g.Key, NewCreateAction(CreatePayload{Group: *g}))
 	return nil
@@ -285,6 +288,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			next, err := Reduce(g, acts...)
 			if err != nil {
 				return Group{}, err
+			}
+			if next.Name != g.Name {
+				if err = checkName(&next); err != nil {
+					return Group{}, err
+				}
 			}
 			if err = next.Validate(); err != nil {
 				return Group{}, err
@@ -309,7 +317,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return SiblingError(err)
 	}
 	if moved {
 		if err := w.moveMembers(ctx, []Key{key}, top); err != nil {

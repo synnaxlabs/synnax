@@ -91,7 +91,7 @@ var _ = Describe("Group", Ordered, func() {
 		It(
 			"Should reject a scope that differs from the parent's",
 			func(ctx SpecContext) {
-				parent := create(ctx, "parent", nil)
+				parent := create(ctx, "scope-parent", nil)
 				child := group.Group{
 					Name:   "child",
 					Scope:  resource.TypeDevice,
@@ -134,7 +134,7 @@ var _ = Describe("Group", Ordered, func() {
 		})
 
 		It("Should refuse a group whose key exists", func(ctx SpecContext) {
-			parent := create(ctx, "parent", nil)
+			parent := create(ctx, "nest-parent", nil)
 			g := create(ctx, "child", &parent)
 			again := group.Group{
 				Key:   g.Key,

@@ -160,6 +160,119 @@ var _ = Describe("Go Group Plugin", func() {
 		},
 	)
 
+	It("Should emit the sibling indexes of a namespace member", func() {
+		resp := MustGenerate(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/channel"
+
+			Key = uint32
+
+			Channel struct {
+				key   Key {
+					@key
+				}
+				name  string
+				group group.Key? {
+					@group scope channel
+					@group namespace
+				}
+
+				@resource type "channel"
+			}
+		`, "channel", loader, p)
+		Expect(resp.Files).To(HaveLen(2))
+		ExpectContent(resp, "members.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"namespace bool",
+				"resource.TypeChannel: {scope: resource.TypeChannel, namespace: true},",
+				`"github.com/synnaxlabs/gorp"`,
+				"func siblingIndexes() []gorp.Index[Key, Group] {",
+				"newSiblingIndex(resource.TypeChannel),",
+			)
+		Expect(resp.Files[1].Path).To(Equal("core/pkg/service/channel/siblings.gen.go"))
+		ExpectContent(resp, "siblings.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"package channel",
+				`"github.com/synnaxlabs/synnax/core/pkg/service/group"`,
+				"func newSiblingIndex() *gorp.UniqueIndex[Key, Channel, group.Sibling] {",
+				"group.SiblingSpace(resource.TypeChannel),",
+				"s := group.Sibling{Name: e.Name}",
+				"s.Parent = *e.Group",
+			)
+	})
+
+	It("Should take the key type of a computed key from @retrieve key", func() {
+		resp := MustGenerate(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/channel"
+
+			Key = uint32
+
+			Channel struct {
+				name  string
+				group group.Key? {
+					@group scope channel
+					@group namespace
+				}
+
+				@resource type "channel"
+				@retrieve key  "Key"
+			}
+		`, "channel", loader, p)
+		ExpectContent(resp, "siblings.gen.go").
+			ToBeValidGoSource().
+			ToContain("*gorp.UniqueIndex[Key, Channel, group.Sibling]")
+	})
+
+	It("Should refuse a namespace member with no key", func() {
+		req := MustGenerateRequest(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/channel"
+
+			Channel struct {
+				name  string
+				group group.Key? {
+					@group scope channel
+					@group namespace
+				}
+
+				@resource type "channel"
+			}
+		`, "channel", loader)
+		Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"@group namespace needs channel.Channel to have a @key field or a " +
+				"@retrieve key",
+		)))
+	})
+
+	It("Should emit no sibling indexes when no member is a namespace", func() {
+		resp := MustGenerate(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/rack"
+
+			Rack struct {
+				key   uint32 {
+					@key
+				}
+				group group.Key? {
+					@group scope device
+				}
+
+				@resource type "rack"
+			}
+		`, "rack", loader, p)
+		Expect(resp.Files).To(HaveLen(1))
+		ExpectContent(resp, "members.gen.go").
+			ToBeValidGoSource().
+			ToNotContain("siblingIndexes", "gorp")
+	})
+
 	It("Should return the error of a malformed @group", func() {
 		req := MustGenerateRequest(`
 			import "schemas/group"

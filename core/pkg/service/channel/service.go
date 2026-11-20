@@ -160,7 +160,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         append(s.indexes.all(), s.names),
+		Indexes:         append(s.indexes.all(), s.names, newSiblingIndex()),
 		References:      append(s.indexes.references(), s.index),
 		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
