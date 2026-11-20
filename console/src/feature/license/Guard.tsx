@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactNode } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 
 import { Activate } from "@/feature/license/Activate";
 

@@ -13,7 +13,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { useCheck } from "@/platform/version/Updater";

@@ -18,13 +18,13 @@ import {
 import type z from "zod";
 
 import { AccessDeniedError, isConnectionError } from "@/errors";
-import { type framer } from "@/framer";
+import type { framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { type ListQuery, Lists, type ListsConfig } from "@/query/list";
 import { Space, type SpaceConfig, type SpaceHooks } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
-import { type Data, type Params } from "@/query/types";
+import type { Data, Params } from "@/query/types";
 
 export interface CacheParams {
   /**
@@ -129,7 +129,7 @@ export class Cache {
   private epochCount = 0;
   private unmaintained = false;
   /** Whether the change stream is live, so tables may drop records. */
-  private live = false;
+  private _live = false;
   private trimScheduled = false;
 
   /**
@@ -224,7 +224,7 @@ export class Cache {
    * is down, so a view reopened offline still shows what it showed.
    */
   private trim(): void {
-    if (!this.live) return;
+    if (!this._live) return;
     const cap = this.params.recordCap ?? DEFAULT_RECORD_CAP;
     this.tables.forEach(({ trim, size }) => {
       if (size() > cap) trim(Math.floor(cap * TRIM_FLOOR));
@@ -326,7 +326,7 @@ export class Cache {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
           this.unmaintained = false;
-          this.live = true;
+          this._live = true;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
           this.trim();
@@ -334,7 +334,7 @@ export class Cache {
         onReopen: () => {
           if (this.streamer !== streamer) return;
           this.clearPendingDeletes();
-          this.live = true;
+          this._live = true;
           this.bumpEpoch();
           this.trim();
         },
@@ -367,6 +367,14 @@ export class Cache {
     return this.epochCount;
   }
 
+  /**
+   * Whether the change stream is live. While it is, each change written to a streamed
+   * channel reaches the listeners, and {@link onStreamDown} fires once it stops.
+   */
+  get live(): boolean {
+    return this._live;
+  }
+
   /** Subscribes to epoch changes. Returns a destructor that unsubscribes. */
   onEpoch(callback: (epoch: number) => void): destructor.Destructor {
     return this.epochObserver.onChange(callback);
@@ -374,15 +382,15 @@ export class Cache {
 
   /**
    * Subscribes to the change stream going down: a drop that starts a reconnect, a
-   * failure that ends it, or a close. No change made while it is down ever arrives.
-   * Returns a destructor that unsubscribes.
+   * failure that ends it, a reset, or a close. No change made while it is down ever
+   * arrives. Returns a destructor that unsubscribes.
    */
   onStreamDown(callback: () => void): destructor.Destructor {
     return this.downObserver.onChange(callback);
   }
 
   private goDown(): void {
-    this.live = false;
+    this._live = false;
     this.downObserver.notify();
   }
 
@@ -415,7 +423,7 @@ export class Cache {
   async reset(): Promise<void> {
     const { streamer } = this;
     this.streamer = null;
-    this.live = false;
+    this.goDown();
     // Drain the retired stream first so a late frame cannot repopulate the
     // tables cleared below. A close failure must not block the reset: the
     // stream is retired either way.

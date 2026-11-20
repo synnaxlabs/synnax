@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, type location, type patch } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { direction, location, patch } from "@synnaxlabs/x";
+import type { Draft } from "immer";
 
 import { actions } from "@/actions";
 import {

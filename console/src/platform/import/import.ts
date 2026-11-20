@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Store } from "@reduxjs/toolkit";
+import type { Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
   project,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { type UploadBody } from "@synnaxlabs/freighter";
+import type { UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 

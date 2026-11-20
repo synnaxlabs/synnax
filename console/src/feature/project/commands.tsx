@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, imex, project } from "@synnaxlabs/client";
-import { type UploadBody } from "@synnaxlabs/freighter";
+import type { UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { type binary } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { type z } from "zod";
+import type { binary } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
+import type { z } from "zod";
 
 import { PickerRow, type PickerRowProps } from "@/platform/fs/PickerRow";
 import { Runtime } from "@/platform/runtime";

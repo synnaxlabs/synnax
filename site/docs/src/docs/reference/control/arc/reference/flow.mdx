@@ -1,0 +1,183 @@
+---
+title: "Flow"
+description:
+  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, input values,
+  and routing tables."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A flow statement connects two or more nodes with `->` or `=>`. Values move from left to
+right. To learn when a flow runs, see the
+[execution model](/reference/control/arc/execution-model#cycles).
+
+```text
+flow     = node (operator node)+
+operator = "->" | "=>"
+```
+
+```arc channels="tank_pt, tank_pt_kpa" bodies="scale"
+func scale(k f64) {v f64} f64 {
+    return v * k
+}
+
+tank_pt -> scale(k=6.895) -> tank_pt_kpa
+```
+
+<Divider.Divider x />
+
+## Operators
+
+| Operator | Passes                      | Example                     |
+| -------- | --------------------------- | --------------------------- |
+| `->`     | Each new value              | `tank_pt -> scale(k=6.895)` |
+| `=>`     | Each new value that is true | `tank_pt > 500 => vent`     |
+
+A `=>` after a non-boolean value gives the warning
+[W2000](/reference/control/arc/reference/errors#w2000). For when a transition fires, see
+[conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
+
+<Divider.Divider x />
+
+## Sources
+
+The first node of a flow is its source.
+
+| Source                              | Example                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| Channel                             | `tank_pt -> tank_pt_copy`                                                     |
+| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `(median3(pt_1, pt_2, pt_3)) -> tank_pt` |
+| Literal                             | `1 -> press_vlv_cmd`                                                          |
+| Variable                            | `target -> setpoint_cmd`                                                      |
+| Function instance                   | `time.interval(period=1s) -> tick`                                            |
+
+An expression source reads each channel in it. A literal source runs once when the
+automation starts, or each time its stage starts. See
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
+
+<Divider.Divider x />
+
+## Sinks
+
+The last node of a flow is its sink. A function instance can also be in the middle of a
+flow.
+
+| Sink                     | Example               | Effect                                                                |
+| ------------------------ | --------------------- | --------------------------------------------------------------------- |
+| Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
+| Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
+| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
+| Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
+| `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
+| Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
+| Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
+
+- A top-level variable is not a sink:
+  `invalid assignment: cannot reassign top-level variable 'peak'`.
+- A function name without parentheses is not a sink:
+  `channel expected: f is not a channel`. Write `f()`.
+- `=> name` finds a stage or sequence with that name in the enclosing sequences, from
+  the innermost out, then at the top level. A stage of a different sequence is not
+  found: `undefined symbol: name`.
+- Several flows can start the same top-level sequence or stage. A running target does
+  not restart, except when a transition inside it targets itself. See
+  [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
+- `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
+  starts it only on a true value.
+- `next` outside a sequence fails with
+  `invalid transition target: 'next' used outside of a sequence`. In the last step, it
+  fails with `invalid transition target: 'next' in last stage 'hold' has no next stage`.
+
+<Divider.Divider x />
+
+## Input values
+
+Parentheses after a function name set its inputs, by name or by position. The opening
+parenthesis must touch the name. Do not mix the two forms in one pair of parentheses.
+Values by position fill the parameters in order, and skip the trigger that the flow
+feeds.
+
+An input value is a literal, a variable, or an expression. A variable or an expression
+is read each time the function fires. A `chan T` parameter takes a channel name.
+
+```arc channels="tank_pt, tank_pt_kpa, tick" bodies="scale"
+import time
+
+gain := 6.895
+
+func scale(k f64, out chan f64) {v f64} {
+    out = v * k
+}
+
+tank_pt -> scale(k=gain, out=tank_pt_kpa)
+time.interval(1s) -> tick
+```
+
+`k` is a value input and `out` is a channel input. The flow feeds each `tank_pt` value
+into the trigger `v`.
+
+For required parameters and defaults, see
+[inputs](/reference/control/arc/reference/functions#inputs).
+
+<Divider.Divider x />
+
+## Routing tables
+
+### Output routing
+
+A routing table after a function with named outputs runs the entry of each output that
+fires. Each entry is `output: flow`. Commas between entries are necessary: a newline
+alone is a parse error. Use `->` in front of the table. A `=>` fails with
+`invalid flow operator: '=>' cannot feed a routing table, use '->'`.
+
+```arc channels="tank_pt, vent_vlv_cmd"
+tank_pt > 500.0 -> select() -> {
+    true: 1 -> vent_vlv_cmd,
+    false: 0 -> vent_vlv_cmd
+}
+```
+
+### Case bodies
+
+Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
+sequence. The output starts the entry, but its value does not pass into the entry. An
+entry with only a target fails with
+`invalid routing table: routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
+
+An inline stage or sequence has no name. It cannot use `next`:
+`invalid transition target: 'next' is not valid inside an inline routing case body`.
+
+```arc channels="tank_pt, vent_vlv_cmd"
+import time
+
+tank_pt > 500.0 -> select() -> {
+    true: sequence {
+        1 -> vent_vlv_cmd
+        time.wait(duration=2s)
+        0 -> vent_vlv_cmd
+    }
+}
+```
+
+### Custom routing
+
+Any function with named outputs can drive a routing table. Set one output in the
+function body, then route each output by name. See
+[outputs](/reference/control/arc/reference/functions#outputs).
+
+```arc channels="tank_pt, alarm_cmd" bodies="band"
+func band(limit f64) {v f64} (low u8, high u8) {
+    if v > limit {
+        high = 1
+    } else {
+        low = 1
+    }
+}
+
+tank_pt -> band(limit=500.0) -> {
+    low: 0 -> alarm_cmd,
+    high: 1 -> alarm_cmd
+}
+```

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import type { FileTransport, UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/actions.gen";
-import { type ElementConfig } from "@/schematic/element";
+import type { ElementConfig } from "@/schematic/element";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,

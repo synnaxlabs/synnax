@@ -43,6 +43,7 @@ jobs:
       group: relay-sedosaur-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: write
     env:
@@ -91,6 +92,7 @@ jobs:
       THREAD: ${{ github.event.comment.in_reply_to_id }}
       LOGIN: ${{ github.event.comment.user.login }}
       KIND: ${{ github.event.comment.user.type }}
+    timeout-minutes: 10
     steps:
       # A reply points at the first comment of its thread. Only a reply on the thread of
       # a finding, from a person with write access or an agent, gets an answer.

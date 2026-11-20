@@ -14,7 +14,7 @@ import { Access, Device } from "@synnaxlabs/pluto";
 
 import { useChangeIdentifier } from "@/platform/device/useChangeIdentifier";
 import { Modals } from "@/platform/modals";
-import { type Tree } from "@/platform/tree";
+import type { Tree } from "@/platform/tree";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Tree.ContextMenuProps,

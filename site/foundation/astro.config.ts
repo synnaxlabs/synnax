@@ -9,12 +9,22 @@
 
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import { jitless, policy } from "@synnaxlabs/site-common/csp";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  integrations: [integration(), react()],
+  integrations: [integration(), react(), jitless()],
   adapter: vercel(),
+  security: {
+    csp: policy({
+      sources: {
+        "connect-src": ["'self'", "https://formspree.io"],
+        "img-src": ["'self'", "data:"],
+      },
+      vercelEnv: process.env.VERCEL_ENV,
+    }),
+  },
   vite: {
     // Prebundle the island's linked workspace modules so their icon dependencies
     // are ready before the browser hydrates it.

@@ -10,15 +10,15 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { deep, type destructor, type TimeStamp } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError, ValidationError } from "@/errors";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Points, type PointsProps } from "@/framer/cache/points";
-import {
-  type PointsRequest,
-  type Snapshot,
-  type SubscribeRequest,
-  type Subscription,
+import type {
+  PointsRequest,
+  Snapshot,
+  SubscribeRequest,
+  Subscription,
 } from "@/framer/subscription";
 
 export interface HandleProps extends PointsProps, LatestProps {

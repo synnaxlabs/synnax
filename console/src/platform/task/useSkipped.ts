@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 import { useSyncExternalStore } from "react";
 
 import { type Channel, firstPerPort } from "@/platform/task/types";

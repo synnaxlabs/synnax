@@ -31,7 +31,7 @@ import {
   Table as PTable,
 } from "@synnaxlabs/pluto";
 import { array, map } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";

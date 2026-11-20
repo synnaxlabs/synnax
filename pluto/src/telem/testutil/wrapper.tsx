@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren } from "react";
+import type { Synnax as SynnaxClient } from "@synnaxlabs/client";
+import type { FC, PropsWithChildren } from "react";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
 import { Status } from "@/status";

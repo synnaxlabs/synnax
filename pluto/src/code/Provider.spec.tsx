@@ -12,7 +12,7 @@ import { act, cleanup, render, renderHook, waitFor } from "@testing-library/reac
 import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Language } from "@/code/language";
+import type { Language } from "@/code/language";
 
 const { initialize } = vi.hoisted(() => ({ initialize: vi.fn() }));
 

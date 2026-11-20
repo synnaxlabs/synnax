@@ -9,8 +9,8 @@
 
 import { NotFoundError, table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type FC } from "react";
-import { type z } from "zod";
+import type { FC } from "react";
+import type { z } from "zod";
 
 import { type CellProps, Text, Value } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";

@@ -9,9 +9,9 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type ScannedNode } from "@/feature/opcua/task/types";
+import type { ScannedNode } from "@/feature/opcua/task/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
