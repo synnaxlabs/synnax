@@ -16,8 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	v14 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
@@ -126,28 +124,20 @@ var _ = Describe("MigrateNodeConfig", func() {
 	DescribeTable("Should keep the options and name no enumeration", func(
 		ctx SpecContext,
 		old v13.NodeConfigVariant,
-		read func(v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key),
+		expected v14.NodeConfigVariant,
 	) {
 		out := MustSucceed(v14.MigrateNodeConfig(ctx, v13.NodeConfig{Variant: old}))
-		opts, e := read(out.Variant)
-		Expect(opts).To(Equal(options))
-		Expect(e).To(BeNil())
+		Expect(out.Variant).To(Equal(expected))
 	},
 		Entry(
 			"select",
 			v13.SelectNodeConfig{Options: options},
-			func(v v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key) {
-				c := v.(v14.SelectNodeConfig)
-				return c.Options, c.Enumeration
-			},
+			v14.SelectNodeConfig{Options: options},
 		),
 		Entry(
 			"state indicator",
 			v13.StateIndicatorNodeConfig{Options: options},
-			func(v v14.NodeConfigVariant) ([]v14.StateMapping, *enumeration.Key) {
-				c := v.(v14.StateIndicatorNodeConfig)
-				return c.Options, c.Enumeration
-			},
+			v14.StateIndicatorNodeConfig{Options: options},
 		),
 	)
 })
@@ -160,7 +150,7 @@ var _ = Describe("MigrateNode", func() {
 				Key:      "valve",
 				Position: spatial.XY{X: 10, Y: 20},
 				ZIndex:   3,
-				Parent:   lo.ToPtr("group"),
+				Parent:   new("group"),
 				Config: v13.NodeConfig{
 					Variant: v13.SelectNodeConfig{Options: options},
 				},
@@ -168,7 +158,7 @@ var _ = Describe("MigrateNode", func() {
 			Expect(out.Key).To(Equal("valve"))
 			Expect(out.Position).To(Equal(spatial.XY{X: 10, Y: 20}))
 			Expect(out.ZIndex).To(BeEquivalentTo(3))
-			Expect(out.Parent).To(Equal(lo.ToPtr("group")))
+			Expect(out.Parent).To(Equal(new("group")))
 			sel, ok := out.Config.Variant.(v14.SelectNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(sel.Options).To(Equal(options))
