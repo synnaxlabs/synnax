@@ -9,6 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +20,6 @@ import {
   HOST_ID,
   renderLiveTree,
 } from "@/platform/tree/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
