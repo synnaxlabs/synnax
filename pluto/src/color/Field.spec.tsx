@@ -257,7 +257,7 @@ describe("Color.Field", () => {
     it("should save a custom color to the library and link the field", async () => {
       await createInPalette();
       const { result, values } = await renderField();
-      await openPicker(result);
+      openPicker(result);
       fireEvent.click(await screen.findByText("Custom"));
       fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
       fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
@@ -285,7 +285,7 @@ describe("Color.Field", () => {
     it("should create a color in no palette from the pinned No palette", async () => {
       const { palette } = await createInPalette();
       const { result, values } = await renderField();
-      await openPicker(result);
+      openPicker(result);
       await openCreate(palette);
       await pickPalette("No palette");
       enterColorName(`created-${id.create()}`);
@@ -693,7 +693,7 @@ describe("Color.Field", () => {
         { type: "named", key: named.key },
         await createAsyncSynnaxWrapper({ client: limited }),
       );
-      await openPicker(result);
+      openPicker(result);
       // The + proves the grants answered, so the view reads them.
       await screen.findByRole("button", { name: `Create a color in ${palette.name}` });
       fireEvent.click(screen.getByText("Custom"));
