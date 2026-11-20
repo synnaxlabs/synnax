@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/feature/range/tree";
 import { createItemCounter } from "@/feature/range/tree/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { countEditableText, createConsoleWrapper, renderSuspended } from "@/testutil";
 
@@ -80,7 +81,7 @@ const createRanges = async (): Promise<{
   label: label.Key;
   ranges: ranger.Range[];
 }> => {
-  const { key } = await client.labels.create({ name: "tree", color: "#000000" });
+  const { key } = await createTestLabel(client, { name: "tree", color: "#000000" });
   const end = TimeStamp.now().sub(TimeSpan.days(1));
   const ranges = await Promise.all(
     ["a", "b", "c"].map(
@@ -112,7 +113,7 @@ const renderTree = async (
 
 describe("range tree", () => {
   it("should show a short start for a narrow list", async () => {
-    const { key } = await client.labels.create({ name: "short", color: "#000000" });
+    const { key } = await createTestLabel(client, { name: "short", color: "#000000" });
     const now = TimeStamp.now();
     const old = now.sub(TimeSpan.days(400));
     const ranges = await Promise.all(
