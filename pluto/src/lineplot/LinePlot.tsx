@@ -268,7 +268,7 @@ const Line = ({
             visible={shown}
             zero={range.zero}
             tooltipGroup={line.key}
-            group={range.label ?? range.key}
+            tooltipLabel={range.label ?? range.key}
             color={c}
             opacity={hover != null && hover.range !== range.key ? DIMMED_OPACITY : 1}
             raised={hovered}
@@ -288,7 +288,7 @@ interface TraceProps {
   visible: boolean;
   zero?: TimeStamp;
   tooltipGroup?: string;
-  group?: string;
+  tooltipLabel?: string;
   color?: color.Color;
   opacity?: number;
   raised?: boolean;
@@ -303,7 +303,7 @@ const Trace = ({
   visible,
   zero,
   tooltipGroup,
-  group,
+  tooltipLabel,
   color: traceColor,
   opacity,
   raised = false,
@@ -331,7 +331,7 @@ const Trace = ({
       strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
       zero={zero}
       tooltipGroup={tooltipGroup}
-      group={group}
+      tooltipLabel={tooltipLabel}
       opacity={opacity}
       raised={raised}
     />

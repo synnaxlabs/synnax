@@ -58,7 +58,7 @@ export const stateZ = z.object({
    */
   tooltipGroup: z.string().optional(),
   /** The name of the line in its tooltip group, such as its range. */
-  group: z.string().optional(),
+  tooltipLabel: z.string().optional(),
   color: color.colorZ,
   strokeWidth: z.number().default(1),
   visible: z.boolean().default(true),
@@ -122,7 +122,7 @@ export interface FindResult {
   color: color.Color;
   label?: string;
   tooltipGroup?: string;
-  group?: string;
+  tooltipLabel?: string;
   units?: string;
   bounds: bounds.Bounds;
 }
@@ -496,13 +496,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (series !== -1) index = xData.series[series].length - 1;
     }
     const { key } = this;
-    const { color, label, tooltipGroup, group } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel } = this.state;
     const result = {
       key,
       color,
       label,
       tooltipGroup,
-      group,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
@@ -545,13 +545,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    */
   findDrawnByXValue(props: LineProps, axisTarget: number): FindResult {
     const { key, shift } = this;
-    const { color, label, tooltipGroup, group, visible } = this.state;
+    const { color, label, tooltipGroup, tooltipLabel, visible } = this.state;
     const result: FindResult = {
       key,
       color,
       label,
       tooltipGroup,
-      group,
+      tooltipLabel,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },

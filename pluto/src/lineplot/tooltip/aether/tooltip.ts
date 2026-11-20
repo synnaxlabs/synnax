@@ -65,7 +65,7 @@ const byValue = (
 ): number => (a === b ? 0 : Number.isNaN(a) ? 1 : Number.isNaN(b) ? -1 : b - a);
 
 // rows lists the results of each tooltip group under a heading, sorted by value.
-// Results with no group keep their order.
+// Results with no tooltip group keep their order.
 const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   const entry = (r: FindResult, label: string | undefined): Row => ({
     label: label ?? "",
@@ -82,7 +82,7 @@ const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   });
   return [...groups.values()].flatMap((members) => [
     { label: members[0].label ?? "", bold: true },
-    ...[...members].sort(byValue).map((r) => entry(r, r.group)),
+    ...[...members].sort(byValue).map((r) => entry(r, r.tooltipLabel)),
   ]);
 };
 

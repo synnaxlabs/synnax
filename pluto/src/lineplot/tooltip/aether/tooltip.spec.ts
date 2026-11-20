@@ -145,7 +145,7 @@ describe("Tooltip", () => {
       ...found(`${channel}/${range}`, y),
       label: channel,
       tooltipGroup: channel,
-      group: range,
+      tooltipLabel: range,
     });
     const results = [
       entry("ch1", "r1", 1),
@@ -170,7 +170,7 @@ describe("Tooltip", () => {
       ...found(`${line}/${range}`, y),
       label: "pressure",
       tooltipGroup: line,
-      group: range,
+      tooltipLabel: range,
     });
     const results = [entry("a", "r1", 1), entry("b", "r1", 2)];
     component.render({ findByXDecimal: () => results, region: REGION });

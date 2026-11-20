@@ -120,7 +120,6 @@ export const Grouped = ({
               background={background}
               entryProps={entryProps}
               shade={nested ? 9 : 10}
-              weight={nested ? 400 : undefined}
             />
           </Flex.Box>
         );

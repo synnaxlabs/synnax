@@ -295,7 +295,7 @@ describe("LinePlot", () => {
     it("should name a range that has no label by its key", async () => {
       await renderRelative();
       expect(await screen.findByText("r2")).toBeDefined();
-      expect(trace("line/r2").state.group).toEqual("r2");
+      expect(trace("line/r2").state.tooltipLabel).toEqual("r2");
     });
 
     it.each([

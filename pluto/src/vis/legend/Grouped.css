@@ -41,4 +41,8 @@
         justify-content: space-between;
         height: round(3.25rem, 1px);
     }
+
+    .pluto-legend-entry__label {
+        font-weight: 400;
+    }
 }
