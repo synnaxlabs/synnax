@@ -18,7 +18,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, type BaseProps } from "@/log/Base";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -85,7 +85,7 @@ const setupAether = (overrides: Record<string, unknown> = {}, partial = false) =
   return { setState, state, selection };
 };
 
-const renderLog = (props: Record<string, unknown> = {}) =>
+const renderLog = (props: Partial<BaseProps> = {}) =>
   render(<Base {...props} />, { wrapper: Wrapper });
 
 const getLogDiv = (container: HTMLElement): HTMLElement => {
@@ -612,12 +612,10 @@ describe("log/Base", () => {
 
   describe("channel name resolution", () => {
     it("should pass channels to aether state", () => {
-      renderLog({ channels: [{ channel: 1 }, { channel: 2 }] });
+      const channels = [1, 2].map((channel) => log.channelEntryZ.parse({ channel }));
+      renderLog({ channels });
       expect(mockAetherUse).toHaveBeenCalled();
-      expect(getAetherInitialState().channels).toEqual([
-        { channel: 1 },
-        { channel: 2 },
-      ]);
+      expect(getAetherInitialState().channels).toEqual(channels);
     });
   });
 
@@ -638,7 +636,13 @@ describe("log/Base", () => {
     });
 
     it("should pass channels with configs to aether state", () => {
-      const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
+      const channels = [
+        log.channelEntryZ.parse({
+          channel: 1,
+          color: { type: "fixed", value: "#ff0000" },
+        }),
+        log.channelEntryZ.parse({ channel: 2 }),
+      ];
       renderLog({ channels });
       expect(getAetherInitialState().channels).toEqual(channels);
     });
