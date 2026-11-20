@@ -11,6 +11,7 @@ package place_test
 
 import (
 	"encoding/binary"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -93,6 +94,11 @@ var _ = Describe("Place", func() {
 	It("Should move only the offset with At", func() {
 		p := place.Segment(1, 2, 3, 1, 5, 6)
 		Expect(p.At(100)).To(Equal(place.Segment(1, 2, 100, 1, 5, 6)))
+	})
+
+	It("Should start a checksum with no allocation", func() {
+		p := place.Segment(1, 2, 3, 1, 5, 6)
+		Expect(testing.AllocsPerRun(10, func() { p.At(9).Start() })).To(BeZero())
 	})
 
 	It("Should continue a checksum over covered bytes in parts", func() {

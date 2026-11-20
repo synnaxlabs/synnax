@@ -13,7 +13,6 @@
 package place
 
 import (
-	"encoding/binary"
 	"hash/crc32"
 
 	"github.com/synnaxlabs/x/errors"
@@ -93,17 +92,25 @@ func (p Place) At(offset uint64) Place {
 }
 
 // Start returns the CRC state after p, from which Update continues over the covered
-// bytes.
+// bytes. It allocates nothing.
 func (p Place) Start() uint32 {
-	var b [Size]byte
-	binary.LittleEndian.PutUint64(b[0:], p.db)
-	binary.LittleEndian.PutUint64(b[8:], p.file)
-	binary.LittleEndian.PutUint64(b[16:], p.offset)
-	b[24] = p.kind
-	b[25] = p.dataType
-	binary.LittleEndian.PutUint16(b[26:], p.version)
-	binary.LittleEndian.PutUint32(b[28:], p.clock)
-	return crc32.Update(0, castagnoli, b[:])
+	crc := ^uint32(0)
+	crc = fold(crc, p.db, 8)
+	crc = fold(crc, p.file, 8)
+	crc = fold(crc, p.offset, 8)
+	crc = fold(crc, uint64(p.kind)|uint64(p.dataType)<<8|uint64(p.version)<<16, 4)
+	crc = fold(crc, uint64(p.clock), 4)
+	return ^crc
+}
+
+// fold continues the inverted CRC state crc over the n low bytes of v, little-endian.
+// It avoids crc32.Update, whose argument escapes to the heap.
+func fold(crc uint32, v uint64, n int) uint32 {
+	for range n {
+		crc = castagnoli[byte(crc)^byte(v)] ^ crc>>8
+		v >>= 8
+	}
+	return crc
 }
 
 // Sum returns the checksum of b at p.

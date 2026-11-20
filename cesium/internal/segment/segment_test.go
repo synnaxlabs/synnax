@@ -13,11 +13,13 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -202,6 +204,25 @@ var _ = Describe("Segment", func() {
 				)
 			})
 
+			DescribeTable(
+				"Should allocate nothing per write once its buffer has grown",
+				func(c segment.Config, data []byte) {
+					w := create(c)
+					Expect(w.Write(data)).To(Succeed())
+					w.PutBack()
+					var err error
+					Expect(testing.AllocsPerRun(10, func() {
+						err = errors.Join(err, w.Write(data))
+						w.PutBack()
+					})).To(BeZero())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(h.Close()).To(Succeed())
+				},
+				Entry("fixed, inside a block", cfg, pattern(512)),
+				Entry("fixed, over blocks", cfg, pattern(3*segment.BlockSize)),
+				Entry("variable, over blocks", varCfg, first(samples(200_000, 7))),
+			)
+
 			Describe("Variable density", func() {
 				DescribeTable(
 					"Should give each trailer the position and offset of the first sample "+
@@ -325,6 +346,8 @@ var _ = Describe("Segment", func() {
 		Entry("variable, third block", varCfg, int64(131_073), int64(131_105)),
 	)
 })
+
+func first[A, B any](a A, _ B) A { return a }
 
 func repeat(size, n int) []int {
 	s := make([]int, n)

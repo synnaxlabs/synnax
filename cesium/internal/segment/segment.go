@@ -121,6 +121,8 @@ func (w *Writer) Write(p []byte) error {
 		}
 	}
 	start := w.cfg.FileOffset(w.at.length)
+	// Only a write that fills a block needs a copy, to append the trailer.
+	fills := int(w.at.length%BlockSize)+len(p) >= BlockSize
 	w.buf = w.buf[:0]
 	// next is the offset in p of the next variable-density sample.
 	next := 0
@@ -136,14 +138,20 @@ func (w *Writer) Write(p []byte) error {
 			}
 		}
 		w.at.crc = place.Update(w.at.crc, p[i:i+n])
-		w.buf = append(w.buf, p[i:i+n]...)
+		if fills {
+			w.buf = append(w.buf, p[i:i+n]...)
+		}
 		w.at.length += int64(n)
 		i += n
 		if inBlock+n == BlockSize {
 			w.buf = w.appendTrailer(w.buf)
 		}
 	}
-	if _, err := w.handle.WriteAt(w.buf, start); err != nil {
+	out := p
+	if fills {
+		out = w.buf
+	}
+	if _, err := w.handle.WriteAt(out, start); err != nil {
 		w.PutBack()
 		return err
 	}
