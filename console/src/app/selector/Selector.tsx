@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { SECTIONS } from "@/app/selector/selectables";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
 const Selector = Base.create({

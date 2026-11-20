@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { List } from "@synnaxlabs/lyra/list";
-import { type Menu } from "@synnaxlabs/lyra/menu";
+import type { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Sift } from "@/feature/sift";
 import { Range } from "@/platform/range";

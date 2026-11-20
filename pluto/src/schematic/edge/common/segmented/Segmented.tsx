@@ -9,9 +9,9 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import {
   type NodesStore,
@@ -24,9 +24,9 @@ import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { type Base } from "@/schematic/edge/common/base";
+import type { Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
-import { type Path as EdgePath } from "@/schematic/edge/common/path";
+import type { Path as EdgePath } from "@/schematic/edge/common/path";
 import {
   type Config,
   createConfigZ,
@@ -40,7 +40,7 @@ import {
   segmentsToPoints,
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
-import { type Edge, type Spec } from "@/schematic/edge/spec";
+import type { Edge, Spec } from "@/schematic/edge/spec";
 import { internalNodeBox, selectZoom } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {

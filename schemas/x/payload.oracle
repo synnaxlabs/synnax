@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/telem"
-
 @cpp output "x/cpp/payload"
 @go output  "x/go/payload"
 @py output  "x/py/x/payload"
@@ -21,7 +19,6 @@ Float float64 {
         is a 64-bit float. It is a JSON number when finite, and the text "NaN",
         "Infinity", or "-Infinity" when not.
     """
-    @go hand
     @py hand
     @py include  "x/py/x/payload/float"
     @ts hand
@@ -171,87 +168,6 @@ BooleanEntry struct {
     @doc value  "maps a payload label to a boolean channel value."
     @go marshal
     @pb
-}
-
-FloatRead struct {
-    data_type   telem.DataType? {
-        @doc value "is the data type of a new channel. Absent for an existing one."
-    }
-    enum_values FloatEntry[]    {
-        @doc value "maps payload labels to channel values."
-    }
-    fill        Float?          {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads a float."
-    @go marshal
-}
-
-IntegerRead struct {
-    data_type   telem.DataType? {
-        @doc value "is the data type of a new channel. Absent for an existing one."
-    }
-    enum_values IntegerEntry[]  {
-        @doc value "maps payload labels to channel values."
-    }
-    fill        Integer?        {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads a signed integer."
-    @go marshal
-}
-
-UnsignedRead struct {
-    data_type   telem.DataType? {
-        @doc value "is the data type of a new channel. Absent for an existing one."
-    }
-    enum_values UnsignedEntry[] {
-        @doc value "maps payload labels to channel values."
-    }
-    fill        Unsigned?       {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads an unsigned integer."
-    @go marshal
-}
-
-StringRead struct {
-    enum_values StringEntry[] {
-        @doc value "maps payload labels to channel values."
-    }
-    fill        string?       {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads a string."
-    @go marshal
-}
-
-BooleanRead struct {
-    enum_values BooleanEntry[] {
-        @doc value "maps payload labels to channel values."
-    }
-    fill        bool?          {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads a boolean."
-    @go marshal
-}
-
-TimestampRead struct {
-    time_format TimeFormat       {
-        @doc value "is the encoding of the timestamp in the payload."
-    }
-    fill        telem.TimeStamp? {
-        @doc value "is written when the payload has no value. Absent requires one."
-    }
-
-    @doc value  "holds the options of a field that reads a timestamp."
-    @go marshal
 }
 
 EnumEntry struct {

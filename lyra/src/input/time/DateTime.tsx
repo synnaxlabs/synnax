@@ -14,9 +14,9 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { CSS } from "@/css";
 import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
@@ -32,7 +32,7 @@ import {
 } from "@/input/time/grammar";
 import { type Bound, suggestTimeStamps } from "@/input/time/suggest";
 import { useLanguage } from "@/input/time/useLanguage";
-import { type Control } from "@/input/types";
+import type { Control } from "@/input/types";
 import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 

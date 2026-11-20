@@ -9,7 +9,7 @@
 
 import { uuid } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   type Channels,
   type Key,

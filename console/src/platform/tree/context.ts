@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type FC } from "react";
+import type { FC } from "react";
 
-import { type Items } from "@/platform/tree/item";
-import { type ContextMenu, type RootContextMenuProps } from "@/platform/tree/types";
+import type { Items } from "@/platform/tree/item";
+import type { ContextMenu, RootContextMenuProps } from "@/platform/tree/types";
 
 export interface ContextMenus {
   /** The menu for a right-click on empty space. */

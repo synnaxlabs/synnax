@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type color } from "@synnaxlabs/x";
+import type { schematic } from "@synnaxlabs/client";
+import type { color } from "@synnaxlabs/x";
 
 type Variant = schematic.ElementConfigType;
 type ConfigOf<V extends Variant> = Extract<schematic.ElementConfig, { variant: V }>;

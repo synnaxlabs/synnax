@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Status as Base } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { Status as Base } from "@synnaxlabs/lyra/status";
+import type { ReactElement } from "react";
 
 import { VARIANT_ITEMS } from "@/status/variantItems";
 

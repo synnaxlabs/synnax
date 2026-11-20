@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SlaveOnRack } from "@/feature/ethercat/device/types";
+import type { SlaveOnRack } from "@/feature/ethercat/device/types";
 
 /** A new slave, and the old slaves that it can take the place of. */
 export interface Replacement {

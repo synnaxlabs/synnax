@@ -11,7 +11,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";

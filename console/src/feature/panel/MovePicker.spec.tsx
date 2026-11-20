@@ -19,14 +19,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { type TestStore } from "@/testutil";
+import type { TestStore } from "@/testutil";
 
 const client = createTestClient();
 

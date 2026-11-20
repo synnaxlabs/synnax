@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type log, UnexpectedError } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
 import { Window } from "@/session/window";

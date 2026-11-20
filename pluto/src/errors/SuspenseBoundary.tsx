@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { type ComponentType, type ReactElement, type ReactNode, Suspense } from "react";
 
 import { Boundary } from "@/errors/Boundary";
-import { type FallbackProps } from "@/errors/Fallback";
+import type { FallbackProps } from "@/errors/Fallback";
 
 const LOADING = <Status.Loading />;
 

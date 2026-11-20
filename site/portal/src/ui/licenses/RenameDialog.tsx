@@ -10,10 +10,10 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
-import { type Activation } from "@/server/db/schema";
+import type { Activation } from "@/server/db/schema";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";

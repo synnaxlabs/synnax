@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
 import { BorderedList, EmptyContent } from "@/select/Body";

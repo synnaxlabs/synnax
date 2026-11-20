@@ -9,8 +9,8 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import type { deep } from "@synnaxlabs/x";
+import type { CSSProperties, ReactElement } from "react";
 
 import { parseAddress, toModicon } from "@/feature/modbus/task/address";
 import { addressSpan, type Channel } from "@/feature/modbus/task/types";

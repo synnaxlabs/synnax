@@ -12,11 +12,9 @@
 #pragma once
 
 #include <string>
-#include <vector>
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/types.gen.h"
-#include "x/cpp/telem/types.gen.h"
 
 namespace x::payload {
 
@@ -87,111 +85,6 @@ inline x::json::json BooleanEntry::to_json() const {
     x::json::json j = x::json::json::object();
     j["label"] = this->label;
     j["value"] = this->value;
-    return j;
-}
-
-inline FloatRead FloatRead::parse(x::json::Parser parser) {
-    return FloatRead{
-        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
-        .enum_values = parser.field<std::vector<FloatEntry>>(
-            "enum_values",
-            std::vector<FloatEntry>{}
-        ),
-        .fill = parser.field<std::optional<Float>>("fill"),
-    };
-}
-
-inline x::json::json FloatRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    if (this->fill.has_value()) j["fill"] = *this->fill;
-    return j;
-}
-
-inline IntegerRead IntegerRead::parse(x::json::Parser parser) {
-    return IntegerRead{
-        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
-        .enum_values = parser.field<std::vector<IntegerEntry>>(
-            "enum_values",
-            std::vector<IntegerEntry>{}
-        ),
-        .fill = parser.field<std::optional<Integer>>("fill"),
-    };
-}
-
-inline x::json::json IntegerRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    if (this->fill.has_value()) j["fill"] = *this->fill;
-    return j;
-}
-
-inline UnsignedRead UnsignedRead::parse(x::json::Parser parser) {
-    return UnsignedRead{
-        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
-        .enum_values = parser.field<std::vector<UnsignedEntry>>(
-            "enum_values",
-            std::vector<UnsignedEntry>{}
-        ),
-        .fill = parser.field<std::optional<Unsigned>>("fill"),
-    };
-}
-
-inline x::json::json UnsignedRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    if (this->fill.has_value()) j["fill"] = *this->fill;
-    return j;
-}
-
-inline StringRead StringRead::parse(x::json::Parser parser) {
-    return StringRead{
-        .enum_values = parser.field<std::vector<StringEntry>>(
-            "enum_values",
-            std::vector<StringEntry>{}
-        ),
-        .fill = parser.field<std::optional<std::string>>("fill"),
-    };
-}
-
-inline x::json::json StringRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    if (this->fill.has_value()) j["fill"] = *this->fill;
-    return j;
-}
-
-inline BooleanRead BooleanRead::parse(x::json::Parser parser) {
-    return BooleanRead{
-        .enum_values = parser.field<std::vector<BooleanEntry>>(
-            "enum_values",
-            std::vector<BooleanEntry>{}
-        ),
-        .fill = parser.field<std::optional<bool>>("fill"),
-    };
-}
-
-inline x::json::json BooleanRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    if (this->fill.has_value()) j["fill"] = *this->fill;
-    return j;
-}
-
-inline TimestampRead TimestampRead::parse(x::json::Parser parser) {
-    return TimestampRead{
-        .time_format = parser.field<std::string>("time_format"),
-        .fill = parser.field<std::optional<::x::telem::TimeStamp>>("fill"),
-    };
-}
-
-inline x::json::json TimestampRead::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["time_format"] = this->time_format;
-    if (this->fill.has_value()) j["fill"] = this->fill->nanoseconds();
     return j;
 }
 

@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { TimeSpan as XTimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { useNow } from "@/hooks";
@@ -18,7 +18,7 @@ import { type BaseProps, Editor, type EditorProps } from "@/input/time/Editor";
 import { roundNumeric } from "@/input/time/grammar";
 import { suggestTimeSpans } from "@/input/time/suggest";
 import { useLanguage } from "@/input/time/useLanguage";
-import { type Control } from "@/input/types";
+import type { Control } from "@/input/types";
 import { Text } from "@/text";
 
 export interface TimeSpanProps
