@@ -158,9 +158,9 @@ class InstanceSetter extends aether.Composite<typeof exampleProps, {}, ExampleLe
 /** Reads "key", then throws while `state.x` is negative. */
 class FailingReader extends aether.Leaf<typeof exampleProps> {
   updatef = vi.fn();
-  schema = exampleProps;
+  override schema = exampleProps;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     ctx.getOptional<number>("key");
     this.updatef();
     if (this.state.x < 0) throw new Error("bad");
