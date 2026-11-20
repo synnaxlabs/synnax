@@ -216,8 +216,10 @@ var _ = Describe("PublishReferenceChanges and use directions", Ordered, func() {
 		malformed := "[signals] - malformed reference change sample"
 		_, _, _, err = record.Changed([]byte("10:channel:428:nocolon"))
 		Expect(err).To(MatchError(malformed))
-		_, err = record.Of([]byte("3:abc"))
-		Expect(err).To(MatchError(ContainSubstring("abc")))
+		Expect(
+			record.Of([]byte("3:abc")),
+		).Error().
+			To(MatchError(ContainSubstring("abc")))
 		Expect(record.Of([]byte("99:channel:1"))).Error().To(MatchError(malformed))
 	})
 })
