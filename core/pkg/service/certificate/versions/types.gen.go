@@ -11,26 +11,26 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
 
 // Key is a unique identifier for a certificate.
-type Key = v0.Key
+type Key = v1.Key
 
 // Details describes the leaf certificate of a chain.
-type Details = v0.Details
+type Details = v1.Details
 
 // Base carries the fields shared by every certificate.
-type Base = v0.Base
+type Base = v1.Base
 
 // Certificate is a public certificate that a device uses to secure a connection, with
 // the private key that proves it when there is one.
-type Certificate = v0.Certificate
+type Certificate = v1.Certificate
 
 // CertificateVariant is implemented by every Certificate variant.
-type CertificateVariant = v0.CertificateVariant
+type CertificateVariant = v1.CertificateVariant
 
 // StoredCertificate is a certificate whose contents the Core stores.
-type StoredCertificate = v0.StoredCertificate
+type StoredCertificate = v1.StoredCertificate
 
 // FileCertificate is a certificate in files on the computer that uses it.
-type FileCertificate = v0.FileCertificate
+type FileCertificate = v1.FileCertificate
