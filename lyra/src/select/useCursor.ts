@@ -135,6 +135,13 @@ const isCursorKey = (key: string | null): key is CursorKey =>
 const isX = (key: CursorKey): key is "ArrowLeft" | "ArrowRight" =>
   key === "ArrowLeft" || key === "ArrowRight";
 
+// A focused control inside an option, such as a view opener, keeps its keys.
+const inOption = (target: EventTarget | null): boolean => {
+  if (!(target instanceof Element)) return false;
+  const option = target.closest("[role='option']");
+  return option != null && option !== target;
+};
+
 const REPEAT_DELAY = TimeSpan.milliseconds(200).milliseconds;
 const REPEAT_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
@@ -269,6 +276,7 @@ export const useCursor = <K extends record.Key>(
     if (e.stage === "end") return release();
     const key = KEYS.find((k) => e.triggers.some((t) => t.includes(k)));
     if (key == null || (CARET_KEYS.has(key) && isInputOrContentEditable(e))) return;
+    if (inOption(e.target)) return;
     press(key);
   };
   Triggers.use({
