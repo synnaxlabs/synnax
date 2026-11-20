@@ -374,7 +374,7 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(ctx, telem.MultiFrame(
+								mustWrite(ctx, w, telem.MultiFrame(
 									[]cesium.ChannelKey{
 										dataChannelKey,
 										indexChannelKey,
@@ -383,9 +383,9 @@ var _ = Describe("Delete", func() {
 										telem.NewSeriesV[int64](100, 101, 102),
 										telem.NewSeriesSecondsTSV(10, 11, 12),
 									},
-								),
 								))
-								MustSucceed(w.Commit(ctx))
+
+								mustCommit(ctx, w)
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -614,11 +614,12 @@ var _ = Describe("Delete", func() {
 								Channels: []cesium.ChannelKey{key},
 								Start:    10 * telem.SecondTS,
 							}))
-							MustSucceed(w.Write(ctx, telem.UnaryFrame(
+							mustWrite(ctx, w, telem.UnaryFrame(
 								key,
 								telem.NewSeriesSecondsTSV(10, 11, 12),
-							)))
-							MustSucceed(w.Commit(ctx))
+							))
+
+							mustCommit(ctx, w)
 							Expect(db.Drop([]cesium.ChannelKey{key})).To(Succeed())
 							Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 							Expect(w.Close()).To(Succeed())
@@ -909,7 +910,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(ctx, telem.MultiFrame(
+						mustWrite(ctx, w, telem.MultiFrame(
 							[]cesium.ChannelKey{basic1, basic1Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -926,9 +927,9 @@ var _ = Describe("Delete", func() {
 									19,
 								),
 							},
-						),
 						))
-						MustSucceed(w.Commit(ctx))
+
+						mustCommit(ctx, w)
 						Expect(w.Close()).To(Succeed())
 
 						// Before deletion:
@@ -1003,7 +1004,7 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(ctx, telem.MultiFrame(
+							mustWrite(ctx, w, telem.MultiFrame(
 								[]cesium.ChannelKey{basic2Index},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(
@@ -1019,9 +1020,9 @@ var _ = Describe("Delete", func() {
 										19,
 									),
 								},
-							),
 							))
-							MustSucceed(w.Commit(ctx))
+
+							mustCommit(ctx, w)
 							Expect(w.Close()).To(Succeed())
 
 							// Before deletion:
@@ -1107,15 +1108,15 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(ctx, telem.MultiFrame(
+								mustWrite(ctx, w, telem.MultiFrame(
 									[]cesium.ChannelKey{basic3, basic3Index},
 									[]telem.Series{
 										telem.NewSeriesV[int64](100, 101, 102),
 										telem.NewSeriesSecondsTSV(10, 11, 12),
 									},
-								),
 								))
-								MustSucceed(w.Commit(ctx))
+
+								mustCommit(ctx, w)
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -1172,16 +1173,16 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(ctx, telem.MultiFrame(
+							mustWrite(ctx, w, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 									telem.NewSeriesV[int64](100, 101, 102, 103, 104),
 								},
-							),
 							))
-							MustSucceed(w.Commit(ctx))
+
+							mustCommit(ctx, w)
 							Expect(w.Close()).To(Succeed())
 
 							By("Deleting channel data")
@@ -1258,16 +1259,16 @@ var _ = Describe("Delete", func() {
 								Channels: []cesium.ChannelKey{index1, basic1, basic2},
 								Start:    11 * telem.SecondTS,
 							}))
-							MustSucceed(w.Write(ctx, telem.MultiFrame(
+							mustWrite(ctx, w, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(11, 12, 13, 14),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
 									telem.NewSeriesV[int64](101, 102, 103, 104),
 								},
-							),
 							))
-							MustSucceed(w.Commit(ctx))
+
+							mustCommit(ctx, w)
 							Expect(w.Close()).To(Succeed())
 
 							Expect(w.Close()).To(Succeed())

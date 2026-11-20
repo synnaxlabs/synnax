@@ -35,7 +35,7 @@ const (
 	// WriterModePersistOnly stores samples without streaming them. The writer holds
 	// only the time it has committed and can write behind a live writer. It fails to
 	// open when another writer holds its Start, and a commit fails when it reaches
-	// another writer's claim. It ignores virtual channels.
+	// another writer's claim.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )

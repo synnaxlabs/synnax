@@ -110,20 +110,13 @@ func (w *Writer) Close() error {
 	return w.err
 }
 
-// Write writes fr and returns it with the alignment and time range of each written
-// series set.
-func (w *Writer) Write(ctx context.Context, fr Frame) (Frame, error) {
-	written, _, err := w.WriteExcept(ctx, fr, nil)
-	return written, err
-}
-
-// WriteExcept writes fr except the channels for which skip returns true, and returns it
+// Write writes fr except the channels for which skip returns true, and returns it
 // without them, with the alignment and time range of each written series set. A skipped
 // index also skips the data channels it indexes in the writer. The returned bool is
-// true when WriteExcept skipped a series of fr, and the next commit of that index then
-// commits nothing. WriteExcept validates every series of fr, and calls skip under the
-// lock of each channel's claim. A nil skip skips nothing.
-func (w *Writer) WriteExcept(
+// true when Write skipped a series of fr, and the next commit of that index then
+// commits nothing. Write validates every series of fr, and calls skip under the lock of
+// each channel's claim. A nil skip skips nothing.
+func (w *Writer) Write(
 	ctx context.Context,
 	fr Frame,
 	skip func(ChannelKey) bool,
@@ -143,19 +136,12 @@ func (w *Writer) WriteExcept(
 	return fr.ExcludeKeys(excluded), len(excluded) > 0, nil
 }
 
-// Commit makes the written samples available to reads and returns the end of the
-// commit.
-func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
-	end, _, err := w.CommitExcept(ctx, nil)
-	return end, err
-}
-
-// CommitExcept commits every channel except the channels for which skip returns true.
-// The returned bool is true when it skipped a channel of an index with samples to
-// commit, and the end is then zero. The samples of a skipped channel stay uncommitted.
-// CommitExcept calls skip under the lock of each channel's claim. A nil skip skips
-// nothing.
-func (w *Writer) CommitExcept(
+// Commit makes the written samples of every channel except the channels for which skip
+// returns true available to reads, and returns the end of the commit. The returned
+// bool is true when it skipped a channel of an index with samples to commit, and the
+// end is then zero. The samples of a skipped channel stay uncommitted. Commit calls
+// skip under the lock of each channel's claim. A nil skip skips nothing.
+func (w *Writer) Commit(
 	ctx context.Context,
 	skip func(ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
@@ -323,13 +309,9 @@ func (w *idxWriter) write(
 		if idx.written {
 			uWriter.SetDomainStart(idx.timeRange.Start)
 		}
-		var keySkipped bool
-		if _, keySkipped, err = uWriter.WriteAtUnless(
-			series,
-			alignment,
-			skip,
-		); err != nil {
-			return fr, err
+		_, keySkipped, wErr := uWriter.WriteAtUnless(series, alignment, skip)
+		if wErr != nil {
+			return fr, wErr
 		}
 		if keySkipped {
 			*excluded = append(*excluded, key)
@@ -451,23 +433,22 @@ func (w *idxWriter) Commit(
 	// read finds an index sample without its data.
 	defer w.group.Publish()
 	skipped := false
-	commit := func(chW *unaryWriterState) {
+	commit := func(chW *unaryWriterState) bool {
 		keySkipped, cErr := chW.CommitWithEndUnless(ctx, end.Lower, &w.group, skip)
 		skipped = skipped || keySkipped
 		// Every channel shares the same end, so their errors repeat. Keep the first.
 		if err == nil {
 			err = cErr
 		}
+		return keySkipped
 	}
 	// The index persists first: after a restart, a reader resolves a data domain
 	// through the index.
-	if w.writingToIdx {
-		commit(w.internal[w.idx.ch.Key])
-	}
+	indexSkipped := w.writingToIdx && commit(w.internal[w.idx.ch.Key])
 	// A skipped index leaves its data channels with no stamps of this writer, so the
 	// group waits.
 	for key, chW := range w.internal {
-		if key != w.idx.ch.Key && !skipped {
+		if key != w.idx.ch.Key && !indexSkipped {
 			commit(chW)
 		}
 	}

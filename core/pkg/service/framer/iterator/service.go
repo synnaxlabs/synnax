@@ -15,8 +15,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -440,7 +440,7 @@ func openCalculationTransform(
 func refuseVirtual(channels []channel.Channel) error {
 	for _, ch := range channels {
 		if ch.Virtual && !ch.IsCalculated() && !ch.Key().Free() {
-			return cesium.ChannelError{Key: uint32(ch.Key()), Err: errors.Wrap(
+			return distchannel.Error{Key: ch.Key(), Err: errors.Wrap(
 				query.ErrUnsupported,
 				"cannot open an iterator on a virtual channel",
 			)}

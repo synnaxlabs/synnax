@@ -210,7 +210,7 @@ func (l *latch) done() error {
 const deletedDirSuffix = "-DELETE"
 
 // removals collects the keys whose files a drop removes in line, so their intents clear
-// in one rewrite. A removal that runs after the batch closes clears its own intent.
+// in one append. A removal that runs after the batch closes clears its own intent.
 type removals struct {
 	keys   []ChannelKey
 	mu     sync.Mutex
@@ -243,7 +243,7 @@ func (r *removals) close(db *DB) error {
 }
 
 // clearRemoved syncs the root, so that the removals of keys are durable, then clears
-// their intents in one rewrite. A crash then never brings back files that no intent
+// their intents in one append. A crash then never brings back files that no intent
 // names.
 func (db *DB) clearRemoved(keys ...ChannelKey) error {
 	if len(keys) == 0 {

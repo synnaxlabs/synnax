@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Sweep", func() {
@@ -53,15 +54,33 @@ var _ = Describe("Sweep", func() {
 			channel.ServiceConfig{DropExecutor: func(work func()) { work() }},
 		))
 	}
+	// stopTS stops the Run of the Cesium DB that nodeOn or restart opened last.
+	var stopTS func()
 	// nodeOn returns a node whose Cesium DB runs on fsys.
 	nodeOn := func(ctx SpecContext, fsys xfs.FS) testutil.Node {
 		GinkgoHelper()
 		base := DeferClose(storagetestutil.OpenLayer(ctx))
-		tsDB := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))))
-		StartRun(tsDB.Run)
-		return testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: base.KV, TS: tsDB, Gorp: base.Gorp},
-		})
+		layer := &storage.Layer{KV: base.KV, Gorp: base.Gorp}
+		layer.TS = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys)))
+		DeferCleanup(func() { Expect(layer.TS.Close()).To(Succeed()) })
+		stopTS = StartRun(layer.TS.Run)
+		return testutil.NewNode(ctx, distribution.LayerConfig{Storage: layer})
+	}
+	// restart closes the Cesium DB of node and opens one on fsys in its place, for node
+	// and cfg, as a restart of the Core does. The caller closes the channel service
+	// first.
+	restart := func(
+		ctx SpecContext,
+		node testutil.Node,
+		cfg *channel.ServiceConfig,
+		fsys xfs.FS,
+	) {
+		GinkgoHelper()
+		stopTS()
+		Expect(node.Storage.TS.Close()).To(Succeed())
+		node.Storage.TS = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys)))
+		stopTS = StartRun(node.Storage.TS.Run)
+		cfg.TS = node.Storage.TS
 	}
 	// orphan writes samples to a Cesium channel that has no record.
 	orphan := func(ctx SpecContext, node testutil.Node, local uint16) cesium.ChannelKey {
@@ -112,18 +131,21 @@ var _ = Describe("Sweep", func() {
 	)
 
 	It("Should clear the warning status when no data is kept", func(ctx SpecContext) {
-		node := testutil.NewNode(ctx)
+		fsys := xfs.NewMem()
+		node := nodeOn(ctx, fsys)
 		key := orphan(ctx, node, 60_000)
 		cfg, _ := serviceConfig(ctx, node, node.DB)
 		svc := start(ctx, cfg)
 		MustSucceed(keptStatus(ctx, node, cfg.Status))
 		Expect(svc.Close()).To(Succeed())
+		restart(ctx, node, &cfg, fsys)
 		Expect(channel.Purge(
 			ctx,
 			node.DB,
 			node.Storage.TS,
 			[]channel.Key{channel.Key(key)},
 		)).To(BeEmpty())
+		restart(ctx, node, &cfg, fsys)
 		DeferClose(start(ctx, cfg))
 		Expect(keptStatus(ctx, node, cfg.Status)).Error().
 			To(MatchError(query.ErrNotFound))
@@ -153,6 +175,7 @@ var _ = Describe("Sweep", func() {
 			Expect(fsys.Exists(dir)).To(BeTrue())
 			fsys.SetOptions()
 			Expect(svc.Close()).To(Succeed())
+			restart(ctx, node, &cfg, fsys)
 			DeferClose(start(ctx, cfg))
 			Expect(fsys.Exists(dir)).To(BeFalse())
 			Expect(keptStatus(ctx, node, cfg.Status)).Error().
@@ -163,7 +186,8 @@ var _ = Describe("Sweep", func() {
 	It("Should keep the data of a channel with no record that a delete names", func(
 		ctx SpecContext,
 	) {
-		node := testutil.NewNode(ctx)
+		fsys := xfs.NewMem()
+		node := nodeOn(ctx, fsys)
 		key := orphan(ctx, node, 60_000)
 		cfg, _ := serviceConfig(ctx, node, node.DB)
 		svc := start(ctx, cfg)
@@ -171,6 +195,7 @@ var _ = Describe("Sweep", func() {
 			return svc.NewWriter(tx).Delete(ctx, channel.Key(key), false)
 		})).To(Succeed())
 		Expect(svc.Close()).To(Succeed())
+		restart(ctx, node, &cfg, fsys)
 		DeferClose(start(ctx, cfg))
 		s := MustSucceed(keptStatus(ctx, node, cfg.Status))
 		Expect(s.Description).To(ContainSubstring(fmt.Sprint(key)))
@@ -191,6 +216,101 @@ var _ = Describe("Sweep", func() {
 			return svc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
 		Expect(ch.Key().LocalKey()).To(BeNumerically(">", channel.Key(key).LocalKey()))
+	})
+
+	// orphans writes samples to an index and a data channel of it, neither with a
+	// record. The index has the higher key.
+	orphans := func(ctx SpecContext, ts *cesium.DB) (idx, data cesium.ChannelKey) {
+		GinkgoHelper()
+		idx = uint32(distchannel.NewKey(1, 60_001))
+		data = uint32(distchannel.NewKey(1, 60_000))
+		Expect(ts.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		Expect(ts.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			[]cesium.ChannelKey{idx, data},
+			[]telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+				telem.NewSeriesV[int64](1, 2, 3),
+			},
+		))).To(Succeed())
+		return idx, data
+	}
+
+	It("Should give a new channel no key of an index with an intent that kept data "+
+		"uses", func(ctx SpecContext) {
+		node := nodeOn(ctx, xfs.NewMem())
+		idx, _ := orphans(ctx, node.Storage.TS)
+		Expect(node.Storage.TS.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		svc := DeferClose(start(ctx, cfg))
+		ch := channel.Channel{
+			Name:        UniqueChannelName(),
+			DataType:    telem.TimestampT,
+			IsIndex:     true,
+			Leaseholder: 1,
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(ch.Key().LocalKey()).To(BeNumerically(">", channel.Key(idx).LocalKey()))
+	})
+
+	It("Should refuse a purge of an index that kept data uses, and purge both "+
+		"together", func(ctx SpecContext) {
+		fsys := xfs.NewMem()
+		node := nodeOn(ctx, fsys)
+		idx, data := orphans(ctx, node.Storage.TS)
+		Expect(channel.Purge(
+			ctx,
+			node.DB,
+			node.Storage.TS,
+			[]channel.Key{channel.Key(idx)},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"channel %d is the index of channel %d",
+				idx,
+				data,
+			))),
+		))
+		Expect(fsys.Exists(fmt.Sprint(idx))).To(BeTrue())
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		restart(ctx, node, &cfg, fsys)
+		Expect(channel.Purge(
+			ctx,
+			node.DB,
+			node.Storage.TS,
+			[]channel.Key{channel.Key(idx), channel.Key(data)},
+		)).To(BeEmpty())
+		Expect(fsys.Exists(fmt.Sprint(idx))).To(BeFalse())
+		Expect(fsys.Exists(fmt.Sprint(data))).To(BeFalse())
+	})
+
+	It("Should log no intent for the delete of a virtual channel", func(
+		ctx SpecContext,
+	) {
+		fsys := xfs.NewMem()
+		node := nodeOn(ctx, fsys)
+		cfg, _ := serviceConfig(ctx, node, node.DB)
+		svc := DeferClose(start(ctx, cfg))
+		ch := channel.Channel{
+			Name:        UniqueChannelName(),
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: 1,
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &ch)
+		})).To(Succeed())
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+		})).To(Succeed())
+		Expect(MustSucceed(fsys.Stat("delete-intents")).Size()).To(BeZero())
 	})
 
 	It(

@@ -154,7 +154,18 @@ var _ = Describe("Writer control moved from Cesium", func() {
 							Len(),
 					).
 						To(BeZero())
+					// The holder takes the data channel and commits. No sample of the
+					// refused write may reach that commit.
 					Expect(w.Close()).To(Succeed())
+					MustSucceed(holder.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(12, 13),
+						telem.NewSeriesV[int64](7, 8),
+					})))
+					MustSucceed(holder.Commit(ctx))
+					Expect(
+						MustSucceed(db.Read(ctx, telem.TimeRangeMax, data)).Get(data).
+							Series,
+					).To(HaveExactElements(telem.MatchSeriesDataV[int64](7, 8)))
 					Expect(holder.Close()).To(Succeed())
 				},
 			)

@@ -71,7 +71,7 @@ func (cs *controls) acquire(ch cesium.Channel) (*controlled, error) {
 	if c, ok := cs.byKey[key]; ok {
 		return c, nil
 	}
-	concurrency := ch.Concurrency
+	concurrency := control.Concurrency(ch.Concurrency)
 	if ch.Virtual {
 		concurrency = control.ConcurrencyShared
 	}
@@ -254,7 +254,7 @@ func (g *gates) open(
 		OpenResource:          func() (*region, error) { return &region{key: key}, nil },
 	})
 	if err != nil {
-		return transfers, cesium.ChannelError{Key: ch.Key, Err: err}
+		return transfers, channel.Error{Key: channel.Key(ch.Key), Err: err}
 	}
 	g.byKey[key] = gt
 	g.own.Add(key)
@@ -433,7 +433,7 @@ func (g *gates) authorizeKey(key channel.Key) error {
 		return nil
 	}
 	if err := g.authorize(gt); err != nil {
-		return cesium.ChannelError{Key: uint32(key), Err: err}
+		return channel.Error{Key: key, Err: err}
 	}
 	return nil
 }
@@ -478,14 +478,14 @@ func (cs *controls) nameHolder(err error) (error, bool) {
 		holder = "writer " + subject.String()
 	}
 	if claimErr.Open {
-		return cesium.ChannelError{Key: chErr.Key, Err: errors.Wrapf(
+		return channel.Error{Key: channel.Key(chErr.Key), Err: errors.Wrapf(
 			control.ErrUnauthorized,
 			"cannot access time range %v because %s holds it",
 			claimErr.TimeRange,
 			holder,
 		)}, true
 	}
-	return cesium.ChannelError{Key: chErr.Key, Err: errors.Wrapf(
+	return channel.Error{Key: channel.Key(chErr.Key), Err: errors.Wrapf(
 		validate.ErrValidation,
 		"cannot write to time range %v because %s holds it",
 		claimErr.TimeRange,

@@ -63,6 +63,13 @@ var _ = Describe("NameErrors", func() {
 		},
 	)
 
+	It("Should name a channel of a distribution channel error", func(ctx SpecContext) {
+		err := distchannel.Error{Key: ch.Key(), Err: errors.New("bad write")}
+		Expect(svc.NameErrors(ctx, err, nil).Error()).To(Equal(
+			fmt.Sprintf("channel %q: bad write", ch.Name),
+		))
+	})
+
 	It("Should name a channel that has no record as deleted", func(ctx SpecContext) {
 		key := distchannel.NewKey(1, 64_000)
 		Expect(svc.NameErrors(ctx, channelErr(key), nil).Error()).To(Equal(

@@ -115,16 +115,17 @@ var _ = Describe("Writer errors", func() {
 				Channels: keys,
 				Start:    10 * telem.SecondTS,
 			}))
-			MustSucceed(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
 				telem.NewSeriesSecondsTSV(10, 11),
 				telem.NewSeriesV[int64](1, 2),
-			})))
-			MustSucceed(w.Commit(ctx))
+			}))
+
+			mustCommit(ctx, w)
 			// A frame with uneven series breaks the writer.
 			Expect(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 				telem.NewSeriesSecondsTSV(12, 13),
 				telem.NewSeriesV[int64](3),
-			}))).Error().To(MatchError(validate.ErrValidation))
+			}), nil)).Error().To(MatchError(validate.ErrValidation))
 			failPersist = true
 			err := w.Close()
 			failPersist = false
@@ -276,11 +277,11 @@ var _ = Describe("Writer sync durability", func() {
 						fSeries = append(fSeries, series(i2, n)...)
 					}
 					log = append(log, fmt.Sprintf("write(%d,%d)", groups, n))
-					MustSucceed(w.Write(ctx, telem.MultiFrame(fKeys, fSeries)))
+					mustWrite(ctx, w, telem.MultiFrame(fKeys, fSeries))
 					expectVisible("write")
 				case op < 70:
 					log = append(log, "commit")
-					MustSucceed(w.Commit(ctx))
+					mustCommit(ctx, w)
 					commitAll()
 					expectVisible("commit")
 				case op < 82:
@@ -297,18 +298,19 @@ var _ = Describe("Writer sync durability", func() {
 					expectVisible("end domain")
 				case op < 96:
 					log = append(log, "handoff")
-					MustSucceed(w.Commit(ctx))
+					mustCommit(ctx, w)
 					commitAll()
 					high := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{i1, d1},
 						Start:    next[i1],
 					}))
 					n := 1 + rng.IntN(4)
-					MustSucceed(high.Write(ctx, telem.MultiFrame(
+					mustWrite(ctx, high, telem.MultiFrame(
 						[]cesium.ChannelKey{i1, d1},
 						series(i1, n),
-					)))
-					MustSucceed(high.Commit(ctx))
+					))
+
+					mustCommit(ctx, high)
 					commitAll()
 					expectVisible("handoff commit")
 					if rng.IntN(2) == 0 {
@@ -367,11 +369,12 @@ var _ = Describe("Writer persist faults", func() {
 			Channels: keys,
 			Start:    10 * telem.SecondTS,
 		}))
-		MustSucceed(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+		mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10, 11),
 			telem.NewSeriesV[int64](1, 2),
-		})))
-		MustSucceed(w.Commit(ctx))
+		}))
+
+		mustCommit(ctx, w)
 		fails = 1
 		Expect(w.Sync()).To(MatchError(errPersist))
 		Expect(w.Close()).To(MatchError(errPersist))

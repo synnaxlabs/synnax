@@ -90,11 +90,12 @@ var _ = Describe("History", func() {
 				stamps ...telem.TimeStamp,
 			) {
 				GinkgoHelper()
-				MustSucceed(w.Write(ctx, telem.UnaryFrame(
+				mustWrite(ctx, w, telem.UnaryFrame(
 					key,
 					telem.NewSeriesSecondsTSV(stamps...),
-				)))
-				MustSucceed(w.Commit(ctx))
+				))
+
+				mustCommit(ctx, w)
 			}
 
 			It(

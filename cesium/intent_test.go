@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"encoding/binary"
 	"hash/crc32"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,27 +78,35 @@ var _ = Describe("Delete intents", func() {
 			To(MatchError(cesium.ErrChannelNotFound))
 		Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 	}
-	// intents returns the number of keys with an intent in the intents file of fs.
+	// intents returns the number of keys with an intent in the intents file of fs. It
+	// skips a batch that fails its checksum, as Open does.
 	intents := func(fs xfs.FS) int {
 		GinkgoHelper()
 		data := MustSucceed(xfs.ReadFile(fs, "delete-intents"))
 		live := set.New[cesium.ChannelKey]()
-		for off := 0; off+12 <= len(data); off += 12 {
-			key := binary.LittleEndian.Uint32(data[off:])
-			flags := binary.LittleEndian.Uint32(data[off+4:])
-			var b [16]byte
-			binary.LittleEndian.PutUint64(b[:], uint64(off))
-			binary.LittleEndian.PutUint32(b[8:], key)
-			binary.LittleEndian.PutUint32(b[12:], flags)
-			if crc32.Checksum(b[:], crc32.MakeTable(crc32.Castagnoli)) !=
-				binary.LittleEndian.Uint32(data[off+8:]) {
+		for off := 0; off+8 <= len(data); {
+			count := int(binary.LittleEndian.Uint32(data[off:]))
+			end := off + 8 + 8*count
+			if count == 0 || end > len(data) {
+				break
+			}
+			var at [8]byte
+			binary.LittleEndian.PutUint64(at[:], uint64(off))
+			table := crc32.MakeTable(crc32.Castagnoli)
+			crc := crc32.Update(crc32.Update(0, table, at[:]), table, data[off+8:end])
+			if crc != binary.LittleEndian.Uint32(data[off+4:]) {
+				off = end
 				continue
 			}
-			if flags&1 != 0 {
-				live.Remove(key)
-			} else {
-				live.Add(key)
+			for r := off + 8; r < end; r += 8 {
+				key := binary.LittleEndian.Uint32(data[r:])
+				if binary.LittleEndian.Uint32(data[r+4:])&1 != 0 {
+					live.Remove(key)
+				} else {
+					live.Add(key)
+				}
 			}
+			off = end
 		}
 		return len(live)
 	}
@@ -149,7 +159,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, fs := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx, data})).
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).
 					To(BeEmpty())
 				Expect(intents(fs)).To(BeZero())
 				fr := MustSucceed(restarted.Read(ctx, telem.TimeRangeMax, data))
@@ -162,7 +172,7 @@ var _ = Describe("Delete intents", func() {
 		It("Should drop a key with an intent and no record", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			restarted, fs := crash(ctx)
-			Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 			Expect(intents(fs)).To(BeZero())
 		})
@@ -172,7 +182,7 @@ var _ = Describe("Delete intents", func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{
 				Key: empty, Name: "empty", IsIndex: true, DataType: telem.TimestampT,
 			})).To(Succeed())
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx, data})).To(BeEmpty())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, data})).To(BeEmpty())
 			expectGone(ctx, db, mem, empty)
 		})
 
@@ -180,7 +190,7 @@ var _ = Describe("Delete intents", func() {
 			"Should keep a key with samples, no record, and no intent, and refuse it",
 			func(ctx SpecContext) {
 				size := db.Metrics().DiskSize
-				kept := MustSucceed(db.Sweep(ctx, []cesium.ChannelKey{idx}))
+				kept := sweep(ctx, db, []cesium.ChannelKey{idx})
 				Expect(db.Metrics().DiskSize).To(Equal(size))
 				Expect(kept).To(HaveLen(1))
 				Expect(kept[0].Key).To(Equal(data))
@@ -198,17 +208,92 @@ var _ = Describe("Delete intents", func() {
 			},
 		)
 
+		It("Should decide once per open, and drop nothing on a later Sweep", func(
+			ctx SpecContext,
+		) {
+			empty := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: empty, Name: "empty", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx, empty})).
+				To(ConsistOf(HaveField("Key", data)))
+			// A first Sweep would drop empty, which has no record and no samples here.
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).
+				To(ConsistOf(HaveField("Key", data)))
+			Expect(mem.Exists(channelKeyToPath(empty))).To(BeTrue())
+			Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(BeEmpty())
+		})
+
+		It("Should return the highest key that the DB holds, with an intent included",
+			func(ctx SpecContext) {
+				keptData, intendedIdx := GenerateChannelKey(), GenerateChannelKey()
+				Expect(db.CreateChannel(
+					ctx,
+					cesium.Channel{
+						Key:      intendedIdx,
+						Name:     "time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					},
+					cesium.Channel{
+						Key:      keptData,
+						Name:     "data",
+						Index:    intendedIdx,
+						DataType: telem.Int64T,
+					},
+				)).To(Succeed())
+				Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+					[]cesium.ChannelKey{intendedIdx, keptData},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11),
+						telem.NewSeriesV[int64](1, 2),
+					},
+				))).To(Succeed())
+				Expect(db.Intend([]cesium.ChannelKey{intendedIdx})).To(Succeed())
+				kept, highest := MustSucceed2(db.Sweep(
+					ctx,
+					[]cesium.ChannelKey{idx, data},
+				))
+				Expect(kept).To(ConsistOf(SatisfyAll(
+					HaveField("Key", keptData),
+					HaveField("Index", intendedIdx),
+				)))
+				Expect(highest).To(Equal(intendedIdx))
+			},
+		)
+
+		It("Should make the intent of a drop durable before Sweep removes a key with "+
+			"no samples", func(ctx SpecContext) {
+			var ops []string
+			logged := mustOpenDBOnFS(ctx, opLogFS{FS: xfs.NewMem(), ops: &ops})
+			Expect(logged.CreateChannel(ctx, cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			ops = nil
+			Expect(sweep(ctx, logged, nil)).To(BeEmpty())
+			// The intent, the removal, the clear, then the empty file.
+			Expect(ops).To(HaveExactElements(
+				"sync delete-intents",
+				"syncdir",
+				"sync delete-intents",
+				"sync delete-intents",
+			))
+		})
+
 		It("Should open a kept channel after a delete drops its index", func(
 			ctx SpecContext,
 		) {
-			Expect(db.Sweep(ctx, nil)).To(ConsistOf(
+			Expect(sweep(ctx, db, nil)).To(ConsistOf(
 				HaveField("Key", idx),
 				HaveField("Key", data),
 			))
 			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
 			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 			restarted, fs := crash(ctx)
-			Expect(restarted.Sweep(ctx, nil)).To(ConsistOf(HaveField("Key", data)))
+			Expect(sweep(ctx, restarted, nil)).To(ConsistOf(HaveField("Key", data)))
 			Expect(fs.Exists(channelKeyToPath(idx))).To(BeTrue())
 		})
 
@@ -216,7 +301,7 @@ var _ = Describe("Delete intents", func() {
 			"Should keep the index of a kept channel, and the intent of the index",
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
-				kept := MustSucceed(db.Sweep(ctx, nil))
+				kept := sweep(ctx, db, nil)
 				Expect(kept).To(ConsistOf(HaveField("Key", data)))
 				Expect(mem.Exists(channelKeyToPath(idx))).To(BeTrue())
 				Expect(intents(mem)).To(Equal(1))
@@ -226,7 +311,7 @@ var _ = Describe("Delete intents", func() {
 
 	Describe("Drop of a kept key", func() {
 		It("Should remove a key that Sweep keeps", func(ctx SpecContext) {
-			Expect(db.Sweep(ctx, []cesium.ChannelKey{idx})).To(HaveLen(1))
+			Expect(sweep(ctx, db, []cesium.ChannelKey{idx})).To(HaveLen(1))
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
 			expectGone(ctx, db, mem, data)
@@ -289,7 +374,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(ldb.Intend([]cesium.ChannelKey{other})).To(Succeed())
 				fs := lossy.crash()
 				restarted := mustOpenDBOnFS(ctx, fs)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 				expectGone(ctx, restarted, fs, other)
 			})
 
@@ -298,7 +383,7 @@ var _ = Describe("Delete intents", func() {
 				Expect(ldb.Drop([]cesium.ChannelKey{idx})).To(Succeed())
 				fs := lossy.crash()
 				restarted := mustOpenDBOnFS(ctx, fs)
-				Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
+				Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
 				expectGone(ctx, restarted, fs, other)
 			})
 		})
@@ -323,9 +408,50 @@ var _ = Describe("Delete intents", func() {
 			})
 			Expect(intents(fs)).To(Equal(1))
 			Expect(restarted.CorruptIntents()).To(Equal(1))
-			kept := MustSucceed(restarted.Sweep(ctx, []cesium.ChannelKey{idx}))
+			kept := sweep(ctx, restarted, []cesium.ChannelKey{idx})
 			Expect(kept).To(ConsistOf(HaveField("Key", data)))
 			expectGone(ctx, restarted, fs, other)
+		})
+
+		It("Should drop a whole batch when a crash keeps only part of it", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{idx, data})).To(Succeed())
+			restarted, fs := crashWith(ctx, func(cp *xfs.MemFS) {
+				f := MustSucceed(cp.Open("delete-intents", os.O_RDWR))
+				MustSucceed(f.WriteAt(make([]byte, 8), 16))
+				Expect(f.Close()).To(Succeed())
+			})
+			Expect(intents(fs)).To(BeZero())
+			Expect(restarted.CorruptIntents()).To(BeZero())
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).To(BeEmpty())
+			Expect(fs.Exists(channelKeyToPath(data))).To(BeTrue())
+		})
+
+		It("Should keep an intent that one read of the file damages", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			cp := xfs.NewMem()
+			Expect(xfs.CopyDir(mem, cp, "")).To(Succeed())
+			restarted := mustOpenDBOnFS(ctx, &badReadFS{FS: cp, name: "delete-intents"})
+			Expect(restarted.CorruptIntents()).To(BeZero())
+			Expect(MustSucceed(cp.Stat("delete-intents")).Size()).To(Equal(int64(16)))
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
+			expectGone(ctx, restarted, cp, data)
+		})
+
+		It("Should empty the intents file when Sweep leaves no intent", func(
+			ctx SpecContext,
+		) {
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			restarted, fs := crash(ctx)
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(BeZero())
+			Expect(restarted.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+			again, cp := crash(ctx)
+			Expect(again.CorruptIntents()).To(BeZero())
+			Expect(intents(cp)).To(Equal(1))
 		})
 
 		It("Should fail every Intend after an append fails", func(ctx SpecContext) {
@@ -342,12 +468,12 @@ var _ = Describe("Delete intents", func() {
 		It("Should ignore a torn intent append", func(ctx SpecContext) {
 			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 			f := MustSucceed(mem.Open("delete-intents", os.O_RDWR))
-			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 12))
+			MustSucceed(f.WriteAt([]byte{1, 2, 3, 4, 5}, 16))
 			Expect(f.Close()).To(Succeed())
 			restarted, fs := crash(ctx)
 			Expect(intents(fs)).To(Equal(1))
-			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(12)))
-			Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+			Expect(MustSucceed(fs.Stat("delete-intents")).Size()).To(Equal(int64(16)))
+			Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 			expectGone(ctx, restarted, fs, data)
 		})
 
@@ -357,7 +483,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, _ := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx, data})).
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx, data})).
 					To(BeEmpty())
 				MustSucceed(restarted.Read(ctx, telem.TimeRangeMax, data))
 			},
@@ -368,7 +494,7 @@ var _ = Describe("Delete intents", func() {
 			func(ctx SpecContext) {
 				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
 				restarted, fs := crash(ctx)
-				Expect(restarted.Sweep(ctx, []cesium.ChannelKey{idx})).To(BeEmpty())
+				Expect(sweep(ctx, restarted, []cesium.ChannelKey{idx})).To(BeEmpty())
 				expectGone(ctx, restarted, fs, data)
 			},
 		)
@@ -394,7 +520,7 @@ var _ = Describe("Delete intents", func() {
 			cp := xfs.NewMem()
 			Expect(xfs.CopyDir(faulty, cp, "")).To(Succeed())
 			restarted := mustOpenDBOnFS(ctx, cp)
-			Expect(restarted.Sweep(ctx, nil)).To(BeEmpty())
+			Expect(sweep(ctx, restarted, nil)).To(BeEmpty())
 			expectGone(ctx, restarted, cp, idx)
 			Expect(cp.Exists(channelKeyToPath(idx) + "-DELETE")).To(BeFalse())
 			Expect(intents(cp)).To(BeZero())
@@ -421,13 +547,60 @@ var _ = Describe("Delete intents", func() {
 				again := xfs.NewMem()
 				Expect(xfs.CopyDir(cp, again, "")).To(Succeed())
 				last := mustOpenDBOnFS(ctx, again)
-				Expect(last.Sweep(ctx, nil)).To(BeEmpty())
+				Expect(sweep(ctx, last, nil)).To(BeEmpty())
 				expectGone(ctx, last, again, idx)
 				Expect(intents(again)).To(BeZero())
 			},
 		)
 	})
 })
+
+// sweep runs Sweep on db with the record keys keys, and returns the channels it keeps.
+func sweep(
+	ctx context.Context,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+) []cesium.KeptChannel {
+	GinkgoHelper()
+	kept, _ := MustSucceed2(db.Sweep(ctx, keys))
+	return kept
+}
+
+// badReadFS damages the last byte of the first read of the file name.
+type badReadFS struct {
+	xfs.FS
+	name string
+	done atomic.Bool
+}
+
+func (f *badReadFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil || name != "" {
+		return sub, err
+	}
+	return &badReadFS{FS: sub, name: f.name}, nil
+}
+
+func (f *badReadFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != f.name {
+		return file, err
+	}
+	return badReadFile{File: file, fs: f}, nil
+}
+
+type badReadFile struct {
+	xfs.File
+	fs *badReadFS
+}
+
+func (f badReadFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	if n > 0 && f.fs.done.CompareAndSwap(false, true) {
+		p[n-1] ^= 0xFF
+	}
+	return n, err
+}
 
 // opLogFS records the syncs, renames, and directory syncs of the intents file.
 type opLogFS struct {

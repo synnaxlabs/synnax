@@ -271,28 +271,30 @@ var _ = Describe("Open after a crash", func() {
 					Start:    10 * telem.SecondTS,
 					Mode:     cesium.WriterModePersistStream,
 				})))
-				MustSucceed(w.Write(ctx, telem.MultiFrame(
+				mustWrite(ctx, w, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 						newSeries(10, 11, 12),
 					},
-				)))
-				MustSucceed(w.Commit(ctx))
+				))
+
+				mustCommit(ctx, w)
 				By("Saving the domain of both channels")
 				Expect(db.DeleteTimeRange(
 					ctx,
 					keys,
 					(1 * telem.SecondTS).Range(2*telem.SecondTS),
 				)).To(Succeed())
-				MustSucceed(w.Write(ctx, telem.MultiFrame(
+				mustWrite(ctx, w, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(13, 14, 15),
 						newSeries(13, 14, 15),
 					},
-				)))
-				MustSucceed(w.Commit(ctx))
+				))
+
+				mustCommit(ctx, w)
 				By("Saving the domain of only the data channel")
 				Expect(db.DeleteTimeRange(
 					ctx,
