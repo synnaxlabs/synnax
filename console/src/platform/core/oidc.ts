@@ -103,7 +103,7 @@ export const loginDesktop = async (
   const port = await invoke<number>("oidc_listen");
   const redirectUri = `http://127.0.0.1:${port}/callback`;
   await Runtime.openExternal(authorizeURL({ login, redirectUri, challenge, state }));
-  const query = await invoke<string>("oidc_wait", { state });
+  const query = await invoke<string>("oidc_wait", { port, state });
   const code = parseCallback(query, state);
   const { token } = await auth.createSession(auth.createTokenlessClient(core), {
     method: "oidc",

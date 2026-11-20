@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 /// How long a login waits for the browser to return.
 const TIMEOUT: Duration = Duration::from_secs(300);
 
-/// How long one connection may take to send its request line.
+/// How long one connection may take to send its request line and headers.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The most of a request read, its line and headers. A browser's redirect fits well
@@ -41,6 +41,8 @@ pub struct Loopback(Mutex<Pending>);
 struct Pending {
     /// The listener, until a wait takes it.
     listener: Option<TcpListener>,
+    /// The port of the listener, which names the login to its wait.
+    port: u16,
     /// Set when a later login replaces this one, which ends its wait.
     replaced: Arc<AtomicBool>,
 }
@@ -53,14 +55,18 @@ impl Loopback {
         pending.replaced.store(true, Ordering::Relaxed);
         *pending = Pending {
             listener: Some(listener),
+            port,
             replaced: Arc::default(),
         };
         Ok(port)
     }
 
-    async fn wait(&self, state: String, timeout: Duration) -> Result<String, String> {
+    async fn wait(&self, port: u16, state: String, timeout: Duration) -> Result<String, String> {
         let (listener, replaced) = {
             let mut pending = self.0.lock().map_err(|e| e.to_string())?;
+            if pending.port != port {
+                return Err(REPLACED.into());
+            }
             let listener = pending
                 .listener
                 .take()
@@ -80,16 +86,17 @@ pub fn oidc_listen(loopback: tauri::State<'_, Loopback>) -> Result<u16, String> 
     loopback.listen()
 }
 
-/// Waits for the browser to return to the listener with the given login state, and
-/// returns the query string of the redirect, which carries the code and state. Fails
-/// after five minutes, when a later login replaces this one, or at once when no login
-/// is listening.
+/// Waits for the browser to return to the listener on the given port with the given
+/// login state, and returns the query string of the redirect, which carries the code
+/// and state. Fails after five minutes, when a later login replaces this one, or at
+/// once when no login is listening.
 #[tauri::command]
 pub async fn oidc_wait(
     loopback: tauri::State<'_, Loopback>,
+    port: u16,
     state: String,
 ) -> Result<String, String> {
-    loopback.wait(state, TIMEOUT).await
+    loopback.wait(port, state, TIMEOUT).await
 }
 
 /// Accepts connections until one requests the callback path with the given state,
@@ -126,10 +133,10 @@ fn accept(
 }
 
 /// Reads one request, within [`REQUEST_TIMEOUT`], the deadline, and [`MAX_REQUEST`]
-/// bytes, so a local process cannot hold the listener or grow its memory. A request for `/callback` with the given state gets the page and yields its
-/// query. A callback with another state gets a 400, any other request a 404, and both
-/// yield nothing. A failed connection yields what its request asked for, so it cannot
-/// end the login.
+/// bytes, so a local process cannot hold the listener or grow its memory. A request for
+/// `/callback` with the given state gets the page and yields its query. A callback with
+/// another state gets a 400, any other request a 404, and both yield nothing. A failed
+/// connection yields what its request asked for, so it cannot end the login.
 fn respond(mut stream: TcpStream, state: &str, deadline: Instant) -> Option<String> {
     if stream.set_nonblocking(false).is_err() {
         return None;
@@ -348,7 +355,7 @@ mod tests {
         let port = loopback.listen().unwrap();
         let target = "/callback?code=abc&state=xyz";
         let client = std::thread::spawn(move || get(port, target));
-        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        let wait = loopback.wait(port, "xyz".into(), Duration::from_secs(5));
         let query = tauri::async_runtime::block_on(wait).unwrap();
         assert_eq!(query, "code=abc&state=xyz");
         assert!(client.join().unwrap().starts_with("HTTP/1.1 200"));
@@ -357,7 +364,7 @@ mod tests {
     #[test]
     fn fails_to_wait_without_a_listening_login() {
         let loopback = Loopback::default();
-        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        let wait = loopback.wait(0, "xyz".into(), Duration::from_secs(5));
         let err = tauri::async_runtime::block_on(wait).unwrap_err();
         assert_eq!(err, "no login is waiting for a redirect");
     }
@@ -365,13 +372,13 @@ mod tests {
     #[test]
     fn waits_only_once_for_one_listen() {
         let loopback = Loopback::default();
-        loopback.listen().unwrap();
-        let first = loopback.wait("xyz".into(), Duration::from_millis(100));
+        let port = loopback.listen().unwrap();
+        let first = loopback.wait(port, "xyz".into(), Duration::from_millis(100));
         assert_eq!(
             tauri::async_runtime::block_on(first).unwrap_err(),
             "the login timed out"
         );
-        let second = loopback.wait("xyz".into(), Duration::from_millis(100));
+        let second = loopback.wait(port, "xyz".into(), Duration::from_millis(100));
         assert_eq!(
             tauri::async_runtime::block_on(second).unwrap_err(),
             "no login is waiting for a redirect"
@@ -401,10 +408,10 @@ mod tests {
     #[test]
     fn ends_the_wait_of_a_replaced_login() {
         let loopback = Arc::new(Loopback::default());
-        loopback.listen().unwrap();
+        let port = loopback.listen().unwrap();
         let waiting = loopback.clone();
         let first = std::thread::spawn(move || {
-            tauri::async_runtime::block_on(waiting.wait("xyz".into(), Duration::from_secs(5)))
+            tauri::async_runtime::block_on(waiting.wait(port, "xyz".into(), Duration::from_secs(5)))
         });
         while loopback.0.lock().unwrap().listener.is_some() {
             std::thread::sleep(Duration::from_millis(10));
@@ -416,13 +423,26 @@ mod tests {
     }
 
     #[test]
+    fn ends_a_replaced_login_that_has_not_started_waiting() {
+        let loopback = Loopback::default();
+        let first = loopback.listen().unwrap();
+        let second = loopback.listen().unwrap();
+        let stale = loopback.wait(first, "a".into(), Duration::from_secs(5));
+        assert_eq!(tauri::async_runtime::block_on(stale).unwrap_err(), REPLACED);
+        let client = std::thread::spawn(move || get(second, "/callback?state=b"));
+        let wait = loopback.wait(second, "b".into(), Duration::from_secs(5));
+        assert_eq!(tauri::async_runtime::block_on(wait).unwrap(), "state=b");
+        client.join().unwrap();
+    }
+
+    #[test]
     fn replaces_the_listener_of_an_earlier_login() {
         let loopback = Loopback::default();
         let first = loopback.listen().unwrap();
         let second = loopback.listen().unwrap();
         assert!(TcpStream::connect(("127.0.0.1", first)).is_err());
         let client = std::thread::spawn(move || get(second, "/callback?state=xyz"));
-        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        let wait = loopback.wait(second, "xyz".into(), Duration::from_secs(5));
         assert_eq!(tauri::async_runtime::block_on(wait).unwrap(), "state=xyz");
         client.join().unwrap();
     }
