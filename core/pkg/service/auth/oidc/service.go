@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package oidc authenticates users through OpenID Connect providers. A user holds one
-// [Link] per provider, and the package implements [auth.Authenticator] for
+// [Link] per issuer, and the package implements [auth.Authenticator] for
 // [auth.MethodOIDC].
 package oidc
 
@@ -39,7 +39,7 @@ import (
 
 // Provider is an OpenID Connect provider that the Core accepts logins from.
 type Provider struct {
-	// Name identifies the provider in proofs and links.
+	// Name identifies the provider in proofs.
 	Name string
 	// Issuer is the provider's issuer URL. The Core reads the provider's endpoints from
 	// its discovery document.
