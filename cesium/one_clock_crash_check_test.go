@@ -27,7 +27,7 @@ var _ = Describe("One clock crash check", func() {
 		{"FullDisk", crash.FullDisk},
 		{"OneTimeReadFaults", crash.OneTimeReadFaults},
 	} {
-		for key := uint64(0); key < 32; key++ {
+		for key := range uint64(32) {
 			It(fmt.Sprintf("Should hold Visible, %s, run key %d", p.name, key),
 				func(ctx SpecContext) {
 					Expect(run(ctx, crash.Visible, p.profile, key, false)).To(Succeed())
