@@ -18,6 +18,7 @@ import {
   type SelectionState,
   SLICE_NAME,
   type SliceState,
+  type Solo,
   type State,
   type StoreState,
   type ToolbarState,
@@ -70,10 +71,11 @@ const selectHidden = (params: KeyedSelectorParams): Hidden => {
 /** Selects the items of the plot that do not show. */
 export const useSelectHidden = createSelector(selectHidden);
 
-const selectSoloRestore = (params: KeyedSelectorParams): Hidden | null =>
-  selectState(params).soloRestore;
+const selectSolo = (params: KeyedSelectorParams): Solo | null =>
+  selectState(params).solo;
 
-export const useSelectSoloRestore = createSelector(selectSoloRestore);
+/** Selects the item the user showed alone, if any. */
+export const useSelectSolo = createSelector(selectSolo);
 
 const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =>
   selectState(params).measure.mode;

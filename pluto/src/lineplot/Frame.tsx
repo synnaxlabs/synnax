@@ -9,7 +9,7 @@
 
 import "@/lineplot/Frame.css";
 
-import type { lineplot as client } from "@synnaxlabs/client";
+import type { lineplot as lineplotClient } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { useEffectCompare, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
@@ -122,7 +122,7 @@ export interface LineSpec {
   label: string;
   visible: boolean;
   /** The y axis of the line. */
-  axis?: client.AxisKey;
+  axis?: lineplotClient.AxisKey;
 }
 
 /** Ref handle exposed by Frame for imperative access */

@@ -108,22 +108,17 @@
 
     /* The time mode shows its words. Below 76rem X1 needs the room, so the time mode
        shows only its icons. */
-    .console-line-plot__toolbar-time-mode .lyra-select-btn svg {
+    .console-line-plot__toolbar-time-mode-icon {
         display: none;
     }
 
     @container (width < 76rem) {
-        .console-line-plot__toolbar-time-mode .lyra-select-btn {
-            width: var(--pluto-height-medium);
-            justify-content: center;
-            padding: 0;
-            font-size: 0;
-            gap: 0;
+        .console-line-plot__toolbar-time-mode-label {
+            display: none;
+        }
 
-            & svg {
-                display: revert;
-                font-size: var(--pluto-p-size);
-            }
+        .console-line-plot__toolbar-time-mode-icon {
+            display: revert;
         }
     }
 

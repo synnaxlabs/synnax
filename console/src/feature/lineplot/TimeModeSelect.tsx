@@ -17,9 +17,11 @@ import { CSS } from "@/platform/css";
 
 type Mode = lineplot.TimeMode;
 
+const ICON_CLASS = CSS.BE("line-plot", "toolbar", "time-mode-icon");
+
 const ICONS: Record<Mode, ReactElement> = {
-  absolute: <Icon.Time />,
-  relative: <Icon.Timeline />,
+  absolute: <Icon.Time className={ICON_CLASS} />,
+  relative: <Icon.Timeline className={ICON_CLASS} />,
 };
 
 const LABELS: Record<Mode, string> = { absolute: "Absolute", relative: "Relative" };
@@ -29,11 +31,14 @@ const TOOLTIPS: Record<Mode, string> = {
   relative: "Relative time: each range from its T0",
 };
 
-/** Selects the time mode of the plot's x axis: absolute or relative. */
-export const TimeModeSelect = (): ReactElement => {
+/**
+ * Selects the time mode of the plot's x axis: absolute or relative. Renders nothing
+ * when the axis does not show time.
+ */
+export const TimeModeSelect = (): ReactElement | null => {
   const key = LinePlot.useKey();
   const { dispatch } = LinePlot.useDispatch();
-  const { timeMode } = LinePlot.useXAxis({ axisKey: "x1" });
+  const { type, timeMode } = LinePlot.useXAxis({ axisKey: "x1" });
   const handleChange = (next: Mode) =>
     dispatch({
       key,
@@ -47,9 +52,12 @@ export const TimeModeSelect = (): ReactElement => {
   const item = (mode: Mode) => (
     <Select.Item itemKey={mode} size="medium" tooltip={TOOLTIPS[mode]}>
       {ICONS[mode]}
-      {LABELS[mode]}
+      <span className={CSS.BE("line-plot", "toolbar", "time-mode-label")}>
+        {LABELS[mode]}
+      </span>
     </Select.Item>
   );
+  if (type !== "time") return null;
   return (
     <Select.Buttons<Mode>
       variant="outlined"
