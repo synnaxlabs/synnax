@@ -15,8 +15,9 @@ Ginkgo, `t.Skip` in Go, `.skip(` and `xit(` in TypeScript, `pytest.mark.skip` an
 check compares the sum of the markers in the test files that the change touches with
 the sum at the base, so a marker that moves inside a file or to another file, a renamed
 file, or a format run is not a finding. It reads code with comments and strings removed.
-A platform case uses a build tag, a platform file, or a platform file suffix, never a
-skip.
+A platform case uses a build tag or a platform file, never a skip. The check also fails
+each tracked platform test file that no CI platform runs, or that the test config of its
+package runs on every platform.
 
     uv run --project scripts scripts/check_skipped_tests.py --base <commit>
 """
@@ -28,9 +29,8 @@ import re
 import subprocess
 import sys
 import tokenize
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from functools import cache
 from pathlib import Path
 
 import yaml
@@ -68,33 +68,70 @@ _REGEX_KEYWORDS = {
     "do", "yield", "await",
 }  # fmt: skip
 _CPP_RAW = {"R", "u8R", "uR", "UR", "LR"}
-_PLATFORM_FILE = {
-    "ts": re.compile(r"\.(darwin|linux|win32|posix)\.(?:spec|test)\.tsx?$"),
-    "py": re.compile(r"^test_\w*_(darwin|linux|win32|posix)\.py$"),
-}
 _CI = ".github/workflows/ci.yaml"
-_WORKFLOWS = {"ts": "/test.ts.yaml", "py": "/test.py.yaml"}
-# The input of a test job that runs it on a platform, and the default of the input.
-_INPUTS = {
-    "darwin": ("macos", False),
-    "linux": ("ubuntu", True),
-    "win32": ("windows", False),
-}
-_RUNS_ON = {
-    "darwin": ("darwin",),
-    "linux": ("linux",),
-    "win32": ("win32",),
-    "posix": ("darwin", "linux"),
-}
-_TS_HELPER = "platformExcludes("
+_MACOS, _UBUNTU, _WINDOWS = "macos-latest", "ubuntu-latest", "windows-latest"
+_GOOS = (
+    "aix|android|darwin|dragonfly|freebsd|hurd|illumos|ios|js|linux|netbsd|openbsd"
+    "|plan9|solaris|wasip1|windows|zos"
+)
+_GOARCH = (
+    "386|amd64|arm|arm64|loong64|mips|mipsle|mips64|mips64le|ppc64|ppc64le|riscv64"
+    "|s390x|sparc64|wasm"
+)
+_TS_REMEDY = "...platformExcludes()"
 _TS_LINE = (
-    "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each `test.exclude`, "
+    f"`{_TS_REMEDY}` from `@synnaxlabs/vite-plugin` to each `test.exclude`, "
     "after `...configDefaults.exclude` from `vitest/config`"
 )
-_PY_LINE = (
-    '`collect_ignore_glob = [f"*_{p}.py" for p in {"darwin", "linux", "win32"} - '
-    '{sys.platform}] + (["*_posix.py"] if sys.platform == "win32" else [])`'
+_PY_REMEDY = (
+    '[f"*_{p}.py" for p in {"darwin", "linux", "win32"} - {sys.platform}] + '
+    '(["*_posix.py"] if sys.platform == "win32" else [])'
 )
+_PY_LINE = f"`collect_ignore_glob = {_PY_REMEDY}`"
+# A line of a conftest that sets collect_ignore_glob.
+_SETS_GLOB = re.compile(r"^collect_ignore_glob\s*(?::[^=\n]*)?\+?=", re.MULTILINE)
+# An exclude of a test matrix that drops a runner when an input is false.
+_GATE = re.compile(r"\$\{\{\s*!inputs\.(\w+)\s*&&\s*'([\w.-]+)'\s*\}\}")
+_NODE_RUNNERS = {
+    "darwin": (_MACOS,),
+    "linux": (_UBUNTU,),
+    "win32": (_WINDOWS,),
+    "posix": (_MACOS, _UBUNTU),
+}
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Platforms:
+    """How a language names a platform test file, and which runners run it."""
+
+    workflow: str
+    file: re.Pattern[str]
+    runners: Mapping[str, tuple[str, ...]]
+    # The line that the test config of the package needs, or None when the toolchain
+    # leaves out the file on the other platforms.
+    line: str | None
+
+
+_PLATFORMS = {
+    "ts": _Platforms(
+        workflow="test.ts.yaml",
+        file=re.compile(r"\.(darwin|linux|win32|posix)\.(?:spec|test)\.tsx?$"),
+        runners=_NODE_RUNNERS,
+        line=_TS_LINE,
+    ),
+    "py": _Platforms(
+        workflow="test.py.yaml",
+        file=re.compile(r"^test_(?:\w*_)?(darwin|linux|win32|posix)\.py$"),
+        runners=_NODE_RUNNERS,
+        line=_PY_LINE,
+    ),
+    "go": _Platforms(
+        workflow="test.go.yaml",
+        file=re.compile(rf"^[^_].*?_({_GOOS})(?:_(?:{_GOARCH}))?_test\.go$"),
+        runners={"darwin": (_MACOS,), "linux": (_UBUNTU,), "windows": (_WINDOWS,)},
+        line=None,
+    ),
+}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -417,90 +454,190 @@ def check(*, root: Path, base: str) -> list[Finding]:
 
 
 @dataclass(frozen=True, kw_only=True)
+class _Workflow:
+    """What a test workflow runs, as its file says."""
+
+    name: str
+    defaults: Mapping[str, object]
+    # The input that drops each runner when it is false.
+    gates: Mapping[str, str]
+    # The runners that a matrix include adds whatever the inputs say.
+    added: frozenset[str]
+    # Off Linux, with a core_image, only *.spec.ts and *.spec.tsx files run.
+    specs_only: bool
+
+
+def _workflow(root: Path, name: str) -> _Workflow:
+    """Returns the workflow in .github/workflows/name. It raises ValueError unless one
+    job of the workflow has an os matrix."""
+    data = yaml.safe_load(
+        (root / ".github/workflows" / name).read_text(encoding="utf-8")
+    )
+    # YAML 1.1 reads the key `on` as True.
+    trigger = data["on"] if "on" in data else data[True]
+    jobs = data["jobs"].values()
+    matrices = [
+        m for j in jobs if "os" in (m := j.get("strategy", {}).get("matrix", {}))
+    ]
+    if len(matrices) != 1:
+        raise ValueError(f"{name} has {len(matrices)} jobs with an os matrix, not 1")
+    (matrix,) = matrices
+    gates = {
+        m.group(2): m.group(1)
+        for e in matrix.get("exclude", [])
+        if (m := _GATE.fullmatch(str(e.get("os", ""))))
+    }
+    steps = [s for j in jobs for s in j.get("steps", [])]
+    specs_only = any(
+        "runner.os != 'Linux'" in str(s.get("if", ""))
+        and "inputs.core_image != ''" in str(s.get("if", ""))
+        and "'*.spec.ts'" in str(s.get("run", ""))
+        for s in steps
+    )
+    return _Workflow(
+        name=name,
+        defaults={
+            k: v.get("default") for k, v in trigger["workflow_call"]["inputs"].items()
+        },
+        gates=gates,
+        added=frozenset(e["os"] for e in matrix.get("include", []) if "os" in e),
+        specs_only=specs_only,
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
 class _Job:
     name: str
     directory: str
-    inputs: dict[str, object]
+    inputs: Mapping[str, object]
+    workflow: _Workflow
 
-    def runs(self, platform: str) -> bool:
-        """Reports if the job tests on platform. An expression can be true, so it
-        counts as a run."""
-        name, default = _INPUTS[platform]
-        return self.inputs.get(name, default) is not False
+    def _value(self, name: str) -> object:
+        return self.inputs.get(name, self.workflow.defaults.get(name))
+
+    def tests(self) -> bool:
+        """Reports if the job runs tests. An expression can be true, so it counts."""
+        return "test" not in self.workflow.defaults or self._value("test") is not False
+
+    def runs(self, runner: str) -> bool:
+        """Reports if the job tests on runner. An expression can be true, so it counts
+        as a run."""
+        if runner in self.workflow.added:
+            return True
+        gate = self.workflow.gates.get(runner)
+        return gate is None or self._value(gate) is not False
+
+    def specs_only(self, runner: str) -> bool:
+        """Reports if the job runs only the *.spec.ts files on runner."""
+        return (
+            self.workflow.specs_only
+            and runner != _UBUNTU
+            and self._value("core_image") not in ("", None)
+        )
 
 
-@cache
 def _jobs(root: Path) -> dict[str, list[_Job]]:
-    """Returns the test jobs of ci.yaml, by the language that they test."""
-    workflow = yaml.safe_load((root / _CI).read_text(encoding="utf-8"))
-    jobs: dict[str, list[_Job]] = {lang: [] for lang in _WORKFLOWS}
-    for name, job in workflow["jobs"].items():
-        for lang, file in _WORKFLOWS.items():
-            if job.get("uses", "").endswith(file):
+    """Returns the test jobs of ci.yaml by the language that they test."""
+    ci = yaml.safe_load((root / _CI).read_text(encoding="utf-8"))
+    workflows = {lang: _workflow(root, p.workflow) for lang, p in _PLATFORMS.items()}
+    jobs: dict[str, list[_Job]] = {lang: [] for lang in _PLATFORMS}
+    for name, job in ci["jobs"].items():
+        for lang, p in _PLATFORMS.items():
+            if job.get("uses", "").endswith("/" + p.workflow):
                 inputs = job["with"]
                 jobs[lang].append(
-                    _Job(name=name, directory=inputs["directory"], inputs=inputs)
+                    _Job(
+                        name=name,
+                        directory=inputs["directory"],
+                        inputs=inputs,
+                        workflow=workflows[lang],
+                    )
                 )
     return jobs
 
 
 def _config(root: Path, lang: str, job: _Job, path: str) -> tuple[str, bool]:
-    """Returns the config file of the package that must exclude the platform file at
-    path, and if it does."""
+    """Returns the config file that must leave out the platform file at path on the
+    other platforms, and if it does."""
     if lang == "ts":
-        names = [f"{job.directory}/vite.config.ts", f"{job.directory}/vitest.config.ts"]
-        config = next((n for n in names if (root / n).exists()), names[1])
-        held = (root / config).exists() and _TS_HELPER in (root / config).read_text()
+        # Vitest reads vitest.config.ts before vite.config.ts.
+        names = [f"{job.directory}/vitest.config.ts", f"{job.directory}/vite.config.ts"]
+        config = next((n for n in names if (root / n).exists()), names[0])
+        held = (root / config).exists() and _TS_REMEDY in (root / config).read_text(
+            encoding="utf-8"
+        )
         return config, held
     dirs = [Path(path).parent, *Path(path).parent.parents]
     package = dirs[: dirs.index(Path(job.directory)) + 1]
     conftests = [
         d / "conftest.py" for d in package if (root / d / "conftest.py").exists()
     ]
+    # pytest reads collect_ignore_glob from the nearest conftest that sets it.
     for conftest in conftests:
-        text = (root / conftest).read_text()
-        if "collect_ignore_glob" in text and "sys.platform" in text:
-            return conftest.as_posix(), True
+        text = (root / conftest).read_text(encoding="utf-8")
+        if _SETS_GLOB.search(text):
+            return conftest.as_posix(), _PY_REMEDY in text
     return (conftests[0] if conftests else dirs[0] / "conftest.py").as_posix(), False
 
 
-def platforms(*, root: Path) -> list[Finding]:
-    """Returns a finding for each platform test file, such as a.darwin.spec.ts or
-    test_a_win32.py, that no job of ci.yaml tests, that no CI platform runs, or that
-    the test config of its package runs on every platform."""
+def _unrun(name: str, suffix: str, runners: tuple[str, ...], jobs: list[_Job]) -> str:
+    """Returns why no CI platform runs the platform file name with suffix, or an empty
+    string when one does."""
+    if not runners:
+        return f"no CI platform runs a {suffix} test"
+    job = jobs[0]
+    if not any(j.tests() for j in jobs):
+        return f"the `{job.name}` job of {_CI} sets `test` to false"
+    running = [(j, r) for j in jobs if j.tests() for r in runners if j.runs(r)]
+    if not running:
+        inputs = " or ".join(f"`{job.workflow.gates[r]}`" for r in runners)
+        return (
+            f"no CI platform runs a {suffix} test: set {inputs} on the `{job.name}` "
+            f"job of {_CI}"
+        )
+    if ".spec." not in name and all(j.specs_only(r) for j, r in running):
+        spec = name.replace(".test.", ".spec.")
+        return (
+            f"with a `core_image`, {job.workflow.name} runs only `*.spec.ts` files off "
+            f"Linux: name it `{spec}`"
+        )
+    return ""
+
+
+def check_platforms(*, root: Path) -> list[Finding]:
+    """Returns a finding for each platform test file, such as a.darwin.spec.ts,
+    test_a_win32.py, or a_windows_test.go, that no job of ci.yaml tests, that no CI
+    platform runs, or that the test config of its package runs on every platform. It
+    reads ci.yaml and the test workflows first, so a run that breaks them fails."""
+    jobs = _jobs(root)
     findings: list[Finding] = []
     for path in _git(root, "ls-files", "-z").split("\0"):
-        lang = {"ts": "ts", "py": "py", "integration": "py"}.get(language(path) or "")
-        match = _PLATFORM_FILE[lang].search(path.rsplit("/", 1)[-1]) if lang else None
-        if lang is None or match is None:
+        lang = language(path) or ""
+        platform = _PLATFORMS.get(lang)
+        name = path.rsplit("/", 1)[-1]
+        match = platform.file.search(name) if platform else None
+        if platform is None or match is None:
             continue
-        jobs = [j for j in _jobs(root)[lang] if path.startswith(j.directory + "/")]
-        if not jobs:
+        candidates = [j for j in jobs[lang] if path.startswith(j.directory + "/")]
+        if not candidates:
             findings.append(
                 Finding(path=path, line=0, message=f"no job of {_CI} tests it")
             )
             continue
-        deepest = max(len(j.directory) for j in jobs)
-        jobs = [j for j in jobs if len(j.directory) == deepest]
+        deepest = max(len(j.directory) for j in candidates)
+        candidates = [j for j in candidates if len(j.directory) == deepest]
         suffix = match.group(1)
-        if not any(j.runs(p) for j in jobs for p in _RUNS_ON[suffix]):
-            inputs = " or ".join(f"`{_INPUTS[p][0]}`" for p in _RUNS_ON[suffix])
-            findings.append(
-                Finding(
-                    path=path,
-                    line=0,
-                    message=f"no CI platform runs a {suffix} test: set {inputs} on "
-                    f"the `{jobs[0].name}` job of {_CI}",
-                )
-            )
-        config, held = _config(root, lang, jobs[0], path)
+        if why := _unrun(name, suffix, platform.runners.get(suffix, ()), candidates):
+            findings.append(Finding(path=path, line=0, message=why))
+        if platform.line is None:
+            continue
+        config, held = _config(root, lang, candidates[0], path)
         if not held:
-            line = _TS_LINE if lang == "ts" else _PY_LINE
             findings.append(
                 Finding(
                     path=path,
                     line=0,
-                    message=f"{config} runs it on every platform: add {line}",
+                    message=f"{config} runs it on every platform: add {platform.line}",
                 )
             )
     return findings
@@ -512,7 +649,7 @@ def main() -> int:
     args = parser.parse_args()
     if not args.base:
         parser.error("--base names no commit")
-    findings = check(root=Path(), base=args.base) + platforms(root=Path())
+    findings = check(root=Path(), base=args.base) + check_platforms(root=Path())
     for f in findings:
         print(f"{f.path}:{f.line}: {f.message}")
     return 1 if findings else 0

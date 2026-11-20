@@ -10,9 +10,9 @@
 from collections.abc import Mapping
 from pathlib import Path
 
-from conftest import GitRepo
+from conftest import WORKFLOWS, GitRepo
 
-from check_skipped_tests import platforms
+from check_skipped_tests import check_platforms
 
 TS = 'it("a", () => {});\n'
 PY = "def test_a() -> None:\n    pass\n"
@@ -45,8 +45,8 @@ def _ci(workflow: str, directory: str, **inputs: object) -> str:
 
 
 def _paths(repo: GitRepo, ci: str, files: Mapping[str, str]) -> list[str]:
-    repo.commit({".github/workflows/ci.yaml": ci, **files})
-    return [f.path for f in platforms(root=repo.path)]
+    repo.commit({".github/workflows/ci.yaml": ci, **WORKFLOWS, **files})
+    return [f.path for f in check_platforms(root=repo.path)]
 
 
 class TestPlatformBreaks:
@@ -112,15 +112,20 @@ class TestPlatformBreaks:
     ) -> None:
         conftest = (
             "import sys\n\n"
-            'collect_ignore_glob = [] if sys.platform == "darwin" else ["*_darwin.py"]\n'
+            "collect_ignore_glob = "
+            '[] if sys.platform == "darwin" else ["*_darwin.py"]\n'
         )
         files = {
             "lib/tests/conftest.py": conftest,
             "lib/tests/test_a_darwin.py": PY,
             "lib/tests/test_b_win32.py": PY,
         }
+        # The conftest lacks the line that the check names, so both files fail.
         ci = _ci("test.py.yaml", "lib", macos=True, windows=True)
-        assert _paths(git_repo, ci, files) == ["lib/tests/test_b_win32.py"]
+        assert _paths(git_repo, ci, files) == [
+            "lib/tests/test_a_darwin.py",
+            "lib/tests/test_b_win32.py",
+        ]
 
     def test_go_platform_file_that_no_ci_platform_runs(self, git_repo: GitRepo) -> None:
         # No Go job of ci.yaml runs FreeBSD, so the test runs nowhere.

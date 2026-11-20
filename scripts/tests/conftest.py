@@ -91,6 +91,15 @@ def copyright_repo(tmp_path: Path) -> CopyrightRepo:
     return CopyrightRepo(tmp_path)
 
 
+# The test workflows that the platform check of check_skipped_tests reads, by path.
+WORKFLOWS = {
+    f".github/workflows/{name}": (
+        Path(__file__).resolve().parents[2] / ".github/workflows" / name
+    ).read_text()
+    for name in ("test.ts.yaml", "test.py.yaml", "test.go.yaml")
+}
+
+
 class GitRepo:
     """A Git repository in a temporary directory, with a fixed author."""
 

@@ -14,9 +14,9 @@ in `tests/` (Python).
 - Never add a skipped or pending test: the `skipped-tests` CI job fails a change that
   raises the count of skip markers in the test files it touches
   (`scripts/check_skipped_tests.py`). A platform case uses a build tag or a platform
-  file. In TypeScript and Python, name the file for its platform (`a.darwin.spec.ts`,
-  `test_a_win32.py`; also `linux`, and `posix` for all but Windows). The job then names
-  the line that the package's test config needs to run the file only there.
+  file: `a_windows_test.go`, `a.darwin.spec.ts`, or `test_a_win32.py` (also `linux`, and
+  `posix` for all but Windows). The CI job of the package must test on that OS, and the
+  check names the line that the package's test config needs to run the file only there.
 
 ## Live-Core tests
 

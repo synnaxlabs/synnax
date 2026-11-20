@@ -46,11 +46,11 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 - `uv run --project scripts scripts/check_skipped_tests.py --base <commit>` fails when
   the sum of the skip markers in the Go, TypeScript, Python, and C++ test files that a
   change touches rose since the commit, so a test that moves with its marker passes. It
-  names each added marker line. It also fails a platform test file, such as
-  `a.darwin.spec.ts` or `test_a_win32.py`, that no CI platform runs, or that its
-  package's test config does not exclude on the other platforms, and names the line to
-  add. The `skipped-tests` CI job runs it on each pull request and merge group; it has
-  no escape.
+  names each added marker line. It also scans every tracked file and fails a platform
+  test file, such as `a.darwin.spec.ts`, `test_a_win32.py`, or `a_windows_test.go`, that
+  no CI platform runs, or that its package's test config does not exclude on the other
+  platforms, and names the input or the line to add. The `skipped-tests` CI job runs it
+  on each pull request and merge group; it has no escape.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory

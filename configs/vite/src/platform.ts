@@ -12,9 +12,8 @@ const PLATFORMS = ["darwin", "linux", "win32"];
 /**
  * Returns the globs of the test files that do not run on platform. A test file named
  * for a platform, as in `a.darwin.spec.ts`, runs only there, and one named for `posix`
- * runs everywhere but `win32`. A bench file is no platform file, and runs everywhere.
- * Add the globs to `test.exclude`, after `configDefaults.exclude` of `vitest/config`,
- * which an `exclude` replaces.
+ * runs everywhere but `win32`. Add the globs to `test.exclude`, after
+ * `configDefaults.exclude` of `vitest/config`, which an `exclude` replaces.
  *
  * @param platform - The platform the tests run on, as `process.platform` names it.
  */

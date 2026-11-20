@@ -14,9 +14,9 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
-from conftest import GitRepo
+from conftest import WORKFLOWS, GitRepo
 
-from check_skipped_tests import check, language, markers, platforms
+from check_skipped_tests import check, check_platforms, language, markers
 
 GO = 'package a\n\nvar _ = It("a", func() {})\n'
 TS = 'it("a", () => {});\n'
@@ -302,7 +302,8 @@ class TestCheck:
     def test_should_exit_with_one_on_a_finding(
         self, git_repo: GitRepo, line: str, code: int
     ) -> None:
-        _findings(git_repo, {"a_test.go": GO}, {"a_test.go": GO + line})
+        ci = {".github/workflows/ci.yaml": "jobs: {}\n", **WORKFLOWS}
+        _findings(git_repo, {"a_test.go": GO, **ci}, {"a_test.go": GO + line})
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "--base", "HEAD~1"],
             cwd=git_repo.path,
@@ -358,14 +359,18 @@ TS_LINE = (
     "`...platformExcludes()` from `@synnaxlabs/vite-plugin` to each `test.exclude`, "
     "after `...configDefaults.exclude` from `vitest/config`"
 )
-IGNORES = "import sys\n\ncollect_ignore_glob = [] if sys.platform else []\n"
+IGNORES = (
+    "import sys\n\n"
+    'collect_ignore_glob = [f"*_{p}.py" for p in {"darwin", "linux", "win32"} - '
+    '{sys.platform}] + (["*_posix.py"] if sys.platform == "win32" else [])\n'
+)
 
 
 def _platforms(repo: GitRepo, files: Mapping[str, str]) -> list[str]:
     """Commits ci.yaml and files, and returns the path and message of each finding of
     the platform check."""
-    repo.commit({".github/workflows/ci.yaml": CI, **files})
-    return [f"{f.path}: {f.message}" for f in platforms(root=repo.path)]
+    repo.commit({".github/workflows/ci.yaml": CI, **WORKFLOWS, **files})
+    return [f"{f.path}: {f.message}" for f in check_platforms(root=repo.path)]
 
 
 class TestPlatforms:
@@ -446,9 +451,11 @@ class TestPlatforms:
         self, git_repo: GitRepo
     ) -> None:
         ci = "jobs:\n  web:\n    uses: ./.github/workflows/test.ts.yaml\n    with: {}\n"
-        git_repo.commit({".github/workflows/ci.yaml": ci, "web/a.darwin.spec.ts": TS})
+        git_repo.commit(
+            {".github/workflows/ci.yaml": ci, **WORKFLOWS, "web/a.darwin.spec.ts": TS}
+        )
         with pytest.raises(KeyError):
-            platforms(root=git_repo.path)
+            check_platforms(root=git_repo.path)
 
     def test_should_take_a_posix_file_as_run_on_macos(self, git_repo: GitRepo) -> None:
         files = {"lib/tests/conftest.py": IGNORES, "lib/tests/test_a_posix.py": PY}
@@ -472,3 +479,100 @@ class TestPlatforms:
         files = {"lib/tests/conftest.py": static, "lib/tests/test_a_darwin.py": PY}
         (finding,) = _platforms(git_repo, files)
         assert finding.startswith("lib/tests/test_a_darwin.py: lib/tests/conftest.py")
+
+
+def _gaps(
+    repo: GitRepo,
+    ci: str,
+    files: Mapping[str, str],
+    workflows: Mapping[str, str] = WORKFLOWS,
+) -> list[str]:
+    """Commits ci.yaml, the workflows, and files, and returns the path and message of
+    each finding of the platform check."""
+    repo.commit({".github/workflows/ci.yaml": ci, **workflows, **files})
+    return [f"{f.path}: {f.message}" for f in check_platforms(root=repo.path)]
+
+
+def _job(workflow: str, **inputs: str) -> str:
+    lines = [f"      {k}: {v}" for k, v in {"directory": "lib", **inputs}.items()]
+    head = ["jobs:", "  lib:", f"    uses: ./.github/workflows/{workflow}", "    with:"]
+    return "\n".join([*head, *lines, ""])
+
+
+class TestPlatformWorkflows:
+    """The platform check reads what each test workflow runs from its file."""
+
+    def test_should_read_an_input_default_from_the_workflow(
+        self, git_repo: GitRepo
+    ) -> None:
+        name = ".github/workflows/test.ts.yaml"
+        macos = (
+            "Whether to test on macOS\n        required: false\n        type: boolean"
+        )
+        ts = WORKFLOWS[name].replace(
+            f"{macos}\n        default: false", f"{macos}\n        default: true"
+        )
+        assert ts != WORKFLOWS[name]
+        files = {"lib/vite.config.ts": EXCLUDES, "lib/a.darwin.spec.ts": TS}
+        workflows = {**WORKFLOWS, name: ts}
+        assert _gaps(git_repo, _job("test.ts.yaml"), files, workflows) == []
+
+    def test_should_raise_on_a_broken_ci_yaml_with_no_platform_file(
+        self, git_repo: GitRepo
+    ) -> None:
+        ci = "jobs:\n  lib:\n    uses: ./.github/workflows/test.ts.yaml\n"
+        with pytest.raises(KeyError):
+            _gaps(git_repo, ci, {"lib/a.spec.ts": TS})
+
+    def test_should_raise_on_a_workflow_with_no_test_matrix(
+        self, git_repo: GitRepo
+    ) -> None:
+        empty = "on:\n  workflow_call:\n    inputs: {}\njobs: {}\n"
+        workflows = {**WORKFLOWS, ".github/workflows/test.py.yaml": empty}
+        with pytest.raises(
+            ValueError, match=r"test\.py\.yaml has 0 jobs with an os matrix, not 1"
+        ):
+            _gaps(git_repo, "jobs: {}\n", {}, workflows)
+
+    def test_should_name_the_input_for_a_go_platform_file(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/a_darwin_test.go": GO}
+        assert _gaps(git_repo, _job("test.go.yaml"), files) == [
+            "lib/a_darwin_test.go: no CI platform runs a darwin test: set `macos` on "
+            "the `lib` job of .github/workflows/ci.yaml"
+        ]
+
+    def test_should_fail_a_go_platform_that_no_ci_runner_has(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/a_freebsd_amd64_test.go": GO}
+        assert _gaps(git_repo, _job("test.go.yaml"), files) == [
+            "lib/a_freebsd_amd64_test.go: no CI platform runs a freebsd test"
+        ]
+
+    def test_should_take_a_go_word_after_the_platform_as_a_plain_name(
+        self, git_repo: GitRepo
+    ) -> None:
+        files = {"lib/a_freebsd_helper_test.go": GO, "lib/freebsd_test.go": GO}
+        assert _gaps(git_repo, _job("test.go.yaml"), files) == []
+
+    def test_should_name_the_spec_file_for_a_test_file_with_a_core_image(
+        self, git_repo: GitRepo
+    ) -> None:
+        ci = _job("test.ts.yaml", core_image="img", macos="true")
+        files = {"lib/vite.config.ts": EXCLUDES, "lib/a.darwin.test.ts": TS}
+        assert _gaps(git_repo, ci, files) == [
+            "lib/a.darwin.test.ts: with a `core_image`, test.ts.yaml runs only "
+            "`*.spec.ts` files off Linux: name it `a.darwin.spec.ts`"
+        ]
+
+    def test_should_name_the_test_input_of_a_job_that_runs_no_tests(
+        self, git_repo: GitRepo
+    ) -> None:
+        ci = _job("test.py.yaml", test="false")
+        files = {"lib/tests/conftest.py": IGNORES, "lib/tests/test_a_linux.py": PY}
+        assert _gaps(git_repo, ci, files) == [
+            "lib/tests/test_a_linux.py: the `lib` job of .github/workflows/ci.yaml "
+            "sets `test` to false"
+        ]
