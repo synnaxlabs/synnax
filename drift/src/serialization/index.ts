@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, type UnknownAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
-import { type Event } from "@/runtime";
-import { type StoreState } from "@/state";
+import type { Event } from "@/runtime";
+import type { StoreState } from "@/state";
 
 export const encode = <S extends StoreState, A extends Action = UnknownAction>(
   event: Event<S, A>,

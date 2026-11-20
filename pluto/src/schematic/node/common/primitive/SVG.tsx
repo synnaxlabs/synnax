@@ -20,7 +20,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
+import type { SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
 export interface SVGProps

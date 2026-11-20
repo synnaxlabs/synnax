@@ -11,7 +11,7 @@ import { testCoreAddress } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Core, SLICE_NAME } from "@/session/core/slice";
-import { type ConsolePreloadedState } from "@/testutil";
+import type { ConsolePreloadedState } from "@/testutil";
 
 /** Connection parameters for the local test core every live-core spec runs against. */
 export const CONNECTION_PARAMS: Omit<Core, "key" | "name"> = {

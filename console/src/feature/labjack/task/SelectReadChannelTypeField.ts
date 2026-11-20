@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   type Model,
@@ -16,7 +16,7 @@ import {
   T7_MODEL,
   T8_MODEL,
 } from "@/feature/labjack/device/types";
-import { type ReadChannelType } from "@/feature/labjack/task/types";
+import type { ReadChannelType } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
 export const READ_CHANNEL_TYPE_NAMES = {

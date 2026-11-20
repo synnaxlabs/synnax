@@ -9,7 +9,7 @@
 
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";

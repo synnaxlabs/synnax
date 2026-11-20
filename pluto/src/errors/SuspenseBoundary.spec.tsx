@@ -12,7 +12,7 @@ import { act, render } from "@testing-library/react";
 import { type ReactElement, use } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type FallbackProps } from "@/errors/Fallback";
+import type { FallbackProps } from "@/errors/Fallback";
 import { SuspenseBoundary } from "@/errors/SuspenseBoundary";
 
 const Suspender = ({ promise }: { promise: Promise<string> }): ReactElement => (

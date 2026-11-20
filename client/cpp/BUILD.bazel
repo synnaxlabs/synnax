@@ -24,6 +24,7 @@ cc_library(
     deps = [
         "//client/cpp/arc",
         "//client/cpp/auth",
+        "//client/cpp/certificate",
         "//client/cpp/channel",
         "//client/cpp/connection",
         "//client/cpp/control",
@@ -32,6 +33,7 @@ cc_library(
         "//client/cpp/icd",
         "//client/cpp/rack",
         "//client/cpp/ranger",
+        "//client/cpp/secret",
         "//client/cpp/status",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
