@@ -228,7 +228,7 @@ jobs:
       needs.setup.result == 'success' && (needs.build.result == 'success' ||
       needs.build.result == 'skipped') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 60
     permissions:
       actions: read
       contents: read
