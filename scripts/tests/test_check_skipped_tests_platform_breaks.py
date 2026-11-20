@@ -136,3 +136,19 @@ class TestPlatformBreaks:
         files = {"web/vite.config.ts": EXCLUDES, "web/src/a.darwin.spec.ts": TS}
         ci = _ci("test.ts.yaml", "web", macos=True, test=False)
         assert _paths(git_repo, ci, files) == ["web/src/a.darwin.spec.ts"]
+
+    def test_client_ts_linux_test_file_runs(self, git_repo: GitRepo) -> None:
+        # Linux runners start a Core, so they run every test file.
+        files = {
+            "client/ts/vite.config.ts": EXCLUDES,
+            "client/ts/src/a.linux.test.ts": TS,
+        }
+        assert _paths(git_repo, CI_YAML, files) == []
+
+    def test_client_ts_posix_test_file_runs(self, git_repo: GitRepo) -> None:
+        # A posix file runs on Linux, so the macOS spec rule does not fail it.
+        files = {
+            "client/ts/vite.config.ts": EXCLUDES,
+            "client/ts/src/a.posix.test.ts": TS,
+        }
+        assert _paths(git_repo, CI_YAML, files) == []
