@@ -123,6 +123,9 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         names = sy.poll(renamed, timeout=5, interval=0.25)
         assert names is not None, "The Core never held the renamed entry"
 
+        offset = indicator.used_by_offset()
+        assert abs(offset) < 1, f"Used by starts {offset} px right of the picker"
+
         self.log("Moving the options of a new State Indicator into an enumeration")
         PUMP_NAME = f"pump_state_{random_name()}"
         self.created.append(PUMP_NAME)

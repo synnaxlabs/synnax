@@ -9,16 +9,13 @@
 
 import { type enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Enumeration as PEnumeration } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/platform/enumeration";
-import { Modals } from "@/platform/modals";
-import { createConsoleWrapper } from "@/testutil";
+import { renderModalOpener } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
@@ -29,22 +26,13 @@ interface Opened {
 
 /** Opens the prompt that the provider gives. */
 const openPrompt = async (params: PEnumeration.CreatePromptParams): Promise<Opened> => {
-  const { wrapper: Console } = await createConsoleWrapper({ client });
-  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>
-      <Triggers.Provider>
-        <Enumeration.CreatePromptProvider>{children}</Enumeration.CreatePromptProvider>
-        <Modals.Stack />
-      </Triggers.Provider>
-    </Console>
-  );
-  const { result } = renderHook(() => PEnumeration.useCreatePrompt(), { wrapper });
-  const opened: Opened = { result: Promise.resolve(null) };
-  // Modal content that suspends needs an awaited act on its first open.
-  await act(async () => {
-    opened.result = result.current(params);
+  const { result } = await renderModalOpener(PEnumeration.useCreatePrompt, [params], {
+    client,
+    provider: Enumeration.CreatePromptProvider,
   });
-  return opened;
+  const opened = result();
+  if (opened == null) throw new Error("the prompt did not open");
+  return { result: opened };
 };
 
 const nameField = async (): Promise<HTMLInputElement> =>

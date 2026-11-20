@@ -15,9 +15,9 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Enumeration } from "@/enumeration";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
+import { CreatePromptStub } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.SelectNodeConfig>();
@@ -33,9 +33,7 @@ describe("SelectForm", () => {
     const Base = await createAsyncSynnaxWrapper({ client });
     wrapper = ({ children }) => (
       <Base>
-        <Enumeration.CreatePromptProvider value={vi.fn()}>
-          {children}
-        </Enumeration.CreatePromptProvider>
+        <CreatePromptStub>{children}</CreatePromptStub>
       </Base>
     );
     ch = await client.channels.create({
