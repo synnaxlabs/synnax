@@ -409,8 +409,15 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 	freeAlignments = lo.Assign(freeAlignments, leasedAlignment)
+	// A writer on a leased virtual channel holds it against a delete, as a writer on a
+	// stored channel does. Free channels have no delete claim.
+	releaseLeased, err := s.claims.hold(leased.Keys)
+	if err != nil {
+		return nil, err
+	}
 	leasedGates, transfers, err := s.controls.openGates(leased, virtualChannels)
 	if err != nil {
+		releaseLeased()
 		return nil, err
 	}
 
@@ -426,6 +433,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		w, err := s.newStorage(ctx, storedCfg, stored)
 		if err != nil {
 			leasedGates.release()
+			releaseLeased()
 			return nil, err
 		}
 		pipe.SetSegment(storageWriterAddr, w)
@@ -443,6 +451,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			freeAlignments,
 			cfg.ControlSubject.Group,
 			leasedGates,
+			releaseLeased,
 		)
 		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)

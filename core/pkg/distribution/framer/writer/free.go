@@ -69,6 +69,7 @@ func (s *Service) newFree(
 	alignments map[channel.Key]telem.Alignment,
 	group uint32,
 	g *gates,
+	release func(),
 ) StreamWriter {
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
@@ -87,6 +88,7 @@ func (s *Service) newFree(
 		stamper:    newUnindexedStamper(unindexed),
 		gates:      g,
 		controls:   s.controls,
+		release:    release,
 	}
 	w.Transform = w.transform
 	return w
@@ -112,6 +114,8 @@ type freeWriter struct {
 	// channel. Free channels have no control.
 	gates    *gates
 	controls *controls
+	// release releases the writer's hold on its leased virtual channels.
+	release func()
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
 	// writeRefused is true when a write was refused for no control since the last
@@ -119,10 +123,12 @@ type freeWriter struct {
 	writeRefused bool
 }
 
-// Flow implements confluence.Flow. The writer releases its gates when it exits.
+// Flow implements confluence.Flow. The writer releases its gates and its hold when it
+// exits.
 func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	w.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
 		w.controls.notify(w.gates.release())
+		w.release()
 	}))...)
 }
 
