@@ -1230,6 +1230,33 @@ Node union on variant {
 					value T
 				}
 			`, "test.Range.min has an lt rule, but test.Range is generic"),
+			Entry("inherited by a generic struct", `
+				Range struct {
+					min float64 { @validate lt max }
+					max float64
+				}
+				Holder struct<T> extends Range {
+					value T
+				}
+			`, "test.Holder.min has an lt rule, but test.Holder is generic"),
+			Entry("comparing two number types", `
+				Range struct {
+					min int32 { @validate lt max }
+					max float64
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a distinct type with its base", `
+				Key uint32
+				Range struct {
+					min Key { @validate lt max }
+					max uint32
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("scoped to Go, naming a field the struct does not have", `
+				Range struct {
+					min float64 { @go validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
 		)
 
 		DescribeTable(
@@ -1250,6 +1277,13 @@ Node union on variant {
 				}
 				Range struct extends Upper {
 					min int32 { @validate lt max }
+				}
+			`),
+			Entry("comparing aliases of one type", `
+				Bound = float64
+				Range struct {
+					min Bound { @go validate lt max }
+					max float64
 				}
 			`),
 		)

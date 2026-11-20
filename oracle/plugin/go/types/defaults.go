@@ -773,20 +773,37 @@ func goConstraintChecks(
 	if resolution.IsNumberPrimitive(base) {
 		checks = append(checks, numberChecks(rules, required, check)...)
 	}
-	if lt := rules.LessThan; lt != nil {
-		message := lt.Message
-		if message == "" {
-			message = "must be less than " + lt.Field
-		}
-		c := check("lt", naming.ToPascalCase(lt.Field))
-		c.Message = strconv.Quote(message)
-		checks = append(checks, c)
-	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true
 		checks[len(checks)-1].Closes = true
 	}
 	return checks
+}
+
+// goLessThanCheck returns the check of the lt rule that field sets for Go. siblings are
+// the fields of field's struct, which hold the compared field.
+func goLessThanCheck(
+	field resolution.Field,
+	siblings []resolution.Field,
+) (constraintCheckData, bool) {
+	lt := validation.LessThan(field.Domains, "go")
+	if lt == nil {
+		return constraintCheckData{}, false
+	}
+	other := lo.Must(lo.Find(siblings, func(f resolution.Field) bool {
+		return f.Name == lt.Field
+	}))
+	message := lt.Message
+	if message == "" {
+		message = "must be less than " + lt.Field
+	}
+	return constraintCheckData{
+		GoName:    naming.GetFieldName(field),
+		FieldName: casing.FieldSnake(field.Name),
+		Kind:      "lt",
+		Arg:       naming.GetFieldName(other),
+		Message:   strconv.Quote(message),
+	}, true
 }
 
 // constraintCheck builds the check of one constraint kind with its argument.
@@ -924,7 +941,8 @@ func validateHasOwn(f resolution.Field, data *templateData) bool {
 	if _, ok := goEnumCheck(f, probe); ok {
 		return true
 	}
-	return len(goConstraintChecks(f, false, probe)) > 0
+	return len(goConstraintChecks(f, false, probe)) > 0 ||
+		validation.LessThan(f.Domains, "go") != nil
 }
 
 // methodRule selects the types that emit a recursive method.

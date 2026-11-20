@@ -105,6 +105,25 @@ func Parse(domain resolution.Domain) *Rules {
 	return rules
 }
 
+// LessThan returns the lt rule that domains set for lang: one set with `@validate lt`,
+// else one set with `@<lang> validate lt`. It returns nil when neither sets one.
+func LessThan(domains map[string]resolution.Domain, lang string) *Comparison {
+	if lt := Parse(domains["validate"]).LessThan; lt != nil {
+		return lt
+	}
+	expr, ok := domains[lang].Expressions.Find("validate")
+	if !ok || len(expr.Values) == 0 {
+		return nil
+	}
+	scoped := resolution.Expression{
+		Name:   expr.Values[0].IdentValue,
+		Values: expr.Values[1:],
+	}
+	return Parse(
+		resolution.Domain{Expressions: resolution.Expressions{scoped}},
+	).LessThan
+}
+
 // FieldRules returns the rules that apply to field: its own rules merged with the
 // TypeRules of its type chain. Skip comes from the field alone.
 func FieldRules(field resolution.Field, table *resolution.Table) *Rules {

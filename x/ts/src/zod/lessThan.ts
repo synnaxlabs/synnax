@@ -15,7 +15,7 @@ import type { z } from "zod";
  */
 export const lessThan =
   <K extends string, O extends string>(key: K, other: O, message: string) =>
-  <T extends Record<K | O, number>>(ctx: z.core.ParsePayload<T>): void => {
+  <T extends Record<K | O, number | bigint>>(ctx: z.core.ParsePayload<T>): void => {
     if (ctx.value[key] < ctx.value[other]) return;
     ctx.issues.push({
       continue: true,

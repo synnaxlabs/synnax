@@ -831,6 +831,12 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 						@validate lt high "low must be below high"
 					}
 					high int32
+					lower uint32 {
+						@go validate lt upper
+					}
+					upper uint32 {
+						@go name "UpperBound"
+					}
 				}
 
 				Holder struct extends Range {
@@ -847,6 +853,7 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			ExpectContent(resp, "types.gen.go").ToContain(
 				`v.Ternary("min", !(r.Min < r.Max), "must be less than max")`,
 				`v.Ternary("low", !(r.Low < r.High), "low must be below high")`,
+				`v.Ternary("lower", !(r.Lower < r.UpperBound), "must be less than upper")`,
 				`v.Exec(h.Range.Validate)`,
 				`v.Exec(r.Range.Validate)`,
 			)
