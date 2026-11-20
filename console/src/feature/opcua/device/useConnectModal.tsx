@@ -9,7 +9,14 @@
 
 import "@/feature/opcua/device/Connect.css";
 
-import { type device, status, TimeSpan } from "@synnaxlabs/client";
+import {
+  type certificate,
+  type device,
+  type secret,
+  status,
+  type Synnax,
+  TimeSpan,
+} from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +24,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
+import { deep, primitive, verbs } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
@@ -37,6 +44,7 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
+  type ConnectionConfig,
   type Device,
   INTEGRATION_KEY,
   NO_SECURITY_MODE,
@@ -52,14 +60,18 @@ import {
   testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
+import { Certificate } from "@/platform/certificate";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Secret } from "@/platform/secret";
 
 const path = deep.path<Device>();
 
+const DEFAULT_NAME = "OPC UA server";
+
 const INITIAL_VALUES: Device = {
   key: "",
-  name: "OPC UA server",
+  name: DEFAULT_NAME,
   make: "opc",
   model: "OPC UA server",
   location: "",
@@ -78,7 +90,73 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => set(path.location, get(path.properties.connection.endpoint).value);
 
-type ClientCertificateSource = "driver" | "files";
+type ClientCertificateSource = "driver" | "certificate";
+
+interface GrantItems {
+  secrets: secret.Key[];
+  certificates: certificate.Key[];
+}
+
+/**
+ * @returns the secrets and certificates that the Driver reads to connect: the password,
+ * and the client certificate as a file or the secret that holds its private key. An
+ * unsecured connection presents no client certificate.
+ */
+const retrieveGrantItems = async (
+  client: Synnax,
+  { password, clientCertificate, securityPolicy }: ConnectionConfig,
+): Promise<GrantItems> => {
+  const secrets = primitive.isZero(password) ? [] : [password];
+  if (primitive.isZero(clientCertificate) || securityPolicy === NO_SECURITY_POLICY)
+    return { secrets, certificates: [] };
+  const c = await client.certificates.retrieve(clientCertificate);
+  if (c.source === "file") return { secrets, certificates: [c.key] };
+  if (c.privateKey == null)
+    throw new Error(`Certificate ${c.name} has no private key.`);
+  return { secrets: [...secrets, c.privateKey], certificates: [] };
+};
+
+interface TrustParams {
+  /** The device, empty for a device not yet saved. */
+  device: device.Key;
+  /** The current server certificate of the device, empty for none. */
+  current: certificate.Key;
+  /** The name of a new certificate. */
+  name: string;
+  /** The certificate that the server offered, as PEM. */
+  pem: string;
+}
+
+/**
+ * Saves the certificate that the server offered. It replaces the current certificate in
+ * place, with its name, when that certificate is stored, has no private key, and no
+ * other record uses it. Otherwise it creates a new certificate.
+ */
+const { useUpdate: useTrust } = Flux.createUpdate<TrustParams, certificate.Certificate>(
+  {
+    name: "server certificate",
+    verbs: verbs.SAVE,
+    update: async ({ client, data: { device: key, current, name, pem } }) => {
+      if (!primitive.isZero(current)) {
+        const c = await client.certificates.retrieve({
+          key: current,
+          includeUses: true,
+        });
+        const onlyThisDevice = (c.uses ?? []).every(
+          (id) => id.type === "device" && id.key === key,
+        );
+        if (c.source === "stored" && c.privateKey == null && onlyThisDevice)
+          return await client.certificates.set({
+            key: c.key,
+            name: c.name,
+            source: "stored",
+            pem,
+          });
+      }
+      return await client.certificates.set({ name, source: "stored", pem });
+    },
+  },
+);
 
 const DEPRECATED_SECURITY_POLICIES = new Set<SecurityPolicy>([
   BASIC256_SECURITY_POLICY,
@@ -115,6 +193,7 @@ export const Connect = ({
       type: TEST_CONNECTION_COMMAND_TYPE,
       timeout: commandTimeout(connection),
       args: { connection },
+      ...(await retrieveGrantItems(client, connection)),
     });
     if (scanStatus.variant === "error") {
       const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
@@ -171,24 +250,20 @@ export const Connect = ({
     path.properties.connection.clientCertificate,
     { ctx: form },
   );
-  const clientPrivateKey = Form.useFieldValue(
-    path.properties.connection.clientPrivateKey,
+  const serverCertificate = Form.useFieldValue(
+    path.properties.connection.serverCertificate,
     { ctx: form },
   );
-  const serverCertificate =
-    Form.useFieldValue(path.properties.connection.serverCertificate, { ctx: form }) ??
-    "";
-  // Empty paths select the Driver certificate, so a device that names files has chosen
-  // them until the user picks again.
-  const hasFiles = (clientCertificate ?? "") !== "" || (clientPrivateKey ?? "") !== "";
-  const source = clientCertificateSource ?? (hasFiles ? "files" : "driver");
+  // An empty client certificate selects the Driver certificate, so a device that names
+  // one has chosen it until the user picks again.
+  const source =
+    clientCertificateSource ??
+    (primitive.isZero(clientCertificate) ? "driver" : "certificate");
 
   const handleSourceChange = (next: ClientCertificateSource) => {
     setClientCertificateSource(next);
     setClientCertificateRejection(null);
-    if (next !== "driver") return;
-    setField(path.properties.connection.clientCertificate, "");
-    setField(path.properties.connection.clientPrivateKey, "");
+    if (next === "driver") setField(path.properties.connection.clientCertificate, "");
   };
 
   const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
@@ -196,10 +271,19 @@ export const Connect = ({
     setField(path.properties.connection.securityPolicy, policy);
   };
 
-  const handleTrust = (offer: CertificateInfo) => {
-    setField(path.properties.connection.serverCertificate, offer.pem);
-    save();
-  };
+  const { update: trust } = useTrust({
+    afterSuccess: ({ data }) => {
+      setField(path.properties.connection.serverCertificate, data.key);
+      save();
+    },
+  });
+  const handleTrust = (offer: CertificateInfo) =>
+    trust({
+      device: getField(path.key).value,
+      current: serverCertificate,
+      name: `${getField(path.name).value || DEFAULT_NAME} server certificate`,
+      pem: offer.pem,
+    });
 
   const renderSecurityMode = ({
     onChange,
@@ -282,36 +366,35 @@ export const Connect = ({
                         <Select.Item<ClientCertificateSource> itemKey="driver">
                           Driver certificate
                         </Select.Item>
-                        <Select.Item<ClientCertificateSource> itemKey="files">
-                          Files on the Driver computer
+                        <Select.Item<ClientCertificateSource> itemKey="certificate">
+                          Saved certificate
                         </Select.Item>
                       </Select.Buttons>
                       {source === "driver" && <DriverCertificate rack={rackKey} />}
                     </Flex.Box>
                   </Input.Item>
-                  {source === "files" && (
-                    <>
-                      <Form.TextField
-                        path={path.properties.connection.clientCertificate}
-                        label="Certificate file"
-                        padHelpText={false}
-                        inputProps={PATH_INPUT_PROPS}
-                      />
-                      <Form.TextField
-                        path={path.properties.connection.clientPrivateKey}
-                        label="Private key file"
-                        padHelpText={false}
-                        inputProps={PATH_INPUT_PROPS}
-                      />
-                    </>
+                  {source === "certificate" && (
+                    <DeviceCertificateField
+                      path={path.properties.connection.clientCertificate}
+                      label="Certificate"
+                      role="client certificate"
+                      padHelpText={false}
+                    />
                   )}
-                  <Input.Item label="Server certificate">
+                  <Flex.Box y gap={2}>
+                    <DeviceCertificateField
+                      path={path.properties.connection.serverCertificate}
+                      label="Server certificate"
+                      role="server certificate"
+                      padHelpText={false}
+                      allowNone
+                    />
                     <ServerCertificate
-                      pem={serverCertificate}
+                      trusted={!primitive.isZero(serverCertificate)}
                       offer={serverCertificateOffer}
                       onTrust={handleTrust}
                     />
-                  </Input.Item>
+                  </Flex.Box>
                   <ValidationField />
                 </>
               )}
@@ -373,20 +456,47 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
-/** The username, with the password beside it at the same width. */
-const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => (
-  <div className={CSS.BE("opc-connect", "login")}>
-    <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
-    <Form.TextField
-      path={path.properties.connection.password}
-      label="Password"
-      padHelpText={false}
-      inputProps={PASSWORD_INPUT_PROPS}
-    />
-  </div>
-);
+/** The username, with the password secret beside it at the same width. */
+const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => {
+  const name = Form.useFieldValue(path.name);
+  const rack = Form.useFieldValue(path.rack);
+  return (
+    <div className={CSS.BE("opc-connect", "login")}>
+      <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
+      <Secret.Field
+        path={path.properties.connection.password}
+        label="Password"
+        defaultName={`${name || DEFAULT_NAME} password`}
+        rack={rack}
+        padHelpText={false}
+        allowNone
+      />
+    </div>
+  );
+};
 
 const renderLogin = Component.renderProp(LoginField);
+
+interface DeviceCertificateFieldProps extends Omit<
+  Certificate.FieldProps,
+  "defaultName" | "rack"
+> {
+  /** What a new certificate is to the device, such as "server certificate". */
+  role: string;
+}
+
+/** A certificate field whose new certificate starts with the name of the device. */
+const DeviceCertificateField = ({ role, ...rest }: DeviceCertificateFieldProps) => {
+  const name = Form.useFieldValue(path.name);
+  const rack = Form.useFieldValue(path.rack);
+  return (
+    <Certificate.Field
+      {...rest}
+      defaultName={`${name || DEFAULT_NAME} ${role}`}
+      rack={rack}
+    />
+  );
+};
 
 const VALIDATION_PATH = path.properties.connection.certificateValidationDisabled;
 
@@ -416,9 +526,5 @@ const ENDPOINT_INPUT_PROPS = {
   placeholder: "opc.tcp://localhost:4840",
   autoFocus: true,
 } as const;
-
-const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
-
-const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
 
 const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };
