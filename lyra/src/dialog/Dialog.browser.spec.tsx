@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, render } from "@testing-library/react";
+// The pure entry leaves the act environment of the browser specs alone.
+import { act, cleanup, fireEvent, render } from "@testing-library/react/pure";
 import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
@@ -688,6 +689,8 @@ describe("Dialog", () => {
 });
 
 describe("Dialog", () => {
+  afterEach(cleanup);
+
   // These specs size their dialogs for a 1024 by 768 window.
   beforeEach(async () => {
     await page.viewport(1024, 768);
