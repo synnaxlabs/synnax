@@ -58,9 +58,9 @@ public:
     /// @returns CONFIGURATION_ERROR when reads is empty, ic has no message that a read
     /// names, a message is not JSON or binds no fields, channels has no channel that a
     /// binding names, the bound channels of a message do not share one index channel,
-    /// the index field does not write to an index channel, another field does, two
-    /// bindings or two messages write to one channel (an index channel included), or
-    /// the decoder rejects the messages.
+    /// the index field does not write to an index channel or takes a default, another
+    /// field writes to an index channel, two bindings or two messages write to one
+    /// channel (an index channel included), or the decoder rejects the messages.
     static std::pair<Reader, x::errors::Error> create(
         const std::vector<synnax::icd::ReadMessage> &reads,
         const synnax::icd::ICD &ic,
