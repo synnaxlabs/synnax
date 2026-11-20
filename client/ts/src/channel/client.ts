@@ -17,7 +17,6 @@ import {
   deep,
   filter,
   type MultiSeries,
-  sync,
   type TypedArray,
   zod,
 } from "@synnaxlabs/x";
@@ -261,14 +260,6 @@ const isOneParams = (params: object): params is RetrieveSingleParams | OneParams
 const stripComposed = ({ status: _status, uses: _uses, ...rest }: Payload): Payload =>
   rest;
 
-/** The records that use a channel, keyed by the channel. */
-interface Uses {
-  key: Key;
-  uses?: Use[];
-}
-
-const toUses = ({ key, uses }: Payload): Uses => ({ key, uses });
-
 const singleParamsZ = z.union([
   z.strictObject({ key: z.uint32() }),
   z.uint32().transform((key) => ({ key })),
@@ -323,11 +314,7 @@ export class Client extends query.Retriever<
   /** Builds requests that move channels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
-  private readonly usesStore: query.Table<Key, Uses>;
-  private readonly usesChanges: { count: number };
-  /** The keys, as text, of the channels that changes named since the last refetch. */
-  private readonly usesNamed: Set<string>;
-  private readonly refetchUses: () => void;
+  private readonly uses: query.Uses<Key, Channel, RetrieveRequest>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -380,45 +367,16 @@ export class Client extends query.Retriever<
       ],
     });
     statuses.holdOwned(store, resourceID);
-    // The channel table never holds uses. A retrieve that asks for them reads this one.
-    const usesStore = cache.createTable<Key, Uses>({
-      name: "channel.uses",
-      fetch: async (keys) =>
-        (
-          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
-        ).map(toUses),
-    });
-    // An answer that holds a channel composes its uses too.
-    usesStore.hold({ held: () => store.held() });
-    store.subscribe((event) => {
-      if (event.variant === "delete") usesStore.evict(event.key);
-    });
-    // A reference change names the channels whose uses changed. Refetches run one at a
-    // time, so an older reply cannot overwrite a newer one. A change that arrives while
-    // a refetch waits joins it.
-    const named = new Set<string>();
-    const refetchMu = sync.createMutex({ waiting: false });
-    const refetchUses = () => {
-      if (refetchMu.waiting) return;
-      refetchMu.waiting = true;
-      refetchMu
-        .runExclusive(async () => {
-          refetchMu.waiting = false;
-          const keys = usesStore.keys().filter((key) => named.has(String(key)));
-          named.clear();
-          if (keys.length > 0) await usesStore.retrieve(keys, { refresh: true });
-        })
-        .catch((exc: unknown) => {
-          // The reconcile after the next reconnect fetches the uses again.
-          if (isConnectionError(exc)) return;
-          cache.onError(new Error("failed to refetch channel uses", { cause: exc }));
-        });
-    };
-    const usesChanges = { count: 0 };
-    query.listenReferenceChanges(cache, TYPE_RESOURCE_ID.type, (keys) => {
-      usesChanges.count++;
-      keys.forEach((key) => named.add(key));
-      refetchUses();
+    // The channel table never holds uses. A retrieve that asks for them reads these.
+    const uses = new query.Uses<Key, Channel, RetrieveRequest>({
+      name: "channel",
+      cache,
+      table: store,
+      key: z.uint32(),
+      retrieve: async (req) => (await this.execRetrieve(req)).map(sugar),
+      request: (key) => ({ where: { key }, includeUses: true }),
+      type: TYPE_RESOURCE_ID.type,
+      strip: (ch) => sugar(stripComposed(ch.payload)),
     });
     // The built-in keys arrive with the first connection, and the Core checks the
     // internal line until then. A reconnect fetches them again and keeps the last keys
@@ -454,9 +412,7 @@ export class Client extends query.Retriever<
         fetch: async (query) => await this.fetchRequest(query),
         // A channel whose uses the client does not hold fetches the query again.
         matches: (ch, query) =>
-          query.includeUses === true && usesStore.get(ch.key) == null
-            ? null
-            : matches(lines, ch, query.where),
+          uses.lacks(ch, query) ? null : matches(lines, ch, query.where),
         serverComputed: (query) => serverComputed(lines, query.where),
         triggers: [
           query.trigger(
@@ -465,12 +421,7 @@ export class Client extends query.Retriever<
               query.includeStatus === true ? affectedChannelKeys(event) : null,
             { contentOnly: true },
           ),
-          query.trigger(
-            usesStore,
-            (event, query: RetrieveRequest) =>
-              query.includeUses === true ? [event.key] : null,
-            { contentOnly: true },
-          ),
+          uses.trigger,
         ],
       },
       compose: (ch, query) => {
@@ -491,10 +442,7 @@ export class Client extends query.Retriever<
       dispatcher.request("/channel/dispatch", key, acts, dispatchResZ),
     );
     this.byName = byName;
-    this.usesStore = usesStore;
-    this.usesChanges = usesChanges;
-    this.usesNamed = named;
-    this.refetchUses = refetchUses;
+    this.uses = uses;
   }
 
   /**
@@ -752,7 +700,7 @@ export class Client extends query.Retriever<
       );
       if (parsed.success) next.status = parsed.data;
     }
-    if (uses) next.uses = this.usesStore.get(payload.key)?.uses;
+    if (uses) next.uses = this.uses.usesOf(payload.key);
     return this.sugar(next);
   }
 
@@ -813,23 +761,10 @@ export class Client extends query.Retriever<
   }
 
   private async fetchRequest(req: RetrieveRequest): Promise<Channel[]> {
-    if (req.includeUses === true) return await this.fetchUses(req);
+    if (req.includeUses === true) return await this.uses.fetch(req);
     const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
     return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
-  }
-
-  /** Fetches the channels of req with their uses, which it saves to the uses table. */
-  private async fetchUses(req: RetrieveRequest): Promise<Channel[]> {
-    const changes = this.usesChanges.count;
-    const payloads = await this.execRetrieve(req);
-    this.usesStore.set(payloads.map(toUses));
-    // A refetch that a change started can miss these keys or land first.
-    if (this.usesChanges.count !== changes) {
-      payloads.forEach(({ key }) => this.usesNamed.add(String(key)));
-      this.refetchUses();
-    }
-    return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 }

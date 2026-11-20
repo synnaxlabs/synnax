@@ -83,7 +83,18 @@ export interface UsesConfig<
    * reconnect, refetches its uses when a maintained query watches it.
    */
   type: string;
+  /**
+   * Returns the record without its uses. Defaults to a copy without the uses field. Set
+   * it for records that a copy would change, such as class instances.
+   */
+  strip?: (record: R) => R;
 }
+
+const stripCopy = <R extends object & { uses?: unknown }>(record: R): R => {
+  const stripped = { ...record };
+  delete stripped.uses;
+  return stripped;
+};
 
 /**
  * Holds the uses of records, which are the resources that use each one, apart from the
@@ -194,6 +205,11 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     };
   }
 
+  /** @returns the uses of the record with key, if the client holds them. */
+  usesOf(key: K): R["uses"] | undefined {
+    return this.store.get(key)?.uses;
+  }
+
   /** @returns the record with its uses when the query asks for them. */
   compose(record: R, query: Params): R {
     if ((query as Request).includeUses !== true) return record;
@@ -223,11 +239,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
       if (named !== "all") records.forEach(({ key }) => named.add(String(key)));
       this.refetch();
     }
-    return records.map((r) => {
-      const stripped = { ...r };
-      delete stripped.uses;
-      return stripped;
-    });
+    return records.map(this.cfg.strip ?? stripCopy);
   }
 
   private watched(): Set<K> {

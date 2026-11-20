@@ -233,12 +233,12 @@ describe("channel.Client", () => {
   });
 
   describe("a reference change", () => {
-    it("should refetch the uses of only the channels it names", async () => {
+    it("should refetch the watched uses of only the channels it names", async () => {
       const { stream, channels, usesRetrieves } = await createStreamedClient();
-      await channels.retrieve({
-        where: { key: { in: [RENAMED.key, OTHER.key] } },
-        includeUses: true,
-      });
+      const q = { where: { key: { in: [RENAMED.key, OTHER.key] } }, includeUses: true };
+      const list = channels.watch(q);
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
       expect(usesRetrieves).toEqual([[RENAMED.key, OTHER.key]]);
       stream.push(
         new framer.Frame({
