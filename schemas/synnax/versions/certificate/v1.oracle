@@ -1,0 +1,26 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+
+Key = v0.Key
+
+Details = v0.Details
+
+Base = v0.Base
+
+Certificate union on source secret.Source extends v0.Certificate {
+    file {
+        details
+        rack    rack.Key {
+            @doc value "is the rack that reads the files."
+        }
+    }
+}
