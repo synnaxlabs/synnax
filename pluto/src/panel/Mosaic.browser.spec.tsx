@@ -853,8 +853,11 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("cross-panel drag", () => {
+    // A browser builds a drag event with no DataTransfer unless one is given.
+    const dragStart = (el: Element): boolean =>
+      fireEvent.dragStart(el, { dataTransfer: new DataTransfer() });
     const drop = (el: Element): boolean =>
-      fireEvent.drop(el, { clientX: 0, clientY: 0 });
+      fireEvent.drop(el, { clientX: 0, clientY: 0, dataTransfer: new DataTransfer() });
 
     // Two mosaics under one Haul.Provider stand in for two windows: drift mirrors
     // the dragging state across real windows, so both see the same haul.
@@ -912,7 +915,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(`name:${tab.key}`)).toBeTruthy());
 
       await act(async () => {
-        fireEvent.dragStart(utils.getByText(`name:${tab.key}`));
+        dragStart(utils.getByText(`name:${tab.key}`));
       });
 
       expect(hauled).toHaveLength(1);
@@ -936,7 +939,7 @@ describe("Panel.Mosaic", () => {
       const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
       expect(leaves).toHaveLength(2);
       await act(async () => {
-        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+        dragStart(utils.getByText(`name:${moved.key}`));
         drop(leaves[1]);
       });
 
@@ -969,7 +972,7 @@ describe("Panel.Mosaic", () => {
 
       const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
       await act(async () => {
-        fireEvent.dragStart(utils.getByText(`name:${first.key}`));
+        dragStart(utils.getByText(`name:${first.key}`));
         drop(leaves[0]);
       });
 
@@ -1007,7 +1010,7 @@ describe("Panel.Mosaic", () => {
       const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
       expect(leaves).toHaveLength(2);
       await act(async () => {
-        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+        dragStart(utils.getByText(`name:${moved.key}`));
         drop(leaves[1]);
       });
 
@@ -1048,7 +1051,7 @@ describe("Panel.Mosaic", () => {
 
       const leaves = utils.container.querySelectorAll(".pluto-mosaic__leaf");
       await act(async () => {
-        fireEvent.dragStart(utils.getByText(`name:${moved.key}`));
+        dragStart(utils.getByText(`name:${moved.key}`));
       });
       await writer.panels.retrieve(p.key);
       await act(async () => {
