@@ -29,6 +29,7 @@ const (
 	FlagNoDriver                     = "no-driver"
 	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
 	FlagSessionIdleTimeout           = "session-idle-timeout"
+	FlagAuthMethods                  = "auth-methods"
 	FlagEnableIntegrations           = "enable-integrations"
 	FlagDisableIntegrations          = "disable-integrations"
 	FlagTaskOpTimeout                = "task-op-timeout"
@@ -50,14 +51,14 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
 		nil,
-		"Integrations to enable on the embedded Driver (arc, ethercat, http, "+
-			"labjack, modbus, ni, opc)",
+		"Integrations to enable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
 	cmd.Flags().StringSlice(
 		FlagDisableIntegrations,
 		nil,
-		"Integrations to disable on the embedded Driver (arc, ethercat, http, "+
-			"labjack, modbus, ni, opc)",
+		"Integrations to disable on the embedded Driver (arc, ethercat, file, "+
+			"http, labjack, modbus, ni, opc)",
 	)
 	AddDataFlag(cmd)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
@@ -95,6 +96,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagSessionIdleTimeout,
 		auth.DefaultIdleTimeout,
 		"End a session after this long without a request from its client",
+	)
+	cmd.Flags().StringSlice(
+		FlagAuthMethods,
+		[]string{string(auth.MethodPassword), string(auth.MethodAPIKey)},
+		"Login methods the Core accepts (password, api_key)",
 	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
@@ -139,7 +145,7 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().String(
 		FlagSecretsDir,
 		"",
-		"Folder that holds the file secrets of the Core's rack",
+		"Folder that holds the file secrets of the Core and its embedded Driver",
 	)
 	cmd.Flags().String(FlagLicenseKey, "", "License key")
 	cmd.Flags().String(

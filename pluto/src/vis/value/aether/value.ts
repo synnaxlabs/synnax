@@ -74,9 +74,9 @@ export class Value
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
-  schema = Value.z;
+  override schema = Value.z;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.theme = theming.use(ctx);
@@ -102,7 +102,7 @@ export class Value
     this.requestRender();
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();

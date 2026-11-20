@@ -476,8 +476,9 @@ jobs:
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
-          bazel build "${flags[@]}" --config=opt-unix --define=platform=nilinuxrt \
-            //driver
+          .github/scripts/bazel_glibc_floor.sh build "${flags[@]}" --config=opt-unix \
+            --define=platform=nilinuxrt //driver
+          python3 .github/scripts/check_glibc_floor.py bazel-bin/driver/driver
           mv bazel-bin/driver/driver "bazel-bin/driver/synnax-driver-v$VERSION-nilinuxrt"
 
       - name: Extract debug symbols (NI Linux Real-Time)
@@ -547,7 +548,9 @@ jobs:
           'ubuntu-build-bot'
         run: |
           read -ra flags <<< "$BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS"
-          bazel build "${flags[@]}" --config=opt-unix //driver
+          .github/scripts/bazel_glibc_floor.sh build "${flags[@]}" --config=opt-unix \
+            //driver
+          python3 .github/scripts/check_glibc_floor.py bazel-bin/driver/driver
 
       - name: Extract debug symbols (Linux)
         if:

@@ -26,9 +26,9 @@ export const renderProviderStateZ = z.object({ context: z.any() });
 export class RenderProvider extends aether.Composite<typeof renderProviderStateZ> {
   static readonly TYPE = "render.test.RenderProvider";
   static readonly stateZ = renderProviderStateZ;
-  schema = RenderProvider.stateZ;
+  override schema = RenderProvider.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     ctx.set(RENDER_CONTEXT_KEY, this.state.context);
   }
 }

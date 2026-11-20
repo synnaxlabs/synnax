@@ -45,9 +45,9 @@ const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
 export class Table extends aether.Composite<typeof tableStateZ, InternalState, Cell> {
   static readonly TYPE = "Table";
   static readonly stateZ = tableStateZ;
-  schema = Table.stateZ;
+  override schema = Table.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.renderCtx = render.Context.use(ctx);
     i.handleError = status.useErrorHandler(ctx);
@@ -63,7 +63,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
     this.requestRender("high");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     if (this.internal.autoRenderInterval != null)
       clearInterval(this.internal.autoRenderInterval);
     this.requestRender("high");
