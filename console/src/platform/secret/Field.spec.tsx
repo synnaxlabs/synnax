@@ -27,6 +27,7 @@ import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
 import { createSecret } from "@/platform/secret/testutil";
 import { Validity } from "@/platform/secret/validity";
@@ -109,14 +110,6 @@ const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
 };
 
-// The list pages, so a search finds a secret however many the Core holds.
-const findOption = async (s: secret.Secret): Promise<HTMLElement> => {
-  fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-    target: { value: s.name },
-  });
-  return await screen.findByRole("option", { name: new RegExp(s.name) });
-};
-
 const openCreate = async (shown: string): Promise<void> => {
   await open(shown);
   fireEvent.click(await screen.findByText("New secret"));
@@ -127,7 +120,7 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     await renderField();
     await open("Select a secret");
-    const option = await findOption(s);
+    const option = await findOption("secret", s.name);
     within(option).getByText(Validity.describeSecret(s));
   });
 
@@ -158,14 +151,14 @@ describe("Secret.Field", () => {
     expect(screen.queryByText(s.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked secret", async () => {
+  it("sets the value to the key of the picked secret and shows only its name", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
-    fireEvent.click(await findOption(s));
+    fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
-    within(trigger).getByText(Validity.describeSecret(s));
+    expect(trigger.textContent).toBe(s.name);
   });
 
   it("opens the create dialog with the default name and focuses the value", async () => {
@@ -178,6 +171,31 @@ describe("Secret.Field", () => {
     );
   });
 
+  it("opens the create dialog named after the search", async () => {
+    await renderField();
+    await open("Select a secret");
+    const name = uniqueName("searched");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: name },
+    });
+    fireEvent.click(
+      await screen.findByRole("option", { name: `Create secret "${name}"` }),
+    );
+    expect(await screen.findByLabelText("Secret name")).toHaveProperty("value", name);
+  });
+
+  it("hides the create option for a secret name in another case", async () => {
+    const s = await createSecret(client, created);
+    await renderField();
+    await open("Select a secret");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: `${s.name}x` },
+    });
+    await screen.findByRole("option", { name: `Create secret "${s.name}x"` });
+    await findOption("secret", s.name, s.name.toUpperCase());
+    expect(screen.queryByRole("option", { name: /^Create secret/ })).toBeNull();
+  });
+
   it("offers no new secret to a user who cannot create secrets", async () => {
     const s = await createSecret(client, created);
     const reader = await createTestClientWithGrants(client, {
@@ -186,7 +204,7 @@ describe("Secret.Field", () => {
     await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
     await renderField("", reader);
     await open("Select a secret");
-    await findOption(s);
+    await findOption("secret", s.name);
     expect(screen.queryByText("New secret")).toBeNull();
   });
 
