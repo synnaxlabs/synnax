@@ -230,14 +230,15 @@ def write_comment(
 
 
 def reviewers_engaged(repo: str, *, number: int) -> bool:
-    """Returns whether anyone was ever asked to review the pull request or reviewed
-    it."""
+    """Returns whether anyone was ever asked to review the pull request, or a person
+    reviewed it. A bot's review, such as Sedosaur's, does not count."""
     events = gh(
         "api",
         "--paginate",
         f"repos/{repo}/issues/{number}/timeline",
         "--jq",
-        '.[] | select(.event == "review_requested" or .event == "reviewed") | .event',
+        '.[] | select(.event == "review_requested"'
+        ' or (.event == "reviewed" and .user.type != "Bot")) | .event',
     )
     return bool(events.strip())
 
