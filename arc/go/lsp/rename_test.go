@@ -412,6 +412,68 @@ func main() {
 			},
 		)
 
+		renameSensor := func(
+			ctx SpecContext,
+			content string,
+			at protocol.Position,
+			newName string,
+		) []protocol.TextEdit {
+			GinkgoHelper()
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot: newRootWithChannels,
+				OnRename: func(context.Context, *symbol.Symbol, string, string) error {
+					return nil
+				},
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, content)
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     at,
+				NewName:      newName,
+			}))
+			Expect(result).ToNot(BeNil())
+			return result.Changes[uri]
+		}
+		newTexts := func(edits []protocol.TextEdit) []string {
+			texts := make([]string, len(edits))
+			for i, e := range edits {
+				texts[i] = e.NewText
+			}
+			return texts
+		}
+
+		It("should quote a channel name that is no identifier", func(ctx SpecContext) {
+			edits := renameSensor(ctx, channelContent, protocol.Position{
+				Line: 1, Character: 14,
+			}, "PT-FU 01")
+			Expect(newTexts(edits)).To(Equal([]string{"'PT-FU 01'", "'PT-FU 01'"}))
+		})
+
+		It("should quote a channel name that a variable holds", func(ctx SpecContext) {
+			edits := renameSensor(ctx, channelContent, protocol.Position{
+				Line: 1, Character: 14,
+			}, "y")
+			Expect(newTexts(edits)).To(Equal([]string{"'y'", "'y'"}))
+		})
+
+		It("should rename a quoted reference to the channel", func(ctx SpecContext) {
+			content := `func test() {
+    x f32 := 'sensor' + 1.0
+    y := sensor * 2.0
+}`
+			edits := renameSensor(ctx, content, protocol.Position{
+				Line: 2, Character: 10,
+			}, "renamed_sensor")
+			Expect(
+				newTexts(edits),
+			).To(Equal([]string{"renamed_sensor", "renamed_sensor"}))
+			Expect(edits[0].Range).To(Equal(protocol.Range{
+				Start: protocol.Position{Line: 1, Character: 13},
+				End:   protocol.Position{Line: 1, Character: 21},
+			}))
+		})
+
 		It(
 			"should abort the rename when OnRename returns an error",
 			func(ctx SpecContext) {
