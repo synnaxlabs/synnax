@@ -25,11 +25,10 @@ import (
 )
 
 // NameErrors returns err with its message naming the channels it mentions by their
-// records. A channel error reads `channel "<name>"`, or `deleted channel <key>`
-// when no record has the key, and any other `<key>` that Cesium prints reads
-// `"<name>"`. A channel for which visible returns false keeps its key, and a nil
-// visible names every channel. The returned error matches err under errors.Is and
-// errors.As.
+// records. A channel error reads `channel "<name>"`, or `deleted channel <key>` when no
+// record has the key, and any other `<key>` that Cesium prints reads `"<name>"`. A
+// channel for which visible returns false keeps its key, and a nil visible names every
+// channel. The returned error matches err under errors.Is and errors.As.
 func (s *Service) NameErrors(
 	ctx context.Context,
 	err error,

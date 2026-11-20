@@ -25,8 +25,8 @@ const (
 	// intentsFile is the root file that makes the delete intents durable. It is append
 	// only, and never renamed.
 	intentsFile = "delete-intents"
-	// batchHeaderSize is the size of the header of one append: the record count, then
-	// a CRC32C of the batch's offset and its records.
+	// batchHeaderSize is the size of the header of one append: the record count, then a
+	// CRC32C of the batch's offset and its records.
 	batchHeaderSize = 8
 	// intentRecordSize is the size of one record: the key, then the flags.
 	intentRecordSize = 8
@@ -198,8 +198,8 @@ func (in *intents) append(keys []ChannelKey, flags uint32) error {
 	return nil
 }
 
-// fail closes the file after the failed write err, and makes every later call fail.
-// The caller must hold in.mu.
+// fail closes the file after the failed write err, and makes every later call fail. The
+// caller must hold in.mu.
 func (in *intents) fail(err error) error {
 	in.err = errors.Wrap(err, "delete intents failed to append, and no delete can run "+
 		"until a restart")
@@ -241,8 +241,8 @@ func (in *intents) clear(keys ...ChannelKey) error {
 	return nil
 }
 
-// truncateIfEmpty empties the file when no key has an intent, so the file does not
-// grow with every delete.
+// truncateIfEmpty empties the file when no key has an intent, so the file does not grow
+// with every delete.
 func (in *intents) truncateIfEmpty() error {
 	in.mu.Lock()
 	defer in.mu.Unlock()

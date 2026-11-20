@@ -276,8 +276,9 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 }
 
 // WriteUnless writes series as Write does, unless skip returns true for the channel. It
-// calls skip under the claim's lock, so the decision holds for the write. It returns
-// true when it skipped the series.
+// calls skip first with no lock and skips at once on true, so a writer that skips takes
+// no claim lock. Otherwise it calls skip again under the claim's lock, so the decision
+// holds for the write. It returns true when it skipped the series.
 func (w *Writer) WriteUnless(
 	series telem.Series,
 	skip func(channel.Key) bool,
@@ -297,8 +298,8 @@ func (w *Writer) WriteAt(
 }
 
 // WriteAtUnless writes series as WriteAt does, unless skip returns true for the
-// channel. It calls skip under the claim's lock, so the decision holds for the write.
-// It returns true when it skipped the series.
+// channel. It calls skip as WriteUnless does. It returns true when it skipped the
+// series.
 func (w *Writer) WriteAtUnless(
 	series telem.Series,
 	a telem.Alignment,
@@ -318,6 +319,9 @@ func (w *Writer) write(
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, false, w.wrapError(err)
+	}
+	if skip != nil && skip(w.Channel.Key) {
+		return 0, true, nil
 	}
 	skipped := false
 	err := w.claim.Use(func(dw *sharedWriter) error {
@@ -443,8 +447,9 @@ func (w *Writer) CommitWithEnd(
 }
 
 // CommitWithEndUnless commits as CommitWithEnd does, unless skip returns true for the
-// channel. It calls skip under the claim's lock, so the decision holds for the commit.
-// It returns true when it skipped the commit.
+// channel. It calls skip first with no lock and skips at once on true. Otherwise it
+// calls skip again under the claim's lock, so the decision holds for the commit. It
+// returns true when it skipped the commit.
 func (w *Writer) CommitWithEndUnless(
 	ctx context.Context,
 	end telem.TimeStamp,
@@ -453,6 +458,9 @@ func (w *Writer) CommitWithEndUnless(
 ) (bool, error) {
 	if w.closed {
 		return false, w.wrapError(ErrWriterClosed)
+	}
+	if skip != nil && skip(w.Channel.Key) {
+		return true, nil
 	}
 	_, skipped, err := w.commitWithEnd(ctx, end, g, skip)
 	return skipped, w.wrapError(err)
