@@ -31,13 +31,13 @@ const probeStateZ = z.object({});
 const createProbe = (seen: Array<Client | null>) =>
   class Probe extends aether.Leaf<typeof probeStateZ> {
     static readonly TYPE = PROBE_TYPE;
-    schema = probeStateZ;
+    override schema = probeStateZ;
 
-    afterUpdate(ctx: aether.Context): void {
+    override afterUpdate(ctx: aether.Context): void {
       seen.push(synnax.use(ctx));
     }
 
-    afterDelete(): void {}
+    override afterDelete(): void {}
   };
 
 const ProbeComponent = (): null => {

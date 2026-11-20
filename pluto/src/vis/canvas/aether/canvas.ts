@@ -40,10 +40,10 @@ const createCanvases = () => ({
 export class Canvas extends aether.Composite<typeof canvasStateZ> {
   static readonly TYPE = "Canvas";
 
-  schema = canvasStateZ;
+  override schema = canvasStateZ;
   renderCtx: render.Context | null = null;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     if (this.renderCtx == null) {
       if (!this.state.bootstrap) return;
       const { os, framePort } = this.state;
@@ -78,7 +78,7 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
     this.renderCtx?.resize(this.state.region, this.state.dpr);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.renderCtx?.close();
   }
 }
