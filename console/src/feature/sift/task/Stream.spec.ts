@@ -36,7 +36,7 @@ const ZERO_DRAFT: task.New<Sift.Task.StreamSchemas> = {
 };
 
 const renderStream = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(Sift.Task.Stream, {
+  const rendered = await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
     client,
     task: ZERO_DRAFT,
     ...options,
@@ -140,7 +140,7 @@ describe("Sift stream form", () => {
       },
       Sift.Task.STREAM_SCHEMAS,
     );
-    await renderTaskFormTab(Sift.Task.Stream, {
+    await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
       client,
       taskKey: t.key,
       as: await createTaskReadOnlyClient(client),
@@ -156,7 +156,7 @@ describe("Sift stream form", () => {
       Sift.Task.STREAM_SCHEMAS,
     );
     const messages: string[] = [];
-    await renderTaskFormTab(Sift.Task.Stream, {
+    await renderTaskFormTab(Sift.Task.FORMS[Sift.Task.STREAM_TYPE], {
       client,
       taskKey: t.key,
       as: await createTaskReadOnlyClient(client),
