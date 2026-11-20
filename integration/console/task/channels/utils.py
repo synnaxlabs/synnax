@@ -23,8 +23,7 @@ def is_numeric_string(value: str | bool) -> bool:
     if not value:
         return False
 
-    if value.startswith("-"):
-        value = value[1:]
+    value = value.removeprefix("-")
 
     parts = value.split(".")
     if len(parts) > 2:
