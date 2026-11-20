@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, box, location, scale, xy } from "@synnaxlabs/x";
+import { type bounds, box, direction, location, scale, xy } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import type { Layout } from "@/lineplot/aether/layout";
 import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
 
@@ -18,9 +19,8 @@ export const yAxisStateZ = baseAxisStateZ.extend({
 });
 
 export interface YAxisProps extends AxisRenderProps {
-  xDataToDecimalScale: scale.Scale;
-  /** Bounds of the parent x axis; y bounds cover only samples inside them. */
-  xBounds: bounds.Bounds;
+  /** The layout of the parent x axis. Y bounds cover only samples inside its bounds. */
+  layout: Layout;
 }
 
 type Children = line.Line | rule.Rule;
@@ -54,11 +54,7 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
    */
   render(props: YAxisProps, raised: Array<() => void>): void {
     if (this.deleted) return;
-    const [dataToDecimalScale, , error] = this.dataToDecimalScale(
-      props.hold,
-      () => this.dataBounds(props.xBounds),
-      props.viewport,
-    );
+    const [dataToDecimalScale, error] = this.dataToDecimalScale(props);
     // We need to invert scale because the y-axis is inverted in decimal space.
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
@@ -70,14 +66,14 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   private renderLines(
-    { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
+    { layout, plot, canvases }: YAxisProps,
     yScale: scale.Scale,
     raised: Array<() => void>,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
     const props: line.LineProps = {
       region: plot,
-      dataToDecimalScale: new scale.XY(xScale, yScale),
+      dataToDecimalScale: new scale.XY(layout.segments[0].scale, yScale),
     };
     this.lines.forEach((el) => {
       if (el.raised) raised.push(() => el.render(props));
@@ -124,21 +120,32 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     }));
   }
 
-  private lineProps({
-    xDataToDecimalScale,
-    xBounds,
-    plot,
-    viewport,
-    hold,
-  }: Omit<YAxisProps, "canvases">): line.LineProps {
-    const [yDataToDecimalScale, , error] = this.dataToDecimalScale(
-      hold,
-      () => this.dataBounds(xBounds),
-      viewport,
-    );
+  private lineProps(props: Omit<YAxisProps, "canvases">): line.LineProps {
+    const [yDataToDecimalScale, error] = this.dataToDecimalScale(props);
     if (error != null) throw error;
-    const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
-    return { region: plot, dataToDecimalScale };
+    const xScale = props.layout.segments[0].scale;
+    return {
+      region: props.plot,
+      dataToDecimalScale: new scale.XY(xScale, yDataToDecimalScale),
+    };
+  }
+
+  // dataToDecimalScale returns the scale from the axis values to decimal positions
+  // across the viewport, with the error that the bounds of the axis met.
+  private dataToDecimalScale({
+    hold,
+    layout,
+    viewport,
+  }: Omit<YAxisProps, "canvases">): [scale.Scale, Error | null] {
+    const [b, err] = this.iBounds(hold, () => this.dataBounds(layout.bounds));
+    const dir = direction.swap(direction.construct(this.state.location));
+    return [
+      scale.Scale.scale<number>(b)
+        .scale(1)
+        .translate(-box.root(viewport)[dir])
+        .magnify(1 / box.dim(viewport, dir)),
+      err,
+    ];
   }
 
   get loading(): boolean {

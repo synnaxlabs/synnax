@@ -22,7 +22,7 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import type { lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
-import { box, location, scale, TimeRange, TimeSpan, type xy } from "@synnaxlabs/x";
+import { box, location, TimeRange, TimeSpan, type xy } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useRef, useState } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
@@ -96,10 +96,9 @@ const ContextMenuContent = ({
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = async (): Promise<TimeRange> => {
-    const bounds = await linePlotRef.current?.getBounds();
+    const bounds = await linePlotRef.current?.getXBounds(box.xBounds(selection));
     if (bounds == null) throw new Error("No bounds available");
-    const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-    return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+    return new TimeRange(bounds.x1.lower, bounds.x1.upper);
   };
   const copyText = (fmt: (tr: TimeRange) => string) => async () =>
     fmt(await getTimeRange());

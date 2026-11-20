@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { bounds, type box, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import {
   type AxisRenderProps,
@@ -15,6 +15,7 @@ import {
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
+import { Layout } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import type { line } from "@/vis/line/aether";
@@ -31,14 +32,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
    */
   render(props: AxisRenderProps, raised: Array<() => void>): void {
     if (this.deleted) return;
-    const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    this.renderAxis(props, dataToDecimal.reverse());
-    this.renderYAxes(props, dataToDecimal, xBounds, raised);
-    this.renderRanges(props, dataToDecimal);
+    const [layout, err] = this.iLayout(props.hold, props.viewport);
+    this.renderAxis(props, layout.segments[0].scale.reverse());
+    this.renderYAxes({ ...props, layout }, raised);
+    this.renderRanges(props, layout);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -47,13 +44,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: Omit<AxisRenderProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const [scale, , err] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    if (err != null) throw err;
-    return this.findByXValue(props, scale.reverse().pos(target));
+    const layout = this.layout(props.hold, props.viewport);
+    return this.findByXValue(props, layout.reverse(target));
   }
 
   findByXValue(
@@ -73,30 +65,29 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     target: number,
   ): line.FindResult[] {
     const p = this.yAxisProps(props);
-    const value = p.xDataToDecimalScale.reverse().pos(target);
+    const value = p.layout.reverse(target);
     return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
+  }
+
+  /**
+   * @returns the values that a span of decimal positions across the home view holds.
+   */
+  values(hold: boolean, viewport: box.Box, positions: bounds.Bounds): bounds.Bounds {
+    const layout = this.layout(hold, viewport);
+    return {
+      lower: layout.reverseHome(positions.lower),
+      upper: layout.reverseHome(positions.upper),
+    };
   }
 
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {
-    const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
-      props.hold,
-      this.dataBounds.bind(this),
-      props.viewport,
-    );
-    if (error != null) throw error;
-    return { ...props, xDataToDecimalScale, xBounds };
+    return { ...props, layout: this.layout(props.hold, props.viewport) };
   }
 
-  private renderYAxes(
-    props: AxisRenderProps,
-    xDataToDecimalScale: scale.Scale,
-    xBounds: bounds.Bounds,
-    raised: Array<() => void>,
-  ): void {
-    const p = { ...props, xDataToDecimalScale, xBounds };
-    this.yAxes.forEach((el) => el.render(p, raised));
+  private renderYAxes(props: YAxisProps, raised: Array<() => void>): void {
+    this.yAxes.forEach((el) => el.render(props, raised));
   }
 
   get yAxes(): readonly YAxis[] {
@@ -121,16 +112,30 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  private renderRanges(props: AxisRenderProps, xDataToDecimalScale: scale.Scale): void {
-    const bound = this.bounds(props.hold);
-    const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
+  private layout(hold: boolean, viewport: box.Box): Layout {
+    const [layout, err] = this.iLayout(hold, viewport);
+    if (err != null) throw err;
+    return layout;
+  }
+
+  // iLayout returns the layout with the error that its bounds met, so a render can draw
+  // the axis before it throws.
+  private iLayout(hold: boolean, viewport: box.Box): [Layout, Error | null] {
+    const [b, err] = this.iBounds(hold, this.dataBounds.bind(this));
+    return [new Layout([b], viewport), err];
+  }
+
+  private renderRanges(props: AxisRenderProps, layout: Layout): void {
+    const clampedBounds = bounds.intersection([
+      layout.bounds,
+      TimeRange.MAX.numericBounds,
+    ]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
     const newest = newestSample(this.dataBounds());
     this.ranges.forEach((el) =>
       el.render({
-        dataToDecimalScale: xDataToDecimalScale,
+        layout,
         region: props.plot,
-        viewport: props.viewport,
         timeRange,
         newest: newest == null ? undefined : new TimeStamp(newest),
       }),

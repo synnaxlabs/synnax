@@ -36,13 +36,17 @@ export const linePlotStateZ = z.object({
   fetching: z.boolean().default(false),
 });
 
-const axesBoundsZ = z.record(
-  z.string(),
-  z.object({ lower: z.number(), upper: z.number() }),
-);
+const numericBoundsZ = z.object({ lower: z.number(), upper: z.number() });
+
+const axesBoundsZ = z.record(z.string(), numericBoundsZ);
 
 export const linePlotMethodsZ = {
   getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),
+  /**
+   * Returns, for each x axis, the values that a span of decimal positions across the
+   * home view holds.
+   */
+  getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
 };
 
 interface InternalState {
@@ -164,6 +168,16 @@ export class LinePlot
       });
     });
     return bounds;
+  }
+
+  getXBounds(positions: bounds.Bounds): AxesBounds {
+    const { hold, viewport } = this.state;
+    return Object.fromEntries(
+      this.axes.map((a) => [
+        a.state.axisKey ?? a.key,
+        a.values(hold, viewport, positions),
+      ]),
+    );
   }
 
   private renderMeasures(region: box.Box): void {

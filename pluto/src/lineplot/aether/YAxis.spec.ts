@@ -13,7 +13,6 @@ import {
   color,
   DataType,
   MultiSeries,
-  scale,
   Series,
   TimeRange,
   TimeSpan,
@@ -22,6 +21,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
+import { Layout } from "@/lineplot/aether/layout";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
@@ -164,8 +164,7 @@ describe("YAxis", () => {
           container: region,
           canvases: ["gl"],
           hold: false,
-          xDataToDecimalScale: scale.Scale.scale<number>(0, 50).scale(0, 1),
-          xBounds: { lower: 0, upper: 50 },
+          layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
         raised,
       );
