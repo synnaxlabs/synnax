@@ -208,9 +208,7 @@ private:
     template<typename T>
     void reduce(const runtime::state::Series &input_data) {
         const auto n = static_cast<int64_t>(input_data->size());
-        auto &output = this->state.output(0);
-        const bool fresh = this->sample_count == 0 || output->empty();
-        if (fresh) this->sample_count = 0;
+        const bool fresh = this->sample_count == 0;
         switch (this->op) {
             case Op::Avg:
                 this->reduce_avg<T>(input_data, n, fresh);
