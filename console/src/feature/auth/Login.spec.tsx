@@ -304,6 +304,12 @@ describe("auth/Login", () => {
     expect(screen.queryByText("Log in with company-sso")).toBeNull();
   });
 
+  it("should say password login is off when the Core lists no providers", async () => {
+    await renderLogin(await serveAuth(["oidc"], []));
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    expect(await screen.findByText("Password login is off")).toBeTruthy();
+  });
+
   it("should report a providers request that fails", async () => {
     const core = await serveAuth(["oidc"], null);
     let statuses: Status.NotificationSpec[] = [];
@@ -329,7 +335,7 @@ describe("auth/Login", () => {
         "Failed to retrieve the login providers",
       ),
     );
-    expect(screen.queryByText("Password login is off")).toBeNull();
+    expect(screen.getByText("Password login is off")).toBeTruthy();
   });
 
   it("should start a browser login through a provider", async () => {
@@ -446,6 +452,48 @@ describe("auth/Login", () => {
       );
       expect(store.getState().core.selected).toBe(core.key);
       expect(Object.fromEntries(ipc.saved)).toEqual({
+        [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
+      });
+    });
+
+    it("should let a new provider login replace one still waiting", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
+      const saved = new Map<string, string>();
+      let replace: (() => void) | undefined;
+      let waits = 0;
+      mockWindows("main");
+      mockIPC(async (cmd, args) => {
+        const { account, secret, state } = args as Record<string, string>;
+        switch (cmd) {
+          case "plugin:app|version":
+            return "0.0.0";
+          case "keychain_set":
+            saved.set(account, secret);
+            return undefined;
+          case "oidc_listen":
+            replace?.();
+            return 4242;
+          case "oidc_wait":
+            waits += 1;
+            if (waits > 1) return `code=abc&state=${state}`;
+            return await new Promise<string>((_, reject) => {
+              replace = () => reject(new Error("a newer login replaced this one"));
+            });
+          default:
+            return undefined;
+        }
+      });
+      onTestFinished(clearMocks);
+      const { store, statuses } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() => expect(waits).toBe(1));
+      fireEvent.click(screen.getByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(store.getState().core.cores[core.key].lastLogin).toBeDefined(),
+      );
+      expect(statuses().map((s) => s.message)).not.toContain(FAILED);
+      expect(Object.fromEntries(saved)).toEqual({
         [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
       });
     });

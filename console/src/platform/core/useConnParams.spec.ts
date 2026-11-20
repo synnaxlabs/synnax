@@ -121,6 +121,20 @@ describe("Core.useConnParams", () => {
     expect(reads).toEqual([{ account: `http://synnax@example.com:9095#${CORE.key}` }]);
   });
 
+  it("should read the keychain again after a login in another window", async () => {
+    mocks.engine = "tauri";
+    let saved = "sys_old";
+    mockIPC((cmd) => (cmd === "keychain_get" ? saved : undefined));
+    onTestFinished(clearMocks);
+    const { result, store } = await renderParams();
+    await waitFor(() => expect(result.current?.token).toBe("sys_old"));
+    saved = "sys_new";
+    act(() => {
+      store.dispatch(Session.Core.recordLogin({ key: CORE.key, at: Date.now() }));
+    });
+    await waitFor(() => expect(result.current?.token).toBe("sys_new"));
+  });
+
   it("should not resume over plain text from a token saved for TLS", async () => {
     mocks.engine = "tauri";
     let reads = 0;

@@ -160,8 +160,8 @@ export const Login = (): ReactElement => {
     providers,
   } = useAccepted(target);
   const handleError = Status.useErrorHandler();
-  // a second login would replace the first one's loopback listener
-  const [pendingProvider, setPendingProvider] = useState<string>();
+  // a newer provider login replaces an older one, which then ends unreported
+  const attempts = useRef(0);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -173,7 +173,7 @@ export const Login = (): ReactElement => {
   const handleProvider = (login: auth.OIDCLogin): void => {
     const core = servingCore ?? selectedCore;
     if (core == null) return;
-    setPendingProvider(login.provider);
+    const attempt = ++attempts.current;
     handleError(async () => {
       let failure: Error | undefined;
       try {
@@ -183,7 +183,7 @@ export const Login = (): ReactElement => {
       } catch (e) {
         failure = errors.fromUnknown(e);
       }
-      setPendingProvider(undefined);
+      if (attempt !== attempts.current) return;
       if (failure != null) throw failure;
       if (Session.Runtime.ENGINE !== "tauri") return;
       const current = Session.Core.selectState(store.getState(), core.key);
@@ -290,7 +290,7 @@ export const Login = (): ReactElement => {
                   </Flex.Box>
                 </>
               ) : (
-                !oidcAccepted && (
+                (!oidcAccepted || providers.length === 0) && (
                   <Flex.Box y align="center" gap="small">
                     <Text.Text level="h4" status="warning">
                       <Status.Indicator variant="warning" />
@@ -316,7 +316,6 @@ export const Login = (): ReactElement => {
                     <Button.Button
                       key={login.provider}
                       onClick={() => handleProvider(login)}
-                      disabled={pendingProvider != null}
                       variant="outlined"
                       size="large"
                       full="x"
