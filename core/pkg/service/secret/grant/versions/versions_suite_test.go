@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package task
+package versions_test
 
-import "fmt"
+import (
+	"testing"
 
-// String returns the command's type together with its key and target task.
-func (c Command) String() string {
-	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestGrantVersions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Secret Grant Versions Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

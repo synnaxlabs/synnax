@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// restrictMiddleware rewrites the error of a delete that a restrict reference refuses,
-// so it names the records involved instead of their tables and keys. It names only the
-// records that the caller can retrieve.
+// restrictMiddleware rewrites the error of a delete or change that a restrict reference
+// refuses, so it names the records involved instead of their tables and keys. It names
+// only the records that the caller can retrieve.
 func restrictMiddleware(
 	db *gorp.DB,
 	res *resource.Service,
@@ -110,7 +110,11 @@ func describeRestrict(
 		}
 		return id.Key
 	}
-	msg := "cannot delete " + string(target.Type) + " " + name(target) + " because " +
+	change := "delete "
+	if restrict.Field != "" {
+		change = "change the " + restrict.Field + " of "
+	}
+	msg := "cannot " + change + string(target.Type) + " " + name(target) + " because " +
 		string(holder.Type) + " " + name(holder) + " uses it"
 	if !ofTask {
 		msg += " as its " + restrict.Reference

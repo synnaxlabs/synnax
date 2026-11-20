@@ -85,6 +85,7 @@ describe("secret/validity", () => {
         name: "Client",
         source: "file",
         certificatePath: "/etc/ssl/client.pem",
+        rack: 1,
       };
       expect(Validity.describeCertificate(c, NOT_AFTER)).toEqual({
         text: "/etc/ssl/client.pem",
@@ -97,6 +98,7 @@ describe("secret/validity", () => {
         name: "Client",
         source: "file",
         certificatePath: "/etc/ssl/client.pem",
+        rack: 1,
         details: STORED.details,
       };
       expect(Validity.describeCertificate(c, NOT_AFTER.add(TimeSpan.days(1)))).toEqual({
@@ -124,6 +126,7 @@ describe("secret/validity", () => {
         source: "file",
         updated: NOT_BEFORE,
         fileName: "token",
+        rack: 1,
       };
       expect(Validity.describeSecret(s)).toBe("Read from token");
     });
