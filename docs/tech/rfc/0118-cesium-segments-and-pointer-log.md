@@ -42,7 +42,10 @@ The conversion changes no old file, and an undo after it loses later telemetry (
   **clock write** is one write of a clock and the data channels that it timed.
 - **Segment**: A file of samples of one key, with one data type, one clock key, and one
   format version. It is open, or sealed and never changed again.
-- **Stretch**: A run of samples of a clock with no gap. Today's code calls it a domain.
+- **Stretch**: Samples of a clock that follow one another with no gap. Today's code
+  calls it a domain.
+- **Progression**: Stamps that rise by one fixed step, stored as the first stamp, the
+  step, and a count (§5.1).
 - **Pointer**: A committed byte range of a segment, with its time range, its sample
   count, and the alignment of its first sample.
 - **Head**, **part**, and **generation**: A checkpoint is a head (recent state) and
@@ -176,7 +179,7 @@ as one event (RFC 0117 §4.8), at the cost of one sealed segment and one new str
 | `x/go/telem`                           | `Alignment`, and the constant that splits its numbers at 2^31 (moves from Cesium)                | The standard library                        | `cesium`, `core`                                 |
 | `cesium`                               | The API of §4.2, open and recovery order, the four owners of §7, the background passes           | `cesium/internal`, `x/go`                   | `core`, `gorp`, `x/go/control`, OS-specific code |
 | `cesium/internal/place` (NEW)          | The place and the CRC rule of §5.0                                                               | The standard library                        | Every other `cesium` package                     |
-| `cesium/internal/segment` (NEW)        | Segment files, checked reads, the run codec, the handle budget, the sync pool                    | `place`, `x/go/io/fs`, `x/go/telem`         | `log`, `state`, `checkpoint`                     |
+| `cesium/internal/segment` (NEW)        | Segment files, checked reads, the progression codec, the handle budget, the sync pool            | `place`, `x/go/io/fs`, `x/go/telem`         | `log`, `state`, `checkpoint`                     |
 | `cesium/internal/log` (NEW)            | The log file, frames, the record codec                                                           | `place`, `x/go/io/fs`                       | `segment`, `state`, `checkpoint`                 |
 | `cesium/internal/state` (NEW)          | Pointer sets, claims, the counters, and the rules that apply or refuse a record                  | `log`, `x/go/telem`                         | `segment`, `checkpoint`                          |
 | `cesium/internal/checkpoint` (NEW)     | Heads, parts, the part cache                                                                     | `place`, `state`, `x/go/io/fs`              | `segment`                                        |
@@ -255,28 +258,28 @@ the block, stored in the log with each commit. A writer continues from that valu
   unsynced bytes is synced before the budget closes it. A sync that fails, from any
   caller, marks the segment failed (§5.4).
 
-**Version 2, a sealed clock as runs.** The compactor rewrites a sealed version 1 clock
-segment when the result is at most half the size. The file is a version 1 block stream
-that holds a raw area, an entry table, fences, and a footer, in that order.
+**Version 2, a sealed clock as progressions.** The compactor rewrites a sealed version 1
+clock segment when the result is at most half the size. The file is a version 1 block
+stream that holds a raw area, an entry table, fences, and a footer, in that order.
 
-| Structure | Offset | Size        | Type          | Meaning                                                                                                                      |
-| --------- | ------ | ----------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Raw area  | 0      | `8 × n_raw` | `int64` each  | The stamps that no run holds, in order, then zeros to a multiple of 16                                                       |
-| Entry     | 0      | 8           | `int64`       | Stamp of the first sample of the entry                                                                                       |
-| Entry     | 8      | 4           | `uint32`      | Position of that sample in the segment                                                                                       |
-| Entry     | 12     | 4           | `uint32`      | Bit 31 clear: a run, with the step in ns (1 to 2^31 - 1). Bit 31 set: raw, with the index of its first stamp in the raw area |
-| Fence     | 0      | 8           | `int64`       | Stamp of the first entry that starts in a block of the table. One fence per such block                                       |
-| Fence     | 8      | 4           | `uint32`      | Position of that entry                                                                                                       |
-| Footer    | 0      | 8           | `int64`       | Last stamp of the segment                                                                                                    |
-| Footer    | 8      | 12          | `uint32` each | `n_entries`, `n_samples`, `n_raw`                                                                                            |
+| Structure | Offset | Size        | Type          | Meaning                                                                                                                              |
+| --------- | ------ | ----------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Raw area  | 0      | `8 × n_raw` | `int64` each  | The stamps that no progression holds, in order, then zeros to a multiple of 16                                                       |
+| Entry     | 0      | 8           | `int64`       | Stamp of the first sample of the entry                                                                                               |
+| Entry     | 8      | 4           | `uint32`      | Position of that sample in the segment                                                                                               |
+| Entry     | 12     | 4           | `uint32`      | Bit 31 clear: a progression, with the step in ns (1 to 2^31 - 1). Bit 31 set: raw, with the index of its first stamp in the raw area |
+| Fence     | 0      | 8           | `int64`       | Stamp of the first entry that starts in a block of the table. One fence per such block                                               |
+| Fence     | 8      | 4           | `uint32`      | Position of that entry                                                                                                               |
+| Footer    | 0      | 8           | `int64`       | Last stamp of the segment                                                                                                            |
+| Footer    | 8      | 12          | `uint32` each | `n_entries`, `n_samples`, `n_raw`                                                                                                    |
 
-A run holds 5 stamps or more, a raw entry at most 8,192, and an entry ends where the
-next one starts. A pointer into a version 2 segment keeps the offsets that its stamps
-would have raw, so a rewrite changes no pointer. A reader loads the footer and the
-fences with the handle, finds a time or a position with one checked block of the table,
-and still returns full `int64` stamps. The Driver uses one whole-nanosecond step inside
-a write (`x/cpp/telem/series.h:1257-1263`), so the worst case is one run per write: 16
-bytes for 125 stamps on a 25 kHz clock.
+A progression holds 5 stamps or more, a raw entry at most 8,192, and an entry ends where
+the next one starts. A pointer into a version 2 segment keeps the offsets that its
+stamps would have raw, so a rewrite changes no pointer. A reader loads the footer and
+the fences with the handle, finds a time or a position with one checked block of the
+table, and still returns full `int64` stamps. The Driver uses one whole-nanosecond step
+inside a write (`x/cpp/telem/series.h:1257-1263`), so the worst case is one progression
+per write: 16 bytes for 125 stamps on a 25 kHz clock.
 
 **Version 0, an old file in place.** `<key>/<N>.domain` is a sealed segment with a new
 identity, no blocks, and a stream offset equal to its file offset. Its reads are
@@ -293,8 +296,9 @@ times.
 | `4b`   | 4    | `uint32` | CRC of old file bytes `65,536 b` to `min(65,536 (b + 1), len) - 1`. Place: kind 1, version 0, file offset `65,536 b` |
 | `4n`   | 4    | `uint32` | CRC of the `n` entries. Place: kind 2, version 1, file offset 0                                                      |
 
-Compaction and run encoding skip a version 0 file: only a delete that leaves it with
-nothing live unlinks it. A binary refuses to open on a format version it does not know.
+Compaction and progression encoding skip a version 0 file: only a delete that leaves it
+with nothing live unlinks it. A binary refuses to open on a format version it does not
+know.
 
 ### 5.2 Pointer log
 
@@ -538,8 +542,8 @@ then has no head, the older head and its logs stay, and the next switch writes h
 - **Compaction**: When the dead share of a sealed segment passes the threshold (today
   `GCConfig`, `cesium/delete.go:32`), the compactor copies the live ranges to a new
   segment, syncs the file and its directory, and logs a Create and a Replace in one
-  entry. Time ranges and alignments do not change. Run encoding is the same copy and
-  Replace. Both skip version 0 segments, pick only a segment whose sealing entry is
+  entry. Time ranges and alignments do not change. Progression encoding is the same copy
+  and Replace. Both skip version 0 segments, pick only a segment whose sealing entry is
   acked, and rewrite one segment to one segment.
 
 ### 5.7 Alignment
@@ -565,7 +569,7 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
 Readers treat a break in alignment as a gap and index 0 as the start of a stretch: the
 frame codec merges series whose alignments touch
 (`core/pkg/distribution/framer/codec/codec.go:428-432`), and the TypeScript cache starts
-a run at index 0 (`client/ts/src/framer/cache/join.ts:66`). The table holds sizing
+a stretch at index 0 (`client/ts/src/framer/cache/join.ts:66`). The table holds sizing
 assumptions.
 
 | Case                                              | Per day   | Result                        |
@@ -700,7 +704,7 @@ raises `BenchmarkReadSamples` and `BenchmarkStreamFixedSpan` (reads check).
 | Cold scan                                      | At least 0.5 × min(`F_read`, `F_crc`)                                                                                         | One sequential stream per segment                                                                                                                                                                                            |
 | Recovery                                       | At most 3 × bytes read / min(`F_read`, `F_crc`)                                                                               | A head of a few MB and at most 64 MiB of log. Replay keeps the last slot list of each clock, so a slot is a compare and a store                                                                                              |
 | Conversion                                     | At most 2 × (old metadata bytes / `F_read` + part bytes / `F_write` + old files × `F_files(32)` / 1,000), measured in Phase 7 | 40 million old pointers are 1 GB to read and 1.5 GB of parts. One sync per old file through the pool, most of them clean                                                                                                     |
-| Compaction, run encoding                       | `BenchmarkCommit` p99 with a rewrite running: at most 1.2 × its value alone                                                   | A background copy under a rate limit                                                                                                                                                                                         |
+| Compaction, progression encoding               | `BenchmarkCommit` p99 with a rewrite running: at most 1.2 × its value alone                                                   | A background copy under a rate limit                                                                                                                                                                                         |
 
 ### 8.0 1,000 dirty files per interval
 
@@ -847,10 +851,10 @@ Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
    metadata), and zero fill (each byte is written twice). The trade is real: a point
    read checks 64 KiB, and a segment sync pays for the size change.
 3. **One frame per batch, and no log block written twice**: Rejected: frame headers with
-   a synced offset field and a 2 MiB scan, which misses a longer bad run; frames and
-   marks packed back to back, where one stale block loses every acked frame in it with
-   no crash; and an ack only after a second sync, which removes fault 5d at two log
-   syncs per commit. The trade is real: an isolated commit uses 4 KiB of log.
+   a synced offset field and a 2 MiB scan, which misses a longer area of bad bytes;
+   frames and marks packed back to back, where one stale block loses every acked frame
+   in it with no crash; and an ack only after a second sync, which removes fault 5d at
+   two log syncs per commit. The trade is real: an isolated commit uses 4 KiB of log.
 4. **A head with a header sector, and parts cut by time**: Rejected: files named by a
    rename, parts merged in four tiers, and hold files for backups. A rename commit rests
    on `SyncDir`, which is nil on Windows, and a hold stops every unlink below it. The
@@ -861,7 +865,8 @@ Phases 1 and 2, and RFC 0117 Phases 6 to 8 come after Phase 7.
    alignment, and the codec merges them across the gap.
 6. **The clock key on the segment, one clock per writer**: Rejected: the clock key on
    the pointer. It gives fewer files for script runs and control handoffs, but a segment
-   then has no single clock to seal on, to run-encode, or to share as a struct.
+   then has no single clock to seal on, to encode as progressions, or to share as a
+   struct.
 7. **A bad data block fails its read**: Rejected: stop the engine. One bad block in old
    data must not stop a Core that runs live hardware.
 8. **Old files stay version 0, old metadata stays in place**: Rejected: a rewrite or a
