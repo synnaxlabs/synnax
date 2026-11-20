@@ -169,8 +169,8 @@ export class Series<T extends TelemValue = TelemValue> {
   sampleOffset: numeric.Value;
   /** Stores information about the buffer state of this array into a WebGL buffer. */
   private readonly gl: GL;
-  /** The underlying data. */
-  private readonly _data: ArrayBuffer;
+  /** The underlying data. A typed array always matches the data type. */
+  private readonly _data: ArrayBuffer | TypedArray;
   /** The time range occupied by the series' data. */
   readonly timeRange: TimeRange = TimeRange.ZERO;
   /**
@@ -314,17 +314,22 @@ export class Series<T extends TelemValue = TelemValue> {
         );
     } else this.dataType = new DataType(data);
 
-    if (!isArray && !isSingle) {
+    if (data instanceof ArrayBuffer) {
       const density = this.dataType.density.valueOf();
-      if (data instanceof ArrayBuffer && density > 0 && data.byteLength % density !== 0)
+      if (density > 0 && data.byteLength % density !== 0)
         throw new RangeError(
           `cannot construct a ${this.dataType.toString()} Series from ${data.byteLength} bytes: the byte length is not a multiple of the density ${density}`,
         );
-      this._data = data as ArrayBuffer;
-    } else if (isArray && data.length === 0)
+      this._data = data;
+    } else if (data instanceof this.dataType.Array) this._data = data;
+    else if (isArray && data.length === 0)
       this._data = new this.dataType.Array([]).buffer;
     else {
-      let data_ = isSingle ? [data] : data;
+      let data_ = isSingle
+        ? [data]
+        : isArray
+          ? data
+          : Array.from<number | bigint>(data);
       const first = data_[0];
       if (
         first instanceof TimeStamp ||
@@ -508,17 +513,14 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBuffer {
-    if (typeof this._data === "object" && "buffer" in this._data)
-      return (this._data as unknown as Uint8Array).buffer as ArrayBuffer;
-    return this._data;
+    if (this._data instanceof ArrayBuffer) return this._data;
+    return this._data.buffer;
   }
 
-  // The backing store and data type never change after construction, so views and
-  // type conversions are cached. A typed-array constructor given a typed array
-  // copies every element, so an already-matching array is returned as is.
+  // The backing store and data type never change after construction, so the view is
+  // cached.
   private get underlyingData(): TypedArray {
-    const data = this._data as ArrayBuffer | TypedArray;
-    if (data instanceof this.dataType.Array) return data;
+    if (!(this._data instanceof ArrayBuffer)) return this._data;
     return (this.cachedUnderlyingView ??= new this.dataType.Array(this._data));
   }
 
@@ -529,7 +531,8 @@ export class Series<T extends TelemValue = TelemValue> {
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
+    if (!(this._data instanceof ArrayBuffer))
+      throw new Error("a partially written series must be backed by an ArrayBuffer");
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
       const length = this.writePos * elementsPerSample(this.dataType);
