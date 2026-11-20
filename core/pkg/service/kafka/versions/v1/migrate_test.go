@@ -11,7 +11,7 @@ package v1_test
 
 import (
 	"context"
-	"fmt"
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,9 +22,8 @@ import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -393,58 +392,44 @@ var _ = Describe("MigrateReadConfig", func() {
 	})
 })
 
-var _ = Describe("NewReadMigration", func() {
-	var (
-		db       *gorp.DB
-		made     []icd.ICD
-		create   v1.CreateICD
-		channels v1.Channels
-	)
-	BeforeEach(func() {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		made = nil
-		create = func(_ context.Context, tx gorp.Tx, ic icd.ICD) error {
-			GinkgoHelper()
-			Expect(tx).ToNot(BeNil())
-			made = append(made, ic)
-			return nil
-		}
-		channels = func(
-			context.Context,
-			gorp.Snapshot,
-			[]channel.Key,
-		) (map[channel.Key]v1.Channel, error) {
-			return map[channel.Key]v1.Channel{
-				7: {Name: "level", DataType: telem.Int32T},
-			}, nil
-		}
-	})
+// storedConfig returns a v0 config with one record of one field, bound to channel 7.
+func storedConfig() v0.ReadConfig {
+	return v0.ReadConfig{
+		Key:   uuid.New(),
+		Topic: "plant",
+		Records: []v0.ReadRecord{{
+			Key:       "r1",
+			RecordKey: "pump",
+			Fields: []v0.ReadField{storedField(
+				"level",
+				telem.Float64T,
+				payload.EnumEntry{Label: "HALF", Value: 0.5},
+			)},
+		}},
+	}
+}
 
-	// storeTask writes old and the task t that owns it, with the key of old.
-	storeTask := func(ctx SpecContext, old v0.ReadConfig, t task.Task) {
+var _ = Describe("StagedRecordsKVKey", func() {
+	It("Should key staged records by the prefix and the config key", func() {
+		key := uuid.New()
+		Expect(string(v1.StagedRecordsKVKey(key))).
+			To(Equal("sy_kafka_read_staged_records/" + key.String()))
+	})
+})
+
+var _ = Describe("ReadMigration", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+
+	migrate := func(ctx SpecContext, olds ...v0.ReadConfig) {
 		GinkgoHelper()
-		Expect(gorp.WrapWriter[uuid.UUID, v0.ReadConfig](db).Set(ctx, old)).
+		Expect(gorp.WrapWriter[uuid.UUID, v0.ReadConfig](db).Set(ctx, olds...)).
 			To(Succeed())
-		t.Key, t.Type = old.Key, "kafka_read"
-		Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, t)).To(Succeed())
-	}
-	// store writes old and, unless orphan, a task named name that owns it.
-	store := func(ctx SpecContext, name string, old v0.ReadConfig, orphan bool) {
-		GinkgoHelper()
-		if !orphan {
-			storeTask(ctx, old, task.Task{Name: name})
-			return
-		}
-		Expect(gorp.WrapWriter[uuid.UUID, v0.ReadConfig](db).Set(ctx, old)).
-			To(Succeed())
-	}
-	migrate := func(ctx SpecContext, ins alamos.Instrumentation) error {
-		return gorp.Migrate(ctx, gorp.MigrateConfig{
-			Instrumentation: ins,
-			DB:              db,
-			Namespace:       "kafka_read_config",
-			Migrations:      []gorp.Migration{v1.NewReadMigration(channels, create)},
-		})
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "kafka_read_config",
+			Migrations: []gorp.Migration{v1.ReadMigration},
+		})).To(Succeed())
 	}
 	read := func(ctx SpecContext, key uuid.UUID) v1.ReadConfig {
 		GinkgoHelper()
@@ -455,110 +440,43 @@ var _ = Describe("NewReadMigration", func() {
 			Exec(ctx, db)).To(Succeed())
 		return cfg
 	}
-	storedConfig := func() v0.ReadConfig {
-		return v0.ReadConfig{
-			Key:   uuid.New(),
-			Topic: "plant",
-			Records: []v0.ReadRecord{{
-				Key:       "r1",
-				RecordKey: "pump",
-				Fields: []v0.ReadField{storedField(
-					"level",
-					telem.Float64T,
-					payload.EnumEntry{Label: "HALF", Value: 0.5},
-				)},
-			}},
-		}
-	}
 
 	It("Should store the shape that v0 stored under the same table name", func() {
 		Expect(v1.ReadConfig{}.CustomTypeName()).
 			To(Equal(v0.ReadConfig{}.CustomTypeName()))
 	})
 
-	It("Should move the fields of each config into an ICD named after its task",
+	It("Should stage the records of each config and store the config without them",
 		func(ctx SpecContext) {
 			old := storedConfig()
-			store(ctx, "Pump station", old, false)
-			ins, logs := observe()
-			Expect(migrate(ctx, ins)).To(Succeed())
-			Expect(made).To(HaveLen(1))
-			Expect(made[0].Name).To(Equal("Pump station"))
-			Expect(made[0].Messages).To(HaveLen(1))
-			Expect(made[0].Messages[0].Name).To(Equal("pump"))
-			f := fields(made[0].Messages[0])[0]
-			Expect(f.Type()).To(Equal(payload.KindInteger))
-			migrated := read(ctx, old.Key)
-			Expect(migrated.Inline).To(BeNil())
-			Expect(migrated.Topics).To(HaveLen(1))
-			Expect(migrated.Topics[0].Name).To(Equal("plant"))
-			Expect(migrated.Topics[0].Records).To(Equal([]v1.ReadRecord{{
-				Key:       "r1",
-				RecordKey: "pump",
-				ICD:       made[0].Key,
-				Messages: []icd.ReadMessage{{
-					Message:  made[0].Messages[0].Key,
-					Bindings: []icd.ReadBinding{{Field: f.Base().Key, Channel: 7}},
-				}},
-			}}))
-			logged := logs.FilterField(zap.String("field", "records.0.fields.0")).All()
-			Expect(logged).To(HaveLen(2))
-			Expect(logged[0].ContextMap()).To(HaveKeyWithValue(
-				"change",
-				"data type float64 became int32, the data type of its channel",
-			))
-		},
-	)
-
-	It("Should make no ICD for the config of a snapshot and keep no records",
-		func(ctx SpecContext) {
-			old := storedConfig()
-			storeTask(ctx, old, task.Task{Name: "Pump (snapshot)", Snapshot: true})
-			ins, _ := observe()
-			Expect(migrate(ctx, ins)).To(Succeed())
-			Expect(made).To(BeEmpty())
+			migrate(ctx, old)
 			migrated := read(ctx, old.Key)
 			Expect(migrated.Topics).To(HaveLen(1))
 			Expect(migrated.Topics[0].Name).To(Equal("plant"))
 			Expect(migrated.Topics[0].Records).To(BeEmpty())
+			Expect(migrated.Inline).To(BeNil())
+			b, closer := MustSucceed2(db.Get(v1.StagedRecordsKVKey(old.Key)))
+			var staged v1.InlineRead
+			Expect(json.Unmarshal(b, &staged)).To(Succeed())
+			Expect(closer.Close()).To(Succeed())
+			Expect(staged).To(Equal(v1.InlineRead{
+				Topic: "plant",
+				Records: []v1.InlineRecord{{
+					Key:       "r1",
+					RecordKey: "pump",
+					Fields:    old.Records[0].Fields,
+				}},
+			}))
 		},
 	)
 
-	It("Should make no ICD for a config without records", func(ctx SpecContext) {
+	It("Should stage nothing for a config without records", func(ctx SpecContext) {
 		old := v0.ReadConfig{Key: uuid.New(), Topic: "plant"}
-		store(ctx, "Empty", old, false)
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).To(Succeed())
-		Expect(made).To(BeEmpty())
+		migrate(ctx, old)
 		topics := read(ctx, old.Key).Topics
 		Expect(topics).To(HaveLen(1))
 		Expect(topics[0].Name).To(Equal("plant"))
+		Expect(db.Get(v1.StagedRecordsKVKey(old.Key))).Error().
+			To(MatchError(query.ErrNotFound))
 	})
-
-	It("Should do nothing without stored configs", func(ctx SpecContext) {
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).To(Succeed())
-		Expect(made).To(BeEmpty())
-	})
-
-	It("Should fail when a config has no task", func(ctx SpecContext) {
-		store(ctx, "", storedConfig(), true)
-		ins, _ := observe()
-		Expect(migrate(ctx, ins)).
-			To(MatchError(ContainSubstring("tasks of Kafka read configs")))
-	})
-
-	It("Should fail with the config key when an ICD create fails",
-		func(ctx SpecContext) {
-			old := storedConfig()
-			store(ctx, "Pump", old, false)
-			create = func(context.Context, gorp.Tx, icd.ICD) error {
-				return errors.New("create failed")
-			}
-			ins, _ := observe()
-			Expect(migrate(ctx, ins)).To(MatchError(ContainSubstring(
-				fmt.Sprintf("config %s: create failed", old.Key),
-			)))
-		},
-	)
 })

@@ -81,8 +81,9 @@ type Service struct {
 	// Write stores kafka_write task configuration records.
 	Write *config.Service[WriteConfig]
 	// Scan stores kafka_scan task configuration records.
-	Scan   *config.Service[ScanConfig]
-	closer xio.MultiCloser
+	Scan     *config.Service[ScanConfig]
+	resolver readResolver
+	closer   xio.MultiCloser
 }
 
 // OpenService opens the Kafka task config service with the provided configuration.
@@ -93,11 +94,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{}
+	s = &Service{resolver: readResolver{
+		icds:     cfg.ICD,
+		channels: readChannels(cfg.Channel),
+		create:   createICD(cfg.ICD),
+		ins:      cfg.Instrumentation,
+	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
-		ctx, readServiceConfig(cfg),
+		ctx, readServiceConfig(cfg, s.resolver),
 	); !ok(err, s.Read) {
 		return nil, err
 	}
@@ -133,30 +139,26 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	return s, nil
 }
 
-// readServiceConfig returns the config of the read task config service.
-func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
-	resolver := readResolver{
-		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
-		create:   createICD(cfg.ICD),
-		ins:      cfg.Instrumentation,
-	}
+// readServiceConfig returns the config of the read task config service, which resolves
+// records with resolver.
+func readServiceConfig(
+	cfg ServiceConfig,
+	resolver readResolver,
+) config.ServiceConfig[ReadConfig] {
 	return config.ServiceConfig[ReadConfig]{
 		DB:              cfg.DB,
 		References:      readConfigReferences(),
 		Instrumentation: cfg.Instrumentation,
 		Type:            ReadTaskType,
 		Ladder:          versions.ReadConfigLadder,
-		Migrations: []gorp.Migration{
-			v1.NewReadMigration(resolver.channels, resolver.create),
-		},
-		SetEntryKey:    (*ReadConfig).SetKey,
-		PatchEntry:     (*ReadConfig).Patch,
-		HashEntry:      (*ReadConfig).HashContent,
-		HashReferences: resolver.hash,
-		HashedTables:   []string{"icd"},
-		ResolveEntry:   resolver.resolve,
-		ValidateEntry:  (*ReadConfig).Validate,
+		Migrations:      []gorp.Migration{v1.ReadMigration},
+		SetEntryKey:     (*ReadConfig).SetKey,
+		PatchEntry:      (*ReadConfig).Patch,
+		HashEntry:       (*ReadConfig).HashContent,
+		HashReferences:  resolver.hash,
+		HashedTables:    []string{"icd"},
+		ResolveEntry:    resolver.resolve,
+		ValidateEntry:   (*ReadConfig).Validate,
 	}
 }
 
