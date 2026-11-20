@@ -44,8 +44,11 @@ export const setupBrowser = (): void => {
     corner.style.cssText =
       "position: fixed; right: 0; bottom: 0; width: 1px; height: 1px";
     document.body.appendChild(corner);
-    await userEvent.hover(corner, { force: true });
-    corner.remove();
+    try {
+      await userEvent.hover(corner, { force: true });
+    } finally {
+      corner.remove();
+    }
     // WebKit can draw no frames for seconds after the first pointer move, and a forced
     // hover does not wait for them. The next spec then waits on a frame that is late.
     await scheduler.nextFrame();
