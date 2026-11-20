@@ -236,6 +236,8 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
+          # Typed linting of the Console needs more than 4 GB of heap.
+          NODE_OPTIONS: "--max_old_space_size=6144"
         run: pnpm lint:"$PACKAGE"
 
       # The packages are ES modules only, so the profile skips CommonJS and node10.

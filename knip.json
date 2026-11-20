@@ -67,8 +67,7 @@
         "src/cli/{batch,clean,film,gallery,mail,produce,upload}.ts!",
         "src/remotion/entry.ts!"
       ],
-      "project": ["{src,scripts,films}/**/*.{ts,tsx}!"],
-      "ignoreBinaries": ["uv"]
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}!"]
     },
     "site/common": {
       "entry": ["src/**/*.{astro,ts}!"],
