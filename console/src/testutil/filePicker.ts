@@ -10,18 +10,23 @@
 import { vi } from "vitest";
 
 /**
- * fakePickedFile builds a File for driving the browser picker boundary. It is built
- * from node:buffer so undici's fetch accepts it as a request body — jsdom's File is
- * another realm's Blob and would be stringified.
+ * fakePickedFile builds a File for driving the browser picker boundary. Under Node it
+ * is built from node:buffer so undici's fetch accepts it as a request body — jsdom's
+ * File is another realm's Blob and would be stringified. A browser has no `process`
+ * and uses its own File.
  */
 export const fakePickedFile = (
   name: string,
   contents: string | Uint8Array<ArrayBuffer> = "content",
   webkitRelativePath?: string,
 ): File => {
-  // Loaded at call time, so that browser specs can import the test utilities.
-  const { File: NodeFile } = process.getBuiltinModule("node:buffer");
-  const file = new NodeFile([contents], name) as unknown as File;
+  const file =
+    typeof process === "undefined"
+      ? new File([contents], name)
+      : (new (process.getBuiltinModule("node:buffer").File)(
+          [contents],
+          name,
+        ) as unknown as File);
   if (webkitRelativePath != null)
     Object.defineProperty(file, "webkitRelativePath", { value: webkitRelativePath });
   return file;

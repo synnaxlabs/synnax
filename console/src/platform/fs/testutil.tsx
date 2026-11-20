@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { File as NodeFile } from "node:buffer";
-
 import type { UploadBody } from "@synnaxlabs/freighter";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { act, createEvent, fireEvent, screen } from "@testing-library/react";
 import type { DragEvent, ReactElement } from "react";
+
+import { fakePickedFile } from "@/testutil";
 
 const START_FILE_DRAG = "start file drag";
 
@@ -39,14 +39,11 @@ export const startFileDrag = (): void => {
   });
 };
 
-/**
- * Builds a File whose bytes undici's fetch accepts as a request body — jsdom's File is
- * another realm's Blob and would be stringified.
- */
+/** Builds a File that fetch accepts as a request body, as fakePickedFile does. */
 export const createFile = (
   name: string,
   contents: string | Uint8Array<ArrayBuffer>,
-): File => new NodeFile([contents], name) as unknown as File;
+): File => fakePickedFile(name, contents);
 
 /** Builds a JSON file the drop path accepts. */
 export const createJSONFile = (name: string, contents: unknown): File =>
