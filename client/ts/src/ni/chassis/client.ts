@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -33,7 +33,7 @@ import {
   serverComputed,
 } from "@/ni/chassis/where.gen";
 import { query } from "@/query";
-import { type status } from "@/status";
+import type { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_ni_chassis_set";
