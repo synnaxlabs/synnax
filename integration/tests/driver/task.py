@@ -19,7 +19,7 @@ import sys
 from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol, TypeAlias
 
 from pydantic import ValidationError
 
@@ -36,10 +36,8 @@ _STATUS_CHANNEL = "sy_status_set"
 # time to reach steady state.
 RATE_TOLERANCE = 0.20
 
-ConfigT = TypeVar("ConfigT", bound=sy.task.StartConfig, covariant=True)
 
-
-class DriverTask(Protocol[ConfigT]):
+class DriverTask[ConfigT: sy.task.StartConfig](Protocol):
     """A typed hardware task, such as ``sy.modbus.ReadTask``."""
 
     _internal: sy.Task
@@ -70,8 +68,10 @@ class DriverTask(Protocol[ConfigT]):
     ) -> sy.Device | None: ...
 
 
-TaskT = TypeVar("TaskT", bound=DriverTask[sy.task.StartConfig])
-ReadTaskT = TypeVar("ReadTaskT", bound=DriverTask[sy.task.PersistConfig])
+Task: TypeAlias = DriverTask[sy.task.StartConfig]
+"""The bound of the task that a TaskCase tests."""
+ReadTask: TypeAlias = DriverTask[sy.task.PersistConfig]
+"""The bound of the task that a ReadTaskCase tests."""
 
 # ── Channel creation helpers ─────────────────────────────────────
 
@@ -645,7 +645,7 @@ def delete_channels(client: sy.Synnax, keys: list[int]) -> None:
         client.channels.delete(list(index_keys))
 
 
-class TaskCase(TestCase, Generic[TaskT]):
+class TaskCase[TaskT: Task](TestCase):
     """Base class for driver task lifecycle tests.
 
     Provides setup/cleanup, channel key extraction, and generic assertions.
@@ -771,7 +771,7 @@ class TaskCase(TestCase, Generic[TaskT]):
         raise AssertionError(f"Device '{device.name}' still exists after deletion")
 
 
-class ReadTaskCase(TaskCase[ReadTaskT]):
+class ReadTaskCase[ReadTaskT: ReadTask](TaskCase[ReadTaskT]):
     """Base for read task lifecycle tests.
 
     Adds sample counting, data saving toggle, rate reconfiguration,
@@ -919,7 +919,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                 )
 
 
-class WriteTaskCase(TaskCase[TaskT]):
+class WriteTaskCase[TaskT: Task](TaskCase[TaskT]):
     """Base for write task lifecycle tests.
 
     Adds command sending and task reconfiguration testing.

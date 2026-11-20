@@ -40,7 +40,7 @@ import { Diagram as BaseDiagram } from "@/vis/diagram";
 const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {
   minZoom: 0.5,
   maxZoom: 0.9,
-  padding: 0.1,
+  padding: "4.5%",
 };
 
 const SNAP_GRID: xy.Couple = [2, 2];

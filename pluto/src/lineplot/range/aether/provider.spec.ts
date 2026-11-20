@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
 import { box, id, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -30,9 +30,9 @@ const requested = vi.fn<render.Requestor>();
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "range-provider-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, requested);
   }
 }
@@ -54,7 +54,7 @@ const renderProps = (
 const mount = (recorder = canvasTest.record()): range.Provider => {
   const h = renderAether(Requestor, {
     state: {},
-    synnax: { props: TEST_CLIENT_PARAMS },
+    synnax: { props: testClientParams() },
     render: recorder,
     registry: { [range.Provider.TYPE]: range.Provider },
     children: {

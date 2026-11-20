@@ -14,11 +14,10 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
-import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "astro/config";
-import path from "path";
+import { defineConfig, envField } from "astro/config";
 
 import { tokenSource } from "./src/util/githubApp";
+import { IMAGES } from "./src/util/images";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
@@ -54,25 +53,20 @@ const version =
         versionName === NEXT ? null : await releases.onTrain("core", versionName),
       );
 
+/** A GitHub credential. Without one, the docs ask GitHub with no token. */
+const SECRET = envField.string({
+  context: "server",
+  access: "secret",
+  optional: true,
+});
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
-  adapter: vercel(),
+  adapter: vercel({ imageService: true, imagesConfig: IMAGES }),
+  image: { domains: IMAGES.domains },
   vite: {
     define: { __DOCS_VERSION__: JSON.stringify(version) },
-    // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
-    // SSR.
-    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
-    css: {
-      postcss: {
-        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
-      },
-    },
-    // An inlined font ships in the render-blocking stylesheet whether or not a page
-    // needs its characters.
-    build: {
-      assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
-    },
   },
   markdown: {
     processor: satteri({ hastPlugins: [outline, inlineCode, quantities] }),
@@ -283,6 +277,15 @@ export default defineConfig({
     "/reference/driver/task-basics": "/reference/hardware/tasks",
     "/reference/installation": "/reference/enterprise",
     ...RELEASE_REDIRECTS,
+  },
+  // The middleware reads these. The config runs before Astro loads them, so it reads
+  // process.env.
+  env: {
+    schema: {
+      DOCS_GITHUB_APP_ID: SECRET,
+      DOCS_GITHUB_APP_PRIVATE_KEY: SECRET,
+      GITHUB_TOKEN: SECRET,
+    },
   },
   site: "https://docs.synnaxlabs.com",
 });
