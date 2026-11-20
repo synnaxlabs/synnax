@@ -255,9 +255,6 @@ catalogs:
     '@neondatabase/serverless':
       specifier: ^1.2.1
       version: 1.2.1
-    '@noble/hashes':
-      specifier: ^2.4.0
-      version: 2.4.0
     '@opentelemetry/api':
       specifier: ^1.10.0
       version: 1.10.0
@@ -981,9 +978,6 @@ importers:
 
   console:
     dependencies:
-      '@noble/hashes':
-        specifier: 'catalog:'
-        version: 2.4.0
       '@reduxjs/toolkit':
         specifier: 'catalog:'
         version: 2.15.0(@types/react@19.3.0)(react-redux@9.3.1(@types/react@19.3.0)(react@19.3.1)(redux@5.0.1))(react@19.3.1)
@@ -11529,7 +11523,8 @@ snapshots:
 
   '@neondatabase/serverless@1.2.1': {}
 
-  '@noble/hashes@2.4.0': {}
+  '@noble/hashes@2.4.0':
+    optional: true
 
   '@opentelemetry/api@1.10.0': {}
 

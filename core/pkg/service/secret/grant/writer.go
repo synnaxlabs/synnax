@@ -28,7 +28,7 @@ type Writer struct {
 
 // Create stores g under a new key with an expiry one TTL from now, and writes both to
 // g. It also deletes the grants that have expired. It returns a validation error when
-// g's subject is not a rack or g names no secrets.
+// g's subject is not a rack or g names no secret and no certificate.
 func (w Writer) Create(ctx context.Context, g *Grant) error {
 	v := validate.New("grant")
 	v.Ternaryf(
@@ -37,7 +37,11 @@ func (w Writer) Create(ctx context.Context, g *Grant) error {
 		"%s is not a rack",
 		g.Subject,
 	)
-	v.NotEmptySlice("secrets", g.Secrets)
+	v.Ternary(
+		"secrets",
+		len(g.Secrets) == 0 && len(g.Certificates) == 0,
+		"required without certificates",
+	)
 	if err := v.Error(); err != nil {
 		return err
 	}

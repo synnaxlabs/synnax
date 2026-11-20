@@ -1195,9 +1195,7 @@ describe("Select", () => {
     };
 
     const clearOf = (trigger: HTMLElement): HTMLElement => {
-      const clear = trigger.querySelector<HTMLElement>(
-        ".lyra-select-single-trigger__clear",
-      );
+      const clear = trigger.querySelector<HTMLElement>(".lyra-select-clear__button");
       assert(clear != null);
       return clear;
     };

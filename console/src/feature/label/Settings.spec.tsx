@@ -27,6 +27,7 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Label } from "@/feature/label";
+import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   awaitGranted,
@@ -40,7 +41,7 @@ import {
 const client = createTestClient();
 
 const createLabel = async (name = uniqueName("label")): Promise<label.Label> =>
-  await client.labels.create({ name, color: { type: "fixed", value: "#0000FF" } });
+  await createTestLabel(client, { name, color: { type: "fixed", value: "#0000FF" } });
 
 const renderLabels = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
@@ -77,7 +78,7 @@ describe("Label.Settings", () => {
   it("should create a label from Create label", async () => {
     await renderLabels();
     await clickAndSettle("Create label");
-    const name = uniqueName("label");
+    const name = createTestLabelName(client);
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
     });
@@ -92,7 +93,7 @@ describe("Label.Settings", () => {
   it("should keep the create item open and empty after a create", async () => {
     await renderLabels();
     await clickAndSettle("Create label");
-    const name = uniqueName("label");
+    const name = createTestLabelName(client);
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
     });
@@ -112,8 +113,9 @@ describe("Label.Settings", () => {
     await renderLabels();
     await search(prefix);
     await clickAndSettle("Create label");
+    const created = createTestLabelName(client, `${prefix}-z`);
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
-      target: { value: `${prefix}-z` },
+      target: { value: created },
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -122,7 +124,7 @@ describe("Label.Settings", () => {
     const names = screen
       .getAllByRole("option")
       .map((o) => o.getAttribute("aria-label"));
-    expect(names).toEqual([`${prefix}-z`, `${prefix}-a`]);
+    expect(names).toEqual([created, `${prefix}-a`]);
   });
 
   it("should rename a label from its menu", async () => {

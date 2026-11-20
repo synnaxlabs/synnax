@@ -31,6 +31,7 @@
       "tests": [
         { "case": "driver/opcua_status_spam" },
         { "case": "driver/opcua_read" },
+        { "case": "driver/opcua_login" },
         { "case": "driver/opcua_write" },
         { "case": "driver/opcua_invalid" },
         { "case": "console/task/opcua_read_task" },
