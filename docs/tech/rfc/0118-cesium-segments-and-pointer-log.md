@@ -494,16 +494,21 @@ file depend on the state alone. A count is the index of the next record minus it
 
 **The switch.** `L` is the log owner and `C` the checkpointer. The root holds the live
 log `g`, its head, and the newest older head that exists with every log from its
-generation on. A switch starts when log `g` is three quarters full, and no frame passes
-three quarters before the file of log `g + 1` exists.
+generation on. A switch starts when log `g` is three quarters full. No owner step waits
+for another owner's step (§7): each request names the queue that its reply goes to.
+While the file of log `g + 1` cannot be made, as on a full disk, log `g` goes on to its
+end limits, so a delete can still be logged, and `C` tries again at each later frame.
 
 1. `C`: make the file of log `g + 1` if it is missing or not 64 MiB long: zeros, a sync,
    and `SyncDir` of the root. Remove a leftover file of a name that this switch will
-   make.
+   make. Then tell `L` that the file exists; `L` switches only after that.
 2. `L`, after the sync of the last frame of log `g`: write both header copies of log
-   `g + 1` and sync. Log a Seal for each open segment that no writer holds. Hand `C` the
-   state as references to immutable channel states, and send later batches to log
-   `g + 1`. A crash now recovers from head `g` and both logs.
+   `g + 1` and sync. Put one request in the state owner's queue right after the last
+   entries of log `g`, so the state that it answers covers exactly log `g`. The state
+   owner sends that state, as references to immutable channel states, to `C`, and the
+   open segments that no writer holds to `L`, which logs a Seal for each in log `g + 1`.
+   `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and both
+   logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -662,7 +667,7 @@ control region and gates its own writers on it (`x/go/control`).
 
 | Case of RFC 0095 §4.0                                    | Decided by | How                                                                                                                           |
 | -------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Start before every other claim: opens                    | Cesium     | No claim holds the start                                                                                                      |
+| Start before every other claim: opens                    | Cesium     | No claim holds the start. A second live claim on a key fails at any start: the framer keeps one live writer per clock (D-153) |
 | Start inside another claim, at any authority: fails      | Both       | Cesium refuses a `Bounded` claim. A second live writer joins the framer's control region and gets no Cesium writer of its own |
 | No start, next to a live writer: fails                   | Cesium     | The start is the open time, inside the live claim                                                                             |
 | A commit reaches a stored domain: write conflict         | Cesium     | The commit overlaps a stored pointer                                                                                          |
