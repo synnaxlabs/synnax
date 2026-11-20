@@ -9,10 +9,11 @@
 
 import "@/select/Dialog.css";
 
-import { destructor } from "@synnaxlabs/x";
+import { array, destructor } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactNode,
+  useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -20,9 +21,13 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
+import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
+import { List } from "@/list";
 import { Menu } from "@/menu";
 import { usePath } from "@/menu/filter";
+import { useContext } from "@/select/Context";
+import { useRegistryContext } from "@/select/registry";
 import { ClosedContext, InlineContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
@@ -50,6 +55,55 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
   return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
 };
 
+// The dialog opens on its first choice, as a native dropdown does. A fetched list can
+// load the choice after the dialog is placed, so the reveal waits for it once. A
+// virtual list adopts the scroll container of a dialog that opens again one render
+// later, so the scroll waits a frame.
+const useRevealChoice = (): void => {
+  const { placed } = BaseDialog.useContext();
+  const registry = useRegistryContext("Select.Dialog");
+  const { scrollToIndex, getData, subscribeData } = List.useUtilContext();
+  const getRowElement = List.useGetElement();
+  const { getState } = useContext();
+  // Read through a ref, so the reveal runs once per open as these change identity.
+  const readRef = useSyncedRef({
+    scrollToIndex,
+    getData,
+    subscribeData,
+    getRowElement,
+    getState,
+  });
+  useEffect(() => {
+    if (!placed) return;
+    const { scrollToIndex, getData, subscribeData, getRowElement, getState } =
+      readRef.current;
+    const selected = array.toArray(getState().value);
+    let frame: number | undefined;
+    const reveal = (): boolean => {
+      const key = registry.getOrder(getData()).find((k) => selected.includes(k));
+      if (key == null) return false;
+      frame = requestAnimationFrame(() => {
+        const element = registry.hasItem(key)
+          ? registry.getElement(key)
+          : getRowElement(key);
+        if (element != null) element.scrollIntoView({ block: "nearest" });
+        else scrollToIndex(getData().indexOf(key));
+      });
+      return true;
+    };
+    const stops: destructor.Destructor[] = [];
+    const stop = (): void => stops.splice(0).forEach((s) => s());
+    const retry = (): void => {
+      if (reveal()) stop();
+    };
+    if (!reveal()) stops.push(registry.subscribe(retry), subscribeData(retry));
+    return () => {
+      stop();
+      if (frame != null) cancelAnimationFrame(frame);
+    };
+  }, [placed, registry, readRef]);
+};
+
 /**
  * The floating surface of a selection. While closed it renders its children into an
  * element outside the page, so a selected fixed {@link Item} can still show its label
@@ -64,6 +118,7 @@ export const Dialog = ({
   ...rest
 }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
+  useRevealChoice();
   // Under a submenu that the menu filter passes, a selection shows its options in the
   // menu or nothing.
   const nested = usePath().length > 0;

@@ -9,7 +9,16 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -190,10 +199,10 @@ const fixedOptions = (): ReactElement[] =>
     </Select.Item>
   ));
 
-const listSelect = (virtual: boolean): ReactElement => (
+const listSelect = (virtual: boolean, data: string[] = MANY_KEYS): ReactElement => (
   <Dialog.Frame>
     <Select.Frame<string, undefined>
-      data={MANY_KEYS}
+      data={data}
       value={CHOICE}
       onChange={() => {}}
       virtual={virtual}
@@ -592,7 +601,8 @@ const renderSearchless = async (
   await userEvent.click(getByRole("button", { name: multiple ? "Levels" : /^Level/ }));
   const dialog = getByRole("dialog").element();
   await expect.poll(() => computed(dialog, "opacity")).toBe("1");
-  await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+  // The first arrow key moves on from the choice.
+  await userEvent.keyboard("{ArrowDown}{Enter}");
   await expect.poll(() => onChange).toHaveBeenCalledOnce();
   return onChange;
 };
@@ -1084,6 +1094,64 @@ describe("Select", () => {
       );
       const dialog = await openDialog(trigger);
       await expect.poll(() => isInView(dialog, "key-30")).toBe(true);
+    });
+
+    it("should scroll to a choice that loads after the dialog opens", async () => {
+      const { container, rerender } = await renderThemed(
+        <Triggers.Provider>{listSelect(true, [])}</Triggers.Provider>,
+      );
+      const dialog = await openDialog(
+        container.querySelector(".lyra-dialog__trigger") as Element,
+      );
+      // The first try at the reveal finds no options.
+      await scheduler.nextFrame();
+      await rerender(<Triggers.Provider>{listSelect(true)}</Triggers.Provider>);
+      await expect.poll(() => isInView(dialog, CHOICE)).toBe(true);
+    });
+
+    it("should move the hover on from the choice", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderChoice(
+        <Select.Simple<string> resourceName="key" value={CHOICE} onChange={onChange}>
+          {fixedOptions()}
+        </Select.Simple>,
+      );
+      await openDialog(trigger);
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith("key-51", expect.anything());
+    });
+
+    it("should not scroll to the choice of a list in a modal", async () => {
+      const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+      onTestFinished(() => scroll.mockRestore());
+      await renderThemed(
+        <Triggers.Provider>
+          <Dialog.Frame variant="modal" visible>
+            <Dialog.Dialog>
+              <Select.Frame<string, undefined>
+                data={MANY_KEYS}
+                value={CHOICE}
+                onChange={() => {}}
+              >
+                <Select.List>
+                  <Select.Items<string>>
+                    {({ key, ...p }) => (
+                      <Select.Item key={key} {...p}>
+                        {p.itemKey}
+                      </Select.Item>
+                    )}
+                  </Select.Items>
+                </Select.List>
+              </Select.Frame>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
+      expect(scroll).not.toHaveBeenCalled();
     });
 
     it("should scroll a virtual list to the choice when it opens again", async () => {

@@ -71,6 +71,8 @@ interface BaseProps<K extends record.Key> {
 interface HoverProps<K extends record.Key> extends BaseProps<K> {
   cursor?: "hover";
   order: Order<K>;
+  /** While none is hovered, the first arrow key moves on from the first of these. */
+  selected?: K[];
 }
 
 interface SelectionProps<K extends record.Key> extends BaseProps<K> {
@@ -236,7 +238,7 @@ export const useCursor = <K extends record.Key>(
   const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
     const order = getOrder();
     if (order.length === 0) return;
-    const from = resolve(order);
+    const from = resolve(order) ?? startOf(order, -1, props.selected);
     const at = from == null ? -1 : order.indexOf(from);
     let to: K | undefined;
     if (isX(key)) {
