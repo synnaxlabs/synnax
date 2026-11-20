@@ -75,4 +75,38 @@ var _ = Describe("Calculation records checks", func() {
 				Exists(ctx, db)).To(BeTrue())
 		},
 	)
+
+	// v63_grant_calculations gives a v0.62 policy of channel create and retrieve the
+	// same actions on calculations, and no update.
+	It(
+		"Should find a calculated channel by name for a subject with create and retrieve",
+		func(ctx SpecContext) {
+			u := MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "records-check-" + uuid.New().String()},
+			))
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionCreate, access.ActionRetrieve},
+				resource.ID{Type: resource.TypeChannel},
+				resource.ID{Type: resource.TypeCalculation},
+			)
+			req := apichannel.CreateRequest{
+				Channels: []apichannel.Channel{{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return 2",
+				}},
+				RetrieveIfNameExists: true,
+			}
+			first := MustSucceed(createChannels(AuthedCtx(ctx, u), req)).Channels[0]
+			again := MustSucceed(createChannels(AuthedCtx(ctx, u), req)).Channels[0]
+			Expect(again.Key).To(Equal(first.Key))
+		},
+	)
 })
