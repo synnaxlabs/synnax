@@ -126,6 +126,10 @@ type freeWriter struct {
 // Flow implements confluence.Flow. The writer releases its gates and its hold when it
 // exits.
 func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
+	if len(w.gates.byKey) == 0 {
+		w.LinearTransform.Flow(ctx, opts...)
+		return
+	}
 	w.LinearTransform.Flow(ctx, append(opts, confluence.Defer(func() {
 		w.controls.notify(w.gates.release())
 		w.release()
