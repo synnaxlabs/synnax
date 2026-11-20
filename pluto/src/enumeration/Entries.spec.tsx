@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type enumeration } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { enumeration } from "@synnaxlabs/client";
+import {
+  createProxiedTestClient,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { color, id } from "@synnaxlabs/x";
@@ -393,6 +397,25 @@ describe("Enumeration.Table", () => {
       expect(el.value).toBe("2e7d32");
     });
 
+    it("should send a color picked in the swatch once, when the picker closes", () => {
+      const onChange = vi.fn<OnChange>();
+      renderTable({ initial: [createEntry("Off", 0)], onChange });
+      const swatch = screen.getByRole("button", { name: "Pick color 1" });
+      fireEvent.click(swatch);
+      const hex = screen.getByLabelText("Hex");
+      fireEvent.change(hex, { target: { value: "#00ff00" } });
+      fireEvent.change(hex, { target: { value: "#0000ff" } });
+      expect(changes(onChange)).toEqual([]);
+      fireEvent.click(swatch);
+      expect(changes(onChange)).toEqual([
+        [
+          expect.objectContaining({
+            color: { type: "fixed", value: color.construct("#0000ff") },
+          }),
+        ],
+      ]);
+    });
+
     it("should set a fixed color from a pasted hex code", () => {
       const onChange = vi.fn<OnChange>();
       renderTable({ initial: [createEntry("Off", 0)], onChange });
@@ -702,6 +725,29 @@ describe("Enumeration.Entries", () => {
     await waitFor(() => expect(cell.disabled).toBe(false));
   });
 
+  it("should keep another user's edit to a field that a rename leaves", async () => {
+    const e = await createEnumeration([createEntry("Off", 0)]);
+    const [off] = e.entries;
+    const { client: editor, proxy } = await createProxiedTestClient();
+    const editorWrapper = await createAsyncSynnaxWrapper({ client: editor });
+    // A render through a new client suspends at first.
+    await act(async () => {
+      render(<Enumeration.Entries enumeration={e.key} />, { wrapper: editorWrapper });
+    });
+    const name = await screen.findByLabelText<HTMLInputElement>("Name 1");
+    // The editor misses the other user's edit, so its copy of the entry goes stale.
+    expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+    await core.enumerations.retrieve(e.key);
+    await core.enumerations.dispatch(
+      e.key,
+      enumeration.set({ path: ["entries", off.key, "abnormal"], value: true }),
+    );
+    commit(name, "Closed");
+    await waitFor(async () =>
+      expect(await stored(e.key)).toEqual([{ ...off, name: "Closed", abnormal: true }]),
+    );
+  });
+
   it("should save an edit to the Core", async () => {
     const e = await createEnumeration([createEntry("Off", 0), createEntry("On", 1)]);
     render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
@@ -709,6 +755,14 @@ describe("Enumeration.Entries", () => {
     await waitFor(async () =>
       expect((await stored(e.key)).map((en) => en.name)).toEqual(["Off", "Running"]),
     );
+  });
+
+  it("should save a color cleared to Auto", async () => {
+    const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
+    const e = await createEnumeration([createEntry("Off", 0, { color: fixed })]);
+    render(<Enumeration.Entries enumeration={e.key} />, { wrapper });
+    commit(await screen.findByLabelText<HTMLInputElement>("Color 1"), "");
+    await waitFor(async () => expect((await stored(e.key))[0].color).toBeUndefined());
   });
 
   it("should save an added entry after the last one", async () => {
