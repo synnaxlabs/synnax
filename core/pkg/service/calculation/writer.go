@@ -16,8 +16,10 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -66,6 +68,48 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	}
 	w.dispatcher.Attach(w.tx, c.Key, NewCreateAction(CreatePayload{Calculation: *c}))
 	return nil
+}
+
+// CreateOutput creates c with a new output: a virtual channel named name in the group
+// with key group, or at the root when group is nil, typed by the expression of c, with
+// a
+// free index that timestamps it. It returns an error wrapping validate.ErrValidation
+// when c names an output, and fails as Create does.
+func (w Writer) CreateOutput(
+	ctx context.Context,
+	c *Calculation,
+	name string,
+	group *group.Key,
+) error {
+	if c.Output != 0 {
+		return validate.PathedError(errors.Wrap(
+			validate.ErrValidation,
+			"a calculation that makes its output names none",
+		), "output")
+	}
+	output := channel.Channel{
+		Name:        name,
+		Virtual:     true,
+		Leaseholder: node.KeyFree,
+		Group:       group,
+	}
+	result, err := w.newAnalyzer().AnalyzeExpression(
+		ctx,
+		output,
+		c.Expression,
+		HasDerivative(c.Operations),
+	)
+	if err != nil {
+		return validate.PathedError(err, "expression")
+	}
+	output.DataType = result.ChanDataType
+	created := []channel.Channel{output}
+	if err = w.channels.NewWriter(w.tx).
+		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
+		return err
+	}
+	c.Output = created[0].Key()
+	return w.Create(ctx, c)
 }
 
 // checkOutput returns the channel with key. It fails when the channel does not exist,

@@ -54,6 +54,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 type createOptions struct {
 	retrieveIfNameExists bool
+	// freeIndex is true when the create gives each virtual, free channel with no index
+	// a
+	// free index of its own.
+	freeIndex bool
 	// builtIn is true when Declare creates the channels, which the channel limit does
 	// not count.
 	builtIn bool
@@ -64,6 +68,20 @@ func (o createOptions) limited(ch Channel) bool { return !o.builtIn && !ch.Virtu
 
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
+
+// FreeIndex returns a CreateOption that gives each virtual, free channel with no index
+// a
+// free index named for it, adopting a free index of that name that a deleted channel
+// left.
+func FreeIndex() CreateOption {
+	return func(o *createOptions) { o.freeIndex = true }
+}
+
+// needsFreeIndex reports whether a create with opts gives ch a free index.
+func needsFreeIndex(ch Channel, opts createOptions) bool {
+	return ch.LocalIndex == 0 && (ch.IsCalculated() ||
+		(opts.freeIndex && ch.Virtual && ch.Leaseholder == node.KeyFree))
+}
 
 // RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
 // or key already exists, populates the provided channel from the existing record
@@ -386,7 +404,7 @@ func (w Writer) create(
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index).
-	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
+	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels, opts)
 	if err != nil {
 		return err
 	}
@@ -525,7 +543,10 @@ func (w Writer) resetStoredNames(ctx context.Context, channels []Channel) error 
 
 // synthesizeIndexes returns a new index channel for each calculated channel without
 // an index, and the positions in channels of the calculated channels that need one.
-func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
+func synthesizeIndexes(
+	channels []Channel,
+	opts createOptions,
+) ([]Channel, []int, error) {
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
@@ -533,7 +554,7 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 		batchPositionByName[ch.Name] = i
 	}
 	for i, ch := range channels {
-		if !ch.IsCalculated() || ch.LocalIndex != 0 {
+		if !needsFreeIndex(ch, opts) {
 			continue
 		}
 		indexName := ch.Name + calculatedIndexNameSuffix
@@ -740,7 +761,7 @@ func (w Writer) allocateAndWrite(
 		}
 	}
 
-	linkCalculatedIndexes(channels, toCreate)
+	linkCalculatedIndexes(channels, toCreate, opts)
 
 	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
@@ -791,7 +812,7 @@ func (w Writer) checkLimit(
 // linkCalculatedIndexes links each calculated channel without an index in channels and
 // toCreate to its index channel in channels, by setting the LocalIndex of the
 // calculated channel to the LocalKey of the index.
-func linkCalculatedIndexes(channels, toCreate []Channel) {
+func linkCalculatedIndexes(channels, toCreate []Channel, opts createOptions) {
 	indexKeyByName := make(map[string]LocalKey, len(channels))
 	for _, ch := range channels {
 		if ch.IsIndex {
@@ -800,7 +821,7 @@ func linkCalculatedIndexes(channels, toCreate []Channel) {
 	}
 	link := func(chs []Channel) {
 		for i := range chs {
-			if !chs[i].IsCalculated() || chs[i].LocalIndex != 0 {
+			if !needsFreeIndex(chs[i], opts) {
 				continue
 			}
 			if k, ok := indexKeyByName[chs[i].Name+calculatedIndexNameSuffix]; ok {

@@ -169,6 +169,66 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateOutput", func() {
+		createOutput := func(ctx SpecContext, c *calculation.Calculation, name string) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateOutput(ctx, c, name, nil)
+			})
+		}
+
+		It(
+			"Should make a virtual output typed by the expression, with a free index",
+			func(
+				ctx SpecContext,
+			) {
+				createChannel(ctx, channel.Channel{
+					Name:     "wide",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})
+				c := calculation.Calculation{Expression: "return wide * 2"}
+				Expect(createOutput(ctx, &c, "doubled")).To(Succeed())
+				Expect(retrieve(ctx, c.Output)).To(ConsistOf(c))
+				var output, index channel.Channel
+				Expect(channels.NewRetrieve().
+					Where(channel.MatchKeys(c.Output)).
+					Entry(&output).
+					Exec(ctx, node.DB)).To(Succeed())
+				Expect(output.Name).To(Equal("doubled"))
+				Expect(output.Virtual).To(BeTrue())
+				Expect(output.DataType).To(Equal(telem.Int64T))
+				Expect(output.Expression).To(BeEmpty())
+				Expect(channels.NewRetrieve().
+					Where(channel.MatchKeys(output.Index())).
+					Entry(&index).
+					Exec(ctx, node.DB)).To(Succeed())
+				Expect(index.Name).To(Equal("doubled_time"))
+				Expect(index.IsIndex).To(BeTrue())
+				Expect(index.Virtual).To(BeTrue())
+			},
+		)
+
+		It("Should fail on a calculation that names its output", func(ctx SpecContext) {
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
+			Expect(
+				createOutput(ctx, &c, "other"),
+			).To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should make no output for an expression that does not compile", func(
+			ctx SpecContext,
+		) {
+			c := calculation.Calculation{Expression: "return missing * 2"}
+			Expect(
+				createOutput(ctx, &c, "doubled"),
+			).To(MatchError(ContainSubstring("missing")))
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchNames("doubled")).
+				Exists(ctx, node.DB)).To(BeFalse())
+		})
+	})
+
 	Describe("Compile", func() {
 		apply := func(ctx SpecContext, key calculation.Key, path string, value any) error {
 			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
