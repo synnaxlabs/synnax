@@ -348,7 +348,7 @@ func inferPrimaryType(
 		}
 		return resolved.Type
 	}
-	if name := parser.PrimaryNameParts(ctx.AST); name.Head != "" {
+	if name := parser.PrimaryName(ctx.AST); name.Head != "" {
 		if varScope, err := ctx.Scope.ResolveName(ctx, name); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				// A read gives an untyped variable one type, so `x := 10; x + 3.2`

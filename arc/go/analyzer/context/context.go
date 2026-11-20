@@ -211,13 +211,15 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return tailSym, nil
 }
 
-// ResolveName resolves n: a quoted channel name through the global resolvers only, so
-// it never binds a variable, and any other name as ResolveQualified does.
+// ResolveName resolves n as Symbol.ResolveName does, and warns when the symbol it finds
+// is deprecated.
 func (c Context[AST]) ResolveName(n parser.Name) (*symbol.Symbol, error) {
-	if n.Channel {
-		return c.Scope.Resolve(c, n.Head, symbol.ChannelOnly)
+	sym, err := c.Scope.ResolveName(c, n)
+	if err != nil {
+		return nil, err
 	}
-	return c.ResolveQualified(n.Head, n.Tail)
+	c.warnIfDeprecated(n.String(), sym)
+	return sym, nil
 }
 
 // RejectTopLevel reports that name cannot be reassigned and returns true when sym is a

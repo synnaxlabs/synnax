@@ -64,6 +64,9 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
+	if _, r, quoted := channelNameAt(doc.displayContent(), params.Position); quoted {
+		return &r, nil
+	}
 	if r := doc.getWordRangeAtPosition(params.Position); r != nil {
 		return r, nil
 	}
@@ -108,9 +111,9 @@ func (s *Server) Rename(
 	}, nil
 }
 
-// renameTextEdits walks every identifier token in doc, keeps the ones that
-// resolve to the same symbol as targetSym, and emits a TextEdit per
-// occurrence that replaces the token with newName.
+// renameTextEdits walks every identifier and quoted channel name token in doc, keeps
+// the ones that resolve to the same symbol as targetSym, and emits a TextEdit per
+// occurrence that replaces the token with newName, quoted for a quoted token.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
 	doc *document,
@@ -126,19 +129,13 @@ func (s *Server) renameTextEdits(
 	matchByAST := targetSym.AST != nil
 	var edits []protocol.TextEdit
 	for _, t := range tokenizeContent(doc.Content) {
-		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
+		n := parser.TokenName(t)
+		if n.Head == "" || n.Head != targetSym.Name {
 			continue
 		}
-		tokenText := t.GetText()
-		if tokenText != targetSym.Name {
-			continue
-		}
-		start := protocol.Position{
-			Line:      uint32(t.GetLine() - 1),
-			Character: uint32(t.GetColumn()),
-		}
-		scope := doc.findScopeAtPosition(start)
-		sym, err := scope.Resolve(ctx, tokenText, symbol.WithoutUsageTracking)
+		r := tokenRange(t)
+		scope := doc.findScopeAtPosition(r.Start)
+		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
 		if !isRenameable(sym, err) {
 			continue
 		}
@@ -150,12 +147,11 @@ func (s *Server) renameTextEdits(
 		} else if sym.Kind != targetSym.Kind || sym.AST != nil {
 			continue
 		}
-		end := start
-		end.Character += uint32(len(tokenText))
-		edits = append(edits, protocol.TextEdit{
-			Range:   protocol.Range{Start: start, End: end},
-			NewText: newName,
-		})
+		text := newName
+		if n.Quoted {
+			text = parser.QuoteChannelName(newName)
+		}
+		edits = append(edits, protocol.TextEdit{Range: r, NewText: text})
 	}
 	return edits
 }

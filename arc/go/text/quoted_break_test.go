@@ -89,18 +89,22 @@ var _ = Describe("Quoted channel names (break)", func() {
 	})
 
 	Describe("B: an empty quoted name", func() {
-		It("B1 fails analysis in a declaration", func(ctx SpecContext) {
-			inter, diagnostics := analyze(
-				ctx,
-				"func f() {\n\ty := ''\n}\n'trig' -> f()",
+		It("B1 fails analysis in a declaration", func() {
+			_, diagnostics := text.Parse(
+				text.Text{Raw: "func f() {\n\ty := ''\n}\n'trig' -> f()"},
 			)
-			_, err := text.Compile(ctx, inter)
-			Expect(diagnostics.Ok()).To(BeFalse(), "compile error: %v", err)
+			Expect(diagnostics.String()).To(HavePrefix(
+				"2:6 error [E1000]: syntax error: token recognition error at: ''''",
+			))
 		})
 
-		It("B2 fails analysis as an assigned value", func(ctx SpecContext) {
-			_, diagnostics := analyze(ctx, "func f() {\n\t'out' = ''\n}\n'trig' -> f()")
-			Expect(diagnostics.Ok()).To(BeFalse())
+		It("B2 fails analysis as an assigned value", func() {
+			_, diagnostics := text.Parse(
+				text.Text{Raw: "func f() {\n\t'out' = ''\n}\n'trig' -> f()"},
+			)
+			Expect(diagnostics.String()).To(HavePrefix(
+				"2:9 error [E1000]: syntax error: token recognition error at: ''''",
+			))
 		})
 	})
 

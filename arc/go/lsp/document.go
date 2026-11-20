@@ -12,8 +12,11 @@ package lsp
 import (
 	"context"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -164,13 +167,46 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
+	n, _, quoted := channelNameAt(d.displayContent(), pos)
+	if !quoted {
+		n = parser.Name{Head: d.getWordAtPosition(pos)}
+	}
+	if n.Head == "" {
 		return nil, nil
 	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.Resolve(ctx, word, symbol.WithoutUsageTracking)
+	return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+}
+
+// channelNameAt returns the quoted channel name whose token holds pos, and the range
+// of the token.
+func channelNameAt(
+	content string,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	for _, t := range tokenizeContent(content) {
+		if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME ||
+			uint32(t.GetLine()-1) != pos.Line {
+			continue
+		}
+		r := tokenRange(t)
+		if pos.Character >= r.Start.Character && pos.Character < r.End.Character {
+			return parser.TokenName(t), r, true
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// tokenRange returns the range of a token that spans one line.
+func tokenRange(t antlr.Token) protocol.Range {
+	start := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
+	end := start
+	end.Character += uint32(utf8.RuneCountInString(t.GetText()))
+	return protocol.Range{Start: start, End: end}
 }

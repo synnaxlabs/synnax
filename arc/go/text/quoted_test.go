@@ -97,6 +97,30 @@ func f() {
 		Expect(writes(inter, 40)).To(BeTrue())
 	})
 
+	It("Should compile a quoted write and read beside a local of the same name", func(
+		ctx SpecContext,
+	) {
+		compile := func(local string) []byte {
+			GinkgoHelper()
+			inter, diagnostics := analyze(ctx, "func f() {\n\t"+local+
+				" := 1.0\n\t'x' = "+local+" + 'x'\n}\n'trig' -> f()")
+			Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+			Expect(reads(inter, 40)).To(BeTrue())
+			Expect(writes(inter, 40)).To(BeTrue())
+			return MustSucceed(text.Compile(ctx, inter)).WASM
+		}
+		Expect(compile("x")).To(Equal(compile("y")))
+	})
+
+	It("Should set the authority of a quoted channel", func(ctx SpecContext) {
+		inter, diagnostics := analyze(
+			ctx,
+			"authority ('valve-cmd' 200)\n'pt-01' -> 'valve-cmd'",
+		)
+		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())
+		Expect(inter.Authorities.Channels).To(Equal(map[uint32]uint8{20: 200}))
+	})
+
 	It("Should match a channel name in NFC", func(ctx SpecContext) {
 		inter, diagnostics := analyze(ctx, "'é' -> 'valve-cmd'")
 		Expect(*diagnostics).To(BeEmpty(), diagnostics.String())

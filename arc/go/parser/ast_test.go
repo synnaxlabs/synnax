@@ -312,10 +312,10 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("ExpressionNameParts", func() {
+	Describe("ExpressionName", func() {
 		DescribeTable("returns the parts of a lone name",
 			func(code, head, tail string) {
-				n := parser.ExpressionNameParts(parseExpr(code))
+				n := parser.ExpressionName(parseExpr(code))
 				Expect(n.Head).To(Equal(head))
 				Expect(n.Tail).To(Equal(tail))
 			},
@@ -338,7 +338,7 @@ var _ = Describe("AST Utilities", func() {
 				primaries := parser.CollectNamedPrimaries(parseExpr(code), nil)
 				names := make([]string, len(primaries))
 				for i, pe := range primaries {
-					names[i] = parser.PrimaryName(pe)
+					names[i] = parser.PrimaryName(pe).String()
 				}
 				Expect(names).To(Equal(expected))
 			},
@@ -366,7 +366,7 @@ var _ = Describe("AST Utilities", func() {
 			primaries := parser.CollectNamedPrimaries(expr, fmtStrings)
 			names := make([]string, len(primaries))
 			for i, pe := range primaries {
-				names[i] = parser.PrimaryName(pe)
+				names[i] = parser.PrimaryName(pe).String()
 			}
 			Expect(names).To(Equal([]string{"a", "x", "b"}))
 		})
@@ -453,7 +453,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("IdentifierParts and IdentifierName", func() {
+	Describe("IdentifierName", func() {
 		identifierOf := func(code string) parser.IIdentifierContext {
 			GinkgoHelper()
 			prog := MustSucceed(parser.Parse(code))
@@ -461,24 +461,26 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should return the bare name with an empty tail", func() {
-			Expect(parser.IdentifierParts(identifierOf("trig -> out"))).
+			Expect(parser.IdentifierName(identifierOf("trig -> out"))).
 				To(Equal(parser.Name{Head: "out"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.IdentifierParts(identifierOf("trig -> m.f"))).
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).
 				To(Equal(parser.Name{Head: "m", Tail: "f"}))
 		})
 
 		It("Should return the whole path of a quoted channel name", func() {
 			id := identifierOf("trig -> 'stand_a.Stand A.pt-01'")
-			Expect(parser.IdentifierParts(id)).
-				To(Equal(parser.Name{Head: "stand_a.Stand A.pt-01", Channel: true}))
+			Expect(parser.IdentifierName(id)).
+				To(Equal(parser.Name{Head: "stand_a.Stand A.pt-01", Quoted: true}))
 		})
 
 		It("Should join names only when a tail is present", func() {
-			Expect(parser.IdentifierName(identifierOf("trig -> out"))).To(Equal("out"))
-			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(Equal("m.f"))
+			Expect(parser.IdentifierName(identifierOf("trig -> out")).String()).
+				To(Equal("out"))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f")).String()).
+				To(Equal("m.f"))
 		})
 	})
 
@@ -487,7 +489,7 @@ var _ = Describe("AST Utilities", func() {
 			GinkgoHelper()
 			primary := parser.GetPrimaryExpression(parseExpr(code))
 			Expect(primary).ToNot(BeNil())
-			return parser.PrimaryNameParts(primary).Head
+			return parser.PrimaryName(primary).Head
 		}
 
 		It("Should decode an escaped quote and an escaped backslash", func() {
@@ -500,6 +502,14 @@ var _ = Describe("AST Utilities", func() {
 
 		It("Should keep spaces, dashes, and dots", func() {
 			Expect(pathOf("'stand_a.Stand A.pt-01'")).To(Equal("stand_a.Stand A.pt-01"))
+		})
+
+		It("Should read back each path that QuoteChannelName quotes", func() {
+			for _, path := range []string{
+				"pt-01", "it's", `a\b`, `\'`, "''", "stand_a.Stand A.pt-01", "a}b:c",
+			} {
+				Expect(pathOf(parser.QuoteChannelName(path))).To(Equal(path))
+			}
 		})
 	})
 
@@ -517,9 +527,9 @@ var _ = Describe("AST Utilities", func() {
 
 		It("Should return the path of a quoted channel target", func() {
 			Expect(parser.AssignmentName(assignmentOf("'valve-cmd' = 1"))).
-				To(Equal(parser.Name{Head: "valve-cmd", Channel: true}))
+				To(Equal(parser.Name{Head: "valve-cmd", Quoted: true}))
 			Expect(parser.AssignmentName(assignmentOf("'valve-cmd' += 1"))).
-				To(Equal(parser.Name{Head: "valve-cmd", Channel: true}))
+				To(Equal(parser.Name{Head: "valve-cmd", Quoted: true}))
 		})
 	})
 
@@ -540,7 +550,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("PrimaryNameParts and PrimaryName", func() {
+	Describe("PrimaryName", func() {
 		primaryOf := func(code string) parser.IPrimaryExpressionContext {
 			primary := parser.GetPrimaryExpression(parseExpr(code))
 			Expect(primary).ToNot(BeNil())
@@ -548,28 +558,29 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should return the bare name with an empty tail", func() {
-			Expect(parser.PrimaryNameParts(primaryOf("x"))).
+			Expect(parser.PrimaryName(primaryOf("x"))).
 				To(Equal(parser.Name{Head: "x"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			Expect(parser.PrimaryNameParts(primaryOf("math.avg"))).
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).
 				To(Equal(parser.Name{Head: "math", Tail: "avg"}))
 		})
 
 		It("Should return the path of a quoted channel name", func() {
-			Expect(parser.PrimaryNameParts(primaryOf("'pt-01'"))).
-				To(Equal(parser.Name{Head: "pt-01", Channel: true}))
+			Expect(parser.PrimaryName(primaryOf("'pt-01'"))).
+				To(Equal(parser.Name{Head: "pt-01", Quoted: true}))
 		})
 
 		It("Should return empty parts for a non-identifier primary", func() {
-			Expect(parser.PrimaryNameParts(primaryOf("42"))).To(BeZero())
+			Expect(parser.PrimaryName(primaryOf("42"))).To(BeZero())
 		})
 
 		It("Should join or blank the name to match the parts", func() {
-			Expect(parser.PrimaryName(primaryOf("x"))).To(Equal("x"))
-			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(Equal("math.avg"))
-			Expect(parser.PrimaryName(primaryOf("42"))).To(Equal(""))
+			Expect(parser.PrimaryName(primaryOf("x")).String()).To(Equal("x"))
+			Expect(parser.PrimaryName(primaryOf("math.avg")).String()).
+				To(Equal("math.avg"))
+			Expect(parser.PrimaryName(primaryOf("42")).String()).To(Equal(""))
 		})
 	})
 })

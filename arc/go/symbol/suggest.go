@@ -24,6 +24,17 @@ func (s *Symbol) SuggestSimilar(
 	name string,
 	maxSuggestions int,
 ) []string {
+	keepAll := func(*Symbol) bool { return true }
+	return s.suggestSimilar(ctx, name, maxSuggestions, keepAll)
+}
+
+// suggestSimilar is SuggestSimilar over the symbols that keep accepts.
+func (s *Symbol) suggestSimilar(
+	ctx context.Context,
+	name string,
+	maxSuggestions int,
+	keep func(*Symbol) bool,
+) []string {
 	results, err := s.Search(ctx, name)
 	if err != nil || len(results) == 0 {
 		return nil
@@ -36,7 +47,7 @@ func (s *Symbol) SuggestSimilar(
 
 	var suggestions []suggestion
 	for _, r := range results {
-		if r.Name == name {
+		if r.Name == name || !keep(r) {
 			continue
 		}
 		suggestions = append(suggestions, suggestion{

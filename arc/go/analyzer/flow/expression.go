@@ -94,7 +94,7 @@ func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
-		named := parser.ExpressionNameParts(arg.Expr).Head != ""
+		named := parser.ExpressionName(arg.Expr).Head != ""
 		if named || literal.IsConstant(arg.Expr) {
 			continue
 		}
@@ -147,10 +147,9 @@ func LiftVarReads[T antlr.ParserRuleContext](
 	expr parser.IExpressionContext,
 ) {
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		n := parser.PrimaryNameParts(pe)
+		n := parser.PrimaryName(pe)
 		name := n.String()
-		// A quoted channel name never names an input.
-		if _, ok := fn.Type.Inputs.Get(name); ok && !n.Channel {
+		if _, ok := fn.Type.Inputs.Get(name); ok {
 			continue
 		}
 		sym, err := fn.ResolveName(ctx, n)

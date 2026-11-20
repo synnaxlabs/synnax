@@ -71,7 +71,7 @@ func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
 		ctx.Diagnostics.Add(codes.NotConstant.Atf(
 			read.Site,
 			"cannot read '%s': its initializer is not a compile-time constant",
-			parser.PrimaryName(read.Site),
+			parser.PrimaryName(read.Site).String(),
 		))
 	}
 }

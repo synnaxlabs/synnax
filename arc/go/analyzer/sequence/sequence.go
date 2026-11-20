@@ -113,7 +113,7 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 	if expr == nil {
 		return nil, false
 	}
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return nil, false
 	}

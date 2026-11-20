@@ -35,8 +35,7 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 					t.GetTokenType(),
 				).ToNot(Equal(parser.ArcLexerCHANNEL_NAME), t.GetText())
 			}
-			_, diag := parser.Parse(src)
-			Expect(diag).To(BeNil())
+			MustSucceed(parser.Parse(src))
 		},
 		Entry("P1 double-quoted", `x := "it's"`),
 		Entry("P2 raw", `x := r"it's"`),
@@ -49,7 +48,7 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 	DescribeTable("P fails to parse",
 		func(src string) {
 			_, diag := parser.Parse(src)
-			Expect(diag).ToNot(BeNil())
+			Expect(diag.String()).To(ContainSubstring("syntax error"))
 		},
 		Entry("P8 tab escape", `x := 'a\tb'`),
 		Entry("P9 unicode escape", "x := 'a\\"+"u00e9'"),
@@ -68,24 +67,21 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 			MustSucceed(parser.ParseExpression(`'\'a\''`)),
 		)
 		Expect(
-			parser.PrimaryNameParts(primary),
-		).To(Equal(parser.Name{Head: "'a'", Channel: true}))
+			parser.PrimaryName(primary),
+		).To(Equal(parser.Name{Head: "'a'", Quoted: true}))
 	})
 	It("P20 a quoted name that is empty", func() {
-		primary := parser.GetPrimaryExpression(
-			MustSucceed(parser.ParseExpression(`''`)),
-		)
-		Expect(
-			parser.PrimaryNameParts(primary),
-		).To(Equal(parser.Name{Head: "", Channel: true}))
+		Expect(parser.ParseExpression(`''`)).Error().To(MatchError(ContainSubstring(
+			"1:0 error [E1000]: syntax error: token recognition error at: ''''",
+		)))
 	})
 	It("P21 a quoted name with a tail is never split", func() {
 		primary := parser.GetPrimaryExpression(
 			MustSucceed(parser.ParseExpression(`'a.b'`)),
 		)
 		Expect(
-			parser.PrimaryNameParts(primary),
-		).To(Equal(parser.Name{Head: "a.b", Channel: true}))
+			parser.PrimaryName(primary),
+		).To(Equal(parser.Name{Head: "a.b", Quoted: true}))
 	})
 	It("P22b decomposed text against composed text", func() {
 		decomposed := "A" + string(rune(0x308))
@@ -93,27 +89,24 @@ var _ = Describe("Quoted channel names in the parser (break)", func() {
 		primary := parser.GetPrimaryExpression(
 			MustSucceed(parser.ParseExpression("'" + decomposed + "'")),
 		)
-		Expect(parser.PrimaryNameParts(primary).Head).To(Equal(composed))
+		Expect(parser.PrimaryName(primary).Head).To(Equal(composed))
 	})
 	It("P22 decomposed text", func() {
 		primary := parser.GetPrimaryExpression(
 			MustSucceed(parser.ParseExpression("'Ä'")),
 		)
-		Expect(parser.PrimaryNameParts(primary).Head).To(Equal("Ä"))
+		Expect(parser.PrimaryName(primary).Head).To(Equal("Ä"))
 	})
 	It("P24 a quoted channel in an authority entry", func() {
-		_, diag := parser.Parse("authority ('valve-cmd' 200)\n'pt' -> 'valve-cmd'")
-		Expect(diag).To(BeNil())
+		MustSucceed(parser.Parse("authority ('valve-cmd' 200)\n'pt' -> 'valve-cmd'"))
 	})
 	It("P25 a dashed channel in an authority entry with dashed names on", func() {
-		_, diag := parser.Parse(
+		MustSucceed(parser.Parse(
 			"authority (valve-cmd 200)\npt -> valve-cmd",
 			parser.Config{AllowDashedNames: true},
-		)
-		Expect(diag).To(BeNil())
+		))
 	})
 	It("P23 a quoted call in a flow", func() {
-		_, diag := parser.Parse(`trig -> 'f'(1) -> out`)
-		Expect(diag).To(BeNil())
+		MustSucceed(parser.Parse(`trig -> 'f'(1) -> out`))
 	})
 })

@@ -10,8 +10,6 @@
 package expression
 
 import (
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
@@ -27,11 +25,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	n parser.Name,
 ) (types.Type, error) {
 	name := n.String()
-	var scope *symbol.Symbol
-	// A quoted channel name never binds a variable, a lifted input included.
-	if !n.Channel {
-		scope = liftedInput(ctx.Scope, name)
-	}
+	scope := liftedInput(ctx.Scope, n)
 	if scope == nil {
 		var err error
 		scope, err = ctx.Scope.ResolveName(ctx, n, symbol.IncludeInternal)
@@ -107,16 +101,16 @@ func compileChannelRead[ASTNode antlr.ParserRuleContext](
 }
 
 // liftedInput returns the input of the enclosing function that carries a read of the
-// module member name, nil for a bare name or a read that was not lifted.
-func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
-	if !strings.Contains(name, ".") {
+// module member n, nil for any other name or a read that was not lifted.
+func liftedInput(scope *symbol.Symbol, n parser.Name) *symbol.Symbol {
+	if n.Quoted || n.Tail == "" {
 		return nil
 	}
 	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
 		return nil
 	}
-	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
+	if in := fn.FindChild(n.String()); in != nil && in.Kind == symbol.KindInput {
 		return in
 	}
 	return nil

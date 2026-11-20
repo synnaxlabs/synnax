@@ -615,8 +615,6 @@ type resolveOpts struct {
 	// consulted. Read-only callers operating on an already-analyzed tree
 	// set this so the lookup leaves no trace; see WithoutUsageTracking.
 	suppressUsage bool
-	// channel restricts the lookup to channels; see ChannelOnly.
-	channel bool
 }
 
 // IncludeInternal causes Resolve to walk past the user-visibility filters:
@@ -633,11 +631,6 @@ func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
 // such snapshots and must pass this; the analysis pass that builds the tree and
 // reports unused imports must not, since it relies on the usage record.
 func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
-
-// ChannelOnly causes Resolve to look name up as a channel path. It finds only a
-// channel, which a scope holds or a global resolver gives, so a variable of the same
-// name never matches. A quoted channel name resolves this way.
-func ChannelOnly(o *resolveOpts) { o.channel = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
 // global resolver → parent. A KindModule or KindModuleAlias searches only its own
@@ -715,17 +708,23 @@ func (s *Symbol) resolve(
 	return s.resolveLexical(ctx, name, opts, origin)
 }
 
-// ResolveName resolves n from s: a quoted channel name as ChannelOnly does, so it never
-// binds a variable, and any other name as ResolveMember does.
+// ResolveName resolves n from s. A quoted channel name finds only the channel of that
+// exact name that s or an ancestor holds or that a global resolver gives, so it never
+// binds a variable or reads its path as a channel key. Any other name resolves as
+// ResolveMember does.
 func (s *Symbol) ResolveName(
 	ctx context.Context,
 	n parser.Name,
 	options ...ResolveOption,
 ) (*Symbol, error) {
-	if n.Channel {
-		return s.Resolve(ctx, n.Head, append(options, ChannelOnly)...)
+	if !n.Quoted {
+		return s.ResolveMember(ctx, n.Head, n.Tail, options...)
 	}
-	return s.ResolveMember(ctx, n.Head, n.Tail, options...)
+	var opts resolveOpts
+	for _, o := range options {
+		o(&opts)
+	}
+	return s.resolveChannel(ctx, n.Head, opts, s)
 }
 
 // resolveMember finds the member of module s that the caller may see.
@@ -753,6 +752,7 @@ func (s *Symbol) resolveMember(
 func (s *Symbol) resolveChannel(
 	ctx context.Context,
 	path string,
+	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
 	isChannel := func(child *Symbol) bool {
@@ -762,19 +762,30 @@ func (s *Symbol) resolveChannel(
 		if child := scope.findChild(isChannel); child != nil {
 			return child, nil
 		}
-		if scope.globalResolver == nil {
-			continue
-		}
-		sym, err := scope.globalResolver.Resolve(ctx, path)
-		if err != nil && !isUndefined(err) {
-			return nil, err
-		}
-		if err == nil && sym.Kind == KindChannel {
-			return sym, nil
+		switch r := scope.globalResolver.(type) {
+		case nil:
+		case scopeResolver:
+			// A lexical lookup reads digits as an ID and marks the aliases it finds as
+			// used, so the walk goes on through the scope of the resolver.
+			sym, err := r.scope.resolveChannel(ctx, path, opts, origin)
+			if !isUndefined(err) {
+				return sym, err
+			}
+		default:
+			sym, err := r.Resolve(ctx, path)
+			if err != nil && !isUndefined(err) {
+				return nil, err
+			}
+			// A resolver reads digits as a channel key, so it can give a channel of
+			// another name.
+			if err == nil && sym.Kind == KindChannel && sym.Name == path &&
+				(opts.includeInternal || !sym.Internal) {
+				return sym, nil
+			}
 		}
 	}
 	return nil, codes.SymbolUndefined.Mark(
-		&UndefinedSymbolError{ctx: ctx, Name: path, scope: origin},
+		&UndefinedSymbolError{ctx: ctx, Name: path, scope: origin, channel: true},
 	)
 }
 
@@ -784,9 +795,6 @@ func (s *Symbol) resolveLexical(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	if opts.channel {
-		return s.resolveChannel(ctx, name, origin)
-	}
 	matches := func(child *Symbol) bool { return child.Name == name }
 	if id, err := strconv.ParseUint(name, 10, 31); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }

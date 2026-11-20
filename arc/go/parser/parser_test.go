@@ -2346,14 +2346,14 @@ sequence main {
 			expr := mustParseExpression("time.now()")
 			postfix := getPostfixExpression(expr)
 			primary := postfix.PrimaryExpression()
-			Expect(parser.PrimaryName(primary)).To(Equal("time.now"))
+			Expect(parser.PrimaryName(primary).String()).To(Equal("time.now"))
 		})
 
 		It("Should use PrimaryName for bare identifiers", func() {
 			expr := mustParseExpression("now()")
 			postfix := getPostfixExpression(expr)
 			primary := postfix.PrimaryExpression()
-			Expect(parser.PrimaryName(primary)).To(Equal("now"))
+			Expect(parser.PrimaryName(primary).String()).To(Equal("now"))
 		})
 
 		It("Should use FunctionName for bare function", func() {
