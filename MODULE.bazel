@@ -37,6 +37,13 @@ bazel_dep(name = "rules_python", version = "2.5.1")
 bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
 bazel_dep(name = "rules_shell", version = "0.10.0", dev_dependency = True)
 
+# Python targets get no generated __init__.py files. Each package must ship its own.
+rules_python_config = use_extension(
+    "@rules_python//python/extensions:config.bzl",
+    "config",
+)
+rules_python_config.explicit_init_py(default = True)
+
 archive_override(
     module_name = "bazel_clang_tidy",
     integrity = "sha256-Y1MQt22yPSQvyrVfgE9shIxZPJGs9LEnYBXTq65gfAQ=",

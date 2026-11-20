@@ -23,8 +23,8 @@ import {
 import {
   createEmptyRole,
   createTestClient,
-  TEST_CLIENT_PARAMS,
   TEST_CREDENTIALS,
+  testClientParams,
 } from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
@@ -40,8 +40,8 @@ describe("auth", () => {
   test("valid credentials", async () => {
     const transport = new Transport({
       url: new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
     });
     const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
@@ -53,8 +53,8 @@ describe("auth", () => {
   test("invalid credentials", async () => {
     const transport = new Transport({
       url: new url.URL({
-        host: TEST_CLIENT_PARAMS.host,
-        port: Number(TEST_CLIENT_PARAMS.port),
+        host: testClientParams().host,
+        port: Number(testClientParams().port),
       }),
     });
     const client = new auth.Client(transport.unary, {
@@ -72,8 +72,8 @@ describe("auth", () => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
         const transport = new Transport({
           url: new url.URL({
-            host: TEST_CLIENT_PARAMS.host,
-            port: Number(TEST_CLIENT_PARAMS.port),
+            host: testClientParams().host,
+            port: Number(testClientParams().port),
           }),
         });
         const onFailure = vi.fn();
@@ -105,8 +105,8 @@ describe("auth", () => {
     it("should fail and report the failure after MAX_RETRIES", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const onFailure = vi.fn();
@@ -128,8 +128,8 @@ describe("auth", () => {
     it("should not report a rejected session that new credentials replaced", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const onFailure = vi.fn();
@@ -156,8 +156,8 @@ describe("auth", () => {
     ) => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, { credentials }, observer);
@@ -167,8 +167,8 @@ describe("auth", () => {
     const makeResumed = (token: string, observer: auth.Observer = {}) => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, { token }, observer);
@@ -315,8 +315,8 @@ describe("auth", () => {
       expect(token).toBeDefined();
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       let succeeded = false;
@@ -342,8 +342,8 @@ describe("auth", () => {
     it("should report a dead token as a credential failure", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       let failure: Error | undefined;
@@ -391,8 +391,8 @@ describe("auth", () => {
     it("should report a cookie resume with no cookie as missing credentials", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, { cookie: true });
@@ -405,11 +405,11 @@ describe("auth", () => {
       const owner = makeClient();
       await login(owner);
       let cookie: string | undefined =
-        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
+        `synnax-session-${testClientParams().port}=${owner.token}`;
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       transport.use(async (ctx, next) => {
@@ -434,12 +434,12 @@ describe("auth", () => {
       const owner = makeClient();
       await login(owner);
       let cookie: string | undefined =
-        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
+        `synnax-session-${testClientParams().port}=${owner.token}`;
       let logins = 0;
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       transport.use(async (ctx, next) => {
@@ -547,8 +547,8 @@ describe("auth", () => {
     it("should end a session whose login is still in flight when released", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       let key: string | undefined;
@@ -571,8 +571,8 @@ describe("auth", () => {
     it("should leave a persistent session open when released", async () => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, {
@@ -639,8 +639,8 @@ describe("auth", () => {
     const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, authority, observer);
@@ -736,8 +736,8 @@ describe("auth", () => {
     const makeClient = (authority: auth.Authority) => {
       const transport = new Transport({
         url: new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
         }),
       });
       const client = new auth.Client(transport.unary, authority);

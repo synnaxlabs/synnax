@@ -60,6 +60,7 @@ type CoreConfig struct {
 	alamos.Instrumentation
 	dataPath             string
 	secretsKeyFile       string
+	secretsDir           string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
@@ -149,6 +150,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.secretsKey != secret.EncryptionKey{},
 		),
 		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
+		secretsDir:     override.String(c.secretsDir, other.secretsDir),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -296,6 +298,12 @@ func BootupCore(
 		return errors.Mark(err, validate.ErrValidation)
 	}
 
+	if cfg.secretsDir != "" {
+		if cfg.secretsDir, err = filepath.Abs(cfg.secretsDir); !ok(err, nil) {
+			return errors.Wrap(err, "failed to resolve secrets folder")
+		}
+	}
+
 	listeners, err := cfg.listeners.Resolve(
 		securityProvider,
 		cfg.certFactoryConfig,
@@ -379,6 +387,7 @@ func BootupCore(
 		},
 		ValidateChannelNames:   cfg.validateChannelNames,
 		SecretsKey:             secretsKey,
+		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
@@ -483,6 +492,7 @@ func BootupCore(
 			Keys:                serviceLayer.APIKey,
 			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
+			SecretsDir:          cfg.secretsDir,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
 			ParentDirname:       workDir,
