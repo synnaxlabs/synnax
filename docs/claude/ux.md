@@ -350,7 +350,9 @@ bound, a log precision, or the line plot X channel.
 - A user never needs to leave the field to create or edit a shared item. Settings is
   still a full editor for every type: create, edit, find, and delete, and, where the
   type supports them, see what uses an item and Replace with.
-- Each type has one editor. The field and Settings open the same editor.
+- Each type has one form and one save path. The field and Settings may lay out its
+  fields differently, such as a Light and Dark switch in a picker and two columns in a
+  table.
 - The field's picker creates in place, as every select of things users make does. A
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
