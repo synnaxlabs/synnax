@@ -9,21 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-enumeration-settings__item--over {
-    box-shadow: inset 0 var(--pluto-border-width) 0 var(--pluto-primary-z);
-}
-
-.console-enumeration-settings__heading {
+.console-enumeration-settings__section {
     margin-top: 1rem;
 }
 
-.console-enumeration-settings__heading--closed
-    + .console-enumeration-settings__heading {
+.console-enumeration-settings__section--closed
+    + .console-enumeration-settings__section {
     margin-top: 0.5rem;
 }
 
 /* The list's own top padding sets the space under its header. */
-.console-enumeration-settings__heading--first {
+.console-enumeration-settings__section--first {
     margin-top: 0;
 }
 
@@ -33,22 +29,7 @@
     --pluto-bg: var(--pluto-fill-hover);
 }
 
-.console-enumeration-settings__warning {
-    flex-shrink: 0;
-    color: var(--pluto-warning-z);
-}
-
-/* Lays out like an item, so each field sits over its column. */
-.console-enumeration-settings__form {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    min-height: 5.5rem;
-    padding: 1rem 2rem;
-}
-
-.console-enumeration-settings__form-check {
-    flex-shrink: 0;
-    width: var(--pluto-height-medium);
-    margin-inline: -1rem -1.5rem;
+/* Lines the entries up under the heading's title. */
+.console-enumeration-settings__entries {
+    padding: 0.5rem 2rem 1rem 3rem;
 }
