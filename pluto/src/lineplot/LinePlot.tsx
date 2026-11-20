@@ -29,10 +29,7 @@ import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
-import {
-  Legend as BaseLegend,
-  type LegendProps as BaseLegendProps,
-} from "@/lineplot/Legend";
+import { Legend as BaseLegend } from "@/lineplot/Legend";
 import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
@@ -223,14 +220,12 @@ const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
 
 interface LegendProps {
   pKey: lineplot.Key;
-  variant?: BaseLegendProps["variant"];
   editable: boolean;
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
 const Legend = ({
   pKey: key,
-  variant,
   editable,
   onLineVisibleChange,
 }: LegendProps): ReactElement | null => {
@@ -257,7 +252,6 @@ const Legend = ({
       onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
       onPositionChange={handlePositionChange}
-      variant={variant}
     />
   );
 };
@@ -457,7 +451,6 @@ export interface LinePlotProps extends FrameProps {
   enableTriggers?: Triggers.Condition;
   /** The windows of the plot's ranges, in order. */
   windows?: Window[];
-  legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   measureMode?: measure.Mode;
@@ -487,7 +480,6 @@ export const LinePlot = ({
   editable = true,
   enableTriggers = true,
   windows,
-  legendVariant,
   enableTooltip = true,
   enableMeasure = false,
   measureMode,
@@ -528,7 +520,6 @@ export const LinePlot = ({
       ))}
       <Legend
         pKey={key}
-        variant={legendVariant}
         editable={editable}
         onLineVisibleChange={onLineVisibleChange}
       />
