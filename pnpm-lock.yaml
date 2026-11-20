@@ -1538,6 +1538,9 @@ importers:
       '@synnaxlabs/lyra':
         specifier: 'catalog:'
         version: link:../../lyra
+      '@synnaxlabs/vite-plugin':
+        specifier: 'catalog:'
+        version: link:../../configs/vite
       astro:
         specifier: 'catalog:'
         version: 7.4.12(@astrojs/markdown-remark@7.3.0(supports-color@10.2.2))(@azure/identity@4.14.1(supports-color@10.2.2))(@types/node@26.6.6)(@vercel/functions@3.10.1(@aws-sdk/credential-provider-web-identity@3.972.80)(ws@8.22.0))(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
@@ -1769,9 +1772,6 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
-      '@synnaxlabs/vite-plugin':
-        specifier: 'catalog:'
-        version: link:../../configs/vite
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.3(@testing-library/dom@10.4.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1954,9 +1954,6 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../../configs/ts
-      '@synnaxlabs/vite-plugin':
-        specifier: 'catalog:'
-        version: link:../../configs/vite
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
