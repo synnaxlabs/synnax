@@ -32,6 +32,7 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  type RefObject,
   type SetStateAction,
   useRef,
   useState,
@@ -413,6 +414,8 @@ interface RecordsProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that the task made. */
+  made: RefObject<Set<string>>;
 }
 
 /** The topics of the task as a tree, beside the details of the selected item. */
@@ -422,6 +425,7 @@ const Records: FC<RecordsProps> = ({
   onSelect,
   expanded,
   onExpand,
+  made,
 }) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
@@ -467,6 +471,7 @@ const Records: FC<RecordsProps> = ({
       const rec = ctx.get(pathOf(key)).value;
       return uniqueName(`${recordLabel(rec)} ${rec.messages.length + 1}`, held);
     },
+    made,
     selected,
     onSelect,
     expanded,
@@ -802,6 +807,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     ...topics.map(({ key }) => key),
     ...ICD.Tree.initialExpanded(records),
   ]);
+  const made = useRef(new Set<string>());
   const body = (
     <Plans device={device}>
       <Records
@@ -810,6 +816,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         onSelect={setSelected}
         expanded={expanded}
         onExpand={setExpanded}
+        made={made}
       />
       {topics.flatMap((topic) =>
         topic.records.flatMap(({ key, messages }) =>

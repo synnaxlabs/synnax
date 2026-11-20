@@ -393,13 +393,11 @@ export const use = <
       timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
     const priorFormat = formatOf(formats, source.icd);
     const held = priorFormat.value().messages.find(({ key }) => key === prior.message);
-    const readElsewhere = ctx
-      .get(sources)
-      .value.some(
-        (s) =>
-          s.key !== sourceKey &&
-          sourceOf(s)?.messages.some((m) => m.message === prior.message),
-      );
+    const readElsewhere = all().some(
+      (s) =>
+        s.key !== sourceKey &&
+        sourceOf(s)?.messages.some((m) => m.message === prior.message),
+    );
     if (
       made.current.has(prior.message) &&
       held?.payload.format === "json" &&
