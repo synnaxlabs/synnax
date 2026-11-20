@@ -12,7 +12,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 import type { ComponentType, ReactElement } from "react";
 
-import { type Adapter, type ChangeIdentifierParams } from "@/platform/device/adapter";
+import type { Adapter, ChangeIdentifierParams } from "@/platform/device/adapter";
 import { Modals } from "@/platform/modals";
 import type { Tree } from "@/platform/tree";
 

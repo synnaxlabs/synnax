@@ -10,10 +10,10 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { type ComponentType, type ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 
-import { type Adapter } from "@/platform/device/adapter";
-import { type Tree } from "@/platform/tree";
+import type { Adapter } from "@/platform/device/adapter";
+import type { Tree } from "@/platform/tree";
 
 export interface ConfigureMenuItemProps extends Pick<
   Tree.ContextMenuProps,

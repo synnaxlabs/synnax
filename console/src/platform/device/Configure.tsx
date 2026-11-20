@@ -18,17 +18,13 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { deep } from "@synnaxlabs/x";
-import { type ComponentType, type ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
-import {
-  type Adapter,
-  type Configurable,
-  type SaveParams,
-} from "@/platform/device/adapter";
-import { type Hardware } from "@/platform/device/integration";
+import type { Adapter, Configurable, SaveParams } from "@/platform/device/adapter";
+import type { Hardware } from "@/platform/device/integration";
 import { LocationBadge } from "@/platform/device/LocationBadge";
 import {
   type ConfigureParams,
