@@ -12,7 +12,7 @@ import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
-import { type Panel } from "@/platform/panel";
+import type { Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 

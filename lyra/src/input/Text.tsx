@@ -25,10 +25,10 @@ import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
 import { ItemBoundary, useItemStatus, useLabelledBy } from "@/input/Item";
-import { type InputProps, type Variant } from "@/input/types";
-import { type Status } from "@/status";
+import type { InputProps, Variant } from "@/input/types";
+import type { Status } from "@/status";
 import { Text as BaseText } from "@/text";
-import { type Tooltip } from "@/tooltip";
+import type { Tooltip } from "@/tooltip";
 
 const NATIVE_PREVIEW_TYPES = new Set(["date", "time", "datetime-local", "password"]);
 

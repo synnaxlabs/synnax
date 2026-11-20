@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, render, renderHook } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { closeOf } from "@/platform/modals/testutil";

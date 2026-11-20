@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Command } from "@/platform/command";
-import { type UseCreate } from "@/platform/task/useCreate";
+import type { UseCreate } from "@/platform/task/useCreate";
 
 export interface CreateCommandParams {
   key: string;

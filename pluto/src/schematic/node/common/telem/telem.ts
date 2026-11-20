@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { type bounds } from "@synnaxlabs/x";
+import type { channel } from "@synnaxlabs/client";
+import type { bounds } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";

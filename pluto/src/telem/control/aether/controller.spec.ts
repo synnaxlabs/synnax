@@ -17,10 +17,10 @@ import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil"
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type aether } from "@/aether/aether";
-import { type status } from "@/status/aether";
+import type { aether } from "@/aether/aether";
+import type { status } from "@/status/aether";
 import { Colors } from "@/telem/control/aether/colors";
 import {
   type AuthoritySource,

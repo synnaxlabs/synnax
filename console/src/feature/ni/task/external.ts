@@ -15,7 +15,7 @@ import {
   DIGITAL_WRITE_TYPE,
 } from "@/feature/ni/task/types";
 import { Panel } from "@/platform/panel";
-import { type Task } from "@/platform/task";
+import type { Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/commands";
 export * from "@/feature/ni/task/create";

@@ -13,7 +13,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 
 export const VIS_SELECTABLES: Selector.Selectable[] = [
   ...LinePlot.SELECTABLES,

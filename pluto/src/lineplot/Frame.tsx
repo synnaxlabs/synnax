@@ -37,12 +37,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
-import { type Viewport } from "@/viewport";
+import type { Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
 

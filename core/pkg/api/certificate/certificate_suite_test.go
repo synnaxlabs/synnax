@@ -51,6 +51,7 @@ var (
 	]
 	del      freighter.UnaryHandler[apicertificate.DeleteRequest, struct{}]
 	dispatch freighter.UnaryHandler[apicertificate.DispatchRequest, struct{}]
+	refresh  freighter.UnaryHandler[apicertificate.RefreshRequest, struct{}]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -70,6 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
+	refresh = bind.WriteUnchecked(node.DB, apiSvc.Refresh)
 })
 
 // createUser creates a user whose role allows nothing.

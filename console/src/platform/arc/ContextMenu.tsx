@@ -11,7 +11,7 @@ import "@/platform/arc/ContextMenu.css";
 
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type List } from "@synnaxlabs/lyra/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";

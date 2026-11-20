@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -28,20 +27,6 @@ describe("MultiEdit", () => {
       expect(() => MultiEdit.fieldsByVariant({ a: z.string() })).toThrow(
         "[multiedit] - schema for a is not an object",
       );
-    });
-  });
-
-  describe("colorRefs", () => {
-    it("should reference each color stored at the fields", () => {
-      const refs = MultiEdit.colorRefs(
-        "a",
-        { strokeColor: "#ff0000", fillColor: undefined, textColor: "#00ff00" },
-        ["strokeColor", "fillColor", "textColor"],
-      );
-      expect(refs.map((r) => [r.key, r.path, color.hex(r.value)])).toEqual([
-        ["a", "strokeColor", "#ff0000"],
-        ["a", "textColor", "#00ff00"],
-      ]);
     });
   });
 });

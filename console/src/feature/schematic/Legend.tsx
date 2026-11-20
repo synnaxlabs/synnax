@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Control, Schematic } from "@synnaxlabs/pluto";
-import { type color, type sticky } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { color, sticky } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Session } from "@/session";
 

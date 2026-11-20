@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type runtime } from "@synnaxlabs/x";
+import type { runtime } from "@synnaxlabs/x";
 
 const USER_AGENTS: Record<runtime.OS, string> = {
   macOS: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",

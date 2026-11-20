@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import type { ethercat } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
 import { createSlaveChannels } from "@/feature/ethercat/task/configure";
 import {
   createEntryReadChannel,
@@ -26,7 +26,7 @@ import {
   WRITE_TYPE,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
-import { type Selector } from "@/platform/selector";
+import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 /** @returns a channel on the entry, calibrated when the Driver calibrates the entry. */
