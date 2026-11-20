@@ -9,7 +9,7 @@
 
 import "@/select/SingleTrigger.css";
 
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type KeyboardEvent,
