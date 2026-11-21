@@ -20,7 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
+import {
+  createBroker,
+  openAddData,
+  openScanner,
+  preloadForms,
+} from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
@@ -31,6 +36,8 @@ import {
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 const TOPIC = "plant/oven";
 
@@ -291,6 +298,8 @@ const createTimeChannel = async () =>
   });
 
 describe("MQTT read form", () => {
+  // This first test pays the one-time load of the lazy form, which takes over 10 s on
+  // a loaded CI runner.
   it("should create a format named after the task and add later picks to it", async () => {
     const TOPICS = [
       {
@@ -349,7 +358,7 @@ describe("MQTT read form", () => {
       ]),
     );
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
-  });
+  }, 30_000);
 
   it("should pick and read the string field of a topic with its numbers", async () => {
     const { dev, draft } = await renderRead();
