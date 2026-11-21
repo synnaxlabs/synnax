@@ -19,7 +19,7 @@ import { Version } from "@/feature/version";
 
 const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
   <Auth.Guard>
-    <Version.Guard>
+    <Version.Guard location={window.location}>
       <License.Guard>
         <Auth.ConnectionGuard>
           <Project.Guard Settings={Settings.Splash}>{children}</Project.Guard>

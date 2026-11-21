@@ -26,7 +26,7 @@ import type { Detail, Membership } from "@/server/user";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { ChannelsDialog } from "@/ui/admin/ChannelsDialog";
-import { navigate, post } from "@/ui/api";
+import { navigate, post, reload as reloadPage } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import { type Clock, machineName } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
@@ -39,6 +39,8 @@ export interface UserProps extends Detail {
   /** activity is the audit log of the user's machines, or null with no machines. */
   activity: Activity | null;
   now: Date;
+  /** Loads the page again after an edit. The page's own reload by default. */
+  reload?: () => void;
 }
 
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 3rem";
@@ -63,6 +65,7 @@ export const User = ({
   teams,
   activity,
   now,
+  reload = reloadPage,
 }: UserProps): ReactElement => {
   const clock = useClock();
   return (
@@ -86,7 +89,9 @@ export const User = ({
             <Icon.OpenExternal />
             Open in PostHog
           </Button.Button>
-          {personal != null && <ChannelsDialog account={account} personal={personal} />}
+          {personal != null && (
+            <ChannelsDialog account={account} personal={personal} reload={reload} />
+          )}
           <DeleteDialog account={account} />
         </>
       }

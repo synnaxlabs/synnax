@@ -23,7 +23,7 @@ import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topic
 import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
-import { Modals } from "@/platform/modals";
+import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
 
@@ -55,17 +55,17 @@ export interface Kind<E extends HeldEntry> {
   createTag?: () => E;
 }
 
-interface Params<E extends HeldEntry> {
+export interface Params<E extends HeldEntry> {
   device: Device;
   /** What the task holds now. */
   entries: E[];
 }
 
-type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & {
+export type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & {
   kind: Kind<E>;
 };
 
-const Discover = <E extends HeldEntry>({
+export const Discover = <E extends HeldEntry>({
   device,
   entries,
   close,
@@ -137,18 +137,4 @@ const Discover = <E extends HeldEntry>({
       </ICD.Picker.Footer>
     </ICD.Picker.Root>
   );
-};
-
-/**
- * Creates a hook that opens a dialog listing what the broker publishes, so the user can
- * pick values. The dialog resolves with what the kind creates from the picks, or null
- * when the user closes it.
- */
-export const createDiscoverModal = <E extends HeldEntry>(
-  kind: Kind<E>,
-): Modals.PromptHook<Params<E>, E[]> => {
-  const Content = (props: Modals.ContentProps<Params<E>, E[]>) => (
-    <Discover {...props} kind={kind} />
-  );
-  return Modals.createPrompt<E[], Params<E>>(Content);
 };

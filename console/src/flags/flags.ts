@@ -22,3 +22,5 @@
 export const icds = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
 // Owner: Emiliano Bonilla. Umbrella: SY-6226. Removed in 0.63.
 export const staleBadges = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
+// Owner: Emiliano Bonilla. Umbrella: SY-3942. Removed in 0.63.
+export const compare = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
