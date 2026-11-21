@@ -16,23 +16,20 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import {
-  createNIDevice,
-  preloadForms,
-  renderNITaskForm,
-} from "@/feature/ni/task/testutil";
+import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import { Task } from "@/platform/task";
 import {
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
 } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(NI.Task.FORMS);
 
 interface CreateChannelOverrides extends Partial<NI.Task.DOChannel> {}
 

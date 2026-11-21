@@ -25,7 +25,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
-import { dragOnto, preload } from "@/testutil";
+import { dragOnto } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {
@@ -123,10 +123,3 @@ export const createMember = (
 /** Drags the browser node with the name onto the element that shows the target. */
 export const dragNode = async (name: string, target: string): Promise<void> =>
   dragOnto(await screen.findByText(name), await screen.findByText(new RegExp(target)));
-
-/** Loads the modules of the lazy task forms before the specs of a file run. */
-export const preloadForms = (): void =>
-  preload(
-    async () => await import("@/feature/opcua/task/Read"),
-    async () => await import("@/feature/opcua/task/Write"),
-  );

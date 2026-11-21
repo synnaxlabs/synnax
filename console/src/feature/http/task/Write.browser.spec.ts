@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
-import { createHTTPDevice, preloadForms } from "@/feature/http/testutil";
+import { createHTTPDevice } from "@/feature/http/testutil";
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
@@ -23,6 +23,7 @@ import {
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -82,7 +83,7 @@ const createWriteConfig = (
   endpoints,
 });
 
-preloadForms();
+preloadForms(HTTP.Task.FORMS);
 
 describe("Write", () => {
   it("should show the empty state and add + select an endpoint", async () => {

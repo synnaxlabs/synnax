@@ -53,13 +53,18 @@ func autoMigratePayload(ctx context.Context, old v0.Payload) (Payload, error) {
 		return Payload{Variant: BinaryPayload{
 			Length:     variant.Length,
 			Identifier: variant.Identifier,
-			Fields:     variant.Fields,
 		}}, nil
 	case v0.TextPayload:
+		fields, err := lo.MapErr(variant.Fields, func(v v0.TextField, _ int) (TextField, error) {
+			return MigrateTextField(ctx, v)
+		})
+		if err != nil {
+			return Payload{}, err
+		}
 		return Payload{Variant: TextPayload{
 			Delimiter: variant.Delimiter,
 			Prefix:    variant.Prefix,
-			Fields:    variant.Fields,
+			Fields:    fields,
 		}}, nil
 	case v0.JSONPayload:
 		var match *JSONMatch
@@ -70,12 +75,35 @@ func autoMigratePayload(ctx context.Context, old v0.Payload) (Payload, error) {
 			}
 			match = &v
 		}
+		fields, err := lo.MapErr(variant.Fields, func(v v0.JSONField, _ int) (JSONField, error) {
+			return MigrateJSONField(ctx, v)
+		})
+		if err != nil {
+			return Payload{}, err
+		}
 		return Payload{Variant: JSONPayload{
 			Match:  match,
-			Fields: variant.Fields,
+			Fields: fields,
 		}}, nil
 	default:
 		return Payload{}, errors.Newf("unknown Payload variant %T", variant)
+	}
+}
+
+func autoMigrateTextField(_ context.Context, old v0.TextField) (TextField, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return TextField{}, nil
+	case v0.DelimitedTextField:
+		return TextField{Variant: DelimitedTextField{
+			Position: variant.Position,
+		}}, nil
+	case v0.TaggedTextField:
+		return TextField{Variant: TaggedTextField{
+			Tag: variant.Tag,
+		}}, nil
+	default:
+		return TextField{}, errors.Newf("unknown TextField variant %T", variant)
 	}
 }
 
@@ -110,5 +138,61 @@ func autoMigrateJSONMatch(_ context.Context, old v0.JSONMatch) (JSONMatch, error
 		}}, nil
 	default:
 		return JSONMatch{}, errors.Newf("unknown JSONMatch variant %T", variant)
+	}
+}
+
+func autoMigrateJSONField(_ context.Context, old v0.JSONField) (JSONField, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return JSONField{}, nil
+	case v0.FloatJSONField:
+		return JSONField{Variant: FloatJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			EnumValues:    variant.EnumValues,
+			Default:       variant.Default,
+		}}, nil
+	case v0.IntegerJSONField:
+		return JSONField{Variant: IntegerJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			EnumValues:    variant.EnumValues,
+			Default:       variant.Default,
+		}}, nil
+	case v0.UnsignedJSONField:
+		return JSONField{Variant: UnsignedJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			EnumValues:    variant.EnumValues,
+			Default:       variant.Default,
+		}}, nil
+	case v0.StringJSONField:
+		return JSONField{Variant: StringJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			EnumValues:    variant.EnumValues,
+			Default:       variant.Default,
+		}}, nil
+	case v0.BooleanJSONField:
+		return JSONField{Variant: BooleanJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			EnumValues:    variant.EnumValues,
+			Default:       variant.Default,
+		}}, nil
+	case v0.TimestampJSONField:
+		return JSONField{Variant: TimestampJSONField{
+			JSONBaseField: variant.JSONBaseField,
+			TimeFormat:    variant.TimeFormat,
+		}}, nil
+	case v0.JSONJSONField:
+		return JSONField{Variant: JSONJSONField{
+			JSONBaseField: variant.JSONBaseField,
+		}}, nil
+	case v0.UuidJSONField:
+		return JSONField{Variant: UuidJSONField{
+			JSONBaseField: variant.JSONBaseField,
+		}}, nil
+	case v0.BytesJSONField:
+		return JSONField{Variant: BytesJSONField{
+			JSONBaseField: variant.JSONBaseField,
+		}}, nil
+	default:
+		return JSONField{}, errors.Newf("unknown JSONField variant %T", variant)
 	}
 }
