@@ -92,13 +92,14 @@ const ACCESS_DENIED =
 
 const reasonOf = (err: unknown): string => {
   const text = err instanceof Error ? err.message : String(err);
-  if (!AccessDeniedError.matches(err)) return text;
+  if (!AccessDeniedError.matches(err))
+    return text.charAt(0).toUpperCase() + text.slice(1);
   return `${ACCESS_DENIED} ${text}`;
 };
 
 /** The next step when a record that the user cannot see and did not pick blocks. */
 const hiddenStepOf = (hidden: number): string =>
-  `Check ${hidden === 1 ? "Delete it too" : "Delete them too"}, or cancel.`;
+  `Check "${hidden === 1 ? "Delete it too" : "Delete them too"}", or cancel.`;
 
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
@@ -412,6 +413,12 @@ const Dialog = ({
     });
   };
 
+  const handleHidden = (picked: boolean) => {
+    setPlanning(true);
+    setFooter(null);
+    setHidden(picked);
+  };
+
   const handleDelete = async () => {
     if (client == null || view == null) return;
     const blockers = view.plan.entries
@@ -524,10 +531,7 @@ const Dialog = ({
               id={hiddenID}
               aria-labelledby={`${hiddenID}-count ${hiddenID}-label`}
               value={hidden}
-              onChange={(v) => {
-                setPlanning(true);
-                setHidden(v);
-              }}
+              onChange={handleHidden}
             />
             <Text.Text
               el="label"

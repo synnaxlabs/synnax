@@ -347,11 +347,17 @@ describe("channel/tree", () => {
       await screen.findByText("1 record you cannot see.");
       expect(screen.queryByText("Blocks the delete")).toBeNull();
       await clickDelete();
-      await screen.findByText(
-        `cannot delete channel ${ch.name} because a hidden task uses it. ` +
-          "Check Delete it too, or cancel.",
-      );
+      const step =
+        `Cannot delete channel ${ch.name} because a hidden task uses it. ` +
+        'Check "Delete it too", or cancel.';
+      await screen.findByText(step);
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
+      fireEvent.click(
+        screen.getByRole("checkbox", {
+          name: "1 record you cannot see. Delete it too",
+        }),
+      );
+      await waitFor(() => expect(screen.queryByText(step)).toBeNull());
     });
 
     it("opens the calculation editor for a calculated channel", async () => {
