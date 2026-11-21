@@ -288,18 +288,20 @@ export const collapse = (
  * time order. Each span holds one or more windows, the margins and time between them,
  * and each open gap between them. The outer edges are the exact edges of the windows,
  * so the last span stays open when a window has no end.
- * @param end - the newest sample. A window that ends after it runs, so it stops there
- * for laying out the gaps, as the plot lays it out.
+ * @param now - a window that ends after now runs, as the plot lays it out.
+ * @param newest - the newest sample, where a running window stops for laying out the
+ * gaps.
  * @param open - the open breaks, as the lower bounds of their gaps.
  */
 export const shownSpans = (
   windows: TimeRange[],
-  end: TimeStamp,
+  now: TimeStamp,
+  newest: TimeStamp,
   open: readonly number[] = [],
 ): TimeRange[] => {
   const traces = windows.map((w): line.DataBounds => {
-    if (!w.end.after(end)) return { bounds: w.numericBounds, loading: false };
-    const upper = TimeStamp.max(w.start, end);
+    if (!w.end.after(now)) return { bounds: w.numericBounds, loading: false };
+    const upper = TimeStamp.max(w.start, TimeStamp.min(w.end, newest));
     return {
       bounds: new TimeRange(w.start, upper).numericBounds,
       loading: false,

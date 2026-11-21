@@ -99,12 +99,13 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
         channels: { x: d.xChannel, y: d.yChannel },
       }));
       const live = windows.some((w) => w.variant === "dynamic");
-      const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
+      const now = TimeStamp.now();
+      const end = live ? await readEdge(client, channelsOf(lines)) : now;
       const resolved = windows.map((w) => resolveWindow(w, end));
       const timeRanges =
         !FLAGS.breaks || breaksHidden
           ? [TimeRange.merge(...resolved)]
-          : LinePlot.shownSpans(resolved, end, openBreaks);
+          : LinePlot.shownSpans(resolved, now, end, openBreaks);
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };
