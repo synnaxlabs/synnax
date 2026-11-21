@@ -215,10 +215,9 @@ func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool
 // MaxLength returns true and attaches an error to v if the string has more than maxLen
 // Unicode code points.
 func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool {
-	return v.Ternaryf(
-		field,
-		utf8.RuneCountInString(string(value)) > maxLen,
-		"must be at most %d characters long",
-		maxLen,
-	)
+	// A value within the cap formats no message, so a valid write allocates nothing.
+	if utf8.RuneCountInString(string(value)) <= maxLen {
+		return len(v.errs) > 0
+	}
+	return v.Ternaryf(field, true, "must be at most %d characters long", maxLen)
 }

@@ -21,22 +21,26 @@ func (CreatePayload) Handle(Channel) (Channel, error) {
 	return Channel{}, actions.CoreOnlyError("a channel create")
 }
 
-// Handle applies the set to the channel's expression, operations, or group.
+// Handle applies the set to the channel's expression, operations, group, or
+// description.
 func (p SetPayload) Handle(c Channel) (Channel, error) {
 	return edit(c, patch.Set(p).Apply)
 }
 
-// Handle applies the remove to the channel's expression, operations, or group.
+// Handle applies the remove to the channel's expression, operations, group, or
+// description.
 func (p RemovePayload) Handle(c Channel) (Channel, error) {
 	return edit(c, patch.Remove(p).Apply)
 }
 
-// Handle applies the insert to the channel's expression, operations, or group.
+// Handle applies the insert to the channel's expression, operations, group, or
+// description.
 func (p InsertPayload) Handle(c Channel) (Channel, error) {
 	return edit(c, patch.Insert(p).Apply)
 }
 
-// Handle applies the move to the channel's expression, operations, or group.
+// Handle applies the move to the channel's expression, operations, group, or
+// description.
 func (p MovePayload) Handle(c Channel) (Channel, error) {
 	return edit(c, patch.Move(p).Apply)
 }

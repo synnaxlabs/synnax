@@ -12,6 +12,7 @@ package validate_test
 import (
 	"math"
 	"runtime"
+	"testing"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -399,6 +400,12 @@ var _ = Describe("Validate", func() {
 					Entry("accented letters", "éééé"),
 					Entry("emoji", "😀😀😀😀"),
 				)
+
+				It("Should allocate nothing for a value within the cap", func() {
+					Expect(testing.AllocsPerRun(100, func() {
+						v.MaxLength("field", "abcd", 1024)
+					})).To(BeZero())
+				})
 
 				DescribeTable("Should catch long strings", func(value string) {
 					Expect(v.MaxLength("field", value, 4)).To(BeTrue())
