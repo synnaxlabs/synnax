@@ -90,6 +90,12 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	if snapshot != nil {
+		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
+			return nil, err
+		}
+		r.parts.Merge(snapshot)
+	}
 	e := &engine{
 		ins:      o.Instrumentation,
 		fs:       o.fs,
@@ -210,6 +216,7 @@ func (e *engine) recover(r *recovery) (err error) {
 		LogSize:  log.FileSize,
 		Prepared: e.log.Prepared,
 		Executor: e.exec,
+		Parts:    r.parts,
 	})
 	return err
 }

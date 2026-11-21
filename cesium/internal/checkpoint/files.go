@@ -30,7 +30,11 @@ import (
 // the header sector. That last sync is the commit point. On an error, Write removes the
 // file with no further sync of it, and syncs the root.
 func Write(fs xfs.FS, generation uint64, b []byte) error {
-	name := Name(generation)
+	return writeFile(fs, Name(generation), b)
+}
+
+// writeFile writes the checkpoint file b to name in the root fs, as Write does a head.
+func writeFile(fs xfs.FS, name string, b []byte) error {
 	f, err := fs.Open(name, os.O_CREATE|os.O_EXCL|os.O_RDWR)
 	if err != nil {
 		return err
@@ -70,60 +74,93 @@ func write(fs xfs.FS, f xfs.File, b []byte) error {
 // which no checksum covers. It returns ErrIncomplete for a zero header sector, an error
 // that wraps ErrUnknown for a format this binary does not know, and an error that wraps
 // place.ErrCorrupt for any other check that fails.
-func Read(fs xfs.FS, generation uint64) (h Header, s *state.Snapshot, err error) {
-	f, err := fs.Open(Name(generation), os.O_RDONLY)
+func Read(fs xfs.FS, generation uint64) (Header, *state.Snapshot, error) {
+	h, bd, err := headFormat.read(fs, Name(generation))
 	if err != nil {
 		return h, nil, err
 	}
-	defer func() { err = errors.Join(err, f.Close()) }()
-	info, err := f.Stat()
+	h.Parts = bd.parts
+	return h, &state.Snapshot{
+		Sequence: h.Sequence,
+		Limits:   h.Limits,
+		Channels: bd.channels,
+		Intents:  bd.intents,
+	}, nil
+}
+
+// ReadPart reads and checks the part p that a head names in the root fs of database db,
+// as Read does a head. It returns the channels of the part, and an error that wraps
+// place.ErrCorrupt when the part is not the one that the head names.
+func ReadPart(fs xfs.FS, db uint64, p Part) ([]*state.Channel, error) {
+	h, bd, err := partFormat.read(fs, PartName(p.ID))
+	if errors.Is(err, ErrIncomplete) {
+		err = errors.Wrap(place.ErrCorrupt, err.Error())
+	}
 	if err != nil {
-		return h, nil, err
+		return nil, err
+	}
+	if h.DB != db || h.Generation != p.ID || h.Sequence != p.Generation ||
+		h.Length != p.Length || h.CRC != p.CRC {
+		return nil, partFormat.corrupt("part %d is not the part that its head names",
+			p.ID)
+	}
+	return bd.channels, nil
+}
+
+func (f *format) read(fs xfs.FS, name string) (h Header, bd body, err error) {
+	file, err := fs.Open(name, os.O_RDONLY)
+	if err != nil {
+		return h, bd, err
+	}
+	defer func() { err = errors.Join(err, file.Close()) }()
+	info, err := file.Stat()
+	if err != nil {
+		return h, bd, err
 	}
 	b := make([]byte, info.Size())
 	reread := func(lo, hi uint64) error {
 		if lo == hi {
 			return nil
 		}
-		_, err := f.ReadAt(b[lo:hi], int64(lo))
+		_, err := file.ReadAt(b[lo:hi], int64(lo))
 		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF
 		}
 		return err
 	}
 	if err = reread(0, uint64(len(b))); err != nil {
-		return h, nil, err
+		return h, bd, err
 	}
-	h, err = decodeSector(b)
+	h, err = f.decodeSector(b)
 	if errors.Is(err, place.ErrCorrupt) || errors.Is(err, ErrIncomplete) {
 		if err = reread(0, min(SectorSize, uint64(len(b)))); err != nil {
-			return h, nil, err
+			return h, bd, err
 		}
-		h, err = decodeSector(b)
+		h, err = f.decodeSector(b)
 	}
 	if err != nil {
-		return h, nil, err
+		return h, bd, err
 	}
-	err = again(checkChunkTable(b, h), func() error {
+	err = again(f.checkChunkTable(b, h), func() error {
 		if err := reread(h.chunks, h.Length); err != nil {
 			return err
 		}
-		return checkChunkTable(b, h)
+		return f.checkChunkTable(b, h)
 	})
 	for i := uint64(0); err == nil && i < chunkCount(h); i++ {
 		lo, hi := chunkRange(h, i)
-		err = again(checkChunk(b, h, i), func() error {
+		err = again(f.checkChunk(b, h, i), func() error {
 			if err := reread(lo, hi); err != nil {
 				return err
 			}
-			return checkChunk(b, h, i)
+			return f.checkChunk(b, h, i)
 		})
 	}
 	if err != nil {
-		return h, nil, err
+		return h, bd, err
 	}
-	s, err = parse(b, h)
-	return h, s, err
+	bd, err = f.parse(b, h)
+	return h, bd, err
 }
 
 // again returns err, or the result of retry when err is a failed check.
@@ -161,33 +198,48 @@ func Prepare(fs xfs.FS, next uint64, size int64) error {
 
 // Clean removes from the root fs what the switch to generation live no longer needs:
 // every head and log older than the newest older head that Read takes and whose logs
-// all exist from its generation to live. It tries every removal, then syncs the root,
-// and returns the errors of the removals that failed, which the next switch tries
-// again.
+// all exist from its generation to live, and each part that neither of the two heads
+// names. It tries every removal, then syncs the root, and returns the errors of the
+// removals that failed, which the next switch tries again.
 func Clean(fs xfs.FS, live uint64) error {
 	entries, err := fs.List("")
 	if err != nil {
 		return err
 	}
-	heads, logs := set.Set[uint64]{}, set.Set[uint64]{}
+	heads, logs, parts := set.Set[uint64]{}, set.Set[uint64]{}, set.Set[uint64]{}
 	for _, e := range entries {
 		if g, ok := generationOf(e.Name(), ".head"); ok {
 			heads.Add(g)
 		} else if g, ok = generationOf(e.Name(), ".log"); ok {
 			logs.Add(g)
+		} else if id, ok := generationOf(e.Name(), ".part"); ok {
+			parts.Add(id)
 		}
 	}
-	keep := live
+	keep, named := live, set.New[uint64]()
 	for g := live - 1; g >= 1 && logs.Contains(g); g-- {
 		if !heads.Contains(g) {
 			continue
 		}
-		if _, _, err := Read(fs, g); err == nil {
+		if older, _, err := Read(fs, g); err == nil {
 			keep = g
+			named = partsOf(older)
 			break
 		}
 	}
 	var errs []error
+	if len(parts) > 0 {
+		h, _, err := Read(fs, live)
+		if err != nil {
+			return err
+		}
+		named.Add(partsOf(h).Slice()...)
+	}
+	for _, id := range slices.Sorted(maps.Keys(parts)) {
+		if !named.Contains(id) {
+			errs = append(errs, fs.Remove(PartName(id)))
+		}
+	}
 	for _, g := range slices.Sorted(maps.Keys(heads)) {
 		if g < keep {
 			errs = append(errs, fs.Remove(Name(g)))
@@ -199,6 +251,15 @@ func Clean(fs xfs.FS, live uint64) error {
 		}
 	}
 	return errors.Join(errors.Join(errs...), fs.SyncDir(""))
+}
+
+// partsOf returns the identities of the parts that h names.
+func partsOf(h Header) set.Set[uint64] {
+	ids := set.New[uint64]()
+	for _, p := range h.Parts {
+		ids.Add(p.ID)
+	}
+	return ids
 }
 
 // generationOf returns the generation of a file name of 16 hex digits and suffix.
