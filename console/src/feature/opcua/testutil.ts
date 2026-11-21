@@ -10,7 +10,7 @@
 import type { rack, Synnax, task } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import {
   type Device,
@@ -25,7 +25,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
-import { preload } from "@/testutil";
+import { dragOnto, preload } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {
@@ -121,14 +121,8 @@ export const createMember = (
 });
 
 /** Drags the browser node with the name onto the element that shows the target. */
-export const dragNode = async (name: string, target: string): Promise<void> => {
-  fireEvent.dragStart(await screen.findByText(name), {
-    dataTransfer: new DataTransfer(),
-  });
-  fireEvent.drop(await screen.findByText(new RegExp(target)), {
-    dataTransfer: new DataTransfer(),
-  });
-};
+export const dragNode = async (name: string, target: string): Promise<void> =>
+  dragOnto(await screen.findByText(name), await screen.findByText(new RegExp(target)));
 
 /** Loads the modules of the lazy task forms before the specs of a file run. */
 export const preloadForms = (): void =>
