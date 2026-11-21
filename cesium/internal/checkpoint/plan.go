@@ -59,12 +59,11 @@ func (c *Checkpointer) plan(s *state.Snapshot) plan {
 			f.part(at)
 		}
 	}
-	sealed := f.sealed()
-	if recordSize(sealed) > c.cfg.PartSize {
-		pl.add(sealed)
+	if f.sealedSize() > c.cfg.PartSize {
+		pl.add(f.keep(true))
 		f.part(f.sealedAt())
 	}
-	pl.head = f.rest()
+	pl.head = f.keep(false)
 	return pl
 }
 
@@ -153,10 +152,13 @@ func (f *flat) channels(at []int, keys []uint32) []*state.Channel {
 	return out
 }
 
-// keep returns the channels of the state with only the segments numbered j for which
-// want returns true. A channel that keeps every segment is the state's channel, and the
+// keep returns the segments that no part holds, the sealed ones alone when sealed is
+// true, as channels. A channel that keeps every segment is the state's channel, and the
 // rest come from one slab of channels and one of segments.
-func (f *flat) keep(want func(j int, seg state.Segment) bool) []*state.Channel {
+func (f *flat) keep(sealed bool) []*state.Channel {
+	want := func(j int, seg state.Segment) bool {
+		return !f.parted[j] && (seg.Sealed || !sealed)
+	}
 	counts := make([]int, len(f.s.Channels))
 	var emitted, cut, cutSegs int
 	for i, ch := range f.s.Channels {
@@ -209,27 +211,21 @@ func (f *flat) sealedAt() []int {
 	return at
 }
 
-// sealed returns the sealed segments that no part holds, as channels.
-func (f *flat) sealed() []*state.Channel {
-	return f.keep(func(j int, seg state.Segment) bool {
-		return seg.Sealed && !f.parted[j]
-	})
-}
-
-// rest returns the segments that no part holds, as channels.
-func (f *flat) rest() []*state.Channel {
-	return f.keep(func(j int, _ state.Segment) bool { return !f.parted[j] })
-}
-
-// recordSize returns the size of the channel, segment, and pointer records of channels
-// in a head.
-func recordSize(channels []*state.Channel) int {
+// sealedSize returns the size in a head of the records of the sealed segments that no
+// part holds.
+func (f *flat) sealedSize() int {
 	size := 0
-	for _, ch := range channels {
-		size += int(headFormat.sizes[sectionChans])
-		for _, seg := range ch.Segments {
-			size += int(headFormat.sizes[sectionSegs]) +
-				len(seg.Pointers)*int(headFormat.sizes[sectionPtrs])
+	for i, ch := range f.s.Channels {
+		held := false
+		for k, seg := range ch.Segments {
+			if seg.Sealed && !f.parted[f.first[i]+k] {
+				held = true
+				size += int(headFormat.sizes[sectionSegs]) +
+					len(seg.Pointers)*int(headFormat.sizes[sectionPtrs])
+			}
+		}
+		if held {
+			size += int(headFormat.sizes[sectionChans])
 		}
 	}
 	return size
