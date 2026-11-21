@@ -23,7 +23,7 @@ OperationType = v0.OperationType
 Operation = v0.Operation
 
 Rewire struct {
-    from Key = 0          {
+    from Key = 0 {
         @doc value """
             is the channel that held the path, or 0 for a span that no channel held.
         """
@@ -32,7 +32,7 @@ Rewire struct {
         @doc value "is the time at which the holder stopped holding the path."
     }
 
-    @doc value "is one past holder of a channel's path."
+    @doc value  "is one past holder of a channel's path."
     @go marshal
 }
 
@@ -61,7 +61,7 @@ Tombstone struct {
         """
     }
 
-    @doc value """
+    @doc value  """
         keeps the path of a deleted channel that a display still holds, so a channel
         made at the path later can take its place.
     """
