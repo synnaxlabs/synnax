@@ -55,6 +55,10 @@ func (s *Service) planDelete(
 		keys:    deleted,
 		effects: effects,
 	}
+	n := len(effects.Restricts) + len(effects.Cascades) + len(effects.Detaches)
+	if n > 0 {
+		p.Entries = make([]Entry, 0, n)
+	}
 	// effectOf holds the effect of each record with an entry, and no effect for each
 	// record that keeps a weak link.
 	effectOf := make(
