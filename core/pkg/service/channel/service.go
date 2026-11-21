@@ -256,8 +256,9 @@ func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 // NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only what a
 // subject can retrieve. access returns whether the subject can retrieve a record, and
 // the resolver calls it at each lookup. A channel that the subject cannot retrieve, or
-// a path through a folder that it cannot retrieve, resolves nothing. The error of an
-// ambiguous name names only the paths that the subject can see.
+// a path through a folder that it cannot retrieve, resolves nothing. Every holder of a
+// bare name counts toward an ambiguous name, whose error names only the paths that the
+// subject can see.
 func (s *Service) NewSubjectResolver(
 	snap gorp.Snapshot,
 	access func(context.Context) (func(resource.ID) bool, error),
