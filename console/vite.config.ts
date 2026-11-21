@@ -29,6 +29,7 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
 const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
+const SAMPLE_SPEC = "src/feature/project/sample.desktop.browser.spec.ts";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
 
 interface BrowserProjectProps {
@@ -36,6 +37,7 @@ interface BrowserProjectProps {
   include?: string[];
   exclude?: string[];
   desktop?: boolean;
+  webkit?: boolean;
 }
 
 /**
@@ -47,6 +49,7 @@ const browserProject = ({
   include = [BROWSER_SPECS],
   exclude = [],
   desktop = false,
+  webkit = true,
 }: BrowserProjectProps): TestProjectInlineConfiguration => {
   const prefix = desktop ? "desktop-" : "";
   return {
@@ -79,10 +82,12 @@ const browserProject = ({
         headless: true,
         provider: playwright(),
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
-        instances: [
-          { browser: "chromium", name: `${prefix}chromium` },
-          { browser: "webkit", name: `${prefix}webkit` },
-        ],
+        instances: webkit
+          ? [
+              { browser: "chromium", name: `${prefix}chromium` },
+              { browser: "webkit", name: `${prefix}webkit` },
+            ]
+          : [{ browser: "chromium", name: `${name}-chromium` }],
       },
     },
   };
@@ -233,7 +238,16 @@ export default defineConfig({
       browserProject({
         name: "desktop-browser",
         include: [DESKTOP_BROWSER_SPECS],
+        exclude: [SAMPLE_SPEC],
         desktop: true,
+      }),
+      // The product creates the sample project with fixed keys, so two browsers on one
+      // Core collide. Its spec runs in Chromium alone.
+      browserProject({
+        name: "desktop-sample",
+        include: [SAMPLE_SPEC],
+        desktop: true,
+        webkit: false,
       }),
     ],
     coverage: {
