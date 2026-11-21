@@ -14,24 +14,23 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-// pathSeparator joins the segments of a path.
-const pathSeparator = "."
-
 // MatchPaths returns a filter for the channels at paths. A path is the names of the
 // folders from the top, then the name of the channel, joined by '.'. A path that no
-// channel is at matches nothing. Each segment costs one probe of the names in a folder,
-// and the filter reads no record to find the keys.
+// channel is at, or that passes a folder that Retrieve.AllowFolders refuses, matches
+// nothing. Each segment costs one probe of the names in a folder, and the filter reads
+// no record to find the keys.
 func MatchPaths(paths ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.MatchKeysFunc[Key, Channel](func(ctx gorp.Context) ([]Key, error) {
 			keys := make([]Key, 0, len(paths))
 			for _, p := range paths {
-				key, found, err := r.indexes.keyAt(ctx, ctx.Snapshot, p)
+				key, found, err := r.keyAt(ctx, ctx.Snapshot, p)
 				if err != nil {
 					return nil, err
 				}
@@ -45,16 +44,16 @@ func MatchPaths(paths ...string) Filter {
 }
 
 // keyAt returns the key of the channel at path, as seen by snap, and false when no
-// channel is at it.
-func (i indexes) keyAt(ctx context.Context, snap gorp.Snapshot, path string) (
+// channel is at it or the path passes a folder that r does not allow.
+func (r Retrieve) keyAt(ctx context.Context, snap gorp.Snapshot, path string) (
 	Key,
 	bool,
 	error,
 ) {
 	var parent group.Key
 	for {
-		segment, rest, inFolder := strings.Cut(path, pathSeparator)
-		holder, found, err := i.sibling.Holder(
+		segment, rest, inFolder := strings.Cut(path, group.PathSeparator)
+		holder, found, err := r.indexes.sibling.Holder(
 			ctx,
 			snap,
 			group.Sibling{Parent: parent, Name: segment},
@@ -75,6 +74,51 @@ func (i indexes) keyAt(ctx context.Context, snap gorp.Snapshot, path string) (
 		if parent, err = uuid.Parse(holder.Key); err != nil {
 			return 0, false, err
 		}
+		if r.folderAllowed != nil && !r.folderAllowed(group.ResourceID(parent)) {
+			return 0, false, nil
+		}
 		path = rest
 	}
+}
+
+// Path is where a channel sits: the folders from the top down to its folder, then its
+// name.
+type Path struct {
+	Folders group.Path
+	Name    string
+}
+
+// String returns the names of the folders and of the channel joined by
+// group.PathSeparator.
+func (p Path) String() string {
+	if len(p.Folders) == 0 {
+		return p.Name
+	}
+	return p.Folders.String() + group.PathSeparator + p.Name
+}
+
+// Paths returns the path of each of channels, as seen by snap.
+func Paths(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []Channel,
+) ([]Path, error) {
+	var keys []group.Key
+	for _, ch := range channels {
+		if ch.Group != nil {
+			keys = append(keys, *ch.Group)
+		}
+	}
+	folders, err := group.Paths(ctx, snap, lo.Uniq(keys)...)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]Path, len(channels))
+	for i, ch := range channels {
+		paths[i].Name = ch.Name
+		if ch.Group != nil {
+			paths[i].Folders = folders[*ch.Group]
+		}
+	}
+	return paths, nil
 }

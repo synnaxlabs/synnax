@@ -227,6 +227,9 @@ class Payload(BaseModel):
         uses: Are the records that read or write the channel and that the caller can
             retrieve, filled only when a retrieve request asks for them. A task config
             shows as its task.
+        path: Is the names of the channel's folders from the top, then its name, joined
+            by '.'. It is filled only when a retrieve request asks for it, and only when
+            the caller can retrieve every folder on it.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -243,6 +246,7 @@ class Payload(BaseModel):
     status: Status | None = None
     group: group_.Key | None = None
     uses: list[Use] | None = None
+    path: str | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -260,6 +264,7 @@ class RetrieveRequest(BaseModel):
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
         include_uses: Includes the uses of each record.
+        include_path: Includes the path of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -271,6 +276,7 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
     include_uses: bool = False
+    include_path: bool = False
 
 
 class RetrieveResponse(BaseModel):

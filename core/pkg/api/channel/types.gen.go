@@ -70,6 +70,10 @@ type Channel struct {
 	// retrieve, filled only when a retrieve request asks for them. A task config shows
 	// as its task.
 	Uses []Use `json:"uses,omitzero" msgpack:"uses,omitempty"`
+	// Path is the names of the channel's folders from the top, then its name, joined by
+	// '.'. It is filled only when a retrieve request asks for it, and only when the
+	// caller can retrieve every folder on it.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -175,6 +179,8 @@ type RetrieveRequest struct {
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 	// IncludeUses includes the uses of each record.
 	IncludeUses bool `json:"include_uses" msgpack:"include_uses"`
+	// IncludePath includes the path of each record.
+	IncludePath bool `json:"include_path" msgpack:"include_path"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

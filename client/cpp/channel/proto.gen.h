@@ -253,6 +253,7 @@ Channel::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
+    if (this->path.has_value()) pb.set_path(*this->path);
     return {pb, x::errors::NIL};
 }
 
@@ -279,6 +280,7 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
+    if (pb.has_path()) cpp.path = pb.path();
     return {cpp, x::errors::NIL};
 }
 
@@ -462,6 +464,7 @@ RetrieveRequest::to_proto() const {
     }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
     pb.set_include_status(this->include_status);
+    pb.set_include_path(this->include_path);
     return {pb, x::errors::NIL};
 }
 
@@ -486,6 +489,7 @@ RetrieveRequest::from_proto(const ::api::channel::pb::RetrieveRequest &pb) {
     }
     if (pb.has_limit()) cpp.limit = pb.limit();
     cpp.include_status = pb.include_status();
+    cpp.include_path = pb.include_path();
     return {cpp, x::errors::NIL};
 }
 

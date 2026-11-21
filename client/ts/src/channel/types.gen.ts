@@ -241,6 +241,12 @@ export const payloadZ = z.object({
    * its task.
    */
   uses: zod.nullToUndefined(useZ.array()),
+  /**
+   * path is the names of the channel's folders from the top, then its name, joined by
+   * '.'. It is filled only when a retrieve request asks for it, and only when the
+   * caller can retrieve every folder on it.
+   */
+  path: z.string().optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -260,6 +266,8 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
   /** includeUses includes the uses of each record. */
   includeUses: z.boolean().optional(),
+  /** includePath includes the path of each record. */
+  includePath: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}

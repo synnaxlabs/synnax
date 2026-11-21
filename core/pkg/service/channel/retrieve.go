@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Retrieve is a builder for querying channels.
@@ -21,6 +22,16 @@ type Retrieve struct {
 	indexes indexes
 	// builtIn holds the filters of MatchInternal.
 	builtIn *builtInFilters
+	// folderAllowed reports whether a path can pass the folder with an ID, or is nil
+	// when a path can pass any folder.
+	folderAllowed func(resource.ID) bool
+}
+
+// AllowFolders makes a path that MatchPaths matches pass only folders that allowed
+// accepts. It must come before Where, since a filter reads it when Where adds it.
+func (r Retrieve) AllowFolders(allowed func(resource.ID) bool) Retrieve {
+	r.folderAllowed = allowed
+	return r
 }
 
 // builtInFilters holds the filters of MatchInternal for one Service. The Service builds

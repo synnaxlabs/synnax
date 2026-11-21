@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -241,7 +242,45 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 	}
+	if req.IncludePath {
+		if err = fillPaths(ctx, snap, resChannels, res.Channels); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillPaths sets the path of each of channels, the API forms of stored, when the
+// subject
+// can retrieve every folder on it.
+func fillPaths(
+	ctx context.Context,
+	snap bind.Snapshot,
+	stored []channel.Channel,
+	channels []Channel,
+) error {
+	paths, err := channel.Paths(ctx, snap, stored)
+	if err != nil {
+		return err
+	}
+	allowed := make(map[group.Key]bool)
+	allowedOf := func(g group.Group) bool {
+		ok, read := allowed[g.Key]
+		if !read {
+			ok = snap.Allowed(g.ResourceID())
+			allowed[g.Key] = ok
+		}
+		return ok
+	}
+	// One array backs the path of every channel.
+	text := make([]string, len(paths))
+	for i, p := range paths {
+		if lo.EveryBy(p.Folders, allowedOf) {
+			text[i] = p.String()
+			channels[i].Path = &text[i]
+		}
+	}
+	return nil
 }
 
 // fillUses sets the uses of each channel, leaving out the records the subject cannot
@@ -296,7 +335,10 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
-	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
+	q, err := ApplyRetrieve(
+		req,
+		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
+	)
 	if err != nil {
 		return nil, err
 	}
