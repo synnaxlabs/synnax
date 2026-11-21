@@ -20,6 +20,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"path"
 	"slices"
 	"strconv"
 
@@ -34,6 +35,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // Config is the configuration of Read.
@@ -57,6 +59,7 @@ type Config struct {
 func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
 	r := &reader{
 		Config: cfg,
+		ptrs:   make(map[uint32][]pointer),
 		clocks: make(map[uint32]*clock),
 		segs:   make(map[uint32]map[uint16][]state.Pointer),
 		next:   1,
@@ -75,7 +78,9 @@ func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
 type reader struct {
 	Config
 	channels []channel.Channel
-	clocks   map[uint32]*clock
+	// ptrs holds the old pointers of each channel, in rising order of start.
+	ptrs   map[uint32][]pointer
+	clocks map[uint32]*clock
 	// segs holds the pointers of each key, by old file number.
 	segs map[uint32]map[uint16][]state.Pointer
 	// next is the next alignment number.
@@ -115,35 +120,61 @@ func (r *reader) read() error {
 	return nil
 }
 
-// list reads the meta.json file of each directory that a key names.
+// readWidth is the most channel directories that Read reads at once. On a cold disk
+// each small old file is a random read, and many at once keep the disk busy.
+const readWidth = 32
+
+// dir is what Read reads of one channel directory.
+type dir struct {
+	key uint32
+	ch  channel.Channel
+	// kept is true for a channel with storage, and missing for a directory with no
+	// meta.json.
+	kept, missing bool
+	ptrs          []pointer
+	err           error
+}
+
+// list reads the channel and the old pointers of each directory that a key names,
+// readWidth directories at a time.
 func (r *reader) list() error {
 	infos, err := r.FS.List("")
 	if err != nil {
 		return err
 	}
+	var dirs []dir
 	for _, info := range infos {
-		key, err := strconv.ParseUint(info.Name(), 10, 32)
-		if err != nil || !info.IsDir() {
-			continue
+		if key, err := strconv.ParseUint(
+			info.Name(),
+			10,
+			32,
+		); err == nil &&
+			info.IsDir() {
+			dirs = append(dirs, dir{key: uint32(key)})
 		}
-		name := info.Name() + "/" + meta.File
-		ok, err := r.FS.Exists(name)
-		if err != nil {
-			return err
-		}
-		if !ok {
+	}
+	var g errgroup.Group
+	g.SetLimit(readWidth)
+	for i := range dirs {
+		g.Go(func() error {
+			r.readDir(&dirs[i])
+			return nil
+		})
+	}
+	if err = g.Wait(); err != nil {
+		return err
+	}
+	for _, d := range dirs {
+		switch {
+		case d.err != nil:
+			return d.err
+		case d.missing:
 			r.L.Warn(
 				"skipped a channel directory with no meta.json",
-				zap.Uint64("key", key),
+				zap.Uint32("key", d.key),
 			)
-			continue
-		}
-		ch, ok, err := r.channel(uint32(key), name)
-		if err != nil {
-			return err
-		}
-		if ok {
-			r.channels = append(r.channels, ch)
+		case d.kept:
+			r.channels, r.ptrs[d.key] = append(r.channels, d.ch), d.ptrs
 		}
 	}
 	slices.SortFunc(r.channels, func(a, b channel.Channel) int {
@@ -152,14 +183,30 @@ func (r *reader) list() error {
 	return nil
 }
 
+// readDir reads the channel of d and its old pointers.
+func (r *reader) readDir(d *dir) {
+	name := path.Join(strconv.FormatUint(uint64(d.key), 10), meta.File)
+	ok, err := r.FS.Exists(name)
+	if d.missing, d.err = !ok, err; !ok || err != nil {
+		return
+	}
+	if d.ch, d.kept, d.err = r.channel(d.key, name); !d.kept || d.err != nil {
+		return
+	}
+	var density telem.Density
+	switch {
+	case d.ch.IsIndex:
+		density = stampSize
+	case !d.ch.DataType.IsVariable():
+		density = d.ch.DataType.Density()
+	}
+	d.ptrs, d.err = r.pointers(d.key, density)
+}
+
 // channel decodes the meta.json file name of key and migrates it as the old open does.
 // It returns false for a channel that the old open ignores, and for a virtual channel.
 func (r *reader) channel(key uint32, name string) (channel.Channel, bool, error) {
-	info, err := r.FS.Stat(name)
-	if err != nil {
-		return channel.Channel{}, false, err
-	}
-	b, err := r.agreed(name, 0, int(info.Size()))
+	b, err := r.readFile(name)
 	if err != nil {
 		return channel.Channel{}, false, err
 	}
@@ -206,14 +253,10 @@ type pointer struct {
 // when a pointer ends past its file or holds no whole number of samples of density.
 func (r *reader) pointers(key uint32, density telem.Density) ([]pointer, error) {
 	name := fmt.Sprintf("%d/index.domain", key)
-	info, err := r.FS.Stat(name)
+	b, err := r.readFile(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	b, err := r.agreed(name, 0, int(info.Size()))
 	if err != nil {
 		return nil, err
 	}
@@ -293,9 +336,23 @@ func fileName(
 	return fmt.Sprintf("%d/%d.domain", key, n)
 }
 
-// agreed reads n bytes at off of the file name, and returns them once two reads agree.
-// With no two agreeing reads in three, it returns an error that wraps place.ErrCorrupt
-// and names the file.
+// readFile returns the bytes of the file name once two whole reads of it agree. It is
+// safe for concurrent use.
+func (r *reader) readFile(name string) ([]byte, error) {
+	info, err := r.FS.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+	f, err := r.FS.Open(name, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	b, err := agreed(f, name, 0, int(info.Size()))
+	return b, errors.Join(err, f.Close())
+}
+
+// agreed returns n bytes at off of the file name as agreed does, from a handle that r
+// keeps open until the next file.
 func (r *reader) agreed(name string, off int64, n int) ([]byte, error) {
 	if r.openName != name {
 		if r.open != nil {
@@ -310,10 +367,17 @@ func (r *reader) agreed(name string, off int64, n int) ([]byte, error) {
 		}
 		r.open, r.openName = f, name
 	}
+	return agreed(r.open, name, off, n)
+}
+
+// agreed reads n bytes at off of f, the file name, and returns them once two reads
+// agree. With no two agreeing reads in three, it returns an error that wraps
+// place.ErrCorrupt and names the file.
+func agreed(f xfs.File, name string, off int64, n int) ([]byte, error) {
 	reads := make([][]byte, 0, 3)
 	for range 3 {
 		b := make([]byte, n)
-		if got, err := r.open.ReadAt(b, off); got < n {
+		if got, err := f.ReadAt(b, off); got < n {
 			return nil, errors.Wrapf(
 				cmp.Or(err, io.ErrUnexpectedEOF),
 				"read of %d bytes at %d of %s",

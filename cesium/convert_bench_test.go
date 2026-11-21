@@ -36,45 +36,46 @@ import (
 // reports the terms of the conversion target: the bytes of the old metadata files, the
 // old data files, the stamp reads, the bytes of head 1, and the size of one log file.
 func BenchmarkConvert(b *testing.B) {
-	for _, keys := range []int{100, 1_000} {
-		for _, files := range []int{1, 16} {
-			b.Run(fmt.Sprintf("keys=%d/files=%d", keys, files), func(b *testing.B) {
-				root := convertFixture(b, keys, files)
-				meta, old := oldTerms(b, root)
-				fs := &stampCounter{FS: root, reads: set.New[stampRead]()}
-				var head, logFile int64
-				for b.Loop() {
-					b.StopTimer()
-					undoConversion(b, root)
-					fs.reset()
-					b.StartTimer()
-					db, err := cesium.Open(
-						b.Context(),
-						"",
-						cesium.WithFS(fs),
-						cesium.WithPointerLog(),
-					)
-					if err != nil {
-						b.Fatal(err)
-					}
-					b.StopTimer()
-					if err = db.Close(); err != nil {
-						b.Fatal(err)
-					}
-					head, logFile = fileSize(b, root, checkpoint.Name(1)), fileSize(
-						b,
-						root,
-						log.Name(1),
-					)
-					b.StartTimer()
+	for _, size := range []struct{ keys, files int }{
+		{100, 1}, {100, 16}, {1_000, 1}, {1_000, 16}, {10_000, 1},
+	} {
+		keys, files := size.keys, size.files
+		b.Run(fmt.Sprintf("keys=%d/files=%d", keys, files), func(b *testing.B) {
+			root := convertFixture(b, keys, files)
+			meta, old := oldTerms(b, root)
+			fs := &stampCounter{FS: root, reads: set.New[stampRead]()}
+			var head, logFile int64
+			for b.Loop() {
+				b.StopTimer()
+				undoConversion(b, root)
+				fs.reset()
+				b.StartTimer()
+				db, err := cesium.Open(
+					b.Context(),
+					"",
+					cesium.WithFS(fs),
+					cesium.WithPointerLog(),
+				)
+				if err != nil {
+					b.Fatal(err)
 				}
-				b.ReportMetric(float64(meta), "meta-B")
-				b.ReportMetric(float64(old), "old-files")
-				b.ReportMetric(float64(fs.count()), "stamp-reads")
-				b.ReportMetric(float64(head), "head-B")
-				b.ReportMetric(float64(logFile), "log-file-B")
-			})
-		}
+				b.StopTimer()
+				if err = db.Close(); err != nil {
+					b.Fatal(err)
+				}
+				head, logFile = fileSize(b, root, checkpoint.Name(1)), fileSize(
+					b,
+					root,
+					log.Name(1),
+				)
+				b.StartTimer()
+			}
+			b.ReportMetric(float64(meta), "meta-B")
+			b.ReportMetric(float64(old), "old-files")
+			b.ReportMetric(float64(fs.count()), "stamp-reads")
+			b.ReportMetric(float64(head), "head-B")
+			b.ReportMetric(float64(logFile), "log-file-B")
+		})
 	}
 }
 

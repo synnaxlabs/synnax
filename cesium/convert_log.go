@@ -10,14 +10,18 @@
 package cesium
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/cesium/internal/convert"
 	"github.com/synnaxlabs/cesium/internal/state"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"golang.org/x/sync/errgroup"
 )
 
 // convert reads the state of the old layout in the root, and writes the channel file of
-// each of its channels for database db. Then it syncs each old file that the state
-// names, each channel file, and each channel directory. It changes no old file.
+// each of its channels for database db, syncWidth at a time. Then it syncs each old
+// file that the state names, each channel file, and each channel directory. It changes
+// no old file.
 func (e *engine) convert(o *options, db uint64) (*state.Snapshot, error) {
 	intents, err := liveIntents(o.fs)
 	if err != nil {
@@ -32,21 +36,26 @@ func (e *engine) convert(o *options, db uint64) (*state.Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(channels))
-	dirs := make([]string, 0, len(channels))
-	for _, ch := range channels {
-		name, err := writeChannel(o.fs, o.metaCodec, db, ch)
-		if err != nil {
-			return nil, err
-		}
-		names, dirs = append(names, name), append(dirs, keyToDirName(ch.Key))
+	names, dirs := make([]string, len(channels)), make([]string, len(channels))
+	var g errgroup.Group
+	g.SetLimit(syncWidth)
+	for i, ch := range channels {
+		dirs[i] = keyToDirName(ch.Key)
+		g.Go(func() (err error) {
+			names[i], err = writeChannel(o.fs, o.metaCodec, db, ch)
+			return err
+		})
 	}
+	if err = g.Wait(); err != nil {
+		return nil, err
+	}
+	var olds []string
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
-			names = append(names, segmentName(ch.Key, seg.ID, seg.File))
+			olds = append(olds, segmentName(ch.Key, seg.ID, seg.File))
 		}
 	}
-	return snapshot, e.budget.SyncFiles(o.fs, names, dirs)
+	return snapshot, e.budget.SyncFiles(o.fs, slices.Concat(names, olds), dirs)
 }
 
 // liveIntents returns the keys of the live delete intents in the intents file of the

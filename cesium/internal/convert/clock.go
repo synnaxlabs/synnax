@@ -39,10 +39,7 @@ func (c *clock) count(k int) uint32 { return c.ptrs[k].size / stampSize }
 // last stamp, and adds it. The stamp reads go in file-offset order within each old
 // file.
 func (r *reader) index(ch channel.Channel) error {
-	ptrs, err := r.pointers(ch.Key, stampSize)
-	if err != nil {
-		return err
-	}
+	ptrs := r.ptrs[ch.Key]
 	c := &clock{
 		key:   ch.Key,
 		ptrs:  ptrs,
@@ -60,6 +57,7 @@ func (r *reader) index(ch channel.Channel) error {
 			cmp.Compare(ptrs[a].offset, ptrs[b].offset),
 		)
 	})
+	var err error
 	for _, k := range order {
 		if c.first[k], err = r.stamp(c, k, 0); err != nil {
 			return err
@@ -136,12 +134,8 @@ func (r *reader) data(ch channel.Channel) error {
 	if !ch.DataType.IsVariable() {
 		density = ch.DataType.Density()
 	}
-	ptrs, err := r.pointers(ch.Key, density)
-	if err != nil {
-		return err
-	}
-	for _, d := range ptrs {
-		if err = r.split(ch.Key, density, c, d); err != nil {
+	for _, d := range r.ptrs[ch.Key] {
+		if err := r.split(ch.Key, density, c, d); err != nil {
 			return err
 		}
 	}
