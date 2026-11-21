@@ -19,9 +19,6 @@ foreach ($name in "synnax", "synnax-driver") {
         continue
     }
     $procs | Stop-Process -Force -ErrorAction SilentlyContinue
-    # A killed process holds its executable open until it exits, so removing the
-    # binaries directory right after the stop can fail.
-    $procs | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
     Write-Host "Stopped $name.exe processes"
 }
 
@@ -33,12 +30,26 @@ $dirs = @(
     "$env:LOCALAPPDATA\synnax",
     ".\binaries"
 )
+# Windows releases a killed process's file handles a moment after the process exits,
+# so a removal right after the stop can fail. Retry until the handles are gone.
 foreach ($dir in $dirs) {
-    if (Test-Path $dir) {
-        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $dir
-        Write-Host "Removed $dir"
-    } else {
+    if (-not (Test-Path $dir)) {
         Write-Host "No $dir directory found"
+        continue
+    }
+    $deadline = (Get-Date).AddSeconds(30)
+    while ($true) {
+        try {
+            Remove-Item -Recurse -Force -ErrorAction Stop $dir
+            Write-Host "Removed $dir"
+            break
+        } catch {
+            if ((Get-Date) -gt $deadline) {
+                Write-Host "Could not remove ${dir}: $($_.Exception.Message)"
+                break
+            }
+            Start-Sleep -Milliseconds 500
+        }
     }
 }
 

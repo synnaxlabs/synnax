@@ -28,7 +28,7 @@ import {
   CaptureStatuses,
   createTestStore,
   preload,
-  renderSuspended,
+  renderLazy,
   type TestStore,
 } from "@/testutil";
 
@@ -77,7 +77,7 @@ export const renderOverview = async (
   const { Content, Guard } = TAB;
   assert(Guard != null);
   let statuses: Status.NotificationSpec[] = [];
-  await renderSuspended(
+  await renderLazy(
     <>
       <div style={{ width }}>
         <Guard FallbackComponent={Deleted}>

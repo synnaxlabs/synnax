@@ -26,7 +26,6 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { Suspense } from "react";
 import { assert, describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
@@ -44,6 +43,7 @@ import {
   createConsoleWrapper,
   createTestClientWithGrants,
   renderHookWithConsole,
+  renderLazy,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -146,12 +146,7 @@ describe("Settings", () => {
     });
     await primePanel(wrapper, existing.key);
     const { Content } = Settings.TABS.settings;
-    render(
-      <Suspense fallback={null}>
-        <Content />
-      </Suspense>,
-      { wrapper },
-    );
+    await renderLazy(<Content />, { wrapper });
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Settings.COMMANDS,
@@ -174,12 +169,7 @@ describe("Settings", () => {
     });
     await primePanel(wrapper, existing.key);
     const { Content } = Settings.TABS.settings;
-    render(
-      <Suspense fallback={null}>
-        <Content />
-      </Suspense>,
-      { wrapper },
-    );
+    await renderLazy(<Content />, { wrapper });
     expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Settings.COMMANDS,

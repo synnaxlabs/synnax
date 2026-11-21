@@ -219,6 +219,11 @@ TEST(JSONMatch, RoundTripsBooleanProto) {
     );
 }
 
+/// @brief it should round trip a present match through protobuf.
+TEST(JSONMatch, RoundTripsPresentProto) {
+    expect_round_trips(with_match({{"type", "present"}, {"pointer", "/a"}}));
+}
+
 /// @brief it should round trip a field identifier through protobuf.
 TEST(Identifier, RoundTripsFieldVariantProto) {
     auto j = FULL_ICD;

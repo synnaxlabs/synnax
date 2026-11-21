@@ -15,9 +15,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "client/cpp/color/json.gen.h"
+#include "client/cpp/color/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
-#include "x/cpp/color/json.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
@@ -132,7 +133,7 @@ Range::to_proto() const {
         *pb.mutable_time_range() = v;
     }
     if (this->color.has_value()) {
-        auto [v, err] = this->color->to_proto();
+        auto [v, err] = ::synnax::color::to_proto(*this->color);
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
@@ -159,7 +160,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         cpp.time_range = v;
     }
     if (pb.has_color()) {
-        auto [v, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::synnax::color::ref_from_proto(pb.color());
         if (err) return {{}, err};
         cpp.color = v;
     }

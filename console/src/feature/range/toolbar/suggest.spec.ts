@@ -30,7 +30,7 @@ const createAt = async (
   await createTestRange(client, {
     name,
     parent,
-    color: c == null ? undefined : color.construct(c),
+    color: c == null ? undefined : { type: "fixed", value: color.construct(c) },
     timeRange: new TimeRange(
       T0.add(TimeSpan.minutes(minutes)),
       T0.add(TimeSpan.minutes(minutes + 1)),
