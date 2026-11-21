@@ -197,6 +197,7 @@ describe("YAxis", () => {
         container: region,
         canvases: ["lower2d" as const],
         hold: false,
+        gapsCollapsed: false,
       };
       expect(() => m.xAxis.render(props, [])).toThrow("x source failed");
       expect(m.lower2d.calls.length).toBeGreaterThan(0);

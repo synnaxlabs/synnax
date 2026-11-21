@@ -248,6 +248,11 @@ export const hitTest = (
   return hit;
 };
 
+// sameRange returns true when bar is a piece of the hovered range. A seam cuts one
+// range into several bars.
+const sameRange = (bar: Bar, hovered: Bar | null): boolean =>
+  hovered != null && bar.range.key === hovered.range.key;
+
 /**
  * Draws each range's edges and fill in the plot. A range that holds another range has
  * no fill. A hovered range is the only one drawn, and it always fills.
@@ -261,14 +266,14 @@ export const drawFills = (
   const { fill } = shades(draw.theme);
   const top = box.top(region);
   const bottom = box.bottom(region);
-  const shown = hovered == null ? bars : [hovered];
+  const shown = hovered == null ? bars : bars.filter((b) => sameRange(b, hovered));
   shown.forEach((bar) => {
-    if (bar !== hovered && bar.enclosing) return;
+    if (hovered == null && bar.enclosing) return;
     draw.container({
       region: box.construct({ x: bar.x0, y: top }, { x: bar.x1, y: bottom }),
       backgroundColor: color.setOpacity(
         bar.display,
-        bar === hovered ? fill * HOVERED_FILL_SCALE : fill,
+        hovered != null ? fill * HOVERED_FILL_SCALE : fill,
       ),
       bordered: false,
       rounded: false,
@@ -277,7 +282,7 @@ export const drawFills = (
   shown.forEach((bar) => {
     const stroke = color.setOpacity(
       bar.display,
-      bar === hovered ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
+      hovered != null ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
     );
     const edges = [bar.startCut ? null : bar.start, bar.endCut ? null : bar.end];
     edges.forEach((x) => {
@@ -314,7 +319,8 @@ export const drawBars = (
   const order = [...bars].sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0));
   order.forEach((bar) => {
     const b = barBox(bar, region, lanes);
-    ctx.globalAlpha = hovered != null && hovered !== bar ? DIMMED_ALPHA : 1;
+    const lit = sameRange(bar, hovered);
+    ctx.globalAlpha = hovered != null && !lit ? DIMMED_ALPHA : 1;
     if (isThin(bar.lane)) {
       ctx.fillStyle = color.hex(bar.display);
       ctx.fillRect(box.left(b), box.top(b), box.width(b), box.height(b));
@@ -325,7 +331,7 @@ export const drawBars = (
     const left = cutLeft ? 0 : radius;
     const right = cutRight ? 0 : radius;
     const radii = [left, right, right, left];
-    const tint = hovered === bar ? s.hoveredBar : s.bar;
+    const tint = lit ? s.hoveredBar : s.bar;
     const fill = color.over(bar.color, t.colors.gray.l0, tint);
     const stroke = color.setOpacity(bar.display, s.stroke);
     const paint = (c: color.Color): string | CanvasGradient =>
