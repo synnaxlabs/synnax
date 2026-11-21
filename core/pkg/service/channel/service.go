@@ -122,7 +122,9 @@ type Service struct {
 	builtInFilters builtInFilters
 	// names keeps channel names unique across the Core.
 	names *gorp.UniqueIndex[Key, Channel, string]
-	mu    struct {
+	// tombstones holds the paths of deleted channels that a display still holds.
+	tombstones tombstones
+	mu         struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.
@@ -164,6 +166,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Issued:          cfg.Channel.Issued,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if s.tombstones, err = openTombstones(ctx, cfg.DB); !ok(err, s.tombstones.table) {
 		return nil, err
 	}
 	// The channel limit counts each non-virtual channel. Declare takes the built-ins

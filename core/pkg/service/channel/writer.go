@@ -123,12 +123,17 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		next.DataType = result.ChanDataType
 	}
 	if next.Name != prev.Name {
-		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
+		if _, err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
 			return nil, err
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, nameTaken(err, 0)
+	}
+	if next.Name != prev.Name || !sameGroup(prev.Group, next.Group) {
+		if err = w.clearTombstones(ctx, next); err != nil {
+			return nil, err
+		}
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -376,7 +381,11 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
+	renamed, err := w.rename(ctx, keys, newNames, allowInternal)
+	if err != nil {
+		return err
+	}
+	if err = w.clearTombstones(ctx, renamed...); err != nil {
 		return err
 	}
 	for i, k := range keys {
@@ -427,6 +436,9 @@ func (w Writer) create(
 	channels = append(channels, indexChannels...)
 	written, err := w.allocateNew(ctx, channels, opts)
 	if err != nil {
+		return err
+	}
+	if err = w.clearTombstones(ctx, channels...); err != nil {
 		return err
 	}
 	linked, err := w.linkStoredIndexes(ctx, channels, calcNeedingIndex)
@@ -924,7 +936,7 @@ func (w Writer) delete(
 	keys Keys,
 	planned *gorp.DeleteEffects,
 ) error {
-	del := w.svc.table.NewDelete()
+	del := w.svc.table.NewDelete().Held(w.tombstone)
 	if planned != nil {
 		del = del.Planned(*planned)
 	}
@@ -950,18 +962,19 @@ func (w Writer) rename(
 	keys Keys,
 	names []string,
 	allowInternal bool,
-) error {
+) ([]Channel, error) {
 	if len(keys) != len(names) {
-		return errors.Wrap(
+		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"keys and names must be the same length",
 		)
 	}
 	if *w.svc.cfg.ValidateNames {
 		if err := validateNameSyntax(names); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	renamed := make([]Channel, 0, len(keys))
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
 		renameMap[key] = names[i]
@@ -980,10 +993,11 @@ func (w Writer) rename(
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
+			renamed = append(renamed, c)
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return nameTaken(err, slices.Index(names, takenName(err)))
+		return nil, nameTaken(err, slices.Index(names, takenName(err)))
 	}
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
@@ -994,7 +1008,7 @@ func (w Writer) rename(
 			return w.renameStored(ctx, count)
 		})
 	}
-	return nil
+	return renamed, nil
 }
 
 // rename is a new name for a channel.

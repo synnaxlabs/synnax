@@ -124,8 +124,9 @@ func (s *Service) Apply(
 	return Plan{}, errors.Wrap(validate.ErrValidation, "unknown change")
 }
 
-// deleteFolders deletes the folders with keys. Its plan has no entries, so every pick
-// fails.
+// deleteFolders deletes the folders with keys and the tombstones in them first. Its
+// plan
+// has no entries, so every pick fails.
 func (s *Service) deleteFolders(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -138,6 +139,9 @@ func (s *Service) deleteFolders(
 			"no entry is %s",
 			slices.Min(slices.Collect(maps.Keys(opts.Picks))),
 		)
+	}
+	if err := s.cfg.Channel.NewWriter(tx).DeleteTombstones(ctx, keys...); err != nil {
+		return err
 	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
 }
