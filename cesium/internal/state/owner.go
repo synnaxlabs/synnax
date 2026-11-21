@@ -326,7 +326,12 @@ func (r *partedRequest) run(s *State) {
 			continue
 		}
 		seg.vis.Part = t.Part
-		steps.carry(s.core, seg)
+		if !steps.found || steps.key != seg.key || steps.clock != seg.vis.Clock {
+			steps.find(s.core, seg.key, seg.vis.Clock)
+		}
+		if steps.busy {
+			steps.carry(s.core, seg)
+		}
 		changed.Add(seg.key)
 	}
 	// A part holds each tagged segment as it is, and its file stays for the reads of

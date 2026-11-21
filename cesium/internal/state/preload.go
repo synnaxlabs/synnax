@@ -161,6 +161,8 @@ type carried struct {
 	deletes []*claim
 	// dropping is true when BeginDrop took the clock.
 	dropping bool
+	// busy is true when a step of the key or its clock is in progress.
+	busy bool
 }
 
 // find looks up the steps in progress of key and its clock.
@@ -171,6 +173,7 @@ func (st *carried) find(c *core, key, clock uint32) {
 		found:   true,
 		pending: c.channels[key].pending(),
 	}
+	st.busy = len(st.pending) > 0
 	if clock == key {
 		return
 	}
@@ -182,6 +185,7 @@ func (st *carried) find(c *core, key, clock uint32) {
 		}
 	}
 	_, st.dropping = c.dropUsers[clock]
+	st.busy = len(st.deletes) > 0 || st.dropping || len(st.pending) > 0
 }
 
 // carry hands seg, which a part now holds, to each step in progress that took its part
@@ -189,9 +193,6 @@ func (st *carried) find(c *core, key, clock uint32) {
 // durable apply of the commits of the key of seg that are not durable. Each would miss
 // seg otherwise, since its checks skip tagged segments.
 func (st *carried) carry(c *core, seg *segState) {
-	if !st.found || st.key != seg.key || st.clock != seg.vis.Clock {
-		st.find(c, seg.key, seg.vis.Clock)
-	}
 	user := User{Key: seg.key, Segment: seg.vis}
 	for _, cl := range st.deletes {
 		if overlaps(seg.vis.Pointers, cl.start, cl.end) {
