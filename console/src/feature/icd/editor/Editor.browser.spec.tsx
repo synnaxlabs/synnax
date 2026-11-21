@@ -728,7 +728,6 @@ describe("ICD editor", () => {
       await screen.findByText(`Default ${at.toString("dateTime", "local")}`),
     ).toBeTruthy();
     await openOptions(1);
-    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
@@ -788,6 +787,61 @@ describe("ICD editor", () => {
       }),
     );
     expect(await screen.findByText("Default Now")).toBeTruthy();
+  });
+
+  it("should change the time of a constant timestamp default", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          default: {
+            type: "constant",
+            value: TimeStamp.milliseconds(1_700_000_000_000),
+          },
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("button", { name: /2023/ }));
+    const input = await screen.findByPlaceholderText<HTMLInputElement>(
+      "14:05, tomorrow 3pm, now - 5min",
+    );
+    fireEvent.change(input, { target: { value: "2026-01-02 03:04:05" } });
+    expect(await screen.findByText(/local time/)).toBeTruthy();
+    fireEvent.keyDown(input, { key: "Enter" });
+    const at = new TimeStamp(new Date(2026, 0, 2, 3, 4, 5));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: { type: "constant", value: at },
+      }),
+    );
+    expect(
+      await screen.findByText(`Default ${at.toString("dateTime", "local")}`),
+    ).toBeTruthy();
+  });
+
+  it("should switch a timestamp default from now to a constant", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          default: { type: "now" },
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByText("Constant"));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: { type: "constant" },
+      }),
+    );
   });
 
   it("should set a random and then a constant default of a UUID JSON field", async () => {

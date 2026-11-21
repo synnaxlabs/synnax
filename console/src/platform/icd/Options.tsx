@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -55,15 +55,19 @@ const ZERO_DEFAULTS: {
   bytes: "",
 };
 
+const TIMESTAMP_DEFAULTS: Record<icd.TimestampDefaultType, () => icd.TimestampDefault> =
+  {
+    now: () => ({ type: "now" }),
+    constant: () => ({
+      type: "constant",
+      value: TimeStamp.now().truncate(TimeSpan.SECOND),
+    }),
+  };
+
 const UUID_DEFAULTS: Record<icd.UUIDDefaultType, () => icd.UUIDDefault> = {
   random: () => ({ type: "random" }),
   constant: () => ({ type: "constant", value: uuid.create() }),
 };
-
-const formatTimestampDefault = (
-  value: icd.TimestampDefault,
-  format: "dateTime" | "preciseDate",
-): string => (value.type === "now" ? "Now" : value.value.toString(format, "local"));
 
 const formatDefault = (field: icd.JSONField): string | null => {
   if (field.default == null) return null;
@@ -74,7 +78,9 @@ const formatDefault = (field: icd.JSONField): string | null => {
     case "boolean":
       return field.default ? "True" : "False";
     case "timestamp":
-      return formatTimestampDefault(field.default, "dateTime");
+      return field.default.type === "now"
+        ? "Now"
+        : field.default.value.toString("dateTime", "local");
     case "uuid":
       return field.default.type === "random" ? "Random" : field.default.value;
     default:
@@ -104,6 +110,50 @@ interface DefaultProps {
   path: deep.Path<icd.JSONField>;
   type: Type;
 }
+
+interface TimestampDefaultProps {
+  path: deep.Path<icd.TimestampDefault>;
+}
+
+/** Edits whether a timestamp default is now, and its time when it is constant. */
+const TimestampDefault = ({ path }: TimestampDefaultProps): ReactElement => {
+  const { type } = Form.useFieldValue(path);
+  return (
+    <>
+      <Form.Field<icd.TimestampDefault> path={path} label="Default" padHelpText={false}>
+        {({ value, onChange, preview }) => (
+          <Select.Buttons<icd.TimestampDefaultType>
+            value={value.type}
+            onChange={(next: icd.TimestampDefaultType) =>
+              onChange(TIMESTAMP_DEFAULTS[next]())
+            }
+            preview={preview}
+          >
+            <Select.Item<icd.TimestampDefaultType> itemKey="now">Now</Select.Item>
+            <Select.Item<icd.TimestampDefaultType> itemKey="constant">
+              Constant
+            </Select.Item>
+          </Select.Buttons>
+        )}
+      </Form.Field>
+      {type === "constant" && (
+        <Form.Field<TimeStamp>
+          path={deep.variant(path, "type", type).value}
+          label="Value"
+          padHelpText={false}
+        >
+          {({ value, onChange, preview }) => (
+            <Input.DateTime
+              value={value.nanoseconds}
+              onChange={(ns: number) => onChange(new TimeStamp(ns))}
+              preview={preview}
+            />
+          )}
+        </Form.Field>
+      )}
+    </>
+  );
+};
 
 interface UUIDDefaultProps {
   path: deep.Path<icd.UUIDDefault>;
@@ -184,15 +234,9 @@ const Default = ({ path, type }: DefaultProps): ReactElement => {
       );
     case "timestamp":
       return (
-        <Form.Field<icd.TimestampDefault>
+        <TimestampDefault
           path={deep.present(deep.variant(path, "type", type).default)}
-          label="Default"
-          padHelpText={false}
-        >
-          {({ value }) => (
-            <Text.Text>{formatTimestampDefault(value, "preciseDate")}</Text.Text>
-          )}
-        </Form.Field>
+        />
       );
     case "uuid":
       return (
