@@ -23,8 +23,8 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
-import { index as tileIndex, tileRange, tileSpan } from "@/framer/cache/grid";
+import { domainOf, offsetOf, RAW_LEVEL, rawTile } from "@/framer/cache/block";
+import { tileAt, tileRange, tileSpan } from "@/framer/cache/grid";
 import { UnexpectedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
 
@@ -385,7 +385,7 @@ describe("Feed.subscribe", () => {
         const pairs = pairsOf(sub.value(index), sub.value(key));
         expect(pairs.length).toBeGreaterThan(0);
         pairs.forEach(([ys, times]) => {
-          expect(domainOf(ys.alignment)).toBe(BigInt(rawIndex(ys.timeRange.start)));
+          expect(domainOf(ys.alignment)).toBe(BigInt(rawTile(ys.timeRange.start)));
           expect(times[0]).toBe(ys.timeRange.start.valueOf());
         });
         stop();
@@ -456,7 +456,7 @@ describe("Feed.subscribe", () => {
       // edge while the catch-up read waits.
       const edge = tileRange({
         level: RAW_LEVEL,
-        index: rawIndex(START.add(TimeSpan.minutes(10))),
+        tile: rawTile(START.add(TimeSpan.minutes(10))),
       }).end;
       const core = createCore({ now: edge.sub(TimeSpan.seconds(5)) });
       const { promise: released, resolve: release } = Promise.withResolvers<void>();
@@ -512,7 +512,7 @@ describe("Feed.subscribe", () => {
       // The newest written sample trails a block edge that the commit point passed.
       const edge = tileRange({
         level: RAW_LEVEL,
-        index: rawIndex(START.add(TimeSpan.minutes(10))),
+        tile: rawTile(START.add(TimeSpan.minutes(10))),
       }).start;
       const lag = TimeSpan.seconds(3);
       const core = createCore({ now: edge.add(TimeSpan.milliseconds(1500)), lag });
@@ -546,8 +546,8 @@ describe("Feed.subscribe", () => {
           const block = Number(domainOf(s.alignment));
           const first = new TimeStamp(s.at(0, true) as bigint);
           const last = new TimeStamp(s.at(-1, true) as bigint);
-          expect(rawIndex(first)).toBe(block);
-          expect(rawIndex(last)).toBe(block);
+          expect(rawTile(first)).toBe(block);
+          expect(rawTile(last)).toBe(block);
           const prev = series.series[i - 1];
           if (prev == null) return;
           if (domainOf(prev.alignment) === domainOf(s.alignment))
@@ -760,7 +760,7 @@ describe("Feed.subscribe", () => {
       const core = createCore();
       const edge = tileRange({
         level: RAW_LEVEL,
-        index: rawIndex(core.now()) + 1,
+        tile: rawTile(core.now()) + 1,
       }).start;
       core.advance(
         new TimeSpan(
@@ -2082,7 +2082,7 @@ describe("Feed.subscribe", () => {
 
   describe("validity", () => {
     // Two whole tiles, which the feed keeps after a load.
-    const tiles = tileRange({ level: 15, index: tileIndex(START, 15) + 1 });
+    const tiles = tileRange({ level: 15, tile: tileAt(START, 15) + 1 });
 
     it("should drop the samples a history change names, and keep the rest", async () => {
       const core = createCore();
@@ -2264,7 +2264,7 @@ describe("Feed.subscribe", () => {
       const key = core.data[0].key;
       const span = TimeSpan.minutes(2);
       const changed = new TimeRange(
-        tileRange({ level: RAW_LEVEL, index: rawIndex(core.now().sub(span)) }).start,
+        tileRange({ level: RAW_LEVEL, tile: rawTile(core.now().sub(span)) }).start,
         core.now(),
       );
       const { feed, release, reads } = createHeld(

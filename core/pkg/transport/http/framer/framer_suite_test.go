@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -26,6 +27,7 @@ import (
 var (
 	db            *gorp.DB
 	channelSvc    *svcchannel.Service
+	creator       calctestutil.Creator
 	apiChannelSvc *channel.Service
 	framerSvc     *svcframer.Service
 )
@@ -41,6 +43,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc, framerSvc = svc.Channel, svc.Framer
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
 		DB:      db,
 		RBAC:    svc.RBAC,
