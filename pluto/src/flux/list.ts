@@ -283,12 +283,15 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     readers.current.set(callback, (readers.current.get(callback) ?? 0) + 1);
     const live = retriever.watch(itemQuery(key));
     const release = live.onChange(() => callback());
+    let released = false;
     if (live.getCached() === undefined)
       live.retrieve().then(callback, (error: unknown) => {
-        // The subscriber reads a missing record from getItem.
-        if (!NotFoundError.matches(error)) console.error(error);
+        // The subscriber reads a missing record from getItem, and a released one reads
+        // nothing.
+        if (!released && !NotFoundError.matches(error)) console.error(error);
       });
     return () => {
+      released = true;
       const count = readers.current.get(callback) ?? 0;
       if (count <= 1) readers.current.delete(callback);
       else readers.current.set(callback, count - 1);
