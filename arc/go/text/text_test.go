@@ -4120,6 +4120,41 @@ var _ = Describe("Text", func() {
 			)
 
 			It(
+				"Should resolve a positional channel input to its channel key",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "temp_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10042,
+						},
+					}
+					source := `
+				func reader(channel chan f64) f64 {
+				    return channel
+				}
+
+				func display() {value f64} {}
+
+				reader(temp_sensor) -> display()`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+					readerNode := findNodeByKey(inter.Nodes, "reader_0")
+					Expect(readerNode.Inputs[0].Value).To(Equal(uint32(10042)))
+					Expect(readerNode.Channels.Read).To(Equal(
+						map[uint32]string{10042: "temp_sensor"},
+					))
+				},
+			)
+
+			It(
 				"Should produce diagnostic error when channel input type mismatches",
 				func(ctx SpecContext) {
 					resolver := []symbol.Symbol{
@@ -8827,6 +8862,178 @@ time.wait(duration=500ms) -> output`
 						},
 					},
 					"not valid inside an inline routing case body",
+				),
+			)
+		})
+
+		Context("Implicit Call Triggers", func() {
+			resolver := []symbol.Symbol{
+				{
+					Name: "start",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   10160,
+				},
+				{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10161,
+				},
+				{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10162,
+				},
+			}
+			analyze := func(ctx SpecContext, fn, call string) ir.IR {
+				GinkgoHelper()
+				source := fn + `
+				sequence main {
+					stage run {
+						` + call + `
+					}
+				}
+				start => main`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				return inter
+			}
+
+			DescribeTable(
+				"Should activate a head call on each channel it reads",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					trigger := findNodeByKey(inter.Nodes, "on_sensor_0")
+					Expect(trigger.Channels.Read).To(Equal(
+						map[uint32]string{10161: "sensor"},
+					))
+					Expect(inter.Edges).To(ContainElement(ir.Edge{
+						Source: ir.Handle{
+							Node:  "on_sensor_0",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{Node: "check_0", Param: "$trigger"},
+						Kind:   ir.EdgeKindContinuous,
+					}))
+				},
+				Entry(
+					"in its body",
+					`func check() f32 { return sensor }`,
+					`check() -> out`,
+				),
+				Entry(
+					"in a function its body calls",
+					`func read() f32 { return sensor }
+				func check() f32 { return read() }`,
+					`check() -> out`,
+				),
+				Entry(
+					"through a named channel input",
+					`func check(x chan f32) f32 { return x }`,
+					`check(x=sensor) -> out`,
+				),
+				Entry(
+					"through a positional channel input",
+					`func check(gain f32, x chan f32) f32 { return x * gain }`,
+					`check(2.0, sensor) -> out`,
+				),
+				Entry(
+					"as a bare call",
+					`func check() { out = sensor }`,
+					`check()`,
+				),
+				Entry(
+					"without feeding its declared trigger",
+					`func check() {x f32 = 1.0} f32 { return x + sensor }`,
+					`check() -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not feed a parameter named input",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(inter.Edges).To(ContainElement(
+						HaveField("Target.Node", "check_0"),
+					))
+					Expect(inter.Edges).ToNot(ContainElement(HaveField(
+						"Target",
+						ir.Handle{Node: "check_0", Param: "input"},
+					)))
+				},
+				Entry(
+					"first of two, with no trigger",
+					`func check(input f32, b f32) f32 { return input + b + sensor }`,
+					`check(5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with no trigger",
+					`func check(a f32, input f32, b f32) f32 {
+					return a + input + b + sensor
+				}`,
+					`check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"last of two, on a bare call",
+					`func check(a f32, input f32) { out = a + input + sensor }`,
+					`check(4.0, 5.0)`,
+				),
+				Entry(
+					"a channel between two literals, with no trigger",
+					`func check(a f32, input chan f32, b f32) f32 {
+					return a + input + b
+				}`,
+					`check(4.0, sensor, 6.0) -> out`,
+				),
+				Entry(
+					"a declared trigger with a default, with no trigger",
+					`func check(b f32) {input f32 = 5.0} f32 {
+					return input + b + sensor
+				}`,
+					`check(6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a -> trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor -> check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"middle of three, with a => trigger",
+					`func check(a f32, input f32, b f32) f32 { return a + input + b }`,
+					`sensor => check(4.0, 5.0, 6.0) -> out`,
+				),
+				Entry(
+					"a channel after a literal, with a -> trigger",
+					`func check(a f32, input chan f32) f32 { return a + input }`,
+					`start -> check(4.0, sensor) -> out`,
+				),
+			)
+
+			DescribeTable(
+				"Should not activate a head call that reads no channel",
+				func(ctx SpecContext, fn, call string) {
+					inter := analyze(ctx, fn, call)
+					Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1))
+					Expect(findNodeByType(inter.Nodes, "on").Channels.Read).To(Equal(
+						map[uint32]string{10160: "start"},
+					))
+				},
+				Entry(
+					"a channel input it only writes",
+					`func set(x chan f32) { x = 1.0 }`,
+					`set(out)`,
+				),
+				Entry(
+					"a built-in function with a channel input",
+					"import control\n",
+					`control.set_authority(value=220, channel=out)`,
 				),
 			)
 		})
