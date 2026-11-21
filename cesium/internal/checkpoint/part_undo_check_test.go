@@ -98,8 +98,12 @@ var _ = Describe("Part undo check", func() {
 		c.Head(2, withSealed(sealed(1, 10)))
 		Eventually(c.Err).Should(MatchError(errRemove))
 		c.Head(3, withSealed(sealed(1, 10), sealed(2, 20)))
-		Eventually(c.Err).WithTimeout(5 * time.Second).Should(Succeed())
+		Eventually(func() error { return readErr(fs, 3) }).
+			WithTimeout(5 * time.Second).
+			Should(Succeed())
 		h, _ := MustSucceed2(checkpoint.Read(fs, 3))
 		MustSucceed(checkpoint.LoadParts(fs, db, h))
+		// The clean of switch 3 cannot remove head 2. The next switch tries again.
+		Expect(c.Err()).To(MatchError(errRemove))
 	})
 })
