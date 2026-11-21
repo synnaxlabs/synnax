@@ -11,17 +11,35 @@ package segment_test
 
 import (
 	"io"
+	"sync"
+	"sync/atomic"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // entry is the size of a block in the cache: the stream bytes and room for a trailer.
 const entry = segment.BlockSize + segment.VariableTrailer
+
+// nestedReader runs during before its first read.
+type nestedReader struct {
+	io.ReaderAt
+	during func()
+}
+
+func (r *nestedReader) ReadAt(p []byte, off int64) (int, error) {
+	if f := r.during; f != nil {
+		r.during = nil
+		f()
+	}
+	return r.ReaderAt.ReadAt(p, off)
+}
 
 var _ = Describe("Cache", func() {
 	var (
@@ -109,6 +127,75 @@ var _ = Describe("Cache", func() {
 		Expect(probe(cache, bad, block(4))).To(MatchError(place.ErrCorrupt))
 	})
 
+	It("Should drop the least recently used block", func() {
+		cache := segment.NewCache(2 * entry)
+		for _, i := range []int64{0, 1, 0, 2} {
+			Expect(probe(cache, h, block(i))).To(Succeed())
+		}
+		steps := []struct{ block, reads int64 }{{0, 0}, {1, 1}, {0, 1}, {2, 2}}
+		for _, step := range steps {
+			Expect(probe(cache, r, block(step.block))).To(Succeed())
+			Expect(r.reads.Load()).To(Equal(step.reads), "block %d", step.block)
+		}
+	})
+
+	It("Should keep a block that a reader holds past the budget, and drop it once "+
+		"released", func() {
+		cache := segment.NewCache(entry)
+		holder := segment.NewReader(cache)
+		Expect(holder.Read(h, com, make([]byte, 8), block(0))).To(Succeed())
+		Expect(probe(cache, h, block(1))).To(Succeed())
+		Expect(probe(cache, r, block(0))).To(Succeed())
+		Expect(r.reads.Load()).To(BeZero())
+		holder.Reset()
+		Expect(probe(cache, h, block(2))).To(Succeed())
+		Expect(probe(cache, r, block(0))).To(Succeed())
+		Expect(probe(cache, r, block(1))).To(Succeed())
+		Expect(r.reads.Load()).To(Equal(int64(2)))
+	})
+
+	It("Should release the cached block of a reader that moves to the last block",
+		func() {
+			cache := segment.NewCache(entry)
+			rd := segment.NewReader(cache)
+			p := make([]byte, 8)
+			Expect(rd.Read(h, com, p, block(0))).To(Succeed())
+			Expect(rd.Read(h, com, p, 5*segment.BlockSize)).To(Succeed())
+			Expect(probe(cache, h, block(1))).To(Succeed())
+			Expect(probe(cache, r, block(0))).To(Succeed())
+			Expect(r.reads.Load()).To(Equal(int64(1)))
+		})
+
+	It("Should count the holds of readers right after a read that fails its check",
+		func() {
+			cache := segment.NewCache(entry)
+			rd := segment.NewReader(cache)
+			p := make([]byte, 8)
+			Expect(rd.Read(h, com, p, block(0))).To(Succeed())
+			bad := &flipReader{ReaderAt: h, at: com.FileOffset(block(1)), left: -1}
+			Expect(rd.Read(bad, com, p, block(1))).To(MatchError(place.ErrCorrupt))
+			rd.Reset()
+			holder := segment.NewReader(cache)
+			Expect(holder.Read(h, com, p, block(0))).To(Succeed())
+			Expect(probe(cache, h, block(2))).To(Succeed())
+			Expect(probe(cache, r, block(0))).To(Succeed())
+			Expect(r.reads.Load()).To(BeZero(), "the holder keeps block 0")
+		})
+
+	It("Should hold the block that another reader added while it read the same block",
+		func() {
+			cache := segment.NewCache(entry)
+			rd := segment.NewReader(cache)
+			nested := &nestedReader{ReaderAt: h, during: func() {
+				Expect(probe(cache, h, block(0))).To(Succeed())
+			}}
+			p := make([]byte, 8)
+			Expect(rd.Read(nested, com, p, block(0))).To(Succeed())
+			Expect(probe(cache, h, block(1))).To(Succeed())
+			Expect(probe(cache, r, block(0))).To(Succeed())
+			Expect(r.reads.Load()).To(BeZero(), "the reader holds block 0")
+		})
+
 	It("Should not give the block of one segment to another", func() {
 		cache := segment.NewCache(4 * entry)
 		Expect(probe(cache, h, 100)).To(Succeed())
@@ -121,5 +208,49 @@ var _ = Describe("Cache", func() {
 		Expect(segment.NewReader(cache).Read(or, ocom, p, 100)).To(Succeed())
 		Expect(p).To(Equal(otherStream[100:108]))
 		Expect(or.reads.Load()).To(Equal(int64(1)))
+	})
+
+	It("Should read with no allocation once warm, when the reads pass the budget",
+		func() {
+			cache := segment.NewCache(2 * entry)
+			rd := segment.NewReader(cache)
+			p := make([]byte, 8)
+			var err error
+			cycle := func() {
+				for i := range int64(4) {
+					err = errors.Join(err, rd.Read(h, com, p, block(i)))
+				}
+			}
+			cycle()
+			Expect(testing.AllocsPerRun(10, cycle)).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+	It("Should give parallel readers the right bytes while releases run against "+
+		"evictions", func() {
+		cache := segment.NewCache(2 * entry)
+		var (
+			wg     sync.WaitGroup
+			failed atomic.Int64
+		)
+		for g := range int64(8) {
+			wg.Go(func() {
+				rd := segment.NewReader(cache)
+				defer rd.Reset()
+				p := make([]byte, 8)
+				for i := range int64(200) {
+					off := block((g+i)%5) + i%64
+					if rd.Read(h, com, p, off) != nil ||
+						string(p) != string(stream[off:off+8]) {
+						failed.Add(1)
+					}
+					if i%3 == 0 {
+						rd.Reset()
+					}
+				}
+			})
+		}
+		wg.Wait()
+		Expect(failed.Load()).To(BeZero())
 	})
 })
