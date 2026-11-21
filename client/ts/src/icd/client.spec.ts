@@ -35,14 +35,15 @@ const createNew = (name: string = "ICD"): icd.New => ({
         identifier: { type: "can", id: 0x101, extended: false, fd: false },
         length: 8,
         fields: [
-          { name: "state", startBit: 0, bitLength: 8 },
+          { kind: "unsigned", name: "state", startBit: 0, bitLength: 8 },
           {
+            kind: "integer",
             name: "temperature",
             startBit: 8,
             bitLength: 16,
-            kind: "integer",
             scale: 0.1,
             units: "degC",
+            default: "250",
           },
         ],
       },
@@ -95,6 +96,7 @@ describe("icd", () => {
         kind: "integer",
         scale: 0.1,
         units: "degC",
+        default: "250",
       });
       const keys = [msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
@@ -110,7 +112,7 @@ describe("icd", () => {
               format: "text",
               prefix: "$T",
               fields: [
-                { encoding: "delimited", name: "temp", position: 1 },
+                { encoding: "delimited", name: "temp", position: 1, default: 0.5 },
                 { encoding: "tagged", name: "rh", tag: "RH=" },
               ],
             },
@@ -124,7 +126,13 @@ describe("icd", () => {
           delimiter: ",",
           prefix: "$T",
           fields: [
-            { encoding: "delimited", name: "temp", position: 1, scale: 1 },
+            {
+              encoding: "delimited",
+              name: "temp",
+              position: 1,
+              scale: 1,
+              default: 0.5,
+            },
             { encoding: "tagged", name: "rh", tag: "RH=" },
           ],
         },
@@ -235,7 +243,38 @@ describe("icd", () => {
           name: "time",
           pointer: "/ts",
           timeFormat: "unix_ns",
-          default: new TimeStamp(2n ** 62n + 1n),
+          default: { type: "constant", value: new TimeStamp(2n ** 62n + 1n) },
+        },
+        {
+          type: "timestamp",
+          name: "sent",
+          pointer: "/sent",
+          timeFormat: "iso8601",
+          default: { type: "now" },
+        },
+        {
+          type: "json",
+          name: "config",
+          pointer: "/config",
+          default: '{"set_point": 1, "modeName": "auto"}',
+        },
+        {
+          type: "uuid",
+          name: "device",
+          pointer: "/device",
+          default: { type: "constant", value: uuid.create() },
+        },
+        {
+          type: "uuid",
+          name: "request",
+          pointer: "/request",
+          default: { type: "random" },
+        },
+        {
+          type: "bytes",
+          name: "raw",
+          pointer: "/raw",
+          default: "AQI=",
         },
       ];
       const ic = await client.icds.create({
@@ -270,6 +309,49 @@ describe("icd", () => {
         format: "json",
         fields: [{ enumValues }],
       });
+    });
+
+    it("should keep every digit of large binary defaults and of JSON text", async () => {
+      const text = '{"id": 9007199254740993}';
+      const ic = await client.icds.create({
+        name: "Exact",
+        messages: [
+          {
+            name: "Frame",
+            payload: {
+              format: "binary",
+              length: 16,
+              fields: [
+                {
+                  kind: "unsigned",
+                  name: "max",
+                  bitLength: 64,
+                  default: "18446744073709551615",
+                },
+                {
+                  kind: "unsigned",
+                  name: "odd",
+                  startBit: 64,
+                  bitLength: 64,
+                  default: "9007199254740993",
+                },
+              ],
+            },
+          },
+          {
+            name: "Document",
+            payload: {
+              format: "json",
+              fields: [{ type: "json", name: "doc", pointer: "/doc", default: text }],
+            },
+          },
+        ],
+      });
+      const [frame, document] = (await client.icds.retrieve(ic.key)).messages;
+      expect(frame.payload).toMatchObject({
+        fields: [{ default: "18446744073709551615" }, { default: "9007199254740993" }],
+      });
+      expect(document.payload).toMatchObject({ fields: [{ default: text }] });
     });
 
     it("should create multiple ICDs", async () => {
@@ -334,7 +416,9 @@ describe("icd", () => {
             payload: {
               format: "binary",
               length: 8,
-              fields: [{ name: "rpm", startBit: 0, bitLength: 8, scale: 0 }],
+              fields: [
+                { kind: "unsigned", name: "rpm", startBit: 0, bitLength: 8, scale: 0 },
+              ],
             },
           },
         ],
@@ -422,7 +506,10 @@ describe("icd", () => {
         messages: [
           {
             name: "M",
-            payload: { format: "binary", fields: [{ name: "a", bitLength: 65 }] },
+            payload: {
+              format: "binary",
+              fields: [{ kind: "unsigned", name: "a", bitLength: 65 }],
+            },
           },
         ],
       });

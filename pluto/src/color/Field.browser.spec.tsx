@@ -270,6 +270,22 @@ describe("Color.Field", () => {
       );
     });
 
+    it("should save a custom color to the library and link the field", async () => {
+      await createInPalette();
+      const { result, values } = await renderField();
+      openPicker(result);
+      fireEvent.click(await screen.findByText("Custom"));
+      fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
+      const name = `saved-${id.create()}`;
+      enterColorName(name);
+      const created = await createdColor(values);
+      expect(created.name).toBe(name);
+      expect(xcolor.hex(created.light)).toBe("#0000ff");
+      const swatch = await screen.findByRole("button", { name });
+      await waitFor(() => expect(document.activeElement).toBe(swatch));
+    });
+
     it("should create the color in the palette picked in the view", async () => {
       const { palette } = await createInPalette();
       const { palette: picked } = await createInPalette();
@@ -576,6 +592,8 @@ describe("Color.Field", () => {
         screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
       ).toBeNull();
       expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
+      fireEvent.click(screen.getByText("Custom"));
+      expect(screen.queryByRole("button", { name: "Save to library" })).toBeNull();
     });
 
     it("should open no swatch menu or palette + for a user who cannot update", async () => {
@@ -673,6 +691,44 @@ describe("Color.Field", () => {
       expect(await screen.findByRole("option", { name: palette.name })).toBeTruthy();
       expect(screen.queryByRole("option", { name: locked.name })).toBeNull();
       expect(screen.queryByRole("option", { name: "Series" })).toBeNull();
+    });
+
+    it("should save a custom color to the first palette the user can update", async () => {
+      await createInPalette();
+      const { palette, named } = await createInPalette();
+      const limited = await createTestClientWithPolicy(client, [
+        {
+          name: `policy-${id.create()}`,
+          objects: [
+            color.TYPE_RESOURCE_ID,
+            group.TYPE_RESOURCE_ID,
+            user.TYPE_RESOURCE_ID,
+            access.role.TYPE_RESOURCE_ID,
+            access.policy.TYPE_RESOURCE_ID,
+          ],
+          actions: ["retrieve", "create"],
+        },
+        {
+          name: `policy-${id.create()}`,
+          objects: [group.resourceID(palette.key)],
+          actions: ["update"],
+        },
+      ]);
+      const { result, values } = await renderField(
+        { type: "named", key: named.key },
+        await createAsyncSynnaxWrapper({ client: limited }),
+      );
+      openPicker(result);
+      // The + proves the grants answered, so the view reads them.
+      await screen.findByRole("button", { name: `Create a color in ${palette.name}` });
+      fireEvent.click(screen.getByText("Custom"));
+      fireEvent.click(screen.getByRole("button", { name: "Save to library" }));
+      enterColorName(`saved-${id.create()}`);
+      await waitFor(() =>
+        expect(values().fill).not.toEqual({ type: "named", key: named.key }),
+      );
+      const created = await createdColor(values);
+      expect(created.group).toBe(palette.key);
     });
 
     it("should focus Create palette when a new palette gets no +", async () => {

@@ -117,6 +117,16 @@ const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
   return message;
 };
 
+/** Reads the ICD through a new client, so the result is what the Core stored. */
+const retrieveStoredMessage = async (key: icd.Key): Promise<icd.Message> => {
+  const core = createTestClient();
+  try {
+    return (await core.icds.retrieve({ key })).messages[0];
+  } finally {
+    await core.close();
+  }
+};
+
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
   const { payload } = await retrieveMessage(key);
   if (payload.format !== "json") throw new Error("expected a JSON message");
@@ -501,6 +511,38 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should keep a binary default that the new type holds exactly", async () => {
+    const ic = await createICD([
+      createMessage([
+        { ...createBinaryField("Gear", 0), kind: "unsigned", default: "200" },
+      ]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Unsigned integer"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Gear", kind: "integer", default: "200" },
+      ]),
+    );
+  });
+
+  it("should drop a binary default that the new type cannot hold", async () => {
+    const ic = await createICD([
+      createMessage([
+        { ...createBinaryField("Gain", 0), kind: "float", bitLength: 32, default: 0.5 },
+      ]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("Unsigned integer"));
+    await waitFor(async () => {
+      const [field] = (await retrieveStoredMessage(ic.key)).payload.fields;
+      expect(field).toMatchObject({ name: "Gain", kind: "unsigned" });
+      expect(field).not.toHaveProperty("default");
+    });
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
@@ -671,7 +713,7 @@ describe("ICD editor", () => {
           ...createJSONBase("Time", "/time"),
           type: "timestamp",
           timeFormat: "unix_ms",
-          default: at,
+          default: { type: "constant", value: at },
         },
       ]),
     ]);
@@ -688,6 +730,39 @@ describe("ICD editor", () => {
     expect(await screen.findByText("None")).toBeTruthy();
   });
 
+  it("should show the default of a timestamp JSON field that takes the time now", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          default: { type: "now" },
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Default Now")).toBeTruthy();
+  });
+
+  it("should show the default of a UUID, JSON, and bytes JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Device", "/device"),
+          type: "uuid",
+          default: { type: "random" },
+        },
+        { ...createJSONBase("Config", "/config"), type: "json", default: '{"a":1}' },
+        { ...createJSONBase("Raw", "/raw"), type: "bytes", default: "AQI=" },
+      ]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Default Random")).toBeTruthy();
+    expect(await screen.findByText('Default {"a":1}')).toBeTruthy();
+    expect(await screen.findByText("Default AQI=")).toBeTruthy();
+  });
+
   it("should keep the default of a timestamp JSON field on a time format change", async () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const ic = await createICD([
@@ -696,7 +771,7 @@ describe("ICD editor", () => {
           ...createJSONBase("Time", "/time"),
           type: "timestamp",
           timeFormat: "unix_ms",
-          default: at,
+          default: { type: "constant", value: at },
         },
       ]),
     ]);
@@ -707,7 +782,7 @@ describe("ICD editor", () => {
       expect(await retrieveJSONField(ic.key)).toMatchObject({
         type: "timestamp",
         timeFormat: "iso8601",
-        default: at,
+        default: { type: "constant", value: at },
       }),
     );
   });

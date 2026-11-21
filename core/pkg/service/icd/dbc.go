@@ -17,7 +17,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd/internal/dbc"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -337,8 +336,10 @@ func (f dbcFile) message(
 			if err != nil {
 				return Message{}, err
 			}
-			field.Multiplexor = new(keys[mux])
-			field.MultiplexValues = values
+			base := field.Base()
+			base.Multiplexor = new(keys[mux])
+			base.MultiplexValues = values
+			field.SetBase(base)
 		}
 		payload.Fields = append(payload.Fields, field)
 	}
@@ -431,7 +432,7 @@ func (f dbcFile) field(
 	if long, ok := f.signalNames[ref]; ok {
 		name = long
 	}
-	field := BinaryField{
+	base := BinaryBaseField{
 		Key:       key,
 		Name:      name,
 		Scale:     s.Factor,
@@ -440,15 +441,8 @@ func (f dbcFile) field(
 		StartBit:  uint16(s.StartBit),
 		BitLength: uint8(s.Size),
 		ByteOrder: byteOrder,
-		Kind:      payload.KindUnsigned,
 	}
-	switch {
-	case isFloat:
-		field.Kind = payload.KindFloat
-	case s.IsSigned:
-		field.Kind = payload.KindInteger
-	}
-	if lastByte(field) >= int(m.Size) {
+	if lastByte(base) >= int(m.Size) {
 		return BinaryField{}, dataErrorf(
 			"line %d: signal %s extends past the %d-byte message %s",
 			s.Pos.Line,
@@ -459,9 +453,16 @@ func (f dbcFile) field(
 	}
 	// A range of [0|0] means the file gives none.
 	if s.Minimum != 0 || s.Maximum != 0 {
-		field.Min, field.Max = new(s.Minimum), new(s.Maximum)
+		base.Min, base.Max = new(s.Minimum), new(s.Maximum)
 	}
-	return field, nil
+	switch {
+	case isFloat:
+		return BinaryField{Variant: FloatBinaryField{BinaryBaseField: base}}, nil
+	case s.IsSigned:
+		return BinaryField{Variant: IntegerBinaryField{BinaryBaseField: base}}, nil
+	default:
+		return BinaryField{Variant: UnsignedBinaryField{BinaryBaseField: base}}, nil
+	}
 }
 
 // validateSignal checks that the start bit and the size of s fit a binary field.

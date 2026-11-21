@@ -64,7 +64,8 @@ export interface PickerContextValue {
   linked?: Named;
   /**
    * Links the value to the named color with the key, as a click on its swatch does. The
-   * search clears, and the focus moves to the swatch, at once or when it renders.
+   * Library tab shows with no search, and the focus moves to the swatch, at once or
+   * when it renders.
    */
   link: (key: string) => void;
   /** Clears the search, so that every palette and color shows. */
@@ -169,7 +170,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: { palettes, named, onNamedChange, footer, ...slots },
+  library: { palettes, named, onNamedChange, footer, customFooter, ...slots },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -195,10 +196,12 @@ const Tabbed = ({
     swatch.focus();
   };
   const autoSelected = value == null && linked == null;
+  const tabFooter = tab === "library" ? footer : customFooter;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
     linked,
     link: (key) => {
+      setTab("library");
       setSearch("");
       onNamedChange(key);
       const swatch = swatches.current.get(key);
@@ -277,11 +280,6 @@ const Tabbed = ({
               onPaletteFocus={() => setFocusedPalette(undefined)}
               {...slots}
             />
-            {footer != null && (
-              <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
-                {footer}
-              </Flex.Box>
-            )}
           </>
         ) : (
           <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
@@ -308,6 +306,11 @@ const Tabbed = ({
                 ))}
               </Section>
             )}
+          </Flex.Box>
+        )}
+        {tabFooter != null && (
+          <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
+            {tabFooter}
           </Flex.Box>
         )}
       </Dialog.Views>
