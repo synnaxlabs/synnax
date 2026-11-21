@@ -98,6 +98,13 @@ icd::JSONMatch match(const std::string &pointer, const V &value) {
     return m;
 }
 
+/// @brief returns a present rule at pointer.
+icd::JSONMatch present(const std::string &pointer) {
+    icd::PresentJSONMatch m;
+    m.pointer = pointer;
+    return m;
+}
+
 /// @brief asserts that a decoder for routed(first, second) decodes doc as status
 /// without allocating, once a first decode is done.
 void assert_decodes_without_allocating(
@@ -212,6 +219,16 @@ TEST(JSON, DecodesWithoutAllocatingByNumber) {
         match<icd::FloatJSONMatch>("/id", 2.5),
         match<icd::IntegerJSONMatch>("/id", 7),
         R"({"id":7,"temp":40,"count":3,"state":"run"})"
+    );
+}
+
+/// @brief it should decode a document without allocating when a present rule finds its
+/// message.
+TEST(JSON, DecodesWithoutAllocatingByPresence) {
+    assert_decodes_without_allocating(
+        present("/other"),
+        present("/temp"),
+        R"({"other":null,"temp":40,"count":3,"state":"run"})"
     );
 }
 }

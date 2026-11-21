@@ -268,7 +268,13 @@ JSONField union on type payload.Kind extends JSONBaseField {
 
 JSONBaseMatch = v0.JSONBaseMatch
 
-JSONMatch = v0.JSONMatch
+JSONMatch union on type extends v0.JSONMatch {
+    present {
+        @doc value """
+            matches a document that holds a value other than null at the pointer.
+        """
+    }
+}
 
 Payload union on format payload.Format extends v0.Payload {}
 

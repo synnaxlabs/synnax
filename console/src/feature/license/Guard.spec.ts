@@ -145,6 +145,8 @@ describe("License.Guard", () => {
   });
 
   it("should copy the link that the portal opens with", async () => {
+    // A copied link starts the wait for the key, which polls the hub.
+    stubHub(async () => new Response(null, { status: 204 }));
     const writeText = stubClipboardWriteText();
     await renderGuard(createTestClient(), UNLICENSED_STATUS);
     const href = await findPortalLink("Activate on the portal");

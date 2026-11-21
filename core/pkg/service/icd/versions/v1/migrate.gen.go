@@ -67,6 +67,14 @@ func autoMigratePayload(ctx context.Context, old v0.Payload) (Payload, error) {
 			Fields:    fields,
 		}}, nil
 	case v0.JSONPayload:
+		var match *JSONMatch
+		if variant.Match != nil {
+			v, err := MigrateJSONMatch(ctx, *variant.Match)
+			if err != nil {
+				return Payload{}, err
+			}
+			match = &v
+		}
 		fields, err := lo.MapErr(variant.Fields, func(v v0.JSONField, _ int) (JSONField, error) {
 			return MigrateJSONField(ctx, v)
 		})
@@ -74,7 +82,7 @@ func autoMigratePayload(ctx context.Context, old v0.Payload) (Payload, error) {
 			return Payload{}, err
 		}
 		return Payload{Variant: JSONPayload{
-			Match:  variant.Match,
+			Match:  match,
 			Fields: fields,
 		}}, nil
 	default:
@@ -96,6 +104,40 @@ func autoMigrateTextField(_ context.Context, old v0.TextField) (TextField, error
 		}}, nil
 	default:
 		return TextField{}, errors.Newf("unknown TextField variant %T", variant)
+	}
+}
+
+func autoMigrateJSONMatch(_ context.Context, old v0.JSONMatch) (JSONMatch, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return JSONMatch{}, nil
+	case v0.FloatJSONMatch:
+		return JSONMatch{Variant: FloatJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.IntegerJSONMatch:
+		return JSONMatch{Variant: IntegerJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.UnsignedJSONMatch:
+		return JSONMatch{Variant: UnsignedJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.StringJSONMatch:
+		return JSONMatch{Variant: StringJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.BooleanJSONMatch:
+		return JSONMatch{Variant: BooleanJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	default:
+		return JSONMatch{}, errors.Newf("unknown JSONMatch variant %T", variant)
 	}
 }
 

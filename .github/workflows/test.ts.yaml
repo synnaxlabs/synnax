@@ -370,6 +370,35 @@ jobs:
           PACKAGE: ${{ inputs.package }}
         run: pnpm --filter "@synnaxlabs/$PACKAGE" smoke
 
+      # Vitest saves a screenshot of each failed browser test in .vitest/attachments.
+      - name: Collect the failure diagnostics
+        if: failure()
+        shell: bash
+        env:
+          ATTACHMENTS: ${{ inputs.directory }}/.vitest/attachments
+        run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          if [ "$RUNNER_OS" = Linux ] && docker inspect synnax &> /dev/null; then
+            docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
+          fi
+          if [ -d "$ATTACHMENTS" ]; then
+            cp -R "$ATTACHMENTS" "$RUNNER_TEMP/diagnostics/attachments"
+          fi
+
+      - name: Upload the failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          # One run can call this workflow twice for a package, so the check run ID
+          # keeps the names apart.
+          name:
+            ${{ inputs.package }}-${{ matrix.os }}-${{ matrix.shard }}-diagnostics-${{
+            job.check_run_id }}
+          path: ${{ runner.temp }}/diagnostics
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
+
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != '' && !matrix.node
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7

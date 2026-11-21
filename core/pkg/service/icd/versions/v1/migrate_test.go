@@ -211,6 +211,21 @@ var _ = Describe("MigrateTextField", func() {
 	})
 })
 
+var _ = Describe("MigrateJSONMatch", func() {
+	It("Should keep the pointer and the value of a rule", func(ctx SpecContext) {
+		old := v0.JSONMatch{Variant: v0.StringJSONMatch{
+			JSONBaseMatch: v0.JSONBaseMatch{Pointer: "/type"},
+			Value:         "status",
+		}}
+		Expect(MustSucceed(v1.MigrateJSONMatch(ctx, old))).To(Equal(v1.JSONMatch{
+			Variant: v1.StringJSONMatch{
+				JSONBaseMatch: v1.JSONBaseMatch{Pointer: "/type"},
+				Value:         "status",
+			},
+		}))
+	})
+})
+
 var _ = Describe("MigrateJSONField", func() {
 	It("Should make a timestamp default a constant default", func(ctx SpecContext) {
 		old := v0.JSONField{Variant: v0.TimestampJSONField{
