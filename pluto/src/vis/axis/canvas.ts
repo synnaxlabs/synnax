@@ -36,6 +36,7 @@ const LABEL_GAP = 8;
 // a stroke.
 const BREAK_STROKES = [-3, 3];
 const BREAK_STROKE_WIDTH = 5;
+const OPEN_BREAK_ALPHA = 0.35;
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const AXES: Record<
@@ -102,15 +103,29 @@ export class Base {
         this.drawLine(xy.translateX(start, from), xy.translateX(start, to));
       from = seam + BREAK_WIDTH / 2;
     });
-    seams.forEach((seam) =>
-      BREAK_STROKES.forEach((offset) => {
-        const x = start.x + seam + offset;
-        this.drawLine(
-          { x: x - BREAK_STROKE_WIDTH / 2, y: start.y + BREAK_HEIGHT / 2 },
-          { x: x + BREAK_STROKE_WIDTH / 2, y: start.y - BREAK_HEIGHT / 2 },
-        );
-      }),
-    );
+    seams.forEach((seam) => this.drawBreakMark(start, seam));
+  }
+
+  private drawBreakMark(start: xy.XY, position: number): void {
+    BREAK_STROKES.forEach((offset) => {
+      const x = start.x + position + offset;
+      this.drawLine(
+        { x: x - BREAK_STROKE_WIDTH / 2, y: start.y + BREAK_HEIGHT / 2 },
+        { x: x + BREAK_STROKE_WIDTH / 2, y: start.y - BREAK_HEIGHT / 2 },
+      );
+    });
+  }
+
+  // drawOpenBreaks strokes a faint mark at each decimal position of an open break.
+  protected drawOpenBreaks(start: xy.XY, size: number, positions: number[] = []): void {
+    const shown = positions.map((p) => p * size).filter((p) => p > 0 && p < size);
+    if (shown.length === 0) return;
+    const { lower2d: canvas } = this.renderCtx;
+    canvas.beginPath();
+    canvas.globalAlpha = OPEN_BREAK_ALPHA;
+    shown.forEach((p) => this.drawBreakMark(start, p));
+    canvas.stroke();
+    canvas.globalAlpha = 1;
   }
 
   // xTicks returns the ticks of an x axis of size and the positions of the seams it
@@ -244,6 +259,7 @@ export class Bottom extends Base implements Axis {
       );
     });
     canvas.stroke();
+    this.drawOpenBreaks(pos, size, props.openBreaks);
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(pos, "x", tick.position),
       xy.translate(pos, { x: tick.position, y: -gridSize }),
@@ -280,6 +296,7 @@ export class Top extends Base implements Axis {
       );
     });
     canvas.stroke();
+    this.drawOpenBreaks(p, size, props.openBreaks);
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translate(p, "x", tick.position),
       xy.translate(p, { x: tick.position, y: gridSize }),

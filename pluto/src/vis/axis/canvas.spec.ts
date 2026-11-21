@@ -123,6 +123,24 @@ describe("axis/canvas", () => {
       return { labels, ends, calls };
     };
 
+    it("should draw a faint mark at each open break", () => {
+      const r = canvasTest.record();
+      const axis = newCanvas("bottom", r.context, state("bottom"));
+      axis.render({ ...PROPS, openBreaks: [0.25] });
+      const { calls } = r.lower2d;
+      const faint = calls.findIndex(
+        ({ op, args: [alpha] }) =>
+          op === "set:globalAlpha" && typeof alpha === "number" && alpha < 1,
+      );
+      expect(faint).toBeGreaterThan(-1);
+      const end = calls.findIndex((c, i) => i > faint && c.op === "set:globalAlpha");
+      const marked = calls
+        .slice(faint, end)
+        .filter((c) => c.op === "lineTo")
+        .map((c) => c.args[0]);
+      expect(marked).toEqual([POSITION.x + 74.5, POSITION.x + 80.5]);
+    });
+
     it("should stop the axis line at the mark of each seam", () => {
       const { ends } = render([]);
       expect(ends).toContain(POSITION.x + 150 - BREAK_WIDTH / 2);

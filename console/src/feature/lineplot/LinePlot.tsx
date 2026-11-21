@@ -98,6 +98,36 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
+interface BreaksMenuItemsProps {
+  linePlotRef: RefObject<Base.FrameRef | null>;
+  breaks: pLineplot.BreakCounts;
+}
+
+const BreaksMenuItems = ({
+  linePlotRef,
+  breaks,
+}: BreaksMenuItemsProps): ReactElement => (
+  <>
+    {breaks.closed > 0 && (
+      <Menu.Item
+        itemKey="openBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(true)}
+      >
+        <Icon.Expand /> Open all breaks
+      </Menu.Item>
+    )}
+    {breaks.open > 0 && (
+      <Menu.Item
+        itemKey="closeBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(false)}
+      >
+        <Icon.Collapse /> Close all breaks
+      </Menu.Item>
+    )}
+    {breaks.open + breaks.closed > 0 && <Menu.Divider />}
+  </>
+);
+
 // Compare holds what the menus of a plot on a relative x axis act on.
 interface Compare {
   refs: ranger.Ref[];
@@ -243,6 +273,7 @@ interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
+  breaks: pLineplot.BreakCounts;
   menuKeys: string[];
   compare: Compare | null;
 }
@@ -251,6 +282,7 @@ const ContextMenuContent = ({
   csvLines,
   linePlotRef,
   editable,
+  breaks,
   menuKeys,
   compare,
 }: ContextMenuContentProps): ReactElement => {
@@ -292,6 +324,7 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
+      {FLAGS.breaks && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
       {compare != null && (
         <CompareMenuItems
           menuKey={menuKeys[0] ?? ""}
@@ -425,8 +458,8 @@ const Internal = (): ReactElement => {
   useTriggerHold({ key, enabled: hasUpdatePermission });
   useResetZoomOnRangeChange({ key });
 
-  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box: b, stage, mode }) => {
+  const handleViewportChange = useDebouncedCallback(
+    ({ box: b, stage, mode }: Viewport.UseEvent) => {
       if (stage !== "end") return;
       if (mode === "select") dispatch(Session.LinePlot.setSelection({ key, box: b }));
       else
@@ -441,6 +474,24 @@ const Internal = (): ReactElement => {
     VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
+
+  const handleOpenBreaksChange = ({
+    openBreaks: open,
+    viewport,
+    selection,
+  }: Base.OpenBreaksChange) => {
+    // A view stored after the change would hold the times of the layout before it.
+    handleViewportChange.flush();
+    dispatch(
+      Session.LinePlot.storeBreaks({
+        key,
+        open,
+        pan: box.bottomLeft(viewport),
+        zoom: box.dims(viewport),
+        selection,
+      }),
+    );
+  };
 
   const handleSelectRule = (ruleKey: string) =>
     dispatch(Session.LinePlot.setSelectedRule({ key, ruleKey }));
@@ -463,12 +514,6 @@ const Internal = (): ReactElement => {
   const linePlotRef = useRef<Base.FrameRef | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
   const [zoomed, setZoomed] = useState<string | null>(null);
-  // A zoom to a range moves the view and clears the selection box. The stored selection
-  // goes too, as it would mark other times in the new view.
-  const handleZoomedChange = (zoomedKey: string | null) => {
-    setZoomed(zoomedKey);
-    dispatch(Session.LinePlot.setSelection({ key, box: box.ZERO }));
-  };
 
   const rangeProviderProps = {
     visible: vis.annotations.visible,
@@ -478,11 +523,13 @@ const Internal = (): ReactElement => {
     ),
   };
 
+  const [breaks, setBreaks] = useState<pLineplot.BreakCounts>({ open: 0, closed: 0 });
   const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => (
     <ContextMenuContent
       csvLines={csvLines}
       linePlotRef={linePlotRef}
       editable={hasUpdatePermission}
+      breaks={breaks}
       menuKeys={keys}
       compare={
         relative
@@ -528,7 +575,7 @@ const Internal = (): ReactElement => {
           legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
           relativeDisabled={!FLAGS.compare}
-          onZoomedChange={handleZoomedChange}
+          onZoomedChange={setZoomed}
           hold={hold}
           onHold={handleHold}
           onContextMenu={handleContextMenu}
@@ -536,6 +583,9 @@ const Internal = (): ReactElement => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
           gapsCollapsed={FLAGS.breaks}
+          onBreaksChange={setBreaks}
+          initialOpenBreaks={vis.breaks.open}
+          onOpenBreaksChange={handleOpenBreaksChange}
         >
           <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>

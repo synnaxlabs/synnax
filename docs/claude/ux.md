@@ -886,14 +886,23 @@ says why in a sentence, then gives the raw error.
 
 ### Plot breaks
 
-- On an absolute time axis, each gap between ranges, past a margin on each side,
-  collapses into a seam. A seam draws a 12 px grey band through the plot and the range
-  strip, with dashed edges, and a `//` centered in a gap in the axis line.
+- On an absolute time x1 axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. An x2 axis always shows true time, as the axes share one view.
+  A seam draws a 12 px grey band through the plot and the range strip, with dashed
+  edges, and a `//` centered in a gap in the axis line.
 - All segments share one tick interval. In each segment, the first tick whose full label
   fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
   anchor of its segment, and no label overlaps a seam or an anchor.
 - A range bar that crosses a seam draws on each side, cut at the seam with the fade of
   the plot edge. A range wholly inside a collapsed gap draws nothing.
+- A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
+  open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
+  on the plot never closes a gap, so a click on data stays a click on data.
+- An open or a close keeps the times at the edges of the view in view. The zoom history
+  and the selection keep their times too.
+- The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
+  while one is open. Reset zoom closes all breaks. The Session stores the open breaks
+  with the view, so a reload shows the same times.
 
 ### Plot controls
 
