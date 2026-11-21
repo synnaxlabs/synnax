@@ -20,7 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
+import {
+  createBroker,
+  openAddData,
+  openScanner,
+  preloadReadForm,
+} from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
@@ -31,6 +36,8 @@ import {
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadReadForm();
 
 const TOPIC = "plant/oven";
 
