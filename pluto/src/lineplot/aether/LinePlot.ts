@@ -93,7 +93,7 @@ const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
 // x axis collapses its gaps: the x axes share one viewport, and a break change maps it
 // through one layout.
 const axisProps = <P extends LayoutProps>(i: number, props: P): P =>
-  i === 0 ? props : { ...props, gapsCollapsed: false };
+  i === 0 ? props : { ...props, breaksHidden: true };
 
 export class LinePlot
   extends aether.Composite<
