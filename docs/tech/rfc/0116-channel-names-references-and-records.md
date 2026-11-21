@@ -140,7 +140,7 @@ Channel struct {
     data_type   telem.DataType
     virtual     bool
     description string = ""    { @search  @validate max_length 1024 }
-    group       group.Key?     { @group scope channel  @group namespace
+    group       group.Key?     { @group scope channel  @group namespaced
                                  @ref kind place  @ref on_delete detach }
     rewires     Rewire[]?
 }
@@ -189,17 +189,18 @@ Rewire struct {
 - **Rule**: NEW `validate.IsPathSegment` in `x/go/validate` (precedent: `IsIdentifier`,
   `x/go/validate/identifier.go:18`). A name is valid UTF-8, is not empty after trimming,
   and holds no `.` and no character that shows as nothing or as a space other than
-  U+0020: the categories `Cc`, `Cf`, `Zl`, `Zp`, and `Zs` except U+0020, and the default
-  ignorable code points. Look-alike letters of two scripts are out of scope. `PT-FU-01`
-  and `Stand A` are legal. The rule also covers folders of a scope with the namespace
-  policy.
+  U+0020: the categories `Cc`, `Cf`, `Zl`, `Zp`, and `Zs` except U+0020, the default
+  ignorable code points, and U+2800 (Braille pattern blank). Look-alike letters of two
+  scripts are out of scope. `PT-FU-01` and `Stand A` are legal. The rule also covers
+  folders of a scope with the namespace policy.
 - **One form**: The Core stores a name in NFC: it normalizes a name on write and a
   lookup string on read (`x/go/go.mod:26`). Two names are the same when their bytes are.
-- **The start flag goes** (Phase 6): So does its plumbing
-  (`core/cmd/start/flags.go:38`). The rule checks a name that a write sets or changes,
-  so a stored name made under the flag stays writable until the Phase 7 migration
-  renames it. The dashed-name lexer of Arc goes in Phase 8, after Phase 7 quotes stored
-  dashed text (`arc/go/parser/parser.go:47-49`, `:62-86`).
+- **The start flag goes** (Phase 8): Phase 6 applies the rule whatever the flag says,
+  and checks only a name that a write sets or changes, so a stored name made under the
+  flag stays writable until the Phase 7 migration renames it. The flag then only
+  switches the dashed-name lexer of Arc, and both go in Phase 8, after Phase 7 quotes
+  stored dashed text (`core/cmd/start/flags.go:38`, `arc/go/parser/parser.go:47-49`,
+  `:62-86`). From Phase 6 the LSP rename writes the Form of §4.5.
 - **`gorp.UniqueIndex`** (NEW, on `index.Lookup`,
   `gorp/internal/index/lookup.go:22-30`): `Name`, `Space`, and
   `Value func(*E) (V, bool)`, where false exempts an entry. Every index of one `Space`
@@ -210,14 +211,14 @@ Rewire struct {
   fails with NEW `gorp.UniqueError`, which names the holder and wraps
   `query.ErrUniqueViolation` (`x/go/query/errors.go:24`).
 - **The sibling space**: The value is NEW `group.Sibling{Parent Key; Name string}` (32
-  B), with the zero parent at the root. `@group namespace` on a member's group field
+  B), with the zero parent at the root. `@group namespaced` on a member's group field
   (precedent: `@group pinned`, `oracle/domain/group/group.go:157`) makes Oracle generate
   two indexes in the space `namespace.<scope>`: one on the member table with (folder,
   name), and one on the group table with (parent, name) for groups of that scope. One
   structure then refuses two channels, two folders, and a channel and a folder with one
   name in one parent, on every create, rename, and move. Today's move runs no name check
   (`writer.go:96-119`). The group service gains no code.
-- **Before the flip**: Phase 9 registers the sibling space, and Phase 6 a hand-written
+- **Before the flip**: Phase 9 registers the sibling space, and Phase 4 a hand-written
   unique index on the channel name alone, so names stay unique across the Core. Phase 31
   deletes that index. `RetrieveIfNameExists` (`writer.go:66`) with a folder matches
   (folder, name); with none it matches the name in any folder and fails on several.
@@ -283,10 +284,11 @@ Rewire struct {
   each target whose holders changed by resource type and key, and no holder. A subject
   gets a target's sample only when it can retrieve the target and one holder whose link
   to it changed, so a change that only hidden records make shows nothing.
-- **Retarget**: Oracle generates `Retarget` for every key reference, as it does
-  `Detach`. The retargets of one action apply as one map, so a swap swaps the lines of a
-  plot and keeps their styles. The Tag stays the direction alone; the wiring site gives
-  the impact service the list of holders that `keep` instead (§4.11).
+- **Retarget**: Oracle generates `Retarget` for every key reference whose `on_delete` is
+  `detach` or `weak`, as it does `Detach`. The retargets of one action apply as one map,
+  so a swap swaps the lines of a plot and keeps their styles. The Tag stays the
+  direction alone; the wiring site gives the impact service the list of holders that
+  `keep` instead (§4.11).
 
 | Holder                       | Field                                                           | Kind              | On delete                                                | Direction                        | On heal or rewire                         |
 | ---------------------------- | --------------------------------------------------------------- | ----------------- | -------------------------------------------------------- | -------------------------------- | ----------------------------------------- |
@@ -298,6 +300,7 @@ Rewire struct {
 | Calculation                  | `output`                                                        | `place`, `unique` | `cascade`                                                | `write`                          | Never                                     |
 | Calculation                  | `reads`, `operations[].reset`, `primary`                        | `use`             | `weak`                                                   | `read`                           | Text pass; `reset`, `primary` `retarget`  |
 | Channel                      | `group`                                                         | `place`           | `detach`                                                 | none                             | Never                                     |
+| Channel                      | `index` (until RFC 0117 Phase 9)                                | `use`             | `restrict`                                               | `read`                           | Never                                     |
 | Channel                      | `rewires[].from`                                                | `use`             | `weak`: the span reads empty                             | `read`                           | Never                                     |
 | Tombstone                    | `rewires[].from`                                                | `use`             | `weak`                                                   | `read`                           | Never                                     |
 | Tombstone                    | `group`                                                         | `place`           | `cascade`                                                | none                             | Never                                     |
@@ -374,7 +377,8 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   with direction `write`, and the framer refuses an outside writer on an output. A
   delete of the calculation leaves the channel as a live-only channel: plots and
   programs on it outlive a change of producer. The output alone stores `data_type`,
-  written through `ChangeDataType` (`writer.go:226-247`).
+  written through `ChangeDataType` (`writer.go:226-247`). A built-in channel or an index
+  is never an output.
 - **`operations`**: `none` goes: an empty list means no operation. A `derivative` has no
   window. `reset` and `primary` are keys, because a picker sets them (principle 3). A
   plan that retargets `reset` or `primary` compiles the calculation in the same action,
@@ -397,8 +401,10 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
 
 - **Quoting**: One single-quoted token holds a whole path: `'stand_a.Stand A.pt-01'`.
   Inside it, `\'` is a quote and `\\` is a backslash. `'` is free today
-  (`arc/go/parser/ArcLexer.g4:135-143`). A quoted token always means a channel. The
-  parser puts channel tokens in NFC, and the text pass matches tokens after NFC.
+  (`arc/go/parser/ArcLexer.g4:135-143`). A quoted token always means a channel, and
+  every site that names a channel takes one: a flow node, an expression, an assignment
+  target, and an authority entry. The parser puts channel tokens in NFC, and the text
+  pass matches tokens after NFC.
 - **Bare paths**: `qualifiedIdentifier` takes any number of identifier segments (today
   two, `arc/go/parser/ArcParser.g4:220-224`). A bare dotted name that matches a module
   member and a channel path fails compile and names both. The fixes: an `as` alias, a
@@ -478,7 +484,7 @@ tombstones never leave the Core; a telemetry export (CSV, TDMS) reads measured.
 | `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs  | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
 | `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                       | `x`                                                                                                            | Any Core package                            |
 | `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads; maps piece changes to holders     | `service/calculation`                                                                                          | Key bits                                    |
-| `core/pkg/service/impact` (NEW)                         | Plans, choices, defaults, apply, the policy map                                                   | `service/channel`, `service/group`, `gorp`                                                                     | `service/arc`, `service/calculation`, `api` |
+| `core/pkg/service/impact` (NEW)                         | Plans, choices, defaults, apply, the policy map                                                   | `service/channel`, `service/group`, `service/resource`, `gorp`                                                 | `service/arc`, `service/calculation`, `api` |
 | `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, plan and apply routes, and the fields kept one minor                              | Services                                                                                                       | -                                           |
 
 The table is the state after Phase 3. RFC 0117 Phase 2 moves `channel/calculation`, its
@@ -525,9 +531,10 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
   U+FFFD, and an empty result becomes `channel_<key>`. A rewritten name that is taken
   gets the first free suffix (`_2`, `_3`); until Phase 31, "taken" means anywhere in the
   Core. A name that needs no rewrite never moves, and a built-in is never renamed. The
-  same pass runs on folders in the group chain; after both tables open, a folder that
-  shares a name with a sibling channel takes a suffix. Duplicates in different folders
-  stay. Each rename writes a warning status (`core/pkg/service/migrate.go:62`).
+  same pass runs on folders in the group chain; after both tables open, in a clash of a
+  folder and a sibling channel, the name that a pass rewrote takes a suffix, and the
+  folder does when neither was rewritten. Duplicates in different folders stay. Each
+  rename writes a warning status (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
   transaction. One pass over Arc text and one over calculation expressions write each
   changed name in its new form, and quote a dashed token only when a channel holds that
@@ -535,9 +542,10 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 - **Phase 3: Calculations.** The channel chain copies each v1 record that holds an
   expression under a staging prefix, then writes v2. The calculation chain builds one
   record per copy, with a UUIDv5 of the channel key, empty `reads`, and each
-  `reset_channel` copied (0 becomes absent). It deletes the statuses that channels own
-  and each copy, and parses no Arc. A crash between the chains leaves the copies for the
-  next start (precedent: `core/pkg/service/panel/versions/v0/composition.go:137`).
+  `reset_channel` copied (0, or a key that this Core never issued, becomes absent). It
+  deletes the statuses that channels own and each copy, and parses no Arc. A crash
+  between the chains leaves the copies for the next start (precedent:
+  `core/pkg/service/panel/versions/v0/composition.go:137`).
 - **Phases 26, 31, and 32: Key lists, the flip, rules.** Arc v5 adds empty `reads` and
   `writes`, and each compile from Phase 26 fills them. Phase 31 runs the step of §4.5
   once. Group v2 adds `name_rule`.
@@ -549,9 +557,11 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 
 Compatibility is owed to `core/v0.62.0`. Every stored channel, folder, Arc text, and
 calculation migrates forward. `APIChannel` keeps `internal`, `expression`, `operations`,
-and `status` for one minor. Three breaks go in the release notes: a start with the old
-flag fails, a digit-only string no longer means a key, and a lookup that acts on a
-duplicate name fails where it picked one.
+and `status` for one minor, and its `virtual` filter leaves calculation outputs out for
+that minor. Four breaks go in the release notes: a start with the old flag fails, a
+digit-only string no longer means a key, a lookup that acts on a duplicate name fails
+where it picked one, and after that minor the `virtual` filter counts every virtual
+channel.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -577,7 +587,7 @@ duplicate name fails where it picked one.
   or delete of a channel or a folder, a delete of data by path or by a key whose range
   another channel's history uses, and an import. A plan lists every record that the
   action touches, the choices for each, and the default. Key holders that write nothing
-  are a count, not entries.
+  are one `kept` count, not entries. The change of a plan is the union `Change`.
 - **Policies**: Each pair of a Gorp table and a reference with a channel link maps to
   exactly one policy: `retarget`, `keep`, or a text holder. The wiring site gives the
   map and injects the two text holders, Arc and calculation, which implement
@@ -585,12 +595,13 @@ duplicate name fails where it picked one.
   (`core/pkg/service/task/config/config.go:319`) and the device ports map to `keep`, so
   a new integration never moves its hardware ports. After the last table opens,
   construction fails on an unmapped pair. `impact` imports only `service/channel`,
-  `service/group`, and `gorp`.
+  `service/group`, `service/resource`, and `gorp`.
 - **One gate**: Every write that creates a channel, sets a channel's name or folder, or
   renames, moves, or deletes a folder goes through `impact.Apply`, and a CI check
   refuses other callers of those writes outside migrations. Today's create, rename,
-  delete, and folder routes call apply with no token and return the applied entries, so
-  a client of `core/v0.62.0` gets the defaults. Core services that make channels, such
+  delete, and folder routes call apply with no picks. That runs the action with the
+  defaults, as today, and returns no entries, so a client of `core/v0.62.0` gets today's
+  results; a plan is made only when picks come. Core services that make channels, such
   as tasks at save, call apply too. `Declare` runs before the text holders open, so it
   reports the channels that it creates and renames; before the API serves, `impact`
   applies their heals and text passes with the defaults. A migration that moves a
@@ -607,8 +618,8 @@ duplicate name fails where it picked one.
 - **Folders**: A folder delete deletes the folder's tombstones first, and lists them, so
   the group guard sees only live members (`core/pkg/service/group/service.go:397-423`).
 - **Routes**: `/impact/plan` and `/impact/apply`. A plan carries a token, a 16 B hash of
-  the action and the entries, and picks override entries by id. The Console shows one
-  dialog for every plan; the clients, imports, and Git apply pass picks.
+  the action and the entries, and a pick names an entry by its record. The Console shows
+  one dialog for every plan; the clients, imports, and Git apply pass picks.
 - **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
   plans the Gorp entries again and compares each text holder's hash; a holder that
   changed reruns its edit once, inline, with no retry loop. It also lexes each text
@@ -727,6 +738,9 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
   and a lookup by a digit-only string resolves as a name or a path.
 - **Phase 21: A view version.** The `channel` view type mints view v4 from v3, which
   `core/v0.62.0` shipped.
+- **Phase 27: Used by nothing.** Phase 21's "used by nothing" filter ships dark behind a
+  Console flag, since until Phase 26 fills the key lists, a channel that only a
+  calculation or an Arc reads looks unused. Phase 27 turns it on.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
   `channel_name`, sends the local name, as today. Sift channels take the local name, and
   a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
