@@ -24,6 +24,7 @@ export interface Given {
   username?: string;
   password?: string;
   token?: string;
+  oidc?: object;
   secure?: boolean;
   caCert?: string;
 }
@@ -302,8 +303,8 @@ export const resolveParams = <P extends Given>(
   const given =
     params.host != null && params.host !== "" ? params.host : read(env, "SYNNAX_HOST");
   const desktop = given === "" ? loadDesktop(system) : undefined;
-  const { apiKey, username, password, token } = params;
-  const credentials = apiKey ?? username ?? password ?? token;
+  const { apiKey, username, password, token, oidc } = params;
+  const credentials = apiKey ?? username ?? password ?? token ?? oidc;
   let key = apiKey;
   if (credentials == null) {
     const envKey = read(env, "SYNNAX_API_KEY");

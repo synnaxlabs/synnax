@@ -105,6 +105,13 @@ describe("constructor", () => {
   });
 });
 
+const CODE = {
+  provider: "idp",
+  code: "code",
+  verifier: "verifier",
+  redirectUri: "http://127.0.0.1:4242/callback",
+};
+
 // Writes a test CA and a certificate for 127.0.0.1 that the CA signs.
 const createCertificates = (dir: string): void => {
   const openssl = (args: string): void => {
@@ -136,6 +143,21 @@ describe("constructor with caCert", () => {
     expect(
       () => new Synnax({ host: "localhost", port: 9090, secure: false, caCert: PEM }),
     ).toThrow("caCert requires secure; leave secure out or set it to true");
+  });
+
+  it("should reject an OpenID Connect code given with an API key", () => {
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, apiKey: "syk", oidc: CODE }),
+    ).toThrow(
+      "Give one of a username and password, an API key, or an OpenID Connect code",
+    );
+  });
+
+  it("should not fill SYNNAX_API_KEY in next to an OpenID Connect code", async () => {
+    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    const client = new Synnax({ host: "localhost", port: 9090, oidc: CODE });
+    expect(client.params.apiKey).toBeUndefined();
+    await client.close();
   });
 
   it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
