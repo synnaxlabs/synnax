@@ -289,6 +289,17 @@ var _ = Describe("Log", func() {
 						"syncdir ",
 					))
 				})
+
+				DescribeTable("Should remove its file when a write or the sync fails",
+					func(fail func(error)) {
+						fault := errors.New("no space left on device")
+						fail(fault)
+						Expect(log.Prepare(fs, generation, 3<<20)).To(MatchError(fault))
+						Expect(MustSucceed(fs.Exists(logName))).To(BeFalse())
+					},
+					Entry("a write", func(err error) { fs.FailWrite(err) }),
+					Entry("the sync", func(err error) { fs.FailSync(err) }),
+				)
 			})
 
 			DescribeTable(
