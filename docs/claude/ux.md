@@ -898,11 +898,14 @@ says why in a sentence, then gives the raw error.
 - A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
   open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
   on the plot never closes a gap, so a click on data stays a click on data.
-- An open or a close keeps the times at the edges of the view in view. The zoom history
-  and the selection keep their times too.
+- When a break opens or closes, the times at the edges of the view stay in view. The
+  zoom history and the selection keep their times too.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
   while one is open. Reset zoom closes all breaks. The Session stores the open breaks
   with the view, so a reload shows the same times.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
+  in true time. The toggle resets the zoom, and it shows while the plot has a break,
+  shown or hidden. The Session stores whether the breaks hide.
 - Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
   show". Over a segment, it lists only the lines of that segment.
 - A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It
@@ -913,9 +916,9 @@ says why in a sentence, then gives the raw error.
 ### Plot controls
 
 - The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
-  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
-  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
-  what the plot shows, such as the time mode.
+  tooltip, the range strip, the breaks toggle, measure, and hold. Each is state of the
+  window, never saved with the plot. A setting saved with the plot goes in the toolbar,
+  even when it changes what the plot shows, such as the time mode.
 
 ### Plot range select
 

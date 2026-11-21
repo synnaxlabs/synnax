@@ -274,6 +274,7 @@ interface ContextMenuContentProps {
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
   breaks: pLineplot.BreakCounts;
+  breaksHidden: boolean;
   menuKeys: string[];
   compare: Compare | null;
 }
@@ -283,6 +284,7 @@ const ContextMenuContent = ({
   linePlotRef,
   editable,
   breaks,
+  breaksHidden,
   menuKeys,
   compare,
 }: ContextMenuContentProps): ReactElement => {
@@ -324,7 +326,9 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
-      {FLAGS.breaks && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
+      {FLAGS.breaks && !breaksHidden && (
+        <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />
+      )}
       {compare != null && (
         <CompareMenuItems
           menuKey={menuKeys[0] ?? ""}
@@ -445,6 +449,8 @@ const Internal = (): ReactElement => {
   }));
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
+  const storedBreaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const breaksHidden = !FLAGS.breaks || storedBreaksHidden;
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = Viewport.DEFAULT_TRIGGERS[mode];
   // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
@@ -530,6 +536,7 @@ const Internal = (): ReactElement => {
       linePlotRef={linePlotRef}
       editable={hasUpdatePermission}
       breaks={breaks}
+      breaksHidden={breaksHidden}
       menuKeys={keys}
       compare={
         relative
@@ -582,12 +589,15 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
-          gapsCollapsed={FLAGS.breaks}
+          breaksHidden={breaksHidden}
           onBreaksChange={setBreaks}
           initialOpenBreaks={vis.breaks.open}
           onOpenBreaksChange={handleOpenBreaksChange}
         >
-          <Controls hasAnnotations={hasAnnotations} />
+          <Controls
+            hasAnnotations={hasAnnotations}
+            hasBreaks={breaks.open + breaks.closed > 0}
+          />
         </Base.LinePlot>
       </Menu.ContextMenu>
     </div>

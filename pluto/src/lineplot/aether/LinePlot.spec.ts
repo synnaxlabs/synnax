@@ -362,7 +362,6 @@ describe("LinePlot breaks", () => {
         container: box.construct(0, 0, 1000, 500),
         viewport: box.DECIMAL,
         grid: {},
-        gapsCollapsed: true,
         openBreaks,
       });
     setOpenBreaks([]);
@@ -394,7 +393,7 @@ describe("LinePlot breaks", () => {
       stack.driver.update([...base, key], type, state);
       renderPlot(recorder);
     };
-    return { plot, recorder, setOpenBreaks, texts, lines, update };
+    return { plot, recorder, stack, base, setOpenBreaks, texts, lines, update };
   };
 
   it("should count the open and closed breaks of its first x axis", () => {
@@ -409,6 +408,56 @@ describe("LinePlot breaks", () => {
     setOpenBreaks(change?.openBreaks ?? []);
     renderPlot(recorder);
     expect(plot.state.breaks).toEqual({ open: 1, closed: 0 });
+  });
+
+  it("should count the breaks of its first x axis while they are hidden", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+  });
+
+  it("should count no hidden breaks while the x source of x1 fails", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    stack.driver.update(base, LinePlot.TYPE, { ...plot.state });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
+  it("should not count a hidden break outside the manual bounds of x1", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type: "time",
+      autoBoundPadding: 0,
+      bounds: { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) * 2 },
+      manualBounds: { lower: true, upper: true },
+    });
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
   it("should give the seams of its first x axis across the home view", () => {
@@ -461,7 +510,6 @@ describe("LinePlot breaks", () => {
       container: box.construct(0, 0, 1000, 500),
       viewport: box.DECIMAL,
       grid: {},
-      gapsCollapsed: true,
     });
     const minute = Number(TimeSpan.MINUTE.valueOf());
     const day = Number(TimeSpan.DAY.valueOf());
@@ -540,7 +588,6 @@ describe("LinePlot breaks", () => {
       container: box.construct(0, 0, 1000, 500),
       viewport: box.DECIMAL,
       grid: {},
-      gapsCollapsed: true,
     });
     const minute = Number(TimeSpan.MINUTE.valueOf());
     const day = Number(TimeSpan.DAY.valueOf());
@@ -623,7 +670,7 @@ describe("LinePlot trace spans", () => {
     container: box.construct(0, 0, 1000, 500),
     viewport: box.DECIMAL,
     hold: false,
-    gapsCollapsed: false,
+    breaksHidden: true,
     openBreaks: [],
   };
 

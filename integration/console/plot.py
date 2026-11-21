@@ -362,6 +362,34 @@ class Plot(ConsolePage):
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)
 
+    def get_breaks_toggle(self) -> Locator:
+        """Return the button that hides and shows the breaks between ranges.
+
+        The button only exists while the plot has a break, shown or hidden.
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(
+            ".console-controls button:has(.lyra-icon--split-x)"
+        )
+
+    def toggle_breaks(self) -> None:
+        """Click the button that hides and shows the breaks."""
+        self.get_breaks_toggle().click(timeout=5000)
+
+    def expect_breaks_shown(self, *, shown: bool = True, timeout: int = 5000) -> None:
+        """Assert the breaks toggle shows, and that it is on when shown is True."""
+        pattern = re.compile(r"lyra--selected")
+        toggle = expect(self.get_breaks_toggle())
+        if shown:
+            toggle.to_have_class(pattern, timeout=timeout)
+        else:
+            toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def expect_no_breaks_toggle(self, *, timeout: int = 5000) -> None:
+        """Assert the plot shows no breaks toggle."""
+        expect(self.get_breaks_toggle()).to_have_count(0, timeout=timeout)
+
     def _open_menu(self) -> None:
         """Open the plot menu over the left quarter of the plot, clear of the seam
         between two ranges of equal length."""

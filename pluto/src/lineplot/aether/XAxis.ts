@@ -17,7 +17,7 @@ import {
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
-import { join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
+import { type Gap, join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { axis } from "@/vis/axis";
@@ -72,7 +72,7 @@ const BREAK_HIT_DISTANCE = axis.BREAK_WIDTH / 2 + 2;
 /** The plot state that lays out an x axis. */
 export type LayoutProps = Pick<
   AxisRenderProps,
-  "hold" | "viewport" | "gapsCollapsed" | "openBreaks"
+  "hold" | "viewport" | "breaksHidden" | "openBreaks"
 >;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
@@ -210,6 +210,12 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
+  /** @returns the gaps of layout, or the gaps that the breaks hide while hidden. */
+  gaps(layout: Layout, { breaksHidden, openBreaks }: LayoutProps): readonly Gap[] {
+    if (!breaksHidden || this.state.type !== "time") return layout.gaps;
+    return join(this.segments(this.iTraces()[0], true), openBreaks).gaps;
+  }
+
   /** @returns the layout of the axis for the viewport. */
   layout(props: LayoutProps): Layout {
     const [layout, , err] = this.iLayout(props);
@@ -222,12 +228,12 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   private iLayout({
     hold,
     viewport,
-    gapsCollapsed,
+    breaksHidden,
     openBreaks,
   }: LayoutProps): [Layout, Trace[], Error | null] {
     const { type } = this.state;
     const [traces, err] = this.iTraces();
-    const collapsed = gapsCollapsed && type === "time";
+    const collapsed = !breaksHidden && type === "time";
     const [pieces, boundsErr] = this.iSegments(hold, () => traces, collapsed);
     const { segments, gaps } = join(pieces, openBreaks);
     const s = spans(align(traces), type, segments);

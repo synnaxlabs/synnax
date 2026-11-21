@@ -207,7 +207,19 @@ describe("lineplot/toolbar/Toolbar", () => {
       const { lower, upper } = hourOf(2).numericBounds;
       // The gap after a range starts at its end and a margin of 5% of its span.
       const open = [upper + (upper - lower) * 0.05];
-      await openDownload([data.key], [at(6), at(2)], { breaks: { open } });
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: false, open },
+      });
+      const text = document.body.textContent;
+      expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
+      expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
+    });
+
+    it("should download one span over every range while breaks are hidden", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: true, open: [] },
+      });
       const text = document.body.textContent;
       expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
       expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);

@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import type { Layout } from "@/lineplot/aether/layout";
+import type { Gap, Layout } from "@/lineplot/aether/layout";
 import {
   type BreaksChange,
   breaksChangeZ,
@@ -42,10 +42,14 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().default(false),
-  gapsCollapsed: z.boolean().default(false),
+  /** Set when x1 shows its gaps at their true width, with no breaks. */
+  breaksHidden: z.boolean().default(false),
   /** The lower bounds of the gaps of x1 that show in place of a break. */
   openBreaks: z.array(z.number()).default([]),
-  /** The number of open and of closed breaks on x1, which the plot sets. */
+  /**
+   * The number of open and of closed breaks on x1, which the plot sets. It counts them
+   * while they are hidden too.
+   */
   breaks: breakCountsZ.default({ open: 0, closed: 0 }),
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
@@ -97,7 +101,7 @@ const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
 // x axis collapses its gaps: the x axes share one viewport, and a break change maps it
 // through one layout.
 const axisProps = <P extends LayoutProps>(i: number, props: P): P =>
-  i === 0 ? props : { ...props, gapsCollapsed: false };
+  i === 0 ? props : { ...props, breaksHidden: true };
 
 export class LinePlot
   extends aether.Composite<
@@ -179,8 +183,7 @@ export class LinePlot
       this.setState((p) => ({ ...p, loading, fetching }));
   }
 
-  private syncBreaks(layout: Layout | null): void {
-    const gaps = layout?.gaps ?? [];
+  private syncBreaks(gaps: readonly Gap[]): void {
     const open = gaps.filter((g) => g.open).length;
     const breaks = { open, closed: gaps.length - open };
     const prev = this.state.breaks;
@@ -196,7 +199,7 @@ export class LinePlot
     try {
       const drawn = this.axes.map((xAxis, i) => xAxis.render(axisProps(i, p), raised));
       const x1 = drawn[0]?.[0] ?? null;
-      this.syncBreaks(x1);
+      this.syncBreaks(x1 == null ? [] : this.axes[0].gaps(x1, p));
       const err = drawn.find((d) => d?.[1] != null)?.[1];
       if (err != null) throw err;
       return x1;
