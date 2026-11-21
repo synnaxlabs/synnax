@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v4
+package v5_test
 
 import (
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ gorp.Entry[Key] = Range{}
-
-// GorpKey implements gorp.Entry.
-func (r Range) GorpKey() Key { return r.Key }
-
-// ResourceID returns the ID of the range in the ontology.
-func (r Range) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeRange, Key: r.Key.String()}
+func TestRangerV5(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Ranger v5 Suite", SuiteConfig())
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

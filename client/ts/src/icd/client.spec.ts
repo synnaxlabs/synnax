@@ -11,7 +11,7 @@ import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 
-import { NotFoundError, PathError } from "@/errors";
+import { NotCachedError, NotFoundError, PathError } from "@/errors";
 import { icd } from "@/icd";
 import { createTestClient } from "@/testutil";
 
@@ -472,14 +472,14 @@ describe("icd", () => {
       expect((await client.icds.retrieve(ic.key)).key).toEqual(ic.key);
     });
 
-    it("should return false without a send when the ICD is not cached", async () => {
+    it("should throw when the ICD is not cached", async () => {
       const ic = await client.icds.create(createNew());
-      expect(
-        await createTestClient().icds.dispatch(
+      await expect(
+        createTestClient().icds.dispatch(
           ic.key,
           icd.set({ path: ["name"], value: "Renamed" }),
         ),
-      ).toBe(false);
+      ).rejects.toThrow(NotCachedError);
     });
   });
 

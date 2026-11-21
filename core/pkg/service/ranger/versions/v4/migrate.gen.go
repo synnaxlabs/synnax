@@ -22,6 +22,7 @@ func autoMigrateRange(_ context.Context, old v3.Range) (Range, error) {
 		Key:       old.Key,
 		Name:      old.Name,
 		TimeRange: old.TimeRange,
+		Color:     old.Color,
 		Labels:    old.Labels,
 		Parent:    old.Parent,
 	}, nil

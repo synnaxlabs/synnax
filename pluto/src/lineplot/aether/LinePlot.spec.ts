@@ -11,6 +11,7 @@ import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil"
 import {
   type bounds,
   box,
+  color,
   DataType,
   dynamicWindow,
   id,
@@ -206,29 +207,29 @@ describe("LinePlot", () => {
   });
 });
 
+const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
+  const s = new Series({
+    data: new Float32Array(data),
+    timeRange: new TimeRange(0, 1),
+  });
+  const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
+    s.bounds,
+    new MultiSeries([s]),
+  ]);
+  return {
+    type: telemTest.TestSource.TYPE,
+    props: { testId: source.id },
+    variant: "source",
+    valueType: "series",
+  };
+};
+
 describe("LinePlot with a tooltip", () => {
   const teardowns: (() => void)[] = [];
   afterEach(() => {
     for (const teardown of teardowns) teardown();
     teardowns.length = 0;
   });
-
-  const seriesSpec = (data: number[]): telem.SeriesSourceSpec => {
-    const s = new Series({
-      data: new Float32Array(data),
-      timeRange: new TimeRange(0, 1),
-    });
-    const source = telemTest.source<[bounds.Bounds, MultiSeries]>([
-      s.bounds,
-      new MultiSeries([s]),
-    ]);
-    return {
-      type: telemTest.TestSource.TYPE,
-      props: { testId: source.id },
-      variant: "source",
-      valueType: "series",
-    };
-  };
 
   it("should list the drawn point nearest the cursor", () => {
     const recorder = new canvasTest.Recorder();
@@ -446,5 +447,59 @@ describe("LinePlot against a Core", () => {
     } finally {
       await writer.close();
     }
+  });
+});
+
+describe("LinePlot with lines on two y axes", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  it("should draw a raised line over the lines of every y axis", () => {
+    const RAISED = "#00ff00";
+    const recorder = new canvasTest.Recorder();
+    const { gl, calls } = canvasTest.createGL();
+    (recorder as { gl: unknown }).gl = gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const host = [...stack.basePath, "gl"];
+    stack.driver.update(host, lineTest.Host.TYPE, {});
+    const base = [...host, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    stack.driver.update([...base, "x1", "y2"], YAxis.TYPE, { location: "right" });
+    stack.driver.update([...base, "x1", "y1", "raised"], line.Line.TYPE, {
+      x: seriesSpec([0, 10]),
+      y: seriesSpec([1, 2]),
+      color: RAISED,
+      raised: true,
+    });
+    stack.driver.update([...base, "x1", "y2", "plain"], line.Line.TYPE, {
+      x: seriesSpec([0, 10]),
+      y: seriesSpec([3, 4]),
+      color: "#ff0000",
+    });
+    renderPlot(recorder);
+    const colors = calls
+      .filter((c) => c.op === "uniform4fv")
+      .map((c) => [...(c.args[1] as Iterable<number>)]);
+    expect(colors.length).toBeGreaterThan(1);
+    expect(colors.at(-1)).toEqual(color.rgba1(color.construct(RAISED)));
   });
 });
