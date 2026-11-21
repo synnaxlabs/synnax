@@ -427,7 +427,9 @@ not know. Without the bit, that binary refuses to open.
   deleter reads the clock once to find the cuts
   (`cesium/internal/unary/delete.go:150-279` today), so replay needs no clock. The state
   owner refuses a Tombstone whose cut names a segment that is no longer live, and a
-  Replace that a later Tombstone or Drop made stale. The caller computes it again.
+  Replace that a later Tombstone or Drop made stale. The caller computes it again. Over
+  old history, the deleter also loads the part records of the cut segments (§5.3) and
+  sends them with the Tombstone.
 - **Write rule**: The log owner writes a frame only after the sync of the frame before
   returned. So each valid frame proves that every byte before it was synced. A frame is
   confirmed when the sync of a later frame returned.
@@ -470,29 +472,31 @@ table, 24 bytes per section: kind and record version (`uint16` each), record siz
 Record order is fixed (keys rising, then identities, then offsets), so the bytes of a
 file depend on the state alone. A count is the index of the next record minus its own.
 
-| Section             | Record size | Fields, in order                                                                                                                                                                                                                      |
-| ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Parts (head)      | 48          | Part identity, generation of the switch that wrote it, file length, lowest and highest pointer time (8 bytes each); offset of its bitmap in section 2 or `0xFFFFFFFF`, header CRC of the part (4 each)                                |
-| 2 Dead (head)       | 1           | Bitmap bytes. Bit `i` of the bitmap of a part: segment record `i` of that part is dead                                                                                                                                                |
-| 3 Kills (head)      | 24          | Key and flags (4 each; bit 0: every segment of the key), segment identity (8), generation (8). A dead mark for parts of that generation or older that is not yet in a bitmap                                                          |
-| 4 Channels (head)   | 20          | Key, index of its first segment record, index of its first tombstone, oldest and newest part that hold the key (indexes in section 1, read by history lookups) (4 each)                                                               |
-| 4 Channels (part)   | 8           | Key, index of its first segment record (4 each)                                                                                                                                                                                       |
-| 5 Segments          | 32          | Identity (8); clock key, length, `tail_crc`, index of its first pointer record (4 each); format version (2); type code (1); flags (1; bit 0 sealed, bit 1 has a check file); old file number `N` of a version 0 segment (2); zero (2) |
-| 6 Pointers          | 36          | First stamp, last stamp, alignment (8 each); stream offset, byte length, samples (4 each)                                                                                                                                             |
-| 7 Tombstones (head) | 96          | The body of the Tombstone record (88), then the generation of the log that holds the record (8)                                                                                                                                       |
-| 8 Clocks            | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                           |
-| 9 Intents (head)    | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                            |
+| Section           | Record size | Fields, in order                                                                                                                                                                                                                      |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Parts (head)    | 48          | Part identity, generation of the switch that wrote it, file length, lowest and highest pointer time (8 bytes each); offset of its bitmap in section 2 or `0xFFFFFFFF`, header CRC of the part (4 each)                                |
+| 2 Dead (head)     | 1           | Bitmap bytes. Bit `i` of the bitmap of a part: segment record `i` of that part is dead                                                                                                                                                |
+| 3 Kills (head)    | 24          | Key and flags (4 each; bit 0: every segment of the key), segment identity (8), generation (8). A dead mark for parts of that generation or older that is not yet in a bitmap                                                          |
+| 4 Channels (head) | 16          | Key, index of its first segment record, oldest and newest part that hold the key (indexes in section 1, read by history lookups) (4 each)                                                                                             |
+| 4 Channels (part) | 8           | Key, index of its first segment record (4 each)                                                                                                                                                                                       |
+| 5 Segments        | 32          | Identity (8); clock key, length, `tail_crc`, index of its first pointer record (4 each); format version (2); type code (1); flags (1; bit 0 sealed, bit 1 has a check file); old file number `N` of a version 0 segment (2); zero (2) |
+| 6 Pointers        | 36          | First stamp, last stamp, alignment (8 each); stream offset, byte length, samples (4 each)                                                                                                                                             |
+| 7                 | -           | Not used, so sections 8 and 9 keep their numbers                                                                                                                                                                                      |
+| 8 Clocks          | 4           | The distinct clock keys that data segments in the file name, in rising order. `Drop`, `Sweep`, and the delete guard read it                                                                                                           |
+| 9 Intents (head)  | 4           | The key of each live delete intent (§4.1), in rising order                                                                                                                                                                            |
 
 - **Head**: Every open segment, every segment sealed since the last part, and the dead
-  marks and tombstones that parts still need. Pointers in the head are cut in memory, so
-  they are exact. A head does not grow with history.
+  marks that parts still need. Pointers in the head are cut in memory, so they are
+  exact. A head does not grow with history.
 - **Part**: Sections 4, 5, 6, and 8: sealed segments and their pointers as they were at
-  the switch, written once. A tombstone or a kill in the head hides records in parts of
-  its generation or older. The checkpointer writes a part again, under a new identity,
-  when half of its segments are dead or a tombstone hides records in it, and those marks
-  then leave the head. A delete over old history costs 8 MiB per part it touches.
+  the switch, written once. A kill in the head hides records in parts of its generation
+  or older. The checkpointer writes a part again, under a new identity, only when half
+  of its segments are dead, and those marks then leave the head. A delete over old
+  history loads its cut segments' records from their parts, puts them back in the head,
+  and cuts them there; they stay in memory until the next switch.
 - **Lazy history**: The engine holds only the state of the head in memory. Reads, the
-  claim check of a writer on old time, and compaction load part chunks through a cache.
+  claim check of a writer on old time, deletes, and compaction load part chunks through
+  a cache.
 
 **The switch.** `L` is the log owner and `C` the checkpointer. The root holds the live
 log `g`, its head, and the newest older head that exists with every log from its
@@ -779,7 +783,7 @@ valid frames follow the bad one, so repair loses only the records of the bad fra
    - the records of the bad frame that touch no sample: a lost Tombstone brings deleted
      data back, a lost Replace keeps the old segment, a lost Drop or Intent leaves the
      key to `Sweep`, and a lost Check makes the check pass run again. Both heads bad:
-     the dead marks, kills, and tombstones of the lost heads.
+     the dead marks, kills, and cut segments of the lost heads.
 5. Ask, through the `confirm` call of `cesium.Repair`; nothing is written before it. On
    yes, write a head and a log of a generation above every generation present, the log
    starting with a Restart, and sync each file and the root. The header sector of the
