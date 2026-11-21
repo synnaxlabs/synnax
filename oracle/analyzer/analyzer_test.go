@@ -1206,6 +1206,14 @@ Node union on variant {
 			Entry("on a type", `
 				Count int32 { @go validate lt max }
 			`, "test.Count has a @go validate rule, but only a struct field can have one"),
+			Entry("on a struct", `
+				Range struct {
+					min float64
+					max float64
+
+					@go validate lt max
+				}
+			`, "test.Range has a @go validate rule, but only a struct field can have one"),
 			Entry("naming a field the struct does not have", `
 				Range struct {
 					min float64 { @go validate lt max }
