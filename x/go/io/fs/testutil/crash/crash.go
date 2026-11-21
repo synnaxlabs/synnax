@@ -169,6 +169,12 @@ type Result struct {
 	Losses int
 	// ReadFaults counts the read faults that the disks of the recoveries gave.
 	ReadFaults int
+	// SyncErrors and FullDisk count the calls of the workload that its disk failed with
+	// a sync error and with no space. Its faults start once the engine opens.
+	SyncErrors, FullDisk int
+	// Unsynced counts the crash images, from the open on, of a disk that held a change
+	// that a crash can lose in part. Spoiled counts the images that spoil changed.
+	Unsynced, Spoiled int
 	// Violations holds each violation of an Exhaustive run, in the order of the events.
 	Violations []Violation
 }

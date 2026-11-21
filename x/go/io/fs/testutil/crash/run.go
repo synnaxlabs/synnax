@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/set"
 )
 
 // snapshot is the crash image behind one event, with the rules for an engine that
@@ -52,10 +54,8 @@ type run struct {
 	brokenAt     int
 	brokenFaults []fault.Fault
 	// armed is true once the engine of the workload opened and Run armed the faults of
-	// its disk. unsynced counts the crash images from then that the disk took with a
-	// change that a crash can lose in part, and spoiled the images that spoil changed.
-	armed             atomic.Bool
-	unsynced, spoiled int
+	// its disk.
+	armed atomic.Bool
 	// mu guards every field below plan.
 	mu sync.Mutex
 }
@@ -97,22 +97,18 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 			r.worksf(r.faulted(), "close: %v", err)
 		}
 	}
-	r.counter.mu.Lock()
-	events := r.counter.events
-	r.counter.mu.Unlock()
-	if r.pending == nil || r.pending.event != events {
-		r.pending = r.snapshot(events)
-	}
-	r.check(r.pending, r.attempts)
-	if r.armed.Load() && r.needsReadFault() {
-		r.check(r.forcedRead(events), r.attempts)
-	}
+	r.finish()
 	if r.err != nil {
 		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
 	if r.broken == nil {
-		if r.armed.Load() && !r.fired() {
-			return r.result, errors.Wrapf(ErrNoFault, "profile %d", cfg.Profile)
+		if unfired := r.unfired(); r.armed.Load() && len(unfired) > 0 {
+			return r.result, errors.Wrapf(
+				ErrNoFault,
+				"profile %d: no %s",
+				cfg.Profile,
+				strings.Join(unfired, ", no "),
+			)
 		}
 		return r.result, nil
 	}
@@ -186,6 +182,27 @@ func (r *run) work(engine Engine) {
 	}
 }
 
+// finish checks the image of the last state of the workload, with one forced read fault
+// when the profile has read faults and no recovery got one, and counts the faults of
+// the workload.
+func (r *run) finish() {
+	r.counter.mu.Lock()
+	events := r.counter.events
+	r.counter.mu.Unlock()
+	if r.pending == nil || r.pending.event != events {
+		r.pending = r.snapshot(events)
+	}
+	r.check(r.pending, r.attempts)
+	if r.armed.Load() && r.needsReadFault() {
+		r.check(r.forcedRead(events), r.attempts)
+	}
+	r.counter.mu.Lock()
+	defer r.counter.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.result.SyncErrors, r.result.FullDisk = r.counter.syncErrors, r.counter.fullDisk
+}
+
 // fill fills the disk of the workload when the plan fills it after commit id.
 func (r *run) fill(id int) {
 	if r.plan.fills && r.plan.fillAfter == id {
@@ -214,32 +231,48 @@ func (r *run) forcedRead(event int) *snapshot {
 	return &snapshot{image: image, rules: strictRules, event: event}
 }
 
-// fired reports if a fault of the profile fired after the engine of the workload
-// opened.
-func (r *run) fired() bool {
-	faulted := r.faulted()
+// unfired returns the kinds of fault of the profile that never fired after the engine
+// of the workload opened. Mixed needs one fault of the workload, since an engine that
+// stops on its first fault never meets a second kind.
+func (r *run) unfired() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	res, fired := r.result, set.New[string]()
+	add := func(kind string, ok bool) {
+		if ok {
+			fired.Add(kind)
+		}
+	}
+	add("unsynced image", res.Unsynced > 0)
+	add("sync error", res.SyncErrors > 0)
+	add("full disk", res.FullDisk > 0)
+	add("sync error or full disk", res.SyncErrors+res.FullDisk > 0)
+	add("read fault", res.ReadFaults > 0)
+	add("spoiled image", res.Spoiled > 0)
+	var needs []string
 	switch r.cfg.Profile {
 	case Strict:
-		return true
 	case Partial:
-		return r.unsynced > 0
-	case SyncErrors, FullDisk, Mixed:
-		return faulted
+		needs = []string{"unsynced image"}
+	case SyncErrors:
+		needs = []string{"sync error"}
+	case FullDisk:
+		needs = []string{"full disk"}
+	case Mixed:
+		needs = []string{"sync error or full disk"}
 	case OneTimeReadFaults, RepeatedReadFaults:
-		return r.result.ReadFaults > 0
+		needs = []string{"read fault"}
 	case OldCorruption, NewCorruption:
-		return r.spoiled > 0
+		needs = []string{"spoiled image"}
 	}
-	return true
+	return slices.DeleteFunc(needs, fired.Contains)
 }
 
 // faulted reports if the disk of the workload failed a call.
 func (r *run) faulted() bool {
 	r.counter.mu.Lock()
 	defer r.counter.mu.Unlock()
-	return r.counter.faults > 0
+	return r.counter.syncErrors+r.counter.fullDisk > 0
 }
 
 // worksf breaks R0, before any crash, when ok is false.
@@ -299,8 +332,8 @@ func (r *run) snapshot(event int) *snapshot {
 		if rules, err = r.plan.spoil(image, r.counter, event); err == nil {
 			if r.armed.Load() {
 				r.mu.Lock()
-				r.unsynced += btoi(unsynced)
-				r.spoiled += btoi(rules != strictRules)
+				r.result.Unsynced += btoi(unsynced)
+				r.result.Spoiled += btoi(rules != strictRules)
 				r.mu.Unlock()
 			}
 			return &snapshot{image: image, rules: rules, event: event}
