@@ -41,7 +41,7 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 		reverse:    make(map[K][]V),
 		none:       make(set.Set[K]),
 	}
-	m.overlay.init(newDelta[K, V](), m.flush)
+	m.overlay.init(newDelta[K, V], m.flush)
 	return m
 }
 
