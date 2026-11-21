@@ -784,6 +784,27 @@ func cat() {
 		})
 	})
 
+	It("should color a dashed channel name as one token", func(ctx SpecContext) {
+		channels := []symbol.Symbol{{
+			Name: "sensor-1",
+			Type: types.Chan(types.F64()),
+			Kind: symbol.KindChannel,
+		}}
+		server, uri = SetupTestServer(lsp.Config{
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			AllowDashedNames: true,
+		})
+		OpenArcDocument(server, ctx, uri, "func f() f64 {\n    return sensor-1\n}\n")
+		tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+		Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
+		Expect(filterByType(tokens, tokenTypeChannel)).To(ConsistOf(decodedToken{
+			Line:      1,
+			StartChar: 11,
+			Length:    8,
+			TokenType: tokenTypeChannel,
+		}))
+	})
+
 	Describe("variable kinds", func() {
 		It(
 			"classifies literal, stateful, channel read/write, and channel-read variables distinctly",

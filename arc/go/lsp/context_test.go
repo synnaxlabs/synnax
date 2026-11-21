@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/parser"
 	"go.lsp.dev/protocol"
 )
 
@@ -20,7 +21,7 @@ var _ = Describe("Context Detection", func() {
 	DescribeTable("DetectCompletionContext",
 		func(content string, line, char uint32, expected lsp.CompletionContext) {
 			pos := protocol.Position{Line: line, Character: char}
-			ctx := lsp.DetectCompletionContext(content, pos)
+			ctx := lsp.DetectCompletionContext(content, pos, parser.Config{})
 			Expect(ctx).To(Equal(expected))
 		},
 		// Comment Context
@@ -263,7 +264,7 @@ var _ = Describe("Context Detection", func() {
 	DescribeTable("should not detect input context in body contexts",
 		func(content string, line, char uint32) {
 			pos := protocol.Position{Line: line, Character: char}
-			ctx := lsp.DetectCompletionContext(content, pos)
+			ctx := lsp.DetectCompletionContext(content, pos, parser.Config{})
 			Expect(ctx).ToNot(Equal(lsp.ContextInputParamName))
 			Expect(ctx).ToNot(Equal(lsp.ContextInputParamValue))
 		},

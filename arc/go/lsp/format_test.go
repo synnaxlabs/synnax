@@ -117,6 +117,32 @@ var _ = Describe("Formatting", func() {
 		})
 	})
 
+	Describe("Dashed names", func() {
+		BeforeEach(func() {
+			server, uri = SetupTestServer(lsp.Config{AllowDashedNames: true})
+		})
+
+		It("should keep dashed channel names in a document", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "sensor-1 -> valve-2\n")
+			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Options:      protocol.FormattingOptions{},
+			})).To(BeNil())
+		})
+
+		It("should keep dashed channel names in a range", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x:=1\nsensor-1 -> valve-2\n")
+			Expect(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 0},
+					End:   protocol.Position{Line: 1, Character: 19},
+				},
+				Options: protocol.FormattingOptions{},
+			})).To(BeNil())
+		})
+	})
+
 	Describe("Range Formatting", func() {
 		It("should format a specific range", func(ctx SpecContext) {
 			content := "x:=1\ny:=2\nz:=3"

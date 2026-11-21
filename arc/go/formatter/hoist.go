@@ -31,12 +31,12 @@ type LineMove struct {
 // stage body above its first step. The comments directly above an item and after it on
 // its last line move with it. Unparsable content yields none, and so does a body whose
 // items share a line with another item or a brace.
-func DeclarationHoists(content string) []LineMove {
-	program, diags := parser.Parse(content)
+func DeclarationHoists(content string, cfgs ...parser.Config) []LineMove {
+	program, diags := parser.Parse(content, cfgs...)
 	if program == nil || (diags != nil && !diags.Ok()) {
 		return nil
 	}
-	comments := lineComments(content)
+	comments := lineComments(content, parser.ConfigOf(cfgs...))
 	var moves []LineMove
 	walk(program, func(node antlr.Tree) {
 		switch body := node.(type) {
@@ -56,8 +56,8 @@ func DeclarationHoists(content string) []LineMove {
 }
 
 // HoistDeclarations applies DeclarationHoists to content.
-func HoistDeclarations(content string) string {
-	moves := DeclarationHoists(content)
+func HoistDeclarations(content string, cfgs ...parser.Config) string {
+	moves := DeclarationHoists(content, cfgs...)
 	if len(moves) == 0 {
 		return content
 	}
@@ -135,8 +135,8 @@ type commentLines struct {
 	trailing map[int]int
 }
 
-func lineComments(content string) commentLines {
-	lexer := parser.NewArcLexer(antlr.NewInputStream(content))
+func lineComments(content string, cfg parser.Config) commentLines {
+	lexer := parser.NewLexer(content, cfg)
 	c := commentLines{own: make(map[int]int), trailing: make(map[int]int)}
 	codeLine := -1
 	for _, tok := range lexer.GetAllTokens() {

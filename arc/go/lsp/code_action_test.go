@@ -178,6 +178,46 @@ var _ = Describe("CodeAction", func() {
 					"true => main\n",
 			))
 		})
+
+		It("should move a dashed-name declaration", func(ctx SpecContext) {
+			server, uri, client = SetupTestServerWithClient(
+				lsp.Config{AllowDashedNames: true},
+			)
+			content := "import time\n\n" +
+				"sequence main {\n" +
+				"    stage a {\n" +
+				"        true => next\n" +
+				"    }\n" +
+				"    valve-2a := 1\n" +
+				"    stage b {\n" +
+				"        time.wait(1s)\n" +
+				"    }\n" +
+				"}\n\n" +
+				"true => main\n"
+			OpenArcDocument(server, ctx, uri, content)
+			diags := client.Diagnostics()
+			Expect(diags).To(HaveLen(1))
+			Expect(
+				DiagnosticCode(diags[0]),
+			).To(Equal(string(codes.DeclarationAfterStep.Code)))
+			actions := asCodeActions(
+				MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+			)
+			Expect(actions).To(HaveLen(1))
+			Expect(applyEdits(content, actions[0].Edit.Changes[uri])).To(Equal(
+				"import time\n\n" +
+					"sequence main {\n" +
+					"    valve-2a := 1\n" +
+					"    stage a {\n" +
+					"        true => next\n" +
+					"    }\n" +
+					"    stage b {\n" +
+					"        time.wait(1s)\n" +
+					"    }\n" +
+					"}\n\n" +
+					"true => main\n",
+			))
+		})
 	})
 
 	Describe("Numeric condition quick fix", func() {

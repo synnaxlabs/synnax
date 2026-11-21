@@ -24,7 +24,10 @@ func (s *Server) Formatting(
 	if !ok {
 		return nil, nil
 	}
-	formatted := formatter.Format(doc.Content)
+	formatted := formatter.Format(
+		doc.Content,
+		s.parserConfig(),
+	)
 	if formatted == doc.Content {
 		return nil, nil
 	}
@@ -58,7 +61,12 @@ func (s *Server) RangeFormatting(
 	}
 	startLine := int(params.Range.Start.Line)
 	endLine := int(params.Range.End.Line)
-	formatted := formatter.FormatRange(doc.Content, startLine, endLine)
+	formatted := formatter.FormatRange(
+		doc.Content,
+		startLine,
+		endLine,
+		s.parserConfig(),
+	)
 	if formatted == doc.Content {
 		return nil, nil
 	}
