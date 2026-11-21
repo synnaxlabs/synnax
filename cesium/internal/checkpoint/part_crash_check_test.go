@@ -100,8 +100,7 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 				f := MustSucceed(disk.Open(log.Name(g), os.O_CREATE|os.O_RDWR))
 				Expect(f.Close()).To(Succeed())
 			}
-			Expect(checkpoint.Write(disk, 1, checkpoint.Encode(db, 1, withSealed()))).
-				To(Succeed())
+			MustSucceed(checkpoint.Create(disk, db, withSealed(), 0))
 			Expect(disk.SyncDir("")).To(Succeed())
 			im := &crashImages{disk: disk, runKey: runKey}
 			c := MustSucceed(checkpoint.New(checkpoint.Config{
