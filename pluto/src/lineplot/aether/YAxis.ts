@@ -34,6 +34,21 @@ const invalidArea = (region: box.Box): boolean =>
   box.signedWidth(region) < INVALID_SIZE_THRESHOLD ||
   box.signedHeight(region) < INVALID_SIZE_THRESHOLD;
 
+// lineProps returns the props of a line by its key. A line draws with the scale of its
+// segment.
+const lineProps = (
+  layout: Layout,
+  region: box.Box,
+  yScale: scale.Scale,
+): ((key: string) => line.LineProps) => {
+  const scales = layout.segments.map((s) => new scale.XY(s.scale, yScale));
+  return (key) => ({
+    region,
+    dataToDecimalScale: scales[layout.segments.indexOf(layout.segment(key))],
+    span: layout.span(key),
+  });
+};
+
 export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
   override schema = baseAxisStateZ;
@@ -76,9 +91,9 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     raised: Array<() => void>,
   ): void {
     if (!canvases.includes("gl") || invalidArea(plot)) return;
-    const dataToDecimalScale = new scale.XY(layout.segments[0].scale, yScale);
+    const propsOf = lineProps(layout, plot, yScale);
     this.lines.forEach((el) => {
-      const props = { region: plot, dataToDecimalScale, span: layout.span(el.key) };
+      const props = propsOf(el.key);
       if (el.raised) raised.push(() => el.render(props));
       else el.render(props);
     });
@@ -104,9 +119,9 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   }
 
   findByXValue(props: Omit<YAxisProps, "canvases">, target: number): line.FindResult[] {
-    const p = this.lineProps(props);
+    const propsOf = lineProps(props.layout, props.plot, this.yScale(props));
     return this.lines.map((el) => ({
-      ...el.findByXValue({ ...p, span: props.layout.span(el.key) }, target),
+      ...el.findByXValue(propsOf(el.key), target),
       units: this.state.label,
     }));
   }
@@ -116,21 +131,17 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
     props: Omit<YAxisProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const p = this.lineProps(props);
+    const propsOf = lineProps(props.layout, props.plot, this.yScale(props));
     return this.lines.map((el) => ({
-      ...el.findDrawnByXValue({ ...p, span: props.layout.span(el.key) }, target),
+      ...el.findDrawnByXValue(propsOf(el.key), target),
       units: this.state.label,
     }));
   }
 
-  private lineProps(props: Omit<YAxisProps, "canvases">): line.LineProps {
-    const [yDataToDecimalScale, error] = this.dataToDecimalScale(props);
+  private yScale(props: Omit<YAxisProps, "canvases">): scale.Scale {
+    const [s, error] = this.dataToDecimalScale(props);
     if (error != null) throw error;
-    const xScale = props.layout.segments[0].scale;
-    return {
-      region: props.plot,
-      dataToDecimalScale: new scale.XY(xScale, yDataToDecimalScale),
-    };
+    return s;
   }
 
   // dataToDecimalScale returns the scale from the axis values to decimal positions

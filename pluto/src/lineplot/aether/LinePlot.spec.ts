@@ -383,10 +383,11 @@ describe("LinePlot trace spans", () => {
     container: box.construct(0, 0, 1000, 500),
     viewport: box.DECIMAL,
     hold: false,
+    gapsCollapsed: false,
   };
 
   it("should give each line of a group its own half of a time axis", () => {
-    const layout = mount("time").layout(false, box.DECIMAL);
+    const layout = mount("time").layout(PROPS);
     expect(layout.span("l0")).toEqual({ lower: -Infinity, upper: 15 });
     expect(layout.span("l1")).toEqual({ lower: 15, upper: Infinity });
   });
@@ -399,7 +400,7 @@ describe("LinePlot trace spans", () => {
   });
 
   it("should give each line its window with a margin on a relative axis", () => {
-    const layout = mount("relative").layout(false, box.DECIMAL);
+    const layout = mount("relative").layout(PROPS);
     const second = Number(TimeSpan.SECOND.valueOf());
     expect(layout.span("l0")).toEqual({ lower: -second, upper: 10 + second });
     expect(layout.span("l1")).toEqual({ lower: 20 - second, upper: 30 + second });

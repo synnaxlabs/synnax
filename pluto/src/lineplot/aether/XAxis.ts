@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type box, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { bounds, box, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import {
   align,
@@ -19,9 +19,16 @@ import {
 import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
+import { axis } from "@/vis/axis";
 import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
+
+// The band over a seam ends this many pixels short of the mark on the axis.
+const BAND_GAP = 2;
+
+/** The plot state that lays out an x axis. */
+export type LayoutProps = Pick<AxisRenderProps, "hold" | "viewport" | "gapsCollapsed">;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
@@ -29,14 +36,19 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   /**
    * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
-   * raised lines to raised.
+   * raised lines to raised, and each range strip adds the draw of its tooltip.
    */
   render(props: AxisRenderProps, raised: Array<() => void>): void {
     if (this.deleted) return;
-    const [layout, err] = this.iLayout(props.hold, props.viewport);
-    this.renderAxis(props, layout.segments[0].scale.reverse());
+    const [layout, err] = this.iLayout(props);
+    const segments = layout.segments.map(({ position, scale }) => ({
+      position,
+      decimalToDataScale: scale.reverse(),
+    }));
+    this.renderAxis(props, segments[0].decimalToDataScale, segments);
     this.renderYAxes({ ...props, layout }, raised);
-    this.renderRanges(props, layout);
+    this.renderRanges(props, layout, raised);
+    this.renderBreaks(props, layout);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -45,8 +57,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: Omit<AxisRenderProps, "canvases">,
     target: number,
   ): line.FindResult[] {
-    const layout = this.layout(props.hold, props.viewport);
-    return this.findByXValue(props, layout.reverse(target));
+    return this.findByXValue(props, this.layout(props).reverse(target));
   }
 
   findByXValue(
@@ -73,7 +84,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {
-    return { ...props, layout: this.layout(props.hold, props.viewport) };
+    return { ...props, layout: this.layout(props) };
   }
 
   private renderYAxes(props: YAxisProps, raised: Array<() => void>): void {
@@ -103,15 +114,20 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   /** @returns the layout of the axis for the viewport. */
-  layout(hold: boolean, viewport: box.Box): Layout {
-    const [layout, err] = this.iLayout(hold, viewport);
+  layout(props: LayoutProps): Layout {
+    const [layout, err] = this.iLayout(props);
     if (err != null) throw err;
     return layout;
   }
 
   // iLayout returns the layout with the error that its traces or bounds met, so a
   // render can draw the axis before it throws.
-  private iLayout(hold: boolean, viewport: box.Box): [Layout, Error | null] {
+  private iLayout({
+    hold,
+    viewport,
+    gapsCollapsed,
+  }: LayoutProps): [Layout, Error | null] {
+    const { type } = this.state;
     let traces: Trace[] = [];
     let err: Error | null = null;
     try {
@@ -119,12 +135,17 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     } catch (e) {
       err = e as Error;
     }
-    const [b, boundsErr] = this.iBounds(hold, () => traces);
-    const layout = new Layout([b], viewport, spans(align(traces), this.state.type));
-    return [layout, err ?? boundsErr];
+    const collapsed = gapsCollapsed && type === "time";
+    const [segments, boundsErr] = this.iSegments(hold, () => traces, collapsed);
+    const s = spans(align(traces), type, segments);
+    return [new Layout(segments, viewport, s), err ?? boundsErr];
   }
 
-  private renderRanges(props: AxisRenderProps, layout: Layout): void {
+  private renderRanges(
+    props: AxisRenderProps,
+    layout: Layout,
+    raised: Array<() => void>,
+  ): void {
     const clampedBounds = bounds.intersection([
       layout.bounds,
       TimeRange.MAX.numericBounds,
@@ -137,8 +158,48 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
         region: props.plot,
         timeRange,
         newest: newest == null ? undefined : new TimeStamp(newest),
+        raised,
       }),
     );
+  }
+
+  // renderBreaks draws a band over each seam in view, through the plot and the range
+  // strip, so a line stops short of the seam on each side. The band ends short of the
+  // mark on the axis, which it would hide.
+  private renderBreaks({ plot, canvases }: AxisRenderProps, layout: Layout): void {
+    if (!canvases.includes("upper2d") || layout.segments.length < 2) return;
+    const { draw } = this.internal;
+    const { theme } = draw;
+    const strip = Math.max(
+      0,
+      ...this.ranges.filter((r) => r.state.visible).map((r) => r.state.height),
+    );
+    const clear = axis.BREAK_HEIGHT / 2 + BAND_GAP;
+    const atTop = this.state.location === "top";
+    const top = box.top(plot) - strip + (atTop ? clear : 0);
+    const bottom = box.bottom(plot) - (atTop ? 0 : clear);
+    layout.segments.slice(1).forEach(({ position }) => {
+      const x = box.left(plot) + position.lower * box.width(plot);
+      if (x <= box.left(plot) || x >= box.right(plot)) return;
+      const lower = x - axis.BREAK_WIDTH / 2;
+      const upper = x + axis.BREAK_WIDTH / 2;
+      draw.container({
+        region: box.construct({ x: lower, y: top }, { x: upper, y: bottom }),
+        backgroundColor: theme.colors.gray.l2,
+        bordered: false,
+        rounded: false,
+      });
+      [lower, upper].forEach((edge) => {
+        const crisp = Math.round(edge) + 0.5;
+        draw.line({
+          stroke: theme.colors.gray.l3,
+          lineWidth: 1,
+          lineDash: 3,
+          start: { x: crisp, y: top },
+          end: { x: crisp, y: bottom },
+        });
+      });
+    });
   }
 
   private traces(): Trace[] {
