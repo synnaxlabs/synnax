@@ -35,8 +35,9 @@ const ROOT = createListing({
 const EMPTY = createListing({ path: "/empty", parent: "/" });
 
 const openWide = async (): Promise<void> => {
-  // The columns need 100rem, more than the dialog has at this size.
-  await page.viewport(1600, 900);
+  // The dialog fills this width, and the 100rem of columns do not fit in it. A wider
+  // viewport lets the 160rem dialog hold them at the 6px theme size.
+  await page.viewport(720, 900);
   const files = await createFileRack(client);
   await serveListings(client, files, [TOP, ROOT, EMPTY]);
   await renderModalOpener(
