@@ -130,10 +130,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/diagnostics"
           (while true; do
             ts=$(date +%s)
-            free -m | awk -v ts="$ts" '/Mem:/{print ts, "MEM", $3, $7}'
-            ps -eo pid=,rss=,comm= | awk -v ts="$ts" '/WebKit|chrome|node/{print ts, $1, int($2/1024), $3}'
-            sleep 2
-          done) > "$RUNNER_TEMP/diagnostics/rss.txt" 2>&1 &
+            mem=$(free -m | awk '/Mem:/{print "used=" $3 " avail=" $7}')
+            top=$(ps -eo pid=,rss=,comm= --sort=-rss | head -8 |
+              awk '{printf "%s:%s:%d ", $3, $1, $2/1024}')
+            echo "RSSDIAG $ts $mem $top"
+            sleep 10
+          done) &
           set -o pipefail
           pnpm test:console --log-order=stream --log-prefix=none -- "${args[@]}" \
             "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/diagnostics/vitest.log"
