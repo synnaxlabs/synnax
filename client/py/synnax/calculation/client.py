@@ -12,7 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import channel
+from synnax import channel, group as group_
 from synnax.calculation import actions_gen
 from synnax.calculation.types_gen import (
     Calculation,
@@ -24,17 +24,23 @@ from synnax.calculation.types_gen import (
     Where,
     WhereInput,
 )
-from synnax.exceptions import ValidationError
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
 
 
+class _Input(BaseModel):
+    calculation: Calculation
+    name: str = ""
+    group: group_.Key | None = None
+
+
 class _CreateRequest(BaseModel):
+    calculations: list[_Input]
+
+
+class _CreateResponse(BaseModel):
     calculations: list[Calculation]
-
-
-_CreateResponse = _CreateRequest
 
 
 class _DispatchRequest(BaseModel):
@@ -67,6 +73,17 @@ class Client:
     ) -> Calculation: ...
 
     @overload
+    def create(
+        self,
+        *,
+        name: str,
+        expression: str,
+        group: group_.Key | None = None,
+        operations: list[Operation] | None = None,
+        primary: channel.Key | None = None,
+    ) -> Calculation: ...
+
+    @overload
     def create(self, calculations: Calculation) -> Calculation: ...
 
     @overload
@@ -77,6 +94,8 @@ class Client:
         calculations: Calculation | list[Calculation] | None = None,
         *,
         output: channel.Key | None = None,
+        name: str | None = None,
+        group: group_.Key | None = None,
         expression: str | None = None,
         operations: list[Operation] | None = None,
         primary: channel.Key | None = None,
@@ -86,31 +105,39 @@ class Client:
         :param calculations: The calculation or list of calculations to create. When
             omitted, one calculation is created from the keyword arguments.
         :param output: The virtual channel that the calculation writes, when
-            ``calculations`` is omitted.
+            ``calculations`` is omitted. Pass either ``output`` or ``name``.
+        :param name: The name of a new virtual channel for the calculation to write,
+            typed by its expression. Pass either ``output`` or ``name``.
+        :param group: The group to create the new output in, if any. Pass it only with
+            ``name``.
         :param expression: The Arc expression that computes each output sample.
         :param operations: The operations applied to the computed samples, in order.
         :param primary: The channel that the expression reads whose samples time the
             output.
         :returns: The created calculation, or a list of them when ``calculations`` is
             a list.
-        :raises ValidationError: If ``calculations`` and ``output`` are both omitted,
-            if a calculation is not valid, or if its output stores its samples or has
-            another writer.
+        :raises ValidationError: If both or neither of ``output`` and ``name`` are given
+            with no ``calculations``, if a calculation is not valid, or if its output
+            stores its samples or has another writer.
         :raises NotFoundError: If an output does not exist.
         """
         is_single = not isinstance(calculations, list)
         if calculations is None:
-            if output is None or expression is None:
-                raise ValidationError(
-                    "A calculation needs an output and an expression."
+            inputs = [
+                _Input(
+                    calculation=Calculation(
+                        output=output or 0,
+                        expression=expression or "",
+                        operations=operations or [],
+                        primary=primary,
+                    ),
+                    name=name or "",
+                    group=group,
                 )
-            calculations = Calculation(
-                output=output,
-                expression=expression,
-                operations=operations or [],
-                primary=primary,
-            )
-        req = _CreateRequest(calculations=normalize(calculations))
+            ]
+        else:
+            inputs = [_Input(calculation=c) for c in normalize(calculations)]
+        req = _CreateRequest(calculations=inputs)
         res = self._client.send("/calculation/create", req, _CreateResponse)
         return res.calculations[0] if is_single else res.calculations
 

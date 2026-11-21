@@ -34,9 +34,34 @@ class TestCalculationClient:
         assert client.calculations.retrieve(key=created.key) == created
 
     def test_create_requires_output(self, client: sy.Synnax) -> None:
-        """Should reject a keyword create that leaves out the output."""
-        with pytest.raises(sy.ValidationError, match="needs an output"):
+        """Should reject a keyword create that names neither an output nor a name."""
+        with pytest.raises(sy.ValidationError, match="name"):
             untyped(client.calculations.create)(expression="return 2")
+
+    def test_create_with_name(self, client: sy.Synnax) -> None:
+        """Should make a virtual output with the given name, typed by the expression."""
+        name = f"calc_{uuid4().hex[:8]}"
+        created = client.calculations.create(name=name, expression="return 2.5")
+        output = client.channels.retrieve(created.output)
+        assert output.name == name
+        assert output.virtual
+        assert output.data_type == sy.DataType.FLOAT64
+
+    def test_create_with_name_and_group(self, client: sy.Synnax) -> None:
+        """Should make the output in the given group."""
+        group = client.groups.create(f"calc_{uuid4().hex[:8]}", scope="channel")
+        created = client.calculations.create(
+            name=f"calc_{uuid4().hex[:8]}", expression="return 2", group=group.key
+        )
+        assert client.channels.retrieve(created.output).group == group.key
+
+    def test_create_rejects_output_and_name(self, client: sy.Synnax) -> None:
+        """Should reject a keyword create that names an output and a name."""
+        out = _virtual(client)
+        with pytest.raises(sy.ValidationError, match="name"):
+            untyped(client.calculations.create)(
+                output=out.key, name="doubled", expression="return 2"
+            )
 
     def test_create_on_stored_output(self, client: sy.Synnax) -> None:
         """Should refuse an output that stores its samples."""
