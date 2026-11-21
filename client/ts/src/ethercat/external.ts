@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ethercat/entry";
+export { ethercatMaster as master } from "@/ethercat/master";
 export * from "@/ethercat/types.gen";

@@ -1,0 +1,79 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/ethercat/master"
+@go output  "core/pkg/service/ethercat/master"
+@py output  "client/py/synnax/ethercat/master"
+@ts output  "client/ts/src/ethercat/master"
+
+Key = uuid {
+    @doc value "uniquely identifies an EtherCAT master."
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the master belongs to."
+    }
+    master Key      {
+        @doc value "is the key of the master."
+    }
+
+    @doc value "identifies the master and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a master."
+}
+
+Master struct {
+    key       Key = create {
+        @doc value "uniquely identifies the master."
+        @key
+    }
+    rack      rack.Key {
+        @doc value     "is the key of the rack the master runs on."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name      string   {
+        @doc value         "is a human-readable name for the master."
+        @filter
+        @search
+        @validate required
+    }
+    interface string   {
+        @doc value         """
+            is the network interface the master drives, such as eth0 or igh:0.
+        """
+        @filter
+        @index lookup
+        @validate required
+    }
+    slaves    uuid[] = [] {
+        @doc value """
+            are the keys of the slaves on the bus, in bus order. A slave's position is
+            its index.
+        """
+    }
+    status    Status?  {
+        @doc value  "is the current operational status of the master."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is an EtherCAT master: one network interface and the bus behind it."
+    @go marshal
+    @go migrate
+    @resource type "ethercat_master"
+    @retrieve
+}
