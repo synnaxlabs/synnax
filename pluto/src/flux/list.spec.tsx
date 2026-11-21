@@ -416,6 +416,27 @@ describe("useList", () => {
     release();
   });
 
+  it("should not call a subscriber that released before its read lands", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const reader = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: reader }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    const send = spyOnSend(reader);
+    const callback = vi.fn();
+    result.current.subscribe(callback, outside.key)();
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    await Promise.allSettled(send.mock.results.map(({ value }) => value));
+    await act(async () => {});
+    expect(callback).not.toHaveBeenCalled();
+  });
+
   it("should not log the failed read of a subscriber that released", async () => {
     const outside = await client.ranges.create({
       name: "outside",
