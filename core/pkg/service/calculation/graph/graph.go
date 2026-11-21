@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/coalesce"
@@ -726,7 +727,7 @@ func (g *Graph) inspectNode(
 		ctx,
 		ch,
 		c.Expression,
-		calculation.HasDerivative(c.Operations),
+		compiler.HasDerivative(c.Operations),
 	)
 	nd := node{Channel: ch, calculation: c}
 	if err == nil {

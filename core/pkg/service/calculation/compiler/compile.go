@@ -12,6 +12,7 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
@@ -20,7 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
-	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	calculation "github.com/synnaxlabs/synnax/pkg/service/calculation/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
@@ -97,7 +98,7 @@ func preProcess(
 		ctx,
 		cfg.Channel,
 		cfg.Calculation.Expression,
-		calculation.HasDerivative(cfg.Calculation.Operations),
+		HasDerivative(cfg.Calculation.Operations),
 	)
 	if err != nil {
 		return arc.Program{}, err
@@ -114,6 +115,22 @@ func preProcess(
 	g := arc.Graph{Functions: ir.Functions{fn}}
 	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
 		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
+}
+
+// Check compiles the calculation of cfg against snap, as Compile does without its
+// retries, and returns the compile error.
+func Check(ctx context.Context, snap gorp.Snapshot, cfgs ...Config) error {
+	cfg, err := config.New(Config{}, cfgs...)
+	if err != nil {
+		return err
+	}
+	_, err = compile(
+		ctx,
+		snap,
+		cfg,
+		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+	)
+	return err
 }
 
 // Module is the compiled output for a single calculated channel, ready for
@@ -162,6 +179,14 @@ func addNode(g *arc.Graph, key, typ string, inputs xmsgpack.EncodedJSON) {
 
 func addEdge(g *arc.Graph, source, target ir.Handle) {
 	g.Edges = append(g.Edges, graph.Edge{Source: source, Target: target})
+}
+
+// HasDerivative reports whether ops holds a derivative.
+func HasDerivative(ops []calculation.Operation) bool {
+	return slices.ContainsFunc(ops, func(op calculation.Operation) bool {
+		_, ok := op.Variant.(calculation.DerivativeOperation)
+		return ok
+	})
 }
 
 // operationNode returns the node type of op and its window, which is zero for an

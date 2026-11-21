@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -57,7 +58,7 @@ var _ = Describe("Calculation access checks", func() {
 		ctx SpecContext,
 	) {
 		u := createUser(ctx)
-		out, reset := createVirtual(ctx), createVirtual(ctx)
+		out, reset := createVirtual(ctx), createVirtualOf(ctx, telem.BooleanT)
 		createAsCore(ctx, calculation.Calculation{
 			Output:     out.Key(),
 			Expression: "return 2",

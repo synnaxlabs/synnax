@@ -150,6 +150,7 @@ func (a *CalculationAnalyzer) AnalyzeExpression(
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
+			Deps:       reads(aCtx, t),
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
 	}
@@ -165,13 +166,7 @@ func (a *CalculationAnalyzer) AnalyzeExpression(
 		a.resolver.temp.keys[s.ID] = s
 		a.resolver.temp.names[s.Name] = s
 	}
-	var deps Keys
-	funcScope, scopeErr := aCtx.Scope.GetChildByParserRule(t)
-	if scopeErr == nil {
-		for k := range funcScope.Channels.Read {
-			deps = append(deps, Key(k))
-		}
-	}
+	deps := reads(aCtx, t)
 	inferredDataType := dataType.ToTelem()
 	if derivative {
 		inferredDataType = telem.Float64T
@@ -181,4 +176,16 @@ func (a *CalculationAnalyzer) AnalyzeExpression(
 		Deps:                 deps,
 		ExpressionReturnType: dataType,
 	}, nil
+}
+
+// reads returns the keys of the channels that the analysis of block t resolved.
+func reads(aCtx acontext.Context[parser.IBlockContext], t parser.IBlockContext) Keys {
+	var deps Keys
+	funcScope, err := aCtx.Scope.GetChildByParserRule(t)
+	if err == nil {
+		for k := range funcScope.Channels.Read {
+			deps = append(deps, Key(k))
+		}
+	}
+	return deps
 }

@@ -978,11 +978,11 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	Describe("Reset channel", func() {
 		It(
-			"Should fail to compile with a non-boolean reset channel",
+			"Should fail to compile when its reset channel is no longer a boolean",
 			func(ctx SpecContext) {
 				reset := channel.Channel{
 					Name:     UniqueChannelName(),
-					DataType: telem.Uint8T,
+					DataType: telem.BooleanT,
 					Virtual:  true,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -1004,6 +1004,10 @@ var _ = Describe("Calculator", Ordered, func() {
 						{Type: "max", ResetChannel: reset.Key()},
 					},
 				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).
+						ChangeDataType(ctx, reset.Key(), telem.Uint8T)
+				})).To(Succeed())
 				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,

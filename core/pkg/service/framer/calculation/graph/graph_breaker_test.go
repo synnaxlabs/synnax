@@ -15,15 +15,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Graph breaker", func() {
-	// saveAndAdd creates the channels, saves the calculations in order through the
-	// calculation writer, and adds the output of the last one to a new graph.
-	saveAndAdd := func(
+	// save creates the channels and saves the calculations in order through the
+	// calculation writer. It returns the error of the first save that fails, since the
+	// save refuses what the graph cannot run.
+	save := func(
 		ctx SpecContext,
 		chs []channel.Channel,
 		calcs ...func(chs []channel.Channel) calculation.Calculation,
@@ -32,24 +32,15 @@ var _ = Describe("Graph breaker", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
 		})).To(Succeed())
-		var last calculation.Calculation
 		for _, f := range calcs {
-			last = f(chs)
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return creator.Calculation.NewWriter(tx).Create(ctx, &last)
-			})).To(Succeed(), "the save accepts the calculation")
+			c := f(chs)
+			if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return creator.Calculation.NewWriter(tx).Create(ctx, &c)
+			}); err != nil {
+				return err
+			}
 		}
-		var output channel.Channel
-		Expect(channelSvc.NewRetrieve().
-			Where(channel.MatchKeys(last.Output)).
-			Entry(&output).
-			Exec(ctx, db)).To(Succeed())
-		g := MustSucceed(graph.New(graph.Config{
-			Channel:     channelSvc,
-			Calculation: creator.Calculation,
-			DB:          db,
-		}))
-		return g.Add(ctx, output)
+		return nil
 	}
 	maxResetOn := func(reset channel.Key) []calculation.Operation {
 		return []calculation.Operation{{Variant: calculation.MaxOperation{
@@ -58,10 +49,10 @@ var _ = Describe("Graph breaker", func() {
 	}
 
 	It(
-		"Should run a saved calculation whose operation resets on a channel that "+
-			"is not a boolean",
+		"Should refuse to save a calculation whose operation resets on a channel "+
+			"that is not a boolean",
 		func(ctx SpecContext) {
-			Expect(saveAndAdd(
+			Expect(save(
 				ctx,
 				[]channel.Channel{
 					{Name: "brk_type_base", DataType: telem.Int64T, Virtual: true},
@@ -75,15 +66,15 @@ var _ = Describe("Graph breaker", func() {
 						Operations: maxResetOn(chs[1].Key()),
 					}
 				},
-			)).To(Succeed())
+			)).To(MatchError(ContainSubstring("reset")))
 		},
 	)
 
 	It(
-		"Should run a saved calculation that resets on a calculation reading its "+
-			"output",
+		"Should refuse to save a calculation that resets on a calculation reading "+
+			"its output",
 		func(ctx SpecContext) {
-			Expect(saveAndAdd(
+			Expect(save(
 				ctx,
 				[]channel.Channel{
 					{Name: "brk_cyc_base", DataType: telem.Int64T, Virtual: true},
@@ -103,7 +94,7 @@ var _ = Describe("Graph breaker", func() {
 						Operations: maxResetOn(chs[2].Key()),
 					}
 				},
-			)).To(Succeed())
+			)).To(MatchError(validate.ErrValidation))
 		},
 	)
 })

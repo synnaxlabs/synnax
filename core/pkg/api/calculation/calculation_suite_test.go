@@ -101,9 +101,15 @@ func grant(
 // createVirtual creates a virtual float32 channel with a unique name.
 func createVirtual(ctx SpecContext) channel.Channel {
 	GinkgoHelper()
+	return createVirtualOf(ctx, telem.Float32T)
+}
+
+// createVirtualOf creates a virtual channel of dt with a unique name.
+func createVirtualOf(ctx SpecContext, dt telem.DataType) channel.Channel {
+	GinkgoHelper()
 	ch := channel.Channel{
 		Name:     "calc_" + uuid.New().String()[:8],
-		DataType: telem.Float32T,
+		DataType: dt,
 		Virtual:  true,
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

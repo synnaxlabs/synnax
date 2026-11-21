@@ -125,7 +125,13 @@ var _ = Describe("Service", func() {
 		It("Should return the channels that reset its operations", func(
 			ctx SpecContext,
 		) {
-			base, reset := create(ctx, ""), create(ctx, "")
+			base := create(ctx, "")
+			reset := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.BooleanT,
+				Virtual:  true,
+			}
+			createChannel(ctx, &reset)
 			calc := channel.Channel{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,

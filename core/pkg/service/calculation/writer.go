@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/errors"
@@ -101,7 +102,7 @@ func (w Writer) CreateOutput(
 		ctx,
 		output,
 		c.Expression,
-		HasDerivative(c.Operations),
+		compiler.HasDerivative(c.Operations),
 	)
 	if err != nil {
 		return nil, validate.PathedError(err, "expression")
@@ -222,7 +223,7 @@ func (w Writer) compile(
 		ctx,
 		output,
 		c.Expression,
-		HasDerivative(c.Operations),
+		compiler.HasDerivative(c.Operations),
 	)
 	if err != nil {
 		return validate.PathedError(err, "expression")
@@ -234,14 +235,22 @@ func (w Writer) compile(
 			*c.Primary,
 		), "primary")
 	}
-	if err = w.checkCycle(ctx, analyzer, output, result.Deps); err != nil {
+	reads := slices.Concat(result.Deps, resets(c.Operations))
+	if err = w.checkCycle(ctx, analyzer, output, reads); err != nil {
 		return err
 	}
-	if output.DataType == result.ChanDataType {
-		return nil
+	if output.DataType != result.ChanDataType {
+		if err = w.channels.NewWriter(w.tx).
+			ChangeDataType(ctx, output.Key(), result.ChanDataType); err != nil {
+			return err
+		}
+		output.DataType = result.ChanDataType
 	}
-	return w.channels.NewWriter(w.tx).
-		ChangeDataType(ctx, output.Key(), result.ChanDataType)
+	return validate.PathedError(compiler.Check(ctx, w.tx, compiler.Config{
+		ChannelService: w.channels,
+		Channel:        output,
+		Calculation:    c,
+	}), "operations")
 }
 
 // checkCycle returns an error wrapping validate.ErrValidation, which names the path,

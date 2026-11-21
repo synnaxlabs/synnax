@@ -15,19 +15,12 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
-
-// HasDerivative reports whether ops holds a derivative.
-func HasDerivative(ops []Operation) bool {
-	return slices.ContainsFunc(ops, func(op Operation) bool {
-		_, ok := op.Variant.(DerivativeOperation)
-		return ok
-	})
-}
 
 // resets returns the reset channel of each windowed operation of ops that has one.
 func resets(ops []Operation) []channel.Key {
@@ -172,7 +165,7 @@ func calculationReads(
 		ctx,
 		u.Output,
 		u.Expression,
-		HasDerivative(u.Operations),
+		compiler.HasDerivative(u.Operations),
 	)
 	if _, ok := errors.AsType[*diagnostics.Diagnostics](err); err != nil && !ok {
 		return nil, err

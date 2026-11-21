@@ -72,7 +72,7 @@ var _ = Describe("Calculation records", func() {
 
 	It("Should write the record of a calculated channel", func(ctx SpecContext) {
 		input := createChannel(ctx, telem.Float32T)
-		reset := createChannel(ctx, telem.Uint8T)
+		reset := createChannel(ctx, telem.BooleanT)
 		ch := create(ctx, apichannel.CreateRequest{Channels: []apichannel.Channel{
 			calculated(
 				input,

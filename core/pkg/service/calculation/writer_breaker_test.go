@@ -95,7 +95,15 @@ var _ = Describe("Writer breaker", func() {
 		"Should fail the same cycle when the reading calculation is saved last",
 		func(ctx SpecContext) {
 			createVirtual(ctx, "base")
-			second := createVirtual(ctx, "second")
+			// A boolean second leaves the cycle as the one fault of the last save.
+			second := channel.Channel{
+				Name:     "second",
+				DataType: telem.BooleanT,
+				Virtual:  true,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channels.NewWriter(tx).Create(ctx, &second)
+			})).To(Succeed())
 			first := calculation.Calculation{
 				Output:     createVirtual(ctx, "first").Key(),
 				Expression: "return base * 2",
