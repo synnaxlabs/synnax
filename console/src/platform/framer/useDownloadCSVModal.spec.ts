@@ -100,7 +100,10 @@ describe("useDownloadCSVModal", () => {
       });
       await waitFor(() =>
         expect(document.body.textContent).toMatch(
-          /From\s*Mar 5, 2020\s*12:00.*To\s*Mar 5, 2020\s*13:00.*Jul 9, 2020\s*12:00.*Jul 9, 2020\s*13:00/,
+          new RegExp(
+            String.raw`From\s*Mar 5, 2020\s*12:00.*To\s*Mar 5, 2020\s*13:00.*` +
+              String.raw`Jul 9, 2020\s*12:00.*Jul 9, 2020\s*13:00`,
+          ),
         ),
       );
       expect(screen.getAllByText("From")).toHaveLength(1);
