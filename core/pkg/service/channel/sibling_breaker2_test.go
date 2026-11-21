@@ -183,7 +183,7 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 		Expect(got.Name).To(Equal(name + "c"))
 		Expect(*got.Group).To(Equal(other.Key))
 		storage := MustSucceed(
-			dist.Storage.TS.RetrieveChannel(ctx, b.Key().StorageKey()),
+			dist.Storage.TS.RetrieveChannel(ctx, uint32(b.Key())),
 		)
 		Expect(storage.Name).To(Equal(name + "c"))
 	})
@@ -203,7 +203,7 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 			To(MatchError(ContainSubstring("already exists in the same group")))
 		Expect(stored(ctx, ch.Key()).Name).To(Equal(ch.Name))
 		storage := MustSucceed(
-			dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 		)
 		Expect(storage.Name).To(Equal(ch.Name))
 	})
