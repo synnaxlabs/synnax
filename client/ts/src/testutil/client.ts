@@ -128,6 +128,32 @@ export const holdRequests = (
   return { release: () => released.resolve() };
 };
 
+/**
+ * Holds each request to target until release is called, then fails it with error, so
+ * the Core does not get it. Call it inside a test: the hold ends when the test
+ * finishes.
+ */
+export const holdFailures = (
+  client: Synnax,
+  target: string,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const released = Promise.withResolvers<void>();
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] !== target) return await send(...args);
+    await released.promise;
+    throw error;
+  });
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
+  return { release: () => released.resolve() };
+};
+
 /** Rejects with error each request for which matches is true. Sends the others on. */
 export const rejectRequests = (
   client: Synnax,
