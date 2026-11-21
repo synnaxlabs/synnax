@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll, expect, onTestFinished, vi } from "vitest";
+import { afterAll, onTestFinished, TestRunner, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 import { testCoreAddress } from "@/testutil/address";
@@ -56,7 +56,7 @@ afterAll(async () => {
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   // An open client keeps its change stream, so later tests would pay for its frames.
-  if (expect.getState().currentTestName == null) return createFileTestClient(params);
+  if (TestRunner.getCurrentTest() == null) return createFileTestClient(params);
   const client = new Synnax({ ...testClientParams(), ...params });
   onTestFinished(async () => await client.close());
   return client;

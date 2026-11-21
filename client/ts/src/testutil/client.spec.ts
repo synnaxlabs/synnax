@@ -45,20 +45,19 @@ describe("createTestClient", () => {
 });
 
 describe("createTestClient lifetime", () => {
-  let made: Synnax | undefined;
-
-  it("should make a client inside a test", async () => {
+  it("should close a client made inside a test once the test finishes", async () => {
+    let made: Synnax | undefined;
+    // Finished hooks run in stack order, so this one runs after the client closes.
+    onTestFinished(async () => {
+      assertDefined(made);
+      // Closing the client ends its session, so it can no longer sign its requests.
+      const err = await made.channels
+        .retrieve(["no-such-channel"])
+        .catch((e: unknown) => e);
+      expect(AuthError.matches(err)).toBe(true);
+    });
     made = createTestClient();
     await made.connect();
-  });
-
-  it("should close the client of a test once that test finishes", async () => {
-    assertDefined(made);
-    // Closing the client ends its session, so it can no longer sign its requests.
-    const err = await made.channels
-      .retrieve(["no-such-channel"])
-      .catch((e: unknown) => e);
-    expect(AuthError.matches(err)).toBe(true);
   });
 });
 
