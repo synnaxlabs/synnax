@@ -189,6 +189,45 @@ describe("Lists", () => {
       expect(lists.list({ order: byName, limit: 3 })).not.toBe(list);
     });
 
+    it("should return undefined from getCached while a smaller limit shortens the window", async () => {
+      const { lists } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      expect(names(small.getCached())).toEqual(["a"]);
+      const larger = lists.list({ order: byName, limit: 2 });
+      expect(larger.getCached()).toBeUndefined();
+      expect(lists.list({ order: byName }).getCached()).toBeUndefined();
+      expect(names(await larger.retrieve())).toEqual(["a", "b"]);
+      expect(names(larger.getCached())).toEqual(["a", "b"]);
+      expect(names(await lists.list({ order: byName }).retrieve())).toEqual([
+        "a",
+        "b",
+        "c",
+      ]);
+      expect(names(lists.list({ order: byName }).getCached())).toEqual(["a", "b", "c"]);
+    });
+
+    it("should not deliver a short window to a reader whose fetch is in flight", async () => {
+      const { lists, fetch, table } = setup([rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      const all = lists.list({ order: byName });
+      const handler = vi.fn();
+      all.onChange(handler);
+      const page = Promise.withResolvers<Rec[]>();
+      fetch.mockImplementationOnce(async () => await page.promise);
+      const read = all.retrieve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("1", rec("1", "a"));
+      expect(names(small.getCached())).toEqual(["a", "b"]);
+      expect(handler).not.toHaveBeenCalled();
+      page.resolve([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      expect(names(await read)).toEqual(["a", "b", "c"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["a", "b", "c"]);
+    });
+
     it("should return undefined from getCached before a fetch", () => {
       const { lists } = setup([rec("1", "a")]);
       expect(lists.list({ order: byName }).getCached()).toBeUndefined();
@@ -334,6 +373,17 @@ describe("Lists", () => {
       });
       table.set("1", rec("1", "a", 0));
       expect(names(list.getCached())).toEqual(["b"]);
+    });
+
+    it("should serve and deliver a paged window that a delete shortens", async () => {
+      const { table, list, handler } = await maintained([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      table.delete("1");
+      expect(names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
     });
 
     it("should remove a deleted member and keep the end", async () => {
