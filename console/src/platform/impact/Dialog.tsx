@@ -20,9 +20,11 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Note } from "@synnaxlabs/lyra/note";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Resource, Synnax } from "@synnaxlabs/pluto";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement, Suspense, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -52,6 +54,12 @@ const recordKey = (e: impact.Entry): string => resource.idToString(e.record);
 const messageOf = (names: string[]): string =>
   names.length === 1 ? `Delete channel ${names[0]}` : `Delete ${names.length} channels`;
 
+const messageOfError = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err);
+
+const failureOf = (names: string[]): string =>
+  names.length === 1 ? "Failed to delete channel" : "Failed to delete channels";
+
 const descriptionOf = (names: string[]): string =>
   names.length === 1
     ? "Deletes the channel and its data."
@@ -62,6 +70,15 @@ interface Row {
   entry: impact.Entry;
   resource?: resource.Resource;
 }
+
+/** Icons for the record types that no tree item shows, such as a channel's status. */
+const TYPE_ICONS: Partial<Record<resource.Type, Icon.FC>> = { status: Icon.Status };
+
+/** Orders rows by name, then by record, so equal names keep one order. */
+const ROW_ORDER = compare.chain<Row>(
+  compare.by((r) => r.resource?.name ?? r.entry.record.key),
+  compare.by((r) => r.key),
+);
 
 interface EntryProps {
   row: Row;
@@ -83,7 +100,10 @@ const Entry = ({
   onPick,
 }: EntryProps): ReactElement => {
   const Item = Tree.useItems()[entry.record.type] ?? Tree.DefaultItem;
+  const TypeIcon = TYPE_ICONS[entry.record.type];
   const name = res?.name ?? entry.record.key;
+  const treeIcon = res == null ? undefined : Item.icon(res);
+  const icon = treeIcon ?? (TypeIcon == null ? null : <TypeIcon />);
   return (
     <List.Item<string>
       itemKey={key}
@@ -93,7 +113,7 @@ const Entry = ({
       align="center"
       gap="medium"
     >
-      {res != null && Item.icon(res)}
+      <span className={CSS.BE("impact", "icon")}>{icon}</span>
       <Text.Text overflow="fade" grow>
         {name}
       </Text.Text>
@@ -190,7 +210,8 @@ const Entries = ({ plan, ...rest }: EntriesProps): ReactElement => {
             key: recordKey(entry),
             entry,
             resource: byID.get(recordKey(entry)),
-          }));
+          }))
+          .toSorted(ROW_ORDER);
         if (rows.length === 0) return null;
         return (
           <Group
@@ -236,7 +257,7 @@ const Dialog = ({
         setPlanning(false);
       } catch (e) {
         if (signal.aborted) return;
-        setPlanError((e as Error).message);
+        setPlanError(messageOfError(e));
         setPlanning(false);
       }
     },
@@ -279,7 +300,7 @@ const Dialog = ({
     } catch (e) {
       setApplying(false);
       if (!(e instanceof PlanChangedError)) {
-        setApplyError((e as Error).message);
+        setApplyError(messageOfError(e));
         return;
       }
       const next = impact.planOf(e);
@@ -315,9 +336,11 @@ const Dialog = ({
           {empty && " Nothing else uses it."}
         </Text.Text>
         {planError != null && (
-          <Note.Note variant="error">
-            <Text.Text level="small">{planError}</Text.Text>
-          </Note.Note>
+          <Status.Summary
+            variant="error"
+            message="Failed to list the records that this delete touches"
+            description={planError}
+          />
         )}
         {plan != null && plan.entries.length > 0 && (
           <Suspense fallback={null}>
@@ -348,42 +371,43 @@ const Dialog = ({
               value={hidden}
               onChange={setHidden}
             />
-            <Text.Text level="small">Delete them too</Text.Text>
+            <Text.Text level="small">
+              {plan.hidden === 1 ? "Delete it too" : "Delete them too"}
+            </Text.Text>
           </Flex.Box>
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Flex.Box y grow gap="small">
-          <Nav.Bar.End x align="center">
-            <Button.Button
-              variant="outlined"
-              triggerIndicator={PTriggers.ESCAPE}
-              onClick={() => close()}
-            >
-              Cancel
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              status={applying || planning ? "loading" : "error"}
-              disabled={plan == null}
-              trigger={Triggers.SAVE}
-              triggerIndicator
-              autoFocus={plan != null && !hasBlockers}
-              onClick={() => void handleDelete()}
-            >
-              Delete
-            </Button.Button>
-          </Nav.Bar.End>
-          <Note.Note
-            variant="error"
-            className={CSS.cls(
-              CSS.BE("impact", "error"),
-              applyError == null && CSS.M("ghost"),
-            )}
+        <Nav.Bar.Start className={CSS.BE("impact", "status")}>
+          {applyError != null && (
+            <Flex.Box y empty>
+              <Status.Summary variant="error" message={failureOf(names)} />
+              <Text.Text level="small" color={9}>
+                {applyError}
+              </Text.Text>
+            </Flex.Box>
+          )}
+        </Nav.Bar.Start>
+        <Nav.Bar.End x align="center">
+          <Button.Button
+            variant="outlined"
+            triggerIndicator={PTriggers.ESCAPE}
+            onClick={() => close()}
           >
-            <Text.Text level="small">{applyError ?? " "}</Text.Text>
-          </Note.Note>
-        </Flex.Box>
+            Cancel
+          </Button.Button>
+          <Button.Button
+            variant="filled"
+            status={applying || planning ? "loading" : "error"}
+            disabled={plan == null}
+            trigger={Triggers.SAVE}
+            triggerIndicator
+            autoFocus={plan != null && !hasBlockers}
+            onClick={() => void handleDelete()}
+          >
+            Delete
+          </Button.Button>
+        </Nav.Bar.End>
       </Modal.Footer>
     </Modal.Frame>
   );

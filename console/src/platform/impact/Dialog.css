@@ -9,6 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-impact {
+    width: 110rem;
+}
+
+.console-impact__body {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* a long error wraps in place, so the dialog keeps its width */
+.console-impact__status {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .console-impact__entry {
     padding-inline: 1.5rem;
 }
@@ -17,12 +32,9 @@
     flex-shrink: 0;
 }
 
-.console-impact__error {
-    -webkit-user-select: text;
-    user-select: text;
-
-    /* keeps its space while empty, so the footer never moves when an error shows */
-    &.console--ghost {
-        visibility: hidden;
-    }
+.console-impact__icon {
+    display: flex;
+    flex-shrink: 0;
+    width: 2.5rem;
+    justify-content: center;
 }
