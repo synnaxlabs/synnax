@@ -552,7 +552,7 @@ describe("MQTT read form", () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const time = icd.jsonFieldZ.parse({
       ...createTimeField(),
-      default: at,
+      default: { type: "constant", value: at },
     });
     const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
     await selectField("time");
@@ -804,7 +804,7 @@ describe("MQTT read form", () => {
       pointer: "/started",
       type: "timestamp",
       timeFormat: "unix_ms",
-      default: TimeStamp.milliseconds(1_700_000_000_000),
+      default: { type: "constant", value: TimeStamp.milliseconds(1_700_000_000_000) },
     });
     const time = createTimeField();
     const { draft } = await renderRead({ fields: [started, time] });
