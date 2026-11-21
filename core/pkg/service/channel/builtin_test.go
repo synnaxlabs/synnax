@@ -365,6 +365,7 @@ var _ = Describe("Built-in channels across restarts", func() {
 			svc := MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
 				Channel: node.Channel,
 				DB:      node.DB,
+				TS:      node.Storage.TS,
 				HostKey: node.Identity.HostKey,
 				Status:  statusSvc,
 			}))
