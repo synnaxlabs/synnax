@@ -183,19 +183,25 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
+	requested := make([]calculation.Requested, len(req.Channels))
 	var (
 		outputs channel.Keys
 		unsaved []calculation.Unsaved
 	)
-	for _, ch := range translated {
+	for i, ch := range req.Channels {
+		requested[i] = calculation.Requested{
+			Channel:    translated[i],
+			Expression: ch.Expression,
+			Operations: ch.Operations,
+		}
 		if ch.Expression != "" {
 			unsaved = append(unsaved, calculation.Unsaved{
-				Output:     ch,
+				Output:     translated[i],
 				Expression: ch.Expression,
 				Operations: calculation.FromChannelOperations(ch.Operations),
 			})
-		} else if ch.LocalKey != 0 {
-			outputs = append(outputs, ch.Key())
+		} else if ch.Key.LocalKey() != 0 {
+			outputs = append(outputs, translated[i].Key())
 		}
 	}
 	inputs, err := s.calculations.Inputs(ctx, tx, outputs, unsaved)
@@ -209,11 +215,12 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.calculations.NewWriter(tx).
-		CreateChannels(ctx, &translated, req.RetrieveIfNameExists); err != nil {
+	stored, err := s.calculations.NewWriter(tx).
+		CreateChannels(ctx, requested, req.RetrieveIfNameExists)
+	if err != nil {
 		return CreateResponse{}, err
 	}
-	created, err := s.translateForward(ctx, tx, translated)
+	created, err := s.translateForward(ctx, tx, stored)
 	return CreateResponse{Channels: created}, err
 }
 
@@ -424,8 +431,6 @@ func translateChannelsBackward(channels []Channel) []channel.Channel {
 			LocalIndex:  ch.Index.LocalKey(),
 			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
-			Expression:  ch.Expression,
-			Operations:  ch.Operations,
 			Group:       ch.Group,
 		}
 		if ch.IsIndex {

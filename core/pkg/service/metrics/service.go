@@ -185,15 +185,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}); err != nil {
 		return nil, err
 	}
-	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
-	// calculated channel expressions.
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := createCalculatedMetrics(namePrefix)
-		for i := range calculatedChannels {
-			calculatedChannels[i].Group = &s.group.Key
-		}
-		return cfg.Calculation.NewWriter(tx).
-			CreateChannels(ctx, &calculatedChannels, true)
+		return createCalculatedMetrics(ctx, tx, cfg, namePrefix, &s.group.Key)
 	}); err != nil {
 		return nil, err
 	}

@@ -47,34 +47,48 @@ func ChannelOperations(ops []Operation) []channel.Operation {
 	return out
 }
 
-// CreateChannels creates channels as the old channel API does. A channel with an
-// expression becomes the output of a new calculation through CreateOutput, and every
+// Requested is a channel that the old channel API creates. A non-empty Expression makes
+// the channel the output of a new calculation.
+type Requested struct {
+	// Channel is the channel to create.
+	Channel channel.Channel
+	// Expression is the expression of the calculation that writes Channel.
+	Expression string
+	// Operations are the operations of that calculation.
+	Operations []channel.Operation
+}
+
+// CreateChannels creates channels as the old channel API does. A requested channel with
+// an expression becomes the output of a new calculation through CreateOutput, and every
 // other channel goes to the channel service. When retrieveIfExists is true, a channel
 // whose name or key is stored is found as channel.RetrieveIfNameExists finds it, and
-// CreateChannels writes no calculation for it. On return, channels holds the stored
-// channels in their order, then the index channels of the new outputs.
+// CreateChannels writes no calculation for it. It returns the stored channels in the
+// order of requested, then the index channels of the new outputs. A failed channel's
+// error holds its position in requested.
 func (w Writer) CreateChannels(
 	ctx context.Context,
-	channels *[]channel.Channel,
+	requested []Requested,
 	retrieveIfExists bool,
-) error {
+) ([]channel.Channel, error) {
 	var (
-		plain   []channel.Channel
-		plainAt []int
-		opts    []channel.CreateOption
-		stored  = map[string]channel.Channel{}
-		keys    = map[channel.Key]channel.Channel{}
+		channels = make([]channel.Channel, len(requested))
+		plain    []channel.Channel
+		plainAt  []int
+		opts     []channel.CreateOption
+		stored   = map[string]channel.Channel{}
+		keys     = map[channel.Key]channel.Channel{}
 	)
-	for i, ch := range *channels {
-		if ch.Expression == "" {
-			plain, plainAt = append(plain, ch), append(plainAt, i)
+	for i, r := range requested {
+		channels[i] = r.Channel
+		if r.Expression == "" {
+			plain, plainAt = append(plain, r.Channel), append(plainAt, i)
 		}
 	}
 	if retrieveIfExists {
 		opts = append(opts, channel.RetrieveIfNameExists())
-		found, err := w.storedChannels(ctx, *channels)
+		found, err := w.storedChannels(ctx, channels)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, ch := range found {
 			stored[ch.Name], keys[ch.Key()] = ch, ch
@@ -84,36 +98,35 @@ func (w Writer) CreateChannels(
 		if err := w.channels.NewWriter(w.tx).
 			WithDispatchKey(w.dispatchKey).
 			CreateMany(ctx, &plain, opts...); err != nil {
-			return reindex(err, func(j int) []string {
+			return nil, reindex(err, func(j int) []string {
 				return []string{strconv.Itoa(plainAt[j])}
 			})
 		}
 		for j, i := range plainAt {
-			(*channels)[i] = plain[j]
+			channels[i] = plain[j]
 		}
 	}
 	var indexes []channel.Channel
-	for i, ch := range *channels {
-		if ch.Expression == "" {
+	for i, r := range requested {
+		if r.Expression == "" {
 			continue
 		}
-		if s, ok := found(stored, keys, ch); ok && retrieveIfExists {
-			(*channels)[i] = s
+		if s, ok := found(stored, keys, r.Channel); ok && retrieveIfExists {
+			channels[i] = s
 			continue
 		}
 		c := Calculation{
-			Expression: ch.Expression,
-			Operations: FromChannelOperations(ch.Operations),
+			Expression: r.Expression,
+			Operations: FromChannelOperations(r.Operations),
 		}
-		created, err := w.CreateOutput(ctx, &c, ch.Name, ch.Group)
+		created, err := w.CreateOutput(ctx, &c, r.Channel.Name, r.Channel.Group)
 		if err != nil {
-			return validate.PathedError(err, strconv.Itoa(i))
+			return nil, validate.PathedError(err, strconv.Itoa(i))
 		}
-		(*channels)[i] = created[0]
+		channels[i] = created[0]
 		indexes = append(indexes, created[1:]...)
 	}
-	*channels = append(*channels, indexes...)
-	return nil
+	return append(channels, indexes...), nil
 }
 
 // found returns the stored channel that has the name or key of ch.
