@@ -58,12 +58,14 @@ interface RenderOptions {
   core?: Session.Core.Core;
   /** The saved view the tab shows. The tab shows all ranges when absent. */
   shown?: view.View;
+  /** The width of the pane that holds the explorer, as CSS. */
+  width?: string;
 }
 
 /** Renders the explorer in a tab. */
 const renderExplorer = async (
   as: Client = client,
-  { core, shown }: RenderOptions = {},
+  { core, shown, width }: RenderOptions = {},
 ): Promise<TestStore> => {
   const { wrapper, store } = await createTabWrapper({
     client,
@@ -79,7 +81,17 @@ const renderExplorer = async (
   });
   await renderSuspended(
     <>
-      <Explorer />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+          width,
+        }}
+      >
+        <Explorer />
+      </div>
       <Modals.Stack />
     </>,
     { wrapper },
@@ -825,7 +837,8 @@ describe("range/explorer/Explorer", () => {
         color: "#000000",
       });
       const rng = await createRange(`${token} labeled`);
-      await renderExplorer();
+      // A list narrower than 80rem hides the labels.
+      await renderExplorer(client, { width: "100rem" });
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
@@ -906,10 +919,15 @@ describe("range/explorer/Explorer", () => {
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
       const axis = await screen.findByRole("group", { name: "Time axis" });
-      fireEvent.wheel(axis, { deltaY: 30, clientX: 50 });
+      // The timeline takes a wheel only over its tracks, which start at the axis.
+      const { left, width } = axis.getBoundingClientRect();
+      const clientX = left + width / 2;
+      fireEvent.wheel(axis, { deltaY: 30, clientX });
+      // Wait a frame so that a wrong pan would have rendered Fit all.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
-      fireEvent.wheel(axis, { deltaX: 30, clientX: 50 });
-      expect(screen.getByRole("button", { name: "Fit all" })).toBeTruthy();
+      fireEvent.wheel(axis, { deltaX: 30, clientX });
+      expect(await screen.findByRole("button", { name: "Fit all" })).toBeTruthy();
     });
 
     it("should offer Fit all once a zoom or Now moves the window", async () => {

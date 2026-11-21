@@ -24,7 +24,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Label } from "@/feature/label";
 import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
@@ -63,6 +63,26 @@ const search = async (term: string, count = 1): Promise<void> => {
     target: { value: term },
   });
   await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(count));
+};
+
+const optionNames = (): Array<string | null> =>
+  screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
+
+/** Holds the Core's answers to label creates until the returned function runs. */
+const holdLabelCreates = (): (() => void) => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const real = globalThis.fetch;
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const res = await real(input, init);
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url.endsWith("/label/create")) await promise;
+    return res;
+  });
+  onTestFinished(() => {
+    resolve();
+    spy.mockRestore();
+  });
+  return resolve;
 };
 
 const deleted = async (key: label.Key): Promise<boolean> => {
@@ -120,11 +140,34 @@ describe("Label.Settings", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create" }));
     });
-    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
-    const names = screen
-      .getAllByRole("option")
-      .map((o) => o.getAttribute("aria-label"));
-    expect(names).toEqual([created, `${prefix}-a`]);
+    // The optimistic create lists the label in its sorted place until the Core answers.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option").map((o) => o.getAttribute("aria-label")),
+      ).toEqual([created, `${prefix}-a`]),
+    );
+  });
+
+  it("should list a new label first before the Core answers", async () => {
+    const prefix = uniqueName("order");
+    await createLabel(`${prefix}-a`);
+    await renderLabels();
+    await search(prefix);
+    const release = holdLabelCreates();
+    await clickAndSettle("Create label");
+    const created = createTestLabelName(client, `${prefix}-z`);
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: created },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(optionNames()).toEqual([created, `${prefix}-a`]));
+    release();
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", ""),
+    );
+    expect(optionNames()).toEqual([created, `${prefix}-a`]);
   });
 
   it("should rename a label from its menu", async () => {

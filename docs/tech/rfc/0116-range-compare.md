@@ -59,7 +59,7 @@ range: a key, its window, its zero, a label, and a color. Pluto reads no ranges 
 that each draw already applies (`pluto/src/vis/line/aether/line.ts:735`). Tiles, bounds,
 and the live edge stay in absolute time (RFC 0083 §2, RFC 0068). The shift subtracts in
 `bigint` before the conversion to `Number`, because `Series.glOffset` holds a full
-timestamp (`x/ts/src/telem/series.ts:1042`).
+timestamp (`x/ts/src/telem/series.ts:1041`).
 
 The x axis gets a tick type for time from zero, with T- below zero and T+ above it.
 
@@ -84,7 +84,7 @@ mode keeps the color by channel.
   the lines of the other ranges at 25 percent over the background until the pointer
   leaves. Hovering a range heading does the same for each channel of the range. A line
   on the plot does not dim the others; the tooltip names it. The range strip dims on
-  hover in the same way (`docs/claude/ux.md:863`).
+  hover in the same way (`docs/claude/ux.md:865`).
 - **Tooltip**: The heading is the time from zero, such as "T+1.250 s". Entries group by
   channel. Inside a channel, each range shows its color, name, and value, sorted by
   value from high to low. The hovered line's entry is bold. The tooltip lists as many
