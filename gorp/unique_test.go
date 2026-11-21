@@ -368,6 +368,23 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(found).To(BeFalse())
 		})
 
+		It("Should return the key of a holder in the index's own table only", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "b", Name: "b"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 3, Folder: "b", Name: "pt"})).
+				To(Succeed())
+			key, held := MustSucceed2(
+				itemIndex.Key(ctx, db, uniqueSibling{Parent: "b", Name: "pt"}),
+			)
+			Expect(held).To(BeTrue())
+			Expect(key).To(Equal(uint32(3)))
+			_, held = MustSucceed2(itemIndex.Key(ctx, db, uniqueSibling{Name: "b"}))
+			Expect(held).To(BeFalse())
+		})
+
 		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()

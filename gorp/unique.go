@@ -187,6 +187,21 @@ func (u *UniqueIndex[K, E, V]) Holder(
 	return Target{}, false, nil
 }
 
+// Key returns the key of the entry of the table of u that holds v, as seen by snap, and
+// false when no entry of that table does. Holder returns a holder in any table of the
+// space.
+func (u *UniqueIndex[K, E, V]) Key(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (K, bool, error) {
+	var none K
+	if err := u.store.Wait(ctx); err != nil {
+		return none, false, err
+	}
+	return u.store.Holder(scopeOf(snap), v, nil)
+}
+
 // Committing returns the keys of the table of u that a transaction in its commit maps
 // to v. Holder misses them until the commit flushes. The commit can fail, so a caller
 // checks each key against storage.
