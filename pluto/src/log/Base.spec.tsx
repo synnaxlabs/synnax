@@ -7,15 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box } from "@synnaxlabs/x";
+import { box, color } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Base } from "@/log/Base";
+import { Base, type BaseProps } from "@/log/Base";
+import { createAetherSetup, DEFAULT_STATE, initialStateOf } from "@/log/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -47,42 +49,9 @@ const Wrapper: FC<PropsWithChildren> = ({ children }) => (
   </SynnaxWrapper>
 );
 
-const DEFAULT_STATE = {
-  region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
-  wheelPos: 0,
-  scrolling: false,
-  resumedAt: 0,
-  empty: true,
-  visible: true,
-  channelNamesHidden: false,
-  timestampPrecision: 0,
-  channelNames: {},
-  channels: [],
-  telem: { type: "noop-log-source", props: {}, variant: "source", valueType: "log" },
-  font: "p",
-  color: "#00000000",
-  overshoot: { x: 0, y: 0 },
-  selectionStart: -1,
-  selectionEnd: -1,
-  visibleStart: 0,
-  computedLineHeight: 16,
-  rowEntries: [],
-};
+const setupAether = createAetherSetup(mockAetherUse);
 
-const LINES = [
-  { text: "<one>", color: "" },
-  { text: "two", color: "#ff0000" },
-];
-
-const setupAether = (overrides: Record<string, unknown> = {}, partial = false) => {
-  const setState = vi.fn();
-  const state = { ...DEFAULT_STATE, ...overrides };
-  const selection = vi.fn(async () => ({ lines: LINES, partial }));
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selection }]);
-  return { setState, state, selection };
-};
-
-const renderLog = (props: Record<string, unknown> = {}) =>
+const renderLog = (props: Partial<BaseProps> = {}) =>
   render(<Base {...props} />, { wrapper: Wrapper });
 
 const getLogDiv = (container: HTMLElement): HTMLElement => {
@@ -92,7 +61,7 @@ const getLogDiv = (container: HTMLElement): HTMLElement => {
 };
 
 const getAetherInitialState = (): Record<string, unknown> =>
-  mockAetherUse.mock.calls[0][0].initialState;
+  initialStateOf(mockAetherUse);
 
 // Simulates a worker-pushed state change, which reaches the main thread through
 // onAetherChange alone — local setState never fires it.
@@ -163,6 +132,24 @@ describe("log/Base", () => {
       const { container } = renderLog({ className: "my-class" });
       const div = container.querySelector(".my-class");
       expect(div).not.toBeNull();
+    });
+  });
+
+  describe("channel colors", () => {
+    it("should send Aether the resolved color of each channel", () => {
+      setupAether();
+      renderLog({
+        channels: [
+          log.channelEntryZ.parse({
+            channel: 1,
+            color: { type: "fixed", value: "#ff0000" },
+          }),
+          log.channelEntryZ.parse({ channel: 2 }),
+        ],
+      });
+      expect(getAetherInitialState().channelColors).toEqual({
+        1: color.construct("#ff0000"),
+      });
     });
   });
 
@@ -545,12 +532,10 @@ describe("log/Base", () => {
 
   describe("channel name resolution", () => {
     it("should pass channels to aether state", () => {
-      renderLog({ channels: [{ channel: 1 }, { channel: 2 }] });
+      const channels = [1, 2].map((channel) => log.channelEntryZ.parse({ channel }));
+      renderLog({ channels });
       expect(mockAetherUse).toHaveBeenCalled();
-      expect(getAetherInitialState().channels).toEqual([
-        { channel: 1 },
-        { channel: 2 },
-      ]);
+      expect(getAetherInitialState().channels).toEqual(channels);
     });
   });
 
@@ -571,7 +556,13 @@ describe("log/Base", () => {
     });
 
     it("should pass channels with configs to aether state", () => {
-      const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
+      const channels = [
+        log.channelEntryZ.parse({
+          channel: 1,
+          color: { type: "fixed", value: "#ff0000" },
+        }),
+        log.channelEntryZ.parse({ channel: 2 }),
+      ];
       renderLog({ channels });
       expect(getAetherInitialState().channels).toEqual(channels);
     });

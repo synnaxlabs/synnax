@@ -10,11 +10,23 @@
 import { color, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
+import {
+  MultipleFoundError,
+  NotCachedError,
+  NotFoundError,
+  ValidationError,
+} from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  holdRequests,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -303,6 +315,28 @@ describe("cached reads", () => {
     }
   });
 
+  it("lists a label whose create reaches the Core after its search", async () => {
+    const term = id.create();
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    const list = local.labels.watch({ searchTerm: term });
+    const off = list.onChange(vi.fn());
+    try {
+      await list.retrieve();
+      const { release } = holdRequests(local, "/label/create");
+      const creating = local.labels.create({ name: term, color: "#E774D0" });
+      expect((await list.retrieve()).records).toEqual([]);
+      release();
+      const created = await creating;
+      await expect
+        .poll(() => list.getCached()?.records.map(({ key }) => key))
+        .toEqual([created.key]);
+    } finally {
+      off();
+    }
+  });
+
   it("tracks a remote label attachment on a subscribed status", async () => {
     const st = await client.statuses.set({
       variant: "info",
@@ -382,11 +416,13 @@ describe("dispatch", () => {
     expect(cached.color).toEqual(color.construct("#ff0000"));
   });
 
-  it("should return false without a send when the label is not cached", async () => {
+  it("should throw without a send when the label is not cached", async () => {
     const lbl = await createLabel(remote);
     const fresh = createTestClient();
     const send = spyOnSend(fresh);
-    expect(await fresh.labels.dispatch(lbl.key, rename("Anomaly"))).toBe(false);
+    await expect(fresh.labels.dispatch(lbl.key, rename("Anomaly"))).rejects.toThrow(
+      NotCachedError,
+    );
     expect(send).not.toHaveBeenCalled();
   });
 

@@ -72,8 +72,6 @@ export interface SelectionColorsProps {
   refs: ColorRef[];
   /** Called with every reference that held the changed color. */
   onChange: (refs: ColorRef[], value: color.Ref) => void;
-  /** If true, the pickers hide the palettes, for fields that store fixed colors. */
-  palettesHidden?: boolean;
 }
 
 const holderID = (ref: ColorRef): string => `${ref.key}.${ref.path}`;
@@ -83,11 +81,13 @@ interface Held {
   groups: ColorRef[][];
 }
 
-/** A swatch for each color the selection stores. A change recolors every holder. */
+/**
+ * A swatch for each color the selection stores. A change recolors every holder. A
+ * swatch hides the palettes while a holder is value only.
+ */
 export const SelectionColors = ({
   refs,
   onChange,
-  palettesHidden = false,
 }: SelectionColorsProps): ReactElement | null => {
   // An open picker holds the grouping, so dragging through another group's color does
   // not merge the two groups.
@@ -113,7 +113,7 @@ export const SelectionColors = ({
                 setHeld(state.resolve(arg, visible) ? { id, groups } : null)
               }
               onChange={(c) => onChange(current, c)}
-              palettesHidden={palettesHidden}
+              palettesHidden={current.some((r) => r.valueOnly === true)}
             />
           );
         })}

@@ -20,3 +20,23 @@ describe("hardwareZ", () => {
     expect(ni.hardwareZ.parse({ aiMinRate: 0 }).aiMinRate).toBe(0);
   });
 });
+
+const CHANNEL = { type: "ao_func_gen", key: "gen", port: 0 } as const;
+
+describe("aoFuncGenChannelZ", () => {
+  it("should accept a positive frequency", () => {
+    expect(ni.aoFuncGenChannelZ.parse({ ...CHANNEL, frequency: 12.5 }).frequency).toBe(
+      12.5,
+    );
+  });
+
+  it.each([0, -5])("should reject a frequency of %d", (frequency) => {
+    expect(ni.aoFuncGenChannelZ.safeParse({ ...CHANNEL, frequency }).success).toBe(
+      false,
+    );
+  });
+
+  it("should reject a missing frequency", () => {
+    expect(ni.aoFuncGenChannelZ.safeParse(CHANNEL).success).toBe(false);
+  });
+});

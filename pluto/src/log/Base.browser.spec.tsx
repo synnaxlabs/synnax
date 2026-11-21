@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Locator, page, userEvent } from "vitest/browser";
 
 import { Base } from "@/log/Base";
+import { createAetherSetup } from "@/log/testutil";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
@@ -46,40 +47,7 @@ const Wrapper: FC<PropsWithChildren> = ({ children }) => (
   </SynnaxWrapper>
 );
 
-const DEFAULT_STATE = {
-  region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
-  wheelPos: 0,
-  scrolling: false,
-  resumedAt: 0,
-  empty: true,
-  visible: true,
-  channelNamesHidden: false,
-  timestampPrecision: 0,
-  channelNames: {},
-  channels: [],
-  telem: { type: "noop-log-source", props: {}, variant: "source", valueType: "log" },
-  font: "p",
-  color: "#00000000",
-  overshoot: { x: 0, y: 0 },
-  selectionStart: -1,
-  selectionEnd: -1,
-  visibleStart: 0,
-  computedLineHeight: 16,
-  rowEntries: [],
-};
-
-const LINES = [
-  { text: "<one>", color: "" },
-  { text: "two", color: "#ff0000" },
-];
-
-const setupAether = (overrides: Record<string, unknown> = {}, partial = false) => {
-  const setState = vi.fn();
-  const state = { ...DEFAULT_STATE, ...overrides };
-  const selection = vi.fn(async () => ({ lines: LINES, partial }));
-  mockAetherUse.mockReturnValue(["test-key", state, setState, { selection }]);
-  return { setState, state, selection };
-};
+const setupAether = createAetherSetup(mockAetherUse);
 
 const renderLog = async (props: Record<string, unknown> = {}) =>
   await renderThemed(

@@ -8,11 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type { schematic } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 
 import { LineForm } from "@/schematic/node/general/line/Form";
-import { Line } from "@/schematic/node/general/line/Primitive";
-import { Symbol } from "@/schematic/node/general/line/Symbol";
+import { Preview, Symbol } from "@/schematic/node/general/line/Symbol";
 import type { Spec } from "@/schematic/node/spec";
 
 export const spec: Spec<"line", schematic.LineNodeConfig> = {
@@ -20,7 +18,7 @@ export const spec: Spec<"line", schematic.LineNodeConfig> = {
   name: "Line",
   Form: LineForm,
   Node: Symbol,
-  Preview: Component.removeProps(Line, ["start", "end"]),
+  Preview,
   zIndex: 2,
   needsPosition: true,
 };

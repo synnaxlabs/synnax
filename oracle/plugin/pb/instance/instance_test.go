@@ -54,8 +54,8 @@ Thing struct {
 	labels    filter.Set<map<string, Detail>>
 	direction filter.Ordered<order.Direction>
 	name      filter.String
-	box       Box<int32>
-	pair      Pair<int32, int64>
+	box       Box
+	pair      Pair<int32>
 }
 `
 
@@ -169,7 +169,7 @@ Direction enum {
 	})
 
 	It(
-		"Should leave a use that only overrides defaults to the generic struct's message",
+		"Should leave a use of defaulted parameters to the generic struct's message",
 		func() {
 			_, ok := instance.Of(fieldOf("thing.Thing", "box").Type, "thing", table)
 			Expect(ok).To(BeFalse())
