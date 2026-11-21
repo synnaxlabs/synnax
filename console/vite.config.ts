@@ -93,7 +93,7 @@ const browserProject = ({
         instances: webkit
           ? [
               { browser: "chromium", name: `${prefix}${diag}chromium`, ...pages },
-              { browser: "webkit", name: `${prefix}${diag}webkit` },
+              { browser: "webkit", name: `${prefix}${diag}webkit`, isolate: false },
             ]
           : [{ browser: "chromium", name: `${name}-chromium`, ...pages }],
       },
