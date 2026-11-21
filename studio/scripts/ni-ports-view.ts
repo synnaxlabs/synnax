@@ -10,9 +10,9 @@
 import { NI_DAQ, taskScript } from "./common/task";
 
 /**
- * Docs `reference/hardware/tasks` (Ports): in an NI analog read task, select Ports above
- * the channel list, click a free port to add a channel on it, click a used port to
- * select its channel, go back to the list, and start the task.
+ * Docs `reference/hardware/tasks` (Ports): in an NI analog read task, select Ports
+ * above the channel list, click a free port to add a channel on it, click a used port
+ * to select its channel, go back to the list, and start the task.
  */
 export default taskScript({
   device: NI_DAQ,
@@ -23,12 +23,12 @@ export default taskScript({
     const grid = form.getByRole("group", { name: `${NI_DAQ.name} ports` });
     await session.waitFor(grid);
     await session.hold(1500);
-    const port = (index: number) => grid.locator("button").nth(index);
-    await session.click(port(2));
+    const port = (name: string) => grid.getByRole("button", { name, exact: true });
+    await session.click(port("ai2"));
     await session.hold(1000);
-    await session.click(port(5));
+    await session.click(port("ai5"));
     await session.hold(1000);
-    await session.click(port(2));
+    await session.click(port("ai2"));
     await session.hold(1500);
     await session.click(view("List"), { text: true });
     await session.hold(800);

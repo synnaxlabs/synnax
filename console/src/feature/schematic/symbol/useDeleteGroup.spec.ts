@@ -9,13 +9,13 @@
 
 import { type group, NotFoundError, type schematic } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { client, createSymbolPayload } from "@/feature/schematic/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { uniqueName } from "@/testutil";
 
 const createSymbolGroup = async (
   symbolNames: string[],

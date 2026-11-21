@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { auth } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
 import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +26,7 @@ import {
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
 
-const { port } = TEST_CLIENT_PARAMS;
+const { port } = testClientParams();
 
 const { client, live } = await createDesktopUser();
 
@@ -245,7 +245,7 @@ describe("Embedded.Guard API key for scripts", () => {
     deleteKeys.mockRestore();
     // The forget would run right after the revoke settles, so wait for both to settle.
     await expect(revoke).rejects.toThrow("Core restarted");
-    await scheduler.flushTaskQueue();
+    await scheduler.nextTask();
     expect(commands).not.toHaveBeenCalledWith("supervisor_forget_legacy_api_key");
     expect(commands).not.toHaveBeenCalledWith("supervisor_save_api_key");
     expect(file.legacy).toBe(token);

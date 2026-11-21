@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +18,7 @@ import { NI } from "@/feature/ni";
 import {
   createHardware,
   createNIDevice,
+  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -25,9 +27,11 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 interface CreateChannelOverrides extends Partial<NI.Task.DIChannel> {}
 
@@ -58,7 +62,7 @@ const renderDigitalRead = async (
   config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
 ) => {
   const draft = await createDraft(config);
-  const rendered = await renderNITaskForm(NI.Task.DigitalRead, {
+  const rendered = await renderNITaskForm(NI.Task.FORMS[NI.Task.DIGITAL_READ_TYPE], {
     client,
     taskKey: draft.key,
   });

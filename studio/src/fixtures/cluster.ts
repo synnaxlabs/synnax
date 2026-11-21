@@ -200,8 +200,8 @@ export const removeChannels = async (
 export interface UserSpec {
   username: string;
   password?: string;
-  firstName?: string;
-  lastName?: string;
+  /** Display name. */
+  name?: string;
   /** Name of the built-in role the user holds. */
   role: string;
 }

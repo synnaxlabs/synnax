@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "@/telem/aether/factory";
+import type { Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type ColorSource,
@@ -151,12 +151,12 @@ export class IterativeSeries
   start(rate: Rate): void {
     if (this.interval != null) clearInterval(this.interval);
     this.interval = setInterval(() => {
-      this.notify?.();
+      this.observer.notify();
       this.position++;
     }, rate.period.milliseconds) as unknown as number;
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     clearInterval(this.interval);
   }
 }
@@ -215,7 +215,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     );
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     clearTimeout(this.timeout);
   }
 
@@ -223,7 +223,7 @@ export class Clock extends AbstractSource<typeof clockPropsZ> implements NumberS
     const period = this.props.period.milliseconds;
     const delay = period - (TimeStamp.now().milliseconds % period);
     this.timeout = setTimeout(() => {
-      this.notify();
+      this.observer.notify();
       this.schedule();
     }, delay);
   }

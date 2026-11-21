@@ -84,6 +84,9 @@ func pathOf(parent []string, segments ...string) []string {
 }
 
 func (c *checker) checkMessage(path []string, m Message) {
+	if m.CycleTime != nil && *m.CycleTime <= 0 {
+		c.Addf(pathOf(path, "cycle_time"), "cycle time must be positive")
+	}
 	path = pathOf(path, "payload")
 	var (
 		bases = m.Payload.FieldBases()
@@ -188,7 +191,8 @@ func (c *checker) checkJSONFields(
 	}
 }
 
-// checkEnumLabels finds each enum label that an earlier entry of the field uses.
+// checkEnumLabels finds each enum label that is empty or that an earlier entry of the
+// field uses.
 func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	var labels []string
 	switch v := f.Variant.(type) {
@@ -215,12 +219,13 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	}
 	seen := make(set.Set[string], len(labels))
 	for i, label := range labels {
+		labelPath := pathOf(path, "enum_values", strconv.Itoa(i), "label")
+		if label == "" {
+			c.Addf(labelPath, "enum label is required")
+			continue
+		}
 		if seen.Contains(label) {
-			c.Addf(
-				pathOf(path, "enum_values", strconv.Itoa(i), "label"),
-				"duplicate enum label %q",
-				label,
-			)
+			c.Addf(labelPath, "duplicate enum label %q", label)
 		}
 		seen.Add(label)
 	}

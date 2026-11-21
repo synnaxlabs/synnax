@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
@@ -476,7 +476,10 @@ export const Frame = ({
         contains(frame, target) ||
         anchor?.contains(target) === true ||
         // A context menu opened over the dialog acts on it, and so do its submenus.
-        inContextMenu(target)
+        inContextMenu(target) ||
+        // A dialog in a context menu closes with the menu, since a chosen item gives
+        // the focus back before it acts.
+        inContextMenu(frame)
       )
         return;
       close();

@@ -16,8 +16,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Handoff } from "@/feature/license/Handoff";
 import { KeyInput } from "@/feature/license/KeyInput";
@@ -119,7 +119,7 @@ const Headline = ({ info }: HeadlineProps): ReactElement => {
   const lic = info.license;
   const description =
     info.warning !== ""
-      ? caseconv.capitalize(info.warning)
+      ? strings.capitalize(info.warning)
       : lic == null
         ? license.STATE_MESSAGES[info.state]
         : undefined;

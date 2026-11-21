@@ -9,11 +9,11 @@
 
 import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Form } from "@synnaxlabs/lyra/form";
+import type { Form } from "@synnaxlabs/lyra/form";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -40,7 +40,7 @@ const Wrapper = createSynnaxWrapper({ client });
 
 const DEBOUNCE = TimeSpan.milliseconds(100);
 // Long enough that a debounced save would have landed by now.
-const SETTLE = 500;
+const SETTLE = TimeSpan.milliseconds(500);
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -537,8 +537,7 @@ describe("useForm", () => {
   it("should run one save at a time", async () => {
     const events: string[] = [];
     const gates = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
-    let enter = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
     let calls = 0;
     const { result } = renderHook(
       () =>
@@ -570,10 +569,8 @@ describe("useForm", () => {
   // Holds the first save open, so every save issued after it queues behind it.
   const renderHeldForm = () => {
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { result } = renderHook(
       () =>
         Flux.createForm<Params, typeof formSchema>({
@@ -627,10 +624,8 @@ describe("useForm", () => {
       "2": { key: "2", name: "Banana Cat", age: 12 },
     };
     const saved: string[] = [];
-    let enter = (): void => {};
-    let release = (): void => {};
-    const entered = new Promise<void>((resolve) => (enter = resolve));
-    const held = new Promise<void>((resolve) => (release = resolve));
+    const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+    const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const useForm = Flux.createForm<Params, typeof formSchema>({
       initialValues: { key: "", name: "", age: 0 },
       schema: formSchema,
@@ -865,10 +860,8 @@ describe("useForm", () => {
 
     it("should abort a save already running when the record is abandoned", async () => {
       const { update, useForm, abandon } = createAbandonableForm();
-      let enter = (): void => {};
-      let release = (): void => {};
-      const entered = new Promise<void>((resolve) => (enter = resolve));
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const { result } = renderHook(
         () =>
           useForm({
@@ -1066,6 +1059,54 @@ describe("useForm", () => {
       });
       act(() => listenerSet(path.name, "Remote Name"));
       expect(result.current.form.value().name).toEqual("Remote Name");
+    });
+  });
+
+  describe("a remote reset during an unsaved edit", () => {
+    const INITIAL = { key: "1", name: "Initial Name", age: 25 };
+
+    const renderResetForm = async () => {
+      let listenerReset!: (values: z.infer<typeof formSchema>) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {},
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set(path.name, "Edited Name"));
+      return {
+        result,
+        listenerReset: (values: z.infer<typeof formSchema>) => listenerReset(values),
+      };
+    };
+
+    it("should keep the edit touched when the reset leaves the values equal", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL }));
+      expect(result.current.form.value().name).toEqual("Edited Name");
+      expect(result.current.form.get(path.name).touched).toBe(true);
+    });
+
+    it("should take the remote values as the baseline", async () => {
+      const { result, listenerReset } = await renderResetForm();
+      act(() => listenerReset({ ...INITIAL, age: 30 }));
+      expect(result.current.form.value()).toEqual({
+        key: "1",
+        name: "Edited Name",
+        age: 30,
+      });
+      act(() => result.current.form.set(path.name, "Initial Name"));
+      expect(result.current.form.get(path.name).touched).toBe(false);
     });
   });
 

@@ -10,6 +10,7 @@
 import {
   type breaker,
   dynamicWindow,
+  math,
   Rate,
   type Series,
   Size,
@@ -22,8 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
@@ -362,8 +363,7 @@ describe("Points", () => {
 
     it("should report loading until the newest stored sample is read", async () => {
       const core = createIdle();
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const { subscribe, close } = createPoints(
         core,
         undefined,
@@ -656,8 +656,7 @@ describe("Points", () => {
 
     it("should clear the failure once a retried read lands", async () => {
       const core = createIdle();
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       let reads = 0;
       const { subscribe, close } = createPoints(
         core,
@@ -960,10 +959,12 @@ describe("Points", () => {
           await sleep.sleep(TimeSpan.milliseconds(5));
         }
         const kept = store.floor(key)!.kept!;
-        const before = points
-          .value()
-          .series.series.filter((s) => s.timeRange.start.before(kept))
-          .reduce((sum, s) => sum + s.length, 0);
+        const before = math.sum(
+          points
+            .value()
+            .series.series.filter((s) => s.timeRange.start.before(kept))
+            .map((s) => s.length),
+        );
         expect(before).toBeLessThan(LIVE_SAMPLES);
         expect(largestGap(points)).toBeLessThanOrEqual(
           TimeSpan.milliseconds(10).valueOf(),

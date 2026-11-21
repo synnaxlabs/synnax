@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
+import type { EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
@@ -20,10 +20,12 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id, uuid } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
   render,
@@ -35,23 +37,23 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
+import {
+  type CSSProperties,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+} from "react";
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
+import { FileBrowser } from "@/platform/file-browser";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
   disableActEnvironment,
 } from "@/testutil/Synnax";
-
-/**
- * Generates a unique, Core-safe resource name: letters, digits, and underscores only,
- * prefixed so failures are traceable back to tests.
- */
-export const uniqueName = (prefix: string = "test"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /** Generates a unique search term that the Core search keeps as one word. */
 export const uniqueToken = (): string =>
@@ -64,18 +66,6 @@ export const uniqueToken = (): string =>
  */
 export const createKeyEndingIn = (nibble: string): string =>
   `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
-
-/**
- * Throws when value is null or undefined, narrowing it for subsequent use.
- * Excludes void as well as null and undefined: NonNullable leaves `void & {}`
- * behind, which drops every property off a `T | void` return.
- */
-export function assertDefined<T>(
-  value: T,
-  message = "expected value to be defined",
-): asserts value is Exclude<T, null | undefined | void> {
-  assert(value != null, message);
-}
 
 /**
  * Waits for and returns the trigger button of the (single) mounted pluto dialog-based
@@ -165,10 +155,12 @@ export interface CaptureStatusesProps {
 /**
  * Reports the current status notifications to onStatuses on every change. Mount
  * alongside the UI under test to observe statuses raised during a component render.
+ * The report lands in the commit that changed them, so it is current once a `findBy*`
+ * query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
   const { statuses } = Status.useNotifications();
-  useEffect(() => {
+  useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
   return null;
@@ -227,17 +219,32 @@ export const selectRange = (
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 
+// A browser lays the specs out, so they get a box the size of a window. A form or list
+// in a box of no height draws nothing.
+const WINDOW_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  width: 1280,
+  height: 800,
+};
+
 const composeConsole = (
   SynnaxWrapper: FC<PropsWithChildren>,
   store: EnhancedStore,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Triggers.Provider>
-        <Provider store={store}>
-          <Session.Modals.Context>{children}</Session.Modals.Context>
-        </Provider>
-      </Triggers.Provider>
+      <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+        <FileBrowser.Provider>
+          <Triggers.Provider>
+            <Provider store={store}>
+              <Session.Modals.Context>
+                <div style={WINDOW_STYLE}>{children}</div>
+              </Session.Modals.Context>
+            </Provider>
+          </Triggers.Provider>
+        </FileBrowser.Provider>
+      </Theming.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;

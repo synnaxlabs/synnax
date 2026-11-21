@@ -181,6 +181,12 @@ type Message = versions.Message
 // how to parse each one.
 type ICD = versions.ICD
 
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads one message of an ICD.
+type ReadMessage = versions.ReadMessage
+
 // ImportFormat is the file format of an ICD that an import reads.
 type ImportFormat string
 

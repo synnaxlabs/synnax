@@ -202,14 +202,18 @@ export type StringSink = Sink<string>;
 export const stringSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("string") });
 export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
 
-export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<void> {
+export abstract class Base<P extends z.ZodType> implements observe.Observable<void> {
+  protected readonly observer = new observe.Observer<void>();
   private props_: z.infer<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   abstract schema: P;
 
   constructor(props: unknown) {
-    super();
     this.uProps_ = props;
+  }
+
+  onChange(handler: observe.Handler<void>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   get props(): z.infer<P> {
@@ -251,7 +255,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return { ...result, data: this.transform(result.data) };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
       if (this.shouldNotify(this.source.value())) handler();
     });
@@ -297,7 +301,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     return { data: this.transform(data), status: worst, time, appended };
   }
 
-  onChange(handler: () => void): destructor.Destructor {
+  override onChange(handler: () => void): destructor.Destructor {
     const destructors = Object.values(this.sources).map((source) =>
       source.onChange(() => {
         if (this.shouldNotify()) handler();

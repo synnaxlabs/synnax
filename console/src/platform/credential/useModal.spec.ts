@@ -14,6 +14,7 @@ import {
   createTestClientAs,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -23,7 +24,6 @@ import {
   clickAndSettle,
   createTestClientWithGrants,
   openContextMenu,
-  uniqueName,
 } from "@/testutil";
 
 // Fields render once the caller's permissions load, so wait for them.

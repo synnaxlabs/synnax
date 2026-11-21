@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type CanvasVariant } from "@/vis/render/context";
+import type { CanvasVariant } from "@/vis/render/context";
 import { type Cleanup, Loop, type Request } from "@/vis/render/loop";
 
 const create = () => {

@@ -25,13 +25,14 @@ const STALE = color.construct("#ff0000");
 interface SetupOptions {
   value?: string;
   state?: Record<string, unknown>;
+  seriesColors?: color.Color[];
 }
 
 // Mounts a Gauge under the real provider stack with a recording render context. No
 // render loop runs in tests, so the gauge draws synchronously on mount and on every
 // telem emit; call `recorder.clear()` before an explicit `render({})` to isolate that
 // render's calls.
-const setup = ({ value = "50", state = {} }: SetupOptions = {}) => {
+const setup = ({ value = "50", state = {}, seriesColors = [] }: SetupOptions = {}) => {
   const source = telemTest.source<string>(value);
   const recorder = canvasTest.record();
   const h = renderAether(gauge.Gauge, {
@@ -41,6 +42,7 @@ const setup = ({ value = "50", state = {} }: SetupOptions = {}) => {
       ...state,
     }),
     theming: { theme: THEME, fontURLs: [] },
+    series: { colors: seriesColors },
     render: recorder,
   });
   return { h, component: h.component, source, recorder };
@@ -57,6 +59,14 @@ const valueEnd = (recorder: canvasTest.Recorder): number =>
   recorder.upper2d.calls.filter((c) => c.op === "arc").at(-1)?.args[4] as number;
 
 describe("gauge/aether/Gauge", () => {
+  describe("color", () => {
+    it("should stroke the arc with the first series color while its color is absent", () => {
+      const first = color.construct("#20a4f3");
+      const { recorder } = setup({ seriesColors: [first, STALE] });
+      expect(styles(recorder, "strokeStyle")).toContain(color.hex(first));
+    });
+  });
+
   describe("value arc", () => {
     it("should measure the arc from a stored lower above the upper", () => {
       const reversed = setup({
@@ -75,9 +85,16 @@ describe("gauge/aether/Gauge", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    // The worker draws the gauge, so a transition must not cost a state push.
-    it("should keep staleness off the state that crosses to the DOM", () => {
-      expect(gauge.Gauge.z.parse({ box: BOX })).not.toHaveProperty("stale");
+    it("should report each staleness transition through its state", () => {
+      const { component, source } = setup({
+        state: { stalenessTimeout: TimeSpan.seconds(1).nanoseconds },
+      });
+      source.setValue("60");
+      expect(component.state.stale).toBe(false);
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      source.setValue("61");
+      expect(component.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
@@ -105,6 +122,23 @@ describe("gauge/aether/Gauge", () => {
       recorder.clear();
       component.render({});
       expect(styles(recorder, "fillStyle")).toContain(color.hex(STALE));
+    });
+
+    it("should keep its own colors while the stale color is hidden", () => {
+      const { component, source, recorder } = setup({
+        state: {
+          stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+          stalenessColor: STALE,
+          staleColorHidden: true,
+        },
+      });
+      source.setValue("60");
+      vi.advanceTimersByTime(1250);
+      expect(component.state.stale).toBe(true);
+      recorder.clear();
+      component.render({});
+      expect(styles(recorder, "fillStyle")).not.toContain(color.hex(STALE));
+      expect(styles(recorder, "strokeStyle")).not.toContain(color.hex(STALE));
     });
 
     it("should recolor the arc as well as the value text", () => {

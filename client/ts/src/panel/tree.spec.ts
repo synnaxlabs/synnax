@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",

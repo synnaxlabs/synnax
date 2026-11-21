@@ -9,11 +9,11 @@
 
 import { project, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

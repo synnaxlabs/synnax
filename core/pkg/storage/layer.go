@@ -65,7 +65,7 @@ type (
 	TSEngine uint8
 )
 
-//go:generate stringer -type=KVEngine
+//go:generate go tool stringer -type=KVEngine
 const (
 	// KVEnginePebble uses CockroachDB's pebble key-value store.
 	KVEnginePebble KVEngine = iota + 1
@@ -73,7 +73,7 @@ const (
 
 var kvEngines = []KVEngine{KVEnginePebble}
 
-//go:generate stringer -type=TSEngine
+//go:generate go tool stringer -type=TSEngine
 const (
 	// TSEngineCesium uses Synnax's Cesium time-series engine.
 	TSEngineCesium TSEngine = iota + 1

@@ -39,11 +39,7 @@ import {
   streamChannelStringValue,
   streamChannelValue,
 } from "@/telem/aether/remote";
-import {
-  type NumberSource,
-  type StringSource,
-  type ValueProps,
-} from "@/telem/aether/telem";
+import type { NumberSource, StringSource, ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
 import { line } from "@/vis/line/aether";
 
@@ -987,8 +983,7 @@ describe("remote", () => {
     it("should drop a channel retrieval that lands after cleanup", async () => {
       const core = createCore();
       const client = connect(core);
-      let release: () => void = () => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       let [started, landed] = [false, false];
       const gated = withRetrieve(client, async (ch) => {
         started = true;

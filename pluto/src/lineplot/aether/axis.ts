@@ -22,9 +22,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import type { TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const baseAxisStateZ = axis.axisStateZ
@@ -62,6 +62,8 @@ const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 // Computed per call so an empty time axis tracks the present instead of app start.
 const emptyBounds = (type: TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  if (type === "relative")
+    return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
   const now = TimeStamp.now();
   return {
     lower: Number(now.valueOf()),
@@ -78,13 +80,20 @@ export interface AxisRenderProps {
   hold: boolean;
 }
 
+/** @returns the newest sample of the bounds with an edge, or undefined if none. */
+export const newestSample = (b: line.DataBounds[]): number | undefined => {
+  const edges = b
+    .filter((d) => d.edge != null && bounds.isFinite(d.bounds))
+    .map((d) => d.bounds.upper);
+  return edges.length === 0 ? undefined : Math.max(...edges);
+};
+
 // Bounds with an edge end at the newest sample of their line. Each moves to end at the
 // newest of them, so a line whose samples stopped does not stretch the axis.
 const align = (b: line.DataBounds[]): bounds.Bounds[] => {
   const finite = b.filter((d) => bounds.isFinite(d.bounds));
-  const edges = finite.filter((d) => d.edge != null).map((d) => d.bounds.upper);
-  if (edges.length === 0) return finite.map((d) => d.bounds);
-  const newest = Math.max(...edges);
+  const newest = newestSample(finite);
+  if (newest == null) return finite.map((d) => d.bounds);
   return finite.map(({ bounds: { lower, upper }, edge }) => {
     if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
     if (edge === "growing") return { lower, upper: newest };
@@ -122,10 +131,12 @@ export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
+    // A held view in one tick type means nothing in another.
+    if (this.state.type !== this.prevState.type) i.boundSnapshot = undefined;
     const theme = theming.use(ctx);
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"
@@ -144,7 +155,7 @@ export abstract class BaseAxis<
     );
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 const path = deep.path<{ onClickDelay?: number }>();
 

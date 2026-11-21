@@ -20,7 +20,7 @@ import {
 } from "@/director/constants";
 import { easeOutQuint, type Plane, stage, type StagePlan } from "@/director/stage";
 import { edit, FPS, SIZES } from "@/film";
-import { type Event, type Timeline } from "@/timeline";
+import type { Event, Timeline } from "@/timeline";
 
 const TILT = { x: 22, z: -10 };
 

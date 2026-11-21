@@ -10,6 +10,7 @@
 import {
   type Aggregation,
   bounds,
+  map,
   math,
   type NumberArray,
   POINTS_PER_GROUP,
@@ -530,11 +531,7 @@ export class Reducer {
       }
       const prev = before.get(startOf(op));
       const preceded = prev != null && touching(prev, op);
-      let byY = this.pairs.get(op.x);
-      if (byY == null) {
-        byY = new Map();
-        this.pairs.set(op.x, byY);
-      }
+      const byY = map.getOrInsert(this.pairs, op.x, () => new Map());
       let pair = byY.get(op.y);
       // An op cut to the view starts elsewhere when the view crosses the cut grid.
       if (pair?.start !== startOf(op)) {

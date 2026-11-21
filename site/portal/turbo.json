@@ -10,7 +10,7 @@
         "tsconfig*.json",
         "package.json"
       ],
-      "env": ["LICENSE_KID", "MAIL_FROM"]
+      "env": ["LICENSE_KID", "MAIL_FROM", "VERCEL_ENV"]
     },
     "lint": {
       "inputs": [
@@ -18,6 +18,12 @@
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/src/**",
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/index.html"
       ]
+    },
+    "test": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/core/pkg/service/license/testdata/**"]
+    },
+    "cov": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/core/pkg/service/license/testdata/**"]
     }
   }
 }

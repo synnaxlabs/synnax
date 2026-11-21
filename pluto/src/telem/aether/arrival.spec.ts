@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFactory } from "@/telem/aether/factory";
 import { sourcePipeline } from "@/telem/aether/pipeline";
 import { streamChannelValue } from "@/telem/aether/remote";
-import { type BooleanSource } from "@/telem/aether/telem";
+import type { BooleanSource } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
 import { withinBounds } from "@/telem/aether/transformers";
 

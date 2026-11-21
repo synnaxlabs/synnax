@@ -603,6 +603,21 @@ describe("State", () => {
       expect(state.getState("name").status.variant).toBe("success");
       expect(state.getState("name").touched).toBe(false);
     });
+
+    it("should take the given values as initial when they equal the current ones", () => {
+      const state = new State(createLocalStore(initialValues), basicSchema);
+      state.setValue("name", "Jane Doe");
+      state.setStatus("name", { key: "name", variant: "error", message: "Error" });
+      const saved = { ...initialValues, name: "Jane Doe" };
+
+      state.reset(saved);
+
+      expect(state.initialValues).toEqual(saved);
+      expect(state.hasBeenTouched).toBe(false);
+      expect(state.getState("name").status.variant).toBe("success");
+      state.setValue("name", "John Doe");
+      expect(state.getState("name").touched).toBe(true);
+    });
   });
 
   describe("setCurrentStateAsInitialValues", () => {

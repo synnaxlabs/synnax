@@ -50,8 +50,7 @@ func (p *Problems) AddError(err error) {
 		}
 		return
 	}
-	var pathErr PathError
-	if errors.As(err, &pathErr) {
+	if pathErr, ok := errors.AsType[PathError](err); ok {
 		*p = append(*p, Problem{
 			Path:    strings.Join(pathErr.Path, "."),
 			Message: pathErr.Err.Error(),

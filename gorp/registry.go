@@ -38,6 +38,8 @@ type registeredTable interface {
 	// targetSet runs the hook of the table for a set of an entry of the table named
 	// table, with the entry of the text key k.
 	targetSet(ctx context.Context, tx Tx, k, table string) error
+	// links returns the links that the entry with the text key k holds in snap.
+	links(ctx context.Context, snap Snapshot, k string) ([]Link, error)
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -188,14 +190,19 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
-// dependents returns the entries that hold target through any registered reference.
+// dependents returns the entries that hold target through a registered reference that
+// keep accepts.
 func (r *registry) dependents(
 	ctx context.Context,
 	snap Snapshot,
 	target Target,
+	keep func(registeredReference) bool,
 ) ([]Target, error) {
 	var out []Target
 	for _, ref := range r.referencesTo(target.Table) {
+		if !keep(ref) {
+			continue
+		}
 		keys, err := ref.dependents(ctx, snap, target)
 		if err != nil {
 			return nil, err

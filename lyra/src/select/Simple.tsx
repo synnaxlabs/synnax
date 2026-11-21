@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement, ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
 import { BorderedList, EmptyContent } from "@/select/Body";
@@ -136,7 +136,7 @@ export const Simple = <K extends record.Key>({
     placeholder,
     disabled,
     preview,
-    "aria-label": caseconv.capitalize(
+    "aria-label": strings.capitalize(
       multiple === true ? plural(resourceName) : resourceName,
     ),
   };

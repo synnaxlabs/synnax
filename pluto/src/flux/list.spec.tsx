@@ -16,7 +16,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { color, id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, map, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,7 +95,7 @@ describe("useList", () => {
     const renders = new Map<ranger.Key, number>();
     const Item = ({ itemKey }: { itemKey: ranger.Key }): ReactElement => {
       const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
-      renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+      map.increment(renders, itemKey);
       return <span>{range?.name}</span>;
     };
     const renderItem = ({ key }: { key: ranger.Key }) => (
@@ -414,6 +414,87 @@ describe("useList", () => {
     expect(result.current.getItem(outside.key)?.name).toEqual("outside");
     expect(result.current.getItem([outside.key])).toHaveLength(1);
     release();
+  });
+
+  it("should not call a subscriber that released before its read lands", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const reader = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: reader }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    const send = spyOnSend(reader);
+    const callback = vi.fn();
+    result.current.subscribe(callback, outside.key)();
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    await Promise.allSettled(send.mock.results.map(({ value }) => value));
+    await act(async () => {});
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("should not log the failed read of a subscriber that released", async () => {
+    const outside = await client.ranges.create({
+      name: "outside",
+      timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+    });
+    const reader = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: reader }) },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.answered).toBe(true));
+    const reads = rejectRequests(
+      reader,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order == null,
+      new Error("boom"),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const callback = vi.fn();
+    result.current.subscribe(callback, outside.key)();
+    await waitFor(() =>
+      expect(
+        reads.mock.calls.some(
+          ([target, req]) =>
+            target === "/range/retrieve" &&
+            ranger.retrieveRequestZ.parse(req).order == null,
+        ),
+      ).toBe(true),
+    );
+    await act(async () => {});
+    expect(error).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("should call a reader of many keys once for each change of the list", async () => {
+    const records = [await create("a"), await create("b"), await create("c")];
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper },
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    // A first subscriber fetches each record, so the fetches call no counted reader.
+    const fetched = vi.fn();
+    const releases = records.map(({ key }) => result.current.subscribe(fetched, key));
+    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(3));
+    const many = vi.fn();
+    const one = vi.fn();
+    releases.push(...records.map(({ key }) => result.current.subscribe(many, key)));
+    releases.push(result.current.subscribe(one, records[0].key));
+    await create("d");
+    await waitFor(() => expect(result.current.data).toHaveLength(4));
+    expect(one).toHaveBeenCalled();
+    expect(many).toHaveBeenCalledTimes(one.mock.calls.length);
+    releases.forEach((release) => release());
   });
 
   it("should read nothing before the first more or search", async () => {

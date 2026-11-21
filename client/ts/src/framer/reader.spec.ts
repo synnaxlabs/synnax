@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, math, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
@@ -650,7 +651,7 @@ describe("Reader", () => {
           await writer.close();
         }),
       );
-      const totalSamples = samplesPerGroup.reduce((a, b) => a + b, 0);
+      const totalSamples = math.sum(samplesPerGroup);
 
       const stream = await client.readCSV(
         {
@@ -874,6 +875,20 @@ describe("Reader", () => {
       const file = await streamToString(stream);
       expect(file.startsWith("TDSm")).toBe(true);
       expect(file).toContain(`/'${index.name}'/'${data.name}'`);
+    });
+  });
+
+  describe("missing channels", () => {
+    it("should throw a NotFoundError when reading CSV from a missing channel", async () => {
+      await expect(
+        client.readCSV({ start: 0, end: 1 }, [`missing-${id.create()}`]),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should throw a NotFoundError when reading TDMS from a missing channel", async () => {
+      await expect(
+        client.readTDMS({ start: 0, end: 1 }, [`missing-${id.create()}`]),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

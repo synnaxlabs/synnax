@@ -9,6 +9,7 @@
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, within } from "@testing-library/react";
 
 import {
@@ -20,7 +21,7 @@ import {
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -98,3 +99,11 @@ export const openAddData = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
   return within(await screen.findByRole("dialog"));
 };
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/mqtt/task/Read"),
+    async () => await import("@/feature/mqtt/task/Write"),
+    async () => await import("@/feature/mqtt/task/Edge"),
+  );

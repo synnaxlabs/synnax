@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, type group } from "@synnaxlabs/client";
-import { type Color } from "@synnaxlabs/lyra/color";
+import type { Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, compare } from "@synnaxlabs/x";
 
@@ -46,21 +46,30 @@ export const usePalettes = (): Color.Palette[] => {
   return palettes;
 };
 
-/** Returns the keys of the series colors in palette order. */
-export const useSeries = (): color.Key[] =>
+const useSeriesNamed = (): color.Named[] =>
   useAll()
     .filter((c) => c.group === color.SERIES_PALETTE)
-    .sort(color.compare)
-    .map((c) => c.key);
+    .sort(color.compare);
+
+/** Returns the keys of the series colors in palette order. */
+export const useSeries = (): color.Key[] => useSeriesNamed().map((c) => c.key);
+
+/** Returns the series colors in palette order, resolved for the theme. */
+export const useSeriesValues = (): xcolor.Color[] => {
+  const t = Theming.use();
+  return useSeriesNamed().map((c) => Theming.resolve(c, t));
+};
 
 /**
  * Returns a function that resolves a color reference to its value for the theme. The
- * function returns undefined for a named color that is not loaded.
+ * function returns undefined for an absent reference or a named color that is not
+ * loaded.
  */
-export const useResolve = (): ((ref: color.Ref) => xcolor.Color | undefined) => {
+export const useResolve = (): ((ref?: color.Ref) => xcolor.Color | undefined) => {
   const t = Theming.use();
   const named = new Map(useAll().map((c) => [c.key, c]));
   return (ref) => {
+    if (ref == null) return undefined;
     if (ref.type === "fixed") return xcolor.construct(ref.value);
     const n = named.get(ref.key);
     return n == null ? undefined : Theming.resolve(n, t);

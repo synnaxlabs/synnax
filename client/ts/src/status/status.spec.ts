@@ -13,7 +13,7 @@ import z from "zod";
 
 import { channel } from "@/channel";
 import { DataType, NotFoundError } from "@/index";
-import { type query } from "@/query";
+import type { query } from "@/query";
 import { status } from "@/status";
 import {
   createTestClient,
@@ -941,10 +941,11 @@ describe("Status", () => {
       onTestFinished(async () => await local.close());
       await local.connect();
       await waitForStreamLive(local.connection);
-      const handler = vi.fn<(written: status.Status) => void>();
+      const handler =
+        vi.fn<(written: status.Status, origin: status.WriteOrigin) => void>();
       onTestFinished(local.statuses.onWrite(handler));
       const keys = () => handler.mock.calls.map(([written]) => written.key);
-      return { local, keys };
+      return { local, handler, keys };
     };
 
     const createStatus = async (): Promise<status.Status> =>
@@ -957,9 +958,25 @@ describe("Status", () => {
       });
 
     it("should call the handler with a status another client writes", async () => {
-      const { keys } = await createListener();
+      const { handler, keys } = await createListener();
       const written = await createStatus();
       await expect.poll(keys).toContain(written.key);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ key: written.key }),
+        { local: false },
+      );
+    });
+
+    it("should call the handler with a local status and mark it local", async () => {
+      const { local, handler } = await createListener();
+      const stat = status.create({
+        key: id.create(),
+        name: "onWrite",
+        variant: "info",
+        message: "Set here",
+      });
+      local.statuses.setLocal(stat);
+      expect(handler).toHaveBeenCalledWith(stat, { local: true });
     });
 
     it("should skip a status that a retrieve brings into the cache", async () => {
@@ -1041,6 +1058,30 @@ describe("fromException", () => {
     expect(s.message).toBe("Failed to load projects");
     expect(s.description).toBe(
       "failed to reconcile projects cache: projects not found: query",
+    );
+  });
+
+  it("should keep the description of a status in the cause chain", () => {
+    const cause = status.toError(
+      status.create({
+        variant: "error",
+        message: "Failed to list files",
+        description: "/etc/synnax/secrets does not exist.",
+      }),
+    );
+    const err = new Error("Failed to retrieve files", { cause });
+    const s = status.fromException(err, "Failed to load files");
+    expect(s.description).toBe(
+      "Failed to retrieve files: Failed to list files. /etc/synnax/secrets does not exist.",
+    );
+  });
+
+  it("should end the cause chain at a cause whose status has a description", () => {
+    const cause = new CustomError("boom", { cause: new Error("the raw issues") });
+    const err = new Error("Failed to retrieve task", { cause });
+    const s = status.fromException(err, HEADING);
+    expect(s.description).toBe(
+      "Failed to retrieve task: Failed to parse task config. the formatted breakdown",
     );
   });
 

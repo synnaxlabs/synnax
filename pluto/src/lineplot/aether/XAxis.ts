@@ -7,20 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
+import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+import {
+  type AxisRenderProps,
+  BaseAxis,
+  baseAxisStateZ,
+  newestSample,
+} from "@/lineplot/aether/axis";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
-  schema = baseAxisStateZ;
+  override schema = baseAxisStateZ;
 
-  render(props: AxisRenderProps): void {
+  /**
+   * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
+   * raised lines to raised.
+   */
+  render(props: AxisRenderProps, raised: Array<() => void>): void {
     if (this.deleted) return;
     const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
       props.hold,
@@ -28,7 +37,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       props.viewport,
     );
     this.renderAxis(props, dataToDecimal.reverse());
-    this.renderYAxes(props, dataToDecimal, xBounds);
+    this.renderYAxes(props, dataToDecimal, xBounds, raised);
     this.renderRanges(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
@@ -84,9 +93,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: AxisRenderProps,
     xDataToDecimalScale: scale.Scale,
     xBounds: bounds.Bounds,
+    raised: Array<() => void>,
   ): void {
     const p = { ...props, xDataToDecimalScale, xBounds };
-    this.yAxes.forEach((el) => el.render(p));
+    this.yAxes.forEach((el) => el.render(p, raised));
   }
 
   get yAxes(): readonly YAxis[] {
@@ -115,12 +125,14 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const bound = this.bounds(props.hold);
     const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
+    const newest = newestSample(this.dataBounds());
     this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,
         region: props.plot,
         viewport: props.viewport,
         timeRange,
+        newest: newest == null ? undefined : new TimeStamp(newest),
       }),
     );
   }

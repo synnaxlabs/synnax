@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
-import { type List } from "@/list";
+import type { List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
 import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
@@ -118,7 +118,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           createHaulItem={createHaulItem}
           icon={icon}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(plural(resourceName))}
+          aria-label={strings.capitalize(plural(resourceName))}
           resourceName={resourceName}
           disabled={disabled}
           preview={preview}

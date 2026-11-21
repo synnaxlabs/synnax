@@ -13,7 +13,7 @@ import { CALLOUT_S, CARD_S, SCOPE_FADE_S, SCOPE_PAD } from "@/director/constants
 import { overlay, type OverlayPlan, project } from "@/director/overlay";
 import { stage } from "@/director/stage";
 import { edit, FPS, overlays } from "@/film";
-import { type Event, type Timeline } from "@/timeline";
+import type { Event, Timeline } from "@/timeline";
 
 const RECT = { x: 100, y: 300, width: 400, height: 200 };
 

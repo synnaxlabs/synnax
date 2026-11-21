@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type record } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type record, strings } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Dialog } from "@/dialog";
-import { type List } from "@/list";
+import type { List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
@@ -110,7 +110,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
           icon={icon}
           clearable={allowNone}
           placeholder={placeholder}
-          aria-label={caseconv.capitalize(resourceName)}
+          aria-label={strings.capitalize(resourceName)}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

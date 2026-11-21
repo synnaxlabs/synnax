@@ -9,7 +9,7 @@
 
 import { type record, xy } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -20,7 +20,7 @@ import {
   type Snapshot,
   useClipboard,
 } from "@/vis/diagram/clipboard";
-import { type ClipboardHandler } from "@/vis/diagram/Diagram";
+import type { ClipboardHandler } from "@/vis/diagram/Diagram";
 
 type ClipboardEvent = Parameters<ClipboardHandler>[0];
 

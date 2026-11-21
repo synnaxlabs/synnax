@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import channel as channel_
 from synnax.resource import ID
 from x import filter, payload as payload_, telem
 
@@ -116,6 +117,22 @@ class BaseField(BaseModel):
     units: str = ""
     min: float | None = None
     max: float | None = None
+
+
+class ReadBinding(BaseModel):
+    """Writes the value of one message field to a channel.
+
+    Attributes:
+        field: Is the key of the message field to read.
+        channel: Is the channel the value of the field is written to.
+        data_type: Is the data type of the channel that a client creates for the field.
+            Empty takes the default of the field's kind. The Core ignores it once the
+            channel exists.
+    """
+
+    field: FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType = telem.DataType("")
 
 
 class CanIdentifier(BaseModel):
@@ -230,7 +247,9 @@ class BinaryField(BaseField):
     byte_order: ByteOrder = "little_endian"
     kind: payload_.Kind = "unsigned"
     multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
 
 
 class JSONBaseField(BaseField):
@@ -263,6 +282,21 @@ TextField = Annotated[
     DelimitedTextField | TaggedTextField,
     Field(discriminator="encoding"),
 ]
+
+
+class ReadMessage(BaseModel):
+    """Reads one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to read.
+        index: Is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival, or with the timestamp of the Kafka record.
+        bindings: Are the fields the task reads. A field with no binding is not read.
+    """
+
+    message: MessageKey
+    index: FieldKey | None = None
+    bindings: list[ReadBinding] = Field(default_factory=list)
 
 
 class FloatJSONField(JSONBaseField):
@@ -392,11 +426,16 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
+        cycle_time: Is the send cycle that the protocol states for the message. When
+            absent the protocol states none.
     """
 
     key: MessageKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     payload: Payload
+    cycle_time: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class ICD(BaseModel):

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type access, query, type resource, type Synnax } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 

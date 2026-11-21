@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, search } from "@synnaxlabs/x";
+import { type destructor, map, type record, search } from "@synnaxlabs/x";
 import { useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 
 import { context } from "@/context";
@@ -160,15 +160,12 @@ const useRegistry = (): Registry => {
         if (!pinned && text?.toLowerCase() === lower) return true;
       return false;
     },
-    getLabel: (key) => {
-      let label = labelsRef.current.get(key);
-      if (label == null) {
-        label = document.createElement("span");
+    getLabel: (key) =>
+      map.getOrInsert(labelsRef.current, key, () => {
+        const label = document.createElement("span");
         label.className = CSS.BE("select", "fixed-label");
-        labelsRef.current.set(key, label);
-      }
-      return label;
-    },
+        return label;
+      }),
     subscribe,
   };
 };

@@ -148,7 +148,7 @@ private:
     /// @brief a switch to Synnax only of a module.
     struct Switch {
         x::telem::TimeStamp at;
-        uint32_t serial = 0;
+        uint64_t serial = 0;
         std::string network;
         uint16_t position = 0;
 

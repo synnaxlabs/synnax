@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { color, deep, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import {
   afterEach,
   assert,
@@ -26,7 +26,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -586,7 +586,7 @@ describe("schematic queries", () => {
       node: {
         key: "n1",
         position: { x: 0, y: 0 },
-        config: { variant: "tank", strokeColor: "#00ff00" },
+        config: { variant: "tank", strokeColor: { type: "fixed", value: "#00ff00" } },
       },
     });
 
@@ -623,7 +623,25 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 255, 0, 255],
+          strokeColor: { type: "fixed", value: [0, 255, 0, 255] },
+        }),
+      );
+    });
+
+    it("fills a new edge's stroke from a symbol that stores a color value", async () => {
+      await dispatch(
+        schematic.setNode({
+          node: {
+            key: "n1",
+            position: { x: 0, y: 0 },
+            config: { variant: "valve", strokeColor: "#00ff00" },
+          },
+        }),
+      );
+      await dispatch(schematic.addEdge({ edge: edge(pipe()) }));
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({
+          strokeColor: { type: "fixed", value: [0, 255, 0, 255] },
         }),
       );
     });
@@ -631,12 +649,14 @@ describe("schematic queries", () => {
     it("keeps the stroke a new edge's config chose", async () => {
       await dispatch(greenTank);
       await dispatch(
-        schematic.addEdge({ edge: edge(pipe({ strokeColor: "#0000ff" })) }),
+        schematic.addEdge({
+          edge: edge(pipe({ strokeColor: { type: "fixed", value: "#0000ff" } })),
+        }),
       );
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 0, 255, 255],
+          strokeColor: { type: "fixed", value: [0, 0, 255, 255] },
         }),
       );
     });
@@ -657,7 +677,7 @@ describe("schematic queries", () => {
 
     interface EdgeCfg {
       variant?: string;
-      strokeColor?: string;
+      strokeColor?: schematic.PipeEdgeConfig["strokeColor"];
       segments?: Schematic.Edge.Segmented.Segment[];
     }
     const asEdgeCfg = (raw: unknown): EdgeCfg | undefined => raw as EdgeCfg | undefined;
@@ -776,13 +796,16 @@ describe("schematic queries", () => {
       await dispatch(
         schematic.set({
           path: ["edges", "e1", "config"],
-          value: pipe({ strokeColor: "#ff00ff", segments: SEGMENTS }),
+          value: pipe({
+            strokeColor: { type: "fixed", value: "#ff00ff" },
+            segments: SEGMENTS,
+          }),
         }),
       );
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [255, 0, 255, 255],
+          strokeColor: { type: "fixed", value: [255, 0, 255, 255] },
           segments: SEGMENTS,
         }),
       );
@@ -793,7 +816,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.strokeColor).toEqual([255, 0, 255, 255]);
+        expect(cfg?.strokeColor).toEqual({ type: "fixed", value: [255, 0, 255, 255] });
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
@@ -1020,8 +1043,13 @@ describe("schematic queries", () => {
     it("should add and remove fields with a write of the whole config", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);
+      const tank = result.current.form.value();
+      if (tank.variant !== "tank") throw new Error("expected a tank");
       const strokeColor = color.construct("#ff0000");
-      const add = { ...result.current.form.value(), strokeColor };
+      const add = {
+        ...tank,
+        strokeColor: { type: "fixed" as const, value: strokeColor },
+      };
       act(() => result.current.form.set(element, add));
       await act(async () => expect(await result.current.flush()).toBe(true));
       expect(await fetchStoredConfig(schem.key, "n1")).toHaveProperty("strokeColor");
@@ -1105,7 +1133,10 @@ describe("schematic queries", () => {
     });
 
     it("should send an edge edit as a path action into the edge's config", async () => {
-      const red: color.RGBA = [255, 0, 0, 1];
+      const red: schematic.PipeEdgeConfig["strokeColor"] = {
+        type: "fixed",
+        value: [255, 0, 0, 1],
+      };
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key, "e1");
       const send = spyOnSend(client);

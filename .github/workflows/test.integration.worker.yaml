@@ -62,11 +62,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Force quit existing Synnax processes (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
-        run: integration/scripts/KillSynnaxProcesses.cmd
+        shell: powershell
+        run: integration/scripts/KillSynnaxProcesses.ps1
 
       - name: Force quit existing Synnax processes (Ubuntu)
         if: runner.os == 'Linux'
@@ -75,11 +77,11 @@ jobs:
 
       - name: Download and setup artifacts (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifacts.cmd
+        run: integration/scripts/DownloadArtifacts.ps1
 
       - name: Download and setup artifacts (Ubuntu)
         if: runner.os == 'Linux'
@@ -89,7 +91,7 @@ jobs:
         run: integration/scripts/download_artifacts.sh
 
       - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
 
@@ -140,9 +142,8 @@ jobs:
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
-        # The self-hosted Windows test bots have no bash. !TC_ARGS! expands after cmd
-        # parses the line, so the flags cannot add commands.
-        shell: cmd
+        # Splitting TC_ARGS passes the flags as arguments, so they cannot add commands.
+        shell: powershell
         working-directory: integration
         # The Cores that --cores starts read the license from the conductor.
         env:
@@ -154,10 +155,10 @@ jobs:
             ${{ matrix.target && format('{0} {1}', matrix.target, matrix.args) ||
             inputs.flags }}
         run: |
-          setlocal EnableDelayedExpansion
-          uv run test-conductor --name tc_win ^
-            --core-binary "%USERPROFILE%\synnax-binaries\synnax.exe" ^
-            --driver-binary "%USERPROFILE%\synnax-binaries\synnax-driver.exe" !TC_ARGS!
+          $tcArgs = @("$env:TC_ARGS" -split '\s+' | Where-Object { $_ })
+          uv run test-conductor --name tc_win `
+            --core-binary "$env:USERPROFILE\synnax-binaries\synnax.exe" `
+            --driver-binary "$env:USERPROFILE\synnax-binaries\synnax-driver.exe" @tcArgs
 
       - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'

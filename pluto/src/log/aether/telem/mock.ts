@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type status } from "@synnaxlabs/client";
+import type { channel, status } from "@synnaxlabs/client";
 import { type destructor, observe, type TimeRange } from "@synnaxlabs/x";
 
-import {
-  type LogEntry,
-  type LogSource,
-  type LogSourceSpec,
-} from "@/log/aether/telem/types";
+import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
 
@@ -23,7 +19,7 @@ export class MockLogSource implements LogSource {
   status: status.Status = telem.SUCCESS_STATUS;
   private _entries: LogEntry[] = [];
   private activeChannels: Set<channel.Key> = new Set();
-  private readonly observable = new observe.BaseObserver<void>();
+  private readonly observable = new observe.Observer<void>();
 
   value(): telem.Result<LogEntry[]> {
     const { activeChannels, status } = this;

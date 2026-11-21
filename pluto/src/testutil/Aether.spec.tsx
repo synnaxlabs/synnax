@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -22,14 +22,14 @@ const testStateZ = z.object({
 
 class TestLeaf extends aether.Leaf<typeof testStateZ> {
   static readonly TYPE = "TestLeaf";
-  schema = testStateZ;
+  override schema = testStateZ;
   updateFn = vi.fn();
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     this.updateFn();
   }
 
-  afterDelete(): void {}
+  override afterDelete(): void {}
 }
 
 describe("createAetherProvider", () => {

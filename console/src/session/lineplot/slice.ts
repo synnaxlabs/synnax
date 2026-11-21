@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type lineplot } from "@synnaxlabs/client";
-import { type Drift } from "@synnaxlabs/drift";
+import type { lineplot } from "@synnaxlabs/client";
+import type { Drift } from "@synnaxlabs/drift";
 import { Viewport } from "@synnaxlabs/pluto";
 import { lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { array, box, deep, dimensions, xy } from "@synnaxlabs/x";
@@ -53,6 +53,18 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
+const hiddenZ = z.object({
+  lines: z.array(z.string()),
+  ranges: z.array(z.string()),
+  traces: z.array(z.string()),
+});
+/** The items of a plot that do not show. */
+export interface Hidden extends z.infer<typeof hiddenZ> {}
+
+const soloZ = z.object({ item: z.string(), restore: hiddenZ });
+/** The item the user showed alone, and what was hidden before. */
+export interface Solo extends z.infer<typeof soloZ> {}
+
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
   selection: selectionZ.prefault({}),
@@ -63,6 +75,12 @@ const stateZ = z.object({
   annotations: annotationsZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
+  /** The keys of the ranges that do not show on a relative x axis. */
+  hiddenRanges: z.array(z.string()).default([]),
+  /** The keys of the lines of one range that do not show on a relative x axis. */
+  hiddenTraces: z.array(z.string()).default([]),
+  /** The item the user showed alone. A second solo of it restores what was hidden. */
+  solo: soloZ.nullable().default(null),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
@@ -132,9 +150,9 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
-export interface SetLineVisiblePayload extends KeyedPayload {
-  lineKey: string;
-  visible: boolean;
+export interface SetHiddenPayload extends KeyedPayload {
+  hidden: Hidden;
+  solo: Solo | null;
 }
 
 export interface RemovePayload {
@@ -180,7 +198,7 @@ export const { actions, reducer } = createSlice({
     ),
     setControlHold: withSelectedState<SetControlHoldPayload, SliceState>(
       (state, { payload: { hold } }) => {
-        state.control.hold = hold !== undefined ? hold : !state.control.hold;
+        state.control.hold = hold ?? !state.control.hold;
       },
     ),
     toggleControlClickMode: withSelectedState<
@@ -193,8 +211,7 @@ export const { actions, reducer } = createSlice({
       SetControlEnableTooltipPayload,
       SliceState
     >((state, { payload: { enabled } }) => {
-      state.control.enableTooltip =
-        enabled !== undefined ? enabled : !state.control.enableTooltip;
+      state.control.enableTooltip = enabled ?? !state.control.enableTooltip;
     }),
     setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
       (state, { payload: { mode } }) => {
@@ -218,12 +235,12 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { visible } }) => {
       state.annotations.visible = visible;
     }),
-    setLineVisible: withSelectedState<SetLineVisiblePayload, SliceState>(
-      (state, { payload: { lineKey, visible } }) => {
-        const hidden = new Set(state.hiddenLines);
-        if (visible) hidden.delete(lineKey);
-        else hidden.add(lineKey);
-        state.hiddenLines = Array.from(hidden);
+    setHidden: withSelectedState<SetHiddenPayload, SliceState>(
+      (state, { payload: { hidden, solo } }) => {
+        state.hiddenLines = hidden.lines;
+        state.hiddenRanges = hidden.ranges;
+        state.hiddenTraces = hidden.traces;
+        state.solo = solo;
       },
     ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
@@ -246,7 +263,7 @@ export const {
   setSelectedRule,
   setMeasureMode,
   setRangeAnnotationsVisible,
-  setLineVisible,
+  setHidden,
   remove,
 } = actions;
 
@@ -278,6 +295,6 @@ export const MIDDLEWARE = [
     setSelectedRule,
     setMeasureMode,
     setRangeAnnotationsVisible,
-    setLineVisible,
+    setHidden,
   ]),
 ];

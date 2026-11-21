@@ -12,9 +12,18 @@
 // leaf modules (external packages, @/errors).
 
 import { EOF } from "@synnaxlabs/freighter";
-import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  breaker,
+  type destructor,
+  disposable,
+  errors,
+  observe,
+  sync,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import {
   AuthError,
   ExpiredTokenError,
@@ -22,13 +31,13 @@ import {
   LicenseError,
   SessionEndedError,
 } from "@/errors";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { isDefinitive } from "@/framer/retry";
-import {
-  type Streamer,
-  type StreamerConfig,
-  type StreamerUpdateOptions,
-  type StreamOpener,
+import type {
+  Streamer,
+  StreamerConfig,
+  StreamerUpdateOptions,
+  StreamOpener,
 } from "@/framer/streamer";
 
 type NormalizedStreamerConfig = Extract<StreamerConfig, { channels: unknown }>;
@@ -64,6 +73,12 @@ export interface HardenedStreamerOptions {
  * logic when the connection is lost or errors occur.
  */
 export class HardenedStreamer implements Streamer {
+  declare [Symbol.dispose]: () => void;
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implement(this);
+  }
+
   private current: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
@@ -268,35 +283,46 @@ export class HardenedStreamer implements Streamer {
   }
 }
 
+type Transform<V> = (frame: Frame) => [V, true] | [V | null, false];
+
 /**
  * Wraps a standard streamer to implement an observable interface for handling changes
  * to channel values through an onChange handler.
  */
-export class ObservableStreamer<V = Frame>
-  extends observe.Observer<Frame, V>
-  implements observe.ObservableAsyncCloseable<V>
-{
+export class ObservableStreamer<V = Frame> implements observe.Observable<V> {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
+  private readonly observer = new observe.Observer<V>();
   private readonly streamer: Streamer;
+  private readonly transform?: Transform<V>;
   private readonly closePromise: Promise<void>;
   private readonly onDead?: (error: Error) => void;
   private closeRequested = false;
 
   /**
    * Creates a new observable streamer.
-   * @param transform - An optional transform function to apply to each frame
+   * @param transform - Maps each frame to a value, and returns false as the second
+   * element to skip the frame. Omit to notify with each frame.
    * @param onDead - Called when the stream ends on a failure the wrapped streamer will
    * not recover from. No frames follow.
    */
   constructor(
     streamer: Streamer,
-    transform?: observe.Transform<Frame, V>,
+    transform?: Transform<V>,
     onDead?: (error: Error) => void,
   ) {
-    super(transform);
     this.streamer = streamer;
+    this.transform = transform;
     this.onDead = onDead;
     // Nothing awaits closePromise until close(), so a failure would go unhandled.
     this.closePromise = this.stream().catch(console.error);
+  }
+
+  onChange(handler: observe.Handler<V>): destructor.Destructor {
+    return this.observer.onChange(handler);
   }
 
   async update(channels: channel.Params): Promise<void> {
@@ -311,7 +337,14 @@ export class ObservableStreamer<V = Frame>
 
   private async stream(): Promise<void> {
     try {
-      for await (const frame of this.streamer) this.notify(frame);
+      for await (const frame of this.streamer) {
+        if (this.transform == null) {
+          this.observer.notify(frame as V);
+          continue;
+        }
+        const [value, changed] = this.transform(frame);
+        if (changed) this.observer.notify(value);
+      }
     } catch (exc) {
       this.onDead?.(errors.fromUnknown(exc));
       return;

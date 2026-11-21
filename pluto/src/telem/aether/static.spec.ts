@@ -11,7 +11,7 @@ import { MultiSeries, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Clock, fixedArray, StaticFactory } from "@/telem/aether/static";
-import { type SeriesSource } from "@/telem/aether/telem";
+import type { SeriesSource } from "@/telem/aether/telem";
 
 describe("Clock", () => {
   const PERIOD = TimeSpan.milliseconds(500);

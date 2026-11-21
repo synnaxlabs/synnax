@@ -7,26 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { render } from "@testing-library/react";
 import { type ComponentType, Suspense } from "react";
 
-import { Settings } from "@/app/settings";
+// Imported eagerly: a busy runner can take longer to load the lazy tab module than a
+// query waits.
+import { Settings } from "@/app/settings/Settings";
 import { Secret } from "@/feature/secret";
 import { Tree } from "@/platform/tree";
 import { createConsoleWrapper } from "@/testutil";
 
-/** Renders the Settings tab with the Console providers, as the given client. */
+/** Renders the Settings page with the Console providers, as the given client. */
 export const renderSettings = async (
   as: Synnax = createTestClient(),
 ): Promise<{ wrapper: ComponentType }> => {
-  const { Content } = Settings.TABS.settings;
   const { wrapper } = await createConsoleWrapper({ client: as });
   render(
     <Tree.Provider items={Secret.TREE_ITEMS}>
       <Suspense fallback={null}>
-        <Content />
+        <Settings />
       </Suspense>
     </Tree.Provider>,
     { wrapper },

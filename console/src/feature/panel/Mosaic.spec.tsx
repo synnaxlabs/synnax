@@ -21,6 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,7 +42,6 @@ import {
   createConsoleWrapper,
   getBySelector,
   type TestStore,
-  uniqueName,
   withSelectedProject,
 } from "@/testutil";
 

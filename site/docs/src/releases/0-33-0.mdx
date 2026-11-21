@@ -1,19 +1,14 @@
 ---
-title: "Version 0.33 release notes"
+title: "Log component"
+version: "0.33.0"
+date: "Nov 5, 2024"
 ---
 
 import { Hero } from "@/components/hero";
-import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
-
-<Release
-    version="0.33.0"
-    date="Nov 5, 2024"
-    title="Log component"
->
 
 <Hero.Hero
   image="console/logs/thumbnail"
@@ -22,6 +17,7 @@ export const components = mdxOverrides;
   layout="bleed"
   tone="soft"
   palette="pink-orange"
+  alt="A log of temperature and pressure values"
 />
 
 We've added a new [log component](/reference/visualize/logs) to the Synnax
@@ -35,5 +31,3 @@ automated hardware control processes.
 ### Breaking changes
 
 This release does **not** introduce any breaking changes.
-
-</Release>

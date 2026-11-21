@@ -10,7 +10,7 @@
 import { license, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, screen } from "@testing-library/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { License } from "@/platform/license";

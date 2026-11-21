@@ -241,9 +241,43 @@ describe("log/toolbar/Channels", () => {
       expect(auto).not.toBe("#00000000");
     });
 
+    it("links the channel to a named color picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: id.create(),
+      });
+      const named = await client.colors.create({
+        name: id.create(),
+        light: "#00ff00",
+        group: palette.key,
+      });
+      const { key } = await renderChannels([entry(await createChannel())]);
+      const [row] = await waitFor(() => {
+        const rows = channelRows();
+        expect(rows).toHaveLength(1);
+        return rows;
+      });
+      const swatch = row.querySelector<HTMLElement>(".lyra-color-swatch");
+      if (swatch == null) throw new Error("no swatch in the channel row");
+      // The row stays disabled until the write permission loads.
+      await waitFor(() =>
+        expect(swatch.getAttribute("aria-disabled")).not.toBe("true"),
+      );
+      fireEvent.click(swatch);
+      fireEvent.click(await screen.findByRole("button", { name: named.name }));
+      await waitFor(async () =>
+        expect((await client.logs.retrieve({ key })).channels[0].color).toEqual({
+          type: "named",
+          key: named.key,
+        }),
+      );
+    });
+
     it("shows a zero color as transparent black", async () => {
       await renderChannels([
-        entry(await createChannel(), { color: color.construct("#00000000") }),
+        entry(await createChannel(), {
+          color: { type: "fixed", value: color.construct("#00000000") },
+        }),
       ]);
       expect(await swatchColor()).toBe("#00000000");
     });

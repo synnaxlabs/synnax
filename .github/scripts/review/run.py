@@ -55,7 +55,7 @@ class LoginRejected(RuntimeError):
 
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
-_FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
+_FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.MULTILINE)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
 _WORD = re.compile(r"\w+")
 _FUNCTION_WORD = re.compile(
@@ -64,7 +64,7 @@ _FUNCTION_WORD = re.compile(
 )
 # Reviewers write these blocks into the body. A review must not see another review.
 _REVIEWS = re.compile(
-    r"<!-- (greptile|sedosaur)_comment -->.*?<!-- /\1_comment -->", re.S
+    r"<!-- (greptile|sedosaur)_comment -->.*?<!-- /\1_comment -->", re.DOTALL
 )
 
 

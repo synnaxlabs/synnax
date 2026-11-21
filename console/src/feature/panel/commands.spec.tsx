@@ -15,12 +15,13 @@ import {
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -30,7 +31,6 @@ import { Panel } from "@/feature/panel";
 import { Command } from "@/platform/command";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
 
 // Proves the list rendered before the window command is missed.
 const SentinelCommand = Command.create({

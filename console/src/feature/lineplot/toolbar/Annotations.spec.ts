@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -20,7 +21,7 @@ import {
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { getIconButton, getLabeledInput, uniqueName } from "@/testutil";
+import { getIconButton, getLabeledInput } from "@/testutil";
 
 const renderRulesTab = async () => {
   const name = uniqueName("plot");

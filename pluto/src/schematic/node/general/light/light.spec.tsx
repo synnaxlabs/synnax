@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";

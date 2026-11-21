@@ -106,9 +106,6 @@ type Store interface {
 	// record of one of HashedTables that a record uses, with the key of the record. An
 	// error from the hook fails the write. Set it before the store serves writes.
 	OnTargetSet(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
-	// HashedTables returns the names of the tables whose records Hash covers, as
-	// ServiceConfig.HashedTables does.
-	HashedTables() []string
 }
 
 // Decoded is a config blob in the current stored shape that is not yet checked against
@@ -606,9 +603,6 @@ func (s *Service[E]) OnDetach(
 ) {
 	s.onDetach = hook
 }
-
-// HashedTables implements Store.
-func (s *Service[E]) HashedTables() []string { return s.cfg.HashedTables }
 
 // OnTargetSet implements Store.
 func (s *Service[E]) OnTargetSet(

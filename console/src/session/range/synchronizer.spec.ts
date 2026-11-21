@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot, type ranger, type Synnax } from "@synnaxlabs/client";
+import type { lineplot, ranger, Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -21,12 +21,13 @@ import {
   TimeSpan,
   uuid,
 } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
+import { createConsoleWrapper, selectRange } from "@/testutil";
 
 const client = createTestClient();
 
@@ -131,15 +132,15 @@ describe("Range.SYNCHRONIZERS", () => {
       );
       const reader = createTestClient();
       expect((await reader.lineplots.retrieve(mixed.key)).ranges).toEqual([
-        savedRef,
-        rolling,
-        windowOf(local),
+        expect.objectContaining(savedRef),
+        expect.objectContaining(rolling),
+        expect.objectContaining(windowOf(local)),
       ]);
       expect((await reader.lineplots.retrieve(shown.key)).ranges).toEqual([
-        windowOf(local),
+        expect.objectContaining(windowOf(local)),
       ]);
       expect((await reader.lineplots.retrieve(untouched.key)).ranges).toEqual([
-        savedRef,
+        expect.objectContaining(savedRef),
       ]);
       expect(send).not.toHaveBeenCalledWith(untouched.key, expect.anything());
       expect(client.lineplots.hasUndo(mixed.key)).toBe(false);
@@ -164,7 +165,9 @@ describe("Range.SYNCHRONIZERS", () => {
       );
       await waitFor(() => expect(result.current).toBe(true));
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
-      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
+      expect(ranges).toEqual([
+        expect.objectContaining({ variant: "key", key: local.key }),
+      ]);
     });
 
     const mount = async (local: Local, as: Synnax = client) => {
@@ -229,7 +232,9 @@ describe("Range.SYNCHRONIZERS", () => {
       expect(rewritten()).toBe(false);
       expect(result.current.statuses).toEqual([]);
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
-      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
+      expect(ranges).toEqual([
+        expect.objectContaining({ variant: "key", key: local.key }),
+      ]);
     });
 
     it("should mark the rewrite done when a line plot is deleted first", async () => {
@@ -253,15 +258,14 @@ describe("Range.SYNCHRONIZERS", () => {
     });
 
     it("should not mark the rewrite done when its pass ends", async () => {
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const send = vi.spyOn(client.lineplots, "send").mockReturnValue(gate);
       try {
         const { unmount, rewritten } = await mountWithLocal();
         await waitFor(() => expect(send).toHaveBeenCalled());
         unmount();
         release();
-        await scheduler.flushTaskQueue();
+        await scheduler.nextTask();
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();

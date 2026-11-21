@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type WebsocketMessage } from "@synnaxlabs/freighter";
+import type { WebsocketMessage } from "@synnaxlabs/freighter";
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { framer } from "@/framer";
 import { Codec, WSIteratorCodec, WSStreamerCodec, WSWriterCodec } from "@/framer/codec";
 import { ValidationError } from "@/index";
@@ -360,6 +360,17 @@ describe("encoder", () => {
         codec.encode(new framer.Frame([1], [new Series(data)])),
       );
       expect(Array.from(new Series(decoded.series[0]))).toEqual([7, 6]);
+    });
+  });
+
+  describe("channel keys", () => {
+    it("should keep a repeated key when the series count matches the channel count", () => {
+      const codec = new Codec([1, 2], [DataType.FLOAT32, DataType.FLOAT32]);
+      const fr = new framer.Frame(
+        [1, 1],
+        [new Series(new Float32Array([1])), new Series(new Float32Array([2]))],
+      );
+      expect(codec.decode(codec.encode(fr)).keys).toEqual([1, 1]);
     });
   });
 

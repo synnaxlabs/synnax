@@ -11,7 +11,7 @@ import "@/platform/device/LocationBadge.css";
 
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Device } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

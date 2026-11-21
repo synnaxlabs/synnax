@@ -23,9 +23,10 @@ import { createPanelProject, createTestClient } from "@synnaxlabs/client/testuti
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -39,20 +40,21 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  Suspense,
+  useEffect,
   useImperativeHandle,
 } from "react";
-import { expect, onTestFinished } from "vitest";
-import { type z } from "zod";
+import { expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
-import { type FormTabProps } from "@/platform/task/Form";
-import { type PlotChannels } from "@/platform/task/plot";
+import type { FormTabProps } from "@/platform/task/Form";
+import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
-import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
+import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
-  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestClientWithGrants,
@@ -64,7 +66,6 @@ import {
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const defaultClient = createTestClient();
@@ -446,6 +447,60 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
   tabKey: panel.TabKey;
 }
 
+interface Step {
+  name: string;
+  start: number;
+  end?: number;
+}
+
+const stepsByTest = new WeakMap<object, Step[]>();
+
+const formatStep = ({ name, start, end }: Step, now: number): string =>
+  end == null
+    ? `${name} still waiting after ${Math.round(now - start)} ms`
+    : `${name} ${Math.round(end - start)} ms`;
+
+/**
+ * Runs a wait of a task form spec and records how long it took, so a test that fails,
+ * a timeout included, reports the step it waited on.
+ */
+const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
+  const test = TestRunner.getCurrentTest();
+  if (test == null) return await run();
+  let steps = stepsByTest.get(test);
+  if (steps == null) {
+    const recorded: Step[] = [];
+    stepsByTest.set(test, recorded);
+    onTestFailed(() => {
+      const now = performance.now();
+      const report = recorded.map((s) => formatStep(s, now)).join("; ");
+      const line = `task form steps of "${test.name}": ${report}`;
+      // The console check fails a test on console output, so under Node the report
+      // writes to stderr. A browser spec has no process, and its test already failed.
+      if (typeof process === "undefined") console.error(line);
+      else process.stderr.write(`${line}\n`);
+    });
+    steps = recorded;
+  }
+  const entry: Step = { name, start: performance.now() };
+  steps.push(entry);
+  try {
+    return await run();
+  } finally {
+    entry.end = performance.now();
+  }
+};
+
+interface LoadProbeProps {
+  onLoad: () => void;
+}
+
+// Commits with the form in its Suspense boundary, so it runs once the form loads.
+const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
+  useEffect(onLoad, [onLoad]);
+  return null;
+};
+
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
@@ -455,6 +510,12 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
+): Promise<RenderTaskFormTabResult> =>
+  await step("form load", async () => await renderTaskFormTabSteps(Form, options));
+
+const renderTaskFormTabSteps = async (
+  Form: FC<FormTabProps>,
+  options: RenderTaskFormTabOptions,
 ): Promise<RenderTaskFormTabResult> => {
   const { onStatuses, onCaughtError, analytics = Analytics.NOOP } = options;
   const client = options.client ?? defaultClient;
@@ -476,19 +537,48 @@ export const renderTaskFormTab = async (
     onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
+  let loaded = false;
+  let loadError: unknown;
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
         <HaulProvider>
           <Modals.Stack />
           <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-            <Form taskKey={taskKey} />
+            <Suspense fallback={null}>
+              <Form taskKey={taskKey} />
+              <LoadProbe
+                onLoad={() => {
+                  loaded = true;
+                }}
+              />
+            </Suspense>
             {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
           </PanelScopes>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
-    { wrapper, onCaughtError },
+    {
+      wrapper,
+      onCaughtError: (error, info) => {
+        loadError ??= error;
+        // React logs a caught error when the root sets no handler.
+        if (onCaughtError == null) console.error(error);
+        else onCaughtError(error, info);
+      },
+    },
+  );
+  // A lazy form loads its module after the first render. waitFor runs outside act,
+  // since act holds React's retry until its callback returns.
+  // A cold module load under coverage can outlast the default wait, so the wait ends
+  // only short of the test timeout.
+  await waitFor(
+    () => {
+      if (loaded) return;
+      // A boundary that caught an error in place of the form holds the cause.
+      throw new Error("The task form did not load", { cause: loadError });
+    },
+    { timeout: 10_000 },
   );
   return { ...result, ...created, store, tabKey: tab.key };
 };
@@ -508,16 +598,17 @@ export const awaitEditableForm = async (): Promise<void> => {
  * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
  * so clicking without the wait races the form's initial query.
  */
-export const clickDeploy = async (container: HTMLElement): Promise<void> => {
-  const button = await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
-    if (b.getAttribute("aria-disabled") === "true")
-      throw new Error("start button is disabled");
-    return b;
+export const clickDeploy = async (container: HTMLElement): Promise<void> =>
+  await step("clickDeploy", async () => {
+    const button = await waitFor(() => {
+      const b = within(container).getByRole("button", { name: "Start" });
+      if (b.getAttribute("aria-disabled") === "true")
+        throw new Error("start button is disabled");
+      return b;
+    });
+    // The click can re-render form parts that still suspend on their first query.
+    await act(async () => fireEvent.click(button));
   });
-  // The click can re-render form parts that still suspend on their first query.
-  await act(async () => fireEvent.click(button));
-};
 
 /**
  * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
@@ -610,10 +701,14 @@ export const awaitCommand = async (
       }
     }
   };
-  return await sync.withTimeout(
-    read(),
-    TimeSpan.seconds(10),
-    () => new Error(`no command for task ${taskKey} received within 10s`),
+  return await step(
+    "awaitCommand",
+    async () =>
+      await sync.withTimeout(
+        read(),
+        TimeSpan.seconds(10),
+        () => new Error(`no command for task ${taskKey} received within 10s`),
+      ),
   );
 };
 

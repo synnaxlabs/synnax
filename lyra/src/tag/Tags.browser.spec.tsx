@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { Fragment, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -197,7 +198,7 @@ describe("Tags", () => {
       .poll(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`))
       .not.toBeNull()
       .then(() => document.querySelector(`.${CSS.BE("tags", "hidden")}`)!);
-    expect(list.textContent).toContain(LABELS[LABELS.length - 1]);
+    expect(list.textContent).toContain(LABELS.at(-1));
     expect(list.querySelector("svg")).toBeNull();
   });
 
@@ -218,8 +219,8 @@ describe("Tags", () => {
       const frame = container.querySelector<HTMLElement>("[data-testid=frame]")!;
       // The group fits again once its font loads, which moves the count.
       await document.fonts.ready;
-      await new Promise(requestAnimationFrame);
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
+      await scheduler.nextFrame();
       await expect.poll(() => count(frame)).not.toBeNull();
       expect(dots(frame)).toEqual(LABELS.slice(4));
       expect(faceInside(frame)).toBe(true);
@@ -500,8 +501,8 @@ describe("Stepped tags", () => {
     await userEvent.hover(first);
     await expect.poll(() => first.hasAttribute("data-lifted")).toBe(true);
     container.querySelector("[data-testid=clock]")!.firstChild!.nodeValue = "1";
-    await new Promise(requestAnimationFrame);
-    await new Promise(requestAnimationFrame);
+    await scheduler.nextFrame();
+    await scheduler.nextFrame();
     expect(first.hasAttribute("data-lifted")).toBe(true);
   });
 
@@ -531,7 +532,7 @@ describe("Stepped tags", () => {
     const tags = all.querySelector<HTMLElement>(`.${CSS.B("tags")}`)!;
     await userEvent.click(tags);
     await userEvent.click(tags);
-    await new Promise(requestAnimationFrame);
+    await scheduler.nextFrame();
     expect(dots(all)).toEqual(LABELS.slice(0, 3));
     expect(dots(three)).toEqual(LABELS.slice(0, 3));
     expect(count(all)).toBe(`${LABELS.length} labels`);

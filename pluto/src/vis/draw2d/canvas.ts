@@ -326,7 +326,12 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   }
 
   createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradient {
-    return this.wrapped.createLinearGradient(x0, y0, x1, y1);
+    return this.wrapped.createLinearGradient(
+      this.scale_.x.pos(x0),
+      this.scale_.y.pos(y0),
+      this.scale_.x.pos(x1),
+      this.scale_.y.pos(y1),
+    );
   }
 
   createPattern(
