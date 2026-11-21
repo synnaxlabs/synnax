@@ -84,6 +84,12 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	if snapshot != nil {
+		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
+			return nil, err
+		}
+		r.parts.Merge(snapshot)
+	}
 	e := &engine{
 		ins:      o.Instrumentation,
 		fs:       o.fs,
@@ -226,6 +232,8 @@ func (e *engine) recover(r *recovery) (err error) {
 		LogSize:  log.FileSize,
 		Prepared: e.log.Prepared,
 		Executor: e.exec,
+		Parts:    r.parts,
+		Live:     r.head.Generation,
 	})
 	return err
 }
@@ -352,8 +360,8 @@ func segmentName(key ChannelKey, id uint64, n uint16) string {
 }
 
 // orphans removes each segment and check file of a channel directory that snapshot does
-// not name, and cuts each named segment file to its committed length. In the root, it
-// keeps what a switch keeps.
+// not name, and cuts each named segment file to its committed length. The checkpointer
+// cleans the root.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
@@ -374,7 +382,7 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 			return err
 		}
 	}
-	return checkpoint.Clean(e.fs, e.head)
+	return nil
 }
 
 func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error {

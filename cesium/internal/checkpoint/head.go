@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package checkpoint writes and reads the heads of a Cesium database. A head holds the
-// state after a log sequence, so recovery replays only the logs from its generation.
+// Package checkpoint writes and reads the heads and parts of a Cesium database. A head
+// holds the state after a log sequence, so recovery replays only the logs from its
+// generation. A part holds sealed segments that a head names.
 package checkpoint
 
 import (
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/invariants"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const (
@@ -34,10 +36,12 @@ const (
 
 	formatVersion uint16 = 1
 	kindHead      uint8  = 4
+	kindPart      uint8  = 5
 	recordVersion uint16 = 1
 	tableEntry           = 24
 	sectorCRC            = 508
-	// noPart is the part index of a channel that no part holds.
+	// noPart is the part index of a channel that no part holds, and the bitmap offset
+	// of a part with no dead segment.
 	noPart        uint32 = 0xFFFFFFFF
 	flagSealed    uint8  = 1
 	sectionParts         = 1
@@ -52,11 +56,50 @@ const (
 	sectionCount         = 9
 )
 
+var magic = []byte("CSCHKPT\x00")
+
+// format is the layout of one kind of checkpoint file.
+type format struct {
+	name string
+	kind uint8
+	// sections are the section kinds of the file, in file order.
+	sections []int
+	// sizes holds the record size of each section kind, from 1.
+	sizes [sectionCount + 1]uint32
+	place func(db, file, offset uint64) place.Place
+}
+
 var (
-	magic = []byte("CSCHKPT\x00")
-	// recordSizes holds the record size of each section kind of a head, from 1.
-	recordSizes = [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 96, 4, 4}
+	headFormat = format{
+		name:     "head",
+		kind:     kindHead,
+		sections: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
+		sizes:    [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 96, 4, 4},
+		place:    place.Head,
+	}
+	partFormat = format{
+		name:     "part",
+		kind:     kindPart,
+		sections: []int{sectionChans, sectionSegs, sectionPtrs, sectionClocks},
+		sizes:    [sectionCount + 1]uint32{0, 0, 0, 0, 8, 32, 36, 0, 4, 0},
+		place:    place.Part,
+	}
 )
+
+// Part is a part that a head names.
+type Part struct {
+	// ID is the identity of the part, and Generation the generation of the switch that
+	// wrote it.
+	ID, Generation uint64
+	// Length is the length of the part file.
+	Length uint64
+	// First and Last are the lowest and highest pointer stamps in the part.
+	First, Last telem.TimeStamp
+	// CRC is the header CRC of the part.
+	CRC uint32
+	// Dead is the bitmap of the dead segment records of the part, or nil when none is.
+	Dead []byte
+}
 
 // Name returns the file name of the head of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generation) }
@@ -64,56 +107,81 @@ func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generatio
 // Encode returns the bytes of the head of generation in database db that holds s. The
 // bytes depend on db, generation, and s alone.
 func Encode(db, generation uint64, s *state.Snapshot) []byte {
-	b := encode(db, generation, s)
+	return encodeHead(db, generation, s, nil)
+}
+
+// encodeHead is Encode for a head that names parts.
+func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
+	return headFormat.encode(db, body{
+		file:     generation,
+		second:   s.Sequence,
+		limits:   s.Limits,
+		channels: s.Channels,
+		intents:  s.Intents,
+		parts:    parts,
+	})
+}
+
+// body is what a checkpoint file holds.
+type body struct {
+	// file is the generation of a head or the identity of a part, and second the log
+	// sequence of a head or the generation of the switch that wrote a part.
+	file, second uint64
+	limits       state.Limits
+	channels     []*state.Channel
+	intents      []uint32
+	parts        []Part
+}
+
+func (f *format) encode(db uint64, bd body) []byte {
+	b := f.encodeBody(db, bd)
 	if invariants.Enabled {
-		checkRoundTrip(b)
+		f.checkRoundTrip(b)
 	}
 	return b
 }
 
-func encode(db, generation uint64, s *state.Snapshot) []byte {
-	clocks := clocksOf(s)
-	var l layout
-	l.counts[sectionChans] = uint64(len(s.Channels))
-	for _, c := range s.Channels {
+func (f *format) encodeBody(db uint64, bd body) []byte {
+	clocks := clocksOf(bd.channels)
+	l := layout{f: f}
+	l.counts[sectionParts] = uint64(len(bd.parts))
+	for _, p := range bd.parts {
+		l.counts[sectionDead] += uint64(len(p.Dead))
+	}
+	l.counts[sectionChans] = uint64(len(bd.channels))
+	for _, c := range bd.channels {
 		l.counts[sectionSegs] += uint64(len(c.Segments))
 		for _, seg := range c.Segments {
 			l.counts[sectionPtrs] += uint64(len(seg.Pointers))
 		}
 	}
 	l.counts[sectionClocks] = uint64(len(clocks))
-	l.counts[sectionIntent] = uint64(len(s.Intents))
+	l.counts[sectionIntent] = uint64(len(bd.intents))
 	l.place()
 	b := make([]byte, l.length)
-	putChannels(b, &l, s)
-	at := l.offsets[sectionClocks]
-	for _, c := range clocks {
-		binary.LittleEndian.PutUint32(b[at:], c)
-		at += 4
-	}
-	at = l.offsets[sectionIntent]
-	for _, k := range s.Intents {
-		binary.LittleEndian.PutUint32(b[at:], k)
-		at += 4
-	}
-	for kind := 1; kind <= sectionCount; kind++ {
-		e := b[l.table+uint64(kind-1)*tableEntry:]
+	putParts(b, &l, bd.parts)
+	putChannels(b, &l, bd.channels)
+	putUint32s(b[l.offsets[sectionClocks]:], clocks)
+	putUint32s(b[l.offsets[sectionIntent]:], bd.intents)
+	for i, kind := range f.sections {
+		e := b[l.table+uint64(i)*tableEntry:]
 		binary.LittleEndian.PutUint16(e, uint16(kind))
 		binary.LittleEndian.PutUint16(e[2:], recordVersion)
-		binary.LittleEndian.PutUint32(e[4:], recordSizes[kind])
+		binary.LittleEndian.PutUint32(e[4:], f.sizes[kind])
 		putLE64(e[8:], l.offsets[kind], l.counts[kind])
 	}
 	for i, off := 0, uint64(BodyStart); off < l.chunks; i, off = i+1, off+ChunkSize {
 		end := min(off+ChunkSize, l.chunks)
-		sum := place.Head(db, generation, off).Sum(b[off:end])
+		sum := f.place(db, bd.file, off).Sum(b[off:end])
 		binary.LittleEndian.PutUint32(b[l.chunks+4*uint64(i):], sum)
 	}
-	putSector(b, &l, db, generation, s)
+	f.putSector(b, &l, db, bd)
 	return b
 }
 
-// layout holds where each part of a head goes.
+// layout holds where each part of a checkpoint file goes.
 type layout struct {
+	f                     *format
 	offsets, counts       [sectionCount + 1]uint64
 	table, chunks, length uint64
 }
@@ -121,22 +189,43 @@ type layout struct {
 // place sets the offsets of l from its counts.
 func (l *layout) place() {
 	end := uint64(BodyStart)
-	for kind := 1; kind <= sectionCount; kind++ {
+	for _, kind := range l.f.sections {
 		l.offsets[kind] = (end + 7) &^ 7
-		end = l.offsets[kind] + l.counts[kind]*uint64(recordSizes[kind])
+		end = l.offsets[kind] + l.counts[kind]*uint64(l.f.sizes[kind])
 	}
 	l.table = (end + 7) &^ 7
-	l.chunks = l.table + sectionCount*tableEntry
+	l.chunks = l.table + uint64(len(l.f.sections))*tableEntry
 	l.length = l.chunks + 4*((l.chunks-BodyStart+ChunkSize-1)/ChunkSize)
 }
 
-func putChannels(b []byte, l *layout, s *state.Snapshot) {
+// putParts puts the part records of a head and their dead bitmaps.
+func putParts(b []byte, l *layout, parts []Part) {
+	at, dead := l.offsets[sectionParts], l.offsets[sectionDead]
+	var bitmaps uint32
+	for _, p := range parts {
+		putLE64(b[at:], p.ID, p.Generation, p.Length, uint64(p.First), uint64(p.Last))
+		offset := noPart
+		if len(p.Dead) > 0 {
+			offset = bitmaps
+			copy(b[dead+uint64(bitmaps):], p.Dead)
+			bitmaps += uint32(len(p.Dead))
+		}
+		putLE32(b[at+40:], offset, p.CRC)
+		at += uint64(l.f.sizes[sectionParts])
+	}
+}
+
+func putChannels(b []byte, l *layout, channels []*state.Channel) {
 	cAt, sAt := l.offsets[sectionChans], l.offsets[sectionSegs]
 	pAt := l.offsets[sectionPtrs]
 	var segs, ptrs uint32
-	for _, c := range s.Channels {
-		putLE32(b[cAt:], c.Key, segs, 0, noPart, noPart)
-		cAt += uint64(recordSizes[sectionChans])
+	for _, c := range channels {
+		if l.f.kind == kindHead {
+			putLE32(b[cAt:], c.Key, segs, 0, noPart, noPart)
+		} else {
+			putLE32(b[cAt:], c.Key, segs)
+		}
+		cAt += uint64(l.f.sizes[sectionChans])
 		for _, seg := range c.Segments {
 			binary.LittleEndian.PutUint64(b[sAt:], seg.ID)
 			putLE32(b[sAt+8:], seg.Clock, seg.Length, seg.TailCRC, ptrs)
@@ -146,11 +235,11 @@ func putChannels(b []byte, l *layout, s *state.Snapshot) {
 				b[sAt+27] = flagSealed
 			}
 			binary.LittleEndian.PutUint16(b[sAt+28:], seg.File)
-			sAt += uint64(recordSizes[sectionSegs])
+			sAt += uint64(l.f.sizes[sectionSegs])
 			for _, p := range seg.Pointers {
 				putLE64(b[pAt:], uint64(p.First), uint64(p.Last), uint64(p.Alignment))
 				putLE32(b[pAt+24:], p.Offset, p.Length, p.Samples)
-				pAt += uint64(recordSizes[sectionPtrs])
+				pAt += uint64(l.f.sizes[sectionPtrs])
 			}
 			ptrs += uint32(len(seg.Pointers))
 			segs++
@@ -158,27 +247,27 @@ func putChannels(b []byte, l *layout, s *state.Snapshot) {
 	}
 }
 
-func putSector(b []byte, l *layout, db, generation uint64, s *state.Snapshot) {
+func (f *format) putSector(b []byte, l *layout, db uint64, bd body) {
 	h := b[:SectorSize]
 	copy(h, magic)
 	binary.LittleEndian.PutUint16(h[8:], formatVersion)
-	h[10] = kindHead
-	putLE64(h[16:], db, generation, s.Sequence)
-	putLE64(h[40:], s.Limits.Segments, s.Limits.Alignments, s.Limits.Parts)
+	h[10] = f.kind
+	putLE64(h[16:], db, bd.file, bd.second)
+	putLE64(h[40:], bd.limits.Segments, bd.limits.Alignments, bd.limits.Parts)
 	putLE64(h[64:], l.length, l.table)
-	binary.LittleEndian.PutUint32(h[80:], sectionCount)
+	binary.LittleEndian.PutUint32(h[80:], uint32(len(f.sections)))
 	binary.LittleEndian.PutUint64(h[88:], l.chunks)
-	tableCRC := place.Head(db, generation, l.chunks).Sum(b[l.chunks:])
+	tableCRC := f.place(db, bd.file, l.chunks).Sum(b[l.chunks:])
 	binary.LittleEndian.PutUint32(h[96:], tableCRC)
-	sum := place.Head(db, generation, 0).Sum(h[:sectorCRC])
+	sum := f.place(db, bd.file, 0).Sum(h[:sectorCRC])
 	binary.LittleEndian.PutUint32(h[sectorCRC:], sum)
 }
 
-// clocksOf returns the distinct clock keys that the data segments of s name, in rising
-// order.
-func clocksOf(s *state.Snapshot) []uint32 {
+// clocksOf returns the distinct clock keys that the data segments of channels name, in
+// rising order.
+func clocksOf(channels []*state.Channel) []uint32 {
 	var clocks []uint32
-	for _, c := range s.Channels {
+	for _, c := range channels {
 		for _, seg := range c.Segments {
 			if seg.Clock != c.Key {
 				clocks = append(clocks, seg.Clock)
@@ -189,11 +278,13 @@ func clocksOf(s *state.Snapshot) []uint32 {
 	return slices.Compact(clocks)
 }
 
-func putLE32(b []byte, vs ...uint32) {
+func putUint32s(b []byte, vs []uint32) {
 	for i, v := range vs {
 		binary.LittleEndian.PutUint32(b[4*i:], v)
 	}
 }
+
+func putLE32(b []byte, vs ...uint32) { putUint32s(b, vs) }
 
 func putLE64(b []byte, vs ...uint64) {
 	for i, v := range vs {
@@ -201,24 +292,24 @@ func putLE64(b []byte, vs ...uint64) {
 	}
 }
 
-// checkRoundTrip panics when the head b does not decode, or decodes to a state that
+// checkRoundTrip panics when the file b does not decode, or decodes to a body that
 // encodes to other bytes.
-func checkRoundTrip(b []byte) {
-	h, err := decodeSector(b)
+func (f *format) checkRoundTrip(b []byte) {
+	h, err := f.decodeSector(b)
 	if err == nil {
-		err = checkChunkTable(b, h)
+		err = f.checkChunkTable(b, h)
 	}
 	for i := uint64(0); err == nil && i < chunkCount(h); i++ {
-		err = checkChunk(b, h, i)
+		err = f.checkChunk(b, h, i)
 	}
-	var s *state.Snapshot
+	var bd body
 	if err == nil {
-		s, err = parse(b, h)
+		bd, err = f.parse(b, h)
 	}
 	if err != nil {
-		panic(errors.Wrap(err, "checkpoint: an encoded head does not decode"))
+		panic(errors.Wrapf(err, "checkpoint: an encoded %s does not decode", f.name))
 	}
-	if !bytes.Equal(encode(h.DB, h.Generation, s), b) {
-		panic(errors.New("checkpoint: a decoded head encodes to other bytes"))
+	if !bytes.Equal(f.encodeBody(h.DB, bd), b) {
+		panic(errors.Newf("checkpoint: a decoded %s encodes to other bytes", f.name))
 	}
 }

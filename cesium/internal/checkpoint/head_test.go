@@ -224,15 +224,15 @@ var _ = Describe("Head checks", func() {
 		headRefusalEntries(),
 	)
 
-	It("Should refuse a head with parts or tombstones as unknown", func() {
+	It("Should refuse a head with kills or tombstones as unknown", func() {
 		b := withRecord(
 			checkpoint.Encode(db, generation, sample(2)),
-			1,
-			make([]byte, 48),
+			3,
+			make([]byte, 24),
 		)
 		Expect(decodeErr(b)).To(And(
 			MatchError(checkpoint.ErrUnknown),
-			MatchError(ContainSubstring("section 1")),
+			MatchError(ContainSubstring("section 3")),
 		))
 	})
 

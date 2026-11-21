@@ -38,6 +38,16 @@ type Config struct {
 	Prepared func(next uint64, err error)
 	// Executor runs each step of the checkpointer. It must run every function it gets.
 	Executor func(f func())
+	// Parts are the parts that the head of recovery names, or nil for a new database.
+	Parts *Index
+	// PartSize is the size of the sealed segment records in a head at which a switch
+	// moves them to a part. Zero means 8 MiB.
+	PartSize int
+	// Live is the generation of the head that recovery opened. Before its first switch,
+	// the checkpointer cleans the root against it, as Clean does, so a part that a
+	// crash left is gone before a switch writes a part of its identity. Zero means no
+	// such clean.
+	Live uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -68,6 +78,10 @@ type Checkpointer struct {
 	}
 	step    func()
 	stepped chan bool
+	// index holds the parts that the last head names. Only a step touches it.
+	index *Index
+	// cleaned is true once the clean against the head of recovery ran.
+	cleaned bool
 }
 
 // New returns a checkpointer of cfg.
@@ -80,6 +94,13 @@ func New(cfg Config) (*Checkpointer, error) {
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
+		index:   cfg.Parts,
+	}
+	if c.index == nil {
+		c.index = &Index{}
+	}
+	if c.cfg.PartSize == 0 {
+		c.cfg.PartSize = defaultPartSize
 	}
 	c.step = c.run
 	return c, nil
@@ -148,6 +169,15 @@ func (c *Checkpointer) run() {
 	prepare, heads, closed := c.mu.prepare, c.mu.heads, c.mu.closed
 	c.mu.prepare, c.mu.heads = nil, nil
 	c.mu.Unlock()
+	if !c.cleaned {
+		c.cleaned = true
+		if c.cfg.Live != 0 {
+			err := clean(c.cfg.FS, c.cfg.Live, c.index.ids())
+			c.mu.Lock()
+			c.mu.err = err
+			c.mu.Unlock()
+		}
+	}
 	for _, next := range prepare {
 		c.cfg.Prepared(next, c.prepare(next))
 	}
@@ -160,13 +190,49 @@ func (c *Checkpointer) run() {
 	c.stepped <- closed
 }
 
-// write writes the head h, then cleans the root.
+// write writes the parts that the switch of h needs, then the head, then cleans the
+// root. On an error, the head of the attempt is gone and the root synced, and write
+// removes the parts of the attempt and keeps the index of the last head.
 func (c *Checkpointer) write(h head) error {
-	err := Write(c.cfg.FS, h.generation, Encode(c.cfg.DB, h.generation, h.snapshot))
-	if err != nil {
-		return err
+	pl := c.plan(h.snapshot)
+	// The identities of a failed attempt stay used: its parts may stay on disk.
+	defer func() { c.index.limit = max(c.index.limit, pl.index.limit) }()
+	var written []uint64
+	for _, w := range pl.writes {
+		p, err := writePart(c.cfg.FS, c.cfg.DB, w.id, h.generation, w.channels)
+		if err != nil {
+			return c.undo(written, err)
+		}
+		written = append(written, w.id)
+		pl.index.parts = append(pl.index.parts, index(p, w.channels))
 	}
-	return Clean(c.cfg.FS, h.generation)
+	refs := make([]Part, len(pl.index.parts))
+	for i, p := range pl.index.parts {
+		refs[i] = p.Part
+	}
+	s := *h.snapshot
+	s.Channels, s.Limits.Parts = pl.head, pl.index.limit
+	if gone, err := writeFile(
+		c.cfg.FS,
+		Name(h.generation),
+		encodeHead(c.cfg.DB, h.generation, &s, refs),
+	); err != nil {
+		// A head that may stay names the parts.
+		if !gone {
+			return err
+		}
+		return c.undo(written, err)
+	}
+	c.index = pl.index
+	return clean(c.cfg.FS, h.generation, c.index.ids())
+}
+
+// undo removes the parts of a failed switch, then syncs the root.
+func (c *Checkpointer) undo(written []uint64, err error) error {
+	for _, id := range written {
+		err = errors.Join(err, c.cfg.FS.Remove(partName(id)))
+	}
+	return errors.Join(err, c.cfg.FS.SyncDir(""))
 }
 
 // prepare makes the file of the log of generation next, unless the root holds MaxLogs

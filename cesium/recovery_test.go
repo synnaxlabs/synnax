@@ -18,8 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/cesium/internal/state"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -116,6 +118,34 @@ var _ = Describe("Recovery", func() {
 		MustSucceed(g.WriteAt(make([]byte, 1<<20), 0))
 		Expect(g.Close()).To(Succeed())
 		cycle(ctx)
+	})
+
+	It("Should refuse a head that names a missing part", func(ctx SpecContext) {
+		cycle(ctx)
+		h, _ := MustSucceed2(checkpoint.Read(fs, 1))
+		c := MustSucceed(checkpoint.New(checkpoint.Config{
+			FS:       fs,
+			DB:       h.DB,
+			LogSize:  log.FileSize,
+			Prepared: func(uint64, error) {},
+			Executor: func(f func()) { go f() },
+			PartSize: 1,
+		}))
+		ran := make(chan error, 1)
+		go func() { ran <- c.Run(context.Background()) }()
+		c.Head(2, &state.Snapshot{
+			Limits: state.Limits{Segments: 2, Alignments: 2},
+			Channels: []*state.Channel{{Key: 1, Segments: []state.Segment{{
+				ID: 1, Clock: 1, Version: 1, DataType: 1, Sealed: true,
+			}}}},
+		})
+		Expect(c.Close()).To(Succeed())
+		Expect(<-ran).To(Succeed())
+		Expect(fs.Remove("0000000000000001.part")).To(Succeed())
+		Expect(open(ctx)).Error().To(And(
+			MatchError(place.ErrCorrupt),
+			MatchError(ContainSubstring("part 1 that head 2 names is missing")),
+		))
 	})
 
 	It("Should refuse a head 1 that is not complete when log 1 holds a frame", func(

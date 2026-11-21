@@ -37,6 +37,8 @@ type recovery struct {
 	// db is the identity of the database, and head the header of the head in use.
 	db   uint64
 	head checkpoint.Header
+	// parts are the parts that head names, read whole.
+	parts *checkpoint.Index
 	// gen is the generation of the newest log, size the size of its file, and fresh is
 	// true when it holds no header yet. logHeader is its header.
 	gen       uint64
