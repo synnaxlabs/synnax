@@ -208,11 +208,10 @@ func (st *carried) carry(c *core, seg *segState) {
 	}
 }
 
-// forget takes the tagged segments of the keys of changed, which a Parted of tagged
-// tags changed, and of the keys with put-back records, out of the state, and adds to
-// changed each key that it changes. Their files stay for the reads of their part
-// records. When most segments leave, it builds the segment map again from the ones
-// left, which costs less than a removal for each.
+// forget takes the tagged segments of the keys of changed and of the keys with put-back
+// records out of the state, and adds to changed each key that it changes. tagged is the
+// number of tags that the Parted matched. When most segments leave, it builds the
+// segment map again from the ones left, which costs less than a removal for each.
 func (c *core) forget(changed set.Set[uint32], tagged int) {
 	rebuild := 2*tagged > len(c.segments)
 	var kept set.Set[uint32]
@@ -254,9 +253,9 @@ func (c *core) forget(changed set.Set[uint32], tagged int) {
 }
 
 // forgetTagged takes each tagged segment of ch out of the state, with no file to
-// unlink,
-// and reports whether any was. It keeps a segment that a delete in progress put back
-// for the cut of its Tombstone.
+// unlink, and reports whether any was. It keeps a tagged segment that a delete claim
+// reaches, for the cut of its Tombstone, and reports whether it kept one. unmap also
+// takes each segment it forgets out of the segment map.
 func (c *core) forgetTagged(ch *chanState, unmap bool) (forgot, cutting bool) {
 	cuts := func(s *segState) bool {
 		return slices.ContainsFunc(ch.claims, func(cl *claim) bool {

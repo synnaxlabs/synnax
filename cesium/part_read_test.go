@@ -333,9 +333,12 @@ var _ = Describe("Reads through parts", func() {
 })
 
 var _ = Describe("Drop of parted records", func() {
-	// parted writes three segments of samples of a data channel, moves them to a part,
-	// and reopens the database, which then holds only the head in memory.
-	parted := func(ctx SpecContext, fs xfs.FS) (*cesium.DB, cesium.ChannelKey, cesium.ChannelKey) {
+	// parted writes three segments of samples of a data channel, moves them all to
+	// parts, and reopens the database, which then holds none of them in memory.
+	parted := func(
+		ctx SpecContext,
+		fs xfs.FS,
+	) (*cesium.DB, cesium.ChannelKey, cesium.ChannelKey) {
 		GinkgoHelper()
 		db := partedDB(ctx, fs)
 		stop := StartRun(db.Run)
@@ -351,6 +354,8 @@ var _ = Describe("Drop of parted records", func() {
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
 		writeParted(ctx, db, fs, idx, data, 3, 10)
+		Expect(switchLog(db, fs, 3)).To(Succeed())
+		waitHead(fs, 3)
 		stop()
 		Expect(db.Close()).To(Succeed())
 		db = partedDB(ctx, fs)
@@ -385,8 +390,8 @@ var _ = Describe("Drop of parted records", func() {
 	})
 
 	It(
-		"Should keep in a sweep a key that only parts hold, with its size, and count it "+
-			"in the highest key",
+		"Should keep in a sweep a key that only parts hold, with its size, and count "+
+			"it in the highest key",
 		func(ctx SpecContext) {
 			fs := xfs.NewMem()
 			db, idx, data := parted(ctx, fs)
