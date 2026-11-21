@@ -49,10 +49,16 @@ export interface RenderOverviewResult {
   statuses: () => Status.NotificationSpec[];
 }
 
+export interface RenderOverviewOptions {
+  /** The width of the pane that holds the overview, as CSS. */
+  width?: string;
+}
+
 /** Renders the overview of the range in a tab, as the client `as` sees it. */
 export const renderOverview = async (
   rangeKey: ranger.Key,
   as: Client = client,
+  { width }: RenderOverviewOptions = {},
 ): Promise<RenderOverviewResult> => {
   const { panelKey, tabKey } = await createResourceTab(
     client,
@@ -72,9 +78,11 @@ export const renderOverview = async (
   let statuses: Status.NotificationSpec[] = [];
   await renderSuspended(
     <>
-      <Guard FallbackComponent={Deleted}>
-        <Content />
-      </Guard>
+      <div style={{ width }}>
+        <Guard FallbackComponent={Deleted}>
+          <Content />
+        </Guard>
+      </div>
       <Modals.Stack />
       <CaptureStatuses onStatuses={(next) => (statuses = next)} />
     </>,

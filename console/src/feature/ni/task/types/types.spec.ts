@@ -480,6 +480,75 @@ describe("deploy configs", () => {
       { path: ["channels", 0, "device"], message: "Device is required" },
     ]);
   });
+
+  const RANGE_MESSAGE = "Minimum value must be less than maximum value";
+
+  const rangeIssues = (minVal: number, maxVal: number, disabled = false) =>
+    NI.Task.deployAnalogReadConfigZ
+      .safeParse(
+        NI.Task.ANALOG_READ_SCHEMAS.config.parse({
+          channels: [
+            { ...NI.Task.createAIChannel(), key: "0", device: "34" },
+            {
+              ...NI.Task.createAIChannel(),
+              key: "1",
+              device: "34",
+              minVal,
+              maxVal,
+              disabled,
+            },
+          ],
+        }),
+      )
+      .error?.issues.filter(({ message }) => message === RANGE_MESSAGE)
+      .map(({ path }) => path);
+
+  it.each([
+    ["above", 5, -5],
+    ["equal to", 5, 5],
+  ])("should reject a minimum value %s the maximum value", (_, minVal, maxVal) => {
+    expect(rangeIssues(minVal, maxVal)).toEqual([["channels", 1, "minVal"]]);
+  });
+
+  it("should accept a minimum value below the maximum value", () => {
+    expect(rangeIssues(-5, 5) ?? []).toEqual([]);
+  });
+
+  it("should not check the range of a disabled channel", () => {
+    expect(rangeIssues(5, -5, true) ?? []).toEqual([]);
+  });
+
+  it.each([
+    [
+      "analog write",
+      NI.Task.deployAnalogWriteConfigZ,
+      NI.Task.ANALOG_WRITE_SCHEMAS.config.parse({
+        device: "34",
+        channels: [{ ...NI.Task.createAOChannel(), key: "0", minVal: 1, maxVal: 0 }],
+      }),
+    ],
+    [
+      "counter read",
+      NI.Task.deployCounterReadConfigZ,
+      NI.Task.COUNTER_READ_SCHEMAS.config.parse({
+        channels: [
+          {
+            ...NI.Task.createCIChannel(),
+            key: "0",
+            device: "34",
+            minVal: 1,
+            maxVal: 0,
+          },
+        ],
+      }),
+    ],
+  ])("should reject a reversed range on a %s channel", (_, deployZ, config) => {
+    const paths = deployZ
+      .safeParse(config)
+      .error?.issues.filter(({ message }) => message === RANGE_MESSAGE)
+      .map(({ path }) => path);
+    expect(paths).toEqual([["channels", 0, "minVal"]]);
+  });
 });
 
 describe("default ranges", () => {

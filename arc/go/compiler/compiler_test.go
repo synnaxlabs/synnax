@@ -2401,6 +2401,9 @@ var _ = Describe("Compiler", func() {
 			Entry("u32", `{
 				return i64(u32(-1))
 			}`, float64(4294967295)),
+			Entry("u64", `{
+				return i64(u64(-1))
+			}`, float64(-1)),
 		)
 
 		DescribeTable("a stepped range loop should end at the bound of the type",
@@ -2864,6 +2867,21 @@ var _ = Describe("Compiler", func() {
 			Entry("i16 cast of an i64 131071 is -1", "x i64", "i64", `
 					out = i64(i16(x))
 			`, api.EncodeI64(131071), int64(-1)),
+		)
+
+		DescribeTable("a negated literal should fit the minimum of its type",
+			narrowResult,
+			Entry("i16 declaration", `{
+				x i16 := -32768
+				return i64(x)
+			}`, float64(math.MinInt16)),
+			Entry("i8 cast", `{
+				return i64(i8(-128))
+			}`, float64(math.MinInt8)),
+			Entry("i8 operand", `{
+				n i8 := 1
+				return i64(-128 + n)
+			}`, float64(-127)),
 		)
 
 		DescribeTable("a float cast should saturate at the bounds of the target",
