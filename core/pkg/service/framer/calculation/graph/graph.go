@@ -469,10 +469,14 @@ func (g *Graph) moveGroup(
 	oldGroupID, newGroupID int,
 ) (int, error) {
 	if oldGroupID == newGroupID {
-		g.L.Debug("channel updated in same group",
+		g.L.Debug(
+			"channel updated in same group",
 			zap.String("channel", ch.Key().String()),
 			zap.Int("group_id", newGroupID),
-			zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+			zap.Stringer(
+				"dependency_tree",
+				dependencyTree{g: g, ctx: ctx, key: ch.Key()},
+			),
 		)
 		return newGroupID, nil
 	}
@@ -480,7 +484,7 @@ func (g *Graph) moveGroup(
 		zap.String("channel", ch.Key().String()),
 		zap.Int("old_group_id", oldGroupID),
 		zap.Int("new_group_id", newGroupID),
-		zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+		zap.Stringer("dependency_tree", dependencyTree{g: g, ctx: ctx, key: ch.Key()}),
 	)
 	if oldGroup := g.groups[oldGroupID]; oldGroup != nil {
 		oldGroup.members.Remove(ch.Key())
@@ -653,7 +657,7 @@ func (g *Graph) addInternal(
 	// Log the addition with full dependency tree
 	g.L.Debug("channel added to graph",
 		zap.String("channel", ch.Key().String()),
-		zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+		zap.Stringer("dependency_tree", dependencyTree{g: g, ctx: ctx, key: ch.Key()}),
 		zap.Uint32("explicit_count", uint32(info.explicitCount)),
 		zap.Uint32("dependency_count", uint32(info.depCount)),
 		zap.Int("group_id", groupID),
@@ -1199,6 +1203,16 @@ func (g *Graph) fetchDependencyDiagnostics(
 	}
 	return deps, calcs
 }
+
+// dependencyTree formats the dependency tree of key only when a log entry writes it,
+// since the format reads the channels of the tree.
+type dependencyTree struct {
+	g   *Graph
+	ctx context.Context
+	key channel.Key
+}
+
+func (t dependencyTree) String() string { return t.g.formatDependencyTree(t.ctx, t.key) }
 
 // formatDependencyTree builds a string representation of the full dependency tree for a
 // channel. Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5,
