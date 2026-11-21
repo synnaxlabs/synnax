@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
-from synnax.exceptions import PlanChangedError
 from synnax.impact.types_gen import ApplyRequest, Change, Choice, Plan, PlanRequest
 
 
@@ -49,8 +48,3 @@ class Client:
         """
         req = ApplyRequest(change=change, token=token, picks=picks or {}, hidden=hidden)
         return self._client.send("/impact/apply", req, Plan)
-
-
-def plan_of(error: PlanChangedError) -> Plan:
-    """Returns the plan as it is now, which error carries."""
-    return Plan.model_validate_json(error.plan)

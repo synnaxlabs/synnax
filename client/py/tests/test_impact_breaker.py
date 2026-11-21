@@ -12,6 +12,7 @@ import threading
 import typing
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import override
 
 import pytest
 
@@ -22,8 +23,11 @@ from synnax.exceptions import create_registry
 from x.codec import JSONCodec
 
 # What core/pkg/service/impact.Apply returns with no token, picks, or hidden pick,
-# encoded by the Core's JSON codec: impact.Plan{}.
-EMPTY_APPLIED_PLAN = '{"entries":[],"kept":0,"hidden":0,"token":"","change":null}'
+# encoded by the Core's JSON codec: a plan of the change with no entries.
+EMPTY_APPLIED_PLAN = (
+    '{"entries":[],"kept":0,"hidden":0,"token":"",'
+    '"change":{"type":"delete_channels","keys":[1048577]}}'
+)
 
 
 class FakeCore:
@@ -46,6 +50,7 @@ class FakeCore:
                 self.end_headers()
                 self.wfile.write(data)
 
+            @override
             def log_message(self, *_: object) -> None:
                 pass
 

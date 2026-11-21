@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import subprocess
-import sys
 from collections.abc import Callable
 from uuid import uuid4
 
@@ -80,13 +78,24 @@ class TestImpact:
             lambda: assert_gone(lambda: client.tasks.retrieve(key=task.key))
         )
 
+    def test_apply_with_no_token(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
+    ) -> None:
+        """Should apply a delete with no token and return its change"""
+        applied = client.impact.apply(delete_of(virtual_channel))
+        assert applied.change == delete_of(virtual_channel)
+        assert applied.entries == []
+        assert_eventually(
+            lambda: assert_gone(lambda: client.channels.retrieve(virtual_channel.key))
+        )
+
     def test_stale_token(self, client: sy.Synnax, virtual_channel: sy.Channel) -> None:
         """Should refuse a stale token with the plan as it is now"""
         stale = client.impact.plan(delete_of(virtual_channel))
         task = create_read_task(client, virtual_channel)
-        with pytest.raises(sy.PlanChangedError) as raised:
+        with pytest.raises(sy.impact.PlanChangedError) as raised:
             client.impact.apply(delete_of(virtual_channel), token=stale.token)
-        now = sy.impact.plan_of(raised.value)
+        now = raised.value.plan
         assert [str(e.record) for e in now.entries] == [str(task_resource_id(task.key))]
         assert now.token != stale.token
         assert client.channels.retrieve(virtual_channel.key).key == virtual_channel.key
@@ -111,26 +120,3 @@ class TestImpact:
         plan = user_client.impact.plan(delete_of(virtual_channel))
         assert plan.entries == []
         assert plan.hidden == 1
-
-
-@pytest.mark.impact
-def test_plan_of_after_the_channel_module_loads_first() -> None:
-    """Should decode a plan-changed error and parse its plan when the channel module
-    loads before the exceptions and impact modules
-    """
-    script = "\n".join(
-        [
-            "import synnax.channel",
-            "from synnax.exceptions import PlanChangedError, create_registry",
-            "from synnax.impact import plan_of",
-            "from x.exceptions import ExceptionPayload",
-            'plan = \'{"entries": [], "kept": 0, "hidden": 1, "token": "t",\'',
-            'plan += \'"change": {"type": "delete_channels", "keys": [1]}}\'',
-            "err = create_registry().decode(",
-            "    ExceptionPayload(type='sy.impact.plan_changed', data=plan)",
-            ")",
-            "assert isinstance(err, PlanChangedError), err",
-            "assert plan_of(err).hidden == 1",
-        ]
-    )
-    subprocess.run([sys.executable, "-c", script], check=True)

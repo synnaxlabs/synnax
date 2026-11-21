@@ -157,20 +157,6 @@ class RouteError(Error):
         self.path = path
 
 
-class PlanChangedError(Error):
-    """Raised by an apply whose plan changed after the caller planned it.
-    ``synnax.impact.plan_of`` parses the plan as it is now.
-    """
-
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "impact.plan_changed"
-    plan: str
-    """Is the plan as it is now, as the Core sent it."""
-
-    def __init__(self, plan: str) -> None:
-        super().__init__("the records that the change touches changed")
-        self.plan = plan
-
-
 @dataclass
 class PathError(ValidationError):
     """Raised when a validation error occurs on a specific path."""
@@ -244,11 +230,6 @@ def _decode(registry: Registry, encoded: ExceptionPayload) -> Exception | None:
             return UnauthorizedError(encoded.data)
         return ControlError(encoded.data)
 
-    if encoded.type == PlanChangedError.TYPE:
-        if encoded.data is None:
-            return UnexpectedError(encoded.data)
-        return PlanChangedError(encoded.data)
-
     if encoded.type.startswith(LicenseError.TYPE):
         if encoded.type.startswith(MissingLicense.TYPE):
             return MissingLicense(encoded.data)
@@ -271,9 +252,14 @@ def _encode(_: Exception) -> ExceptionPayload | None:
     return None
 
 
-def create_registry() -> Registry:
-    """:returns: a registry that decodes the errors of Freighter and the Core."""
+def create_registry(*providers: Provider) -> Registry:
+    """:returns: a registry that decodes the errors of Freighter, of providers, and of
+    the Core. Each of providers comes before the Core's provider, which decodes every
+    other ``sy.`` type.
+    """
     registry = Registry()
     registry.register(freighter.EXCEPTION_PROVIDER)
+    for provider in providers:
+        registry.register(provider)
     registry.register(Provider(encode=_encode, decode=partial(_decode, registry)))
     return registry
