@@ -120,6 +120,8 @@ class Where(BaseModel):
         internal: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
+        path: Matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
         groups: Matches the channels in any of the given groups.
         grouped: Matches the channels in a group, or in no group when false.
     """
@@ -136,6 +138,7 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
+    path: filter.Set[str] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -160,6 +163,7 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
+        "path": filter.SetInput[str],
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },

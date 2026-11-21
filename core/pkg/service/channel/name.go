@@ -47,6 +47,16 @@ func NormalizeWhere(w Where) Where {
 		}
 		w.Name = &name
 	}
+	if w.Path != nil {
+		path := *w.Path
+		path.Eq = normalizePtr(path.Eq)
+		if path.In != nil {
+			path.In = lo.Map(path.In, func(p string, _ int) string {
+				return validate.NormalizeName(p)
+			})
+		}
+		w.Path = &path
+	}
 	if w.And != nil {
 		w.And = lo.Map(w.And, func(c Where, _ int) Where { return NormalizeWhere(c) })
 	}

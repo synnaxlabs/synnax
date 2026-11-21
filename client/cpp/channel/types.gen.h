@@ -83,6 +83,9 @@ struct Where {
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
+    /// @brief path matches the channels at full paths: the names of the folders from
+    /// the top, then the channel's name, joined by '.'.
+    ::x::filter::Field<::x::filter::Set<std::string>> path;
 
     /// @brief returns a filter that matches when both a and b match.
     friend Where operator&&(Where a, Where b) {
