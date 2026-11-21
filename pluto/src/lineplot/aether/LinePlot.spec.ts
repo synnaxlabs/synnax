@@ -328,6 +328,85 @@ describe("LinePlot getXBounds", () => {
   });
 });
 
+describe("LinePlot trace spans", () => {
+  const teardowns: (() => void)[] = [];
+  afterEach(() => {
+    for (const teardown of teardowns) teardown();
+    teardowns.length = 0;
+  });
+
+  // mount mounts two lines of one group on x1, with samples from 0 to 10 and from 20
+  // to 30.
+  const mount = (type: "time" | "relative"): XAxis => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+    });
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type,
+      autoBoundPadding: 0,
+    });
+    stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
+    [0, 20].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + 10]),
+        y: seriesSpec([i, i + 1]),
+        color: "#ff0000",
+        group: "g",
+      }),
+    );
+    renderPlot(recorder);
+    return stack.driver.find<XAxis>([...base, "x1"]);
+  };
+
+  const PROPS = {
+    grid: {},
+    plot: box.construct(0, 0, 1000, 500),
+    container: box.construct(0, 0, 1000, 500),
+    viewport: box.DECIMAL,
+    hold: false,
+    gapsCollapsed: false,
+  };
+
+  it("should give each line of a group its own half of a time axis", () => {
+    const layout = mount("time").layout(PROPS);
+    expect(layout.span("l0")).toEqual({ lower: -Infinity, upper: 15 });
+    expect(layout.span("l1")).toEqual({ lower: 15, upper: Infinity });
+  });
+
+  it("should find a value only in the line that owns the time", () => {
+    const found = mount("time")
+      .findByXValue(PROPS, 25)
+      .filter((r) => Number.isFinite(r.value.y));
+    expect(found.map((r) => r.key)).toEqual(["l1"]);
+  });
+
+  it("should give each line its window with a margin on a relative axis", () => {
+    const layout = mount("relative").layout(PROPS);
+    const second = Number(TimeSpan.SECOND.valueOf());
+    expect(layout.span("l0")).toEqual({ lower: -second, upper: 10 + second });
+    expect(layout.span("l1")).toEqual({ lower: 20 - second, upper: 30 + second });
+  });
+});
+
 describe("LinePlot against a Core", () => {
   const synnax = createTestClient();
   const teardowns: (() => void)[] = [];
