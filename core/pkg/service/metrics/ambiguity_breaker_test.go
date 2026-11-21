@@ -63,6 +63,7 @@ var _ = Describe("Ambiguity breaker", func() {
 			ChannelGraph: graph,
 		}))
 		cfg = metrics.ServiceConfig{
+			Status:             statuses,
 			Channel:            channels,
 			Group:              groups,
 			Framer:             framers,

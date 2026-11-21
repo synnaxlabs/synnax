@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 	"uuid"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -64,6 +67,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Status holds the warning of the metrics that a name keeps from opening.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// CollectionInterval sets the interval at which metrics will be collected from the
@@ -92,6 +99,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -104,6 +112,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("storage", c.Storage)
 	v.Positive("collection_interval", c.CollectionInterval)
 	v.NotNil("group", c.Group)
+	v.NotNil("status", c.Status)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -190,41 +199,48 @@ const channelKeyPrefix = "sy_metrics_channel/"
 // openChannels sets each of chs to its stored channel: the one whose key is stored for
 // its name, so that a rename or a move keeps it. With no stored key, it takes the one
 // channel of its name in folder, else the one channel of its name anywhere, as a store
-// from before stored keys holds it. It creates the rest and stores the key of each.
+// from before stored keys holds it. It creates the rest, each in a transaction of its
+// own, and stores the key of each. A name never fails a start: a channel that a name
+// keeps from being found or created is left out, and off holds its position and a
+// channel.AmbiguousNameError for the name.
 func openChannels(
 	ctx context.Context,
-	tx gorp.Tx,
-	channels *channel.Service,
+	cfg ServiceConfig,
 	folder group.Key,
 	chs []channel.Channel,
-) error {
+) (off map[int]error, err error) {
 	var (
 		names   = channel.Names(chs)
 		missing = make(map[string]int, len(chs))
-		unfound = make([]string, 0, len(chs))
+		holders = make(map[string][]channel.Channel, len(chs))
 	)
-	for i, ch := range chs {
-		stored, found, err := storedChannel(ctx, tx, channels, ch.Name)
-		if err != nil {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		unfound := make([]string, 0, len(chs))
+		for i, ch := range chs {
+			stored, found, err := storedChannel(ctx, tx, cfg.Channel, ch.Name)
+			if err != nil {
+				return err
+			}
+			if found {
+				chs[i] = stored
+				continue
+			}
+			missing[ch.Name] = i
+			unfound = append(unfound, ch.Name)
+		}
+		var held []channel.Channel
+		if err := cfg.Channel.NewRetrieve().
+			Where(channel.MatchNames(unfound...)).
+			Entries(&held).
+			Exec(ctx, tx); err != nil {
 			return err
 		}
-		if found {
-			chs[i] = stored
-			continue
+		for _, ch := range held {
+			holders[ch.Name] = append(holders[ch.Name], ch)
 		}
-		missing[ch.Name] = i
-		unfound = append(unfound, ch.Name)
-	}
-	var held []channel.Channel
-	if err := channels.NewRetrieve().
-		Where(channel.MatchNames(unfound...)).
-		Entries(&held).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	holders := make(map[string][]channel.Channel, len(unfound))
-	for _, ch := range held {
-		holders[ch.Name] = append(holders[ch.Name], ch)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	for name, hs := range holders {
 		inFolder := lo.Filter(hs, func(ch channel.Channel, _ int) bool {
@@ -238,28 +254,40 @@ func openChannels(
 			delete(missing, name)
 		}
 	}
-	created := make([]channel.Channel, 0, len(missing))
-	for _, ch := range chs {
-		if _, ok := missing[ch.Name]; ok {
-			created = append(created, ch)
+	off = make(map[int]error)
+	for i, name := range names {
+		if _, ok := missing[name]; !ok {
+			continue
+		}
+		err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Channel.NewWriter(tx).Create(ctx, &chs[i])
+		})
+		if ambiguous, ok := errors.AsType[channel.AmbiguousNameError](err); ok {
+			off[i] = ambiguous
+		} else if _, ok = errors.AsType[gorp.UniqueError](err); ok {
+			off[i] = channel.AmbiguousNameError{
+				Name:    name,
+				Holders: channel.KeysFromChannels(holders[name]),
+			}
+		} else if err != nil {
+			return nil, err
 		}
 	}
-	if err := channels.NewWriter(tx).CreateMany(ctx, &created); err != nil {
-		return err
-	}
-	for _, ch := range created {
-		chs[missing[ch.Name]] = ch
-	}
-	for i, ch := range chs {
-		if err := tx.Set(
-			ctx,
-			[]byte(channelKeyPrefix+names[i]),
-			[]byte(ch.Key().String()),
-		); err != nil {
-			return err
+	return off, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		for i, ch := range chs {
+			if _, isOff := off[i]; isOff {
+				continue
+			}
+			if err := tx.Set(
+				ctx,
+				[]byte(channelKeyPrefix+names[i]),
+				[]byte(ch.Key().String()),
+			); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // storedChannel returns the channel whose key is stored for name, and whether it
@@ -289,6 +317,47 @@ func storedChannel(
 	return ch, err == nil, err
 }
 
+// offErrors returns the errors of off at positions below n, in order.
+func offErrors(off map[int]error, n int) []error {
+	errs := make([]error, 0, len(off))
+	for i := range n {
+		if err, isOff := off[i]; isOff {
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}
+
+// statusKey returns the key of the status of the metrics of the host.
+func statusKey(host node.Key) status.Key {
+	return fmt.Sprintf("sy_node_%s_metrics", host)
+}
+
+// report sets a warning status that names each of warnings when there is one, and
+// deletes the status otherwise.
+func (s *Service) report(ctx context.Context, warnings []error) error {
+	key := statusKey(s.cfg.HostKey)
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.cfg.Status.NewWriter(tx)
+		if len(warnings) == 0 {
+			return errors.Skip(w.Delete(ctx, key), query.ErrNotFound)
+		}
+		texts := lo.Map(warnings, func(err error, _ int) string { return err.Error() })
+		return w.Set(ctx, &status.Status[struct{}]{
+			Key:     key,
+			Name:    fmt.Sprintf("Node %s metrics", s.cfg.HostKey),
+			Variant: status.VariantWarning,
+			Message: "Metrics left off",
+			Description: fmt.Sprintf(
+				"%s. Rename or delete all but one channel of each name, then "+
+					"restart the Core.",
+				strings.Join(texts, ". "),
+			),
+			Time: telem.Now(),
+		})
+	})
+}
+
 // OpenService opens a new metric.Service using the provided configuration. See the
 // ServiceConfig struct for details on the required configuration values. If OpenService
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
@@ -308,51 +377,50 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
 	}
-	idx := channel.Channel{
+	idx := []channel.Channel{{
 		Name:     namePrefix + "time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 		Group:    &s.group.Key,
+	}}
+	off, err := openChannels(ctx, cfg, s.group.Key, idx)
+	if err != nil {
+		return nil, err
 	}
+	warnings := offErrors(off, len(idx))
 	var metricsChannels []channel.Channel
-	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		indexes := []channel.Channel{idx}
-		if err = openChannels(ctx, tx, cfg.Channel, s.group.Key, indexes); err != nil {
-			return err
-		}
-		idx = indexes[0]
-		metrics := s.createMetrics(namePrefix, idx.LocalKey)
-		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
+	if len(off) == 0 {
+		metrics := s.createMetrics(namePrefix, idx[0].LocalKey)
+		chs := lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			m.ch.Group = &s.group.Key
 			return m.ch
 		})
-		if err = openChannels(
-			ctx,
-			tx,
-			cfg.Channel,
-			s.group.Key,
-			metricsChannels,
-		); err != nil {
-			return err
+		if off, err = openChannels(ctx, cfg, s.group.Key, chs); err != nil {
+			return nil, err
 		}
-		for i, ch := range metricsChannels {
-			metrics[i].ch = ch
+		warnings = append(warnings, offErrors(off, len(chs))...)
+		for i, m := range metrics {
+			if _, isOff := off[i]; !isOff {
+				m.ch = chs[i]
+				c.metrics = append(c.metrics, m)
+				metricsChannels = append(metricsChannels, chs[i])
+			}
 		}
-		c.metrics = metrics
-		return nil
-	}); err != nil {
+		calculated := createCalculatedMetrics(namePrefix)
+		for i := range calculated {
+			calculated[i].Group = &s.group.Key
+		}
+		if off, err = openChannels(ctx, cfg, s.group.Key, calculated); err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, offErrors(off, len(calculated))...)
+	}
+	if err = s.report(ctx, warnings); err != nil {
 		return nil, err
 	}
-	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
-	// calculated channel expressions.
-	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := createCalculatedMetrics(namePrefix)
-		for i := range calculatedChannels {
-			calculatedChannels[i].Group = &s.group.Key
-		}
-		return openChannels(ctx, tx, cfg.Channel, s.group.Key, calculatedChannels)
-	}); err != nil {
-		return nil, err
+	if len(metricsChannels) == 0 {
+		s.shutdown = xio.NoFailCloserFunc(func() {})
+		return s, nil
 	}
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
