@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,6 +36,9 @@ type Config struct {
 	Append func(e *log.Entry)
 	// Executor runs each step of the owner. It must run every function it gets.
 	Executor func(f func())
+	// OnHead gets the durable snapshot that the head of the log of generation holds, on
+	// a step of the owner. It must return at once.
+	OnHead func(generation uint64, s *Snapshot)
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -44,11 +48,16 @@ func (c Config) Validate() error {
 	v.Ternary("versions", !c.Versions.Contains(c.Version), "must hold version")
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
+	v.NotNil("on_head", c.OnHead)
 	return v.Error()
 }
 
-// request is a call that the owner runs on the core, in queue order.
-type request interface{ run(s *State) }
+// request is a call that the owner runs on the core, in queue order. A request that
+// comes after the state failed gets the error instead.
+type request interface {
+	run(s *State)
+	fail(err error)
+}
 
 // State is the state of a database. Its owner, one goroutine, runs each request in the
 // order of its call, and readers load the visible Channel of a key with no lock. A
@@ -56,8 +65,8 @@ type request interface{ run(s *State) }
 type State struct {
 	cfg  Config
 	core *core
-	// keys maps each key to its channel for readers. The owner replaces the map when
-	// it adds or drops a key.
+	// keys maps each key to its channel for readers. The owner replaces the map when it
+	// adds or drops a key.
 	keys atomic.Pointer[map[uint32]*chanState]
 	wake chan struct{}
 	exit chan struct{}
@@ -73,12 +82,17 @@ type State struct {
 	nextID, nextAlign uint64
 	idBlocks          int
 	alignBlocks       int
-	entry             log.Entry
+	// refusedBlocks holds idBlocks and alignBlocks from before the Reserve in flight,
+	// which a refusal of it restores.
+	refusedBlocks [2]int
+	entry         log.Entry
+	// parked holds the requests that wait for a durable Reserve.
+	parked []request
 }
 
-// Open returns the state of the durable state head, in replay mode. It returns an
-// error that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown
-// for a segment format version that this binary does not read.
+// Open returns the state of the durable state head, in replay mode. It returns an error
+// that wraps ErrRefused when a value of head breaks a rule, or log.ErrUnknown for a
+// segment format version that this binary does not read.
 func Open(cfg Config, head *Snapshot) (*State, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -94,7 +108,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		return nil, err
 	}
 	s.step = s.run
-	s.nextID, s.nextAlign = head.Limits.Segments, max(head.Limits.Alignments, 1)
+	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
 }
 
@@ -106,18 +120,19 @@ func (s *State) Replay(sequence uint64, records []log.Record) error {
 }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
-// the owner on the executor each time requests are queued, until Close or until ctx
-// is done. It returns the error of ctx, or nil at Close.
+// the owner on the executor each time requests are queued, until Close or until ctx is
+// done. It returns the error of ctx, or nil at Close.
 func (s *State) Run(ctx context.Context) error {
 	defer close(s.exit)
 	s.core.endReplay()
 	s.storeKeys()
-	s.nextID = max(s.nextID, s.core.limits.Segments)
+	s.nextID = max(s.nextID, s.core.limits.Segments, 1)
 	s.nextAlign = max(s.nextAlign, s.core.limits.Alignments)
 	for {
 		select {
 		case <-ctx.Done():
 			s.fail(ctx.Err())
+			s.failParked(s.Err())
 			return ctx.Err()
 		case <-s.wake:
 		}
@@ -135,7 +150,16 @@ func (s *State) run() {
 	s.mu.queue = nil
 	s.mu.Unlock()
 	for _, r := range queue {
+		if err := s.Err(); err != nil {
+			r.fail(err)
+			continue
+		}
 		r.run(s)
+	}
+	if err := s.Err(); err != nil {
+		s.failParked(err)
+	} else if closed {
+		s.failParked(ErrClosed)
 	}
 	s.stepped <- closed
 }
@@ -224,12 +248,18 @@ type durableRequest struct {
 	records  []log.Record
 }
 
+func (*durableRequest) fail(error) {}
+
 func (r *durableRequest) run(s *State) {
-	if s.Err() != nil {
-		return
-	}
 	if err := s.core.apply(r.sequence, r.records); err != nil {
 		s.fail(err)
+		return
+	}
+	if invariants.Enabled {
+		s.checkCommits(r.records)
+	}
+	if len(s.parked) > 0 {
+		s.unpark()
 	}
 }
 
@@ -241,10 +271,48 @@ func (s *State) Durable(sequence uint64, records []log.Record) error {
 	return s.enqueue(&durableRequest{sequence: sequence, records: records})
 }
 
+type deadRequest struct {
+	dead []uint64
+	done chan error
+}
+
+func (r *deadRequest) fail(err error) { r.done <- err }
+
+func (r *deadRequest) run(s *State) {
+	r.dead, s.core.dead = s.core.dead, nil
+	r.done <- nil
+}
+
+// TakeDead returns the segments that left the state since the last call, whose files
+// the database unlinks once no reader pins them.
+func (s *State) TakeDead() ([]uint64, error) {
+	r := &deadRequest{done: make(chan error, 1)}
+	if err := s.enqueue(r); err != nil {
+		return nil, err
+	}
+	if err := wait(s, r.done); err != nil {
+		return nil, err
+	}
+	return r.dead, nil
+}
+
+// checkCommits runs checkViews on each key that a Commit of records names.
+func (s *State) checkCommits(records []log.Record) {
+	for _, r := range records {
+		if c, ok := r.(*log.Commit); ok {
+			for _, slot := range c.Slots {
+				s.core.channels[s.core.segments[slot.Segment].key].checkViews()
+			}
+		}
+	}
+}
+
 type snapshotRequest struct {
 	snap *Snapshot
 	done chan error
 }
+
+func (r *snapshotRequest) fail(err error) { r.done <- err }
 
 func (r *snapshotRequest) run(s *State) {
 	r.snap = s.core.snapshot()

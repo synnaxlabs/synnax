@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -172,7 +173,11 @@ var _ = Describe("Files", func() {
 					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
 					writes := len(fs.Ops())
 					Expect(checkpoint.Prepare(fs, 4, 3*log.BlockSize)).To(Succeed())
-					Expect(fs.Ops()).To(HaveLen(writes+1), "only the head removal")
+					Expect(fs.Ops()[writes:]).To(HaveExactElements(
+						"remove "+checkpoint.Name(4),
+						"sync "+log.Name(4),
+						`syncdir ""`,
+					), "no write")
 					Expect(checkpoint.Prepare(fs, 4, 4*log.BlockSize)).To(Succeed())
 					info := MustSucceed(fs.Stat(log.Name(4)))
 					Expect(info.Size()).To(Equal(int64(4 * log.BlockSize)))
@@ -197,11 +202,20 @@ var _ = Describe("Files", func() {
 					return names
 				}
 				head, lg := checkpoint.Name, log.Name
+				// complete writes a head that Read takes for each generation of gs.
+				complete := func(gs ...uint64) {
+					GinkgoHelper()
+					for _, g := range gs {
+						b := checkpoint.Encode(db, g, &state.Snapshot{Sequence: 1})
+						Expect(checkpoint.Write(fs, g, b)).To(Succeed())
+					}
+				}
 
 				It(
 					"Should keep the newest older head and every log from it on",
 					func() {
-						create(head(1), head(2), head(3), lg(1), lg(2), lg(3), lg(4))
+						complete(1, 2, 3)
+						create(lg(1), lg(2), lg(3), lg(4))
 						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
 						Expect(
 							left(),
@@ -213,7 +227,8 @@ var _ = Describe("Files", func() {
 				It(
 					"Should keep an older head across a generation with no head",
 					func() {
-						create(head(1), head(3), lg(1), lg(2), lg(3))
+						complete(1, 3)
+						create(lg(1), lg(2), lg(3))
 						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
 						Expect(
 							left(),
@@ -222,7 +237,8 @@ var _ = Describe("Files", func() {
 				)
 
 				It("Should read only names of 16 hex digits as generations", func() {
-					create(head(1), "3.head", head(4), lg(1), lg(2), lg(3), lg(4))
+					complete(1, 4)
+					create("3.head", lg(1), lg(2), lg(3), lg(4))
 					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
 					Expect(
 						left(),
@@ -230,9 +246,18 @@ var _ = Describe("Files", func() {
 						lg(3), lg(4)))
 				})
 
+				It("Should keep the complete head before a head that Read refuses",
+					func() {
+						complete(1, 3)
+						create(head(2), lg(1), lg(2), lg(3))
+						Expect(checkpoint.Clean(fs, 3)).To(Succeed())
+						Expect(left()).To(ConsistOf(head(1), head(2), head(3), lg(1),
+							lg(2), lg(3)))
+					})
+
 				It("Should keep no older head whose logs are not all there", func() {
-					create(head(1), head(2), head(4), lg(1), lg(3), lg(4), "meta.json",
-						head(1)+".damaged")
+					complete(1, 2, 4)
+					create(lg(1), lg(3), lg(4), "meta.json", head(1)+".damaged")
 					Expect(checkpoint.Clean(fs, 4)).To(Succeed())
 					Expect(left()).
 						To(ConsistOf(head(4), lg(4), "meta.json", head(1)+".damaged"))
@@ -248,3 +273,13 @@ func readErr(fs xfs.FS, gen uint64) error {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// fileBytes returns the bytes of the file name in fs.
+func fileBytes(fs xfs.FS, name string) []byte {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(name, os.O_RDONLY))
+	defer func() { Expect(f.Close()).To(Succeed()) }()
+	b := make([]byte, MustSucceed(f.Stat()).Size())
+	MustSucceed(f.ReadAt(b, 0))
+	return b
+}

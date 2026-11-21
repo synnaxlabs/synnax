@@ -17,42 +17,34 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	var (
-		a   *appended
-		s   *state.State
-		seq uint64
+		a *appended
+		s *state.State
 	)
 
 	start := func(h *state.Snapshot) {
 		GinkgoHelper()
 		a = &appended{}
 		s = MustSucceed(state.Open(config(a), h))
-		seq = h.Sequence
+		a.s, a.seq = s, h.Sequence
 		run(s)
 	}
 
-	// durable hands the state every entry that it appended, then records, as the log
-	// owner does after their frames are synced.
-	fed := 0
+	// durable hands the state records as durable at the next sequence, as the log owner
+	// does after their frame is synced.
 	durable := func(records ...log.Record) {
 		GinkgoHelper()
-		for _, r := range a.reserves()[fed:] {
-			seq++
-			Expect(s.Durable(seq, []log.Record{&r})).To(Succeed())
-			fed++
-		}
-		seq++
-		Expect(s.Durable(seq, records)).To(Succeed())
-		Expect(MustSucceed(s.Snapshot()).Sequence).To(Equal(seq))
+		Expect(a.durable(records)).To(Succeed())
+		seq := a.last()
+		Expect(MustSucceed(s.Snapshot()).Sequence).To(BeNumerically(">=", seq))
 		Expect(s.Err()).ToNot(HaveOccurred())
 	}
-
-	BeforeEach(func() { fed = 0 })
 
 	open := func(cfg state.WriterConfig) *state.Writer {
 		GinkgoHelper()
@@ -82,10 +74,20 @@ var _ = Describe("Writer", func() {
 			Expect(w.NewSegment(k)).To(Equal(uint64(5 + i)))
 		}
 		Expect(a.reserves()).To(Equal([]log.Reserve{
-			{Segments: 21, Alignments: 3},
-			{Segments: 1045, Alignments: 3},
+			{Segments: 21, Alignments: 19},
+			{Segments: 1045, Alignments: 19},
 		}))
 	})
+
+	It("Should give out segment 1 and alignment number 1 first in a new database",
+		func() {
+			start(head(0, 0))
+			w := open(clockWriter(0, false, 1))
+			id := MustSucceed(w.NewSegment(1))
+			Expect(id).To(Equal(uint64(1)))
+			Expect(w.NewAlignment()).To(Equal(uint32(1)))
+			durable(create(id, 1, 1))
+		})
 
 	It("Should give out alignment numbers from the durable limit, after a Reserve",
 		func() {
@@ -95,8 +97,8 @@ var _ = Describe("Writer", func() {
 				Expect(w.NewAlignment()).To(Equal(3 + i))
 			}
 			Expect(a.reserves()).To(Equal([]log.Reserve{
-				{Segments: 5, Alignments: 19},
-				{Segments: 5, Alignments: 1043},
+				{Segments: 21, Alignments: 19},
+				{Segments: 21, Alignments: 1043},
 			}))
 		})
 
@@ -105,6 +107,29 @@ var _ = Describe("Writer", func() {
 		w := open(clockWriter(0, false, 1))
 		Expect(w.NewAlignment()).To(Equal(uint32(1<<31 - 1)))
 		Expect(w.NewAlignment()).Error().To(MatchError(state.ErrExhausted))
+	})
+
+	It("Should fail the requests that wait for a Reserve that the log refuses for "+
+		"room, and let no commit name its values", func() {
+		start(head(5, 3))
+		a.refuse(errors.Wrap(log.ErrFull, "no room"))
+		w := open(clockWriter(0, false, 1))
+		Expect(w.NewAlignment()).Error().To(MatchError(log.ErrFull))
+		Expect(w.NewSegment(1)).Error().To(MatchError(log.ErrFull))
+		Expect(w.Commit(commit(1, 3, 0, 100, 100, slot(5, 8)))).To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(ContainSubstring("alignment number 3, not from 1 to below the "+
+				"limit 3")),
+		))
+		a.refuse(nil)
+		Expect(w.NewAlignment()).To(Equal(uint32(3)))
+		Expect(w.NewSegment(1)).To(Equal(uint64(5)))
+		Expect(a.reserves()).To(HaveExactElements(
+			log.Reserve{Segments: 21, Alignments: 19},
+			log.Reserve{Segments: 21, Alignments: 19},
+			log.Reserve{Segments: 21, Alignments: 19},
+		), "two refused, then one durable")
+		Expect(s.Err()).ToNot(HaveOccurred())
 	})
 
 	Describe("Commit", func() {
@@ -149,12 +174,42 @@ var _ = Describe("Writer", func() {
 
 		It("Should refuse a commit over stored data", func() {
 			Expect(w.Commit(first())).To(Succeed())
-			Expect(w.Commit(commit(1, number, 2, 110, 110, slot(clk, 24),
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 110, 110, slot(clk, 24),
 				slot(data, 12)))).To(SatisfyAll(
 				MatchError(state.ErrConflict),
 				MatchError(
 					ContainSubstring("overlaps its stored data from 100 to 110"),
 				),
+			))
+		})
+
+		It("Should refuse a commit over stored data that a backfill wrote earlier in "+
+			"its segment", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 50, 50, slot(clk, 24), slot(data, 12)))).
+				To(Succeed())
+			n = MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 50, 50, slot(clk, 32), slot(data, 16)))).
+				To(SatisfyAll(
+					MatchError(state.ErrConflict),
+					MatchError(
+						ContainSubstring("overlaps its stored data from 50 to 50"),
+					),
+				))
+		})
+
+		It("Should refuse a writer that starts inside stored data that a backfill "+
+			"wrote", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(2, n, 0, 40, 60, slot(clk, 32), slot(data, 16)))).
+				To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			Expect(s.OpenWriter(clockWriter(50, true, 5))).Error().To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(ContainSubstring("inside its stored data from 40 to 60")),
 			))
 		})
 
@@ -173,14 +228,40 @@ var _ = Describe("Writer", func() {
 			}, "commit of 1 samples from 100 to 101"),
 			Entry("a number the state did not give out", func() *log.Commit {
 				return commit(1, 900, 0, 100, 100, slot(clk, 8))
-			}, "alignment number 900, which the state did not give out"),
+			}, "alignment number 900, not from 1 to below the limit"),
 			Entry("a segment the writer does not hold", func() *log.Commit {
 				return commit(1, number, 0, 100, 100, slot(99, 8))
 			}, "names segment 99, which the writer does not hold"),
 			Entry("a length that does not grow", func() *log.Commit {
 				return commit(1, number, 0, 100, 100, slot(clk, 0))
 			}, "length 0, not above 0"),
+			Entry("fewer bytes than samples", func() *log.Commit {
+				return commit(4, number, 0, 100, 110, slot(clk, 2))
+			}, "pointer of 4 samples in 2 bytes"),
 		)
+
+		It("Should refuse a commit whose stamps go back inside its stretch, and keep "+
+			"its pointer", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			Expect(w.Commit(commit(1, number, 2, 50, 50, slot(clk, 24),
+				slot(data, 12)))).To(SatisfyAll(
+				MatchError(state.ErrRefused),
+				MatchError(ContainSubstring("at 50 goes back inside its stretch, "+
+					"which reaches 110")),
+			))
+			Expect(s.Channel(5).Segments[0].Pointers).
+				To(Equal([]state.Pointer{pointer(number, 0, 100, 110, 0, 16, 2)}))
+		})
+
+		It("Should take back a segment whose Create the log never got, with no Seal",
+			func() {
+				Expect(w.Commit(first())).To(Succeed())
+				durable(create(clk, 5, 5))
+				Expect(w.TakeBack()).To(Equal([]log.Seal{{Segment: clk}}))
+				Expect(s.Channel(6).Segments).To(BeEmpty())
+				Expect(s.TakeDead()).To(Equal([]uint64{data}))
+				durable(&log.Seal{Segment: clk})
+			})
 
 		It("Should seal the held segment of a key at its committed length", func() {
 			Expect(w.Commit(first())).To(Succeed())
@@ -214,7 +295,7 @@ var _ = Describe("Writer", func() {
 			func() {
 				Expect(w.Commit(first())).To(Succeed())
 				durable(create(clk, 5, 5))
-				Expect(s.Durable(seq+1, []log.Record{first()})).To(Succeed())
+				Expect(a.durable([]log.Record{first()})).To(Succeed())
 				Eventually(s.Err).Should(MatchError(ContainSubstring(
 					"commit names segment " + strconv.FormatUint(data, 10) +
 						", which no create made",
@@ -233,10 +314,10 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should fail the state on a durable record that breaks a rule", func() {
-			Expect(s.Durable(seq+1, []log.Record{create(0, 9, 9)})).To(Succeed())
+			Expect(a.durable([]log.Record{create(0, 9, 9)})).To(Succeed())
 			Eventually(s.Err).Should(MatchError(state.ErrRefused))
 			Expect(w.Commit(first())).To(MatchError(ContainSubstring("state failed")))
-			Expect(s.Durable(seq+2, nil)).To(MatchError(state.ErrRefused))
+			Expect(a.durable(nil)).To(MatchError(state.ErrRefused))
 		})
 	})
 
@@ -345,7 +426,8 @@ var _ = Describe("Writer", func() {
 			durable(create(id, 5, 5), c)
 			Expect(w.Close()).To(Succeed())
 			later := open(clockWriter(200, false, 5))
-			held := MustBeOk(later.Held(5))
+			held, ok := MustSucceed2(later.Held(5))
+			Expect(ok).To(BeTrue())
 			Expect(held.ID).To(Equal(id))
 			Expect(held.Length).To(Equal(uint32(16)))
 			n2 := MustSucceed(later.NewAlignment())
@@ -361,12 +443,13 @@ var _ = Describe("Writer", func() {
 				Expect(w.Commit(commit(2, n, 0, 100, 110, slot(id, 16)))).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				later := open(clockWriter(200, false, 5))
-				_, ok := later.Held(5)
+				_, ok := MustSucceed2(later.Held(5))
 				Expect(ok).To(BeFalse())
 			},
 		)
 
-		It("Should seal the open segments that no writer holds, for a switch", func() {
+		It("Should seal the open segments that no writer holds at a switch, and log "+
+			"their seals", func() {
 			w := open(clockWriter(100, false, 5, 6))
 			a5, a6 := MustSucceed(w.NewSegment(5)), MustSucceed(w.NewSegment(6))
 			n := MustSucceed(w.NewAlignment())
@@ -377,12 +460,55 @@ var _ = Describe("Writer", func() {
 			Expect(w.Close()).To(Succeed())
 			holder := open(clockWriter(200, false, 7))
 			MustSucceed(holder.NewSegment(7))
-			Expect(s.SealUnheld()).To(Equal([]log.Seal{{
-				Segment: a5, Length: 8,
-				TailCRC: 24,
-			}}))
+			Expect(s.Switch(4)).To(Succeed())
+			Eventually(a.switched).Should(HaveLen(1))
+			Expect(
+				a.seals(),
+			).To(Equal([]log.Seal{{Segment: a5, Length: 8, TailCRC: 24}}))
 			Expect(s.Channel(5).Segments[0].Sealed).To(BeTrue())
 			Expect(s.Channel(7).Segments[0].Sealed).To(BeFalse())
+			Expect(a.switched()[0].Channels[0].Segments[0].Sealed).
+				To(BeFalse(), "the seal is not durable at the switch")
+		})
+
+		It("Should take the snapshot of a switch after every durable entry before it "+
+			"and before any after it", func() {
+			w := open(clockWriter(100, false, 5))
+			id := MustSucceed(w.NewSegment(5))
+			n := MustSucceed(w.NewAlignment())
+			c := commit(1, n, 0, 100, 100, slot(id, 8))
+			Expect(w.Commit(c)).To(Succeed())
+			Expect(a.durable([]log.Record{create(id, 5, 5), c})).To(Succeed())
+			seq := a.last()
+			Expect(s.Switch(4)).To(Succeed())
+			Expect(a.durable([]log.Record{&log.Intent{Key: 9}})).To(Succeed())
+			Eventually(a.switched).Should(HaveLen(1))
+			snap := a.switched()[0]
+			Expect(snap.Sequence).To(Equal(seq))
+			Expect(snap.Channels).To(HaveLen(1))
+			Expect(snap.Intents).To(BeEmpty())
+		})
+
+		It("Should drop at a switch an unheld open segment that no durable Create "+
+			"made, and give it out as dead", func() {
+			w := open(clockWriter(100, false, 5))
+			id := MustSucceed(w.NewSegment(5))
+			Expect(w.Close()).To(Succeed())
+			Expect(s.Switch(4)).To(Succeed())
+			Eventually(a.switched).Should(HaveLen(1))
+			Expect(a.seals()).To(BeEmpty())
+			Expect(s.Channel(5).Segments).To(BeEmpty())
+			Expect(s.TakeDead()).To(Equal([]uint64{id}))
+			Expect(s.TakeDead()).To(BeEmpty())
+		})
+
+		It("Should fail a request that comes after the state failed", func() {
+			w := open(clockWriter(100, false, 5))
+			fault := s.Durable(a.last()+5, []log.Record{&log.Intent{Key: 1}})
+			Expect(fault).To(Succeed())
+			Eventually(s.Err).Should(MatchError(ContainSubstring("follows entry")))
+			Expect(s.Snapshot()).Error().To(MatchError(s.Err()))
+			Expect(w.Held(5)).Error().To(MatchError(s.Err()))
 		})
 	})
 
