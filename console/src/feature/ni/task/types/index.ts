@@ -274,7 +274,9 @@ export const defaultAORange = (
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
-  ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
+  ni.AO_CHANNEL_SCHEMAS[type].parse(
+    type === AO_FUNC_GEN_CHAN_TYPE ? { type, frequency: 1 } : { type },
+  );
 
 /**
  * Whether the hardware generates the channel's output from its config. The channel
@@ -321,6 +323,22 @@ const deployReadRateShape = {
 
 const deployStateRateZ = z.number().positive().max(50000);
 
+// DAQmx refuses a channel whose minimum is not below its maximum.
+const validateRanges = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<(AIChannel | AOChannel | CIChannel)[]>) =>
+  channels.forEach((c, i) => {
+    if (c.disabled || !("minVal" in c) || c.minVal < c.maxVal) return;
+    issues.push({
+      continue: true,
+      code: "custom",
+      message: "Minimum value must be less than maximum value",
+      path: [i, "minVal"],
+      input: channels,
+    });
+  });
+
 export const analogReadConfigZ = ni.analogReadConfigZ;
 
 export const deployAnalogReadConfigZ = ni.analogReadConfigZ
@@ -329,6 +347,7 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
     channels: z
       .array(ni.aiChannelZ)
       .check(Task.validateReadChannels)
+      .check(validateRanges)
       .check(Task.validateEnabledChannel)
       .check(Task.validateChannelDevices),
   })
@@ -356,6 +375,7 @@ export const deployCounterReadConfigZ = ni.counterReadConfigZ
     channels: z
       .array(ni.ciChannelZ)
       .check(Task.validateReadChannels)
+      .check(validateRanges)
       .check(Task.validateEnabledChannel)
       .check(Task.validateChannelDevices),
   })
@@ -371,14 +391,25 @@ export const COUNTER_READ_SCHEMAS = {
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
 
-export const analogWriteConfigZ = ni.analogWriteConfigZ;
+const aoChannelZ = z.discriminatedUnion("type", [
+  ni.aoCurrentChannelZ,
+  ni.aoFuncGenChannelZ.extend({
+    frequency: z.number().gt(0, "Frequency must be greater than 0 Hz"),
+  }),
+  ni.aoVoltageChannelZ,
+]);
 
-export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
+export const analogWriteConfigZ = ni.analogWriteConfigZ.extend({
+  channels: aoChannelZ.array().default(() => []),
+});
+
+export const deployAnalogWriteConfigZ = analogWriteConfigZ.extend({
   device: Task.deviceKeyZ,
   stateRate: deployStateRateZ,
   channels: z
-    .array(ni.aoChannelZ)
+    .array(aoChannelZ)
     .check(Task.validateWriteChannels)
+    .check(validateRanges)
     .check(Task.validateEnabledChannel),
 });
 

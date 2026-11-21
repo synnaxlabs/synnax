@@ -30,7 +30,7 @@ export const createKafkaDevice = async (
     configured,
     properties: {
       brokers: ["localhost:9092"],
-      tls: false,
+      secure: false,
       sasl: { mechanism: "none" },
       ...properties,
     },

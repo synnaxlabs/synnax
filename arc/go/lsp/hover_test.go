@@ -803,6 +803,7 @@ func add() {a i32, b i32} i32 {
 		Entry("*=", "x *= 5", uint32(2), "*=", ""),
 		Entry("/=", "x /= 5", uint32(2), "/=", ""),
 		Entry("%=", "x %= 5", uint32(2), "%=", ""),
+		Entry("!= after a non-ASCII character", `"°" != y`, uint32(4), "!=", ""),
 	)
 
 	Describe("Edge Cases", func() {
