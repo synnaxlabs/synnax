@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
@@ -32,7 +34,7 @@ import (
 // CESIUM_BENCH_DIR when it is set, so that a run after a page cache drop reads it cold.
 // Each iteration first removes, untimed, what the conversion before it wrote. It
 // reports the terms of the conversion target: the bytes of the old metadata files, the
-// old data files, and the stamp reads.
+// old data files, the stamp reads, the bytes of head 1, and the size of one log file.
 func BenchmarkConvert(b *testing.B) {
 	for _, keys := range []int{100, 1_000} {
 		for _, files := range []int{1, 16} {
@@ -40,6 +42,7 @@ func BenchmarkConvert(b *testing.B) {
 				root := convertFixture(b, keys, files)
 				meta, old := oldTerms(b, root)
 				fs := &stampCounter{FS: root, reads: set.New[stampRead]()}
+				var head, logFile int64
 				for b.Loop() {
 					b.StopTimer()
 					undoConversion(b, root)
@@ -58,11 +61,18 @@ func BenchmarkConvert(b *testing.B) {
 					if err = db.Close(); err != nil {
 						b.Fatal(err)
 					}
+					head, logFile = fileSize(b, root, checkpoint.Name(1)), fileSize(
+						b,
+						root,
+						log.Name(1),
+					)
 					b.StartTimer()
 				}
 				b.ReportMetric(float64(meta), "meta-B")
 				b.ReportMetric(float64(old), "old-files")
 				b.ReportMetric(float64(fs.count()), "stamp-reads")
+				b.ReportMetric(float64(head), "head-B")
+				b.ReportMetric(float64(logFile), "log-file-B")
 			})
 		}
 	}
@@ -173,6 +183,15 @@ func writeFixtureGroup(
 	if err = w.Close(); err != nil {
 		b.Fatal(err)
 	}
+}
+
+func fileSize(b *testing.B, fs xfs.FS, name string) int64 {
+	b.Helper()
+	info, err := fs.Stat(name)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return info.Size()
 }
 
 func mustSub(b *testing.B, dir string) xfs.FS {
