@@ -724,14 +724,7 @@ func (w Writer) allocateNew(
 			return nil, nameTaken(err, requested[i])
 		}
 	}
-	if err := w.allocateAndWrite(
-		ctx,
-		channels,
-		requested,
-		newIndices,
-		minimal,
-		opts,
-	); err != nil {
+	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -807,7 +800,6 @@ func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
-	requested []int,
 	newIndices []int,
 	minimal []channel.Channel,
 	opts createOptions,
@@ -839,19 +831,13 @@ func (w Writer) allocateAndWrite(
 	}
 	// A data channel's index must exist before the data channel is written.
 	slices.SortStableFunc(toCreate, indexesFirst)
+	// allocateNew checked the names of the new channels before Allocate.
 	if err := w.svc.table.NewCreate().
 		Exclusive().
+		UniqueChecked().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		// The check before Allocate passed, so a clash is between two new channels, and
-		// the later one is refused.
-		at, name := -1, takenName(err)
-		for _, i := range newIndices {
-			if channels[i].Name == name {
-				at = requested[i]
-			}
-		}
-		return nameTaken(err, at)
+		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
