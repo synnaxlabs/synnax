@@ -936,7 +936,7 @@ func (w Writer) delete(
 	keys Keys,
 	planned *gorp.DeleteEffects,
 ) error {
-	del := w.svc.table.NewDelete().Held(w.tombstone)
+	del := w.svc.table.NewDelete().Held(w.svc.tombstones.write)
 	if planned != nil {
 		del = del.Planned(*planned)
 	}

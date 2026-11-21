@@ -50,6 +50,8 @@ type tombstones struct {
 	table  *gorp.Table[Key, Tombstone]
 	paths  *gorp.UniqueIndex[Key, Tombstone, path]
 	groups *gorp.KeyReference[Key, Tombstone, group.Key]
+	// write is write, bound once so that a delete allocates nothing to pass it.
+	write gorp.HeldFunc[Key, Channel]
 }
 
 // openTombstones opens the table of tombstones.
@@ -69,6 +71,7 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 			},
 		}),
 	}
+	t.write = t.writeHeld
 	var err error
 	t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Tombstone]{
 		DB:      db,
@@ -174,9 +177,9 @@ func (w Writer) DeleteTombstones(ctx context.Context, groups ...group.Key) error
 		Exec(ctx, w.tx)
 }
 
-// tombstone writes, in tx, the tombstone of c, which a delete removes, when a link
+// writeHeld writes, in tx, the tombstone of c, which a delete removes, when a link
 // other than a rewires entry holds it.
-func (w Writer) tombstone(
+func (t tombstones) writeHeld(
 	ctx context.Context,
 	tx gorp.Tx,
 	c Channel,
@@ -187,11 +190,11 @@ func (w Writer) tombstone(
 	}) {
 		return nil
 	}
-	t := Tombstone{
+	ts := Tombstone{
 		Key:     c.Key(),
 		Name:    c.Name,
 		Group:   c.Group,
 		Rewires: withGap(c.Rewires, telem.Now()),
 	}
-	return w.svc.tombstones.table.NewCreate().Entry(&t).Exec(ctx, tx)
+	return t.table.NewCreate().Entry(&ts).Exec(ctx, tx)
 }
