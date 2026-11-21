@@ -28,6 +28,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // switchLog appends Intends of 1,000 keys each to db on fs until the log switches to
@@ -326,5 +327,51 @@ var _ = Describe("Reads through parts", func() {
 		Expect(switchLog(db, gate, 5)).To(Succeed())
 		waitHead(gate, 5)
 		Eventually(func() (bool, error) { return gate.Exists(part) }).Should(BeFalse())
+	})
+})
+
+var _ = Describe("Claims over parts", func() {
+	It("Should refuse a writer that starts in parted data, and a commit that reaches "+
+		"it", func(ctx SpecContext) {
+		fs := xfs.NewMem()
+		db := partedDB(ctx, fs)
+		stop := StartRun(db.Run)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idx,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		// The samples sit at seconds 1 to 30 in three segments.
+		writeParted(ctx, db, fs, idx, data, 3, 10)
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = partedDB(ctx, fs)
+		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		DeferCleanup(StartRun(db.Run))
+		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx, data},
+			Start:    15 * telem.SecondTS,
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("inside its stored data from 11000000000")),
+		))
+		Expect(db.Write(ctx, telem.SecondTS/2, telem.MultiFrame(
+			[]cesium.ChannelKey{idx, data},
+			[]telem.Series{
+				telem.NewSeries(
+					[]telem.TimeStamp{telem.SecondTS / 2, 2 * telem.SecondTS},
+				),
+				telem.NewSeries([]int64{1, 2}),
+			},
+		))).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("overlaps its stored data from 1000000000")),
+		))
 	})
 })
