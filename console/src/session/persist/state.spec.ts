@@ -1138,10 +1138,38 @@ describe("Persist.middleware", () => {
           ({ value }) => z.object({ work: workZ }).safeParse(value).data?.work.value,
         );
 
-    it("should save nothing until a later swap hydrates", async () => {
+    it("should save no project slice until a later swap hydrates", async () => {
       const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE);
       await commit(driver, "late");
       expect(store.writes.length).toBe(written);
+    });
+
+    it("should save a global edit but not a project edit", async () => {
+      const scopes: Persist.Scopes<MockState> = {
+        global: { core: selectedZ, work: workZ },
+        core: { project: selectedZ },
+        project: { view: viewZ, windows: z.string().array() },
+        window: {},
+        transient: [],
+      };
+      const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE, scopes);
+      driver.dispatch(
+        { type: "edit" },
+        {
+          ...driver.getState(),
+          work: { value: "global-edit" },
+          view: { label: "project-edit", windows: {} },
+        },
+      );
+      await Persist.flush((action) => driver.dispatch(action));
+      const entries = store.writes.slice(written).flat();
+      expect(entries.map(({ key }) => key)).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^global\./)]),
+      );
+      entries.forEach(({ key }) => expect(key).toMatch(/^global\./));
+      store.failOn = null;
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.work.value).toBe("global-edit");
     });
 
     it("should save again once a later swap hydrates", async () => {
