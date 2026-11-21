@@ -51,9 +51,13 @@ var _ = Describe("Checker r3: a write through an ended transaction", func() {
 			live := db.OpenTx()
 			Expect(items.NewCreate().Entry(&r2Item{Key: 2, Name: "b"}).Exec(ctx, live)).
 				To(Succeed())
+			var deadErr error
 			Expect(func() {
-				_ = items.NewCreate().Entry(&r2Item{Key: 3, Name: "c"}).Exec(ctx, dead)
+				deadErr = items.NewCreate().
+					Entry(&r2Item{Key: 3, Name: "c"}).
+					Exec(ctx, dead)
 			}).NotTo(Panic())
+			GinkgoWriter.Printf("write through the ended transaction: %v\n", deadErr)
 			Expect(live.Commit(ctx)).To(Succeed())
 			Expect(dead.Close()).To(Succeed())
 			Expect(lookup.Get(ctx, db, "b")).To(ConsistOf(int32(2)))
