@@ -9,11 +9,16 @@
 
 from synnax.ethercat.master.types_gen import (
     TYPE_RESOURCE_ID,
+    Configuration,
+    ConfigurationUpdate,
     Cursor,
+    Identity,
+    IdentityUpdate,
     Key,
     Master,
     Status,
     StatusDetails,
+    Update,
     Where,
     WhereInput,
     resource_id,
@@ -21,11 +26,16 @@ from synnax.ethercat.master.types_gen import (
 
 __all__ = [
     "TYPE_RESOURCE_ID",
+    "Configuration",
+    "ConfigurationUpdate",
     "Cursor",
+    "Identity",
+    "IdentityUpdate",
     "Key",
     "Master",
     "Status",
     "StatusDetails",
+    "Update",
     "Where",
     "WhereInput",
     "resource_id",

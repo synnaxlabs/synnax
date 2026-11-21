@@ -258,7 +258,10 @@ type Transport struct {
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 
 	// ETHERCAT MASTER
+	EtherCATMasterCreate   freighter.UnaryServer[ethercatmaster.CreateRequest, ethercatmaster.CreateResponse]
 	EtherCATMasterRetrieve freighter.UnaryServer[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse]
+	EtherCATMasterUpdate   freighter.UnaryServer[ethercatmaster.UpdateRequest, struct{}]
+	EtherCATMasterDelete   freighter.UnaryServer[ethercatmaster.DeleteRequest, struct{}]
 
 	// ETHERCAT SLAVE
 	EtherCATSlaveRetrieve freighter.UnaryServer[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse]
@@ -579,7 +582,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisDelete,
 
 		// ETHERCAT MASTER
+		t.EtherCATMasterCreate,
 		t.EtherCATMasterRetrieve,
+		t.EtherCATMasterUpdate,
+		t.EtherCATMasterDelete,
 
 		// ETHERCAT SLAVE
 		t.EtherCATSlaveRetrieve,
@@ -858,7 +864,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
 	// ETHERCAT MASTER
+	t.EtherCATMasterCreate.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Create))
 	t.EtherCATMasterRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATMaster.Retrieve))
+	t.EtherCATMasterUpdate.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Update))
+	t.EtherCATMasterDelete.BindHandler(bind.Write(l.binder, l.EtherCATMaster.Delete))
 
 	// ETHERCAT SLAVE
 	t.EtherCATSlaveRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATSlave.Retrieve))
