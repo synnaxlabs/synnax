@@ -17,8 +17,8 @@ failOnConsoleOutput({
   ignore: [
     // Monaco warns when a startup step is slow, which depends on the machine.
     /Creation of workbench contribution '.+' took \d+ms/,
-    // React Flow resizes its nodes as it measures them, which the browser reports as a
-    // ResizeObserver loop. No notification is lost for good.
+    // A browser reports this when a resize callback changes layout in the same frame.
+    // It is a notice, not an error.
     /ResizeObserver loop completed with undelivered notifications/,
   ],
 });
