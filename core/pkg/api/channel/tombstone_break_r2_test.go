@@ -60,21 +60,23 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		})).To(Succeed())
 		return ch
 	}
-	display := func(ctx SpecContext, k channel.Key) {
+	display := func(ctx SpecContext, k channel.Key) resource.ID {
 		GinkgoHelper()
 		var value schematic.ValueNodeConfig
 		value.SetDefaults()
 		value.Channel = k
+		sch := schematic.Schematic{
+			Name:    "pid",
+			Project: &proj.Key,
+			Nodes: []schematic.Node{{
+				Key:    "value",
+				Config: schematic.NodeConfig{Variant: value},
+			}},
+		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return layer.Schematic.NewWriter(tx).Create(ctx, &schematic.Schematic{
-				Name:    "pid",
-				Project: &proj.Key,
-				Nodes: []schematic.Node{{
-					Key:    "value",
-					Config: schematic.NodeConfig{Variant: value},
-				}},
-			})
+			return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
 		})).To(Succeed())
+		return schematic.ResourceID(sch.Key)
 	}
 	tombstoned := func(ctx SpecContext, k channel.Key) bool {
 		GinkgoHelper()
@@ -140,7 +142,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 	It("Should create a root channel at the path of a root tombstone through the "+
 		"route", func(ctx SpecContext) {
 		dead := createChannel(ctx, nil)
-		display(ctx, dead.Key())
+		healed := display(ctx, dead.Key())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
 		})).To(Succeed())
@@ -151,6 +153,8 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			[]access.Action{access.ActionCreate},
 			resource.ID{Type: resource.TypeChannel},
 		)
+		// The heal moves the link of the schematic onto the new channel.
+		grantOn(ctx, u.ResourceID(), []access.Action{access.ActionUpdate}, healed)
 		Expect(createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
 			Channels: []apichannel.Channel{{
 				Name:     dead.Name,
@@ -164,7 +168,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 	It("Should rename a root channel onto the path of a root tombstone through the "+
 		"route", func(ctx SpecContext) {
 		dead := createChannel(ctx, nil)
-		display(ctx, dead.Key())
+		healed := display(ctx, dead.Key())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
 		})).To(Succeed())
@@ -172,9 +176,11 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		grantOn(
 			ctx,
 			u.ResourceID(),
-			[]access.Action{access.ActionUpdate},
+			[]access.Action{access.ActionUpdate, access.ActionRetrieve},
 			channel.ResourceID(ch.Key()),
 		)
+		// The heal moves the link of the schematic onto the renamed channel.
+		grantOn(ctx, u.ResourceID(), []access.Action{access.ActionUpdate}, healed)
 		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
 			Key: ch.Key(),
 			Actions: []channel.Action{
@@ -182,5 +188,31 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			},
 		})).Error().ToNot(HaveOccurred())
 		Expect(tombstoned(ctx, dead.Key())).To(BeFalse())
+	})
+
+	It("Should refuse a create at a tombstone path when the caller cannot update a "+
+		"display that the heal moves", func(ctx SpecContext) {
+		dead := createChannel(ctx, nil)
+		healed := display(ctx, dead.Key())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, dead.Key(), false)
+		})).To(Succeed())
+		grantOn(
+			ctx,
+			u.ResourceID(),
+			[]access.Action{access.ActionCreate},
+			resource.ID{Type: resource.TypeChannel},
+		)
+		Expect(createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
+			Channels: []apichannel.Channel{{
+				Name:     dead.Name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}},
+		})).Error().To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("cannot update "+healed.String())),
+		))
+		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
 	})
 })
