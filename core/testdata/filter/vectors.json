@@ -2673,5 +2673,175 @@
         "expected": ["b"]
       }
     ]
+  },
+  "ethercat_slaves": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000040a",
+        "rack": 65538,
+        "name": "EL3102 inlet",
+        "serial": 1001,
+        "vendor_id": 2,
+        "product_code": 203305042,
+        "master": "00000000-0000-4000-8000-00000000040e"
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000040b",
+        "rack": 65538,
+        "name": "EL2008 valves",
+        "serial": 0,
+        "vendor_id": 2,
+        "product_code": 131608658,
+        "master": "00000000-0000-4000-8000-00000000040e"
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000040c",
+        "rack": 131073,
+        "name": "AKD drive",
+        "serial": 2002,
+        "vendor_id": 106,
+        "product_code": 4279108,
+        "master": "00000000-0000-4000-8000-00000000040f"
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every slave",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000040a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-0000000004ff"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name contains",
+        "where": {
+          "name": {
+            "contains": "EL"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "drive$"
+          }
+        },
+        "expected": ["c"],
+        "server_computed": true
+      },
+      {
+        "name": "serial eq",
+        "where": {
+          "serial": {
+            "eq": 1001
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "serial eq zero",
+        "where": {
+          "serial": {
+            "eq": 0
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "vendor_id eq",
+        "where": {
+          "vendor_id": {
+            "eq": 2
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "product_code in",
+        "where": {
+          "product_code": {
+            "in": [131608658, 4279108]
+          }
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "master eq",
+        "where": {
+          "master": {
+            "eq": "00000000-0000-4000-8000-00000000040f"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "vendor_id": {
+            "eq": 2
+          },
+          "serial": {
+            "gt": 0
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "serial": {
+                "eq": 2002
+              }
+            },
+            {
+              "serial": {
+                "eq": 0
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "master": {
+              "eq": "00000000-0000-4000-8000-00000000040e"
+            }
+          }
+        },
+        "expected": ["c"]
+      }
+    ]
   }
 }

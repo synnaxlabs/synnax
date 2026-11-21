@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
+	ethercatslave "github.com/synnaxlabs/synnax/pkg/api/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -656,6 +657,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		EtherCATMasterRetrieve: unary[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse](
 			router,
 			"/api/v1/ethercat/master/retrieve",
+		),
+
+		// ETHERCAT SLAVE
+		EtherCATSlaveRetrieve: unary[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse](
+			router,
+			"/api/v1/ethercat/slave/retrieve",
 		),
 
 		// ACCESS

@@ -39,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	ethercatmaster "github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
+	ethercatslave "github.com/synnaxlabs/synnax/pkg/service/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
@@ -340,6 +341,44 @@ var _ = Describe("Layer", func() {
 			) error {
 				return gorp.NewDelete[ethercatmaster.Key, ethercatmaster.Master]().
 					Where(gorp.MatchKeys[ethercatmaster.Key, ethercatmaster.Master](key)).
+					Exec(ctx, tx)
+			},
+		),
+		Entry(
+			"EtherCAT slave",
+			"ethercat_slave",
+			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				m := ethercatmaster.Master{
+					Key:       uuid.New(),
+					Rack:      layer.Rack.EmbeddedKey,
+					Name:      "EtherCAT eth1",
+					Interface: "eth1",
+				}
+				Expect(gorp.NewCreate[ethercatmaster.Key, ethercatmaster.Master]().
+					Entry(&m).
+					Exec(ctx, tx)).To(Succeed())
+				s := ethercatslave.Slave{
+					Key:         uuid.New(),
+					Rack:        layer.Rack.EmbeddedKey,
+					Name:        "EL3102",
+					VendorID:    2,
+					ProductCode: 0x0C1E3052,
+					Master:      m.Key,
+				}
+				Expect(gorp.NewCreate[ethercatslave.Key, ethercatslave.Slave]().
+					Entry(&s).
+					Exec(ctx, tx)).To(Succeed())
+				return s.Key
+			},
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				layer *service.Layer,
+				key uuid.UUID,
+			) error {
+				return gorp.NewDelete[ethercatslave.Key, ethercatslave.Slave]().
+					Where(gorp.MatchKeys[ethercatslave.Key, ethercatslave.Slave](key)).
 					Exec(ctx, tx)
 			},
 		),
@@ -970,6 +1009,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Device", resource.TypeDevice),
 		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("EthercatMaster", resource.TypeEthercatMaster),
+		Entry("EthercatSlave", resource.TypeEthercatSlave),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),

@@ -204,6 +204,11 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/ethercat/master/retrieve",
 			),
+			Entry(
+				"unary EtherCAT slave retrieve",
+				http.MethodPost,
+				"/api/v1/ethercat/slave/retrieve",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
