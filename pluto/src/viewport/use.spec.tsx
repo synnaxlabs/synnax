@@ -447,6 +447,14 @@ describe("viewport/use", () => {
       expect(readViewport(h)).toEqual(VIEW);
     });
 
+    it("should clear the mask", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      act(() => h.ref.current?.sync(VIEW));
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
     it("should start the next zoom from the synced view", () => {
       const h = setup();
       act(() => h.ref.current?.sync(VIEW));
@@ -677,6 +685,30 @@ describe("viewport/use", () => {
       const h = setup();
       expect(readViewport(h)).toEqual(DEFAULT_VIEWPORT);
       h.rerender({ initial: INITIAL });
+      expect(readViewport(h)).toEqual(INITIAL);
+    });
+
+    it("should clear the mask when the initial box changes", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      h.rerender({ initial: INITIAL });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
+    it("should keep the mask when a new initial box holds the same view", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      h.rerender({ initial: box.copy(INITIAL) });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+    });
+
+    it("should clear the mask when the same initial box moves the view back", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      h.rerender({ initial: box.copy(INITIAL) });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
       expect(readViewport(h)).toEqual(INITIAL);
     });
   });

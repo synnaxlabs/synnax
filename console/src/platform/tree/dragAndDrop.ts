@@ -9,6 +9,7 @@
 
 import { resource, type Synnax as Client } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Color } from "@synnaxlabs/pluto";
@@ -48,7 +49,8 @@ export const useDragAndDrop = ({
   handleError,
 }: UseDragAndDropProps): DragAndDrop => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
-  const resolveColor = Color.useResolve();
+  // Only a drag preview reads the colors, so a color change must not re-render rows.
+  const resolveColorRef = useSyncedRef(Color.useResolve());
 
   const onDrop = (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
     const dropped = Base.filterHaulItems(items);
@@ -89,7 +91,7 @@ export const useDragAndDrop = ({
       resource: pressed,
       client,
       count: dragged.length,
-      resolveColor,
+      resolveColor: resolveColorRef.current,
     });
     startDrag({ event, items, preview });
   };
