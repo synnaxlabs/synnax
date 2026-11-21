@@ -234,31 +234,31 @@ TEST(StatesTest, MoveFilterEmptyFrame) {
 
 TEST(StatesTest, ApplyIncreaseUpdatesState) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseOverridesLowerAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 100);
-    states.apply_increase(OPERATOR, 1, 200);
+    states.set_authority(ARC, 1, 100);
+    states.set_authority(OPERATOR, 1, 200);
     ASSERT_FALSE(states.is_authorized(1, ARC));
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseIgnoresEqualAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 1, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 1, 200);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyIncreaseIgnoresLowerAuthority) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 1, 100);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 1, 100);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
@@ -273,8 +273,8 @@ TEST(StatesTest, AllAuthorizedWhenNoState) {
 
 TEST(StatesTest, AllAuthorizedWhenSubjectHoldsAll) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(ARC, 2, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(ARC, 2, 200);
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     frame.emplace(2, x::telem::Series(static_cast<float>(2.0)));
@@ -283,8 +283,8 @@ TEST(StatesTest, AllAuthorizedWhenSubjectHoldsAll) {
 
 TEST(StatesTest, AllAuthorizedFalseWhenOneUnauthorized) {
     States states;
-    states.apply_increase(ARC, 1, 200);
-    states.apply_increase(OPERATOR, 2, 200);
+    states.set_authority(ARC, 1, 200);
+    states.set_authority(OPERATOR, 2, 200);
     x::telem::Frame frame;
     frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
     frame.emplace(2, x::telem::Series(static_cast<float>(2.0)));
@@ -303,7 +303,7 @@ TEST(StatesTest, ApplyFromSeriesAcquire) {
 
 TEST(StatesTest, ApplyFromSeriesRelease) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     const std::string json =
         R"({"transfers":[{"from":{"resource":1,"subject":{"key":"arc-1","name":"arc"},"authority":200},"to":null}]})";
@@ -324,7 +324,7 @@ TEST(StatesTest, ApplyFromSeriesIgnoresInvalidJson) {
 
 TEST(StatesTest, ApplyFromSeriesIgnoresNonJSONType) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set_authority(ARC, 1, 200);
     auto series = x::telem::Series(std::vector<float>{1.0f});
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
@@ -332,7 +332,13 @@ TEST(StatesTest, ApplyFromSeriesIgnoresNonJSONType) {
 
 TEST(StatesTest, SetReplacesTheMirror) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set({
+        x::control::State<synnax::channel::Key>{
+            .subject = ARC,
+            .resource = 1,
+            .authority = 200,
+        },
+    });
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     states.set({
         x::control::State<synnax::channel::Key>{
@@ -348,7 +354,13 @@ TEST(StatesTest, SetReplacesTheMirror) {
 
 TEST(StatesTest, SetWithNoStatesClearsTheMirror) {
     States states;
-    states.apply_increase(ARC, 1, 200);
+    states.set({
+        x::control::State<synnax::channel::Key>{
+            .subject = ARC,
+            .resource = 1,
+            .authority = 200,
+        },
+    });
     states.set({});
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
@@ -368,5 +380,232 @@ TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
     ASSERT_TRUE(states.is_authorized(2, OPERATOR));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     ASSERT_FALSE(states.is_authorized(2, ARC));
+}
+
+/// @brief it should give a tie to the earlier gate, as the Core does.
+TEST(StatesTest, OpenGateGivesATieToTheEarlierGate) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {200});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should open a gate with absolute authority when it names none.
+TEST(StatesTest, OpenGateDefaultsToAbsoluteAuthority) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {});
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should hand the channel to the next gate by authority, then by order,
+/// when the holder closes after disconnect.
+TEST(StatesTest, CloseGateHandsOffToTheNextGate) {
+    States states;
+    states.disconnect();
+    const x::control::Subject third{"third", "third-1"};
+    states.open_gate(OPERATOR, {1}, {100});
+    states.open_gate(third, {1}, {100});
+    states.open_gate(ARC, {1}, {200});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, third));
+    states.close_gate(third);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should keep the holder when a gate that does not hold the channel closes.
+TEST(StatesTest, CloseGateKeepsAnotherHolder) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {100});
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep a channel with its holder when the holder lowers its
+/// authority and no other gate writes it.
+TEST(StatesTest, SetAuthorityDecreaseKeepsALoneHolder) {
+    States states;
+    states.open_gate(ARC, {1}, {200});
+    states.set_authority(ARC, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should give a channel the Core reports as uncontrolled to its local gates.
+TEST(StatesTest, SetFallsBackToLocalGates) {
+    States states;
+    states.open_gate(ARC, {1, 2}, {200});
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = OPERATOR,
+        .resource = 2,
+        .authority = 250,
+    }});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_TRUE(states.is_authorized(2, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(2, ARC));
+}
+
+/// @brief it should give the channel back to an earlier gate that raises its authority
+/// to a tie after disconnect, as the Core does.
+TEST(StatesTest, EarlierGateTakesBackATieAfterDisconnect) {
+    States states;
+    states.disconnect();
+    states.open_gate(ARC, {1}, {150});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.set_authority(ARC, 1, 150);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should keep the holder while the Core is connected, so the Core decides
+/// who takes the channel next.
+TEST(StatesTest, WaitsForTheCoreWhileConnected) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {100});
+    states.set_authority(ARC, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should leave a holder that the Core reported in place after disconnect,
+/// unless a local gate has more authority.
+TEST(StatesTest, KeepsARemoteHolderAfterDisconnect) {
+    States states;
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = OPERATOR,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.disconnect();
+    states.open_gate(ARC, {1}, {150});
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.set_authority(ARC, 1, 250);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should hand a channel to the next local gate on disconnect when its holder
+/// closed while the Core was connected.
+TEST(StatesTest, DisconnectHandsOffAChannelAClosedWriterHeld) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.disconnect();
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
+
+/// @brief it should hand a channel to the next local gate on disconnect when its holder
+/// lowered its authority while the Core was connected.
+TEST(StatesTest, DisconnectAppliesADecreaseMadeWhileConnected) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.disconnect();
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should wait for the Core again after set marks it connected.
+TEST(StatesTest, SetWaitsForTheCoreAgain) {
+    States states;
+    states.disconnect();
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.opened_on_core(ARC);
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = ARC,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep the local rule after reconnect for a writer whose Core writer
+/// failed and has not opened again, and wait for the Core once it has.
+TEST(StatesTest, KeepsTheLocalRuleUntilAWriterReopens) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.closed_on_core(ARC);
+    states.set({});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.opened_on_core(OPERATOR);
+    states.set_authority(OPERATOR, 1, 50);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    states.close_gate(OPERATOR);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should hand a channel to the next local gate when a writer that has not
+/// opened on the Core again closes after reconnect.
+TEST(StatesTest, HandsOffWhenAWriterClosesBeforeItReopens) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.closed_on_core(ARC);
+    states.set({});
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should wait for the Core's transfers after reconnect when a writer reopens
+/// on the Core before the disconnect runs.
+TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.closed_on_core(ARC);
+    states.opened_on_core(ARC);
+    states.disconnect();
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = ARC,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should keep waiting for the Core after reconnect for a writer still open
+/// on the Core, even when the Core does not list it as a holder.
+TEST(StatesTest, SetKeepsAnUnlistedWriterWaitingForTheCore) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.disconnect();
+    states.set({});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 }

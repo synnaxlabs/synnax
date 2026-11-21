@@ -561,7 +561,7 @@ private:
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief replaces the control state mirror with the cluster's current state.
-    /// Best-effort: a failed read is logged and leaves the mirror empty.
+    /// Best-effort: a failed read is logged and leaves only local writers' channels.
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();

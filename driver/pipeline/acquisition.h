@@ -111,6 +111,12 @@ public:
     /// will exit.
     [[nodiscard]] virtual x::errors::Error close() = 0;
 
+    /// @brief blocks until the writer's stream ends. It may run on a second thread
+    /// while write, set_authority, and close run. close returns why the stream ended.
+    /// @returns true once the stream ends, or false at once for a writer that cannot
+    /// watch its stream.
+    [[nodiscard]] virtual bool wait() { return false; }
+
     virtual ~Writer() = default;
 };
 
@@ -151,6 +157,9 @@ public:
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] x::errors::Error close() override;
+
+    /// @brief implements pipeline::Writer to wait for the end of the writer's stream.
+    [[nodiscard]] bool wait() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is

@@ -63,6 +63,11 @@ struct ForwarderConfig {
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
     Warn warn;
+    /// @brief called from the forwarder thread each time the Core writer opens.
+    std::function<void()> on_open;
+    /// @brief called from the forwarder thread each time an open Core writer closes,
+    /// fails, or loses its stream.
+    std::function<void()> on_close;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",
@@ -74,9 +79,9 @@ struct ForwarderConfig {
 
 /// @brief delivers a task's frames and authority changes to the Core in order, on its
 /// own thread, so a task never waits on the Core. It opens and reopens the Core writer
-/// while the Core is unreachable. Any other Core error stops it, drops and counts what
-/// it holds, and its next write returns that error. All methods are safe to call from
-/// one task thread.
+/// while the Core is unreachable, also when the stream of an idle writer fails. Any
+/// other Core error stops it, drops and counts what it holds, and its next write
+/// returns that error. All methods are safe to call from one task thread.
 class Forwarder {
     using Op = std::variant<x::telem::Frame, ::driver::pipeline::Authorities>;
 
@@ -85,6 +90,8 @@ class Forwarder {
     const size_t max_queue_bytes;
     const std::chrono::nanoseconds drop_report_interval;
     const Warn warn;
+    const std::function<void()> on_open;
+    const std::function<void()> on_close;
     x::breaker::Breaker breaker;
 
     // Only the forwarder thread touches these.
@@ -99,6 +106,8 @@ class Forwarder {
     size_t queue_bytes = 0;
     size_t dropped_frames;
     bool closing = false;
+    /// @brief set once the stream of the open Core writer ends.
+    bool lost = false;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -195,11 +204,14 @@ class Forwarder {
             this->show_drops(dropped);
     }
 
-    /// @brief waits for an op, or returns false once closing leaves none.
+    /// @brief waits for an op, or returns false once the Core writer's stream ends or
+    /// closing leaves none.
     bool next(Op &op) {
         std::unique_lock lock(this->mu);
-        this->cv.wait(lock, [this] { return this->closing || !this->queue.empty(); });
-        if (this->queue.empty()) return false;
+        this->cv.wait(lock, [this] {
+            return this->closing || this->lost || !this->queue.empty();
+        });
+        if (this->lost || this->queue.empty()) return false;
         const auto &front = this->queue.front();
         if (const auto *fr = std::get_if<x::telem::Frame>(&front))
             op = fr->shallow_copy();
@@ -272,8 +284,17 @@ class Forwarder {
                 if (this->wait(open_err)) continue;
                 return;
             }
+            if (this->on_open) this->on_open();
             this->settle();
             this->breaker.reset();
+            std::thread watcher([this, w = writer.get()] {
+                if (!w->wait()) return;
+                {
+                    std::lock_guard lock(this->mu);
+                    this->lost = true;
+                }
+                this->cv.notify_one();
+            });
             Op op;
             x::errors::Error op_err;
             while (this->next(op)) {
@@ -281,8 +302,21 @@ class Forwarder {
                 this->pop();
                 this->report();
             }
+            bool lost = false;
+            {
+                std::lock_guard lock(this->mu);
+                lost = this->lost;
+            }
             const auto close_err = writer->close();
-            const auto err = close_err ? close_err : op_err;
+            watcher.join();
+            if (this->on_close) this->on_close();
+            {
+                std::lock_guard lock(this->mu);
+                this->lost = false;
+            }
+            auto err = close_err ? close_err : op_err;
+            // The Core ends a writer's stream with an error unless the writer closes.
+            if (!err && lost) err = synnax::framer::WRITER_CLOSED;
             if (!err) return;
             if (!this->wait(err)) return;
         }
@@ -299,6 +333,8 @@ public:
         max_queue_bytes(cfg.max_queue_bytes),
         drop_report_interval(cfg.drop_report_interval.chrono()),
         warn(cfg.warn),
+        on_open(cfg.on_open),
+        on_close(cfg.on_close),
         breaker(cfg.breaker),
         dropped_frames(cfg.dropped) {
         this->breaker.start();

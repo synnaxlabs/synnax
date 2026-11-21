@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -34,6 +37,8 @@ public:
         this->answered = true;
         return {grpc::framer::WriterResponse(), x::errors::NIL};
     }
+
+    bool read(grpc::framer::WriterResponse &) override { return false; }
 
     x::errors::Error send(grpc::framer::WriterRequest &) const override {
         if (this->opened) return freighter::STREAM_CLOSED;
@@ -63,6 +68,79 @@ public:
 Client ended_client(const x::errors::Error &status) {
     return {nullptr, std::make_unique<EndedStreamClient>(status), channel::Client()};
 }
+
+/// @brief a writer stream that answers the open, then blocks reads until the test ends
+/// it or sends an error response. It records the thread that finishes it.
+class WatchedStream final : public WriterStream {
+    std::mutex mu;
+    std::condition_variable cv;
+    x::errors::Error status;
+    x::errors::Error response_err;
+    bool ended = false;
+    bool answered = false;
+
+public:
+    size_t finishes = 0;
+    std::thread::id finished_on;
+
+    void end(const x::errors::Error &err) {
+        {
+            std::lock_guard lock(this->mu);
+            this->status = err;
+            this->ended = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void respond(const x::errors::Error &err) {
+        {
+            std::lock_guard lock(this->mu);
+            this->response_err = err;
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<grpc::framer::WriterResponse, x::errors::Error> receive() override {
+        if (!this->answered) {
+            this->answered = true;
+            return {grpc::framer::WriterResponse(), x::errors::NIL};
+        }
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] { return this->ended; });
+        this->finishes++;
+        this->finished_on = std::this_thread::get_id();
+        return {grpc::framer::WriterResponse(), this->status};
+    }
+
+    bool read(grpc::framer::WriterResponse &res) override {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] { return this->ended || this->response_err; });
+        if (this->ended) return false;
+        res.mutable_error()->set_type(this->response_err.type);
+        return true;
+    }
+
+    x::errors::Error send(grpc::framer::WriterRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {}
+};
+
+/// @brief a writer transport that opens one WatchedStream.
+class WatchedStreamClient final : public WriterClient {
+public:
+    WatchedStream *opened = nullptr;
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<WriterStream>, x::errors::Error>
+    stream(const std::string &) override {
+        auto s = std::make_unique<WatchedStream>();
+        this->opened = s.get();
+        return {std::move(s), x::errors::NIL};
+    }
+};
 }
 
 /// @brief it should return the status of a stream that the Core ended, not a closed
@@ -89,5 +167,37 @@ TEST(WriterStream, ReturnsPermanentErrorOfEndedStream) {
     auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
+}
+
+/// @brief it should leave finishing the stream to close on the writer's thread when a
+/// wait on another thread sees the stream end during a write.
+TEST(WriterStream, WaitLeavesFinishingToClose) {
+    auto transport = std::make_unique<WatchedStreamClient>();
+    auto *watched = transport.get();
+    const Client client{nullptr, std::move(transport), channel::Client()};
+    auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
+    std::thread waiter([&writer] { writer.wait(); });
+    ASSERT_NIL(writer.set_authority({}, {100}, false));
+    watched->opened->end(freighter::UNREACHABLE);
+    ASSERT_NIL(writer.set_authority({}, {50}, false));
+    waiter.join();
+    ASSERT_EQ(watched->opened->finishes, 0);
+    ASSERT_OCCURRED_AS(writer.close(), freighter::UNREACHABLE);
+    ASSERT_EQ(watched->opened->finishes, 1);
+    ASSERT_EQ(watched->opened->finished_on, std::this_thread::get_id());
+}
+
+/// @brief it should end a wait when the Core sends an error response, and close should
+/// return that error without finishing the stream.
+TEST(WriterStream, WaitEndsOnAnErrorResponse) {
+    auto transport = std::make_unique<WatchedStreamClient>();
+    auto *watched = transport.get();
+    const Client client{nullptr, std::move(transport), channel::Client()};
+    auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
+    std::thread waiter([&writer] { writer.wait(); });
+    watched->opened->respond(x::errors::VALIDATION);
+    waiter.join();
+    ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
+    ASSERT_EQ(watched->opened->finishes, 0);
 }
 }

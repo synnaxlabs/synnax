@@ -198,6 +198,7 @@ x::errors::Error Manager::run(const std::function<void()> &on_started) {
         ++this->runs;
         if (!this->breaker.running()) this->start_workers();
         err = this->serve(on_started);
+        if (err) this->control_states->disconnect();
     }
     // Only stop ends the Driver. Any other end of serve is a lost Core connection, and
     // the tasks run on until the next run reconciles them.
@@ -261,8 +262,8 @@ void Manager::retrieve_initial_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
     if (err) {
         // The mirror of an earlier run may hold control that ended during an outage.
-        // An empty mirror treats every channel as uncontrolled, the Core arbitrates
-        // every write, and transfers on the stream fill the mirror again.
+        // An empty Core state leaves only the local writers' channels controlled, the
+        // Core arbitrates every write, and transfers on the stream fill the mirror.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
         this->control_states->set({});
         return;
