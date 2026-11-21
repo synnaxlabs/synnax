@@ -116,7 +116,6 @@ func openEngine(o *options) (*engine, error) {
 		if r.parts, err = checkpoint.LoadParts(o.fs, r.db, r.head); err != nil {
 			return nil, err
 		}
-		r.parts.Merge(snapshot)
 	}
 	e := &engine{
 		ins:      o.Instrumentation,

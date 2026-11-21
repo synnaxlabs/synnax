@@ -78,41 +78,6 @@ func index(p Part, channels []*state.Channel) indexed {
 	return ip
 }
 
-// Merge adds the segments of the parts of x that are not dead to s, the snapshot of the
-// head that names them, each tagged with its part.
-func (x *Index) Merge(s *state.Snapshot) {
-	if len(x.parts) == 0 {
-		return
-	}
-	byKey := make(map[uint32]*state.Channel, len(s.Channels))
-	for _, c := range s.Channels {
-		byKey[c.Key] = c
-	}
-	for _, p := range x.parts {
-		for i, seg := range p.segs {
-			if p.dead(i) {
-				continue
-			}
-			c, ok := byKey[p.keys[i]]
-			if !ok {
-				c = &state.Channel{Key: p.keys[i]}
-				byKey[c.Key] = c
-				s.Channels = append(s.Channels, c)
-			}
-			seg.Part = p.ID
-			c.Segments = append(c.Segments, seg)
-		}
-	}
-	slices.SortFunc(s.Channels, func(a, b *state.Channel) int {
-		return cmp.Compare(a.Key, b.Key)
-	})
-	for _, c := range s.Channels {
-		slices.SortFunc(c.Segments, func(a, b state.Segment) int {
-			return cmp.Compare(a.ID, b.ID)
-		})
-	}
-}
-
 // rangesAfter returns the part range of each key that live records of the parts of x
 // hold, in rising order of key. It returns the ranges of last when x has its parts with
 // the same dead marks, since the ranges depend on those alone.

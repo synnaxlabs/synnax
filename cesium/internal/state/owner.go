@@ -328,6 +328,13 @@ func (r *partedRequest) run(s *State) {
 		s.core.carry(seg)
 		changed.Add(seg.key)
 	}
+	// A part holds each tagged segment as it is, and its file stays for the reads of
+	// its part record.
+	for key, ch := range s.core.channels {
+		if s.core.forgetTagged(ch) {
+			changed.Add(key)
+		}
+	}
 	folded := func(k Kill) bool { return k.Generation < r.generation }
 	s.core.dropped = slices.DeleteFunc(s.core.dropped, folded)
 	ranges := make(map[uint32]Range, len(r.ranges))

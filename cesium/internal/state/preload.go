@@ -150,6 +150,30 @@ func (c *core) carry(seg *segState) {
 	}
 }
 
+// forgetTagged takes each tagged segment of ch out of the state, with no file to
+// unlink,
+// and reports whether any was. It keeps a segment that a delete in progress put back
+// for the cut of its Tombstone.
+func (c *core) forgetTagged(ch *chanState) bool {
+	cutting := func(s *segState) bool {
+		return slices.ContainsFunc(ch.claims, func(cl *claim) bool {
+			return cl.w == nil && overlaps(s.vis.Pointers, cl.start, cl.end)
+		})
+	}
+	kept := ch.segs[:0]
+	for _, s := range ch.segs {
+		if s.vis.Part != 0 && !cutting(s) {
+			delete(c.segments, s.vis.ID)
+			continue
+		}
+		kept = append(kept, s)
+	}
+	forgot := len(kept) < len(ch.segs)
+	clear(ch.segs[len(kept):])
+	ch.segs = kept
+	return forgot
+}
+
 // overlaps reports whether a pointer of ptrs shares a stamp with [first, last].
 func overlaps(ptrs []Pointer, first, last telem.TimeStamp) bool {
 	_, ok := overlap(ptrs, first, last)

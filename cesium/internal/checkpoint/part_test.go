@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"cmp"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -89,15 +90,24 @@ var _ = Describe("Parts", func() {
 		}
 		return out
 	}
-	// parted returns the live segments of the parts that h names.
+	// parted returns the live records of key 5 in the parts that h names, in rising
+	// order of identity.
 	parted := func(h checkpoint.Header) []state.Segment {
 		GinkgoHelper()
-		s := &state.Snapshot{}
-		MustSucceed(checkpoint.LoadParts(fs, db, h)).Merge(s)
+		cache := checkpoint.NewCache(fs, db, 64<<20)
 		var out []state.Segment
-		for _, ch := range s.Channels {
-			out = append(out, ch.Segments...)
+		for _, p := range h.Parts {
+			r := MustSucceed(cache.Records(p, 5))
+			for i, seg := range r.Segments {
+				if p.Live(r.First + i) {
+					out = append(out, seg)
+				}
+			}
 		}
+		slices.SortFunc(
+			out,
+			func(a, b state.Segment) int { return cmp.Compare(a.ID, b.ID) },
+		)
 		return out
 	}
 	partedIDs := func(h checkpoint.Header) []uint64 {
@@ -153,21 +163,14 @@ var _ = Describe("Parts", func() {
 		}))
 	})
 
-	It("Should give back the whole state from a head and its parts, with each record "+
-		"of a part tagged", func() {
+	It("Should give back the whole state from a head and the live records of its "+
+		"parts", func() {
 		whole := withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30))
 		switchTo(2, whole)
 		h, s := MustSucceed2(checkpoint.Read(fs, 2))
-		x := MustSucceed(checkpoint.LoadParts(fs, db, h))
-		x.Merge(s)
-		want := slices.Clone(whole.Channels[0].Segments)
-		for i := range want {
-			if want[i].Sealed {
-				want[i].Part = 1
-			}
-		}
 		Expect(s.Channels).To(HaveLen(1))
-		Expect(s.Channels[0].Segments).To(Equal(want))
+		got := append(parted(h), s.Channels[0].Segments...)
+		Expect(got).To(Equal(whole.Channels[0].Segments))
 	})
 
 	It("Should set the bit of a killed part segment", func() {
@@ -175,10 +178,7 @@ var _ = Describe("Parts", func() {
 		h := switchTo(3, killed(withSealed(sealed(1, 10), sealed(2, 20)), 2, 3))
 		Expect(ids(h)).To(Equal([]uint64{1}))
 		Expect(h.Parts[0].Dead).To(Equal([]byte{0b100}))
-		_, s := MustSucceed2(checkpoint.Read(fs, 3))
-		x := MustSucceed(checkpoint.LoadParts(fs, db, h))
-		x.Merge(s)
-		Expect(s.Channels[0].Segments).To(HaveLen(3))
+		Expect(partedIDs(h)).To(Equal([]uint64{1, 2}))
 	})
 
 	It("Should write a part again under a new identity when half of it is dead",
