@@ -386,15 +386,21 @@ Payload union on format payload.Format {
 }
 
 Message struct {
-    key     MessageKey = create {
+    key        MessageKey = create {
         @doc value "is the unique identifier for the message within its ICD."
     }
-    name    string     {
+    name       string          {
         @doc value           "is the name of the message, unique within its ICD."
         @validate min_length 1
     }
-    payload Payload    {
+    payload    Payload         {
         @doc value "is the layout of the message's payload."
+    }
+    cycle_time telem.TimeSpan? {
+        @doc value """
+            is the send cycle that the protocol states for the message. When absent the
+            protocol states none.
+        """
     }
 
     @doc value  "is the layout of one message a system sends or receives."

@@ -16,6 +16,7 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
+import { toPosix } from "./filePath.ts";
 import { listReleaseNotes, NOTES_PAGE, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
 import { indexName, parse } from "./version.ts";
 
@@ -53,6 +54,7 @@ const DOCS_DIR = "./src/docs";
 const pages = [
   ...fs
     .readdirSync(DOCS_DIR, { recursive: true, encoding: "utf8" })
+    .map(toPosix)
     .filter((f) => f.endsWith("mdx"))
     .map((f) =>
       read(DOCS_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
