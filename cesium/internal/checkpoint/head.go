@@ -130,6 +130,7 @@ func encodeHead(
 		intents:  s.Intents,
 		parts:    parts,
 		ranges:   ranges,
+		ranged:   true,
 	})
 }
 
@@ -145,6 +146,9 @@ type body struct {
 	// ranges are the part ranges of a head in rising order of key. A key of ranges
 	// that channels lack gets a channel record with no segment.
 	ranges []state.Range
+	// ranged is true when ranges alone name the part ranges, as for the head of a
+	// switch, whose channels may carry the ranges of the head before.
+	ranged bool
 }
 
 func (f *format) encode(db uint64, bd body) []byte {
@@ -162,7 +166,7 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	for _, p := range bd.parts {
 		l.counts[sectionDead] += uint64(len(p.Dead))
 	}
-	eachChannel(bd.channels, bd.ranges, func(uint32, []state.Segment, state.Range) {
+	eachChannel(bd, func(uint32, []state.Segment, state.Range) {
 		l.counts[sectionChans]++
 	})
 	for _, c := range bd.channels {
@@ -231,22 +235,19 @@ func putParts(b []byte, l *layout, parts []Part) {
 	}
 }
 
-// eachChannel calls f with the key, segments, and part range of each channel of a file
-// in rising order of key: a channel of channels with the range of its key in ranges, or
-// a channel of no segment for a key of ranges alone. A key with no range in ranges
-// keeps the range of its channel.
-func eachChannel(
-	channels []*state.Channel,
-	ranges []state.Range,
-	f func(key uint32, segs []state.Segment, r state.Range),
-) {
+// eachChannel calls f with the key, segments, and part range of each channel of bd in
+// rising order of key: a channel of bd.channels with the range of its key in bd.ranges,
+// or a channel of no segment for a key of bd.ranges alone. Unless bd.ranged, a key with
+// no range in bd.ranges keeps the range of its channel.
+func eachChannel(bd body, f func(key uint32, segs []state.Segment, r state.Range)) {
+	ranges := bd.ranges
 	i := 0
-	for _, c := range channels {
+	for _, c := range bd.channels {
 		for ; i < len(ranges) && ranges[i].Key < c.Key; i++ {
 			f(ranges[i].Key, nil, ranges[i])
 		}
 		r := state.Range{Key: c.Key}
-		if c.Parts != nil {
+		if c.Parts != nil && !bd.ranged {
 			r.Oldest, r.Newest = c.Parts.Oldest, c.Parts.Newest
 		}
 		if i < len(ranges) && ranges[i].Key == c.Key {
@@ -264,7 +265,7 @@ func putChannels(b []byte, l *layout, bd body) {
 	cAt, sAt := l.offsets[sectionChans], l.offsets[sectionSegs]
 	pAt := l.offsets[sectionPtrs]
 	var segs, ptrs uint32
-	eachChannel(bd.channels, bd.ranges, func(
+	eachChannel(bd, func(
 		key uint32,
 		channelSegs []state.Segment,
 		r state.Range,

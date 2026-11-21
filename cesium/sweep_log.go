@@ -184,7 +184,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	if err = db.engine.intend(cleared, true); err != nil {
 		return nil, err
 	}
-	sizes := storedSizes(snapshot)
+	sizes, parted := storedSizes(snapshot)
 	keys := set.New[ChannelKey]()
 	for k := range db.mu.channels {
 		keys.Add(k)
@@ -197,7 +197,7 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	for k := range keys {
 		switch {
 		case records.Contains(k):
-		case intents.Contains(k) || sizes[k] == 0:
+		case intents.Contains(k) || (sizes[k] == 0 && !parted.Contains(k)):
 			drop = append(drop, k)
 		default:
 			kept.Add(k)
@@ -249,19 +249,39 @@ func (db *DB) usedLogIndexes(records, kept set.Set[ChannelKey]) set.Set[ChannelK
 	return used
 }
 
-// storedSizes returns the committed bytes of each key that the state holds.
-func storedSizes(s *state.Snapshot) map[ChannelKey]telem.Size {
+// storedSizes returns the committed bytes of each key that the state holds in segments
+// that no part holds, and the keys that parts hold records of.
+func storedSizes(s *state.Snapshot) (map[ChannelKey]telem.Size, set.Set[ChannelKey]) {
 	sizes := make(map[ChannelKey]telem.Size, len(s.Channels))
+	parted := set.New[ChannelKey]()
 	for _, ch := range s.Channels {
 		var size telem.Size
 		for _, seg := range ch.Segments {
+			if seg.Part != 0 {
+				continue
+			}
 			for _, ptr := range seg.Pointers {
 				size += telem.Size(ptr.Length)
 			}
 		}
 		sizes[ch.Key] = size
+		if ch.Parts != nil {
+			parted.Add(ch.Key)
+		}
 	}
-	return sizes
+	return sizes, parted
+}
+
+// partedSize returns the committed bytes of the live part records of key.
+func (db *DB) partedSize(key ChannelKey) (telem.Size, error) {
+	pre, err := db.engine.records(key, telem.TimeStampMin, telem.TimeStampMax)
+	var size telem.Size
+	for _, seg := range pre.Segments {
+		for _, ptr := range seg.Pointers {
+			size += telem.Size(ptr.Length)
+		}
+	}
+	return size, err
 }
 
 // keptLogChannels returns the channels of kept that are still hidden, in rising order
@@ -271,7 +291,7 @@ func (db *DB) keptLogChannels(kept set.Set[ChannelKey]) ([]KeptChannel, error) {
 	if err != nil {
 		return nil, err
 	}
-	sizes := storedSizes(snapshot)
+	sizes, parted := storedSizes(snapshot)
 	out := make([]KeptChannel, 0, len(kept))
 	for k := range kept {
 		ch, ok := db.mu.hiddenChannels[k]
@@ -284,7 +304,15 @@ func (db *DB) keptLogChannels(kept set.Set[ChannelKey]) ([]KeptChannel, error) {
 		if ch.IsIndex {
 			index = 0
 		}
-		out = append(out, KeptChannel{Key: k, Index: index, Size: sizes[k]})
+		size := sizes[k]
+		if parted.Contains(k) {
+			more, err := db.partedSize(k)
+			if err != nil {
+				return nil, err
+			}
+			size += more
+		}
+		out = append(out, KeptChannel{Key: k, Index: index, Size: size})
 	}
 	slices.SortFunc(out, func(a, b KeptChannel) int { return int(a.Key) - int(b.Key) })
 	return out, nil

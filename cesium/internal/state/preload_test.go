@@ -131,6 +131,58 @@ var _ = Describe("Put-back", func() {
 		})
 })
 
+var _ = Describe("Put-back across a switch", func() {
+	// record is a sealed record of key 6 that part 7 holds, and that the state lacks.
+	record := state.Segment{
+		ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+		TailCRC: 3, Part: 7,
+		Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+	}
+	var s *state.State
+	BeforeEach(func() {
+		head := sample()
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
+		cfg := config(&appended{})
+		cfg.Generation = 5
+		s = MustSucceed(state.Open(cfg, head))
+		run(s)
+	})
+	parted := func() {
+		GinkgoHelper()
+		Expect(s.Parted(6, nil, []state.Range{{Key: 6, Oldest: 7, Newest: 7}},
+			func() {})).To(Succeed())
+		MustSucceed(s.Snapshot())
+	}
+	preload := state.Preload{Key: 6, Generation: 5, Segments: []state.Segment{record}}
+
+	It("Should take out the put-back records of a released delete at the next switch",
+		func() {
+			d := MustSucceed(s.BeginDelete(6, 15, 25, preload))
+			Expect(d.Release()).To(Succeed())
+			Expect(s.Channel(6).Segments).To(HaveLen(1))
+			parted()
+			Expect(s.Channel(6).Segments).To(BeEmpty())
+		})
+
+	It("Should keep the put-back records of a delete in progress across a switch, for "+
+		"the cut of its Tombstone", func() {
+		d := MustSucceed(s.BeginDelete(6, 15, 25, preload))
+		parted()
+		Expect(s.Channel(6).Segments).To(HaveLen(1))
+		Expect(s.Durable(10, []log.Record{&log.Tombstone{
+			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
+		}})).To(Succeed())
+		Expect(d.Release()).To(Succeed())
+		MustSucceed(s.Snapshot())
+		seg := s.Channel(6).Segments[0]
+		Expect(seg.Part).To(BeZero())
+		Expect(seg.Pointers).To(HaveLen(2))
+	})
+})
+
 var _ = Describe("Replay preloads", func() {
 	// parted is a sealed record of key 6 that part 7 holds, and that the state lacks.
 	parted := state.Segment{

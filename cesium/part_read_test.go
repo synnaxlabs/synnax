@@ -331,6 +331,76 @@ var _ = Describe("Reads through parts", func() {
 	})
 })
 
+var _ = Describe("Drop of parted records", func() {
+	// parted writes three segments of samples of a data channel, moves them to a part,
+	// and reopens the database, which then holds only the head in memory.
+	parted := func(ctx SpecContext, fs xfs.FS) (*cesium.DB, cesium.ChannelKey, cesium.ChannelKey) {
+		GinkgoHelper()
+		db := partedDB(ctx, fs)
+		stop := StartRun(db.Run)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idx,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		writeParted(ctx, db, fs, idx, data, 3, 10)
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = partedDB(ctx, fs)
+		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		return db, idx, data
+	}
+	segments := func(fs xfs.FS, key cesium.ChannelKey) int {
+		GinkgoHelper()
+		n := 0
+		for _, info := range MustSucceed(fs.List(fmt.Sprint(key))) {
+			if strings.HasSuffix(info.Name(), ".seg") {
+				n++
+			}
+		}
+		return n
+	}
+
+	It("Should keep at open the files of the segments that only parts hold", func(
+		ctx SpecContext,
+	) {
+		fs := xfs.NewMem()
+		db, idx, data := parted(ctx, fs)
+		Expect(segments(fs, data)).To(Equal(3))
+		DeferCleanup(StartRun(db.Run))
+		// A writer's open waits for the pass that removes the files of orphans.
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{idx, data},
+			Start:    telem.TimeStamp(1_000_000) * telem.SecondTS,
+		}))
+		Expect(w.Close()).To(Succeed())
+		Expect(segments(fs, data)).To(Equal(3))
+	})
+
+	It(
+		"Should keep in a sweep a key that only parts hold, with its size, and count it "+
+			"in the highest key",
+		func(ctx SpecContext) {
+			fs := xfs.NewMem()
+			db, idx, data := parted(ctx, fs)
+			DeferCleanup(StartRun(db.Run))
+			kept, highest := MustSucceed2(db.Sweep(ctx, nil))
+			Expect(kept).To(ContainElement(cesium.KeptChannel{
+				Key:   data,
+				Index: idx,
+				Size:  30 * 8,
+			}))
+			Expect(highest).To(BeNumerically(">=", data))
+		},
+	)
+})
+
 var _ = Describe("Claims over parts", func() {
 	It("Should refuse a delete of an index over the parted data of a key that it times",
 		func(ctx SpecContext) {

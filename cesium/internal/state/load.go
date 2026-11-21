@@ -161,7 +161,9 @@ func (c *core) snapshot() *Snapshot {
 			}
 			ch.Segments = append(ch.Segments, d)
 		}
-		if len(ch.Segments) > 0 {
+		// A key that only parts hold stays, so the snapshot names every stored key.
+		ch.Parts = c.channels[k].parts
+		if len(ch.Segments) > 0 || ch.Parts != nil {
 			s.Channels = append(s.Channels, ch)
 		}
 	}

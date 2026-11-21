@@ -126,7 +126,7 @@ func (e *engine) cutAt(
 	left bool,
 ) (*log.Cut, error) {
 	p := edge.Pointer
-	stamps, err := e.stamps(clock, p.Alignment, p.Samples)
+	stamps, err := e.stamps(clock, p)
 	if err != nil {
 		return nil, err
 	}
@@ -159,27 +159,34 @@ func (e *engine) cutAt(
 	}, nil
 }
 
-// stamps returns the stamps of the samples samples of clock from alignment on, which
-// the pointers of clock at the same domain hold.
-func (e *engine) stamps(
-	clock ChannelKey,
-	alignment telem.Alignment,
-	samples uint32,
-) ([]telem.TimeStamp, error) {
-	out := make([]telem.TimeStamp, samples)
-	from, found := alignment.SampleIndex(), uint32(0)
+// stamps returns the stamps that clock holds for the samples of pointer p of a key it
+// times: from the segments of clock that the state holds, and from the records of its
+// parts that reach the time range of p.
+func (e *engine) stamps(clock ChannelKey, p state.Pointer) ([]telem.TimeStamp, error) {
+	out := make([]telem.TimeStamp, p.Samples)
+	from, found := p.Alignment.SampleIndex(), uint32(0)
 	ch := e.state.Channel(clock)
 	if ch == nil {
 		return nil, errors.Newf("clock %d holds no stamps", clock)
 	}
-	var b []byte
+	pre, err := e.records(clock, p.First, p.Last)
+	if err != nil {
+		return nil, err
+	}
+	segs := pre.Segments
 	for _, seg := range ch.Segments {
+		if seg.Part == 0 {
+			segs = append(segs, seg)
+		}
+	}
+	var b []byte
+	for _, seg := range segs {
 		for _, q := range seg.Pointers {
-			if q.Alignment.DomainIndex() != alignment.DomainIndex() {
+			if q.Alignment.DomainIndex() != p.Alignment.DomainIndex() {
 				continue
 			}
 			lo, hi := max(from, q.Alignment.SampleIndex()),
-				min(from+samples, q.Alignment.SampleIndex()+q.Samples)
+				min(from+p.Samples, q.Alignment.SampleIndex()+q.Samples)
 			if lo >= hi {
 				continue
 			}
@@ -194,9 +201,9 @@ func (e *engine) stamps(
 			found += hi - lo
 		}
 	}
-	if found != samples {
+	if found != p.Samples {
 		return nil, errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
-			clock, found, samples, uint64(alignment))
+			clock, found, p.Samples, uint64(p.Alignment))
 	}
 	return out, nil
 }

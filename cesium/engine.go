@@ -82,6 +82,9 @@ type engine struct {
 	parts atomic.Pointer[partSets]
 	// replaying is true while recovery replays the logs into the state.
 	replaying bool
+	// opened holds the parts of the head that open loaded, whose records name segment
+	// files that the orphan pass keeps. It is nil after that pass.
+	opened *checkpoint.Index
 }
 
 // partSets are the parts of the last two heads.
@@ -133,7 +136,7 @@ func openEngine(o *options) (*engine, error) {
 			return nil, err
 		}
 	}
-	e.db, e.head = r.db, r.head.Generation
+	e.db, e.head, e.opened = r.db, r.head.Generation, r.parts
 	e.stored = set.New[ChannelKey]()
 	for _, ch := range snapshot.Channels {
 		e.stored.Add(ch.Key)
@@ -382,6 +385,7 @@ func (e *engine) run(ctx context.Context) error {
 		orphaned := make(chan error, 1)
 		e.exec(func() { orphaned <- e.orphans(snapshot) })
 		err = <-orphaned
+		e.opened = nil
 	}
 	close(e.ready)
 	if err == nil {
@@ -519,6 +523,15 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 			continue
 		}
 		seg, ok := named[name]
+		if !ok && e.opened != nil && strings.HasSuffix(name, ".seg") {
+			if id, err := strconv.ParseUint(
+				strings.TrimSuffix(info.Name(), ".seg"),
+				16,
+				64,
+			); err == nil {
+				seg, ok = e.opened.Record(uint32(key), id)
+			}
+		}
 		if !ok {
 			if err = e.fs.Remove(name); err != nil {
 				return err

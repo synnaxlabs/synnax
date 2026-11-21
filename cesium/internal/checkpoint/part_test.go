@@ -211,6 +211,18 @@ var _ = Describe("Parts", func() {
 		Expect(partedIDs(h)).To(Equal([]uint64{1, 3}))
 	})
 
+	It("Should take the part ranges of a head from its switch alone, not from the "+
+		"channels of its state", func() {
+		switchTo(2, withSealed(sealed(1, 10)))
+		// The state still carries the range of head 2, whose only record is dead.
+		s := killed(withSealed(), 2, 1)
+		s.Channels[0].Parts = &state.Parts{Oldest: 1, Newest: 1}
+		h := switchTo(3, s)
+		Expect(h.Parts).To(BeEmpty())
+		_, got := MustSucceed2(checkpoint.Read(fs, 3))
+		Expect(got.Channels[0].Parts).To(BeNil())
+	})
+
 	It("Should drop a part whose key a kill of every segment names", func() {
 		switchTo(2, withSealed(sealed(1, 10)))
 		s := withSealed()
