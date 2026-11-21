@@ -25,6 +25,9 @@ import type { line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
+// The band over a seam ends this many pixels short of the mark on the axis.
+const BAND_GAP = 2;
+
 /** Where a click lands: a click on the plot finds only closed breaks. */
 const breakSourceZ = z.enum(["plot", "axis"]);
 export type BreakSource = z.infer<typeof breakSourceZ>;
@@ -228,7 +231,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   }
 
   // renderBreaks draws a band over each seam in view, through the plot and the range
-  // strip, so a line stops short of the seam on each side.
+  // strip, so a line stops short of the seam on each side. The band ends short of the
+  // mark on the axis, which it would hide.
   private renderBreaks({ plot, canvases }: AxisRenderProps, layout: Layout): void {
     if (!canvases.includes("upper2d") || layout.segments.length < 2) return;
     const { draw } = this.internal;
@@ -237,15 +241,18 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       0,
       ...this.ranges.filter((r) => r.state.visible).map((r) => r.state.height),
     );
-    const top = box.top(plot) - strip;
+    const clear = axis.BREAK_HEIGHT / 2 + BAND_GAP;
+    const atTop = this.state.location === "top";
+    const top = box.top(plot) - strip + (atTop ? clear : 0);
+    const bottom = box.bottom(plot) - (atTop ? 0 : clear);
     layout.segments.slice(1).forEach(({ position }) => {
       const x = box.left(plot) + position.lower * box.width(plot);
       if (x <= box.left(plot) || x >= box.right(plot)) return;
       const lower = x - axis.BREAK_WIDTH / 2;
       const upper = x + axis.BREAK_WIDTH / 2;
       draw.container({
-        region: box.construct({ x: lower, y: top }, { x: upper, y: box.bottom(plot) }),
-        backgroundColor: theme.colors.gray.l0,
+        region: box.construct({ x: lower, y: top }, { x: upper, y: bottom }),
+        backgroundColor: theme.colors.gray.l2,
         bordered: false,
         rounded: false,
       });
@@ -256,7 +263,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
           lineWidth: 1,
           lineDash: 3,
           start: { x: crisp, y: top },
-          end: { x: crisp, y: box.bottom(plot) },
+          end: { x: crisp, y: bottom },
         });
       });
     });
