@@ -971,11 +971,7 @@ func nameTaken(err error, i int) error {
 		return validate.PathedError(group.SiblingError(err), strconv.Itoa(i))
 	}
 	return validate.PathedError(
-		errors.Wrapf(
-			validate.ErrValidation,
-			"channel with name '%v' already exists",
-			clash.Value,
-		),
+		validate.WithCause(err, "channel with name '%v' already exists", clash.Value),
 		strconv.Itoa(i), "name",
 	)
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -50,7 +49,7 @@ func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 
 // SiblingError returns err as a validation error that names the kind of the holder of
 // the name when err is a clash of sibling names, and returns err unchanged otherwise.
-// The error still matches query.ErrUniqueViolation.
+// The gorp.UniqueError of the clash stays in the chain of the error.
 func SiblingError(err error) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) {
@@ -64,13 +63,13 @@ func SiblingError(err error) error {
 	if s.Parent == uuid.Nil() {
 		where = "at the top level"
 	}
-	return validate.PathedError(errors.Mark(errors.Wrapf(
-		validate.ErrValidation,
+	return validate.PathedError(validate.WithCause(
+		err,
 		"a %s named '%s' already exists %s",
 		clash.Holder.Table,
 		s.Name,
 		where,
-	), query.ErrUniqueViolation), "name")
+	), "name")
 }
 
 // siblingIndex is the index of the names of the groups of one namespaced scope.
