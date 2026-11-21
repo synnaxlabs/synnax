@@ -21,6 +21,7 @@ var _ = Describe("Gate breaker", func() {
 	It("Should build and search a small index with no secondary text in the bytes "+
 		"of base", func() {
 		res := testing.Benchmark(func(b *testing.B) {
+			b.Helper()
 			b.ReportAllocs()
 			for b.Loop() {
 				idx := search.New[int]()

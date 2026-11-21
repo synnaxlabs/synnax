@@ -42,6 +42,7 @@ var _ = Describe("Search gate breaker", func() {
 			)))
 			entries := makeIndexBenchEntries(1000)
 			res := testing.Benchmark(func(b *testing.B) {
+				b.Helper()
 				b.ReportAllocs()
 				for b.Loop() {
 					tx := db.OpenTx()

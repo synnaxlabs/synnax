@@ -40,8 +40,8 @@ func (o weightedOracle) set(key int, primary, secondary string) {
 	o[key] = [2][]string{p, s}
 }
 
-func (o weightedOracle) score(key int, words []string) (int, int) {
-	var total, matched int
+func (o weightedOracle) score(key int, words []string) int {
+	var total int
 	for _, w := range words {
 		best, hit := 0, false
 		for _, tok := range o[key][0] {
@@ -55,18 +55,18 @@ func (o weightedOracle) score(key int, words []string) (int, int) {
 			}
 		}
 		if hit {
-			total, matched = total+best, matched+1
+			total += best
 		}
 	}
-	return total, matched
+	return total
 }
 
 func (o weightedOracle) expectRanked(keys []int, term string) {
 	GinkgoHelper()
 	words := oracleWords(term)
 	for i := 1; i < len(keys); i++ {
-		prev, _ := o.score(keys[i-1], words)
-		next, _ := o.score(keys[i], words)
+		prev := o.score(keys[i-1], words)
+		next := o.score(keys[i], words)
 		Expect(cmp.Or(
 			cmp.Compare(next, prev),
 			cmp.Compare(len(o[keys[i-1]][0]), len(o[keys[i]][0])),
