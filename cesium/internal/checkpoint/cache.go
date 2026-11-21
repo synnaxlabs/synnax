@@ -40,15 +40,18 @@ type Records struct {
 	reach []telem.TimeStamp
 }
 
-// Reaching appends to buf the index of each record whose stamps may reach [first,
-// last], and returns buf. A record it leaves out has no pointer in the range.
+// Reaching appends to buf, in rising order, the index of each record whose stamps may
+// reach [first, last], and returns buf. A record it leaves out has no pointer in the
+// range.
 func (r Records) Reaching(first, last telem.TimeStamp, buf []int) []int {
+	n := len(buf)
 	k := sort.Search(len(r.order), func(i int) bool {
 		return lowest(r.Segments[r.order[i]]) > last
 	})
 	for i := k - 1; i >= 0 && r.reach[i] >= first; i-- {
 		buf = append(buf, r.order[i])
 	}
+	slices.Sort(buf[n:])
 	return buf
 }
 
@@ -159,7 +162,7 @@ func (c *Cache) Records(p Part, key uint32) (Records, error) {
 	}
 	size := 64
 	for _, seg := range r.Segments {
-		size += 64 + 48*len(seg.Pointers)
+		size += 80 + 48*len(seg.Pointers)
 	}
 	c.put(&cacheEntry{k: k, size: size, records: r})
 	return r, nil

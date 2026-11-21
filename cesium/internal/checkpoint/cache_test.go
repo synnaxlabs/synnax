@@ -11,6 +11,7 @@ package checkpoint_test
 
 import (
 	"os"
+	"slices"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -95,7 +96,7 @@ var _ = Describe("Part cache", func() {
 		Expect(MustSucceed(cache.Records(h.Parts[0], 99)).Segments).To(BeEmpty())
 	})
 
-	It("Should find every record that reaches a range, out of order of identity",
+	It("Should find, in order of identity, every record that reaches a range",
 		func() {
 			// Backfills leave stamps out of the order of identity, and segment 2, the
 			// lowest, spans two pointers far apart.
@@ -127,8 +128,11 @@ var _ = Describe("Part cache", func() {
 							}
 						}
 					}
-					Expect(r.Reaching(first, last, nil)).To(ContainElements(want),
-						"range %d to %d", first, last)
+					got := r.Reaching(first, last, nil)
+					Expect(got).To(ContainElements(want), "range %d to %d", first, last)
+					Expect(
+						slices.IsSorted(got),
+					).To(BeTrue(), "range %d to %d", first, last)
 				}
 			}
 		})
