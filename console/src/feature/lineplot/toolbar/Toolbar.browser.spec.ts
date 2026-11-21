@@ -42,7 +42,6 @@ import {
   getIconButton,
   getIconButtons,
   readBlob,
-  removeSaveFilePicker,
 } from "@/testutil";
 
 const roles = new RoleClients(client);
@@ -158,7 +157,6 @@ describe("lineplot/toolbar/Toolbar", () => {
     };
 
     it("should end a live window at the newest sample of the plot's channels", async () => {
-      removeSaveFilePicker();
       const downloads = captureBrowserDownloads();
       const { data } = await createStopped(id.create().replace(/-/g, "_"));
       const download = await openDownload([data.key]);
@@ -171,7 +169,6 @@ describe("lineplot/toolbar/Toolbar", () => {
     });
 
     it("should read the first sample of a range that starts at it", async () => {
-      removeSaveFilePicker();
       const downloads = captureBrowserDownloads();
       const { data, start } = await createStopped(id.create().replace(/-/g, "_"), 200n);
       const range = new TimeRange(start, start.add(TimeSpan.minutes(1)));

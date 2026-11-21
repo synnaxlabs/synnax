@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type Synnax } from "@synnaxlabs/client";
+import { type color, ranger, type Synnax } from "@synnaxlabs/client";
 import { bounds, box, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { flux } from "@/flux/aether";
 import type { Layout } from "@/lineplot/aether/layout";
 import {
@@ -50,6 +51,8 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
+  colors: flux.Retrieve<aetherColor.ListQuery, color.Named[]>;
+  named: Map<color.Key, color.Named>;
   // The fetch window of each segment of the x axis.
   windows: TimeRange[];
   client: Synnax | null;
@@ -125,6 +128,15 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       onChange: () => i.requestRender("tool"),
       onError: (error) => i.runAsync(error, "Failed to retrieve ranges"),
     });
+    i.named ??= new Map();
+    i.colors ??= new flux.Retrieve({
+      definition: aetherColor.listDefinition,
+      onChange: () => {
+        i.named = new Map((i.colors.value ?? []).map((c) => [c.key, c]));
+        i.requestRender("tool");
+      },
+      onError: (error) => i.runAsync(error, "Failed to retrieve colors"),
+    });
     const client = synnax.use(ctx);
     if (client != null) i.client = client;
     i.requestRender("tool");
@@ -132,6 +144,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   override afterDelete(): void {
     this.internal.retrieve.close();
+    this.internal.colors.close();
     clearTimeout(this.internal.timer);
   }
 
@@ -168,7 +181,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       pieces.some((p, j) => !covers(i.windows[j], p))
     )
       i.windows = pieces.map(pad);
-    if (i.client != null)
+    if (i.client != null) {
       i.retrieve.update(i.client, {
         where:
           i.windows.length === 1
@@ -176,6 +189,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
             : { or: i.windows.map((overlaps) => ({ overlaps })) },
         limit: FETCH_LIMIT,
       });
+      i.colors.update(i.client, {});
+    }
     const { draw } = i;
     const fetched = i.retrieve.value ?? [];
     const inView = fetched.filter((r) =>
@@ -193,6 +208,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       region,
       (v) => box.left(region) + xLayout.pos(v) * box.width(region),
       draw.theme,
+      i.named,
       now,
       newest,
       xLayout.segments.map((s) => s.extent),
