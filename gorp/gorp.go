@@ -267,7 +267,7 @@ func (db *DB) KV() kv.DB { return db.DB }
 // A Tx is a Snapshot that also sees its own writes. Tx is sealed through Snapshot.
 //
 // A transaction ends when its Commit returns, with any result, or its Close runs. Every
-// later read, write, and Commit through it fails with ErrTxEnded, and Close does
+// later read, write, and Commit through it fails with errTxEnded, and Close does
 // nothing. Commit and Close must not run at the same time as other use of the
 // transaction.
 type Tx interface {
@@ -414,47 +414,47 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// ErrTxEnded is the error of a read, a write, or a commit through a transaction that
+// errTxEnded is the error of a read, a write, or a commit through a transaction that
 // has ended: its Commit returned, or its Close ran.
-var ErrTxEnded = errors.New("[gorp] - the transaction has ended")
+var errTxEnded = errors.New("[gorp] - the transaction has ended")
 
-// checkOpen returns ErrTxEnded when snap is a transaction that has ended.
+// checkOpen returns errTxEnded when snap is a transaction that has ended.
 func checkOpen(snap Snapshot) error {
 	if s := scopeOf(snap); s != nil && s.ended.Load() {
-		return ErrTxEnded
+		return errTxEnded
 	}
 	return nil
 }
 
-// Get implements kv.Reader. It fails with ErrTxEnded once the transaction ends.
+// Get implements kv.Reader. It fails with errTxEnded once the transaction ends.
 func (t *tx) Get(key []byte, opts ...any) ([]byte, io.Closer, error) {
 	if t.state.ended.Load() {
-		return nil, nil, ErrTxEnded
+		return nil, nil, errTxEnded
 	}
 	return t.Tx.Get(key, opts...)
 }
 
-// OpenIterator implements kv.Reader. It fails with ErrTxEnded once the transaction
+// OpenIterator implements kv.Reader. It fails with errTxEnded once the transaction
 // ends.
 func (t *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	if t.state.ended.Load() {
-		return nil, ErrTxEnded
+		return nil, errTxEnded
 	}
 	return t.Tx.OpenIterator(opts)
 }
 
-// Set implements kv.Writer. It fails with ErrTxEnded once the transaction ends.
+// Set implements kv.Writer. It fails with errTxEnded once the transaction ends.
 func (t *tx) Set(ctx context.Context, key, value []byte) error {
 	if t.state.ended.Load() {
-		return ErrTxEnded
+		return errTxEnded
 	}
 	return t.Tx.Set(ctx, key, value)
 }
 
-// Delete implements kv.Writer. It fails with ErrTxEnded once the transaction ends.
+// Delete implements kv.Writer. It fails with errTxEnded once the transaction ends.
 func (t *tx) Delete(ctx context.Context, key []byte) error {
 	if t.state.ended.Load() {
-		return ErrTxEnded
+		return errTxEnded
 	}
 	return t.Tx.Delete(ctx, key)
 }
@@ -465,10 +465,10 @@ func (t *tx) Delete(ctx context.Context, key []byte) error {
 // via state.OnCleanup run before the release, with committed=true once the writes are
 // visible and committed=false otherwise. Then the readers of DB.Observe run. The
 // release comes before them, because a reader can open a transaction. Commit fails with
-// ErrTxEnded once the transaction ends.
+// errTxEnded once the transaction ends.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	if t.state.ended.Load() {
-		return ErrTxEnded
+		return errTxEnded
 	}
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {

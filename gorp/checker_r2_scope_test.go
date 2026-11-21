@@ -77,7 +77,7 @@ var _ = Describe("Checker r2 scope: stages from more than one scope", func() {
 			gorp.BeforeCommit(tx, func(context.Context) error { return errR2 })
 			Expect(tx.Commit(ctx)).To(MatchError(errR2))
 			Expect(items.NewCreate().Entry(&r2Item{Key: 2, Name: "b"}).Exec(ctx, tx)).
-				To(MatchError(gorp.ErrTxEnded))
+				To(MatchError(txEnded))
 			Expect(tx.Close()).To(Succeed())
 			Expect(func() {
 				Expect(
