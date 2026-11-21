@@ -369,14 +369,13 @@ var _ = Describe("Log", func() {
 				func() {
 					open(logSize)
 					DeferCleanup(closeLog)
-					release := fs.Hold()
+					fs.Hold()
 					first := l.Append(of(&log.Drop{Key: 1}))
 					Eventually(fs.held).Should(Receive())
 					second := l.Append(of(&log.Drop{Key: 2}, &log.Intent{Key: 2}))
 					third := l.Append(of(&log.Restart{}))
 					Expect(hook.get()).To(BeEmpty())
 					fs.Unhold()
-					release <- struct{}{}
 					Expect(first.Wait()).To(Equal(uint64(5)))
 					seqs, _ := hook.get()
 					Expect(seqs).To(ContainElement(uint64(5)))
@@ -420,7 +419,7 @@ var _ = Describe("Log", func() {
 			It("Should keep a copy of an entry that the caller resets", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.held).Should(Receive())
 				e := of(&log.Drop{Key: 2})
@@ -428,7 +427,6 @@ var _ = Describe("Log", func() {
 				e.Reset()
 				e.Add(&log.Drop{Key: 9})
 				fs.Unhold()
-				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(decodeAll(walk(fileBytes(fs))[1].Entries)).
@@ -454,13 +452,12 @@ var _ = Describe("Log", func() {
 			It("Should write every entry queued during a sync as one frame", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.held).Should(Receive())
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
-				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -484,7 +481,6 @@ var _ = Describe("Log", func() {
 				Eventually(fs.held).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
-				release <- struct{}{}
 				Expect(b.Wait()).To(Equal(uint64(6)))
 				Expect(c.Wait()).To(Equal(uint64(7)))
 				Expect(writes(fs.Ops())[:3]).
@@ -494,13 +490,12 @@ var _ = Describe("Log", func() {
 			It("Should split a batch larger than a frame into frames", func() {
 				open(32 << 20)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Restart{}))
 				Eventually(fs.held).Should(Receive())
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
 				fs.Unhold()
-				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -527,13 +522,12 @@ var _ = Describe("Log", func() {
 				"frame before it", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.held).Should(Receive())
 				half := l.Append(bigEntry(logSize / 2))
 				quarter := l.Append(bigEntry(logSize / 4))
 				fs.Unhold()
-				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(half.Wait()).To(Equal(uint64(6)))
 				Expect(quarter.Wait()).To(Equal(uint64(7)))
