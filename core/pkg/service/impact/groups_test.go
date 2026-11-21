@@ -19,7 +19,9 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -75,6 +77,49 @@ var _ = Describe("Delete groups", Ordered, func() {
 			To(Equal(impact.Plan{}))
 		Expect(exists(ctx, parent.Key)).To(BeFalse())
 		Expect(exists(ctx, child.Key)).To(BeFalse())
+	})
+
+	It("Should delete the tombstones of a folder first and list them", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-tombstoned", nil)
+		ch := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float32T,
+			Virtual:  true,
+			Group:    &folder.Key,
+		}
+		proj := project.Project{Name: "impact-tombstones"}
+		var value schematic.ValueNodeConfig
+		value.SetDefaults()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := layer.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+				return err
+			}
+			if err := layer.Channel.NewWriter(tx).Create(ctx, &ch); err != nil {
+				return err
+			}
+			value.Channel = ch.Key()
+			sch := schematic.Schematic{
+				Name:    "pid",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "value",
+					Config: schematic.NodeConfig{Variant: value},
+				}},
+			}
+			return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+		})).To(Succeed())
+		Expect(apply(ctx, impact.ApplyOptions{}, folder.Key)).To(Equal(impact.Plan{
+			Entries: []impact.Entry{{
+				Record: channel.ResourceID(ch.Key()),
+				Effect: impact.EffectCascade,
+			}},
+		}))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
 	})
 
 	It("Should refuse a folder that holds a channel", func(ctx SpecContext) {
