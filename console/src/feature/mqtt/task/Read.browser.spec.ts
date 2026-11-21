@@ -298,6 +298,8 @@ const createTimeChannel = async () =>
   });
 
 describe("MQTT read form", () => {
+  // This first test pays the one-time load of the lazy form, which takes over 10 s on
+  // a loaded CI runner.
   it("should create a format named after the task and add later picks to it", async () => {
     const TOPICS = [
       {
@@ -356,7 +358,7 @@ describe("MQTT read form", () => {
       ]),
     );
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
-  });
+  }, 30_000);
 
   it("should pick and read the string field of a topic with its numbers", async () => {
     const { dev, draft } = await renderRead();

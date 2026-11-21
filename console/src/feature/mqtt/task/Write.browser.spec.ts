@@ -114,6 +114,8 @@ const emptyTopicCommandName = (deviceName: string): string =>
   `${channel.escapeInvalidName(deviceName)}__cmd`;
 
 describe("MQTT Write form", () => {
+  // This first test pays the one-time load of the lazy form, which takes over 10 s on
+  // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
     await screen.findByText("Select a target to configure");
@@ -124,7 +126,7 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.getAllByText("New topic")).toHaveLength(2);
     expect(screen.getByText("No additional fields")).toBeTruthy();
-  });
+  }, 30_000);
 
   it("should focus the topic of each target added by name", async () => {
     await renderWrite();
