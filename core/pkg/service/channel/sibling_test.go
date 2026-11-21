@@ -63,7 +63,9 @@ var _ = Describe("Sibling names", Ordered, func() {
 	}
 	taken := func(table, name string) types.GomegaMatcher {
 		return MatchError(MatchRegexp(
-			"%s \\S+ already holds the name '%s' in this group", table, name,
+			"a %s named '%s' already exists (in the same group|at the top level)",
+			table,
+			name,
 		))
 	}
 

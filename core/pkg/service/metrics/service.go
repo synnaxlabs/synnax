@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"time"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -29,7 +30,9 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -121,6 +124,47 @@ const (
 	channelBufferSize                 = 10
 )
 
+// folderKey is the KV key that holds the key of the folder of the metrics channels.
+var folderKey = []byte("sy_metrics_folder")
+
+// openFolder returns the folder of the metrics channels, found by its stored key so
+// that a rename keeps it. When no folder is stored, or the stored one is gone, it finds
+// or creates a top-level channel folder named Metrics and stores its key.
+func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
+	var (
+		g     group.Group
+		found bool
+	)
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		b, closer, err := tx.Get(folderKey)
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		key, err := uuid.Parse(string(b))
+		if err = errors.Combine(err, closer.Close()); err != nil {
+			return err
+		}
+		err = cfg.Group.NewRetrieve().
+			Where(group.MatchKeys(key)).
+			Entry(&g).
+			Exec(ctx, tx)
+		found = err == nil
+		return errors.Skip(err, query.ErrNotFound)
+	}); err != nil || found {
+		return g, err
+	}
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel)
+	if err != nil {
+		return group.Group{}, err
+	}
+	return g, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return tx.Set(ctx, folderKey, []byte(g.Key.String()))
+	})
+}
+
 // OpenService opens a new metric.Service using the provided configuration. See the
 // ServiceConfig struct for details on the required configuration values. If OpenService
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
@@ -131,9 +175,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Metrics", resource.TypeChannel,
-	); err != nil {
+	if s.group, err = openFolder(ctx, cfg); err != nil {
 		return nil, err
 	}
 	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostKey)

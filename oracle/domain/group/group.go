@@ -10,7 +10,7 @@
 // Package group extracts @group domain data: the record types that can sit in a group.
 // A record marks the field that holds its group with @group. scope names the scope of
 // the groups that can hold the record, and pinned says that the top parent of the group
-// must be the record's holder, or none when the record has no holder. namespace says
+// must be the record's holder, or none when the record has no holder. namespaced says
 // that the names of the records and the groups in one group are unique.
 package group
 
@@ -43,9 +43,9 @@ type Member struct {
 	Scope resolution.EnumValue
 	// Pinned is true when the top parent of the group must be the record's holder.
 	Pinned bool
-	// Namespace is true when the names of the records and the groups in one group are
+	// Namespaced is true when the names of the records and the groups in one group are
 	// unique.
-	Namespace bool
+	Namespaced bool
 	// Record is the record type, and Field is its field that holds its group.
 	Record resolution.Type
 	Field  resolution.Field
@@ -91,12 +91,47 @@ func Extract(table *resolution.Table) (*Data, error) {
 			data.Members = append(data.Members, m)
 		}
 	}
-	if data != nil {
-		slices.SortFunc(data.Members, func(a, b Member) int {
-			return cmp.Compare(a.Type.StringValue(), b.Type.StringValue())
-		})
+	if data == nil {
+		return nil, nil
+	}
+	slices.SortFunc(data.Members, func(a, b Member) int {
+		return cmp.Compare(a.Type.StringValue(), b.Type.StringValue())
+	})
+	if err := checkNamespaced(data.Members); err != nil {
+		return nil, err
 	}
 	return data, nil
+}
+
+// checkNamespaced returns an error when the members of one scope differ on namespaced,
+// since a scope keeps the names in its groups unique for all of its members or none,
+// or when a namespaced member is pinned, since its groups then sit under its holder.
+func checkNamespaced(members []Member) error {
+	namespaced := make(map[string]Member)
+	for _, m := range members {
+		if m.Namespaced && m.Pinned {
+			return errors.Newf(
+				"%s: @group namespaced cannot go with pinned",
+				m.Record.QualifiedName,
+			)
+		}
+		scope := m.Scope.StringValue()
+		first, ok := namespaced[scope]
+		if !ok {
+			namespaced[scope] = m
+			continue
+		}
+		if first.Namespaced != m.Namespaced {
+			return errors.Newf(
+				"@group namespaced must mark every member of scope %s or none: %s "+
+					"and %s differ",
+				scope,
+				first.Record.QualifiedName,
+				m.Record.QualifiedName,
+			)
+		}
+	}
+	return nil
 }
 
 // newData finds the group record whose key f holds, and the enum of its scope field.
@@ -166,17 +201,17 @@ func newMember(
 				return Member{}, errors.New("@group needs no value for pinned")
 			}
 			m.Pinned = true
-		case "namespace":
+		case "namespaced":
 			if len(expr.Values) > 0 {
-				return Member{}, errors.New("@group needs no value for namespace")
+				return Member{}, errors.New("@group needs no value for namespaced")
 			}
 			if !hasNameField(typ, table) {
 				return Member{}, errors.Newf(
-					"@group namespace needs %s to have a string name field",
+					"@group namespaced needs %s to have a string name field",
 					typ.QualifiedName,
 				)
 			}
-			m.Namespace = true
+			m.Namespaced = true
 		default:
 			return Member{}, errors.Newf("@group has unknown expression %s", expr.Name)
 		}

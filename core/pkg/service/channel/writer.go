@@ -124,13 +124,18 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}
 		next.DataType = result.ChanDataType
 	}
-	if next.Name != prev.Name {
-		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
+	renamed := next.Name != prev.Name
+	if renamed {
+		if err = w.checkRename(prev, next.Name, false); err != nil {
 			return nil, err
 		}
 	}
+	// One write of the name and the group checks the name in the new group.
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, nameTaken(err, 0)
+	}
+	if renamed {
+		w.stageRenames(Keys{key}, []string{next.Name})
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -698,9 +703,12 @@ func (w Writer) allocateNew(
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	// Allocate uses up keys, so a name that the index refuses fails before it.
+	// Allocate uses up keys, so a name that an index refuses fails before it.
 	for _, i := range newIndices {
 		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
+			return nil, nameTaken(err, i)
+		}
+		if err := w.svc.indexes.sibling.Check(ctx, w.tx, &channels[i]); err != nil {
 			return nil, nameTaken(err, i)
 		}
 	}
@@ -925,12 +933,18 @@ func checkRepeatedNames(names []string) error {
 	return nil
 }
 
-// takenName returns the name of a clash of the name index, or "" when err is not one.
+// takenName returns the name of a clash of the name index or of sibling names, or ""
+// when err is not one.
 func takenName(err error) string {
 	var clash gorp.UniqueError
-	if errors.As(err, &clash) && clash.Space == nameSpace {
-		name, _ := clash.Value.(string)
-		return name
+	if !errors.As(err, &clash) {
+		return ""
+	}
+	switch v := clash.Value.(type) {
+	case string:
+		return v
+	case group.Sibling:
+		return v.Name
 	}
 	return ""
 }
@@ -1007,21 +1021,11 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
-				return Channel{}, errors.Wrapf(
-					validate.ErrValidation,
-					"can't rename built-in channel %q",
-					c.Name,
-				)
+			next := renameMap[c.Key()]
+			if err := w.checkRename(c, next, allowInternal); err != nil {
+				return Channel{}, err
 			}
-			// A stored name that the rule refuses stays writable while a rename keeps
-			// it.
-			if next := renameMap[c.Key()]; next != c.Name {
-				if err := checkNameRule(next); err != nil {
-					return Channel{}, err
-				}
-				c.Name = next
-			}
+			c.Name = next
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
@@ -1030,6 +1034,29 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return nameTaken(err, slices.Index(names, takenName(err)))
 	}
+	w.stageRenames(keys, names)
+	return nil
+}
+
+// checkRename returns a validation error when c cannot take the name next. A stored
+// name that the rule refuses stays writable while a rename keeps it.
+func (w Writer) checkRename(c Channel, next string, allowInternal bool) error {
+	if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"can't rename built-in channel %q",
+			c.Name,
+		)
+	}
+	if next == c.Name {
+		return nil
+	}
+	return checkNameRule(next)
+}
+
+// stageRenames records that the channels with keys take names in storage when the
+// transaction of w commits.
+func (w Writer) stageRenames(keys Keys, names []string) {
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
 	}
@@ -1039,7 +1066,6 @@ func (w Writer) rename(
 			return w.renameStored(ctx, count)
 		})
 	}
-	return nil
 }
 
 // rename is a new name for a channel.
