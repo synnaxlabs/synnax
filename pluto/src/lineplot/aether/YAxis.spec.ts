@@ -76,6 +76,7 @@ interface Mount {
   setVisible: (line: string, visible: boolean) => void;
   setXAxis: (state: Record<string, unknown>) => void;
   calls: canvasTest.RecordingGL["calls"];
+  lower2d: canvasTest.Recorder["lower2d"];
 }
 
 // across returns a layout of one segment over b, so a y axis bounds its lines inside b.
@@ -140,6 +141,7 @@ describe("YAxis", () => {
       setVisible,
       setXAxis,
       calls,
+      lower2d: recorder.lower2d,
     };
   };
 
@@ -178,6 +180,25 @@ describe("YAxis", () => {
       expect(colors.length).toBeGreaterThan(1);
       expect(colors.at(-1)).toEqual(color.rgba1(RAISED));
       expect(colors[0]).not.toEqual(color.rgba1(RAISED));
+    });
+
+    it("should draw the x axis before it throws the error of an x source", () => {
+      const m = mount();
+      const failed = vi.spyOn(Line.prototype, "xBounds").mockImplementation(() => {
+        throw new Error("x source failed");
+      });
+      teardowns.push(() => failed.mockRestore());
+      const region = box.construct(0, 0, 800, 600);
+      const props = {
+        grid: {},
+        plot: region,
+        viewport: box.DECIMAL,
+        container: region,
+        canvases: ["lower2d" as const],
+        hold: false,
+      };
+      expect(() => m.xAxis.render(props, [])).toThrow("x source failed");
+      expect(m.lower2d.calls.length).toBeGreaterThan(0);
     });
   });
 

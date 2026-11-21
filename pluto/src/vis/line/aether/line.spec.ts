@@ -192,12 +192,13 @@ describe("line", () => {
         expect(m.recorder.scissorCalls).toEqual([]);
       });
 
-      it("should draw and read nothing when its span holds no time", () => {
+      it("should draw nothing but read its span when its span holds no time", () => {
         const m = mount([X1], [Y1]);
         const value = vi.spyOn(m.xSource, "value");
-        m.line.render(spanned({ lower: 1, upper: 1 }));
+        const span = { lower: 1, upper: 1 };
+        m.line.render(spanned(span));
         expect(m.draws()).toEqual([]);
-        expect(value).not.toHaveBeenCalled();
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
         expect(m.line.loading).toBe(false);
       });
 

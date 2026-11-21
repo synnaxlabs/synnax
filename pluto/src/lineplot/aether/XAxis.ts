@@ -109,12 +109,19 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return layout;
   }
 
-  // iLayout returns the layout with the error that its bounds met, so a render can draw
-  // the axis before it throws.
+  // iLayout returns the layout with the error that its traces or bounds met, so a
+  // render can draw the axis before it throws.
   private iLayout(hold: boolean, viewport: box.Box): [Layout, Error | null] {
-    const traces = this.traces();
-    const [b, err] = this.iBounds(hold, () => traces);
-    return [new Layout([b], viewport, spans(align(traces), this.state.type)), err];
+    let traces: Trace[] = [];
+    let err: Error | null = null;
+    try {
+      traces = this.traces();
+    } catch (e) {
+      err = e as Error;
+    }
+    const [b, boundsErr] = this.iBounds(hold, () => traces);
+    const layout = new Layout([b], viewport, spans(align(traces), this.state.type));
+    return [layout, err ?? boundsErr];
   }
 
   private renderRanges(props: AxisRenderProps, layout: Layout): void {
