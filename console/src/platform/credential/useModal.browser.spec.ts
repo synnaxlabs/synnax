@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Credential } from "@/platform/credential";
 import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
@@ -91,10 +91,19 @@ describe("useModal", () => {
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
+    // A real key press takes longer than the save, so the save waits for it.
+    const { promise: pressed, resolve: release } = Promise.withResolvers<void>();
+    const save = client.auth.createKey.bind(client.auth);
+    vi.spyOn(client.auth, "createKey").mockImplementation(async (props) => {
+      await pressed;
+      return await save(props);
+    });
     const name = uniqueName("key");
     await createKey(name);
     expect(findButton("Cancel").getAttribute("aria-disabled")).toBe("true");
     await pressEscape();
+    expect(screen.queryByPlaceholderText("Key name")).not.toBeNull();
+    release();
     await screen.findByText(`Copy the key for ${name}`);
     await pressEscape();
     await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
