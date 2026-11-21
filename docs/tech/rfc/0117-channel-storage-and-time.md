@@ -303,11 +303,8 @@ Codes 17 to 254 are free. The list holds data types only; an encoding takes a fl
 
 **Versions**: The first frame of every state is the handshake, on every transport.
 
-| Pair                                            | Result                                                                                                               |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Old client reads from a new Core                | The first frame has bit 7. The client fails: "remote sent an extended flags byte, which this codec does not support" |
-| New client reads from an old Core               | The first frame has no declaration. The client fails and names the older codec                                       |
-| Old client writes to a new Core, or the reverse | The mirror of the two cases above. The writer closes                                                                 |
+A pair of mixed codecs fails at that first frame: the older side refuses bit 7, and the
+newer side names the older codec. A writer closes in the same way.
 
 Nothing is decoded in a mixed pair, and no fallback exists. The media type does not
 change. The WebSocket server reports a closed stream in place of the decode error text
@@ -320,9 +317,9 @@ string per series (`x/go/telem/pb/frame.proto:22-28`). `Series` gains
 `uint32 clock = 6`. JSON and msgpack carry `clock` and leave it out when 0 (in Go,
 `omitzero`, since `encoding/json/v2` keeps a 0 under `omitempty`). The Go
 `Frame.EncodeMsgpack` writes each series by hand, because the library's zero test boxes
-the value, an allocation per series; a bare `Series` uses the library. An old reader of
-these forms drops `clock` with no error. The gRPC `buffer` fields carry the layout of
-§4.2 (`core/pkg/transport/grpc/framer/framer.proto:50`, `:69`, `:93`).
+the value, an allocation per series; a bare `Series` uses the library. The gRPC `buffer`
+fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:50`,
+`:69`, `:93`).
 
 ### 4.4 Readers
 
@@ -396,9 +393,9 @@ names no clock key.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:188-190`, `:207-210`), and
   clients stop adding index keys (`client/ts/src/framer/cache/reader.ts:275-299`,
-  `client/py/synnax/framer/adapter.py:68-69`). From Phase 6 to Phase 9 a read or a
-  stream that names an index channel works and warns. After Phase 9 it fails with an
-  error that names `frame.time(series)`.
+  `client/py/synnax/framer/adapter.py:68-69`). Until Phase 9 a read or a stream that
+  names an index channel works. After Phase 9 it fails with an error that names
+  `frame.time(series)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
   No check runs on the clock.
 - **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
@@ -470,8 +467,7 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   stamps. A write to such a channel with no index series is the stored kind, as today.
   One `"time"` key is one clock for the whole write: channels with no index channel join
   it, and two index channels in one write fail. `is_index=`, `index=`, and index keys in
-  a write warn for one minor and still work. After Phase 9 no channel has an index
-  channel.
+  a write work until Phase 9, after which no channel has an index channel.
 - **Control writers**: Arc tasks, the Python `Controller`, and Pluto control write their
   command channels on their own clocks from Phase 6 and never write an index channel.
   Authority applies to command channels only.
@@ -651,19 +647,18 @@ Dependencies on other RFCs:
 - Phases 6, 7, and 8 follow RFC 0118 Phase 7 (the conversion to the new segment format),
   because a clock per producer is a clock per segment.
 - Phase 8 follows RFC 0116 Phase 31 (names unique within a folder). Phase 9 follows RFC
-  0116 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, the typed MQTT
-  and Kafka devices, and one minor release that ships Phase 6.
+  0116 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed
+  MQTT and Kafka devices.
 
 Compatibility: Phase 3 changes the wire once, with the handshake of §4.2. Phase 5 picks
 a primary for each calculation record that has none. Phase 6 mints a schema version for
 the Arc task config (`schemas/synnax/arc_task.oracle`, shipped in `core/v0.61.4` and
-unchanged in `core/v0.62.0`) with a migration that sets `clock`, removes
-`timestamps_included` from the HTTP read, and starts the warning on reads that name an
-index channel. Phase 9 mints one schema version each for the channel record (from v1),
-the NI device (from v1), and Sift (from v0, first stable in `core/v0.62.0`), with
-migrations; line plot v10 and log v5 need none, since detach changes no shape. A Sift
-flow, named after an index channel in `core/v0.62.0`, keeps that name in its config from
-Phase 6. Keys of `core/v0.62.0` keep their numbers.
+unchanged in `core/v0.62.0`) with a migration that sets `clock` and removes
+`timestamps_included` from the HTTP read. Phase 9 mints one schema version each for the
+channel record (from v1), the NI device (from v1), and Sift (from v0, first stable in
+`core/v0.62.0`), with migrations; line plot v10 and log v5 need none, since detach
+changes no shape. A Sift flow, named after an index channel in `core/v0.62.0`, keeps
+that name in its config from Phase 6. Keys of `core/v0.62.0` keep their numbers.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -746,6 +741,5 @@ Phase 6. Keys of `core/v0.62.0` keep their numbers.
 
 - **Hold limit multiple**: The count of sample intervals of an input that make its hold
   limit, and how many samples estimate the interval.
-- **Status and warning text**: The stale status of a calculation, and the warnings for
-  index keys in a write and for a read that names an index channel.
+- **Status text**: The stale status of a calculation.
 - **Arrival stamp spacing**: The step between the arrival stamps of one frame.
