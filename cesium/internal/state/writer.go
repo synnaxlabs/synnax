@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	// ErrConflict is the error of a writer open or a commit that reaches stored data or
-	// another writer's claim.
+	// ErrConflict is the error of a writer open or a commit that reaches stored data,
+	// or
+	// the claim of another writer or a delete.
 	ErrConflict = errors.Wrap(validate.ErrValidation, "write conflict")
 	// ErrExhausted is the error of a new stretch when every stored alignment number is
 	// given out.

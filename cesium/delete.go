@@ -333,10 +333,7 @@ func (db *DB) DeleteTimeRange(
 		return err
 	}
 	if db.engine != nil {
-		return errors.Wrap(
-			errors.ErrUnsupported,
-			"the pointer log does not delete a time range yet",
-		)
+		return db.deleteLog(ctx, chs, tr)
 	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))

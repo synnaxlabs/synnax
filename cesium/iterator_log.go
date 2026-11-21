@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -59,6 +60,11 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on
 	// the old layout.
 	cur logRange
+	// pinned holds the segments of the last load, which the cursor pins until the next
+	// load or Close.
+	pinned []uint64
+	// err holds the error of an unlink after an unpin of a load, which Close returns.
+	err error
 }
 
 var _ domain.Cursor = (*logCursor)(nil)
@@ -66,7 +72,8 @@ var _ domain.Cursor = (*logCursor)(nil)
 // load loads the visible pointers of the key in time order.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
-	ch := c.e.state.Channel(c.key)
+	ch, pinned, err := c.e.load(c.key, c.pinned)
+	c.pinned, c.err = pinned, errors.Join(c.err, err)
 	if ch == nil {
 		return
 	}
@@ -153,7 +160,10 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Cursor.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
+	c.e.pin(r.seg.ID)
 	return &logReader{
+		e:      c.e,
+		id:     r.seg.ID,
 		cfg:    c.e.segmentConfig(r.seg),
 		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
 		offset: int64(r.ptr.Offset),
@@ -164,11 +174,16 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 // Close implements domain.Cursor.
 func (c *logCursor) Close() error {
 	c.valid = false
-	return nil
+	err := errors.Join(c.err, c.e.unpin(c.pinned))
+	c.pinned, c.err = nil, nil
+	return err
 }
 
-// logReader reads the bytes of one pointer from its segment file.
+// logReader reads the bytes of one pointer from its segment file, which it pins until
+// Close.
 type logReader struct {
+	e      *engine
+	id     uint64
 	cfg    segment.Config
 	h      *segment.Handle
 	offset int64
@@ -197,4 +212,6 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
-func (r *logReader) Close() error { return r.h.Close() }
+func (r *logReader) Close() error {
+	return errors.Join(r.h.Close(), r.e.unpin([]uint64{r.id}))
+}

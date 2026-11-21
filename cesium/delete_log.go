@@ -1,0 +1,226 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package cesium
+
+import (
+	"context"
+	"encoding/binary"
+	"slices"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
+)
+
+// deleteLog deletes tr from each of keys on the pointer log layout: the data keys
+// first,
+// then the indexes, since the state refuses a clock range that a data key still uses.
+// Each key with data in tr gets one durable Tombstone and a HistoryChange. The caller
+// holds db.mu.
+func (db *DB) deleteLog(
+	ctx context.Context,
+	keys []ChannelKey,
+	tr telem.TimeRange,
+) error {
+	var data, indexes []Channel
+	for _, k := range lo.Uniq(keys) {
+		ch, ok := db.mu.channels[k]
+		if !ok || ch.Virtual {
+			return channel.NewNotFoundError(k)
+		}
+		if ch.IsIndex {
+			indexes = append(indexes, ch)
+		} else {
+			data = append(data, ch)
+		}
+	}
+	for _, ch := range append(data, indexes...) {
+		clock := ch.Index
+		if ch.IsIndex {
+			clock = ch.Key
+		}
+		changed, err := db.engine.deleteRange(ch.Key, ch.DataType, clock, tr)
+		if err != nil {
+			return channel.Wrap(ch.Key, err)
+		}
+		if changed {
+			db.historyChanges.Notify(ctx, HistoryChange{Key: ch.Key, TimeRange: tr})
+		}
+	}
+	return db.engine.reap()
+}
+
+// deleteRange logs a durable Tombstone of tr for key, whose samples are of type dt and
+// timed by clock, and returns false when key holds no data in tr. A claim of the state
+// keeps commits out of tr from the cuts to the ack of the Tombstone.
+func (e *engine) deleteRange(
+	key ChannelKey,
+	dt telem.DataType,
+	clock ChannelKey,
+	tr telem.TimeRange,
+) (bool, error) {
+	if tr.Start >= tr.End {
+		return false, nil
+	}
+	d, err := e.state.BeginDelete(key, tr.Start, tr.End)
+	if err != nil {
+		return false, err
+	}
+	if d.Empty {
+		return false, d.Release()
+	}
+	t := &log.Tombstone{Key: key, Start: int64(tr.Start), End: int64(tr.End)}
+	if d.Left != nil {
+		t.Left, err = e.cutAt(key, dt, clock, d.Left, tr.Start, true)
+	}
+	if err == nil && d.Right != nil {
+		t.Right, err = e.cutAt(key, dt, clock, d.Right, tr.End, false)
+	}
+	if err == nil {
+		err = d.Check(t)
+	}
+	if err == nil {
+		var entry log.Entry
+		entry.Add(t)
+		_, err = e.log.Append(&entry).Wait()
+	}
+	return err == nil, errors.Join(err, d.Release())
+}
+
+// cutAt returns the cut of the pointer of edge at the first sample whose stamp is at
+// or after at: a left cut, which keeps the samples before it, or a right cut, which
+// keeps it and the samples after it. It reads the stamps of the pointer from clock.
+func (e *engine) cutAt(
+	key ChannelKey,
+	dt telem.DataType,
+	clock ChannelKey,
+	edge *state.Edge,
+	at telem.TimeStamp,
+	left bool,
+) (*log.Cut, error) {
+	p := edge.Pointer
+	stamps, err := e.stamps(clock, p.Alignment, p.Samples)
+	if err != nil {
+		return nil, err
+	}
+	k, _ := slices.BinarySearch(stamps, at)
+	if k == 0 || k == len(stamps) {
+		return nil, errors.Newf(
+			"stamps of segment %d of key %d do not hold %d inside its pointer",
+			edge.Segment.ID,
+			key,
+			at,
+		)
+	}
+	var offset uint32
+	if dt.IsVariable() {
+		if offset, err = e.variableOffset(key, edge, k); err != nil {
+			return nil, err
+		}
+	} else {
+		offset = p.Offset + uint32(dt.Density().Size(int64(k)))
+	}
+	stamp := stamps[k]
+	if left {
+		stamp = stamps[k-1]
+	}
+	return &log.Cut{
+		Segment:   edge.Segment.ID,
+		Offset:    offset,
+		Alignment: uint64(p.Alignment.AddSamples(uint32(k))),
+		Stamp:     int64(stamp),
+	}, nil
+}
+
+// stamps returns the stamps of the samples samples of clock from alignment on, which
+// the pointers of clock at the same domain hold.
+func (e *engine) stamps(
+	clock ChannelKey,
+	alignment telem.Alignment,
+	samples uint32,
+) ([]telem.TimeStamp, error) {
+	out := make([]telem.TimeStamp, samples)
+	from, found := alignment.SampleIndex(), uint32(0)
+	ch := e.state.Channel(clock)
+	if ch == nil {
+		return nil, errors.Newf("clock %d holds no stamps", clock)
+	}
+	var b []byte
+	for _, seg := range ch.Segments {
+		for _, q := range seg.Pointers {
+			if q.Alignment.DomainIndex() != alignment.DomainIndex() {
+				continue
+			}
+			lo, hi := max(from, q.Alignment.SampleIndex()),
+				min(from+samples, q.Alignment.SampleIndex()+q.Samples)
+			if lo >= hi {
+				continue
+			}
+			b = slices.Grow(b[:0], int(hi-lo)*8)[:int(hi-lo)*8]
+			off := int64(q.Offset) + int64(lo-q.Alignment.SampleIndex())*8
+			if err := e.readSegment(clock, seg, b, off); err != nil {
+				return nil, err
+			}
+			for i := range hi - lo {
+				out[lo-from+i] = telem.TimeStamp(binary.LittleEndian.Uint64(b[8*i:]))
+			}
+			found += hi - lo
+		}
+	}
+	if found != samples {
+		return nil, errors.Newf("clock %d holds %d of the %d stamps from alignment %d",
+			clock, found, samples, uint64(alignment))
+	}
+	return out, nil
+}
+
+// variableOffset returns the stream offset of sample k of the pointer of edge, whose
+// samples each hold a uint32 length and then that many bytes.
+func (e *engine) variableOffset(
+	key ChannelKey,
+	edge *state.Edge,
+	k int,
+) (uint32, error) {
+	p := edge.Pointer
+	b := make([]byte, p.Length)
+	if err := e.readSegment(key, edge.Segment, b, int64(p.Offset)); err != nil {
+		return 0, err
+	}
+	var at uint32
+	for range k {
+		if int(at)+4 > len(b) {
+			return 0, errors.Newf(
+				"pointer of segment %d of key %d ends inside a sample",
+				edge.Segment.ID,
+				key,
+			)
+		}
+		at += 4 + binary.LittleEndian.Uint32(b[at:])
+	}
+	if at >= p.Length {
+		return 0, errors.Newf("pointer of segment %d of key %d ends inside a sample",
+			edge.Segment.ID, key)
+	}
+	return p.Offset + at, nil
+}
+
+// readSegment reads len(b) stream bytes at off of segment seg of key.
+func (e *engine) readSegment(
+	key ChannelKey,
+	seg state.Segment,
+	b []byte,
+	off int64,
+) error {
+	h := e.budget.Open(e.fs, segmentName(key, seg.ID))
+	return errors.Join(e.segmentConfig(seg).ReadAt(h, b, off), h.Close())
+}

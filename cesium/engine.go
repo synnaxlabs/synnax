@@ -63,6 +63,7 @@ type engine struct {
 		sync.Mutex
 		of map[uint64]ChannelKey
 	}
+	pins pins
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -85,6 +86,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	e := &engine{fs: o.fs, exec: o.executor, ready: make(chan struct{})}
 	e.keys.of = make(map[uint64]ChannelKey)
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(set.Set[uint64])
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -230,30 +232,15 @@ func (e *engine) named(id uint64, key ChannelKey) {
 	e.keys.Unlock()
 }
 
-// reap unlinks the file of each segment that left the state.
+// reap unlinks the file of each segment that left the state, once no reader pins it.
 func (e *engine) reap() error {
 	ids, err := e.state.TakeDead()
 	if err != nil {
 		return err
 	}
-	e.keys.Lock()
-	defer e.keys.Unlock()
-	for _, id := range ids {
-		key, ok := e.keys.of[id]
-		if !ok {
-			return errors.Newf("no key of dead segment %d", id)
-		}
-		delete(e.keys.of, id)
-		if err = e.fs.Remove(segmentName(key, id)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.release(ids)
 }
 
-// run runs the owners until ctx is done, then closes them in order: the log, so that
-// its queued entries and a clean mark reach the file, then the checkpointer, then the
-// state. It runs the orphan pass first.
 func (e *engine) run(ctx context.Context) error {
 	owners, cancel := signal.Isolated()
 	defer cancel()
