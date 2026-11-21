@@ -482,6 +482,7 @@ export class Latest {
       try {
         const [payload] = await retrieveChannels([this.key]);
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
+        this.props.store.setChannel(payload);
         if (this.running === run) this.findTimeSource(payload);
         let read: Series[] = [];
         let seed: Series | null = null;
