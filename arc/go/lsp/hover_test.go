@@ -884,6 +884,11 @@ func add() {a i32, b i32} i32 {
 								Type: types.I32(),
 								Kind: symbol.KindVariable,
 							},
+							symbol.Symbol{
+								Name: "ms",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
 						)
 					},
 					AllowDashedNames: allowDashedNames,
@@ -938,11 +943,27 @@ func add() {a i32, b i32} i32 {
 				},
 				Entry("after an integer", "1-pt", uint32(14)),
 				Entry("after a float", "1.5-pt", uint32(16)),
-				Entry("after a number with no space", "12pt", uint32(14)),
 				Entry("before an arrow", "pt->ox-pt-1", uint32(11)),
 				Entry("before a minus-assign", "pt-=1", uint32(11)),
 				Entry("after a leading dash", "-pt", uint32(13)),
 				Entry("before a spaced minus", "pt - 1", uint32(11)),
+			)
+
+			DescribeTable(
+				"should not resolve a unit suffix as a symbol",
+				func(ctx SpecContext, expr string, char uint32) {
+					server = newServer(true)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return "+expr+"\n}",
+					)
+					Expect(Hover(server, ctx, uri, 1, char)).To(BeNil())
+				},
+				Entry("a time unit", "3min", uint32(13)),
+				Entry("a short time unit", "10ms", uint32(14)),
+				Entry("an unknown unit", "12pt", uint32(14)),
 			)
 		})
 	})

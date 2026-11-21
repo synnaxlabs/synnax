@@ -98,8 +98,7 @@ func GetLine(content string, line uint32) (string, bool) {
 	return lines[line], true
 }
 
-// IsWordChar reports whether a byte is a word character ([a-zA-Z0-9_]).
-func IsWordChar(c byte) bool {
+func isWordChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
 		(c >= '0' && c <= '9') || c == '_'
 }
@@ -107,8 +106,8 @@ func IsWordChar(c byte) bool {
 // WordChar reports whether the byte at index i of line belongs to a word.
 type WordChar func(line string, i int) bool
 
-// DefaultWordChar accepts the bytes that IsWordChar accepts.
-func DefaultWordChar(line string, i int) bool { return IsWordChar(line[i]) }
+// DefaultWordChar accepts the bytes [a-zA-Z0-9_].
+func DefaultWordChar(line string, i int) bool { return isWordChar(line[i]) }
 
 // GetWordAtPosition extracts the word at the given position in the content.
 func GetWordAtPosition(

@@ -213,21 +213,21 @@ var _ = Describe("Document", func() {
 		})
 	})
 
-	Describe("IsWordChar", func() {
+	Describe("DefaultWordChar", func() {
 		It("Should accept alphanumeric characters", func() {
-			Expect(lsp.IsWordChar('a')).To(BeTrue())
-			Expect(lsp.IsWordChar('Z')).To(BeTrue())
-			Expect(lsp.IsWordChar('5')).To(BeTrue())
+			Expect(lsp.DefaultWordChar("a", 0)).To(BeTrue())
+			Expect(lsp.DefaultWordChar("Z", 0)).To(BeTrue())
+			Expect(lsp.DefaultWordChar("5", 0)).To(BeTrue())
 		})
 
 		It("Should accept underscores", func() {
-			Expect(lsp.IsWordChar('_')).To(BeTrue())
+			Expect(lsp.DefaultWordChar("_", 0)).To(BeTrue())
 		})
 
 		It("Should reject special characters", func() {
-			Expect(lsp.IsWordChar(' ')).To(BeFalse())
-			Expect(lsp.IsWordChar('+')).To(BeFalse())
-			Expect(lsp.IsWordChar('.')).To(BeFalse())
+			Expect(lsp.DefaultWordChar(" ", 0)).To(BeFalse())
+			Expect(lsp.DefaultWordChar("+", 0)).To(BeFalse())
+			Expect(lsp.DefaultWordChar(".", 0)).To(BeFalse())
 		})
 	})
 
