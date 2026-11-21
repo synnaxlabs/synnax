@@ -63,14 +63,7 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 	if err := switchLog(db, fs, 2); err != nil {
 		b.Fatal(err)
 	}
-	// The checkpointer writes the parts before the head, and Exists sees head 2 once
-	// it is created, so wait for the head to read whole.
-	for {
-		if _, _, err := checkpoint.Read(fs, 2); err == nil {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitPartsHead(b, fs)
 	stop()
 	db, stop = runPartsDB(b, ctx, fs, size)
 	defer stop()
@@ -82,6 +75,18 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 		if read := readAll(b, db, keys); read != 2*(stretches*samples+1) {
 			b.Fatalf("read %d samples, want %d", read, 2*(stretches*samples+1))
 		}
+	}
+}
+
+// waitPartsHead waits for head 2 on fs to read whole. The checkpointer writes the parts
+// before the head, and the head exists once it is created.
+func waitPartsHead(b *testing.B, fs xfs.FS) {
+	b.Helper()
+	for {
+		if _, _, err := checkpoint.Read(fs, 2); err == nil {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

@@ -464,6 +464,7 @@ class TestParse:
             "cesium/write",
             "cesium/read",
             "cesium/read-parts",
+            "cesium/delete-parts",
             "cesium/switch",
         ]
 
