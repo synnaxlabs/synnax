@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type lineplot, type ranger } from "@synnaxlabs/client";
+import { DataType, type lineplot, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   dynamicWindow,
@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -347,6 +347,37 @@ describe("lineplot/toolbar/Data", () => {
       openSearch();
       const [first] = await optionsShowing(plotted, newer);
       expect(first).toContain(plotted.name);
+    });
+
+    it("watches no plotted window when it opens", async () => {
+      const plotted = await createTestRange(client);
+      await renderData([
+        rolling(FIVE_MIN),
+        fixed(9, 10),
+        { variant: "key", key: plotted.key },
+      ]);
+      await screen.findByText(plotted.name);
+      // A read of the cache also calls watch, so only the keys that subscribe count.
+      const watch = client.ranges.watch.bind(client.ranges);
+      const subscribed: unknown[] = [];
+      const spy = vi.spyOn(client.ranges, "watch").mockImplementation((query) => {
+        const live = watch(query);
+        return {
+          ...live,
+          onChange: (handler) => {
+            subscribed.push(query);
+            return live.onChange(handler);
+          },
+        };
+      });
+      onTestFinished(() => spy.mockRestore());
+      openSearch();
+      await optionsShowing(plotted);
+      // The Core reads a watched key that is not a UUID as a range name.
+      const names = subscribed.filter(
+        (query) => typeof query === "string" && !ranger.keyZ.safeParse(query).success,
+      );
+      expect(names).toEqual([]);
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {
