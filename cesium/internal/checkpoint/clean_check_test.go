@@ -31,7 +31,7 @@ var _ = Describe("Check: a crash in Clean", func() {
 	for key := range uint64(32) {
 		It("Should leave the same files for one run key, run key "+itoa(int(key)),
 			func() {
-				var images [][]string
+				images := make([][]string, 0, 8)
 				for range 8 {
 					disk := MustSucceed(fault.New(fault.Config{RunKey: key}))
 					for g := uint64(1); g <= 10; g++ {
@@ -48,8 +48,9 @@ var _ = Describe("Check: a crash in Clean", func() {
 						EntrySurvivalRate: 0.5,
 						EntriesOrdered:    true,
 					}))
-					var names []string
-					for _, e := range MustSucceed(image.List("")) {
+					entries := MustSucceed(image.List(""))
+					names := make([]string, 0, len(entries))
+					for _, e := range entries {
 						names = append(names, e.Name())
 					}
 					images = append(images, names)
@@ -61,7 +62,7 @@ var _ = Describe("Check: a crash in Clean", func() {
 
 		It("Should leave the same files for one run key when the same removes run "+
 			"in one order, run key "+itoa(int(key)), func() {
-			var images [][]string
+			images := make([][]string, 0, 8)
 			for range 8 {
 				disk := MustSucceed(fault.New(fault.Config{RunKey: key}))
 				for g := uint64(1); g <= 10; g++ {
@@ -82,8 +83,9 @@ var _ = Describe("Check: a crash in Clean", func() {
 					EntrySurvivalRate: 0.5,
 					EntriesOrdered:    true,
 				}))
-				var names []string
-				for _, e := range MustSucceed(image.List("")) {
+				entries := MustSucceed(image.List(""))
+				names := make([]string, 0, len(entries))
+				for _, e := range entries {
 					names = append(names, e.Name())
 				}
 				images = append(images, names)
