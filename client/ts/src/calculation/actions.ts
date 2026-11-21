@@ -62,10 +62,8 @@ const applyPath = (state: Draft<Calculation>, action: patch.Action): HandlerResu
 };
 
 const handlers: Handlers = {
-  create: (state, { calculation }) => {
-    Object.assign(state, calculation);
-    return { inverse: [], targets: [calculation.key] };
-  },
+  create: (state, { calculation: { status: _, ...calculation } }) =>
+    actions.replace(state, calculation),
   ...actions.createPathHandlers(applyPath),
 };
 
@@ -85,6 +83,12 @@ export const encode = (state: Calculation, action: Action): Action =>
     ? action
     : patch.camelToSnake(action, { schema: documentZ, data: state });
 
-/** @returns the calculation that a create action carries, or undefined otherwise. */
-export const createOf = (action: Action): Calculation | undefined =>
-  action.type === "create" ? action.create.calculation : undefined;
+/**
+ * @returns the calculation that a create action carries, without its status, or
+ * undefined otherwise.
+ */
+export const createOf = (action: Action): Omit<Calculation, "status"> | undefined => {
+  if (action.type !== "create") return undefined;
+  const { status: _, ...calculation } = action.create.calculation;
+  return calculation;
+};

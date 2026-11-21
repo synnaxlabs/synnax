@@ -148,13 +148,14 @@ describe("Calculation", () => {
       await setStatus(c.key, "calculating");
       const local = createTestClient();
       await local.connect();
-      const [bare] = await local.calculations.retrieve({ output: c.output });
-      expect(bare.status).toBeUndefined();
+      // The status is cached first, so the bare retrieve shows the request gating it.
       const [withStatus] = await local.calculations.retrieve({
         output: c.output,
         includeStatus: true,
       });
       expect(withStatus.status?.message).toEqual("calculating");
+      const [bare] = await local.calculations.retrieve({ output: c.output });
+      expect(bare.status).toBeUndefined();
     });
 
     it("should deliver a remote status change to a request that includes it", async () => {
