@@ -85,6 +85,7 @@ var _ = Describe("Checker heal r1", Ordered, ContinueOnFailure, func() {
 				return nil
 			},
 		}))
+		Expect(svc.Heal(ctx)).To(Succeed())
 	})
 
 	create := func(ctx SpecContext, chs ...channel.Channel) []channel.Channel {
@@ -115,16 +116,6 @@ var _ = Describe("Checker heal r1", Ordered, ContinueOnFailure, func() {
 			return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
 		})).To(Succeed())
 	}
-
-	It("Should drop the rewires that the caller of a create gives", func(
-		ctx SpecContext,
-	) {
-		ch := create(ctx, channel.Channel{
-			Rewires: []channel.Rewire{{From: 7, At: telem.Now()}},
-		})[0]
-		Expect(retrieve(ctx, ch.Key()).Rewires).To(BeEmpty(),
-			"only a heal or a delete writes a list")
-	})
 
 	It("Should move a path history link when Retargets accepts it", func(
 		ctx SpecContext,

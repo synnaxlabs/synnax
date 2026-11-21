@@ -67,6 +67,7 @@ var _ = Describe("Tombstone", Ordered, func() {
 				),
 			},
 		}))
+		Expect(svc.Heal(ctx)).To(Succeed())
 	})
 
 	createFolder := func(ctx SpecContext) group.Group {
@@ -83,9 +84,16 @@ var _ = Describe("Tombstone", Ordered, func() {
 			ch.Name = UniqueChannelName()
 		}
 		ch.DataType, ch.Virtual = telem.Float32T, true
+		rewires := ch.Rewires
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
+		if len(rewires) > 0 {
+			// A create drops the list it gets, so the table writes it.
+			ch.Rewires = rewires
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, ch)).
+				To(Succeed())
+		}
 		return ch
 	}
 	hold := func(ctx SpecContext, k channel.Key) {

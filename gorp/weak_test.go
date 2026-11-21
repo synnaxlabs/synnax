@@ -232,9 +232,7 @@ var _ = Describe("Weak reference", func() {
 
 		It("Should list each reference that points at a table", func(ctx SpecContext) {
 			Expect(db.References("channel")).To(Equal([]gorp.ReferenceInfo{{
-				ID:       gorp.ReferenceID{Table: "symbol", Name: "channels"},
-				OnDelete: gorp.Weak,
-				Kind:     gorp.Use,
+				ID: gorp.ReferenceID{Table: "symbol", Name: "channels"},
 			}}))
 			Expect(db.References("symbol")).To(BeEmpty())
 		})

@@ -57,15 +57,21 @@ func (p Policies) of(id gorp.ReferenceID) (Policy, bool) {
 	return policy, ok
 }
 
-// check returns an error naming each row of Links in a table that KeptTables keeps,
-// each reference of refs that p leaves out, and each that p retargets but that cannot
-// retarget.
+// check returns an error naming each row of Links that holds no valid Policy, each row
+// in a table that KeptTables keeps, each reference of refs that p leaves out, and each
+// that p retargets but that cannot retarget.
 func (p Policies) check(refs []gorp.ReferenceInfo) error {
-	var kept, unmapped, fixed []string
-	for id := range p.Links {
+	var invalid, kept, unmapped, fixed []string
+	for id, policy := range p.Links {
+		if policy != PolicyKeep && policy != PolicyRetarget {
+			invalid = append(invalid, referenceText(id))
+		}
 		if p.KeptTables != nil && p.KeptTables(id.Table) {
 			kept = append(kept, referenceText(id))
 		}
+	}
+	if len(invalid) > 0 {
+		return errors.Newf("[impact] - no valid policy for %s", sorted(invalid))
 	}
 	if len(kept) > 0 {
 		return errors.Newf(

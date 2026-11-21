@@ -138,6 +138,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			return errors.New("[symbol suite] - no record to delete")
 		},
 	}))
+	Expect(channelSvc.Heal(ctx)).To(Succeed())
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: symbolSvc,
 		Impact: impactSvc,

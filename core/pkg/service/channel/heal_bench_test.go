@@ -20,9 +20,111 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// healBench is a healing channel service with a table of displays that a heal retargets
+// and a table of keepers that it does not.
+type healBench struct {
+	b        *testing.B
+	db       *gorp.DB
+	svc      *channel.Service
+	displays *gorp.Table[string, healHolder]
+	keepers  *gorp.Table[string, healKeeper]
+}
+
+func openHealBench(b *testing.B) healBench {
+	b.Helper()
+	ctx := b.Context()
+	node := testutil.OpenNode(ctx)
+	db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+	run, stop := context.WithCancel(context.Background())
+	ran := make(chan error, 1)
+	go func() { ran <- db.Run(run) }()
+	b.Cleanup(func() {
+		stop()
+		if err := errors.Join(<-ran, db.Close(), node.Close()); err != nil {
+			b.Error(err)
+		}
+	})
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: db})
+	if err != nil {
+		b.Fatal(err)
+	}
+	h := healBench{b: b, db: db}
+	h.svc, err = channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:   node.Channel,
+		DB:        db,
+		HostKey:   node.Identity.HostKey,
+		Status:    statusSvc,
+		Retargets: func(d gorp.Dependent) bool { return d.Holder.Table == "display" },
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		if err := errors.Join(h.svc.Close(), statusSvc.Close()); err != nil {
+			b.Error(err)
+		}
+	})
+	if h.displays, err = gorp.OpenTable(ctx, gorp.TableConfig[string, healHolder]{
+		DB:   db,
+		Name: "display",
+		References: weakChannelReference(func(h *healHolder) *channel.Key {
+			return &h.Channel
+		}),
+	}); err != nil {
+		b.Fatal(err)
+	}
+	if h.keepers, err = gorp.OpenTable(ctx, gorp.TableConfig[string, healKeeper]{
+		DB:   db,
+		Name: "keeper",
+		References: weakChannelReference(func(h *healKeeper) *channel.Key {
+			return &h.Channel
+		}),
+	}); err != nil {
+		b.Fatal(err)
+	}
+	if err = h.svc.Heal(ctx); err != nil {
+		b.Fatal(err)
+	}
+	return h
+}
+
+func (h healBench) write(f func(tx gorp.Tx) error) {
+	if err := h.db.WithTx(h.b.Context(), f); err != nil {
+		h.b.Fatal(err)
+	}
+}
+
+// tombstone deletes a new channel at the path of name that holders, the displays that
+// it fills, hold, or that one keeper holds when holders is empty.
+func (h healBench) tombstone(name string, holders []healHolder) {
+	ctx := h.b.Context()
+	dead := channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
+	h.write(func(tx gorp.Tx) error {
+		return h.svc.NewWriter(tx).Create(ctx, &dead)
+	})
+	h.write(func(tx gorp.Tx) error {
+		if len(holders) == 0 {
+			return h.keepers.NewCreate().
+				Entry(&healKeeper{Key: name, Channel: dead.Key()}).
+				Exec(ctx, tx)
+		}
+		for j := range holders {
+			holders[j] = healHolder{
+				Key:     fmt.Sprintf("%s_%d", name, j),
+				Channel: dead.Key(),
+			}
+		}
+		return h.displays.NewCreate().Entries(&holders).Exec(ctx, tx)
+	})
+	h.write(func(tx gorp.Tx) error {
+		return h.svc.NewWriter(tx).Delete(ctx, dead.Key(), false)
+	})
+}
 
 // BenchmarkHeal measures a create that takes the path of a tombstone whose dead key n
 // displays hold, which retargets each of them. With n of 0, a holder that the heal
@@ -38,109 +140,24 @@ func BenchmarkHeal(b *testing.B) {
 		}
 		b.Run(label, func(b *testing.B) {
 			gomega.RegisterTestingT(b)
-			ctx := b.Context()
-			node := testutil.OpenNode(ctx)
-			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
-			run, stop := context.WithCancel(context.Background())
-			ran := make(chan error, 1)
-			go func() { ran <- db.Run(run) }()
-			b.Cleanup(func() {
-				stop()
-				<-ran
-				_ = db.Close()
-				_ = node.Close()
-			})
-			statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: db})
-			if err != nil {
-				b.Fatal(err)
-			}
-			svc, err := channel.OpenService(ctx, channel.ServiceConfig{
-				Channel: node.Channel,
-				DB:      db,
-				HostKey: node.Identity.HostKey,
-				Status:  statusSvc,
-				Retargets: func(d gorp.Dependent) bool {
-					return d.Holder.Table == "display"
-				},
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-			b.Cleanup(func() {
-				_ = svc.Close()
-				_ = statusSvc.Close()
-			})
-			displays, err := gorp.OpenTable(ctx, gorp.TableConfig[string, healHolder]{
-				DB:   db,
-				Name: "display",
-				References: weakChannelReference(func(h *healHolder) *channel.Key {
-					return &h.Channel
-				}),
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-			keepers, err := gorp.OpenTable(ctx, gorp.TableConfig[string, healKeeper]{
-				DB:   db,
-				Name: "keeper",
-				References: weakChannelReference(func(h *healKeeper) *channel.Key {
-					return &h.Channel
-				}),
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-			write := func(f func(tx gorp.Tx) error) {
-				if err := db.WithTx(ctx, f); err != nil {
-					b.Fatal(err)
-				}
-			}
-			held := make([]healHolder, max(n, 0))
+			h := openHealBench(b)
+			holders := make([]healHolder, max(n, 0))
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := range b.N {
 				b.StopTimer()
 				name := fmt.Sprintf("heal_%d", i)
+				if n != none {
+					h.tombstone(name, holders)
+				}
 				ch := channel.Channel{
 					Name:     name,
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}
-				if n == none {
-					b.StartTimer()
-					write(func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &ch)
-					})
-					continue
-				}
-				dead := channel.Channel{
-					Name:     name,
-					DataType: telem.Float32T,
-					Virtual:  true,
-				}
-				write(func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &dead)
-				})
-				write(func(tx gorp.Tx) error {
-					if n == 0 {
-						return keepers.NewCreate().
-							Entry(&healKeeper{Key: name, Channel: dead.Key()}).
-							Exec(ctx, tx)
-					}
-					for j := range held {
-						held[j] = healHolder{
-							Key:     fmt.Sprintf("%s_%d", name, j),
-							Channel: dead.Key(),
-						}
-					}
-					return displays.NewCreate().Entries(&held).Exec(ctx, tx)
-				})
-				write(func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Delete(ctx, dead.Key(), false)
-				})
 				b.StartTimer()
-				write(func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
+				h.write(func(tx gorp.Tx) error {
+					return h.svc.NewWriter(tx).Create(b.Context(), &ch)
 				})
 			}
 		})

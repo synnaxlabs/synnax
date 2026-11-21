@@ -1224,6 +1224,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); err != nil {
 		return nil, err
 	}
+	if err = l.Channel.Heal(ctx); err != nil {
+		return nil, err
+	}
 	return l, nil
 }
 

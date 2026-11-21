@@ -76,12 +76,16 @@ func RetrieveIfNameExists() CreateOption {
 // out of its group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	var (
+		to  map[Key]Key
+		err error
+	)
 	for _, k := range keys {
-		if _, err := w.Apply(ctx, k, set); err != nil {
+		if _, to, err = w.apply(ctx, k, to, set); err != nil {
 			return err
 		}
 	}
-	return nil
+	return w.healLinks(ctx, to)
 }
 
 // Apply applies the actions to the channel with the given key and attaches them to the
@@ -90,58 +94,63 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 // when the transaction commits. Apply returns an error wrapping validate.ErrValidation
 // for an invalid action or result, and query.ErrNotFound when no channel has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	computed, to, err := w.apply(ctx, key, nil, acts...)
+	if err != nil {
+		return nil, err
+	}
+	return computed, w.healLinks(ctx, to)
+}
+
+// apply is Apply without the heal. When the channel takes the path of a tombstone, it
+// maps the dead key of that tombstone to the channel in to, and returns to.
+func (w Writer) apply(
+	ctx context.Context,
+	key Key,
+	to map[Key]Key,
+	acts ...Action,
+) ([]Action, map[Key]Key, error) {
 	var prev Channel
 	if err := w.svc.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Channel](key)).
 		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	next, err := Reduce(prev, acts...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	// Only a heal or a delete writes a list.
-	next.Rewires = prev.Rewires
 	if err = next.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err = w.checkGroup(ctx, prev, next); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if next.Expression != prev.Expression ||
-		!slices.Equal(next.Operations, prev.Operations) {
-		if !prev.IsCalculated() || !next.IsCalculated() {
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only a calculated channel can change its expression or operations, "+
-					"and its expression cannot be empty",
-			)
-		}
-		result, err := w.analyzer.Analyze(ctx, next)
-		if err != nil {
-			return nil, err
-		}
-		next.DataType = result.ChanDataType
+	if err = w.inferDataType(ctx, prev, &next); err != nil {
+		return nil, nil, err
 	}
-	if next.Name != prev.Name {
-		if _, err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
-			return nil, err
+	renamed := next.Name != prev.Name
+	if renamed {
+		if err = w.checkRename(prev, next.Name); err != nil {
+			return nil, nil, err
+		}
+	}
+	if renamed || !sameGroup(prev.Group, next.Group) {
+		if to, err = w.takeList(ctx, &next, to); err != nil {
+			return nil, nil, err
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, nameTaken(err, 0)
+		return nil, nil, nameTaken(err, 0)
 	}
-	if next.Name != prev.Name || !sameGroup(prev.Group, next.Group) {
-		if err = w.heal(ctx, next); err != nil {
-			return nil, err
-		}
+	if renamed {
+		w.queueRenames(Keys{key}, []string{next.Name})
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
 		!sameGroup(prev.Group, next.Group) {
 		if err = w.regroupIndex(ctx, key, next); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	var computed []Action
@@ -149,7 +158,51 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		computed = append(computed, dataTypeAction(next.DataType))
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
-	return computed, nil
+	return computed, to, nil
+}
+
+// inferDataType infers the data type of next, an edit of prev, again when the edit
+// changes its expression or operations.
+func (w Writer) inferDataType(ctx context.Context, prev Channel, next *Channel) error {
+	if next.Expression == prev.Expression &&
+		slices.Equal(next.Operations, prev.Operations) {
+		return nil
+	}
+	if !prev.IsCalculated() || !next.IsCalculated() {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"only a calculated channel can change its expression or operations, "+
+				"and its expression cannot be empty",
+		)
+	}
+	result, err := w.analyzer.Analyze(ctx, *next)
+	if err != nil {
+		return err
+	}
+	next.DataType = result.ChanDataType
+	return nil
+}
+
+// checkRename returns an error wrapping validate.ErrValidation when name is not a valid
+// channel name, or when c is built in.
+func (w Writer) checkRename(c Channel, name string) error {
+	if *w.svc.cfg.ValidateNames {
+		if err := validateNameSyntax([]string{name}); err != nil {
+			return err
+		}
+	}
+	if w.svc.IsBuiltIn(c.Key()) {
+		return builtInRename(c)
+	}
+	return nil
+}
+
+func builtInRename(c Channel) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"can't rename built-in channel %q",
+		c.Name,
+	)
 }
 
 // checkGroup checks that next, an edit of prev, sits in a group that holds channels,
@@ -383,11 +436,11 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	renamed, err := w.rename(ctx, keys, newNames, allowInternal)
+	to, err := w.rename(ctx, keys, newNames, allowInternal)
 	if err != nil {
 		return err
 	}
-	if err = w.heal(ctx, renamed...); err != nil {
+	if err = w.healLinks(ctx, to); err != nil {
 		return err
 	}
 	for i, k := range keys {
@@ -970,12 +1023,14 @@ func (w Writer) delete(
 	return nil
 }
 
+// rename renames each channel of keys to the name at its position in names. It returns
+// the dead key of each tombstone whose path a channel takes, mapped to that channel.
 func (w Writer) rename(
 	ctx context.Context,
 	keys Keys,
 	names []string,
 	allowInternal bool,
-) ([]Channel, error) {
+) (map[Key]Key, error) {
 	if len(keys) != len(names) {
 		return nil, errors.Wrap(
 			validate.ErrValidation,
@@ -987,31 +1042,35 @@ func (w Writer) rename(
 			return nil, err
 		}
 	}
-	renamed := make([]Channel, 0, len(keys))
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
 		renameMap[key] = names[i]
 	}
+	var to map[Key]Key
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
 			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
-				return Channel{}, errors.Wrapf(
-					validate.ErrValidation,
-					"can't rename built-in channel %q",
-					c.Name,
-				)
+				return Channel{}, builtInRename(c)
 			}
 			c.Name = renameMap[c.Key()]
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
-			renamed = append(renamed, c)
-			return c, nil
+			var err error
+			to, err = w.takeList(ctx, &c, to)
+			return c, err
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return nil, nameTaken(err, slices.Index(names, takenName(err)))
 	}
+	w.queueRenames(keys, names)
+	return to, nil
+}
+
+// queueRenames sends the renames of keys to names to storage when the transaction of w
+// commits.
+func (w Writer) queueRenames(keys Keys, names []string) {
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
 	}
@@ -1021,7 +1080,6 @@ func (w Writer) rename(
 			return w.renameStored(ctx, count)
 		})
 	}
-	return renamed, nil
 }
 
 // rename is a new name for a channel.

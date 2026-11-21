@@ -141,9 +141,10 @@ var _ = Describe("Heal break", Ordered, ContinueOnFailure, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Declare(ctx, &builtIn)
 		})).To(Succeed())
+		Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
 		displays = MustSucceed(gorp.OpenTable(ctx, breakDisplayConfig(db)))
-		Expect(shown(ctx, display)).To(Equal([]channel.Key{builtIn.Key()}),
-			"the heal deleted the tombstone while the display table was closed, so "+
-				"the display stays on the dead key and no later heal can move it")
+		Expect(svc.Heal(ctx)).To(Succeed())
+		Expect(shown(ctx, display)).To(Equal([]channel.Key{builtIn.Key()}))
+		Expect(tombstoned(ctx, dead.Key())).To(BeFalse())
 	})
 })

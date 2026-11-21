@@ -404,6 +404,12 @@ func (t *Table[K, E]) delete(
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
 			return err
 		}
+	} else if held != nil {
+		for _, e := range entries {
+			if err := held(ctx, tx, e, nil); err != nil {
+				return err
+			}
+		}
 	}
 	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
@@ -449,33 +455,46 @@ func (t *Table[K, E]) callHeld(
 			return err
 		}
 	}
-	cascaded := plan.cascades[t.name]
-	if len(cascaded) == 0 {
-		return nil
-	}
-	keys := make([]K, 0, len(cascaded))
-	for text := range cascaded {
-		k, err := key.Parse[K](text)
-		if err != nil {
-			return err
-		}
-		keys = append(keys, k)
-	}
-	slices.SortFunc(keys, key.Order[K]())
-	var more []E
-	// An entry that tx removed after the plan is not one this delete removes.
-	if err := t.NewRetrieve().
-		Where(MatchKeys[K, E](keys...)).
-		Entries(&more).
-		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+	more, err := t.cascaded(ctx, tx, plan)
+	if err != nil {
 		return err
 	}
 	for _, e := range more {
-		if err := held(ctx, tx, e, holders(e)); err != nil {
+		if err = held(ctx, tx, e, holders(e)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// cascaded returns, in key order, the entries of the table that a cascade of plan
+// deletes. An entry that tx removed after the plan is not one the delete removes.
+func (t *Table[K, E]) cascaded(
+	ctx context.Context,
+	tx Tx,
+	plan *deletePlan,
+) ([]E, error) {
+	texts := plan.cascades[t.name]
+	if len(texts) == 0 {
+		return nil, nil
+	}
+	keys := make([]K, 0, len(texts))
+	for text := range texts {
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, key.Order[K]())
+	var entries []E
+	if err := t.NewRetrieve().
+		Where(MatchKeys[K, E](keys...)).
+		Entries(&entries).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	return entries, nil
 }
 
 // referenceIndex implements registeredTable.

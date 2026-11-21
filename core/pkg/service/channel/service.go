@@ -131,7 +131,9 @@ type Service struct {
 	names *gorp.UniqueIndex[Key, Channel, string]
 	// tombstones holds the paths of deleted channels that a display still holds.
 	tombstones *tombstones
-	mu         struct {
+	// healing is true once Heal runs.
+	healing atomic.Bool
+	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not
 		// built-in, which count toward the channel limit.

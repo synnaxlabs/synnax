@@ -274,9 +274,7 @@ type ReferenceID struct {
 
 // ReferenceInfo describes a reference that points at a table.
 type ReferenceInfo struct {
-	ID       ReferenceID
-	OnDelete OnDelete
-	Kind     LinkKind
+	ID ReferenceID
 	// Retargets is true when the reference can move its targets to other keys.
 	Retargets bool
 }
@@ -289,8 +287,6 @@ func (db *DB) References(table string) []ReferenceInfo {
 	for i, r := range refs {
 		out[i] = ReferenceInfo{
 			ID:        ReferenceID{Table: r.ownerTable(), Name: r.referenceName()},
-			OnDelete:  r.onDeletePolicy(),
-			Kind:      r.linkKind(),
 			Retargets: r.canRetarget(),
 		}
 	}

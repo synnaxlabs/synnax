@@ -95,6 +95,7 @@ var _ = Describe("Heal", Ordered, func() {
 				return &h.Channel
 			}),
 		}))
+		Expect(svc.Heal(ctx)).To(Succeed())
 	})
 
 	create := func(ctx SpecContext, chs ...channel.Channel) []channel.Channel {
@@ -231,9 +232,10 @@ var _ = Describe("Heal", Ordered, func() {
 	) {
 		name := UniqueChannelName()
 		dead, _, _ := held(ctx, channel.Channel{Name: name})
-		past := create(ctx, channel.Channel{
-			Rewires: []channel.Rewire{{From: dead, At: telem.Now()}},
-		})[0]
+		past := create(ctx, channel.Channel{})[0]
+		past.Rewires = []channel.Rewire{{From: dead, At: telem.Now()}}
+		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, past)).
+			To(Succeed())
 		create(ctx, channel.Channel{Name: name})
 		Expect(retrieve(ctx, past.Key()).Rewires[0].From).To(Equal(dead))
 	})
@@ -251,5 +253,14 @@ var _ = Describe("Heal", Ordered, func() {
 			HaveField("Key", ch.Key()),
 			HaveField("Rewires", HaveLen(1)),
 		)))
+	})
+
+	It("Should drop the rewires that the caller of a create gives", func(
+		ctx SpecContext,
+	) {
+		ch := create(ctx, channel.Channel{
+			Rewires: []channel.Rewire{{From: 7, At: telem.Now()}},
+		})[0]
+		Expect(retrieve(ctx, ch.Key()).Rewires).To(BeEmpty())
 	})
 })
