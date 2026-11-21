@@ -212,7 +212,7 @@ export const use = ({
     selection: box.Box,
     prev: box.Box,
     canvas: box.Box,
-  ): box.Box | null => {
+  ): box.Box => {
     const next = constructScale(prev, canvas).box(selection);
     return box.truncate(next, calculateTruncPrecision(next));
   };
@@ -248,9 +248,14 @@ export const use = ({
         onChange?.({ box: next, mode, stage, cursor });
         return next;
       }
-      const next = handleZoomSelect(selection, prev, canvas);
-      if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
-        return prev;
+      // The bound holds the exact edges of the selection, which the rounding of the
+      // selection could move.
+      const next = clampX(
+        handleZoomSelect(selection, prev, canvas),
+        scale.XY.IDENTITY,
+        bound,
+      );
+      if (isContext && !box.areaIsZero(maskBoxRef.current)) return prev;
       onChange?.({ box: next, mode, stage, cursor });
 
       if (mode === "zoom") {

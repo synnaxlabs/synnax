@@ -21,6 +21,8 @@ const POSITION = xy.construct(20, 400);
 
 const PROPS: AxisProps = {
   plot: box.construct({ x: 0, y: 0 }, { width: 300, height: 200 }),
+  // Reaches 20 past the axis on each side.
+  container: box.construct({ x: 0, y: 0 }, { width: 340, height: 450 }),
   position: POSITION,
   size: 30,
   decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(0, 100),
@@ -167,6 +169,15 @@ describe("axis/canvas", () => {
       expect(labels).toEqual(["Nov 17 10:00", "10:02"]);
     });
 
+    it("should draw no label past an edge of its container", () => {
+      const { labels } = render([
+        { position: 5, label: "10:00", anchorLabel: "Nov 17 10:00", segment: 0 },
+        { position: 60, label: "10:01", anchorLabel: "Nov 17 10:01", segment: 0 },
+        { position: 295, label: "14:33", anchorLabel: "Nov 18 14:33", segment: 1 },
+      ]);
+      expect(labels).toEqual(["Nov 17 10:01", "14:33"]);
+    });
+
     it("should anchor a segment at its first tick whose anchor label fits", () => {
       const { labels } = render([
         { position: 160, label: "14:30", anchorLabel: "Nov 18 14:30", segment: 1 },
@@ -178,7 +189,7 @@ describe("axis/canvas", () => {
     it("should draw no label before the anchor of its segment", () => {
       const { labels } = render([
         { position: 185, label: "14:30", anchorLabel: "Nov 18 14:30 long", segment: 1 },
-        { position: 280, label: "14:31", anchorLabel: "Nov 18 14:31", segment: 1 },
+        { position: 260, label: "14:31", anchorLabel: "Nov 18 14:31", segment: 1 },
       ]);
       expect(labels).toEqual(["Nov 18 14:31"]);
     });
