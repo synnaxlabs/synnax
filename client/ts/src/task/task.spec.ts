@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, type timer, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -56,7 +56,7 @@ const OTHER_ROUTING_KEY = await createRoutingKey();
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
-interface ManualTimer extends task.Timer {
+interface ManualTimer extends timer.Timer {
   span: TimeSpan;
   /** Expires the timer, unless it was cancelled. */
   expire: () => void;
@@ -66,11 +66,11 @@ interface ManualTimer extends task.Timer {
 const createManualTimer = () => {
   const timers: ManualTimer[] = [];
   const pending: Array<() => void> = [];
-  const start: task.StartTimer = (span) => {
+  const start: timer.Start = (span) => {
     const { promise, resolve } = Promise.withResolvers<void>();
     let cancelled = false;
     timers.push({
-      span,
+      span: new TimeSpan(span),
       expired: promise,
       cancel: () => {
         cancelled = true;
@@ -1392,15 +1392,15 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
-      const timer = createManualTimer();
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
-        timer: timer.start,
+        timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
       await setReply(t, cmd, "loading", "Starting task");
-      const final = await timer.started(1);
+      const final = await timers.started(1);
       expect(final.span).toEqual(TimeSpan.minutes(2));
       final.expire();
       await expect(wait).rejects.toThrow(
@@ -1416,17 +1416,17 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
-      const timer = createManualTimer();
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
-        timer: timer.start,
+        timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
       await setReply(t, cmd, "loading", "Starting task");
-      const first = await timer.started(1);
+      const first = await timers.started(1);
       await setReply(t, cmd, "loading", "Still starting task");
-      await timer.started(2);
+      await timers.started(2);
       first.expire();
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });

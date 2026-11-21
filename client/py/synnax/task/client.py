@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import (
     Any,
@@ -46,9 +46,8 @@ from synnax.task.types_gen import (
 )
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
-from x import filter
+from x import filter, timer as timer_
 from x.params import deprecate_positional
-from x.timing import Timer as Stopwatch
 
 
 class _CreateRequest(BaseModel):
@@ -85,27 +84,6 @@ _TASK_CMD_CHANNEL = "sy_task_cmd"
 # Each loading status of a command restarts the wait for its next status. A wait past
 # this limit lost its command, for example to a Driver restart.
 _FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
-
-
-class Timer(BaseProtocol):
-    """A wait for a status that a command started."""
-
-    def remaining(self) -> TimeSpan:
-        """Returns how long the wait has left, or zero once it has passed."""
-        ...
-
-
-StartTimer = Callable[[TimeSpan], Timer]
-"""Starts a Timer that passes after the span."""
-
-
-class _SystemTimer:
-    def __init__(self, span: TimeSpan) -> None:
-        self._span = span
-        self._stopwatch = Stopwatch()
-
-    def remaining(self) -> TimeSpan:
-        return max(self._span - self._stopwatch.elapsed(), TimeSpan.ZERO)
 
 
 class _Keyed(BaseProtocol):
@@ -230,7 +208,7 @@ class Task:
         *,
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
-        timer: StartTimer = _SystemTimer,
+        timer: timer_.Start = timer_.start,
     ) -> Status:
         """Executes a command on the task and waits for the final status that the
         driver sends for it. A loading status acknowledges the command, and the wait

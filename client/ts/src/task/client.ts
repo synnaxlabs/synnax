@@ -20,6 +20,7 @@ import {
   primitive,
   type record,
   strings,
+  timer,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -158,25 +159,8 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
    */
   timeout?: CrudeTimeSpan;
   /** Starts each wait for a status. Defaults to a timer on the system clock. */
-  timer?: StartTimer;
+  timer?: timer.Start;
 }
-
-/** A wait for a status that a command started. */
-export interface Timer {
-  /** Resolves once the wait passes. Never resolves after cancel. */
-  expired: Promise<void>;
-  /** Stops the wait. */
-  cancel: () => void;
-}
-
-/** Starts a {@link Timer} that expires after the span. */
-export type StartTimer = (span: TimeSpan) => Timer;
-
-const startTimer: StartTimer = (span) => {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  const handle = setTimeout(resolve, span.milliseconds);
-  return { expired: promise, cancel: () => clearTimeout(handle) };
-};
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandsSyncInternalParams<StatusData>,
@@ -1175,7 +1159,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
   racks: RackKey[];
   timeout?: CrudeTimeSpan;
-  timer?: StartTimer;
+  timer?: timer.Start;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
 }
@@ -1186,7 +1170,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   commands,
   racks,
   timeout = COMMAND_DEADLINE,
-  timer: start = startTimer,
+  timer: start = timer.start,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
@@ -1203,11 +1187,11 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     ? parsedTimeout
     : FINAL_STATUS_TIMEOUT;
   const { promise, resolve, reject } = Promise.withResolvers<Status<StatusData>[]>();
-  let timer: Timer | undefined;
+  let current: timer.Timer | undefined;
   const timeOutAfter = (span: TimeSpan): void => {
-    timer?.cancel();
-    timer = start(span);
-    void timer.expired.then(() => {
+    current?.cancel();
+    current = start(span);
+    void current.expired.then(() => {
       formatTimeoutError(
         taskName,
         span,
@@ -1260,7 +1244,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     return replies;
   } finally {
     ended = true;
-    timer?.cancel();
+    current?.cancel();
     close();
   }
 };
