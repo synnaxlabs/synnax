@@ -633,7 +633,12 @@ describe("XAxis", () => {
       const lines = recorder.upper2d.calls
         .filter((c) => c.op === "moveTo")
         .map((c) => c.args[0]);
-      expect(lines).toEqual([396.5, 404.5]);
+      expect(lines).toEqual([394.5, 406.5]);
+      // The band ends short of the mark on the axis at the bottom of the plot.
+      const ends = recorder.upper2d.calls
+        .filter((c) => c.op === "lineTo")
+        .map((c) => c.args[1]);
+      expect(ends).toEqual([592, 592]);
     });
   });
 });

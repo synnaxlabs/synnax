@@ -17,7 +17,9 @@ import {
 } from "@/vis/axis/ticks";
 
 /** The width in pixels of the mark that a break draws over its seam. */
-export const BREAK_WIDTH = 8;
+export const BREAK_WIDTH = 12;
+/** The height in pixels of the mark that a break draws across the axis line. */
+export const BREAK_HEIGHT = 12;
 
 export interface RenderResult {
   size: number;
