@@ -343,6 +343,40 @@ func main() {
     y := sensor * 2.0
 }`
 
+		It("should quote the new name in a quoted reference", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot: newRootWithChannels,
+				OnRename: func(context.Context, *symbol.Symbol, string, string) error {
+					return nil
+				},
+			}))
+			server.SetClient(&MockClient{})
+			content := "func test() {\n    x f32 := sensor + 1.0\n    y := 'sensor' * 2.0\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 2, Character: 10},
+				NewName:      "it's",
+			}))
+			Expect(result).ToNot(BeNil())
+			Expect(result.Changes[uri]).To(ConsistOf(
+				protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 1, Character: 13},
+						End:   protocol.Position{Line: 1, Character: 19},
+					},
+					NewText: "it's",
+				},
+				protocol.TextEdit{
+					Range: protocol.Range{
+						Start: protocol.Position{Line: 2, Character: 9},
+						End:   protocol.Position{Line: 2, Character: 17},
+					},
+					NewText: `'it\'s'`,
+				},
+			))
+		})
+
 		It(
 			"should invoke OnRename with the resolved symbol and names",
 			func(ctx SpecContext) {

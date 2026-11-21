@@ -88,8 +88,8 @@ func analyzeEntry(
 	hasDefault *bool,
 	seenChannels set.Set[string],
 ) {
-	if id := entry.IDENTIFIER(); id != nil {
-		analyzeChannelEntry(ctx, entry, id.GetText(), config, seenChannels)
+	if n := parser.AuthorityEntryName(entry); n.Head != "" {
+		analyzeChannelEntry(ctx, entry, n, config, seenChannels)
 		return
 	}
 	if *hasDefault {
@@ -114,10 +114,11 @@ func analyzeEntry(
 func analyzeChannelEntry(
 	ctx acontext.Context[parser.IProgramContext],
 	entry parser.IAuthorityEntryContext,
-	name string,
+	n parser.Name,
 	config *ir.Authorities,
 	seenChannels set.Set[string],
 ) {
+	name := n.String()
 	if seenChannels.Contains(name) {
 		ctx.Diagnostics.Add(codes.AuthorityDuplicate.Atf(
 			entry,
@@ -126,7 +127,7 @@ func analyzeChannelEntry(
 		))
 		return
 	}
-	sym, err := ctx.Resolve(name)
+	sym, err := ctx.ResolveName(n)
 	if err != nil {
 		ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
 			entry,

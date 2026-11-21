@@ -12,28 +12,27 @@ package control
 import (
 	"sync"
 
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type region[R Resource] struct {
+type region[K comparable, R Resource[K]] struct {
 	// resource is the resource being controlled by the region
 	// [not safe for unprotected concurrent access by external callers, but safe to
-	// call static properties like Channel() concurrently]
+	// call static properties like Key() concurrently]
 	resource R
 	// curr is the gate currently in control of the region.
 	// [not safe for unprotected concurrent access]
-	curr *Gate[R]
+	curr *Gate[K, R]
 	// gates are the gates vying for control of the region. curr is one of the gates
 	// in this map.
 	// [not safe for unprotected concurrent access]
-	gates set.Set[*Gate[R]]
+	gates set.Set[*Gate[K, R]]
 	// controller is the parent controller.
 	// [not safe for unprotected concurrent access]
-	controller *Controller[R]
+	controller *Controller[K, R]
 	// timeRange tracks the time period that the region controls. Gates that access
 	// independent regions can access a resource at the same time.
 	// [not safe for unprotected concurrent access]
@@ -57,12 +56,14 @@ type region[R Resource] struct {
 }
 
 // open opens a new gate on the region with the given config.
-func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) {
+func (r *region[K, R]) open(
+	cfg GateConfig[K, R],
+) (g *Gate[K, R], t Transfer[K], err error) {
 	r.Lock()
 	defer r.Unlock()
 	if *cfg.ErrIfControlled && r.curr != nil {
 		err = errors.Wrapf(
-			control.ErrUnauthorized,
+			ErrUnauthorized,
 			"cannot access time range %v because writer %v holds it",
 			cfg.TimeRange.Intersection(r.timeRange),
 			r.curr.Subject(),
@@ -81,7 +82,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		}
 	}
 
-	g = &Gate[R]{
+	g = &Gate[K, R]{
 		region:    r,
 		subject:   cfg.Subject,
 		authority: cfg.Authority,
@@ -95,9 +96,9 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		}
 		r.curr = g
 		t.To = g.state()
-	} else if *cfg.ErrOnUnauthorizedOpen && (r.controller.Concurrency != control.ConcurrencyShared || g.authority != r.curr.authority) {
+	} else if *cfg.ErrOnUnauthorizedOpen && (r.controller.Concurrency != ConcurrencyShared || g.authority != r.curr.authority) {
 		err = errors.Wrapf(
-			control.ErrUnauthorized,
+			ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",
 			g.Subject(),
 			r.curr.Subject(),
@@ -113,7 +114,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 
 // state returns the control State of the gate in control, or nil when the region is
 // bounded or still opening.
-func (r *region[R]) state() *State {
+func (r *region[K, R]) state() *State[K] {
 	r.RLock()
 	defer r.RUnlock()
 	if r.bounded || r.curr == nil {
@@ -123,7 +124,7 @@ func (r *region[R]) state() *State {
 }
 
 // overlapError returns the error for a write to tr that reaches the region.
-func (r *region[R]) overlapError(tr telem.TimeRange) error {
+func (r *region[K, R]) overlapError(tr telem.TimeRange) error {
 	r.RLock()
 	defer r.RUnlock()
 	holder := "a writer that is opening"
@@ -138,7 +139,7 @@ func (r *region[R]) overlapError(tr telem.TimeRange) error {
 	)
 }
 
-func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
+func (r *region[K, R]) shouldBeInControl(candidate *Gate[K, R]) bool {
 	if r.curr == nil {
 		return true
 	}
@@ -153,7 +154,7 @@ func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {
 // release a gate from the region. Releasing the last gate removes the region from the
 // controller in the same critical section, so no gate can join a region whose resource
 // the caller is about to close.
-func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
+func (r *region[K, R]) release(g *Gate[K, R]) (res R, transfer Transfer[K]) {
 	r.controller.mu.Lock()
 	defer r.controller.mu.Unlock()
 	r.Lock()
@@ -177,7 +178,7 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 }
 
 // update a gate's authority.
-func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
+func (r *region[K, R]) update(g *Gate[K, R], auth Authority) (t Transfer[K]) {
 	r.Lock()
 	defer r.Unlock()
 	if !r.gates.Contains(g) {

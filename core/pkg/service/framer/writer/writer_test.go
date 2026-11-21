@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -352,7 +351,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:  keys,
 				Start: 12 * telem.SecondTS,
-				Mode:  ts.WriterModePersistOnly,
+				Mode:  cesium.WriterModePersistOnly,
 				Sync:  new(true),
 			}))
 			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
@@ -378,7 +377,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             ts.WriterModePersistOnly,
+				Mode:             cesium.WriterModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
