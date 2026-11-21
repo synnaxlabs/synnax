@@ -1234,3 +1234,39 @@ describe("cached reads", () => {
     });
   });
 });
+
+describe("old API edits of a calculated channel", () => {
+  it("should reach a client that holds the channel in its cache", async () => {
+    const local = createTestClient();
+    const source = await local.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const ch = await local.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+      expression: `return ${source.name} * 2`,
+    });
+    // A status makes the cache hold the calculated channel.
+    await local.statuses.set({
+      owner: channel.resourceID(ch.key),
+      name: "Calculation Status",
+      variant: "info",
+      message: "ok",
+      time: TimeStamp.now(),
+    });
+    expect((await local.channels.retrieve(ch.key)).status?.message).toEqual("ok");
+    const operations: channel.Operation[] = [
+      { type: "avg", resetChannel: 0, duration: TimeSpan.seconds(5) },
+    ];
+    await remote.channels.dispatch(
+      ch.key,
+      channel.set({ path: ["operations"], value: operations }),
+    );
+    await expect
+      .poll(async () => (await local.channels.retrieve(ch.key)).operations)
+      .toEqual(operations);
+  });
+});
