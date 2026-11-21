@@ -11,116 +11,126 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v11"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = v10.Key
+type Key = v11.Key
 
 // TickType selects how an axis renders its tick labels.
-type TickType = v10.TickType
+type TickType = v11.TickType
 
 const (
 	// TickTypeLinear labels ticks with numeric values.
-	TickTypeLinear TickType = v10.TickTypeLinear
+	TickTypeLinear TickType = v11.TickTypeLinear
 	// TickTypeTime labels ticks with timestamps.
-	TickTypeTime TickType = v10.TickTypeTime
+	TickTypeTime TickType = v11.TickTypeTime
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = v10.XAxisKey
+type XAxisKey = v11.XAxisKey
 
 const (
 	// XAxisKeyX1 is the x-axis at the bottom of the plot.
-	XAxisKeyX1 XAxisKey = v10.XAxisKeyX1
+	XAxisKeyX1 XAxisKey = v11.XAxisKeyX1
 	// XAxisKeyX2 is the x-axis at the top of the plot.
-	XAxisKeyX2 XAxisKey = v10.XAxisKeyX2
+	XAxisKeyX2 XAxisKey = v11.XAxisKeyX2
 )
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = v10.YAxisKey
+type YAxisKey = v11.YAxisKey
 
 const (
 	// YAxisKeyY1 is a y-axis on the left of the plot.
-	YAxisKeyY1 YAxisKey = v10.YAxisKeyY1
+	YAxisKeyY1 YAxisKey = v11.YAxisKeyY1
 	// YAxisKeyY2 is a y-axis on the right of the plot.
-	YAxisKeyY2 YAxisKey = v10.YAxisKeyY2
+	YAxisKeyY2 YAxisKey = v11.YAxisKeyY2
 	// YAxisKeyY3 is a second y-axis on the left of the plot.
-	YAxisKeyY3 YAxisKey = v10.YAxisKeyY3
+	YAxisKeyY3 YAxisKey = v11.YAxisKeyY3
 	// YAxisKeyY4 is a second y-axis on the right of the plot.
-	YAxisKeyY4 YAxisKey = v10.YAxisKeyY4
+	YAxisKeyY4 YAxisKey = v11.YAxisKeyY4
 )
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = v10.AxisKey
+type AxisKey = v11.AxisKey
 
 const (
 	// AxisKeyX1 is the x-axis at the bottom of the plot.
-	AxisKeyX1 AxisKey = v10.AxisKeyX1
+	AxisKeyX1 AxisKey = v11.AxisKeyX1
 	// AxisKeyX2 is the x-axis at the top of the plot.
-	AxisKeyX2 AxisKey = v10.AxisKeyX2
+	AxisKeyX2 AxisKey = v11.AxisKeyX2
 	// AxisKeyY1 is a y-axis on the left of the plot.
-	AxisKeyY1 AxisKey = v10.AxisKeyY1
+	AxisKeyY1 AxisKey = v11.AxisKeyY1
 	// AxisKeyY2 is a y-axis on the right of the plot.
-	AxisKeyY2 AxisKey = v10.AxisKeyY2
+	AxisKeyY2 AxisKey = v11.AxisKeyY2
 	// AxisKeyY3 is a second y-axis on the left of the plot.
-	AxisKeyY3 AxisKey = v10.AxisKeyY3
+	AxisKeyY3 AxisKey = v11.AxisKeyY3
 	// AxisKeyY4 is a second y-axis on the right of the plot.
-	AxisKeyY4 AxisKey = v10.AxisKeyY4
+	AxisKeyY4 AxisKey = v11.AxisKeyY4
 )
 
 // Title is the plot title configuration.
-type Title = v10.Title
+type Title = v11.Title
 
 // Legend is the plot legend configuration.
-type Legend = v10.Legend
+type Legend = v11.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = v10.Channels
+type Channels = v11.Channels
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = v10.ManualBounds
+type ManualBounds = v11.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = v10.Axis
+type Axis = v11.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = v10.Axes
+type Axes = v11.Axes
 
 // Line is the per-line styling and reduction configuration.
-type Line = v10.Line
+type Line = v11.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = v10.Rule
+type Rule = v11.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = v10.LinePlot
+type LinePlot = v11.LinePlot
 
 // Aggregation selects how a line reduces the samples of one pixel group. min_max draws
 // the lowest and highest sample, and average draws the mean.
-type Aggregation = v10.Aggregation
+type Aggregation = v11.Aggregation
 
 const (
 	// AggregationMinMax draws the lowest and highest sample of each pixel group.
-	AggregationMinMax Aggregation = v10.AggregationMinMax
+	AggregationMinMax Aggregation = v11.AggregationMinMax
 	// AggregationAverage draws the mean of each pixel group.
-	AggregationAverage Aggregation = v10.AggregationAverage
+	AggregationAverage Aggregation = v11.AggregationAverage
 )
 
 // Detail selects how many sample groups a line draws per pixel column: one per four,
 // two, or one pixel columns.
-type Detail = v10.Detail
+type Detail = v11.Detail
 
 const (
 	// DetailLow draws one sample group per four pixel columns.
-	DetailLow Detail = v10.DetailLow
+	DetailLow Detail = v11.DetailLow
 	// DetailMedium draws one sample group per two pixel columns.
-	DetailMedium Detail = v10.DetailMedium
+	DetailMedium Detail = v11.DetailMedium
 	// DetailHigh draws one sample group per pixel column.
-	DetailHigh Detail = v10.DetailHigh
+	DetailHigh Detail = v11.DetailHigh
+)
+
+// TimeMode selects where an x axis draws the ranges of a line plot.
+type TimeMode = v11.TimeMode
+
+const (
+	// TimeModeAbsolute draws each range at its real time.
+	TimeModeAbsolute TimeMode = v11.TimeModeAbsolute
+	// TimeModeRelative draws each range from its zero, its start or a custom T0.
+	TimeModeRelative TimeMode = v11.TimeModeRelative
 )
