@@ -287,30 +287,34 @@ class Plot(ConsolePage):
             .filter(has_text=re.compile(f"^{re.escape(range_name)}$"))
         )
 
-    def create_range_from_selection(self, range_name: str) -> None:
-        """Create a range by selecting a region on the plot and using the context menu.
+    def select_region(self) -> dict[str, float]:
+        """Select the middle half of the plot with an Alt drag.
 
-        :param range_name: Name for the new range
+        :returns: The center of the selection, in page pixels.
         """
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
-
         box = self.pane_locator.bounding_box()
         if not box:
             raise RuntimeError("Could not get plot bounding box")
-
         start_x = box["x"] + box["width"] * 0.25
         end_x = box["x"] + box["width"] * 0.75
         center_y = box["y"] + box["height"] / 2
-
-        # Alt+drag to create selection
         self.page.keyboard.down("Alt")
         self.page.mouse.move(start_x, center_y)
         self.page.mouse.down()
         self.page.mouse.move(end_x, center_y, steps=10)
         self.page.mouse.up()
         self.page.keyboard.up("Alt")
-        self.page.mouse.click((start_x + end_x) / 2, center_y, button="right")
+        return {"x": (start_x + end_x) / 2, "y": center_y}
+
+    def create_range_from_selection(self, range_name: str) -> None:
+        """Create a range by selecting a region on the plot and using the context menu.
+
+        :param range_name: Name for the new range
+        """
+        center = self.select_region()
+        self.page.mouse.click(center["x"], center["y"], button="right")
 
         self.page.get_by_text("Create range from selection").click(timeout=5000)
         self.page.get_by_role("textbox", name="Name").wait_for(
@@ -352,6 +356,29 @@ class Plot(ConsolePage):
             toggle.to_have_class(pattern, timeout=timeout)
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def _open_menu(self) -> None:
+        """Open the plot menu over the left quarter of the plot."""
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        box = self.pane_locator.bounding_box()
+        if box is None:
+            raise RuntimeError("Could not get plot bounding box")
+        self.pane_locator.click(
+            button="right",
+            position={"x": box["width"] * 0.25, "y": box["height"] * 0.6},
+        )
+        self.page.get_by_role("menu").first.wait_for(state="visible", timeout=5000)
+
+    def expect_menu_option(
+        self, option: str, *, offered: bool = True, timeout: int = 5000
+    ) -> None:
+        """Open the plot menu and assert whether it offers an option."""
+        self._open_menu()
+        menu = self.page.get_by_role("menu").first
+        items = menu.get_by_role("menuitem").filter(has_text=option)
+        expect(items).to_have_count(1 if offered else 0, timeout=timeout)
+        self.layout.ctx_menu.close()
 
     def get_range_strip(self) -> Locator:
         """Return the strip above the plot that shows the plot's ranges."""
