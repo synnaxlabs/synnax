@@ -22,7 +22,7 @@ import (
 
 type orderScope struct{ committing bool }
 
-func (s *orderScope) OnCleanup(func(committed bool)) bool { return true }
+func (s *orderScope) OnCleanup(func(committed bool)) {}
 
 func (s *orderScope) Committing() bool { return s.committing }
 
