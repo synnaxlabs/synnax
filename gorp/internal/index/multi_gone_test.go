@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Multi gone keys", func() {
@@ -106,9 +107,7 @@ var _ = Describe("Multi gone keys", func() {
 		Expect(m.CommittingHolding(false)).NotTo(ContainElement(7))
 		Expect(m.Current(txn, 7, nil)).To(BeFalse())
 		Expect(m.Current(&scope{}, 7, nil)).To(BeTrue())
-		vs, ok := m.Held(txn, 7)
-		Expect(ok).To(BeTrue())
-		Expect(vs).To(BeEmpty())
+		Expect(MustBeOk(m.Held(txn, 7))).To(BeEmpty())
 		txn.end(true)
 		Expect(m.Holding(nil, false)).To(ConsistOf(8))
 		Expect(m.Current(nil, 7, nil)).To(BeFalse())
@@ -120,9 +119,7 @@ var _ = Describe("Multi gone keys", func() {
 			defer GinkgoRecover()
 			defer close(done)
 			for range 200 {
-				ks, err := m.Holding(&scope{}, false)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ks).To(ContainElements(7, 8))
+				Expect(m.Holding(&scope{}, false)).To(ContainElements(7, 8))
 				m.Current(&scope{}, 7, nil)
 			}
 		}()
