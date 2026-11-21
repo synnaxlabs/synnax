@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // D-214: no hidden folder's name shows to a subject that cannot retrieve it. A store
@@ -80,14 +82,26 @@ var _ = Describe("Ambiguity breaker", func() {
 		)
 	})
 
+	// matchShownOnly matches the error of name that quotes the path of the holder in
+	// shown and counts the holder in hidden.
+	matchShownOnly := func() OmegaMatcher {
+		return SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(fmt.Sprintf(
+				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
+				name,
+				shown.Name,
+				name,
+			))),
+		)
+	}
+
 	It("Should not name a hidden folder when a delete by name is ambiguous", func(
 		ctx SpecContext,
 	) {
-		_, err := deleteChannels(AuthedCtx(ctx, u), apichannel.DeleteRequest{
+		Expect(deleteChannels(AuthedCtx(ctx, u), apichannel.DeleteRequest{
 			Names: []string{name},
-		})
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).ToNot(ContainSubstring(hidden.Name))
+		})).Error().To(matchShownOnly())
 	})
 
 	It("Should not name a hidden folder when a retrieve-if-exists create is "+
@@ -100,7 +114,6 @@ var _ = Describe("Ambiguity breaker", func() {
 			}},
 			RetrieveIfNameExists: true,
 		})
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).ToNot(ContainSubstring(hidden.Name))
+		Expect(err).To(matchShownOnly())
 	})
 })

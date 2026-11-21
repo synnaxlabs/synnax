@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,14 +95,7 @@ var _ = Describe("Ambiguous names", func() {
 		context.Context,
 	) (func(resource.ID) bool, error) {
 		return func(context.Context) (func(resource.ID) bool, error) {
-			return func(id resource.ID) bool {
-				for _, h := range hidden {
-					if id == h {
-						return false
-					}
-				}
-				return true
-			}, nil
+			return func(id resource.ID) bool { return !slices.Contains(hidden, id) }, nil
 		}
 	}
 

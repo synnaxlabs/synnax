@@ -108,7 +108,7 @@ func (r *symbolResolver) Resolve(
 		}
 		return sym, nil
 	default:
-		ambiguous := AmbiguousNameError{Name: name, Holders: KeysFromChannels(chs)}
+		ambiguous := ambiguousName(name, KeysFromChannels(chs))
 		if r.access == nil {
 			return nil, ambiguous
 		}

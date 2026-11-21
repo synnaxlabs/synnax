@@ -209,51 +209,12 @@ func openChannels(
 	folder group.Key,
 	chs []channel.Channel,
 ) (off map[int]error, err error) {
-	var (
-		names   = channel.Names(chs)
-		missing = make(map[string]int, len(chs))
-		holders = make(map[string][]channel.Channel, len(chs))
-	)
-	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		unfound := make([]string, 0, len(chs))
-		for i, ch := range chs {
-			stored, found, err := storedChannel(ctx, tx, cfg.Channel, ch.Name)
-			if err != nil {
-				return err
-			}
-			if found {
-				chs[i] = stored
-				continue
-			}
-			missing[ch.Name] = i
-			unfound = append(unfound, ch.Name)
-		}
-		var held []channel.Channel
-		if err := cfg.Channel.NewRetrieve().
-			Where(channel.MatchNames(unfound...)).
-			Entries(&held).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		for _, ch := range held {
-			holders[ch.Name] = append(holders[ch.Name], ch)
-		}
-		return nil
-	}); err != nil {
+	names := channel.Names(chs)
+	missing, holders, err := findChannels(ctx, cfg, chs)
+	if err != nil {
 		return nil, err
 	}
-	for name, hs := range holders {
-		inFolder := lo.Filter(hs, func(ch channel.Channel, _ int) bool {
-			return ch.Group != nil && *ch.Group == folder
-		})
-		if len(inFolder) == 0 {
-			inFolder = hs
-		}
-		if len(inFolder) == 1 {
-			chs[missing[name]] = inFolder[0]
-			delete(missing, name)
-		}
-	}
+	adoptChannels(chs, folder, missing, holders)
 	off = make(map[int]error)
 	for i, name := range names {
 		if _, ok := missing[name]; !ok {
@@ -288,6 +249,69 @@ func openChannels(
 		}
 		return nil
 	})
+}
+
+// findChannels sets each of chs whose key is stored to its stored channel. It returns
+// the position of each other channel by name, and the channels that hold each of those
+// names.
+func findChannels(
+	ctx context.Context,
+	cfg ServiceConfig,
+	chs []channel.Channel,
+) (map[string]int, map[string][]channel.Channel, error) {
+	var (
+		missing = make(map[string]int, len(chs))
+		holders = make(map[string][]channel.Channel, len(chs))
+	)
+	return missing, holders, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		unfound := make([]string, 0, len(chs))
+		for i, ch := range chs {
+			stored, found, err := storedChannel(ctx, tx, cfg.Channel, ch.Name)
+			if err != nil {
+				return err
+			}
+			if found {
+				chs[i] = stored
+				continue
+			}
+			missing[ch.Name] = i
+			unfound = append(unfound, ch.Name)
+		}
+		var held []channel.Channel
+		if err := cfg.Channel.NewRetrieve().
+			Where(channel.MatchNames(unfound...)).
+			Entries(&held).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		for _, ch := range held {
+			holders[ch.Name] = append(holders[ch.Name], ch)
+		}
+		return nil
+	})
+}
+
+// adoptChannels sets the channel at each position in missing to the one holder of its
+// name in folder, else to the one holder of its name anywhere, and removes the name
+// from missing.
+func adoptChannels(
+	chs []channel.Channel,
+	folder group.Key,
+	missing map[string]int,
+	holders map[string][]channel.Channel,
+) {
+	for name, hs := range holders {
+		inFolder := lo.Filter(hs, func(ch channel.Channel, _ int) bool {
+			return ch.Group != nil && *ch.Group == folder
+		})
+		if len(inFolder) == 0 {
+			inFolder = hs
+		}
+		if len(inFolder) == 1 {
+			chs[missing[name]] = inFolder[0]
+			delete(missing, name)
+		}
+	}
 }
 
 // storedChannel returns the channel whose key is stored for name, and whether it

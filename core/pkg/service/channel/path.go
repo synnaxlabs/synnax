@@ -183,10 +183,10 @@ func Paths(
 	return paths, nil
 }
 
-// AmbiguousNameError is the error of a name that several channels hold. It matches
-// validate.ErrValidation. It names the holders by key and no path, since a path can
-// name a folder that the reader cannot retrieve. Service.DescribeAmbiguity writes the
-// paths that a subject can see.
+// AmbiguousNameError is the error of a name that several channels hold. The Service
+// returns it inside a validation error. It names the holders by key and no path, since
+// a path can name a folder that the reader cannot retrieve. Service.DescribeAmbiguity
+// writes the paths that a subject can see.
 type AmbiguousNameError struct {
 	// Name is the name, and Holders are the keys of the channels that hold it.
 	Name    string
@@ -207,11 +207,11 @@ func (e AmbiguousNameError) Error() string {
 	)
 }
 
-// Is reports whether target is validate.ErrValidation.
-func (AmbiguousNameError) Is(
-	target error,
-) bool {
-	return target == validate.ErrValidation
+// ambiguousName returns the validation error that holds the AmbiguousNameError of name
+// and holders.
+func ambiguousName(name string, holders Keys) error {
+	err := AmbiguousNameError{Name: name, Holders: holders}
+	return validate.WithCause(err, "%s", err.Error())
 }
 
 // KeysByNames returns the key of the channel that holds each of names, compared in NFC,
@@ -222,7 +222,7 @@ func (s *Service) KeysByNames(
 	snap gorp.Snapshot,
 	names []string,
 ) (Keys, error) {
-	normal := NormalizeNames(names)
+	normal := normalizeNames(names)
 	var holders []Channel
 	if err := s.newRetrieve().
 		Where(MatchNames(normal...)).
@@ -236,7 +236,7 @@ func (s *Service) KeysByNames(
 	}
 	for i, n := range normal {
 		if keys := byName[n]; len(keys) > 1 {
-			return nil, AmbiguousNameError{Name: names[i], Holders: keys}
+			return nil, ambiguousName(names[i], keys)
 		}
 	}
 	return KeysFromChannels(holders), nil

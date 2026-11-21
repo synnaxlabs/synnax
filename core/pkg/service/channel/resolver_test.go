@@ -89,8 +89,11 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 	Describe("NewSubjectResolver", func() {
 		var visible, hidden channel.Channel
-		hide := func(context.Context) (func(resource.ID) bool, error) {
-			return func(id resource.ID) bool { return id != hidden.ResourceID() }, nil
+		// hiding returns an access read that refuses id.
+		hiding := func(id resource.ID) func(context.Context) (func(resource.ID) bool, error) {
+			return func(context.Context) (func(resource.ID) bool, error) {
+				return func(other resource.ID) bool { return other != id }, nil
+			}
 		}
 		BeforeEach(func(ctx SpecContext) {
 			visible = channel.Channel{
@@ -122,7 +125,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
-			r := svc.NewSubjectResolver(db, hide)
+			r := svc.NewSubjectResolver(db, hiding(hidden.ResourceID()))
 			Expect(r.Resolve(ctx, hidden.Name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, visible.Name)).
@@ -130,7 +133,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
-			r := svc.NewSubjectResolver(db, hide)
+			r := svc.NewSubjectResolver(db, hiding(hidden.ResourceID()))
 			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
@@ -145,7 +148,10 @@ var _ = Describe("NewArcSymbolResolver", func() {
 						HaveField("ID", int(hidden.Key())),
 					))
 			}).Should(Succeed())
-			Expect(svc.NewSubjectResolver(db, hide).Search(ctx, "resolver_filter")).
+			Expect(
+				svc.NewSubjectResolver(db, hiding(hidden.ResourceID())).
+					Search(ctx, "resolver_filter"),
+			).
 				To(SatisfyAll(
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),

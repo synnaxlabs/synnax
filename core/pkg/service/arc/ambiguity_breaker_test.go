@@ -69,13 +69,17 @@ var _ = Describe("Ambiguity breaker", func() {
 			Group:       g,
 		}
 	}
-	hideFolder := func(context.Context) (func(resource.ID) bool, error) {
-		return func(id resource.ID) bool { return id != hidden.ResourceID() }, nil
+	hiding := func(folder resource.ID) func(
+		context.Context,
+	) (func(resource.ID) bool, error) {
+		return func(context.Context) (func(resource.ID) bool, error) {
+			return func(id resource.ID) bool { return id != folder }, nil
+		}
 	}
 	open := func(ctx SpecContext, source string) *MockClient {
 		GinkgoHelper()
 		server := MustSucceed(svc.NewLSP(arc.LSPConfig{
-			Allowed: hideFolder,
+			Allowed: hiding(hidden.ResourceID()),
 			Rename:  noRename,
 		}))
 		DeferCleanup(func(ctx SpecContext) {
