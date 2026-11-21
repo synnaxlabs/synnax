@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Unreachable } from "@synnaxlabs/freighter";
 import {
   array,
   type destructor,
@@ -21,8 +22,8 @@ import {
 
 import {
   AuthError,
+  DisconnectedError,
   ExpiredLicenseError,
-  isConnectionError,
   MissingLicenseError,
   NotFoundError,
 } from "@/errors";
@@ -869,11 +870,12 @@ export class Space<
    * Starts a fetch that subscribers have no caller for and that reads join. A not-found
    * for a key that the table holds as deleted is no failure: the table delivers the
    * deletion to subscribers. A lost connection is none either: the reconnect refetches.
+   * A timeout is reported, since no reconnect follows it.
    */
   private fetchUncovered(query: Query<P, K, D, V>): void {
     if (query.state.variant === "loading") return;
     this.fetch(query).catch((exc: unknown) => {
-      if (isConnectionError(exc)) return;
+      if (DisconnectedError.matches(exc) || Unreachable.matches(exc)) return;
       const key = this.config.keyOf?.(query.params);
       const deleted = key != null && this.config.table.status(key) === "tombstoned";
       if (!(deleted && NotFoundError.matches(exc))) this.report(exc);

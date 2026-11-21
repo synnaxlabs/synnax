@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Timeout } from "@synnaxlabs/freighter";
 import { type record, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -1032,6 +1033,26 @@ describe("Answers", () => {
       table.close();
       await expect(space.retrieve(qA)).rejects.toThrow(DisconnectedError);
       expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("reports a subscriber fetch that times out", async () => {
+      const table = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => keys.map((key) => rec(key, 1)),
+      });
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async () => {
+          throw new Timeout("request timed out");
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      await expect(space.retrieve(qA)).rejects.toThrow(Timeout);
+      expect(onError).toHaveBeenCalledTimes(1);
       stop();
     });
 
