@@ -167,6 +167,7 @@ describe("YAxis", () => {
           container: region,
           canvases: ["gl"],
           hold: false,
+          breaksHidden: false,
           openBreaks: [],
           layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
@@ -556,6 +557,7 @@ describe("XAxis", () => {
     };
     const props = (openBreaks: number[] = []) => ({
       hold: false,
+      breaksHidden: false,
       viewport: box.DECIMAL,
       openBreaks,
     });
@@ -566,6 +568,14 @@ describe("XAxis", () => {
       expect(segmentBounds(x)).toEqual([
         { lower: 0, upper: 63 * S },
         { lower: DAY - 3 * S, upper: DAY + 60 * S },
+      ]);
+    });
+
+    it("should lay out one segment while its breaks are hidden", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout({ ...props(), breaksHidden: true });
+      expect(layout.segments.map((s) => s.bounds)).toEqual([
+        { lower: 0, upper: DAY + 60 * S },
       ]);
     });
 
@@ -659,6 +669,7 @@ describe("XAxis", () => {
     const GAP = 63 * S;
     const props = (openBreaks: number[] = []) => ({
       hold: false,
+      breaksHidden: false,
       viewport: box.DECIMAL,
       openBreaks,
     });

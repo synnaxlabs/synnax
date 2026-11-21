@@ -873,6 +873,9 @@ says why in a sentence, then gives the raw error.
   zoom history and the selection keep their times too.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
   while one is open. Reset zoom closes all breaks. Open breaks are window state.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
+  in true time. The toggle resets the zoom, and it shows while the plot has breaks or
+  hides them. Hidden breaks are window state.
 - Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
   show". Over a segment, it lists only the lines of that segment.
 - A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It

@@ -16,7 +16,7 @@ import {
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot, Synnax } from "@synnaxlabs/pluto";
-import { resolveWindow, type TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
@@ -89,6 +89,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden({ key });
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -98,6 +99,9 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       const live = windows.some((w) => w.variant === "dynamic");
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
       const resolved = windows.map((w) => resolveWindow(w, end));
-      downloadAsCSV({ timeRanges: LinePlot.shownSpans(resolved, end), lines, name });
+      const timeRanges = breaksHidden
+        ? [TimeRange.merge(...resolved)]
+        : LinePlot.shownSpans(resolved, end);
+      downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

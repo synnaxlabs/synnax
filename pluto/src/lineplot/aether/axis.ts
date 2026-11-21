@@ -80,6 +80,8 @@ export interface AxisRenderProps {
   container: box.Box;
   canvases: render.CanvasVariant[];
   hold: boolean;
+  /** Set when a time axis shows its gaps at their true width, with no breaks. */
+  breaksHidden: boolean;
   /** The lower bounds of the gaps that show their values in place of a break. */
   openBreaks: number[];
 }

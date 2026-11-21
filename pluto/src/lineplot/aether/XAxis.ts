@@ -66,7 +66,10 @@ export type BreaksChange = z.infer<typeof breaksChangeZ>;
 const BREAK_HIT_DISTANCE = axis.BREAK_WIDTH / 2 + 2;
 
 /** The plot state that lays out an x axis. */
-export type LayoutProps = Pick<AxisRenderProps, "hold" | "viewport" | "openBreaks">;
+export type LayoutProps = Pick<
+  AxisRenderProps,
+  "hold" | "viewport" | "breaksHidden" | "openBreaks"
+>;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
@@ -204,10 +207,16 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   // iLayout returns the layout with the error that its bounds met, so a render can draw
   // the axis before it throws.
-  private iLayout({ hold, viewport, openBreaks }: LayoutProps): [Layout, Error | null] {
+  private iLayout({
+    hold,
+    viewport,
+    breaksHidden,
+    openBreaks,
+  }: LayoutProps): [Layout, Error | null] {
     const { type } = this.state;
     const traces = this.traces();
-    const [pieces, err] = this.iSegments(hold, () => traces, type === "time");
+    const collapsed = !breaksHidden && type === "time";
+    const [pieces, err] = this.iSegments(hold, () => traces, collapsed);
     const { segments, gaps } = join(pieces, openBreaks);
     const s = spans(align(traces), type, segments);
     return [new Layout(segments, viewport, s, gaps), err];

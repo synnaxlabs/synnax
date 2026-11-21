@@ -53,6 +53,8 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
+const breaksZ = z.object({ hidden: z.boolean().default(false) });
+
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
   selection: selectionZ.prefault({}),
@@ -61,6 +63,7 @@ const stateZ = z.object({
   toolbar: toolbarZ.prefault({}),
   measure: measureZ.prefault({}),
   annotations: annotationsZ.prefault({}),
+  breaks: breaksZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
 });
@@ -130,6 +133,10 @@ export interface SetMeasureModePayload extends KeyedPayload {
 
 export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
+}
+
+export interface SetBreaksHiddenPayload extends KeyedPayload {
+  hidden: boolean;
 }
 
 export interface SetLineVisiblePayload extends KeyedPayload {
@@ -217,6 +224,11 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { visible } }) => {
       state.annotations.visible = visible;
     }),
+    setBreaksHidden: withSelectedState<SetBreaksHiddenPayload, SliceState>(
+      (state, { payload: { hidden } }) => {
+        state.breaks.hidden = hidden;
+      },
+    ),
     setLineVisible: withSelectedState<SetLineVisiblePayload, SliceState>(
       (state, { payload: { lineKey, visible } }) => {
         const hidden = new Set(state.hiddenLines);
@@ -245,6 +257,7 @@ export const {
   setSelectedRule,
   setMeasureMode,
   setRangeAnnotationsVisible,
+  setBreaksHidden,
   setLineVisible,
   remove,
 } = actions;
@@ -277,6 +290,7 @@ export const MIDDLEWARE = [
     setSelectedRule,
     setMeasureMode,
     setRangeAnnotationsVisible,
+    setBreaksHidden,
     setLineVisible,
   ]),
 ];

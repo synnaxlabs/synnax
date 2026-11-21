@@ -41,6 +41,8 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().default(false),
+  /** Set when x1 shows its gaps at their true width, with no breaks. */
+  breaksHidden: z.boolean().default(false),
   /** The lower bounds of the gaps of x1 that show in place of a break. */
   openBreaks: z.array(z.number()).default([]),
   /** The number of open and of closed breaks on x1, which the plot sets. */

@@ -24,12 +24,17 @@ export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
 
 export interface ControlsProps {
   hasAnnotations: boolean;
+  hasBreaks: boolean;
 }
 
-export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
+export const Controls = ({
+  hasAnnotations,
+  hasBreaks,
+}: ControlsProps): ReactElement => {
   const key = LinePlot.useKey();
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
   const mode = Session.LinePlot.useSelectViewportMode();
   const measureMode = Session.LinePlot.useSelectMeasureMode();
   const dispatch = Session.useDispatch();
@@ -52,6 +57,12 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
 
   const handleAnnotationsVisibilityChange = (visible: boolean): void => {
     dispatch(Session.LinePlot.setRangeAnnotationsVisible({ key, visible }));
+  };
+
+  // The breaks change the home view, so the zoom resets to show the whole plot.
+  const handleBreaksShownChange = (shown: boolean): void => {
+    dispatch(Session.LinePlot.setBreaksHidden({ key, hidden: !shown }));
+    dispatch(Session.LinePlot.setViewport({ key }));
   };
 
   const handleToggleMeasure = (): void => {
@@ -108,6 +119,17 @@ export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
             tooltipLocation={location.BOTTOM_LEFT}
           >
             <Icon.Range />
+          </Button.Toggle>
+        )}
+        {hasBreaks && (
+          <Button.Toggle
+            value={!breaksHidden}
+            onChange={handleBreaksShownChange}
+            size="small"
+            tooltip={`${breaksHidden ? "Show" : "Hide"} breaks`}
+            tooltipLocation={location.BOTTOM_LEFT}
+          >
+            <Icon.SplitX />
           </Button.Toggle>
         )}
         <Button.Toggle

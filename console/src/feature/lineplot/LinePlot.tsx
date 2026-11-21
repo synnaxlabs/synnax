@@ -213,6 +213,7 @@ const Internal = (): ReactElement => {
   }));
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = Viewport.DEFAULT_TRIGGERS[mode];
   // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
@@ -303,9 +304,13 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
+          breaksHidden={breaksHidden}
           onBreaksChange={setBreaks}
         >
-          <Controls hasAnnotations={hasAnnotations} />
+          <Controls
+            hasAnnotations={hasAnnotations}
+            hasBreaks={breaksHidden || breaks.open + breaks.closed > 0}
+          />
         </Base.LinePlot>
       </Menu.ContextMenu>
     </div>

@@ -113,7 +113,7 @@ the time between them. Each range gets a part of the plot that fits its length, 
 break separates two parts. The plot hides only time that is long compared to the ranges
 on each side of it.
 
-- **A break** -> a dark band with dashed edges on the plot, and `//` on the x-axis. The
+- **A break** -> a grey band with dashed edges on the plot, and `//` on the x-axis. The
   first label after a break shows the date.
 - **Hover over a band** -> see how much time the break hides, and when that time starts
   and ends.
@@ -123,6 +123,9 @@ on each side of it.
   **Close all breaks** to hide it again.
 - **Reset the zoom** -> click <Icon.Expand /> or **Ctrl+click** the plot. Every open
   break closes again.
+- **Hide the breaks** -> click <Icon.SplitX /> in the plot controls to show all the time
+  between ranges at its true length. Click it again to show the breaks. The zoom resets
+  each time.
 
 When you open or close a break, the times at the edges of the view stay in view. The
 plot does not save which breaks are open.
@@ -134,7 +137,8 @@ Across a break:
 - A selection stops at the first break on each side of where it starts. To select across
   a break, click its band first.
 - The download of the whole plot holds only the time the plot shows with all breaks
-  closed.
+  closed. While the breaks are hidden, it holds all the time from the first range to the
+  last.
 
 <Divider.Divider x />
 

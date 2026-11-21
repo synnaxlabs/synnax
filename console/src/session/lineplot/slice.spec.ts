@@ -257,6 +257,26 @@ describe("LinePlot Slice", () => {
     });
   });
 
+  describe("setBreaksHidden", () => {
+    it("should default to shown on a newly created plot", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      expect(docOf()?.breaks.hidden).toBe(false);
+    });
+
+    it("should hide and re-show breaks", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      act(
+        () => void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: true })),
+      );
+      expect(docOf()?.breaks.hidden).toBe(true);
+      act(
+        () =>
+          void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: false })),
+      );
+      expect(docOf()?.breaks.hidden).toBe(false);
+    });
+  });
+
   describe("setRangeAnnotationsVisible", () => {
     it("should default to visible on a newly created plot", () => {
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
