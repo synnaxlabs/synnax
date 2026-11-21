@@ -12,14 +12,12 @@ import "@synnaxlabs/lyra/dist/base.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { setupBrowser } from "@synnaxlabs/lyra/styletest";
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
 failOnConsoleOutput();
 setupBrowser();
-preloadTimeLanguage();
 // The Console sets its theme on the document root, where drawings such as the Nebula
 // backdrop read their colors.
 CSS.applyVars(
@@ -41,3 +39,7 @@ configure({
     return error;
   },
 });
+
+// The Lyra testutil imports Testing Library, so it also loads after setupBrowser.
+const { preloadTimeLanguage } = await import("@synnaxlabs/lyra/testutil");
+preloadTimeLanguage();
