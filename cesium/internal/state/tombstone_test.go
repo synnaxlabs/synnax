@@ -137,30 +137,87 @@ var _ = Describe("Tombstone", func() {
 		}, "cuts its right end"),
 	)
 
-	It("Should check a tombstone against the rule and the claims before it is logged",
+	It("Should claim a delete range and give the durable pointers at its ends",
 		func() {
 			run(s)
-			Expect(s.CheckTombstone(&log.Tombstone{
+			d := MustSucceed(s.BeginDelete(6, 15, 25))
+			Expect(d.Empty).To(BeFalse())
+			Expect(d.Left).ToNot(BeNil())
+			Expect(d.Left.Segment.ID).To(Equal(uint64(3)))
+			Expect(d.Left.Pointer).To(Equal(pointer(1, 0, 10, 30, 0, 12, 3)))
+			Expect(d.Right).To(Equal(d.Left))
+			Expect(d.Check(&log.Tombstone{
 				Key: 6, Start: 15, End: 25,
 				Left: cutOf(1, 10), Right: cutOf(2, 30),
 			})).To(Succeed())
-			Expect(s.CheckTombstone(&log.Tombstone{Key: 6, Start: 15, End: 100})).
+			Expect(d.Check(&log.Tombstone{Key: 6, Start: 15, End: 100})).
 				To(MatchError(state.ErrRefused))
+			Expect(d.Release()).To(Succeed())
+			d = MustSucceed(s.BeginDelete(6, 0, 100))
+			Expect(d.Left).To(BeNil())
+			Expect(d.Right).To(BeNil())
+			Expect(d.Release()).To(Succeed())
+			Expect(MustSucceed(s.BeginDelete(6, 100, 200)).Empty).To(BeTrue())
+		})
+
+	It("Should refuse a delete that reaches the claim of a writer or another delete",
+		func() {
+			run(s)
 			MustSucceed(s.OpenWriter(state.WriterConfig{
 				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
 				Clock: 5,
 				Start: 40,
 			}))
-			Expect(s.CheckTombstone(&log.Tombstone{Key: 6, Start: 35, End: 40})).
-				To(Succeed())
-			Expect(s.CheckTombstone(&log.Tombstone{Key: 6, Start: 35, End: 45})).
-				To(SatisfyAll(
-					MatchError(state.ErrConflict),
-					MatchError(
-						ContainSubstring("reaches the claim of a writer from 40"),
-					),
-				))
+			Expect(s.BeginDelete(6, 35, 45)).Error().To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(
+					ContainSubstring("reaches the claim of another writer from 40"),
+				),
+			))
+			d := MustSucceed(s.BeginDelete(6, 35, 40))
+			Expect(s.BeginDelete(6, 39, 40)).Error().To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
+			))
+			Expect(d.Release()).To(Succeed())
+			Expect(s.BeginDelete(6, 39, 40)).Error().ToNot(HaveOccurred())
 		})
+
+	It(
+		"Should refuse a commit and a writer start that reach a delete in flight, until "+
+			"its release",
+		func() {
+			a := &appended{}
+			s = MustSucceed(state.Open(config(a), sample()))
+			a.s, a.seq = s, sample().Sequence
+			run(s)
+			d := MustSucceed(s.BeginDelete(6, 100, 200))
+			w := MustSucceed(s.OpenWriter(state.WriterConfig{
+				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+				Clock: 5,
+				Start: 300,
+			}))
+			held, ok := MustSucceed2(w.Held(6))
+			Expect(ok).To(BeTrue(), "the writer takes over open segment 3")
+			n := MustSucceed(w.NewAlignment())
+			backfill := commit(1, n, 0, 150, 150, slot(held.ID, held.Length+4))
+			Expect(w.Commit(backfill)).To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
+			))
+			Expect(s.OpenWriter(state.WriterConfig{
+				Keys:    []state.WriterKey{{Key: 6, DataType: 4}},
+				Clock:   5,
+				Start:   150,
+				Bounded: true,
+			})).Error().To(SatisfyAll(
+				MatchError(state.ErrConflict),
+				MatchError(ContainSubstring("reaches the claim of a delete from 100")),
+			))
+			Expect(d.Release()).To(Succeed())
+			Expect(w.Commit(backfill)).To(Succeed())
+		},
+	)
 
 	It("Should apply a durable tombstone to what readers see", func() {
 		run(s)

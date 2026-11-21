@@ -10,6 +10,8 @@
 package state
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -175,37 +177,126 @@ func cut(ptrs []Pointer, t *log.Tombstone) []Pointer {
 	return out
 }
 
-type tombstoneRequest struct {
-	t    *log.Tombstone
-	done chan error
+// Edge is the durable pointer that holds an end of a deleted range, and its segment.
+type Edge struct {
+	// Segment is the segment of the pointer, as readers see it.
+	Segment Segment
+	// Pointer is the durable pointer.
+	Pointer Pointer
 }
 
-func (r *tombstoneRequest) fail(err error) { r.done <- err }
+// Delete is a delete of a time range of one key that the state holds a claim for. Its
+// calls block until the owner runs them. A Delete is not safe for concurrent use.
+type Delete struct {
+	s    *State
+	c    *claim
+	key  uint32
+	done chan error
+	// Left and Right are the durable pointers that hold the start and the end of the
+	// range, or nil when no pointer holds that end.
+	Left, Right *Edge
+	// Empty is true when no durable pointer of the key lies in the range.
+	Empty bool
+}
 
-func (r *tombstoneRequest) run(s *State) {
-	if err := s.core.checkTombstone(r.t); err != nil {
-		r.done <- err
+type beginDeleteRequest struct {
+	d          *Delete
+	start, end telem.TimeStamp
+}
+
+func (r *beginDeleteRequest) fail(err error) { r.d.done <- err }
+
+func (r *beginDeleteRequest) run(s *State) {
+	ch := s.core.channels[r.d.key]
+	if ch == nil {
+		r.d.Empty = true
+		r.d.done <- nil
 		return
 	}
-	start, end := telem.TimeStamp(r.t.Start), telem.TimeStamp(r.t.End)
-	for _, cl := range s.core.channels[r.t.Key].claims {
-		if cl.reaches(start, end-1) {
-			r.done <- errors.Wrapf(ErrConflict, "tombstone of key %d from %d to %d "+
-				"reaches the claim of a writer from %d", r.t.Key, start, end, cl.start)
+	last := r.end - 1
+	for _, cl := range ch.claims {
+		if cl.reaches(r.start, last) {
+			r.d.done <- errors.Wrapf(ErrConflict, "delete of key %d from %d to %d "+
+				"reaches the claim of %s from %d", r.d.key, r.start, r.end, cl.owner(),
+				cl.start)
 			return
 		}
 	}
-	r.done <- nil
+	r.d.Empty = true
+	for _, seg := range ch.segs {
+		for _, p := range seg.dur.pointers {
+			if p.First > last || p.Last < r.start {
+				continue
+			}
+			r.d.Empty = false
+			if p.First < r.start {
+				r.d.Left = &Edge{Segment: seg.vis, Pointer: p}
+			}
+			if p.Last >= r.end {
+				r.d.Right = &Edge{Segment: seg.vis, Pointer: p}
+			}
+		}
+	}
+	r.d.c = &claim{start: r.start, end: last, bounded: true}
+	ch.claims = append(ch.claims, r.d.c)
+	r.d.done <- nil
 }
 
-// CheckTombstone checks t with the rule that a durable Tombstone must pass, and against
-// the claims of open writers, so the caller logs only a Tombstone that the state
-// applies. It returns an error that wraps ErrRefused for a rule that t breaks, and
-// ErrConflict when a writer's claim or pin reaches its range.
-func (s *State) CheckTombstone(t *log.Tombstone) error {
-	r := &tombstoneRequest{t: t, done: make(chan error, 1)}
-	if err := s.enqueue(r); err != nil {
+// BeginDelete claims the time range from start to end of key for a delete, and returns
+// the durable pointers at its ends, from which the caller builds the cuts of a
+// Tombstone. Until Release, a commit or a writer start that reaches the range gets an
+// error that wraps ErrConflict, so the durable view of the range does not change. It
+// returns an error that wraps ErrConflict when the claim of a writer or another delete
+// reaches the range.
+func (s *State) BeginDelete(key uint32, start, end telem.TimeStamp) (*Delete, error) {
+	d := &Delete{s: s, key: key, done: make(chan error, 1)}
+	if err := s.enqueue(&beginDeleteRequest{d: d, start: start, end: end}); err != nil {
+		return nil, err
+	}
+	if err := wait(s, d.done); err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+type checkDeleteRequest struct {
+	d *Delete
+	t *log.Tombstone
+}
+
+func (r *checkDeleteRequest) fail(err error) { r.d.done <- err }
+
+func (r *checkDeleteRequest) run(s *State) { r.d.done <- s.core.checkTombstone(r.t) }
+
+// Check checks t with the rule that a durable Tombstone must pass, so the caller logs
+// only a Tombstone that the state applies. It returns an error that wraps ErrRefused
+// for a rule that t breaks.
+func (d *Delete) Check(t *log.Tombstone) error {
+	if err := d.s.enqueue(&checkDeleteRequest{d: d, t: t}); err != nil {
 		return err
 	}
-	return wait(s, r.done)
+	return wait(d.s, d.done)
+}
+
+type releaseDeleteRequest struct{ d *Delete }
+
+func (r *releaseDeleteRequest) fail(err error) { r.d.done <- err }
+
+func (r *releaseDeleteRequest) run(s *State) {
+	if ch := s.core.channels[r.d.key]; ch != nil && r.d.c != nil {
+		ch.claims = slices.DeleteFunc(
+			ch.claims,
+			func(c *claim) bool { return c == r.d.c },
+		)
+	}
+	r.d.done <- nil
+}
+
+// Release drops the claim of d. The caller releases it after the ack of the Tombstone,
+// which comes after the state applies it.
+func (d *Delete) Release() error {
+	if err := d.s.enqueue(&releaseDeleteRequest{d: d}); err != nil {
+		return err
+	}
+	return wait(d.s, d.done)
 }

@@ -70,6 +70,14 @@ func (c *claim) reaches(first, last telem.TimeStamp) bool {
 	return first <= c.end && last >= c.start
 }
 
+// owner names what holds c in an error: a writer, or a delete, which has none.
+func (c *claim) owner() string {
+	if c.w == nil {
+		return "a delete"
+	}
+	return "another writer"
+}
+
 // Writer is the state of one Cesium writer: its claims and the open segment that it
 // holds for each key. Its calls block until the owner runs them. A Writer is not safe
 // for concurrent use.
@@ -142,14 +150,14 @@ func (s *State) openWriter(w *Writer) error {
 			refused := false
 			switch {
 			case o.pinned:
-			case w.cfg.Bounded:
+			case w.cfg.Bounded, o.w == nil:
 				refused = o.reaches(start, start)
 			default:
 				refused = !o.bounded
 			}
 			if refused {
 				return errors.Wrapf(ErrConflict, "writer of key %d starting at %d "+
-					"reaches the claim of another writer from %d", key, start, o.start)
+					"reaches the claim of %s from %d", key, start, o.owner(), o.start)
 			}
 		}
 	}
@@ -459,11 +467,11 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 			if o.w != w && !o.pinned && o.reaches(first, last) {
 				return errors.Wrapf(
 					ErrConflict,
-					"commit of key %d from %d to %d reaches "+
-						"the claim of another writer from %d",
+					"commit of key %d from %d to %d reaches the claim of %s from %d",
 					seg.key,
 					first,
 					last,
+					o.owner(),
 					o.start,
 				)
 			}
