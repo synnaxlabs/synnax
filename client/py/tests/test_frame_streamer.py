@@ -18,9 +18,10 @@ import pytest
 from pydantic import BaseModel
 
 import synnax as sy
-from freighter import Middleware, Stream, Unreachable
+from freighter import AsyncMiddleware, AsyncStream, Middleware, Stream, Unreachable
 from synnax.channel.retrieve import Retriever
 from synnax.framer.adapter import ReadFrameAdapter
+from synnax.framer.streamer import AsyncStreamer
 from tests.channel import assert_eventually_channels_are_found
 from tests.proxy import Proxy
 from x.codec import Codec
@@ -634,12 +635,18 @@ class TestAsyncStreamerClose:
 class _FakeStream[S: BaseModel]:
     """Replays responses as the Core sends them."""
 
-    def __init__(self, res_t: type[S], responses: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        res_t: type[S],
+        responses: list[dict[str, Any]],
+        sent: list[BaseModel],
+    ) -> None:
         self._res_t = res_t
         self._responses = responses
+        self._sent = sent
 
     def send(self, request: BaseModel) -> None:
-        pass
+        self._sent.append(request)
 
     def receive(self, *, timeout: float | None = None) -> S:
         if len(self._responses) == 0:
@@ -653,9 +660,46 @@ class _FakeStream[S: BaseModel]:
         pass
 
 
+class _FakeAsyncStream[S: BaseModel]:
+    """Replays responses as the Core sends them."""
+
+    def __init__(self, res_t: type[S], responses: list[dict[str, Any]]) -> None:
+        self._res_t = res_t
+        self._responses = responses
+
+    async def send(self, request: BaseModel) -> None:
+        pass
+
+    async def receive(self) -> S:
+        return self._res_t.model_validate(self._responses.pop(0))
+
+    def received(self) -> bool:
+        return False
+
+    async def close_send(self) -> None:
+        pass
+
+
+class _FakeAsyncStreamClient:
+    def __init__(self, responses: list[dict[str, Any]]) -> None:
+        self._responses = responses
+
+    def use(self, *middleware: AsyncMiddleware) -> None:
+        pass
+
+    def with_codec(self, codec: Codec) -> "_FakeAsyncStreamClient":
+        return self
+
+    async def stream[Q: BaseModel, R: BaseModel](
+        self, target: str, req_t: type[Q], res_t: type[R]
+    ) -> AsyncStream[Q, R]:
+        return _FakeAsyncStream(res_t, self._responses)
+
+
 class _FakeStreamClient:
     def __init__(self, responses: list[dict[str, Any]]) -> None:
         self._responses = responses
+        self.sent: list[BaseModel] = []
 
     def use(self, *middleware: Middleware) -> None:
         pass
@@ -666,7 +710,7 @@ class _FakeStreamClient:
     def stream[Q: BaseModel, R: BaseModel](
         self, target: str, req_t: type[Q], res_t: type[R]
     ) -> Stream[Q, R]:
-        return _FakeStream(res_t, self._responses)
+        return _FakeStream(res_t, self._responses, self.sent)
 
 
 class _FakeUnaryClient:
@@ -691,13 +735,50 @@ class TestStreamerMissed:
             nonlocal missed
             missed += 1
 
+        client = _FakeStreamClient([empty, {**empty, "missed": True}, empty])
         s = sy.Streamer(
-            client=_FakeStreamClient([empty, {**empty, "missed": True}, empty]),
+            client=client,
             adapter=ReadFrameAdapter(Retriever(client=_FakeUnaryClient())),
             on_missed=on_missed,
         )
+        assert client.sent[0].model_dump()["missed_requested"] is True
         with caplog.at_level(logging.WARNING):
             assert s.read(timeout=1) is not None
         assert missed == 1
         assert "fell behind" in caplog.text
         assert s.read(timeout=0) is None
+
+    def test_missed_marker_without_callback(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should only warn for a missed marker when no callback is set."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        s = sy.Streamer(
+            client=_FakeStreamClient([empty, {**empty, "missed": True}, empty]),
+            adapter=ReadFrameAdapter(Retriever(client=_FakeUnaryClient())),
+        )
+        with caplog.at_level(logging.WARNING):
+            assert s.read(timeout=1) is not None
+        assert "fell behind" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_missed_marker(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Should warn and call on_missed for a missed marker on an async streamer."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        missed = 0
+
+        def on_missed() -> None:
+            nonlocal missed
+            missed += 1
+
+        s = AsyncStreamer(
+            client=_FakeAsyncStreamClient([empty, {**empty, "missed": True}, empty]),
+            adapter=ReadFrameAdapter(Retriever(client=_FakeUnaryClient())),
+            downsample_factor=1,
+            on_missed=on_missed,
+        )
+        await s._open()
+        with caplog.at_level(logging.WARNING):
+            await s.read()
+        assert missed == 1
+        assert "fell behind" in caplog.text
