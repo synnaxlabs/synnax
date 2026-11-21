@@ -96,7 +96,8 @@ instead.
 2. [Install Synnax Desktop](/reference/get-started/install-desktop) and open it.
 3. Select **New project**, give it a name, and select **Create**.
 
-Desktop runs the Driver, the Core, and the Console together on your computer:
+Desktop runs the Synnax Driver, Synnax Core, and Synnax Console together on your
+computer:
 
 <Diagram.Block
   title="Inside Synnax Desktop: the Driver reads the LabJack, the Core stores every sample, and the Console plots it live."
@@ -145,7 +146,7 @@ The Driver finds LabJack devices on its own by scanning through LJM: over USB ev
 seconds, and over Ethernet and Wi-Fi every 50 seconds. A networked device can take up to
 a minute to appear.
 
-1. Open the **Devices** <Icon.Device /> toolbar from the bar on the left.
+1. Open the devices <Icon.Device /> toolbar from the bar on the left.
 2. Select **Connect device** <Icon.Add />, then select **LabJack hardware**. The list
    shows every LabJack that the scans found, each named after its model and the last
    four digits of its serial number, like `LJM_dtT7-7383`.
@@ -158,7 +159,7 @@ a minute to appear.
 <Video
   id="blog/labjack-software/connect"
   themed={false}
-  label="Connect a LabJack T7 from the Devices toolbar and create a read task"
+  label="Connect a LabJack T7 from the devices toolbar and create a read task"
 />
 
 Don't see your device, or can't connect to it? Over USB, only one program can open a
@@ -183,8 +184,8 @@ The new read task has one analog input channel, on `AIN0`. To read it as a therm
   label="Set the channel to a type K thermocouple in Celsius and start the task"
 />
 
-On a T4, skip the first step and leave the channel as **Analog input**. It reads volts
-instead of degrees.
+On a T4, skip the first two steps and leave the channel as **Analog input**. It reads
+volts instead of degrees.
 
 <Divider.Divider x />
 
