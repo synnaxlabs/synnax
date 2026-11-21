@@ -212,14 +212,10 @@ export class LinePlot
 
   getXBounds(positions: bounds.Bounds): AxesBounds {
     return Object.fromEntries(
-      this.axes.map((a) => {
-        const layout = a.layout(this.state);
-        const values = {
-          lower: layout.reverseHome(positions.lower),
-          upper: layout.reverseHome(positions.upper),
-        };
-        return [a.state.axisKey ?? a.key, values];
-      }),
+      this.axes.map((a) => [
+        a.state.axisKey ?? a.key,
+        a.layout(this.state).reverseHomeSpan(positions),
+      ]),
     );
   }
 
