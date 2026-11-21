@@ -531,7 +531,17 @@ describe("viewport/use", () => {
       expect(readViewport(h)).toEqual(VIEW);
     });
 
-    it("should clear the mask", () => {
+    it("should mask a selection at its place in the synced view", () => {
+      const h = setup();
+      const selection = box.construct(0.3, 0, 0.1, 1, location.TOP_LEFT);
+      act(() => h.ref.current?.sync(VIEW, selection));
+      const m = h.result.current.maskBox;
+      expect(box.left(m)).toBeCloseTo(25);
+      expect(box.width(m)).toBeCloseTo(25);
+      expect(box.height(m)).toBeCloseTo(100);
+    });
+
+    it("should clear the mask for a sync with no selection", () => {
       const h = setup();
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
       act(() => h.ref.current?.sync(VIEW));

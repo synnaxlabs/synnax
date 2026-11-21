@@ -44,10 +44,10 @@ export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 export interface UseRefValue {
   reset: () => void;
   /**
-   * Moves the view to b without emitting a change, for a view set elsewhere. Clears the
-   * mask, as a pan does.
+   * Moves the view to view without emitting a change, for a view set elsewhere, and
+   * masks selection, a box in the same space as view. A zero selection clears the mask.
    */
-  sync: (b: box.Box) => void;
+  sync: (view: box.Box, selection?: box.Box) => void;
 }
 
 export interface UseProps {
@@ -340,9 +340,13 @@ export const use = ({
           cursor: xy.ZERO,
         });
       },
-      sync: (b) => {
-        setMaskBox(box.ZERO);
-        setStateRef(b);
+      sync: (view, selection = box.ZERO) => {
+        setStateRef(view);
+        const canvas = canvasRef.current;
+        if (canvas == null || box.areaIsZero(selection)) return setMaskBox(box.ZERO);
+        const canvasBox = box.construct(canvas);
+        const pixels = constructScale(view, canvasBox).reverse().box(selection);
+        setMaskBox(toMask(pixels, canvasBox));
       },
     }),
     [onChange],
@@ -431,15 +435,16 @@ interface EndedDrag {
   canvas: box.Box;
 }
 
-const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
-  scale.XY.scale(canvas).clamp(canvas).scale(prev);
-
-// toMask returns a selection in client pixels as a box relative to the canvas.
+// toMask returns the mask of a selection in pixels, clipped to the canvas, from the top
+// left of the canvas.
 const toMask = (selection: box.Box, canvas: box.Box): box.Box =>
   scale.XY.scale(canvas)
     .clamp(canvas)
     .translate({ x: -box.left(canvas), y: -box.top(canvas) })
     .box(selection);
+
+const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
+  scale.XY.scale(canvas).clamp(canvas).scale(prev);
 
 // clampX limits the x of b, in pixels, to bound, in the space toPixels maps from.
 const clampX = (b: box.Box, toPixels: scale.XY, bound: bounds.Bounds): box.Box => {
