@@ -39,7 +39,9 @@ const compareWhole = (a: object, b: object): boolean | undefined => {
   if (isEquatable(a)) return a.equals(b);
   if (isEquatable(b)) return b.equals(a);
   if (a instanceof Date || b instanceof Date)
-    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+    return (
+      a instanceof Date && b instanceof Date && Object.is(a.getTime(), b.getTime())
+    );
   if (a instanceof Map || b instanceof Map)
     return a instanceof Map && b instanceof Map && mapsEqual(a, b);
   if (a instanceof Set || b instanceof Set)
