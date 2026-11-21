@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -33,13 +33,20 @@ import {
 // A separate client reads what the Core saved, not the rendering client's cache.
 const reader = createTestClient();
 
-const renderData = async (ranges?: lineplot.New["ranges"]) => {
+const renderData = async (ranges?: lineplot.New["ranges"], now?: TimeStamp) => {
   const handle = await renderLinePlot(Toolbar, {
     linePlot: ranges === undefined ? {} : { ranges },
+    now,
   });
   await screen.findByText("Ranges");
   return handle;
 };
+
+// The day words depend on today, so the specs that read them fix the Console's now.
+const NOW = new TimeStamp(new Date(2026, 10, 3, 15, 0));
+
+const renderAtNow = async (ranges: lineplot.New["ranges"]) =>
+  await renderData(ranges, NOW);
 
 const rolling = (span: TimeSpan): ranger.Ref => ({
   variant: "window",
@@ -378,20 +385,13 @@ describe("lineplot/toolbar/Data", () => {
   });
 
   describe("typed time range", () => {
-    // The day words depend on today, so the clock is fixed.
-    beforeEach(() => {
-      vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
-      vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
-    });
-    afterEach(() => vi.useRealTimers());
-
     const YESTERDAY_ONE_TO_TWO = "Yesterday from 1pm to 2pm";
 
     const fixedOption = (): Promise<HTMLElement> =>
       screen.findByRole("option", { name: /Fixed window/ });
 
     it("lists a fixed option labeled with the times it reads", async () => {
-      await renderData([]);
+      await renderAtNow([]);
       search(YESTERDAY_ONE_TO_TWO);
       const option = await fixedOption();
       expect(within(option).getByText("Yesterday 13:00 → 14:00")).toBeDefined();
@@ -399,7 +399,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("adds the fixed window beside the live one on Enter", async () => {
-      const { key } = await renderData([rolling(FIVE_MIN)]);
+      const { key } = await renderAtNow([rolling(FIVE_MIN)]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
       await fixedOption();
@@ -416,7 +416,7 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("adds the fixed window picked from the list", async () => {
-      const { key } = await renderData([]);
+      const { key } = await renderAtNow([]);
       search(YESTERDAY_ONE_TO_TWO);
       fireEvent.click(await fixedOption());
       const start = new TimeStamp(new Date(2026, 10, 2, 13, 0));
@@ -436,7 +436,7 @@ describe("lineplot/toolbar/Data", () => {
       // The unsearched list shows this newer range above the hovered one, and the
       // search leaves it out, so the options are these two only once the search lands.
       await createTestRange(client);
-      const { key } = await renderData([]);
+      const { key } = await renderAtNow([]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
       const rangeOption = await waitFor(() => {
@@ -456,14 +456,14 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("keeps last week a fixed calendar week", async () => {
-      await renderData([]);
+      await renderAtNow([]);
       search("last week");
       await fixedOption();
       expect(screen.queryByRole("option", { name: /Live window/ })).toBeNull();
     });
 
     it("lists no fixed option when other words name a range", async () => {
-      await renderData([]);
+      await renderAtNow([]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: YESTERDAY_ONE_TO_TWO } });
       await fixedOption();
@@ -491,24 +491,15 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     describe("label", () => {
-      // The day names depend on today, so the clock is fixed.
-      beforeEach(() => {
-        vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
-        vi.setSystemTime(new Date(2026, 10, 3, 15, 0));
-      });
-      afterEach(() => vi.useRealTimers());
-
       it("labels its tag with the times, read-only", async () => {
-        await renderData([fixed(14, 16)]);
+        await renderAtNow([fixed(14, 16)]);
         expect(await screen.findByText("Aug 23 14:00 → 16:00")).toBeDefined();
         expect(screen.queryByLabelText("Start")).toBeNull();
       });
 
       it("shows seconds and no day for a short window today", async () => {
-        const noon = new Date();
-        noon.setHours(12, 0, 5, 0);
-        const start = new TimeStamp(noon);
-        await renderData([
+        const start = new TimeStamp(new Date(2026, 10, 3, 12, 0, 5));
+        await renderAtNow([
           {
             variant: "window",
             window: staticWindow(new TimeRange(start, start.add(TimeSpan.seconds(30)))),
@@ -518,7 +509,7 @@ describe("lineplot/toolbar/Data", () => {
       });
 
       it("shows the end's day when the window crosses midnight", async () => {
-        await renderData([
+        await renderAtNow([
           {
             variant: "window",
             window: staticWindow(
