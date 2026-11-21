@@ -597,7 +597,7 @@ describe("Channel", () => {
           ch.key,
           channel.set({ path: ["expression"], value: "" }),
         ),
-      ).rejects.toThrow("its expression cannot be empty");
+      ).rejects.toThrow("expression: required");
       expect(client.channels.store.get(ch.key)).toBe(before);
     });
   });
