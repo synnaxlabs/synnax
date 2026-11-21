@@ -10,16 +10,23 @@
 package calculation
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/telem"
 	xuuid "github.com/synnaxlabs/x/uuid"
 )
@@ -34,9 +41,10 @@ func migratedKey(key channel.Key) Key {
 	return xuuid.NewV5(migrationNamespace, key.String())
 }
 
-// Migration returns the migration that builds the calculation record of each stored
-// channel with an expression, keyed by a UUIDv5 of the channel key, and deletes the
-// status of each one. A reset channel that issuedAtOpen says the Core never issued
+// Migration returns the migration that builds the calculation record of each channel
+// that the channel migrations staged, keyed by a UUIDv5 of the channel key, and deletes
+// the staged entry and the status of each one. A reset channel that issuedAtOpen says
+// the Core never issued
 // becomes absent. An operation of no type is dropped, with a warning status that names
 // the channel. Migration reads the channel and status tables, so it runs after both
 // open.
@@ -47,29 +55,44 @@ func (s *Service) Migration(
 	return migrate.New(
 		"v63_create_calculations",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			staged, err := scanStaged(tx)
+			if err != nil {
+				return err
+			}
+			keys := make(channel.Keys, len(staged))
+			for i, st := range staged {
+				keys[i] = st.output
+			}
 			var channels []channel.Channel
-			if err := s.channels.NewRetrieve().
-				Where(channel.MatchCalculated()).
+			if err = s.channels.NewRetrieve().
+				Where(channel.MatchKeys(keys...)).
 				Entries(&channels).
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			owners := make([]resource.ID, len(channels))
+			names := make(map[channel.Key]string, len(channels))
+			for _, ch := range channels {
+				names[ch.Key()] = ch.Name
+			}
+			owners := make([]resource.ID, len(staged))
 			var warnings []Status
-			for i, ch := range channels {
-				owners[i] = channel.ResourceID(ch.Key())
-				ops, dropped := storedOperations(ch.Operations, issuedAtOpen)
+			for i, st := range staged {
+				owners[i] = channel.ResourceID(st.output)
+				ops, dropped := storedOperations(st.Operations, issuedAtOpen)
 				c := Calculation{
-					Key:        migratedKey(ch.Key()),
-					Output:     ch.Key(),
-					Expression: ch.Expression,
+					Key:        migratedKey(st.output),
+					Output:     st.output,
+					Expression: st.Expression,
 					Operations: FromChannelOperations(ops),
 				}
-				if err := s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
+				if err = s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
+					return err
+				}
+				if err = tx.Delete(ctx, st.key); err != nil {
 					return err
 				}
 				if dropped {
-					warnings = append(warnings, droppedStatus(ch.Name))
+					warnings = append(warnings, droppedStatus(names[st.output]))
 				}
 			}
 			w := statuses.NewWriter(tx)
@@ -114,4 +137,36 @@ func droppedStatus(name string) Status {
 		),
 		Time: telem.Now(),
 	}
+}
+
+// staged is a calculation that the channel migrations staged under key for the channel
+// output.
+type staged struct {
+	channelv2.StagedCalculation
+	key    []byte
+	output channel.Key
+}
+
+// scanStaged returns every staged calculation. It reads them all before the migration
+// writes, since writes while iterating the staging prefix are unsafe.
+func scanStaged(tx gorp.Tx) (out []staged, err error) {
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(channelv2.CalculationKVPrefix)))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	for iter.First(); iter.Valid(); iter.Next() {
+		st := staged{key: bytes.Clone(iter.Key())}
+		suffix := strings.TrimPrefix(string(st.key), channelv2.CalculationKVPrefix)
+		output, err := strconv.ParseUint(suffix, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		st.output = channel.Key(output)
+		if err = json.Unmarshal(iter.Value(), &st.StagedCalculation); err != nil {
+			return nil, err
+		}
+		out = append(out, st)
+	}
+	return out, iter.Error()
 }
