@@ -263,7 +263,9 @@ the lower edges of its open gaps, and `breaks.hidden`. They default to none and 
 false. The viewport and the selection hold positions in the layout with those breaks
 open. The Console parses stored Session state through its schema on load
 (`console/src/session/store.ts:62`), so a Session saved before this change loads with
-every break closed and shown.
+every break closed and shown. Its viewport held positions with no breaks, so a zoomed
+plot of ranges far apart opens once at other times. A zoom reset corrects it. A
+migration cannot tell which plots this changes, so it would reset every zoomed plot.
 
 ## 5 Implementation phases
 
