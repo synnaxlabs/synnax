@@ -271,9 +271,14 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
         if (this->missed) {
             this->missed = false;
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
-                            "behind. Configuring the tasks again.";
+                            "behind. Reading the tasks, control state, and rack name "
+                            "again.";
             // A failed sync ends the run, and the next run syncs again.
             if (sync_err = this->sync_tasks(true); sync_err) break;
+            // Read after the drop, so transfers that the stream delivers next apply on
+            // top, as at the start of a run.
+            this->retrieve_initial_control_states();
+            this->retrieve_rack_name();
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};

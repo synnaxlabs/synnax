@@ -4643,4 +4643,67 @@ TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
     ASSERT_EVENTUALLY_EQ((*running)->exec_count.load(), 1);
     EXPECT_EQ(built(*f).size(), 2);
 }
+
+/// @brief it should read the control state and the rack name again after a missed
+/// marker, so a transfer and a rename that the stream dropped still apply.
+TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_ctrl_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_ctrl_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    const auto stream = std::make_shared<ScriptedStream>();
+    const auto managed = std::make_shared<synnax::Synnax>(new_test_client());
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    thread = std::thread([&] {
+        ASSERT_NIL(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    ASSERT_NE(f->captured_ctx, nullptr);
+    const auto states = f->captured_ctx->control_states();
+    // The scripted stream never delivers this transfer or this rename.
+    const x::control::Subject writer_sub{"missed_writer", "mw-1"};
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+    ASSERT_NIL(client->racks.dispatch(
+        rack.key,
+        {synnax::rack::set({.path = {"name"}, .value = "missed_rack"})}
+    ));
+    // The mirror still treats the channel as uncontrolled.
+    ASSERT_TRUE(states->is_authorized(data_ch.key, {"other", "other-3"}));
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    stream->push(missed);
+    ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "missed_rack");
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+    ASSERT_FALSE(states->is_authorized(data_ch.key, {"other", "other-3"}));
+    ASSERT_NIL(writer.close());
+}
 }
