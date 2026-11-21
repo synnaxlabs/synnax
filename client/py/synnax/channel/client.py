@@ -78,6 +78,7 @@ class Channel(Payload):
         status: Status | None = None,
         group: group_.Key | None = None,
         uses: list[Use] | None = None,
+        path: str | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -106,6 +107,8 @@ class Channel(Payload):
         :param group: The group the channel sits in, if any.
         :param uses: The records that read or write the channel, set only when a
             retrieve asks for them.
+        :param path: The names of the channel's folders from the top, then its name,
+            joined by '.', set only when a retrieve asks for it.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -130,6 +133,7 @@ class Channel(Payload):
             status=status,
             group=group,
             uses=uses,
+            path=path,
         )
         self._cached_frame_client = _frame_client
         self._client = _client

@@ -10,6 +10,7 @@
 package group_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,7 +48,9 @@ var _ = Describe("Paths", Ordered, func() {
 		}
 		return g
 	}
-	names := func(p group.Path) []string {
+	var names func(p group.Path) []string
+	text := func(p group.Path) string { return strings.Join(names(p), ".") }
+	names = func(p group.Path) []string {
 		out := make([]string, len(p))
 		for i, g := range p {
 			out[i] = g.Name
@@ -67,9 +70,9 @@ var _ = Describe("Paths", Ordered, func() {
 		Expect(names(paths[pressure.Key])).To(Equal([]string{
 			"stand", "sensors", "pressure",
 		}))
-		Expect(paths[pressure.Key].String()).To(Equal("stand.sensors.pressure"))
-		Expect(paths[other.Key].String()).To(Equal("stand.other"))
-		Expect(paths[stand.Key].String()).To(Equal("stand"))
+		Expect(text(paths[pressure.Key])).To(Equal("stand.sensors.pressure"))
+		Expect(text(paths[other.Key])).To(Equal("stand.other"))
+		Expect(text(paths[stand.Key])).To(Equal("stand"))
 	})
 
 	It("Should stop a path at a group whose parent is not a group", func(
@@ -91,7 +94,7 @@ var _ = Describe("Paths", Ordered, func() {
 		Expect(gorp.WrapWriter[group.Key, group.Group](db).Set(ctx, top, below)).
 			To(Succeed())
 		paths := MustSucceed(group.Paths(ctx, db, below.Key))
-		Expect(paths[below.Key].String()).To(Equal("views.plots"))
+		Expect(text(paths[below.Key])).To(Equal("views.plots"))
 	})
 
 	It("Should see the groups that a transaction staged", func(ctx SpecContext) {
@@ -102,7 +105,7 @@ var _ = Describe("Paths", Ordered, func() {
 		below := in("below", &top)
 		Expect(svc.NewWriter(tx).Create(ctx, &below)).To(Succeed())
 		paths := MustSucceed(group.Paths(ctx, tx, below.Key))
-		Expect(paths[below.Key].String()).To(Equal("staged.below"))
+		Expect(text(paths[below.Key])).To(Equal("staged.below"))
 	})
 
 	It("Should return no paths for no keys", func(ctx SpecContext) {

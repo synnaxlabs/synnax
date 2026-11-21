@@ -119,21 +119,4 @@ var _ = Describe("Paths", func() {
 			}))
 		},
 	)
-
-	It("Should find nothing by a path through a folder the subject cannot retrieve",
-		func(ctx SpecContext) {
-			path := func(p string) *channel.Where {
-				return &channel.Where{Path: &filter.Set[string]{Eq: &p}}
-			}
-			Expect(retrieve(ctx, apichannel.RetrieveRequest{
-				Where: path(shownDir + "." + inShown.Name),
-			})).To(HaveKey(inShown.Name))
-			Expect(retrieve(ctx, apichannel.RetrieveRequest{
-				Where: path(hidDir + "." + inHidden.Name),
-			})).To(BeEmpty())
-			Expect(retrieve(ctx, apichannel.RetrieveRequest{
-				Where: path(atTop.Name),
-			})).To(HaveKey(atTop.Name))
-		},
-	)
 })

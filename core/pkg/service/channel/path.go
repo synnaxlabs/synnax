@@ -125,38 +125,39 @@ func (r Retrieve) siblingAt(ctx context.Context, snap gorp.Snapshot, path string
 type Path struct {
 	Folders group.Path
 	Name    string
-	// prefix is the names of Folders, each followed by validate.PathSeparator.
-	prefix string
 }
 
-// String returns the names of the folders and of the channel joined by
-// validate.PathSeparator.
-func (p Path) String() string { return p.prefix + p.Name }
-
-// PathTexts returns the text of each of paths, as Path.String does. The texts share one
-// allocation.
+// PathTexts returns the text of each of paths: the names of its folders and of its
+// channel, joined by validate.PathSeparator. The texts share one allocation.
 func PathTexts(paths []Path) []string {
 	n := 0
 	for _, p := range paths {
-		n += len(p.prefix) + len(p.Name)
+		n += len(p.Name) + len(p.Folders)
+		for _, g := range p.Folders {
+			n += len(g.Name)
+		}
 	}
 	var b strings.Builder
 	b.Grow(n)
-	for _, p := range paths {
-		b.WriteString(p.prefix)
-		b.WriteString(p.Name)
-	}
-	all, at := b.String(), 0
-	texts := make([]string, len(paths))
+	ends := make([]int, len(paths))
 	for i, p := range paths {
-		end := at + len(p.prefix) + len(p.Name)
-		texts[i], at = all[at:end], end
+		for _, g := range p.Folders {
+			b.WriteString(g.Name)
+			b.WriteByte(validate.PathSeparator)
+		}
+		b.WriteString(p.Name)
+		ends[i] = b.Len()
+	}
+	all, start := b.String(), 0
+	texts := make([]string, len(paths))
+	for i, end := range ends {
+		texts[i], start = all[start:end], end
 	}
 	return texts
 }
 
 // Paths returns the path of each of channels, as seen by snap. Channels in one folder
-// share its folders and the text of their names.
+// share one group.Path.
 func Paths(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -172,15 +173,11 @@ func Paths(
 	if err != nil {
 		return nil, err
 	}
-	prefixes := make(map[group.Key]string, len(folders))
-	for k, p := range folders {
-		prefixes[k] = p.String() + string(validate.PathSeparator)
-	}
 	paths := make([]Path, len(channels))
 	for i, ch := range channels {
 		paths[i].Name = ch.Name
 		if ch.Group != nil {
-			paths[i].Folders, paths[i].prefix = folders[*ch.Group], prefixes[*ch.Group]
+			paths[i].Folders = folders[*ch.Group]
 		}
 	}
 	return paths, nil
