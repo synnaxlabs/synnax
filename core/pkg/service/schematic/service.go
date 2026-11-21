@@ -104,21 +104,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
-		DB:         cfg.DB,
-		Name:       tableName,
-		Indexes:    s.indexes.all(),
-		References: s.indexes.references(),
-		Migrations: versions.Migrations,
-		// An enumeration retarget rewrites the schematic outside any schematic write,
-		// so the service sends it as a create.
-		OnRewrite: func(_ context.Context, tx gorp.Tx, sc Schematic) error {
-			s.state.Dispatcher().
-				Attach(tx, sc.Key, NewCreateAction(CreatePayload{Schematic: sc}))
-			return nil
-		},
+		DB:              cfg.DB,
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
-		// A named color delete rewrites the schematic outside any schematic write, so
-		// the service sends the schematic as a create.
+		// An enumeration retarget or a named color delete rewrites the schematic
+		// outside any schematic write, so the service sends the schematic as a create.
 		OnRewrite: func(_ context.Context, tx gorp.Tx, sch Schematic) error {
 			s.state.Dispatcher().
 				Attach(tx, sch.Key, NewCreateAction(CreatePayload{Schematic: sch}))
