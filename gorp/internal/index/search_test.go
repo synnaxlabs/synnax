@@ -30,9 +30,9 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() {
 		s = index.NewSearch[*scope, int]()
 		insert, finish := s.Populate()
-		insert(1, []string{"pressure"})
-		insert(2, []string{"pressure feed"})
-		insert(3, []string{"valve"})
+		insert(1, index.Text{Primary: []string{"pressure"}})
+		insert(2, index.Text{Primary: []string{"pressure feed"}})
+		insert(3, index.Text{Primary: []string{"valve"}})
 		finish(nil)
 	})
 
@@ -46,7 +46,7 @@ var _ = Describe("Search", func() {
 		It("Should block reads until the load finishes", func() {
 			loading := index.NewSearch[*scope, int]()
 			insert, finish := loading.Populate()
-			insert(1, []string{"valve"})
+			insert(1, index.Text{Primary: []string{"valve"}})
 			read := make(chan []int)
 			go func() { read <- keys(loading, nil, "valve") }()
 			Consistently(read).ShouldNot(Receive())
@@ -66,7 +66,7 @@ var _ = Describe("Search", func() {
 		It("Should return the load error from every read", func(ctx SpecContext) {
 			failed := index.NewSearch[*scope, int]()
 			insert, finish := failed.Populate()
-			insert(1, []string{"valve"})
+			insert(1, index.Text{Primary: []string{"valve"}})
 			finish(errLoad)
 			Expect(failed.Wait(ctx)).To(MatchError(errLoad))
 			Expect(
@@ -78,7 +78,7 @@ var _ = Describe("Search", func() {
 
 	Describe("Committed writes", func() {
 		It("Should replace the text of a key", func() {
-			s.Set(3, []string{"pressure valve"})
+			s.Set(3, index.Text{Primary: []string{"pressure valve"}})
 			Expect(keys(s, nil, "valve")).To(Equal([]int{3}))
 			Expect(keys(s, nil, "pressure")).To(Equal([]int{1, 2, 3}))
 		})
@@ -103,7 +103,7 @@ var _ = Describe("Search", func() {
 		BeforeEach(func() { txn = &scope{} })
 
 		It("Should show staged changes only to their scope", func() {
-			s.Stage(txn, 4, []string{"pressure"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"pressure"}})
 			s.StageDelete(txn, 1)
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{4, 2}))
 			Expect(keys(s, &scope{}, "pressure")).To(Equal([]int{1, 2}))
@@ -111,27 +111,27 @@ var _ = Describe("Search", func() {
 		})
 
 		It("Should hide the committed text of a key the scope changed", func() {
-			s.Stage(txn, 1, []string{"valve"})
+			s.Stage(txn, 1, index.Text{Primary: []string{"valve"}})
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{2}))
 			Expect(keys(s, txn, "valve")).To(Equal([]int{3, 1}))
 		})
 
 		It("Should match any word when only changed keys matched every word", func() {
-			s.Stage(txn, 2, []string{"valve"})
+			s.Stage(txn, 2, index.Text{Primary: []string{"valve"}})
 			Expect(keys(s, nil, "pressure feed")).To(Equal([]int{2}))
 			Expect(keys(s, txn, "pressure feed")).To(Equal([]int{1}))
 		})
 
 		It("Should rank staged and committed keys together", func() {
-			s.Stage(txn, 4, []string{"pressure inlet feed"})
-			s.Stage(txn, 5, []string{"pressures"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"pressure inlet feed"}})
+			s.Stage(txn, 5, index.Text{Primary: []string{"pressures"}})
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{1, 2, 4, 5}))
 		})
 
 		DescribeTable("Should keep the closest staged and committed keys",
 			func(limit int, expected []int) {
-				s.Stage(txn, 4, []string{"pressure inlet feed"})
-				s.Stage(txn, 5, []string{"pressures"})
+				s.Stage(txn, 4, index.Text{Primary: []string{"pressure inlet feed"}})
+				s.Stage(txn, 5, index.Text{Primary: []string{"pressures"}})
 				Expect(
 					MustSucceed(
 						s.Get(txn, search.Query[int]{Term: "pressure", Limit: limit}),
@@ -147,10 +147,10 @@ var _ = Describe("Search", func() {
 		It("Should order equal staged matches by when they were first staged", func() {
 			expected := []int{3}
 			for key := 20; key > 10; key-- {
-				s.Stage(txn, key, []string{"valve"})
+				s.Stage(txn, key, index.Text{Primary: []string{"valve"}})
 				expected = append(expected, key)
 			}
-			s.Stage(txn, 15, []string{"valve"})
+			s.Stage(txn, 15, index.Text{Primary: []string{"valve"}})
 			for range 5 {
 				Expect(keys(s, txn, "valve")).To(Equal(expected))
 			}
@@ -159,29 +159,29 @@ var _ = Describe("Search", func() {
 		})
 
 		It("Should keep the last staged change of a key", func() {
-			s.Stage(txn, 4, []string{"valve"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"valve"}})
 			s.StageDelete(txn, 4)
 			Expect(keys(s, txn, "valve")).To(Equal([]int{3}))
-			s.Stage(txn, 4, []string{"valve"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"valve"}})
 			Expect(keys(s, txn, "valve")).To(Equal([]int{3, 4}))
 		})
 
 		It("Should stage a key with no text as matching nothing", func() {
-			s.Stage(txn, 1, nil)
+			s.Stage(txn, 1, index.Text{})
 			Expect(keys(s, txn, "pressure")).To(Equal([]int{2}))
 			txn.end(true)
 			Expect(keys(s, nil, "pressure")).To(Equal([]int{2}))
 		})
 
 		It("Should apply staged changes when the scope commits", func() {
-			s.Stage(txn, 4, []string{"valve"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"valve"}})
 			s.StageDelete(txn, 3)
 			txn.end(true)
 			Expect(keys(s, nil, "valve")).To(Equal([]int{4}))
 		})
 
 		It("Should drop staged changes when the scope does not commit", func() {
-			s.Stage(txn, 4, []string{"valve"})
+			s.Stage(txn, 4, index.Text{Primary: []string{"valve"}})
 			s.StageDelete(txn, 3)
 			txn.end(false)
 			Expect(keys(s, nil, "valve")).To(Equal([]int{3}))
@@ -189,7 +189,7 @@ var _ = Describe("Search", func() {
 		})
 
 		It("Should apply changes against the zero scope at once", func() {
-			s.Stage(nil, 4, []string{"valve"})
+			s.Stage(nil, 4, index.Text{Primary: []string{"valve"}})
 			s.StageDelete(nil, 3)
 			Expect(keys(s, nil, "valve")).To(Equal([]int{4}))
 		})
