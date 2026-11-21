@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -54,6 +55,66 @@ var _ = Describe("Check: a crash in a create that writes parts", func() {
 			Expect(failures).To(BeEmpty(), "%d images", len(im.list))
 		})
 	}
+})
+
+var _ = Describe("Check: switches after a create that writes parts", func() {
+	It("Should drop the dead parts of a create, and give a new part the next identity",
+		func() {
+			// Each part holds two sealed segment records of one pointer each.
+			const partSize = 2 * (32 + 36)
+			fs := xfs.NewMem()
+			for g := uint64(1); g <= 3; g++ {
+				Expect(log.Prepare(fs, g, logSize)).To(Succeed())
+			}
+			x := MustSucceed(checkpoint.Create(fs, db, withSealed(
+				sealed(1, 10), sealed(2, 20), sealed(3, 30), sealed(4, 40),
+			), partSize))
+			c := MustSucceed(checkpoint.New(checkpoint.Config{
+				FS:       fs,
+				DB:       db,
+				LogSize:  logSize,
+				Prepared: func(uint64, error) {},
+				Executor: goExec,
+				Parts:    x,
+				PartSize: partSize,
+				Live:     1,
+			}))
+			start(c)
+			heads := []struct {
+				s     *state.Snapshot
+				parts []uint64
+				ids   []uint64
+			}{
+				{
+					s:     withSealed(sealed(3, 30), sealed(4, 40), sealed(5, 50)),
+					parts: []uint64{2},
+					ids:   []uint64{3, 4, 5, 100},
+				},
+				{
+					s:     withSealed(sealed(5, 50), sealed(6, 60), sealed(7, 70)),
+					parts: []uint64{3},
+					ids:   []uint64{5, 6, 7, 100},
+				},
+			}
+			for i, want := range heads {
+				g := uint64(i + 2)
+				c.Head(g, want.s)
+				Eventually(func() error { return readErr(fs, g) }).Should(Succeed())
+				Expect(c.Err()).ToNot(HaveOccurred())
+				h, got := MustSucceed2(checkpoint.Read(fs, g))
+				var parts []uint64
+				for _, p := range h.Parts {
+					parts = append(parts, p.ID)
+				}
+				Expect(parts).To(Equal(want.parts), "head %d", g)
+				MustSucceed(checkpoint.LoadParts(fs, db, h)).Merge(got)
+				var ids []uint64
+				for _, seg := range got.Channels[0].Segments {
+					ids = append(ids, seg.ID)
+				}
+				Expect(ids).To(Equal(want.ids), "head %d", g)
+			}
+		})
 })
 
 // created returns the segments of head 1 of fs with the parts that it names. A head 1
