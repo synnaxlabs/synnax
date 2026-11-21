@@ -48,6 +48,7 @@ class _Request(BaseModel):
     throttle_rate: float | None = None
     exclude_groups: list[int] = []
     keep_alive: TimeSpan = TimeSpan(0)
+    missed_requested: bool = False
 
 
 class _Response(BaseModel):
@@ -170,6 +171,7 @@ class Streamer:
                 throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
                 keep_alive=keep_alive,
+                missed_requested=True,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
@@ -341,6 +343,7 @@ class AsyncStreamer:
                 throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
                 keep_alive=self._liveness.keep_alive,
+                missed_requested=True,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
