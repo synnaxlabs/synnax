@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type Action, rename, type Stored } from "@/channel/actions";
-import { type Key, operationZ, type Payload, payloadZ } from "@/channel/types.gen";
+import { type Key, type Payload, payloadZ } from "@/channel/types.gen";
 import { group } from "@/group";
 
 const keyOf = (leaseholder: number, localKey: number): Key =>
@@ -37,8 +37,6 @@ export const createOf = (action: Action): Payload | undefined =>
 // The fields that path actions edit, checked for shape only. The Core validates them.
 const documentZ = z.object({
   dataType: payloadZ.shape.dataType,
-  expression: z.string(),
-  operations: operationZ.array(),
   group: zod.nullToUndefined(group.keyZ),
 });
 
@@ -47,7 +45,7 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
 
 /**
  * Applies actions to a channel in order. Path actions edit only the channel's data
- * type, expression, operations, and group.
+ * type and group.
  * @throws {Error} if the channel cannot hold an action, such as a set of its key.
  */
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {
