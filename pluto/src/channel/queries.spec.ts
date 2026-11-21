@@ -898,7 +898,7 @@ describe("queries", () => {
       });
       const resetChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.UINT8,
+        dataType: DataType.BOOLEAN,
         virtual: true,
       });
       const existing = await client.channels.create({
