@@ -35,6 +35,7 @@ var _ = Describe("Metrics", func() {
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				DB:                 dist.DB,
 				HostKey:            dist.Identity.HostKey,
@@ -49,6 +50,14 @@ var _ = Describe("Metrics", func() {
 				HostKey: dist.Identity.HostKey,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
+		})
+		It("Should fail with a missing Status service", func(ctx SpecContext) {
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				HostKey: dist.Identity.HostKey,
+				Storage: dist.Storage,
+			})).Error().To(MatchError(ContainSubstring("status: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
@@ -90,6 +99,7 @@ var _ = Describe("Metrics", func() {
 				metrics.OpenService(context.Background(), metrics.ServiceConfig{
 					Channel:            channelSvc,
 					Group:              groupSvc,
+					Status:             statusSvc,
 					Framer:             framerSvc,
 					HostKey:            dist.Identity.HostKey,
 					DB:                 dist.DB,
@@ -178,6 +188,7 @@ var _ = Describe("Metrics", func() {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -201,6 +212,7 @@ var _ = Describe("Metrics", func() {
 			return MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -267,6 +279,7 @@ var _ = Describe("Metrics", func() {
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,
 				DB:                 dist.DB,
@@ -331,6 +344,7 @@ var _ = Describe("Metrics", func() {
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
+				Status:             statusSvc,
 				DB:                 dist.DB,
 				Framer:             framerSvc,
 				HostKey:            dist.Identity.HostKey,

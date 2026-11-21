@@ -29,6 +29,7 @@ var (
 	groupSvc   *group.Service
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
+	statusSvc  *status.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -47,7 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: dist.DB,
 	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: dist.DB,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
