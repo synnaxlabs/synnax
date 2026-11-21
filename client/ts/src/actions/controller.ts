@@ -374,6 +374,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.intercept({
       base: (key) => (this.writing ? undefined : this.rebases.get(key)?.base),
       apply: (key, doc) => this.overlay(key, doc),
+      keys: () => this.rebases.keys(),
     });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
     opts.onStreamDown(() => {

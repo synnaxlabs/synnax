@@ -398,6 +398,27 @@ describe("Lists", () => {
     });
   });
 
+  describe("local edits", () => {
+    it("should place a record by its local edit when the Core answers without the edit", async () => {
+      const { table, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+      // Shows key 1 as matching until the Core applies its edit, as the action
+      // controller does.
+      const bases = new Map<string, Rec>();
+      table.intercept({
+        base: (key) => bases.get(key),
+        apply: (key, value) => {
+          if (key !== "1") return value;
+          bases.set(key, value);
+          return { ...value, value: 1 };
+        },
+        keys: () => bases.keys(),
+      });
+      table.set("1", rec("1", "a", 0));
+      const window = await lists.list({ min: 1, order: byName, limit: 5 }).retrieve();
+      expect(names(window)).toEqual(["a", "b"]);
+    });
+  });
+
   describe("search", () => {
     const searching = async (records: Rec[], limit = 2) => {
       const s = setup(records);

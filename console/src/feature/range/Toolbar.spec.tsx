@@ -14,7 +14,11 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient, holdResponses } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  holdRequests,
+  holdResponses,
+} from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -583,6 +587,25 @@ describe("range/Toolbar", () => {
         expect(isRunning(await readRange(rng.name))).toBe(false),
       );
       await findLine("Recent", rng.name);
+    });
+
+    it("should keep a stopped range in Recent when the lists read before the Core applies the stop", async () => {
+      const rng = await createRunning(uniqueName("stop"));
+      await renderToolbar();
+      const line = await findLine("Running", rng.name);
+      const dispatch = holdRequests(client, "/range/dispatch");
+      fireEvent.click(await within(line).findByRole("button", { name: "Stop" }));
+      await waitForLine("Recent", rng.name);
+      const list = groupOf("Recent").closest<HTMLElement>('[role="list"]');
+      await waitFor(() => expect(list?.getAttribute("aria-busy")).toBe("false"), {
+        timeout: 10_000,
+      });
+      expect(queryLine("Recent", rng.name)).not.toBeNull();
+      dispatch.release();
+      await waitFor(async () =>
+        expect(isRunning(await readRange(rng.name))).toBe(false),
+      );
+      expect(queryLine("Recent", rng.name)).not.toBeNull();
     });
 
     it("should remove a favorite with its star", async () => {

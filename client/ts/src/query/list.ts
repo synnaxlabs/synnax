@@ -490,13 +490,22 @@ export class Lists<
     return this.config.cursor(last, entry.ranked ? undefined : entry.query.order);
   }
 
-  /** Admits a page and the keys that changed while it was in flight. */
+  /**
+   * Admits a page, the keys that changed while it was in flight, and the keys with
+   * local edits. The Core answers without those edits, so the client places each one
+   * that it can match.
+   */
   private admitPage(
     entry: Entry<Q, K, D, V, C>,
     { records, rechecks }: { records: V[]; rechecks: Set<K> },
   ): void {
+    const { table, matches } = this.config;
     const keys = records.map(({ key }) => key);
-    this.admit(entry, [...keys, ...rechecks], new Set(keys));
+    const edited = [...table.overlaid()].filter((key) => {
+      const record = table.get(key);
+      return record != null && matches?.(record, entry.query) != null;
+    });
+    this.admit(entry, [...keys, ...rechecks, ...edited], new Set(keys));
   }
 
   /**

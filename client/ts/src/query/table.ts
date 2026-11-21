@@ -222,6 +222,8 @@ export interface Interceptor<Key extends record.Key, Value> {
   base: (key: Key) => Value | undefined;
   /** Takes a written value as the base of its key and returns the value to show. */
   apply: (key: Key, value: Value) => Value;
+  /** Returns the keys that show content on top of their base. */
+  keys: () => Iterable<Key>;
 }
 
 /**
@@ -428,6 +430,14 @@ export class Table<
     if (this.interceptor != null)
       throw new Error("The table already has an interceptor");
     this.interceptor = interceptor;
+  }
+
+  /**
+   * Returns the keys that show content on top of their base, such as edits that have
+   * not reached the Core. A fetch answers with the base of each one.
+   */
+  overlaid(): Iterable<Key> {
+    return this.interceptor?.keys() ?? [];
   }
 
   private base(key: Key): Value | undefined {
