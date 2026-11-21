@@ -447,6 +447,14 @@ describe("viewport/use", () => {
       expect(readViewport(h)).toEqual(VIEW);
     });
 
+    it("should clear the mask", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      act(() => h.ref.current?.sync(VIEW));
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
     it("should start the next zoom from the synced view", () => {
       const h = setup();
       act(() => h.ref.current?.sync(VIEW));
