@@ -280,7 +280,10 @@ var _ = Describe("Service", func() {
 		s.Connection.Password = new(createSecret(ctx))
 		Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		Expect(e.secret.NewWriter(tx).Delete(ctx, *s.Connection.Password)).
-			To(HaveOccurred())
+			To(MatchError(ContainSubstring(
+				"because opcua_server %s references it through connection.password",
+				s.Key,
+			)))
 	})
 
 	It("Should refuse to delete a rack that holds a server", func(ctx SpecContext) {
@@ -289,7 +292,8 @@ var _ = Describe("Service", func() {
 		s := newServer()
 		s.Rack = other.Key
 		Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-		Expect(e.racks.NewWriter(tx).Delete(ctx, nil, other.Key)).To(HaveOccurred())
+		Expect(e.racks.NewWriter(tx).Delete(ctx, nil, other.Key)).
+			To(MatchError(ContainSubstring("because opcua_server %s references it", s.Key)))
 	})
 
 	Describe("Resources", func() {

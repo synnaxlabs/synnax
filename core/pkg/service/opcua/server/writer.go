@@ -68,12 +68,9 @@ func (w Writer) Create(ctx context.Context, s *Server) error {
 	return w.setStatus(ctx, *s)
 }
 
-// Update applies change to the server stored under key and stores the result, so a
-// caller changes one field group and keeps the other as stored. A rename or rack move
-// updates the status, or writes it as unknown when it is missing. It returns an error
-// wrapping query.ErrNotFound when no server is stored under key and a validation error
-// when the result is invalid.
-func (w Writer) Update(
+// update applies change to the server stored under key. A rename or rack move updates
+// the status, or writes it as unknown when it is missing.
+func (w Writer) update(
 	ctx context.Context,
 	key Key,
 	change func(Server) (Server, error),

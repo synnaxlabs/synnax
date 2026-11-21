@@ -88,7 +88,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(s Server) (Server, error) {
+		return w.update(ctx, key, func(s Server) (Server, error) {
 			s.Rack = v.Rack
 			s.Name = v.Name
 			s.Connection = v.Connection
@@ -98,7 +98,7 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 		if err := v.Validate(); err != nil {
 			return err
 		}
-		return w.Update(ctx, key, func(s Server) (Server, error) {
+		return w.update(ctx, key, func(s Server) (Server, error) {
 			s.ReadIndexes = v.ReadIndexes
 			s.ReadChannels = v.ReadChannels
 			s.ReadFields = v.ReadFields
