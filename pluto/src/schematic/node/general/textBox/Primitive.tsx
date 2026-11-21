@@ -20,8 +20,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.TextBoxNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "textColor"
 > {
+  textColor?: color.Crude;
   className?: string;
   onChange?: (value: string) => void;
 }

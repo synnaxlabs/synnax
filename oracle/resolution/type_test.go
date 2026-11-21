@@ -297,6 +297,198 @@ var _ = Describe("CollectionKind", func() {
 	)
 })
 
+var _ = Describe("ArraySize", func() {
+	var table *resolution.Table
+	sized := func(n int64) resolution.TypeRef {
+		return resolution.TypeRef{Name: "Array", ArraySize: &n}
+	}
+	ref := func(name string) resolution.TypeRef { return resolution.TypeRef{Name: name} }
+	param := func(tp *resolution.TypeParam) resolution.TypeRef {
+		return resolution.TypeRef{Name: "T", TypeParam: tp}
+	}
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(name string, form resolution.TypeForm) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form:          form,
+			})).To(Succeed())
+		}
+		add("Pair", resolution.AliasForm{Target: sized(2)})
+		add("Quad", resolution.DistinctForm{Base: sized(4)})
+		add("QuadAlias", resolution.AliasForm{Target: ref("t.Quad")})
+		add("List", resolution.AliasForm{Target: ref("Array")})
+		add("CycleA", resolution.AliasForm{Target: ref("t.CycleB")})
+		add("CycleB", resolution.AliasForm{Target: ref("t.CycleA")})
+		def := sized(2)
+		tp := resolution.TypeParam{Name: "T", Default: &def}
+		tpRef := resolution.TypeRef{TypeParam: &tp}
+		add("Wrap", resolution.AliasForm{
+			Target:     tpRef,
+			TypeParams: []resolution.TypeParam{tp},
+		})
+		add("Fixed", resolution.DistinctForm{
+			Base:       tpRef,
+			TypeParams: []resolution.TypeParam{tp},
+		})
+	})
+
+	DescribeTable(
+		"Should return the size of a fixed-size array",
+		func(makeRef func() resolution.TypeRef, want int64) {
+			Expect(MustBeOk(resolution.ArraySize(makeRef(), table))).To(Equal(want))
+		},
+		Entry("direct", func() resolution.TypeRef { return sized(3) }, int64(3)),
+		Entry("alias", func() resolution.TypeRef { return ref("t.Pair") }, int64(2)),
+		Entry("distinct", func() resolution.TypeRef { return ref("t.Quad") }, int64(4)),
+		Entry(
+			"alias of a distinct",
+			func() resolution.TypeRef { return ref("t.QuadAlias") },
+			int64(4),
+		),
+		Entry("type param constraint", func() resolution.TypeRef {
+			c := sized(2)
+			return param(&resolution.TypeParam{Constraint: &c})
+		}, int64(2)),
+		Entry("type param default", func() resolution.TypeRef {
+			d := ref("t.Pair")
+			return param(&resolution.TypeParam{Default: &d})
+		}, int64(2)),
+		Entry("generic alias with a type argument", func() resolution.TypeRef {
+			return resolution.TypeRef{
+				Name:     "t.Wrap",
+				TypeArgs: []resolution.TypeRef{sized(3)},
+			}
+		}, int64(3)),
+		Entry("generic alias with its default", func() resolution.TypeRef {
+			return ref("t.Wrap")
+		}, int64(2)),
+		Entry("generic distinct with a type argument", func() resolution.TypeRef {
+			return resolution.TypeRef{
+				Name:     "t.Fixed",
+				TypeArgs: []resolution.TypeRef{sized(3)},
+			}
+		}, int64(3)),
+		Entry("generic distinct with its default", func() resolution.TypeRef {
+			return ref("t.Fixed")
+		}, int64(2)),
+	)
+
+	generic := func(name string, arg resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: []resolution.TypeRef{arg}}
+	}
+
+	DescribeTable(
+		"Should apply the type arguments of a generic alias or distinct type",
+		func(makeRef func() resolution.TypeRef, wantKind string, wantSize int64) {
+			kind, ok := resolution.CollectionKind(makeRef(), table)
+			Expect(ok).To(Equal(wantKind != ""))
+			Expect(kind).To(Equal(wantKind))
+			size, ok := resolution.ArraySize(makeRef(), table)
+			Expect(ok).To(Equal(wantSize != 0))
+			Expect(size).To(Equal(wantSize))
+		},
+		Entry("alias of a string", func() resolution.TypeRef {
+			return generic("t.Wrap", ref("string"))
+		}, "", int64(0)),
+		Entry("alias of a map", func() resolution.TypeRef {
+			return generic("t.Wrap", ref("Map"))
+		}, "Map", int64(0)),
+		Entry("distinct over a string", func() resolution.TypeRef {
+			return generic("t.Fixed", ref("string"))
+		}, "", int64(0)),
+		Entry("nested aliases", func() resolution.TypeRef {
+			return generic("t.Wrap", generic("t.Wrap", sized(3)))
+		}, "Array", int64(3)),
+	)
+
+	DescribeTable(
+		"Should return false for a type that is not a fixed-size array",
+		func(makeRef func() resolution.TypeRef) {
+			_, ok := resolution.ArraySize(makeRef(), table)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("dynamic array", func() resolution.TypeRef { return ref("Array") }),
+		Entry("alias of a dynamic array", func() resolution.TypeRef {
+			return ref("t.List")
+		}),
+		Entry("primitive", func() resolution.TypeRef { return ref("string") }),
+		Entry("unresolved name", func() resolution.TypeRef { return ref("t.Missing") }),
+		Entry("bare type param", func() resolution.TypeRef {
+			return param(&resolution.TypeParam{})
+		}),
+		Entry("cyclic alias chain", func() resolution.TypeRef {
+			return ref("t.CycleA")
+		}),
+	)
+})
+
+var _ = Describe("Collection", func() {
+	var table *resolution.Table
+	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: args}
+	}
+	tp := resolution.TypeParam{Name: "T"}
+	tpRef := resolution.TypeRef{TypeParam: &tp}
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(name string, form resolution.TypeForm) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form:          form,
+			})).To(Succeed())
+		}
+		params := []resolution.TypeParam{tp}
+		add("Pair", resolution.StructForm{})
+		add("Wrap", resolution.AliasForm{Target: tpRef, TypeParams: params})
+		add("Fixed", resolution.DistinctForm{Base: tpRef, TypeParams: params})
+		add("Grow", resolution.AliasForm{
+			Target:     ref("t.Grow", ref("t.Grow", tpRef)),
+			TypeParams: params,
+		})
+		add("Double", resolution.AliasForm{
+			Target:     ref("t.Double", ref("Map", tpRef, tpRef)),
+			TypeParams: params,
+		})
+	})
+
+	It("Should return the collection with its type arguments applied", func() {
+		collection := MustBeOk(resolution.Collection(
+			ref("t.Wrap", ref("Array", ref("t.Pair"))),
+			table,
+		))
+		Expect(collection.Name).To(Equal("Array"))
+		Expect(collection.TypeArgs).To(Equal([]resolution.TypeRef{ref("t.Pair")}))
+	})
+
+	It("Should apply the type arguments of a generic distinct type", func() {
+		collection := MustBeOk(resolution.Collection(
+			ref("t.Fixed", ref("Map", ref("string"), ref("t.Pair"))),
+			table,
+		))
+		Expect(collection.Name).To(Equal("Map"))
+		Expect(collection.TypeArgs[1]).To(Equal(ref("t.Pair")))
+	})
+
+	It("Should return false for a self-expanding alias", func() {
+		_, ok := resolution.Collection(ref("t.Grow", ref("string")), table)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for an alias that doubles at each step", func() {
+		_, ok := resolution.Collection(ref("t.Double", ref("string")), table)
+		Expect(ok).To(BeFalse())
+	})
+})
+
 var _ = Describe("Dealias", func() {
 	var table *resolution.Table
 	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {

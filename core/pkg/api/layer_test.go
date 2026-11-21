@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -370,7 +371,7 @@ var _ = Describe("Layer", func() {
 		"Should set a status and its labels in one transaction",
 		func(ctx SpecContext) {
 			u := newUser(ctx, resource.TypeStatus, resource.TypeLabel)
-			l := label.Label{Name: "batched"}
+			l := label.Label{Name: "batched", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -423,6 +424,9 @@ var _ = Describe("NewLayer", func() {
 		Expect(l.Errors()).To(BeIdenticalTo(codec))
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}
 
 var _ = Describe("BindTo", func() {
 	It("Should delete the data of channels through the frame delete route", func(

@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
+import type Synnax from "@/client";
+import { AuthError } from "@/errors";
 import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
 
 describe("createTestClient", () => {
@@ -38,6 +41,23 @@ describe("createTestClient", () => {
     await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
     expect(failures).toBe(1);
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("createTestClient lifetime", () => {
+  it("should close a client made inside a test once the test finishes", async () => {
+    const made: { client?: Synnax } = {};
+    // Finished hooks run in stack order, so this one runs after the client closes.
+    onTestFinished(async () => {
+      assertDefined(made.client);
+      // Closing the client ends its session, so it can no longer sign its requests.
+      const err = await made.client.channels
+        .retrieve(["no-such-channel"])
+        .catch((e: unknown) => e);
+      expect(AuthError.matches(err)).toBe(true);
+    });
+    made.client = createTestClient();
+    await made.client.connect();
   });
 });
 

@@ -77,6 +77,9 @@ struct Base {
     Key key;
     /// @brief name is a human-readable name for the certificate.
     std::string name;
+    /// @brief uses are the resources that use the certificate and that the caller can
+    /// read, filled only when a retrieve request asks for them.
+    std::optional<std::vector<::synnax::resource::ID>> uses;
 
     static Base parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -249,6 +252,8 @@ struct RetrieveOptions {
     std::optional<Cursor> after;
     /// @brief limit is the most certificates to return.
     std::optional<std::uint32_t> limit;
+    /// @brief include_uses includes the uses of each record.
+    bool include_uses = false;
 };
 
 /// @brief RetrieveRequest is a request to retrieve certificates.
@@ -265,6 +270,8 @@ struct RetrieveRequest {
     std::optional<Cursor> after;
     /// @brief limit is the most certificates to return.
     std::optional<std::uint32_t> limit;
+    /// @brief include_uses includes the uses of each record.
+    bool include_uses = false;
 
     /// @brief returns a request for the records that where selects.
     static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
@@ -274,6 +281,7 @@ struct RetrieveRequest {
             .order = options.order,
             .after = options.after,
             .limit = options.limit,
+            .include_uses = options.include_uses,
         };
     }
 

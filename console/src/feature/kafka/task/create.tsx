@@ -21,13 +21,15 @@ import {
 import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+export const DEFAULT_READ_NAME = "Kafka read task";
+
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Kafka read task", type: READ_TYPE, config: cfg };
+  return { name: DEFAULT_READ_NAME, type: READ_TYPE, config: cfg };
 };
 
 export const useCreateRead = Task.createUseCreate({
@@ -37,7 +39,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable: Selector.Selectable = {
   type: READ_TYPE,
-  title: "Kafka read task",
+  title: DEFAULT_READ_NAME,
   label: "Read",
   icon: <Icon.Logo.Kafka />,
   useOnSelect: useCreateRead,

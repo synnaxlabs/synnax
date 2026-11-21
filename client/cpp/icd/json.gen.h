@@ -108,6 +108,7 @@ inline Message Message::parse(x::json::Parser parser) {
         .key = parser.field<MessageKey>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .payload = parse_payload(parser.child("payload")),
+        .cycle_time = parser.field<std::optional<::x::telem::TimeSpan>>("cycle_time"),
     };
 }
 
@@ -116,6 +117,7 @@ inline x::json::json Message::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["payload"] = ::synnax::icd::to_json(this->payload);
+    if (this->cycle_time.has_value()) j["cycle_time"] = this->cycle_time->nanoseconds();
     return j;
 }
 
@@ -568,6 +570,21 @@ inline x::json::json BooleanJSONMatch::to_json() const {
     return j;
 }
 
+inline PresentJSONMatch PresentJSONMatch::parse(x::json::Parser parser) {
+    PresentJSONMatch result;
+    static_cast<JSONBaseMatch &>(result) = JSONBaseMatch::parse(parser);
+    result.type = parser.field<std::string>("type");
+    return result;
+}
+
+inline x::json::json PresentJSONMatch::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = JSONBaseMatch::to_json(); parent.is_object())
+        j.update(parent);
+    j["type"] = this->type;
+    return j;
+}
+
 inline BinaryPayload BinaryPayload::parse(x::json::Parser parser) {
     BinaryPayload result;
     result.length = parser.field<std::optional<std::uint16_t>>("length");
@@ -704,6 +721,7 @@ inline JSONMatch parse_json_match(x::json::Parser parser) {
     if (discriminator == "unsigned") return UnsignedJSONMatch::parse(parser);
     if (discriminator == "string") return StringJSONMatch::parse(parser);
     if (discriminator == "boolean") return BooleanJSONMatch::parse(parser);
+    if (discriminator == "present") return PresentJSONMatch::parse(parser);
     parser.field_err("type", "unknown JSONMatch type: " + discriminator);
     return {};
 }

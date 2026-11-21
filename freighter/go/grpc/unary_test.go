@@ -11,6 +11,7 @@ package grpc_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,5 +84,37 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				"encodings": []string{"protobuf"},
 			}))
 		}
+	})
+
+	It("Should return context.Canceled when the caller cancels the context", func(
+		ctx SpecContext,
+	) {
+		server.BindHandler(func(
+			ctx context.Context,
+			req testutil.Request,
+		) (testutil.Response, error) {
+			return testutil.Response{}, nil
+		})
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(client.Send(cancelCtx, addr, testutil.Request{})).
+			Error().
+			To(MatchError(context.Canceled))
+	})
+	It("Should return context.DeadlineExceeded when the context times out", func(
+		ctx SpecContext,
+	) {
+		server.BindHandler(func(
+			ctx context.Context,
+			req testutil.Request,
+		) (testutil.Response, error) {
+			<-ctx.Done()
+			return testutil.Response{}, nil
+		})
+		timeoutCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
+		Expect(client.Send(timeoutCtx, addr, testutil.Request{})).
+			Error().
+			To(MatchError(context.DeadlineExceeded))
 	})
 })

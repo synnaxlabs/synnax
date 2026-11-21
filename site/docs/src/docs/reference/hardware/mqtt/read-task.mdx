@@ -44,6 +44,8 @@ channel.
   `#`. Two topics cannot write to the same channel.
 - **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
   You cannot delete an ICD while a task reads it.
+- **New topics** -> the message of a new topic goes into the ICD that most topics of the
+  task read. A task with no topics creates an ICD named after the task.
 
 When you upgrade the Core, it moves the fields of each read task from an earlier version
 into a new ICD named after the task, with one message for each topic.
@@ -80,9 +82,11 @@ for each message. It names them after the broker, the topic, and the field. To c
 the name of a new channel, rename its field. After the task creates the channel, select
 the field and type a new name in **Channel** to rename the channel.
 
-A string, JSON, or bytes field reads into a
-[virtual channel](/reference/channels#virtual-channels), which stores no data. So these
-fields cannot share a message with number, boolean, or timestamp fields.
+A message stores all of its fields on its index channel when it reads a number, boolean,
+timestamp, or UUID field, or when one of its fields reads into an existing channel that
+stores data. A field that reads into an existing virtual channel does not count. A
+message with none of these fields reads its fields into
+[virtual channels](/reference/channels#virtual-channels), which store no data.
 
 <Video id="hardware/mqtt/read-task" label="Create and start an MQTT read task" />
 
@@ -347,6 +351,31 @@ Two messages cannot write to the same channel, an index channel included.
 
 <Divider.Divider x />
 
+## Read a message format that you defined first
+
+You can define the messages of a device in the ICD editor first, then read them in a
+task.
+
+1. Click **Add data**, then **Add a topic by name**.
+2. Enter the **Topic**.
+3. Set **Message format** to the message. The list shows each JSON message, with the
+   name of its ICD.
+
+The task reads each field of the message. A field keeps the channel that the topic wrote
+for the same pointer when the channel's data type fits the field, so plots and ranges
+keep their data. Otherwise, the field gets a new channel when you deploy. When the
+message has only one timestamp field, and that field has no default, the topic reads its
+time from that field. If the message that the topic read before is a message the task
+made, has no fields, and no other topic reads it, the Console deletes it from its ICD.
+Otherwise, it stays in its ICD. The Console knows which messages the task made only
+while the task is open. After you reload the Console or open the task again, an empty
+message stays, like one that you made in the ICD editor. **Message format** shows only
+on a topic that reads one message.
+
+In code, set the `icd` of the topic and the `message` of its `ReadMessage`.
+
+<Divider.Divider x />
+
 ## Edit the message format of a running task
 
 The message format belongs to the ICD, not to the task. An edit to it, in the task tab
@@ -392,7 +421,7 @@ A topic has these settings:
 | Quality of service <small>`qos`</small>           | At most once | At most once (0), at least once (1), or exactly once (2). |
 | Ignore retained <small>`retained_ignored`</small> | Off          | Skips the retained message of the topic.                  |
 | Source <small>`index`</small>                     | Arrival time | The key of the timestamp field, on each `ReadMessage`.    |
-| <small>`icd`</small>                              |              | The key of the ICD that holds the messages of the topic.  |
+| Message format <small>`icd`</small>               |              | The key of the ICD that holds the messages of the topic.  |
 
 In code, a topic is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 `"at_most_once"`, `"at_least_once"`, and `"exactly_once"`. Its `messages` are each an
