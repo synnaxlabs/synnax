@@ -182,7 +182,7 @@ func readsFailedImport[T antlr.ParserRuleContext](
 	expr parser.IExpressionContext,
 ) bool {
 	for _, primary := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		if _, err := ctx.ResolveName(parser.PrimaryNameParts(primary)); errors.Is(
+		if _, err := ctx.ResolveName(parser.PrimaryName(primary)); errors.Is(
 			err,
 			diagnostics.ErrReported,
 		) {

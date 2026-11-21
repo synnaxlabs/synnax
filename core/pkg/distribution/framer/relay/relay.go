@@ -16,7 +16,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -33,7 +33,7 @@ type Config struct {
 	// channels from it.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 	// FreeWrites is the pipeline for moving data for free virtual channels. Free
 	// virtual channels are not leased to any node and their data is not stored; their
 	// writes are propagated straight through the relay. Most free channels carry

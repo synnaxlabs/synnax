@@ -519,33 +519,20 @@ func mapLexerTokenType(antlrType int) *uint32 {
 // {...} segments expanded with classified inner expression tokens; everything
 // else collapses to a single string-colored token.
 func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
-	text := t.GetText()
-	body, flags, ok := literal.StripQuotes(text)
-	prefixLen := 0
-	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
-		prefixLen++
+	f, ok := parseFormatString(t)
+	if !ok {
+		return plainStringTokens(t, f.prefixLen)
 	}
-	if !ok || !flags.Format {
-		return plainStringTokens(t, prefixLen)
-	}
-	segs, err := literal.FmtStrSplit(body, flags)
-	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
-		return plainStringTokens(t, prefixLen)
-	}
-	const delimLen = 1
 	e := fmtStrEmitter{
 		ctx:     ctx,
 		docIR:   docIR,
-		text:    text,
-		bodyOff: prefixLen + delimLen,
-		at: textPositions(protocol.Position{
-			Line:      uint32(t.GetLine() - 1),
-			Character: uint32(t.GetColumn()),
-		}, text),
+		text:    f.text,
+		bodyOff: f.bodyOff,
+		at:      f.at,
 	}
-	e.emit(0, prefixLen, SemanticTokenTypeFunction)
-	e.emit(prefixLen, e.bodyOff, SemanticTokenTypeString)
-	for _, seg := range segs {
+	e.emit(0, f.prefixLen, SemanticTokenTypeFunction)
+	e.emit(f.prefixLen, e.bodyOff, SemanticTokenTypeString)
+	for _, seg := range f.segs {
 		if !seg.IsPlaceholder {
 			e.emit(seg.Start+e.bodyOff, seg.End+e.bodyOff, SemanticTokenTypeString)
 			continue
@@ -558,11 +545,69 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 			textStart+e.bodyOff,
 			semanticTokenTypeStringPlaceholder,
 		)
-		e.emitInner(seg)
+		e.emitInner(f, seg)
 		e.emit(textEnd+e.bodyOff, seg.End+e.bodyOff, semanticTokenTypeStringPlaceholder)
 	}
-	e.emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
+	e.emit(len(f.text)-1, len(f.text), SemanticTokenTypeString)
 	return e.tokens
+}
+
+// formatString is a format string literal token with at least one placeholder.
+type formatString struct {
+	text string
+	segs []literal.FmtStrSegment
+	// prefixLen is the length of the prefix, and bodyOff the offset of the body.
+	prefixLen, bodyOff int
+	// at holds the source position of each byte of text, and of its end.
+	at []protocol.Position
+}
+
+// parseFormatString returns the format string of t, and false when t is not a format
+// string with a placeholder. prefixLen is set either way.
+func parseFormatString(t antlr.Token) (formatString, bool) {
+	f := formatString{text: t.GetText()}
+	for f.prefixLen < 2 && f.prefixLen < len(f.text) &&
+		(f.text[f.prefixLen] == 'r' || f.text[f.prefixLen] == 'f') {
+		f.prefixLen++
+	}
+	body, flags, ok := literal.StripQuotes(f.text)
+	if !ok || !flags.Format {
+		return f, false
+	}
+	segs, err := literal.FmtStrSplit(body, flags)
+	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
+		return f, false
+	}
+	f.segs = segs
+	f.bodyOff = f.prefixLen + 1
+	f.at = textPositions(protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}, f.text)
+	return f, true
+}
+
+// innerTokens returns the tokens of the placeholder seg of f, each with its byte span
+// in the text of f. The placeholder's text has its escapes applied, as the compiler
+// parses it, and Offsets maps each of its bytes back to the source.
+func (f formatString) innerTokens(seg literal.FmtStrSegment) ([]antlr.Token, [][2]int) {
+	inner := tokenizeContent(seg.Text)
+	runeStart := make([]int, 0, len(seg.Text)+1)
+	for i := range seg.Text {
+		runeStart = append(runeStart, i)
+	}
+	runeStart = append(runeStart, len(seg.Text))
+	spans := make([][2]int, len(inner))
+	for i, it := range inner {
+		if it.GetTokenType() == antlr.TokenEOF {
+			continue
+		}
+		spans[i] = [2]int{
+			f.bodyOff + seg.Offsets[runeStart[it.GetStart()]],
+			f.bodyOff + seg.Offsets[runeStart[it.GetStop()+1]],
+		}
+	}
+	return inner, spans
 }
 
 // plainStringTokens colors the prefix of t as a function and the rest as a string.
@@ -613,16 +658,9 @@ func (e *fmtStrEmitter) emit(a, b int, tt uint32) {
 	)
 }
 
-// emitInner emits the classified tokens of a placeholder. The placeholder's text has
-// its escapes applied, as the compiler parses it, and Offsets maps each of its bytes
-// back to the source.
-func (e *fmtStrEmitter) emitInner(seg literal.FmtStrSegment) {
-	inner := tokenizeContent(seg.Text)
-	runeStart := make([]int, 0, len(seg.Text)+1)
-	for i := range seg.Text {
-		runeStart = append(runeStart, i)
-	}
-	runeStart = append(runeStart, len(seg.Text))
+// emitInner emits the classified tokens of the placeholder seg of f.
+func (e *fmtStrEmitter) emitInner(f formatString, seg literal.FmtStrSegment) {
+	inner, spans := f.innerTokens(seg)
 	for i, it := range inner {
 		if it.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -638,8 +676,7 @@ func (e *fmtStrEmitter) emitInner(seg literal.FmtStrSegment) {
 		if prev == parser.ArcLexerDOT && i >= 2 {
 			qualifier = inner[i-2].GetText()
 		}
-		a := e.bodyOff + seg.Offsets[runeStart[it.GetStart()]]
-		b := e.bodyOff + seg.Offsets[runeStart[it.GetStop()+1]]
+		a, b := spans[i][0], spans[i][1]
 		tt := classifyTokenAt(
 			e.ctx,
 			it,
