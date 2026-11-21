@@ -191,10 +191,10 @@ export class LinePlot
     // Raised lines draw after the lines of every axis, so they draw over all of them.
     const raised: Array<() => void> = [];
     try {
-      const layouts = this.axes.map((xAxis, i) =>
-        xAxis.render(axisProps(i, p), raised),
-      );
-      this.syncBreaks(layouts[0] ?? null);
+      const drawn = this.axes.map((xAxis, i) => xAxis.render(axisProps(i, p), raised));
+      this.syncBreaks(drawn[0]?.[0] ?? null);
+      const err = drawn.find((d) => d?.[1] != null)?.[1];
+      if (err != null) throw err;
     } finally {
       raised.forEach((draw) => draw());
     }

@@ -23,7 +23,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -335,7 +335,8 @@ describe("LinePlot breaks", () => {
     teardowns.length = 0;
   });
 
-  it("should count the open and closed breaks of its first x axis", () => {
+  // mountBreaks mounts a plot of two lines a day apart, so x1 has one closed break.
+  const mountBreaks = () => {
     const recorder = new canvasTest.Recorder();
     (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
     const stack = buildStack({
@@ -378,6 +379,11 @@ describe("LinePlot breaks", () => {
     );
     const plot = stack.driver.find<LinePlot>(base);
     renderPlot(recorder);
+    return { plot, recorder, setPlot };
+  };
+
+  it("should count the open and closed breaks of its first x axis", () => {
+    const { plot, recorder, setPlot } = mountBreaks();
     expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
     const change = plot.getBreakChange({
       action: { variant: "all", open: true },
@@ -388,6 +394,17 @@ describe("LinePlot breaks", () => {
     setPlot(change?.openBreaks ?? []);
     renderPlot(recorder);
     expect(plot.state.breaks).toEqual({ open: 1, closed: 0 });
+  });
+
+  it("should count no breaks while the x source of x1 fails", () => {
+    const { plot, recorder, setPlot } = mountBreaks();
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    setPlot([]);
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
   it("should lay out every x axis after the first in true time", () => {
