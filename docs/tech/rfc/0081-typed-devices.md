@@ -217,12 +217,12 @@ Field groups per make:
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
-- **OPC UA server**: identity `rack` and `connection` (endpoint, credentials, security
-  mode and policy, certificates, timeouts); configuration `name`, `read_indexes`, and
+- **OPC UA server**: identity `rack`, `name`, and `connection` (endpoint, credentials,
+  security mode and policy, certificates, timeouts); configuration `read_indexes` and
   the node channel maps `read_channels`, `read_fields`, and `write_channels`
   (`console/src/feature/opcua/device/types/versions/v2.ts`). The connect form and the scanner's
-  server certificate pin write the identity group; the task forms write the channel
-  maps.
+  server certificate pin write the identity group; the task forms write the
+  configuration group.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -232,10 +232,10 @@ Field groups per make:
   `host` and `secure` in generated code.
 
 A connected resource has no scanned identity: the user owns every field, `rack`
-included, and sets them in the connect form. Its identity group is the connection, which
-the connect form and a scanner's certificate pin write, so neither clobbers the channel
-maps that the task forms write. `configured` does not exist. A discovered resource is
-unconfigured while `identifier` is empty.
+included, and sets them in the connect form. Its identity group holds what the connect
+form and a scanner's certificate pin write, so neither clobbers the channel maps that
+the task forms write. `configured` does not exist. A discovered resource is unconfigured
+while `identifier` is empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
 (`schemas/synnax/ni.oracle:489,941,1389`), `labjack.Device.Key` on `labjack.oracle:216`,
