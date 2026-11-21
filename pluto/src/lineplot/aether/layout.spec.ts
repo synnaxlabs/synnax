@@ -10,7 +10,7 @@
 import { bounds, box, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
+import { collapse, Layout, spans, type Trace } from "@/lineplot/aether/layout";
 
 describe("Layout", () => {
   describe("one segment", () => {
@@ -73,6 +73,24 @@ describe("Layout", () => {
     it("should map a position where two segments meet to the later one", () => {
       expect(layout.reverseHome(0.1)).toBeCloseTo(1000);
       expect(layout.reverseHome(0.4)).toBeCloseTo(5000);
+    });
+
+    it("should map a span that ends where two segments meet to the earlier one", () => {
+      const s = layout.reverseHomeSpan({
+        lower: 0.05,
+        upper: layout.segments[1].position.lower,
+      });
+      expect(s.lower).toBeCloseTo(5);
+      expect(s.upper).toBeCloseTo(10);
+    });
+
+    it("should map a span that starts where two segments meet to the later one", () => {
+      const s = layout.reverseHomeSpan({
+        lower: layout.segments[1].position.lower,
+        upper: 0.25,
+      });
+      expect(s.lower).toBeCloseTo(1000);
+      expect(s.upper).toBeCloseTo(1015);
     });
 
     it("should map positions inside each segment back to their values", () => {
@@ -150,12 +168,41 @@ describe("spans", () => {
       expect(s.get("2")).toEqual(bounds.INFINITE);
     });
 
-    it("should give no span to a trace with no group or no window", () => {
+    it("should give a trace with no group the time of its own group", () => {
       const s = spans(
-        [trace("1", 0, 10, { group: undefined }), trace("2", Infinity, -Infinity)],
+        [trace("1", 0, 10, { group: undefined }), trace("2", 30, 40)],
         "time",
       );
-      expect(s.size).toBe(0);
+      expect(s.get("1")).toEqual(bounds.INFINITE);
+    });
+
+    it("should give no span to a trace with no window", () => {
+      expect(spans([trace("1", Infinity, -Infinity)], "time").size).toBe(0);
+    });
+
+    it("should keep each span inside the segment of its window", () => {
+      const segs = [
+        { lower: -1, upper: 11 },
+        { lower: 90, upper: 110 },
+      ];
+      const s = spans([trace("1", 0, 10), trace("2", 95, 105)], "time", segs);
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 11 });
+      expect(s.get("2")).toEqual({ lower: 90, upper: Infinity });
+    });
+
+    it("should split the time inside one segment at its middle", () => {
+      const segs = [
+        { lower: -1, upper: 41 },
+        { lower: 90, upper: 110 },
+      ];
+      const s = spans(
+        [trace("1", 0, 10), trace("2", 30, 40), trace("3", 95, 105)],
+        "time",
+        segs,
+      );
+      expect(s.get("1")).toEqual({ lower: -Infinity, upper: 20 });
+      expect(s.get("2")).toEqual({ lower: 20, upper: 41 });
+      expect(s.get("3")).toEqual({ lower: 90, upper: Infinity });
     });
   });
 
@@ -196,5 +243,98 @@ describe("Layout.span", () => {
   it("should give a line with no span every value", () => {
     const layout = new Layout([{ lower: 0, upper: 1 }], box.DECIMAL);
     expect(layout.span("x")).toEqual(bounds.INFINITE);
+  });
+});
+
+describe("collapse", () => {
+  const MIN = MINUTE;
+
+  it("should give one segment padded by a share of its span for one window", () => {
+    expect(collapse([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
+      { lower: -MIN, upper: 101 * MIN },
+    ]);
+  });
+
+  it("should give each window far from the others its own segment", () => {
+    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)], 0);
+    expect(s).toEqual([
+      { lower: 0, upper: 10.5 * MIN },
+      { lower: 99.5 * MIN, upper: 110 * MIN },
+    ]);
+  });
+
+  it("should merge windows whose margins overlap", () => {
+    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)], 0);
+    expect(s).toEqual([{ lower: 0, upper: 20 * MIN }]);
+  });
+
+  it("should pad the outer edges by a share of the span of every segment", () => {
+    const s = collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
+      0.1,
+    );
+    expect(s[0].lower).toBeCloseTo(-2.1 * MIN);
+    expect(s[1].upper).toBeCloseTo(112.1 * MIN);
+  });
+
+  it("should give a growing window a margin before it and none after", () => {
+    const s = collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
+      0,
+    );
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should keep the margin before a growing window when it ends", () => {
+    const at = (edge?: "growing") =>
+      collapse(
+        [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge })],
+        0,
+      );
+    expect(at("growing")[1].lower).toEqual(at()[1].lower);
+  });
+
+  it("should give a rolling window a margin from its span before it", () => {
+    const s = collapse(
+      [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "rolling" })],
+      0,
+    );
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should pad a single sample by one on each side", () => {
+    expect(collapse([trace("1", 5, 5)], 0.01)).toEqual([{ lower: 4, upper: 6 }]);
+  });
+
+  it("should give no segments when no trace has a window", () => {
+    expect(collapse([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
+  });
+});
+
+describe("Layout.segment", () => {
+  const layout = new Layout(
+    [
+      { lower: 0, upper: 10 },
+      { lower: 100, upper: 110 },
+    ],
+    box.DECIMAL,
+    new Map([
+      ["1", { lower: -Infinity, upper: 10 }],
+      ["2", { lower: 100, upper: Infinity }],
+    ]),
+  );
+
+  it("should give the segment of the span of a line", () => {
+    expect(layout.segment("1")).toBe(layout.segments[0]);
+    expect(layout.segment("2")).toBe(layout.segments[1]);
+  });
+
+  it("should give the first segment for a line with no span", () => {
+    expect(layout.segment("3")).toBe(layout.segments[0]);
+  });
+
+  it("should extend the positions of the outer segments without end", () => {
+    expect(layout.segments[0].position).toEqual({ lower: -Infinity, upper: 0.5 });
+    expect(layout.segments[1].position).toEqual({ lower: 0.5, upper: Infinity });
   });
 });

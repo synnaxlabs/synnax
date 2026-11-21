@@ -180,6 +180,12 @@ export class Recorder {
     },
   };
 
+  /** The recorder as the render context it stands in for, for code that takes one
+   * outside an aether tree. */
+  get context(): render.Context {
+    return this as unknown as render.Context;
+  }
+
   constructor() {
     this.upper2d = buildCanvas();
     this.lower2d = buildCanvas();

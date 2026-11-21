@@ -535,6 +535,7 @@ const Internal = (): ReactElement => {
           onDoubleClick={handleDoubleClick}
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
+          gapsCollapsed={FLAGS.breaks}
         >
           <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>

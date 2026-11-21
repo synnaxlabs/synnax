@@ -29,6 +29,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().default(false),
+  gapsCollapsed: z.boolean().default(false),
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
@@ -165,36 +166,29 @@ export class LinePlot
     const bounds: AxesBounds = {};
     this.axes.forEach((v) => {
       const axisKey = v.state.axisKey ?? v.key;
-      const { hold, viewport } = this.state;
-      const layout = v.layout(hold, viewport);
+      const layout = v.layout(this.state);
       bounds[axisKey] = layout.bounds;
       v.yAxes.forEach((y) => {
         const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(hold, layout);
+        bounds[yAxisKey] = y.bounds(this.state.hold, layout);
       });
     });
     return bounds;
   }
 
   getXBounds(positions: bounds.Bounds): AxesBounds {
-    const { hold, viewport } = this.state;
     return Object.fromEntries(
-      this.axes.map((a) => {
-        const layout = a.layout(hold, viewport);
-        const values = {
-          lower: layout.reverseHome(positions.lower),
-          upper: layout.reverseHome(positions.upper),
-        };
-        return [a.state.axisKey ?? a.key, values];
-      }),
+      this.axes.map((a) => [
+        a.state.axisKey ?? a.key,
+        a.layout(this.state).reverseHomeSpan(positions),
+      ]),
     );
   }
 
   getXPositions(values: bounds.Bounds): AxesBounds {
-    const { hold, viewport } = this.state;
     return Object.fromEntries(
       this.axes.map((a) => {
-        const layout = a.layout(hold, viewport);
+        const layout = a.layout(this.state);
         const positions = {
           lower: layout.home(values.lower),
           upper: layout.home(values.upper),
