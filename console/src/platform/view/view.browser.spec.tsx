@@ -18,7 +18,7 @@ import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
@@ -36,6 +36,7 @@ import {
   commitTextEdit,
   countEditableText,
   createTestClientWithGrants,
+  createTestClientWithHeldGrants,
   getBySelector,
   getIconButton,
   type Grants,
@@ -438,21 +439,13 @@ describe("View open in a tab", () => {
 
   it("disables a view's tab until the grant to open it loads", async () => {
     const saved = await createView();
-    const subject = await createTestClientWithGrants(client, {
+    const { client: subject, release } = await createTestClientWithHeldGrants(client, {
       retrieve: [
         ranger.TYPE_RESOURCE_ID,
         view.TYPE_RESOURCE_ID,
         panel.TYPE_RESOURCE_ID,
       ],
       update: [panel.TYPE_RESOURCE_ID],
-    });
-    const { granted } = subject.access;
-    const retrieve = granted.retrieve.bind(granted);
-    let release = (): void => {};
-    const held = new Promise<void>((resolve) => (release = resolve));
-    vi.spyOn(granted, "retrieve").mockImplementation(async (...args) => {
-      await held;
-      return await retrieve(...args);
     });
     await renderHarness(subject);
     const tab = await screen.findByRole("tab", { name: saved.name });
