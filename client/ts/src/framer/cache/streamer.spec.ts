@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { channel } from "@/channel";
+import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
@@ -809,6 +809,45 @@ describe("MultiplexedStreamer", () => {
       sub.close();
       hooks[0].onDrop(new Error("conn lost"));
       expect(drops).toBe(1);
+      await streamer.close();
+    });
+
+    it("should outdate stored channels once per interval on missed markers", async () => {
+      const hooks: StreamHooks[] = [];
+      const cache = createCache();
+      cache.store.setChannel(
+        new channel.Channel({ key: 1, name: "stored", dataType: "float32" }).payload,
+      );
+      cache.store.setChannel(
+        new channel.Channel({
+          key: 2,
+          name: "virtual",
+          dataType: "float32",
+          virtual: true,
+        }).payload,
+      );
+      const invalidate = vi.spyOn(cache.joins, "invalidate");
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener([pendingStreamer([1, 2])], hooks),
+      });
+      const sub = streamer.demand([1, 2], () => {});
+      let drops = 0;
+      sub.onDrop(() => drops++);
+      await vi.advanceTimersByTimeAsync(200);
+      invalidate.mockClear();
+      hooks[0].onMissed();
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([[1]]);
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(invalidate.mock.calls).toEqual([[1]]);
+      await vi.advanceTimersByTimeAsync(600);
+      expect(invalidate.mock.calls).toEqual([[1], [1]]);
+      expect(drops).toBe(0);
+      expect(sub.status(1).variant).toEqual("success");
+      sub.close();
       await streamer.close();
     });
 
