@@ -70,13 +70,14 @@ export interface List<D extends Data, C> {
   more: (n: number, options?: FetchOptions) => Promise<Window<D, C>>;
   /**
    * Returns the window without touching the network, or undefined before a fetch, when
-   * a trigger does not cover the window, or when a list without a limit finds a window
-   * that does not hold every match.
+   * a trigger does not cover the window, or when the window's fetches stopped short of
+   * the list's limit.
    */
   getCached: () => Window<D, C> | undefined;
   /**
    * Subscribes to changes in the window. The window is maintained while a subscriber
-   * exists, and for a grace window after the last one leaves. Returns a destructor that
+   * exists, and for a grace window after the last one leaves. A window that stops short
+   * of the list's limit does not reach the handler. Returns a destructor that
    * unsubscribes.
    */
   onChange: (handler: WindowHandler<D, C>) => destructor.Destructor;
@@ -150,12 +151,15 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The window's keys, in list order. */
   keys: K[];
   end: C | null;
+  /** How many records the fetches of the window returned, up to its end. */
+  covered: number;
   fetched: boolean;
   /** The largest limit a reader asked for: Infinity for every match, 0 before any. */
   limit: number;
   /** The limit of the ranked fetch behind the window. */
   searchLimit?: number;
-  handlers: Set<WindowHandler<D, C>>;
+  /** The subscribers of the window, with the limit each one reads. */
+  handlers: Map<WindowHandler<D, C>, number | undefined>;
   /** The list handles of the window, by the limit they ask for. */
   lists: Map<number | undefined, List<D, C>>;
   /** Present exactly while the window is maintained. */
@@ -247,9 +251,9 @@ export class Lists<
       more: async (n, options) => await this.more(entry, n, options),
       getCached: () => {
         const window = this.cachedOf(entry);
-        if (window == null || !this.triggersCover(entry)) return undefined;
-        // A list with a limit can leave the window short of a list without one.
-        return limit == null && window.end != null ? undefined : window;
+        return window != null && this.triggersCover(entry) && this.covers(entry, limit)
+          ? window
+          : undefined;
       },
       onChange: (handler) => this.subscribe(entry, limit, handler),
     }));
@@ -329,9 +333,10 @@ export class Lists<
           serverComputed?.(query) === true,
         keys: [],
         end: null,
+        covered: 0,
         fetched: false,
         limit: 0,
-        handlers: new Set(),
+        handlers: new Map(),
         lists: new Map(),
         queue: Promise.resolve(),
         generation: 0,
@@ -424,6 +429,7 @@ export class Lists<
     entry.fetched = true;
     entry.stale = false;
     entry.end = this.endOf(entry, page.records, size);
+    entry.covered = page.records.length;
     if (ranked) {
       entry.searchLimit = size;
       entry.keys = page.records.map(({ key }) => key);
@@ -446,6 +452,7 @@ export class Lists<
     const page = await this.page(entry, { ...entry.query, after, limit: n }, options);
     if (page == null) return await this.replace(entry, options);
     entry.end = this.endOf(entry, page.records, n);
+    entry.covered += page.records.length;
     this.admitPage(entry, page);
     entry.limit = Math.max(entry.limit, entry.keys.length);
     this.deliver(entry);
@@ -578,7 +585,7 @@ export class Lists<
     void startStreaming(this.hooks, (exc) => this.report(exc));
     // A refetch sizes the window to the largest limit a reader asked for.
     entry.limit = Math.max(entry.limit, limit ?? Infinity);
-    entry.handlers.add(handler);
+    entry.handlers.set(handler, limit);
     entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
     // A change in the grace window found no subscriber to refetch for.
@@ -782,13 +789,25 @@ export class Lists<
     const window = this.cachedOf(entry);
     if (window === entry.delivered) return;
     entry.delivered = window;
-    entry.handlers.forEach((handler) => {
+    entry.handlers.forEach((limit, handler) => {
+      // A discarded window reaches every reader, and a short one waits for its fetch.
+      if (window != null && !this.covers(entry, limit)) return;
       try {
         handler(window);
       } catch (exc) {
         this.report(exc, `failed to notify ${this.config.name} list subscriber`);
       }
     });
+  }
+
+  /**
+   * Whether the window answers a reader of the limit: it holds every match, or its
+   * fetches reached the limit. A record that a change removes since stays counted.
+   */
+  private covers(entry: Entry<Q, K, D, V, C>, limit: number | undefined): boolean {
+    if (entry.end == null) return true;
+    if (limit == null) return false;
+    return Math.max(entry.covered, entry.keys.length) >= limit;
   }
 
   private report(
