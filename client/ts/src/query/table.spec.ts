@@ -2630,6 +2630,16 @@ describe("written", () => {
     expect(written).toHaveBeenCalledExactlyOnceWith("a");
   });
 
+  it("should tell each holder of a delete rollback that restores a record", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    const rollback = table.delete("a");
+    written.mockClear();
+    rollback();
+    expect(table.get("a")).toEqual(doc("a"));
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
   it("should not tell the holders of a key the table does not hold", () => {
     const { table, written } = held();
     table.stampWrite("missing");
