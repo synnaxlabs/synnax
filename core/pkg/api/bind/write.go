@@ -56,9 +56,8 @@ type Returns interface {
 // A link or an owner needs nothing when the write creates or deletes it. A record with
 // no resource type must be placed in exactly one record, unless it is a mirror
 // (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
-// mirrors fails. Policies are read from
-// committed state, so a policy or role that apply stages grants nothing. A denial wraps
-// access.ErrDenied and names the record.
+// mirrors fails. Policies are read from committed state, so a policy or role that apply
+// stages grants nothing. A denial wraps access.ErrDenied and names the record.
 func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
