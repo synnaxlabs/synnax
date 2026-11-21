@@ -341,14 +341,18 @@ func (r *partedRequest) run(s *State) {
 	for key, ch := range s.core.channels {
 		rg := ranges[key]
 		// A range names parts of the new head, even when its bounds stay.
-		if ch.oldest != 0 || rg.Oldest != 0 {
+		repart := ch.oldest != 0 || rg.Oldest != 0
+		if repart {
 			ch.oldest, ch.newest, ch.generation = rg.Oldest, rg.Newest, r.generation
-			changed.Add(key)
 		}
 		if slices.ContainsFunc(ch.kills, folded) {
 			// A published Channel holds the old slice, so the kills left go to a new
 			// one.
 			ch.kills = slices.DeleteFunc(slices.Clone(ch.kills), folded)
+			repart = true
+		}
+		if repart {
+			ch.repart()
 			changed.Add(key)
 		}
 	}

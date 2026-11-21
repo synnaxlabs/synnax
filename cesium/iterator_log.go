@@ -95,7 +95,7 @@ func (c *logCursor) load() {
 			return
 		}
 		for i, seg := range r.Segments {
-			if p.Live(r.First+i) && !killed(ch.Kills, p, seg.ID) {
+			if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) {
 				c.add(seg)
 			}
 		}

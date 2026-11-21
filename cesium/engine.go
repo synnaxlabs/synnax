@@ -80,6 +80,8 @@ type engine struct {
 	// parts holds the parts that the last two heads name, which the range of a Channel
 	// may name. Only the state owner stores it, in the step that publishes the ranges.
 	parts atomic.Pointer[partSets]
+	// replaying is true while recovery replays the logs into the state.
+	replaying bool
 }
 
 // partSets are the parts of the last two heads.
@@ -201,7 +203,10 @@ func (e *engine) create(o *options, r *recovery) (*state.Snapshot, error) {
 // recover replays the logs into the state, writes again what recovery read, logs a
 // Restart after an unclean stop, and opens the log where recovery left it.
 func (e *engine) recover(r *recovery) (err error) {
-	if err = r.replay(e.replay); err != nil {
+	e.replaying = true
+	err = r.replay(e.replay)
+	e.replaying = false
+	if err != nil {
 		return err
 	}
 	if err = r.rewrite(); err != nil {
@@ -273,14 +278,15 @@ func (e *engine) parted(
 	}
 }
 
-// partsOf returns the parts of the range of ch, from the head that ch names.
-func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
-	if ch.Oldest == 0 {
+// partsOf returns the parts that p, the parts of key, names, from the head that p
+// names.
+func (e *engine) partsOf(key ChannelKey, p *state.Parts) ([]checkpoint.Part, error) {
+	if p == nil {
 		return nil, nil
 	}
 	sets := e.parts.Load()
 	var head headParts
-	switch ch.Generation {
+	switch p.Generation {
 	case sets.live.generation:
 		head = sets.live
 	case sets.older.generation:
@@ -288,19 +294,19 @@ func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
 	default:
 		return nil, errors.Newf(
 			"key %d names the parts of head %d, which the engine no longer holds",
-			ch.Key,
-			ch.Generation,
+			key,
+			p.Generation,
 		)
 	}
-	lo, found := slices.BinarySearchFunc(head.parts, ch.Oldest, compareParts)
-	hi, foundNewest := slices.BinarySearchFunc(head.parts, ch.Newest, compareParts)
+	lo, found := slices.BinarySearchFunc(head.parts, p.Oldest, compareParts)
+	hi, foundNewest := slices.BinarySearchFunc(head.parts, p.Newest, compareParts)
 	if !found || !foundNewest {
 		return nil, errors.Newf(
 			"key %d names parts %d to %d, which head %d does not name",
-			ch.Key,
-			ch.Oldest,
-			ch.Newest,
-			ch.Generation,
+			key,
+			p.Oldest,
+			p.Newest,
+			p.Generation,
 		)
 	}
 	return head.parts[lo : hi+1], nil

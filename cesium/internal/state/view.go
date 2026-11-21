@@ -59,6 +59,30 @@ type chanState struct {
 	// may share the array of a published Channel, so a change other than an append
 	// takes a new slice.
 	kills []Kill
+	// parts holds the range and kills of c for the Channels that c publishes.
+	parts *Parts
+}
+
+// partsGeneration returns the generation of the head whose parts the range of c names,
+// or 0 when c has no range.
+func (c *chanState) partsGeneration() uint64 {
+	if c.oldest == 0 {
+		return 0
+	}
+	return c.generation
+}
+
+// repart sets the parts of c from its range and kills.
+func (c *chanState) repart() {
+	c.parts = nil
+	if c.oldest != 0 {
+		c.parts = &Parts{
+			Oldest:     c.oldest,
+			Newest:     c.newest,
+			Generation: c.generation,
+			Kills:      c.kills,
+		}
+	}
 }
 
 // insert adds s to c in order of identity.
@@ -117,12 +141,9 @@ func (c *chanState) checkViews() {
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
 	ch := &Channel{
-		Key:        c.key,
-		Segments:   make([]Segment, 0, len(c.segs)),
-		Oldest:     c.oldest,
-		Newest:     c.newest,
-		Generation: c.generation,
-		Kills:      c.kills,
+		Key:      c.key,
+		Segments: make([]Segment, 0, len(c.segs)),
+		Parts:    c.parts,
 	}
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)

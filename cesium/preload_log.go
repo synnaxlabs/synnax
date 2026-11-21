@@ -100,33 +100,28 @@ func (e *engine) records(
 	key ChannelKey,
 	first, last telem.TimeStamp,
 ) (state.Preload, error) {
-	ch := e.state.Channel(key)
-	if ch == nil {
-		return state.Preload{Key: key, Generation: e.parts.Load().live.generation}, nil
-	}
 	pre := state.Preload{Key: key, Generation: e.parts.Load().live.generation}
-	if ch.Oldest != 0 {
-		pre.Generation = ch.Generation
+	kp, ok := e.keyParts(key)
+	if !ok || kp == nil {
+		return pre, nil
 	}
-	parts, err := e.partsOf(ch)
+	pre.Generation = kp.Generation
+	parts, err := e.partsOf(key, kp)
 	if err != nil || !reachesAny(parts, first, last) {
 		return pre, err
 	}
-	ch, h, err := e.pinReaching(key, first, last)
-	if err != nil || ch == nil {
-		return state.Preload{Key: key}, err
+	kp, h, err := e.pinReaching(key, first, last)
+	if err != nil || kp == nil {
+		return pre, err
 	}
-	pre.Generation = ch.Generation
-	if ch.Oldest == 0 {
-		pre.Generation = e.parts.Load().live.generation
-	}
+	pre.Generation = kp.Generation
 	for _, p := range h.parts {
 		r, err := e.cache.Records(p, key)
 		if err != nil {
 			return pre, errors.Join(err, e.unpin(h))
 		}
 		for i, seg := range r.Segments {
-			if p.Live(r.First+i) && !killed(ch.Kills, p, seg.ID) &&
+			if p.Live(r.First+i) && !killed(kp.Kills, p, seg.ID) &&
 				reaches(seg.Pointers, first, last) {
 				seg.Part = p.ID
 				pre.Segments = append(pre.Segments, seg)
@@ -134,6 +129,19 @@ func (e *engine) records(
 		}
 	}
 	return pre, e.unpin(h)
+}
+
+// keyParts returns the parts of key, and false when the state does not hold key. It
+// reads the core during replay, since the state publishes no Channel before Run.
+func (e *engine) keyParts(key ChannelKey) (*state.Parts, bool) {
+	if e.replaying {
+		return e.state.ReplayParts(key)
+	}
+	ch := e.state.Channel(key)
+	if ch == nil {
+		return nil, false
+	}
+	return ch.Parts, true
 }
 
 // clockUsers returns the live part records of keys other than clock that name clock as
@@ -159,9 +167,13 @@ func (e *engine) clockUsers(
 			return nil, errors.Join(err, e.unpin(h))
 		}
 		for _, t := range timed {
-			ch := e.state.Channel(t.Key)
-			if ch == nil || !p.Live(t.Index) || killed(ch.Kills, p, t.Segment.ID) ||
-				!reaches(t.Segment.Pointers, first, last) {
+			kp, ok := e.keyParts(t.Key)
+			if !ok || kp == nil || !p.Live(t.Index) ||
+				killed(
+					kp.Kills,
+					p,
+					t.Segment.ID,
+				) || !reaches(t.Segment.Pointers, first, last) {
 				continue
 			}
 			seg := t.Segment
@@ -172,21 +184,21 @@ func (e *engine) clockUsers(
 	return users, e.unpin(h)
 }
 
-// pinReaching returns the Channel of key and pins the parts of its range whose stamps
+// pinReaching returns the parts of key and pins those of their range whose stamps
 // reach [first, last], under the lock that the pins of a load take.
 func (e *engine) pinReaching(
 	key ChannelKey,
 	first, last telem.TimeStamp,
-) (*state.Channel, held, error) {
+) (*state.Parts, held, error) {
 	e.pins.mu.Lock()
 	defer e.pins.mu.Unlock()
-	ch := e.state.Channel(key)
-	if ch == nil {
+	kp, ok := e.keyParts(key)
+	if !ok || kp == nil {
 		return nil, held{}, nil
 	}
-	parts, err := e.partsOf(ch)
+	parts, err := e.partsOf(key, kp)
 	if err != nil {
-		return ch, held{}, err
+		return kp, held{}, err
 	}
 	var h held
 	for _, p := range parts {
@@ -195,7 +207,7 @@ func (e *engine) pinReaching(
 		}
 	}
 	e.pins.pin(h)
-	return ch, h, nil
+	return kp, h, nil
 }
 
 // reachesAny reports whether the stamps of a part of parts reach [first, last].

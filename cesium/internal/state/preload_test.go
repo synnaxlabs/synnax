@@ -96,7 +96,10 @@ var _ = Describe("Put-back", func() {
 	It("Should put a parted record that the state lacks back for the cut of a delete",
 		func() {
 			head := sample()
-			head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+			head.Channels[1] = &state.Channel{
+				Key:   6,
+				Parts: &state.Parts{Oldest: 7, Newest: 7},
+			}
 			cfg := config(&appended{})
 			cfg.Generation = 5
 			s := MustSucceed(state.Open(cfg, head))
@@ -139,7 +142,10 @@ var _ = Describe("Replay preloads", func() {
 	It("Should cut a parted record that a replayed Tombstone reaches, through its "+
 		"preload", func() {
 		head := sample()
-		head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
 		s := MustSucceed(state.Open(config(&appended{}), head))
 		Expect(s.Replay(10, []log.Record{&log.Tombstone{
 			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
@@ -184,7 +190,10 @@ var _ = Describe("Clock users", func() {
 	var s *state.State
 	BeforeEach(func() {
 		head := sample()
-		head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+		head.Channels[1] = &state.Channel{
+			Key:   6,
+			Parts: &state.Parts{Oldest: 7, Newest: 7},
+		}
 		s = MustSucceed(state.Open(config(&appended{}), head))
 	})
 	users := state.Preload{Key: 5, Generation: 1, Users: []state.User{user}}

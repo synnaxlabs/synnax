@@ -54,13 +54,18 @@ type Channel struct {
 	Key uint32
 	// Segments are in rising order of identity.
 	Segments []Segment
-	// Oldest and Newest are the identities of the oldest and newest part that hold
-	// records of the key, or 0 when no part does.
+	// Parts names the parts that hold records of the key, or is nil when none does.
+	Parts *Parts
+}
+
+// Parts names the parts that hold records of a key in a head, and the kills of the
+// segments of the key that no head holds as dead marks yet. A Parts never changes.
+type Parts struct {
+	// Oldest and Newest are the identities of the oldest and newest of the parts.
 	Oldest, Newest uint64
-	// Generation is the generation of the head whose parts Oldest and Newest name.
+	// Generation is the generation of the head that names the parts.
 	Generation uint64
-	// Kills are the kills of segments of the key that no head holds as dead marks yet.
-	Kills []Kill
+	Kills      []Kill
 }
 
 // Kill marks the record of a segment of a key dead in each part of its generation or

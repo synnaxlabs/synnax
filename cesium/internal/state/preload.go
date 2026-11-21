@@ -41,6 +41,16 @@ type User struct {
 	Segment Segment
 }
 
+// ReplayParts returns the parts of key as replay has left them, and false when the
+// state does not hold key. Call it in replay mode, before Run.
+func (s *State) ReplayParts(key uint32) (*Parts, bool) {
+	ch := s.core.channels[key]
+	if ch == nil {
+		return nil, false
+	}
+	return ch.parts, true
+}
+
 // usersOf returns the users of the preload of key in pre, or none.
 func usersOf(pre []Preload, key uint32) []User {
 	if i, found := search(pre, key); found {

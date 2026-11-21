@@ -245,7 +245,10 @@ func eachChannel(
 		for ; i < len(ranges) && ranges[i].Key < c.Key; i++ {
 			f(ranges[i].Key, nil, ranges[i])
 		}
-		r := state.Range{Key: c.Key, Oldest: c.Oldest, Newest: c.Newest}
+		r := state.Range{Key: c.Key}
+		if c.Parts != nil {
+			r.Oldest, r.Newest = c.Parts.Oldest, c.Parts.Newest
+		}
 		if i < len(ranges) && ranges[i].Key == c.Key {
 			r = ranges[i]
 			i++

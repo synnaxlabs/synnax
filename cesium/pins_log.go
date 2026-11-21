@@ -51,7 +51,7 @@ func (e *engine) load(
 		for i, seg := range ch.Segments {
 			h.segments[i] = seg.ID
 		}
-		h.parts, err = e.partsOf(ch)
+		h.parts, err = e.partsOf(key, ch.Parts)
 	}
 	e.pins.pin(h)
 	free := e.pins.unpin(prev)

@@ -122,6 +122,7 @@ func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
 					Segment:    s.vis.ID,
 					Generation: c.generation,
 				})
+				ch.repart()
 			}
 		}
 		c.bury(s)
