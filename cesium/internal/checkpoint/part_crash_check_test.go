@@ -113,14 +113,14 @@ var _ = Describe("Check: a crash in a switch that writes parts", func() {
 				PartSize: 1,
 			}))
 			start(c)
-			// Head 2 writes part 1. Head 3 writes part 1 again as part 2, since two of
-			// its three segments are dead. Head 4 removes head 2 and part 1.
+			// Head 2 writes part 1. Head 3 writes part 1 again as part 2, since kills
+			// mark two of its three segments dead. Head 4 removes head 2 and part 1.
 			want := map[uint64][]uint64{
 				1: {100}, 2: {1, 2, 3, 100}, 3: {1, 100}, 4: {1, 100},
 			}
 			snapshots := map[uint64]*state.Snapshot{
 				2: withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)),
-				3: withSealed(sealed(1, 10)),
+				3: killed(withSealed(sealed(1, 10)), 2, 2, 3),
 				4: withSealed(sealed(1, 10)),
 			}
 			for g := uint64(2); g <= 4; g++ {
