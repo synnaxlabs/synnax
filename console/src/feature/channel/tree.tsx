@@ -35,14 +35,25 @@ import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
-  const ch = client.channels.watch(Number(key)).getCached();
-  if (!query.isLive(ch) || !ch.internal) return [PChannel.createHaulItem(Number(key))];
+  const ch = Number(key);
+  if (PChannel.getCachedBuiltIns(client)?.has(ch) !== true)
+    return [PChannel.createHaulItem(ch)];
   return [
     PSchematic.createHaulItem({
       key: id.create(),
-      config: { variant: "value", label: { label: name }, channel: Number(key) },
+      config: { variant: "value", label: { label: name }, channel: ch },
     }),
   ];
+};
+
+/**
+ * @returns false for a built-in channel, and for every channel until the built-in keys
+ * arrive. A failed fetch allows a rename, since the Core refuses a built-in rename.
+ */
+const useRenamable = (key: channel.Key): boolean => {
+  const { variant, data } = PChannel.useResultBuiltIns();
+  if (variant === "error") return true;
+  return data != null && !data.has(key);
 };
 
 const FACTS = ["Channel"];
@@ -112,7 +123,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
   const isCalc =
     singleResource && firstChannel != null && isCalculated(firstChannel.payload);
-  const renamable = firstChannel?.internal !== true;
+  const renamable = useRenamable(channelKeys[0]);
 
   return (
     <ContextMenu.Menu>
@@ -157,6 +168,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key) };
   const { data: chStatus } = PChannel.useResultStatus(params);
   const { data: kind } = PChannel.useResultKind(params);
+  const renamable = useRenamable(params.key);
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();
@@ -170,7 +182,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow
-        disabled={kind?.internal === true}
+        disabled={!renamable}
         onChange
         highlight={highlight}
       />

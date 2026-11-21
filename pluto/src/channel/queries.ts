@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, channel, DataType, query } from "@synnaxlabs/client";
+import {
+  actions,
+  channel,
+  DataType,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -113,17 +119,36 @@ export const useResultDataType = createResultSelector(
 );
 
 /**
- * The icon of the channel, and whether it is internal or virtual. Compared by value: a
- * status heartbeat is silenced.
+ * The icon of the channel, and whether it is virtual. Compared by value: a status
+ * heartbeat is silenced.
  */
 export const useResultKind = createResultSelector(
-  (ch) => ({
-    icon: resolveIcon(ch.payload),
-    internal: ch.internal,
-    virtual: ch.virtual,
-  }),
-  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
+  (ch) => ({ icon: resolveIcon(ch.payload), virtual: ch.virtual }),
+  (a, b) => a.icon === b.icon && a.virtual === b.virtual,
 );
+
+const { useResult: useResultBuiltInsQuery, peek: peekBuiltIns } = Flux.createRetrieve<
+  Record<string, never>,
+  Set<channel.Key>
+>({
+  name: "built-in channels",
+  retrieve: async ({ client }) => new Set(await client.channels.retrieveBuiltIns()),
+  retryUnreachable: true,
+});
+
+/**
+ * @returns the keys of the built-in channels, which Core services declare for their own
+ * work. All readers on a client share one fetch.
+ */
+export const useResultBuiltIns = (): Flux.Result<Set<channel.Key>> =>
+  useResultBuiltInsQuery({});
+
+/**
+ * @returns the built-in keys that a {@link useResultBuiltIns} reader fetched on the
+ * client, or undefined before that fetch answers or after it fails. Starts no fetch.
+ */
+export const getCachedBuiltIns = (client: Client): Set<channel.Key> | undefined =>
+  peekBuiltIns(client, {});
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,

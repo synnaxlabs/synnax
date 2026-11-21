@@ -14,9 +14,15 @@ import {
   NotFoundError,
   query,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  failRequests,
+  holdRequests,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { Channel as PChannel } from "@synnaxlabs/pluto";
 import { binary, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -47,6 +53,7 @@ import {
   awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
+  renderHookWithConsole,
   resolveFocusedTab,
 } from "@/testutil";
 
@@ -69,6 +76,8 @@ const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
   assertDefined(ch);
   return ch;
 };
+
+const BUILT_INS_TARGET = "/channel/retrieve-built-ins";
 
 // Hosts the channels under the host root, outside any group.
 const hostChannels = (...channels: { key: channelClient.Key }[]) =>
@@ -106,14 +115,29 @@ describe("channel/tree", () => {
       expect(items[0].key).toBe(ch.key);
     });
 
-    it("hauls an internal channel as a schematic value element only", async () => {
+    it("hauls a built-in channel as a schematic value element only", async () => {
       const ch = await retrieveInternalChannel();
+      const { result } = await renderHookWithConsole(
+        () => PChannel.useResultBuiltIns(),
+        { client },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
       const items = Item.haulItems(
         createResource(channelClient.resourceID(ch.key), ch.name),
         client,
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("schematic-element");
+    });
+
+    it("hauls a built-in channel as a channel item before its keys arrive", async () => {
+      const ch = await retrieveInternalChannel();
+      const items = Item.haulItems(
+        createResource(channelClient.resourceID(ch.key), ch.name),
+        createTestClient(),
+      );
+      expect(items).toHaveLength(1);
+      expect(items[0].type).toBe("channel");
     });
   });
 
@@ -322,17 +346,58 @@ describe("channel/tree", () => {
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
-    it("withholds rename from an internal channel", async () => {
+    it("withholds rename from a built-in channel", async () => {
       const ch = await retrieveInternalChannel();
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
         client,
         resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
       });
-      // Delete shares the update permission the rename item needs, so its presence
-      // proves the gate resolved before the absence below is read.
+      // Delete shares the update permission the rename item needs, and the menu reads
+      // the built-in keys, so both prove the gates resolved before the absence below.
+      expect(await screen.findByText("Delete")).toBeTruthy();
+      await waitFor(() => expect(PChannel.getCachedBuiltIns(client)).toBeDefined());
+      await act(async () => {});
+      expect(screen.queryByText("Rename")).toBeNull();
+    });
+
+    it("withholds rename from every channel until the built-in keys arrive", async () => {
+      const ch = await createChannel();
+      const pending = createTestClient();
+      holdRequests(pending, BUILT_INS_TARGET);
+      await renderLiveTree({
+        client: pending,
+        root: HOST_ID,
+        items: { ...Channel.TREE_ITEMS, ...hostChannels(ch) },
+      });
+      const name = await screen.findByText(ch.name);
+      expect(name.className).not.toContain("lyra-text--editable");
+      await openTreeRowContextMenu(ch.name);
       expect(await screen.findByText("Delete")).toBeTruthy();
       expect(screen.queryByText("Rename")).toBeNull();
+    });
+
+    it("allows rename when the built-in keys fail to arrive", async () => {
+      const ch = await createChannel();
+      // The client fetches the keys for itself too, and reports its own failure.
+      const internal: Error[] = [];
+      const failed = createTestClient({ onInternalError: (e) => internal.push(e) });
+      failRequests(failed, BUILT_INS_TARGET, new Error("built-in keys refused"));
+      await renderLiveTree({
+        client: failed,
+        root: HOST_ID,
+        items: { ...Channel.TREE_ITEMS, ...hostChannels(ch) },
+      });
+      await waitFor(() =>
+        expect(screen.getByText(ch.name).className).toContain("lyra-text--editable"),
+      );
+      await openTreeRowContextMenu(ch.name);
+      expect(await screen.findByText("Rename")).toBeTruthy();
+      await waitFor(() =>
+        expect(internal.map((e) => e.message)).toEqual([
+          "failed to fetch built-in channels",
+        ]),
+      );
     });
   });
 });

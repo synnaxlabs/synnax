@@ -618,7 +618,6 @@ describe("queries", () => {
       await waitFor(() =>
         expect(result.current.kind.data).toEqual({
           icon: Channel.resolveIcon(ch.payload),
-          internal: false,
           virtual: true,
         }),
       );
@@ -629,6 +628,56 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.name.data).toEqual(name));
       expect(result.current.kind.data).toBe(before);
+    });
+  });
+
+  describe("useResultBuiltIns", () => {
+    it("should hold the keys of the built-in channels", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(() => Channel.useResultBuiltIns(), { wrapper });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      const keys = await client.channels.retrieveBuiltIns();
+      expect(keys.length).toBeGreaterThan(0);
+      expect(result.current.data).toEqual(new Set(keys));
+      expect(result.current.data?.has(ch.key)).toBe(false);
+    });
+
+    it("should give a later reader the keys without a fetch", async () => {
+      const local = createTestClient();
+      // The client fetches the keys for itself when its stream connects.
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const localWrapper = await createAsyncSynnaxWrapper({ client: local });
+      const first = renderHook(() => Channel.useResultBuiltIns(), {
+        wrapper: localWrapper,
+      });
+      await waitFor(() => expect(first.result.current.variant).toBe("success"));
+      const send = spyOnSend(local);
+      const { result } = renderHook(() => Channel.useResultBuiltIns(), {
+        wrapper: localWrapper,
+      });
+      expect(result.current.data).toBe(first.result.current.data);
+      const targets = send.mock.calls.map(([target]) => target);
+      expect(targets).not.toContain("/channel/retrieve-built-ins");
+    });
+  });
+
+  describe("getCachedBuiltIns", () => {
+    it("should return undefined before a reader fetches the keys", () => {
+      expect(Channel.getCachedBuiltIns(createTestClient())).toBeUndefined();
+    });
+
+    it("should return the keys a reader fetched", async () => {
+      const local = createTestClient();
+      const { result } = renderHook(() => Channel.useResultBuiltIns(), {
+        wrapper: await createAsyncSynnaxWrapper({ client: local }),
+      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      expect(Channel.getCachedBuiltIns(local)).toBe(result.current.data);
     });
   });
 

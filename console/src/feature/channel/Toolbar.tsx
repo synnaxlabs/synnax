@@ -9,8 +9,9 @@
 
 import { channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Channel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 
 import { listTreeRoot } from "@/feature/channel/tree";
 import { Channel as PlatformChannel } from "@/platform/channel";
@@ -90,14 +91,26 @@ interface BodyProps {
   search: Tree.Search;
 }
 
-const Body = ({ search }: BodyProps): ReactElement => (
-  <Tree.Tree
-    root={channel.TYPE_RESOURCE_ID}
-    listRoot={listTreeRoot}
-    emptyContent={<EmptyContent />}
-    search={search}
-  />
-);
+// Each tree item reads the built-in keys, so the tree reports a failed fetch once.
+const useReportBuiltInsFailure = (): void => {
+  const { variant, status } = Channel.useResultBuiltIns();
+  const addStatus = Status.useAdder();
+  useEffect(() => {
+    if (variant === "error") addStatus(status);
+  }, [variant]);
+};
+
+const Body = ({ search }: BodyProps): ReactElement => {
+  useReportBuiltInsFailure();
+  return (
+    <Tree.Tree
+      root={channel.TYPE_RESOURCE_ID}
+      listRoot={listTreeRoot}
+      emptyContent={<EmptyContent />}
+      search={search}
+    />
+  );
+};
 
 const EmptyContent = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
