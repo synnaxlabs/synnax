@@ -174,6 +174,16 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+// sendMissed sends a missed marker. The marker covers every drop signaled so far, so
+// it takes a signal still pending on missed.
+func (s *streamer) sendMissed(ctx context.Context, missed <-chan struct{}) error {
+	select {
+	case <-missed:
+	default:
+	}
+	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{Missed: true})
+}
+
 // awaitOpenAck waits for the relay to confirm the opening demand, then signals
 // readiness. This is a true happens-before barrier: updateTaps opens the storage tap
 // with the demanded keys or sends the updated key set before the ack fires, and the
@@ -207,11 +217,7 @@ func (s *streamer) forward(
 	for {
 		if lost && len(responses) == 0 {
 			lost = false
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				Response{Missed: true},
-			); err != nil {
+			if err := s.sendMissed(ctx, missed); err != nil {
 				return err
 			}
 		}

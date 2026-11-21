@@ -452,6 +452,17 @@ var _ = Describe("Relay", func() {
 				send(8)
 				_, markers = drain(stalled)
 				Expect(markers).To(Equal([]int{5}))
+				// Reading during the drops lets the streamer take the signal of the
+				// first drop before the next ones, which must not add a marker.
+				for range 10 {
+					send(8)
+					for range 2 {
+						Eventually(stalled.Outlet()).Should(Receive())
+					}
+					send(8)
+					frames, markers = drain(stalled)
+					Expect(markers).To(Equal([]int{frames}))
+				}
 			},
 		)
 	})
