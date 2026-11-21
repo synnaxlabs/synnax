@@ -19,30 +19,42 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// switchLog appends Intends of many keys to db until the log switches to generation 2,
-// whose head the checkpointer then writes on fs. It returns false when the log does not
-// switch within a bound of Intends.
-func switchLog(db *cesium.DB, fs xfs.FS) (bool, error) {
+// switchLog appends Intends of 1,000 keys each to db on fs until the log switches to
+// generation 2, which asks for the file of log 3. It first waits for the file of log 2,
+// since log 1 goes on past three quarters until that file is ready. The checkpointer
+// writes the head of the switch after it returns.
+func switchLog(db *cesium.DB, fs xfs.FS) error {
+	for deadline := time.Now().Add(30 * time.Second); ; time.Sleep(time.Millisecond) {
+		info, err := fs.Stat(log.Name(2))
+		if err == nil && info.Size() == log.FileSize {
+			break
+		}
+		if time.Now().After(deadline) {
+			return errors.Newf("the file of log 2 is not ready: %v", err)
+		}
+	}
 	keys := make([]cesium.ChannelKey, 1_000)
 	for i := range keys {
 		keys[i] = cesium.ChannelKey(1_000_000 + i)
 	}
-	for range 100_000 {
-		if done, err := fs.Exists(checkpoint.Name(2)); err != nil || done {
-			return done, err
+	for range log.FileSize / 16_000 {
+		if switched, err := fs.Exists(log.Name(3)); err != nil || switched {
+			return err
 		}
 		if err := db.Intend(keys); err != nil {
-			return false, err
+			return err
 		}
 	}
-	return false, nil
+	return errors.New("log 1 did not switch")
 }
 
 // partedDB opens a database of the pointer log layout on fs whose switch writes every
@@ -88,7 +100,7 @@ func writeParted(
 		MustSucceed2(writer.Commit(ctx, nil))
 		Expect(writer.Close()).To(Succeed())
 	}
-	Expect(switchLog(db, fs)).To(BeTrue())
+	Expect(switchLog(db, fs)).To(Succeed())
 	Eventually(func() error {
 		_, _, err := checkpoint.Read(fs, 2)
 		return err

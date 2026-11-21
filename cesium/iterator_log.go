@@ -15,6 +15,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
@@ -81,8 +82,9 @@ func (c *logCursor) load() {
 	if ch == nil {
 		return
 	}
+	var last partRecords
 	for _, seg := range ch.Segments {
-		ptrs, err := c.pointers(seg)
+		ptrs, err := c.pointers(seg, &last)
 		if err != nil {
 			c.err, c.broken = errors.Join(c.err, err), true
 			c.ranges = c.ranges[:0]
@@ -103,32 +105,36 @@ func (c *logCursor) load() {
 	}
 }
 
+// partRecords are the records of the key of a cursor in one part, and the index of the
+// record after the last one that a load took. A load takes segments in rising order of
+// identity, as the part holds them.
+type partRecords struct {
+	part uint64
+	next int
+	checkpoint.Records
+}
+
 // pointers returns the pointers of seg: from the part that its tag names, through the
-// part cache, or its own.
-func (c *logCursor) pointers(seg state.Segment) ([]state.Pointer, error) {
+// part cache, or its own. last holds the records of the last part that a load read,
+// which the next segment in that part reuses.
+func (c *logCursor) pointers(
+	seg state.Segment,
+	last *partRecords,
+) ([]state.Pointer, error) {
 	if seg.Part == 0 {
 		return seg.Pointers, nil
 	}
-	p, ok := c.e.part(seg.Part)
-	if !ok {
-		return nil, errors.Newf(
-			"segment %d of key %d names part %d, which no head names",
-			seg.ID,
-			c.key,
-			seg.Part,
-		)
+	if last.part != seg.Part {
+		r, err := c.records(seg)
+		if err != nil {
+			return nil, err
+		}
+		*last = partRecords{part: seg.Part, Records: r}
 	}
-	r, err := c.e.cache.Records(p, c.key)
-	if err != nil {
-		return nil, err
+	for last.next < len(last.Segments) && last.Segments[last.next].ID < seg.ID {
+		last.next++
 	}
-	i, found := slices.BinarySearchFunc(r.Segments, seg.ID, func(
-		s state.Segment,
-		id uint64,
-	) int {
-		return cmp.Compare(s.ID, id)
-	})
-	if !found {
+	if last.next == len(last.Segments) || last.Segments[last.next].ID != seg.ID {
 		return nil, errors.Wrapf(
 			place.ErrCorrupt,
 			"part %d holds no record of segment %d of key %d",
@@ -137,7 +143,22 @@ func (c *logCursor) pointers(seg state.Segment) ([]state.Pointer, error) {
 			c.key,
 		)
 	}
-	return r.Segments[i].Pointers, nil
+	last.next++
+	return last.Segments[last.next-1].Pointers, nil
+}
+
+// records returns the records of the key of c in the part that the tag of seg names.
+func (c *logCursor) records(seg state.Segment) (checkpoint.Records, error) {
+	p, ok := c.e.part(seg.Part)
+	if !ok {
+		return checkpoint.Records{}, errors.Newf(
+			"segment %d of key %d names part %d, which no head names",
+			seg.ID,
+			c.key,
+			seg.Part,
+		)
+	}
+	return c.e.cache.Records(p, c.key)
 }
 
 // at moves the cursor to position pos, which is valid when it holds a range that
