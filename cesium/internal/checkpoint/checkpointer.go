@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -44,6 +43,11 @@ type Config struct {
 	// PartSize is the size of the sealed segment records in a head at which a switch
 	// moves them to a part. Zero means 8 MiB.
 	PartSize int
+	// Live is the generation of the head that recovery opened. Before its first switch,
+	// the checkpointer cleans the root against it, as Clean does, so a part that a
+	// crash left is gone before a switch writes a part of its identity. Zero means no
+	// such clean.
+	Live uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -76,6 +80,8 @@ type Checkpointer struct {
 	stepped chan bool
 	// index holds the parts that the last head names. Only a step touches it.
 	index *Index
+	// cleaned is true once the clean against the head of recovery ran.
+	cleaned bool
 }
 
 // New returns a checkpointer of cfg.
@@ -163,6 +169,15 @@ func (c *Checkpointer) run() {
 	prepare, heads, closed := c.mu.prepare, c.mu.heads, c.mu.closed
 	c.mu.prepare, c.mu.heads = nil, nil
 	c.mu.Unlock()
+	if !c.cleaned {
+		c.cleaned = true
+		if c.cfg.Live != 0 {
+			err := clean(c.cfg.FS, c.cfg.Live, c.index.ids())
+			c.mu.Lock()
+			c.mu.err = err
+			c.mu.Unlock()
+		}
+	}
 	for _, next := range prepare {
 		c.cfg.Prepared(next, c.prepare(next))
 	}
@@ -195,19 +210,19 @@ func (c *Checkpointer) write(h head) error {
 	}
 	s := *h.snapshot
 	s.Channels, s.Limits.Parts = pl.head, pl.index.limit
-	if err := Write(
+	if gone, err := writeFile(
 		c.cfg.FS,
-		h.generation,
+		Name(h.generation),
 		encodeHead(c.cfg.DB, h.generation, &s, refs),
 	); err != nil {
+		// A head that may stay names the parts.
+		if !gone {
+			return err
+		}
 		return c.undo(written, err)
 	}
 	c.index = pl.index
-	named := set.New[uint64]()
-	for _, p := range refs {
-		named.Add(p.ID)
-	}
-	return clean(c.cfg.FS, h.generation, named)
+	return clean(c.cfg.FS, h.generation, c.index.ids())
 }
 
 // undo removes the parts of a failed switch, then syncs the root.
