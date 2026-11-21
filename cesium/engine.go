@@ -217,6 +217,7 @@ func (e *engine) recover(r *recovery) (err error) {
 		Prepared: e.log.Prepared,
 		Executor: e.exec,
 		Parts:    r.parts,
+		Cache:    checkpoint.NewCache(e.fs, r.db, partCacheSize),
 	})
 	return err
 }
@@ -332,6 +333,9 @@ func (e *engine) close() error {
 	})
 	return e.closeErr
 }
+
+// partCacheSize is the budget of the part cache.
+const partCacheSize = 64 << 20
 
 // segmentName returns the file name of segment id of key.
 func segmentName(key ChannelKey, id uint64) string {

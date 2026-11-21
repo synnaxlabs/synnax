@@ -44,6 +44,9 @@ type Config struct {
 	// PartSize is the size of the sealed segment records in a head at which a switch
 	// moves them to a part. Zero means 8 MiB.
 	PartSize int
+	// Cache is the part cache that a rewrite reads through. Nil means a cache of its
+	// own of 64 MiB.
+	Cache *Cache
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -96,6 +99,9 @@ func New(cfg Config) (*Checkpointer, error) {
 	if c.cfg.PartSize == 0 {
 		c.cfg.PartSize = defaultPartSize
 	}
+	if c.cfg.Cache == nil {
+		c.cfg.Cache = NewCache(cfg.FS, cfg.DB, defaultCacheSize)
+	}
 	c.step = c.run
 	return c, nil
 }
@@ -133,7 +139,8 @@ func (c *Checkpointer) Head(generation uint64, s *state.Snapshot) {
 	c.signal()
 }
 
-// Err returns the error of the last head, or nil once a later head succeeds.
+// Err returns the error of the last head, or of a part that its switch could not read
+// to write again, or nil once a later switch succeeds.
 func (c *Checkpointer) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -207,7 +214,7 @@ func (c *Checkpointer) write(h head) error {
 	for _, p := range refs {
 		named.Add(p.ID)
 	}
-	return clean(c.cfg.FS, h.generation, named)
+	return errors.Join(pl.err, clean(c.cfg.FS, h.generation, named))
 }
 
 // undo removes the parts of a failed switch, then syncs the root.

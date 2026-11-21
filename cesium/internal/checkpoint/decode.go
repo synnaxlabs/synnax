@@ -54,12 +54,17 @@ func (f *format) corrupt(format string, args ...any) error {
 }
 
 func (f *format) decodeSector(b []byte) (Header, error) {
-	s := b[:min(len(b), SectorSize)]
+	return f.decodeSectorOf(b, uint64(len(b)))
+}
+
+// decodeSectorOf decodes the header sector at the start of b, of a file of size bytes.
+func (f *format) decodeSectorOf(b []byte, size uint64) (Header, error) {
+	s := b[:min(uint64(len(b)), size, SectorSize)]
 	if allZero(s) {
 		return Header{}, ErrIncomplete
 	}
 	if len(s) < SectorSize {
-		return Header{}, f.corrupt("file of %d bytes has no header sector", len(b))
+		return Header{}, f.corrupt("file of %d bytes has no header sector", size)
 	}
 	h := Header{
 		DB:         binary.LittleEndian.Uint64(s[16:]),
@@ -91,10 +96,10 @@ func (f *format) decodeSector(b []byte) (Header, error) {
 	if !allZero(s[11:16]) || !allZero(s[84:88]) || !allZero(s[100:sectorCRC]) {
 		return h, f.corrupt("header sector has a set reserved byte")
 	}
-	if h.Length != uint64(len(b)) {
+	if h.Length != size {
 		return h, f.corrupt(
 			"file is %d bytes, but its header says %d",
-			len(b),
+			size,
 			h.Length,
 		)
 	}
@@ -144,11 +149,12 @@ type section struct {
 	count uint64
 }
 
-func (f *format) sectionsOf(b []byte, h Header) ([sectionCount + 1]section, error) {
+// sectionsOf parses the section table of h, whose bytes start table.
+func (f *format) sectionsOf(table []byte, h Header) ([sectionCount + 1]section, error) {
 	var out [sectionCount + 1]section
 	end := uint64(BodyStart)
 	for i, kind := range f.sections {
-		e := b[h.table+uint64(i)*tableEntry:]
+		e := table[uint64(i)*tableEntry:]
 		if k := binary.LittleEndian.Uint16(e); k != uint16(kind) {
 			return out, f.corrupt("section %d of the table has kind %d", kind, k)
 		}
@@ -200,7 +206,7 @@ func (f *format) sectionsOf(b []byte, h Header) ([sectionCount + 1]section, erro
 
 func (f *format) parse(b []byte, h Header) (body, error) {
 	bd := body{file: h.Generation, second: h.Sequence, limits: h.Limits}
-	secs, err := f.sectionsOf(b, h)
+	secs, err := f.sectionsOf(b[h.table:h.chunks], h)
 	if err != nil {
 		return bd, err
 	}
@@ -406,24 +412,15 @@ func (f *format) parseSegment(
 ) (state.Segment, error) {
 	ss, ps := secs[sectionSegs], secs[sectionPtrs]
 	r := b[ss.off+index*32:]
-	seg := state.Segment{
-		ID:       binary.LittleEndian.Uint64(r),
-		Clock:    binary.LittleEndian.Uint32(r[8:]),
-		Length:   binary.LittleEndian.Uint32(r[12:]),
-		TailCRC:  binary.LittleEndian.Uint32(r[16:]),
-		Version:  binary.LittleEndian.Uint16(r[24:]),
-		DataType: r[26],
-		Sealed:   r[27]&flagSealed != 0,
+	seg, first, err := f.decodeSegment(r)
+	if err != nil {
+		return seg, err
 	}
-	first := uint64(binary.LittleEndian.Uint32(r[20:]))
 	end := ps.count
 	if index+1 < ss.count {
 		end = uint64(binary.LittleEndian.Uint32(b[ss.off+(index+1)*32+20:]))
 	}
 	switch {
-	case r[27]&^flagSealed != 0 || !allZero(r[28:32]):
-		return seg, f.corrupt("segment %d has unknown flags or a set reserved byte",
-			seg.ID)
 	case first != *nextPtr || end < first || end > ps.count:
 		return seg, f.corrupt("segment %d has pointer records %d to %d", seg.ID, first,
 			end)
@@ -444,15 +441,40 @@ func parsePointers(
 		seg.Pointers = sl.ptrs[first:end:end]
 	}
 	for i := range seg.Pointers {
-		r := b[ps.off+(first+uint64(i))*36:]
-		seg.Pointers[i] = state.Pointer{
-			First:     telem.TimeStamp(binary.LittleEndian.Uint64(r)),
-			Last:      telem.TimeStamp(binary.LittleEndian.Uint64(r[8:])),
-			Alignment: telem.Alignment(binary.LittleEndian.Uint64(r[16:])),
-			Offset:    binary.LittleEndian.Uint32(r[24:]),
-			Length:    binary.LittleEndian.Uint32(r[28:]),
-			Samples:   binary.LittleEndian.Uint32(r[32:]),
-		}
+		seg.Pointers[i] = decodePointer(b[ps.off+(first+uint64(i))*36:])
+	}
+}
+
+// decodeSegment decodes the segment record r, and returns the index of its first
+// pointer record.
+func (f *format) decodeSegment(r []byte) (state.Segment, uint64, error) {
+	seg := state.Segment{
+		ID:       binary.LittleEndian.Uint64(r),
+		Clock:    binary.LittleEndian.Uint32(r[8:]),
+		Length:   binary.LittleEndian.Uint32(r[12:]),
+		TailCRC:  binary.LittleEndian.Uint32(r[16:]),
+		Version:  binary.LittleEndian.Uint16(r[24:]),
+		DataType: r[26],
+		Sealed:   r[27]&flagSealed != 0,
+	}
+	if r[27]&^flagSealed != 0 || !allZero(r[28:32]) {
+		return seg, 0, f.corrupt(
+			"segment %d has unknown flags or a set reserved byte",
+			seg.ID,
+		)
+	}
+	return seg, uint64(binary.LittleEndian.Uint32(r[20:])), nil
+}
+
+// decodePointer decodes the pointer record r.
+func decodePointer(r []byte) state.Pointer {
+	return state.Pointer{
+		First:     telem.TimeStamp(binary.LittleEndian.Uint64(r)),
+		Last:      telem.TimeStamp(binary.LittleEndian.Uint64(r[8:])),
+		Alignment: telem.Alignment(binary.LittleEndian.Uint64(r[16:])),
+		Offset:    binary.LittleEndian.Uint32(r[24:]),
+		Length:    binary.LittleEndian.Uint32(r[28:]),
+		Samples:   binary.LittleEndian.Uint32(r[32:]),
 	}
 }
 

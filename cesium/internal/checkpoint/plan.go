@@ -15,6 +15,7 @@ import (
 	"sort"
 
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // plan is what a switch writes: the parts that it keeps, the parts that it writes, and
@@ -23,6 +24,9 @@ type plan struct {
 	index  *Index
 	writes []partWrite
 	head   []*state.Channel
+	// err is the error of each part that the switch keeps because a read of it for its
+	// rewrite failed.
+	err error
 }
 
 type partWrite struct {
@@ -51,8 +55,17 @@ func (c *Checkpointer) plan(s *state.Snapshot) plan {
 		}
 		switch {
 		case dead == len(q.segs):
-		case cut || 2*dead >= len(q.segs):
+		case cut:
 			pl.add(f.channels(at, q.keys))
+			f.part(at)
+		case 2*dead >= len(q.segs):
+			// A part that fails a read for its rewrite stays, with its dead marks.
+			if live, err := c.live(q); err != nil {
+				pl.err = errors.Join(pl.err, err)
+				pl.index.parts = append(pl.index.parts, q)
+			} else {
+				pl.add(live)
+			}
 			f.part(at)
 		default:
 			pl.index.parts = append(pl.index.parts, q)
@@ -66,6 +79,31 @@ func (c *Checkpointer) plan(s *state.Snapshot) plan {
 	}
 	pl.head = f.rest()
 	return pl
+}
+
+// live returns the records of p that are not dead, read through the cache.
+func (c *Checkpointer) live(p indexed) ([]*state.Channel, error) {
+	var out []*state.Channel
+	for i := 0; i < len(p.keys); {
+		key := p.keys[i]
+		r, err := c.cfg.Cache.Records(p.Part, key)
+		if err != nil {
+			return nil, err
+		}
+		var segs []state.Segment
+		for j, seg := range r.Segments {
+			if !p.dead(r.First + j) {
+				segs = append(segs, seg)
+			}
+		}
+		if len(segs) > 0 {
+			out = append(out, &state.Channel{Key: key, Segments: segs})
+		}
+		for i < len(p.keys) && p.keys[i] == key {
+			i++
+		}
+	}
+	return out, nil
 }
 
 // add queues a new part of channels.
