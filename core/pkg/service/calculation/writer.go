@@ -55,11 +55,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // the data type of the output to the type of the expression. The commit broadcasts a
 // create action that holds the stored calculation.
 func (w Writer) Create(ctx context.Context, c *Calculation) error {
-	if c.Key == uuid.Nil() {
-		c.Key = uuid.New()
-	}
 	if err := c.Validate(); err != nil {
 		return err
+	}
+	return w.create(ctx, c)
+}
+
+// create creates c, which must be valid, as Create does.
+func (w Writer) create(ctx context.Context, c *Calculation) error {
+	if c.Key == uuid.Nil() {
+		c.Key = uuid.New()
 	}
 	output, err := w.checkOutput(ctx, c.Output)
 	if err != nil {
@@ -92,7 +97,6 @@ func (w Writer) CreateOutput(
 			"a calculation that makes its output names none",
 		), "output")
 	}
-	// The fill reads the operations before Create validates them.
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -115,19 +119,15 @@ func (w Writer) CreateOutput(
 	created := []channel.Channel{output}
 	if err = w.channels.NewWriter(w.tx).
 		WithDispatchKey(w.dispatchKey).
-		CreateMany(
-			ctx,
-			&created,
-			channel.FreeIndex(),
-			channel.WithFill(FillOf(*c)),
-		); err != nil {
+		WithFill(FillOf(*c)).
+		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
 		if b, ok := errors.AsType[channel.BatchError](err); ok {
 			err = b.Err
 		}
 		return nil, err
 	}
 	c.Output = created[0].Key()
-	return created, w.Create(ctx, c)
+	return created, w.create(ctx, c)
 }
 
 // checkOutput returns the channel with key. It fails when the channel does not exist,
