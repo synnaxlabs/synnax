@@ -144,9 +144,10 @@ var _ = Describe("Checkpointer", func() {
 					Expect(s.Sequence).To(Equal(sample(2).Sequence))
 					Expect(exists(checkpoint.Name(1))).To(BeTrue())
 					c.Head(3, sample(2))
-					Eventually(func() bool { return exists(checkpoint.Name(1)) }).
-						Should(BeFalse())
-					Expect(exists(log.Name(1))).To(BeFalse())
+					// Clean removes the head before the log, so wait for both.
+					Eventually(func() bool {
+						return exists(checkpoint.Name(1)) || exists(log.Name(1))
+					}).Should(BeFalse())
 					Expect(exists(checkpoint.Name(2))).To(BeTrue())
 					Expect(c.Err()).ToNot(HaveOccurred())
 				},

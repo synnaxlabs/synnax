@@ -12,9 +12,11 @@ package checkpoint_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -51,14 +53,17 @@ func switchState(keys int) *state.Snapshot {
 }
 
 // BenchmarkSwitch measures one switch of the checkpointer at a steady state: the diff
-// against the parts of the last head, the head, and Clean. The first switch, which
-// writes the parts of a state past the part size, runs before the timer.
+// against the parts of the last head, the head, and Clean, which reads and checks the
+// older head because its log exists, as at every switch of a running database. The
+// first switch, which writes the parts of a state past the part size, runs before the
+// timer, and so does the file of each log.
 func BenchmarkSwitch(b *testing.B) {
 	for _, keys := range []int{1_000, 10_000, 100_000} {
 		b.Run(fmt.Sprintf("keys=%d", keys), func(b *testing.B) {
 			stepped := make(chan struct{}, 1)
+			fs := xfs.NewMem()
 			c, err := checkpoint.New(checkpoint.Config{
-				FS:       xfs.NewMem(),
+				FS:       fs,
 				DB:       1,
 				LogSize:  1 << 20,
 				Prepared: func(uint64, error) {},
@@ -79,6 +84,15 @@ func BenchmarkSwitch(b *testing.B) {
 			})
 			s, generation := switchState(keys), uint64(1)
 			step := func() {
+				b.StopTimer()
+				f, err := fs.Open(log.Name(generation), os.O_CREATE|os.O_RDWR)
+				if err == nil {
+					err = f.Close()
+				}
+				if err != nil {
+					b.Fatal(err)
+				}
+				b.StartTimer()
 				c.Head(generation, s)
 				<-stepped
 				if err := c.Err(); err != nil {

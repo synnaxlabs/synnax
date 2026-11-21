@@ -75,7 +75,7 @@ func write(fs xfs.FS, f xfs.File, b []byte) error {
 // that wraps ErrUnknown for a format this binary does not know, and an error that wraps
 // place.ErrCorrupt for any other check that fails.
 func Read(fs xfs.FS, generation uint64) (Header, *state.Snapshot, error) {
-	h, bd, err := headFormat.read(fs, Name(generation))
+	h, bd, err := headFormat.read(fs, Name(generation), true)
 	if err != nil {
 		return h, nil, err
 	}
@@ -92,7 +92,7 @@ func Read(fs xfs.FS, generation uint64) (Header, *state.Snapshot, error) {
 // as Read does a head. It returns the channels of the part, and an error that wraps
 // place.ErrCorrupt when the part is not the one that the head names.
 func readPart(fs xfs.FS, db uint64, p Part) ([]*state.Channel, error) {
-	h, bd, err := partFormat.read(fs, partName(p.ID))
+	h, bd, err := partFormat.read(fs, partName(p.ID), true)
 	if errors.Is(err, ErrIncomplete) {
 		err = errors.Wrap(place.ErrCorrupt, err.Error())
 	}
@@ -107,7 +107,13 @@ func readPart(fs xfs.FS, db uint64, p Part) ([]*state.Channel, error) {
 	return bd.channels, nil
 }
 
-func (f *format) read(fs xfs.FS, name string) (h Header, bd body, err error) {
+// read reads and checks the file name, as Read does a head. It parses every record when
+// whole is true, and else only the sections and the part records.
+func (f *format) read(
+	fs xfs.FS,
+	name string,
+	whole bool,
+) (h Header, bd body, err error) {
 	file, err := fs.Open(name, os.O_RDONLY)
 	if err != nil {
 		return h, bd, err
@@ -159,8 +165,29 @@ func (f *format) read(fs xfs.FS, name string) (h Header, bd body, err error) {
 	if err != nil {
 		return h, bd, err
 	}
-	bd, err = f.parse(b, h)
+	if whole {
+		bd, err = f.parse(b, h)
+		return h, bd, err
+	}
+	secs, err := f.sectionsOf(b[h.table:h.chunks], h)
+	if err == nil {
+		bd.parts, err = f.parseParts(b, secs)
+	}
 	return h, bd, err
+}
+
+// readParts reads and checks the head of generation in the root fs, as Read does, and
+// returns the parts that it names. It parses no channel record.
+func readParts(fs xfs.FS, generation uint64) (set.Set[uint64], error) {
+	_, bd, err := headFormat.read(fs, Name(generation), false)
+	if err != nil {
+		return nil, err
+	}
+	ids := set.New[uint64]()
+	for _, p := range bd.parts {
+		ids.Add(p.ID)
+	}
+	return ids, nil
 }
 
 // again returns err, or the result of retry when err is a failed check.
@@ -197,10 +224,10 @@ func Prepare(fs xfs.FS, next uint64, size int64) error {
 }
 
 // Clean removes from the root fs what the switch to generation live no longer needs:
-// every head and log older than the newest older head that Read takes and whose logs
-// all exist from its generation to live, and each part that neither of the two heads
-// names. It tries every removal, then syncs the root, and returns the errors of the
-// removals that failed, which the next switch tries again.
+// every head and log older than the newest older head that passes its checks and whose
+// logs all exist from its generation to live, and each part that neither of the two
+// heads names. It tries every removal, then syncs the root, and returns the errors of
+// the removals that failed, which the next switch tries again.
 func Clean(fs xfs.FS, live uint64) error { return clean(fs, live, nil) }
 
 // clean is Clean with the identities of the parts that the head of live names, or nil
@@ -225,19 +252,16 @@ func clean(fs xfs.FS, live uint64, liveParts set.Set[uint64]) error {
 		if !heads.Contains(g) {
 			continue
 		}
-		if older, _, err := Read(fs, g); err == nil {
-			keep = g
-			named = partsOf(older)
+		if older, err := readParts(fs, g); err == nil {
+			keep, named = g, older
 			break
 		}
 	}
 	var errs []error
 	if len(parts) > 0 && liveParts == nil {
-		h, _, err := Read(fs, live)
-		if err != nil {
+		if liveParts, err = readParts(fs, live); err != nil {
 			return err
 		}
-		liveParts = partsOf(h)
 	}
 	named.Add(liveParts.Slice()...)
 	for _, id := range slices.Sorted(maps.Keys(parts)) {
@@ -256,15 +280,6 @@ func clean(fs xfs.FS, live uint64, liveParts set.Set[uint64]) error {
 		}
 	}
 	return errors.Join(errors.Join(errs...), fs.SyncDir(""))
-}
-
-// partsOf returns the identities of the parts that h names.
-func partsOf(h Header) set.Set[uint64] {
-	ids := set.New[uint64]()
-	for _, p := range h.Parts {
-		ids.Add(p.ID)
-	}
-	return ids
 }
 
 // generationOf returns the generation of a file name of 16 hex digits and suffix.
