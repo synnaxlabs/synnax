@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strconv"
 
@@ -23,68 +22,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// calculationOperations returns the record form of ops. A none operation has no record
-// form, and a reset channel of 0 is absent. It returns an error wrapping
-// validate.ErrValidation, at the position of the operation, for an operation whose type
-// is not valid.
-func calculationOperations(ops []Operation) ([]calculation.Operation, error) {
-	out := make([]calculation.Operation, 0, len(ops))
-	for i, op := range ops {
-		if err := op.Validate(); err != nil {
-			return nil, validate.PathedError(err, strconv.Itoa(i))
-		}
-		w := calculation.Window{Duration: op.Duration}
-		if op.ResetChannel != 0 {
-			w.Reset = new(op.ResetChannel)
-		}
-		var variant calculation.OperationVariant
-		switch op.Type {
-		case OperationTypeMin:
-			variant = calculation.MinOperation{Window: w}
-		case OperationTypeMax:
-			variant = calculation.MaxOperation{Window: w}
-		case OperationTypeAvg:
-			variant = calculation.AvgOperation{Window: w}
-		case OperationTypeDerivative:
-			variant = calculation.DerivativeOperation{}
-		case OperationTypeNone:
-			continue
-		default:
-			panic(fmt.Sprintf("operation of unknown type %q", op.Type))
-		}
-		out = append(out, calculation.Operation{Variant: variant})
-	}
-	return out, nil
-}
-
-// channelOperations returns the old API form of ops.
-func channelOperations(ops []calculation.Operation) []Operation {
-	out := make([]Operation, len(ops))
-	for i, op := range ops {
-		var (
-			typ OperationType
-			w   calculation.Window
-		)
-		switch v := op.Variant.(type) {
-		case calculation.MinOperation:
-			typ, w = OperationTypeMin, v.Window
-		case calculation.MaxOperation:
-			typ, w = OperationTypeMax, v.Window
-		case calculation.AvgOperation:
-			typ, w = OperationTypeAvg, v.Window
-		case calculation.DerivativeOperation:
-			typ = OperationTypeDerivative
-		default:
-			panic(fmt.Sprintf("operation of unknown type %T", op.Variant))
-		}
-		out[i] = Operation{Type: typ, Duration: w.Duration}
-		if w.Reset != nil {
-			out[i].ResetChannel = *w.Reset
-		}
-	}
-	return out
-}
 
 // createChannels creates channels in tx. The channel at each position of unsavedAt is
 // the output of the unsaved calculation at the same position of unsaved, made through
@@ -250,8 +187,8 @@ var calculationFields = set.New("expression", "operations")
 // calculationDocument is the part of a calculated channel that the old channel API
 // edits on its calculation.
 type calculationDocument struct {
-	Expression string      `json:"expression"`
-	Operations []Operation `json:"operations"`
+	Expression string              `json:"expression"`
+	Operations []channel.Operation `json:"operations"`
 }
 
 // applyChannel applies acts to the channel with key in tx. An action on the expression
@@ -317,14 +254,14 @@ func (s *Service) applyCalculation(
 	}
 	doc := calculationDocument{
 		Expression: c.Expression,
-		Operations: channelOperations(c.Operations),
+		Operations: calculation.ToChannelOperations(c.Operations),
 	}
 	for _, a := range acts {
 		if doc, err = editDocument(doc, a); err != nil {
 			return nil, err
 		}
 	}
-	ops, err := calculationOperations(doc.Operations)
+	ops, err := calculation.FromChannelOperations(doc.Operations)
 	if err != nil {
 		return nil, validate.PathedError(err, "operations")
 	}

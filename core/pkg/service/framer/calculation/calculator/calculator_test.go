@@ -34,7 +34,9 @@ import (
 )
 
 // saveReport saves every status a Group reports.
-func saveReport(context.Context, channel.Key, calculator.Status) bool { return true }
+func saveReport(context.Context, channel.Key, string, calculator.Status) bool {
+	return true
+}
 
 var _ = Describe("Calculator", Ordered, func() {
 	var (
@@ -1230,6 +1232,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				g.Next(ctx, frame.NewUnary(base[0].Key(), d), func(
 					_ context.Context,
 					key channel.Key,
+					_ string,
 					st calculator.Status,
 				) bool {
 					Expect(key).To(Equal(calc.Key()))
