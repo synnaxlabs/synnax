@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot, log, panel, type resource } from "@synnaxlabs/client";
+import {
+  type channel,
+  lineplot,
+  log,
+  panel,
+  type resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
@@ -17,10 +24,16 @@ import { Log } from "@/platform/log";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-// A virtual channel without an expression has no stored data to plot, so it routes to a
-// log, which displays its live samples. Calculated channels plot like persisted ones.
-const isPlainVirtual = ({ virtual, expression }: channel.Channel): boolean =>
-  virtual && expression === "";
+// A virtual channel that no calculation writes has no stored data to plot, so it routes
+// to a log, which displays its live samples. Calculated channels plot like persisted
+// ones.
+const isPlainVirtual = async (client: Client, key: channel.Key): Promise<boolean> => {
+  const [ch, [output]] = await Promise.all([
+    client.channels.retrieve(key),
+    client.calculations.outputs.retrieve([key]),
+  ]);
+  return ch.virtual && output.calculation == null;
+};
 
 // useOpen returns a handler that opens a channel resource in a visualization:
 // plottable channels go to the focused line plot or a new one, plain virtual
@@ -38,7 +51,7 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
     if (client == null) return;
     const channelKey = Number(item.id.key);
     handleError(async () => {
-      const virtual = isPlainVirtual(await client.channels.retrieve(channelKey));
+      const virtual = await isPlainVirtual(client, channelKey);
       const focusedTab = getFocusedTab();
       const panelKey = getSelectedPanel();
       if (focusedTab != null && panelKey != null) {
