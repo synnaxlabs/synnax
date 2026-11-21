@@ -28,10 +28,9 @@ import (
 // committed state at once, and reads against it see committed state only.
 type Scope interface {
 	comparable
-	// OnCleanup registers fn to run once when the transaction ends, and reports true.
-	// committed is true when the transaction committed. It reports false, and never
-	// runs fn, when the transaction has ended.
-	OnCleanup(fn func(committed bool)) bool
+	// OnCleanup registers fn to run once when the transaction ends. committed is true
+	// when the transaction committed.
+	OnCleanup(fn func(committed bool))
 	// Committing reports whether the transaction is in its commit. Its staged changes
 	// are final from that point.
 	Committing() bool
@@ -217,24 +216,20 @@ type overlay[S Scope, D changes] struct {
 	// the last one ended.
 	scope S
 	d     D
-	// create returns empty changes.
-	create func() D
 	// flush applies the changes of a committed scope to committed state.
 	flush func(D)
 	// end is finish, bound once so that registering it allocates nothing.
 	end func(committed bool)
 }
 
-// init gives o create to make empty changes, and flush to apply them.
-func (o *overlay[S, D]) init(create func() D, flush func(D)) {
-	o.create, o.flush, o.end = create, flush, o.finish
-	o.d = create()
+// init gives o the empty changes d, and flush to apply them.
+func (o *overlay[S, D]) init(d D, flush func(D)) {
+	o.d, o.flush, o.end = d, flush, o.finish
 }
 
 // load returns the changes of scope. The first load of a scope registers a cleanup on
-// scope that flushes the changes if scope committed, and then empties them. A scope
-// that has ended can never commit, so it gets changes of its own that nothing reads. It
-// panics when another scope staged changes and has not ended.
+// scope that flushes the changes if scope committed, and then empties them. It panics
+// when another scope staged changes and has not ended.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -242,10 +237,8 @@ func (o *overlay[S, D]) load(scope S) D {
 		if !isNone(o.scope) {
 			panic("[index] - a scope staged changes while another was open")
 		}
-		if !scope.OnCleanup(o.end) {
-			return o.create()
-		}
 		o.scope = scope
+		scope.OnCleanup(o.end)
 	}
 	return o.d
 }
