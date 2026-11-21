@@ -603,7 +603,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   // reads at once.
   private read({ bounds: b, width }: View, span: bounds.Bounds): telem.ValueProps {
     const { internal: i } = this;
-    const bound = bounded(span) ? span : undefined;
     const zoom = Math.ceil(Math.log2(bounds.span(b)));
     if (zoom !== i.zoom) {
       i.zoom = zoom;
@@ -613,9 +612,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
         i.requestRender("data");
       }, ZOOM_SETTLE.milliseconds);
     }
-    if (i.settleTimer != null) return { bounds: b, bound };
+    if (i.settleTimer != null) return { bounds: b, span };
     const perGroup = POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
-    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup, bound };
+    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup, span };
   }
 
   render(axisProps: LineProps): void {
@@ -668,28 +667,31 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const clearClip = bounded(span)
       ? ctx.renderCtx.scissor(clip(props, span), xy.ZERO, ["gl"])
       : undefined;
-    const clearProg = prog.setAsActive();
-    const instances = prog.bindState(this.state, this.internal.background);
-    const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
-    ops.forEach((op) => {
-      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
-      prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances);
-    });
-    clearProg();
-    const bridges = bridgeVertices(ops, dataToDecimalScale);
-    if (bridges.length > 0) {
-      const bridgeProg = ctx.getProgram(DataType.FLOAT32);
-      const clearBridgeProg = bridgeProg.setAsActive();
-      const bridgeInstances = bridgeProg.bindState(
-        this.state,
-        this.internal.background,
-      );
-      bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
-      bridgeProg.segments(bridges, bridgeInstances);
-      clearBridgeProg();
+    try {
+      const clearProg = prog.setAsActive();
+      const instances = prog.bindState(this.state, this.internal.background);
+      const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
+      ops.forEach((op) => {
+        const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
+        prog.bindScale(scaleTransform, regionTransform);
+        prog.draw(op, instances);
+      });
+      clearProg();
+      const bridges = bridgeVertices(ops, dataToDecimalScale);
+      if (bridges.length > 0) {
+        const bridgeProg = ctx.getProgram(DataType.FLOAT32);
+        const clearBridgeProg = bridgeProg.setAsActive();
+        const bridgeInstances = bridgeProg.bindState(
+          this.state,
+          this.internal.background,
+        );
+        bridgeProg.bindScale(scale.XY.IDENTITY.transform, regionTransform);
+        bridgeProg.segments(bridges, bridgeInstances);
+        clearBridgeProg();
+      }
+    } finally {
+      clearClip?.();
     }
-    clearClip?.();
   }
 }
 

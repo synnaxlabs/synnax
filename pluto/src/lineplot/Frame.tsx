@@ -71,8 +71,8 @@ export interface ContextValue {
   /** The key of the last toggleZoom call that the view still shows, or null. */
   zoomedKey: string | null;
   /**
-   * Opens or closes the break of x1 under a click at clientX, with the same times
-   * kept in view. A click on the plot finds only closed breaks.
+   * Opens or closes the break of x1 under a click at clientX, with the same times kept
+   * in view. A click on the plot finds only closed breaks.
    */
   toggleBreak: (clientX: number, source: lineplot.BreakSource) => void;
   /** Closes every break of x1, with the view left as it is. */
@@ -166,9 +166,9 @@ interface SavedView {
 
 // canvasX returns the x of a client x, from the left of the canvas the plot draws on.
 const canvasX = (clientX: number): number => {
-  const canvas = document.querySelector(".pluto-canvas-container");
-  if (canvas == null) throw new Error("The plot has no canvas");
-  return clientX - box.left(canvas);
+  const origin = Canvas.topLeft();
+  if (origin == null) throw new Error("The plot has no canvas");
+  return clientX - origin.x;
 };
 
 const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
@@ -199,8 +199,8 @@ export interface FrameProps
   /** Called with the key that toggleZoom zoomed to, or null when the plot zooms out. */
   onZoomedChange?: (key: string | null) => void;
   /**
-   * Called with each change of the view and the selection: those of the viewport, and
-   * those a break change makes as it maps them through time.
+   * Called with each change of the view and the selection by the viewport, and with
+   * each selection that a break change maps through time.
    */
   onViewportChange?: Viewport.UseHandler;
   /** Called when the number of open or of closed breaks of x1 changes. */
@@ -241,6 +241,10 @@ export const Frame = ({
       ...memoProps,
     },
     methods: lineplot.linePlotMethodsZ,
+    onAetherChange: ({ breaks: next }) => {
+      const { open, closed } = state.breaks;
+      if (next.open !== open || next.closed !== closed) onBreaksChange?.(next);
+    },
   });
   const { grid, loading, fetching, breaks, openBreaks } = state;
 
@@ -293,7 +297,6 @@ export const Frame = ({
   const handleAsyncError = Status.useAsyncErrorHandler();
   const breaksRef = useSyncedRef(breaks);
   const openBreaksRef = useSyncedRef(openBreaks);
-  useEffect(() => onBreaksChange?.(breaks), [breaks.open, breaks.closed]);
   // The selection the plot last reported, so a break change can map it.
   const selectionRef = useRef<box.Box>(box.ZERO);
 
@@ -305,11 +308,12 @@ export const Frame = ({
     moveView: boolean,
   ): Promise<boolean> => {
     const history = zoomHistory.current;
-    const change = await methods.setBreaks({
+    const selection = selectionRef.current;
+    const change = await methods.getBreakChange({
       action,
       viewport: appliedRef.current,
       held: history.map((v) => v.viewport),
-      selection: selectionRef.current,
+      selection,
     });
     if (change == null) return false;
     setState((prev) => ({ ...prev, openBreaks: change.openBreaks }));
@@ -324,7 +328,8 @@ export const Frame = ({
         stage: "end",
       });
     }
-    if (!box.areaIsZero(selectionRef.current)) {
+    // A selection made during the await holds its own times.
+    if (selectionRef.current === selection && !box.areaIsZero(selection)) {
       selectionRef.current = change.selection;
       onViewportChange?.({
         box: change.selection,

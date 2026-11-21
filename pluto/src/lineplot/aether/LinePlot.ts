@@ -63,16 +63,16 @@ export const linePlotMethodsZ = {
    */
   getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
   /**
-   * Applies a break action to x1, and returns the open breaks and the boxes of the
-   * request mapped so each holds the same values, or null when the action changes
-   * nothing. The caller sets the open breaks and the boxes.
+   * Returns the open breaks of x1 after a break action, and the boxes of the request
+   * mapped so each holds the same values, or null when the action changes nothing. It
+   * sets nothing: the caller sets the open breaks and the boxes.
    */
-  /** Returns the decimal positions across the home view of the seams of x1. */
-  getSeams: z.function({ input: z.tuple([]), output: z.array(z.number()) }),
-  setBreaks: z.function({
+  getBreakChange: z.function({
     input: z.tuple([breaksRequestZ]),
     output: breaksChangeZ.nullable(),
   }),
+  /** Returns the decimal positions across the home view of the seams of x1. */
+  getSeams: z.function({ input: z.tuple([]), output: z.array(z.number()) }),
 };
 
 interface InternalState {
@@ -190,7 +190,7 @@ export class LinePlot
     return this.axes.at(0)?.layout(this.state).seams ?? [];
   }
 
-  setBreaks(req: BreaksRequest): BreaksChange | null {
+  getBreakChange(req: BreaksRequest): BreaksChange | null {
     const x1 = this.axes.at(0);
     if (x1 == null) return null;
     return x1.breaks(this.state, req, this.calculatePlot());
@@ -220,7 +220,14 @@ export class LinePlot
 
   getXBounds(positions: bounds.Bounds): AxesBounds {
     return Object.fromEntries(
-      this.axes.map((a) => [a.state.axisKey ?? a.key, a.values(this.state, positions)]),
+      this.axes.map((a) => {
+        const layout = a.layout(this.state);
+        const values = {
+          lower: layout.reverseHome(positions.lower),
+          upper: layout.reverseHome(positions.upper),
+        };
+        return [a.state.axisKey ?? a.key, values];
+      }),
     );
   }
 
