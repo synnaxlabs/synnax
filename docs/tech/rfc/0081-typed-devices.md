@@ -104,9 +104,11 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, NI-MAX resource name, model, chassis, bus topology.
-- **Configuration group**: The fields a user owns: name, identifier, index channel keys,
-  channel maps, enabled flags, connection settings.
+  serial, NI-MAX resource name, model, chassis, bus topology. On a connected resource,
+  the fields that the connect form owns: rack, name, connection settings.
+- **Configuration group**: The fields a user owns on a discovered resource: name,
+  identifier, index channel keys, channel maps, enabled flags. On a connected resource,
+  the fields that the task forms own: index channel keys and channel maps.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
   discovered resource with an empty identifier is unconfigured.
 - **Scanner**: An integration's scan task in the Driver. It discovers hardware, reports
@@ -125,8 +127,9 @@ one shared behavior, and it stays in the status service (§4.2).
 4. **Repeat, then deduplicate across every resource**: Device services repeat the writer
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
-5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group.
+5. **One writer per field**: The scanner, or the connect form of a connected resource,
+   writes the identity group, and the user writes the configuration group. Neither write
+   path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -217,9 +220,12 @@ Field groups per make:
   `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
   `startup_parameters`, `read_index`, `write_state_index`, input and output channel
   maps.
-- **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
-  certificates), `read_indexes`, node channel maps
-  (`console/src/feature/opcua/device/types/v1.ts:18-30`).
+- **OPC UA server**: identity `rack`, `name`, and `connection` (endpoint, credentials,
+  security mode and policy, certificates, timeouts); configuration `read_indexes` and
+  the node channel maps `read_channels`, `read_fields`, and `write_channels`
+  (`console/src/feature/opcua/device/types/v2.ts`). The connect form and the scanner's
+  server certificate pin write the identity group; the task forms write the
+  configuration group.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
@@ -228,9 +234,11 @@ Field groups per make:
   injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
   `host` and `secure` in generated code.
 
-A connected resource has no identity group: the user owns every field, `rack` included,
-and sets them in the connect form. `configured` does not exist. A discovered resource is
-unconfigured while `identifier` is empty.
+A connected resource has no scanned identity: the user owns every field, `rack`
+included, and sets them in the connect form. Its identity group holds what the connect
+form and a scanner's certificate pin write, so neither clobbers the channel maps that
+the task forms write. `configured` does not exist. A discovered resource is unconfigured
+while `identifier` is empty.
 
 Task configs reference a resource by its typed key: `ni.Device.Key` on NI channels
 (`schemas/synnax/ni.oracle:489,941,1389`), `labjack.Device.Key` on `labjack.oracle:216`,

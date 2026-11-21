@@ -1,0 +1,172 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/certificate/v1"
+import "schemas/synnax/versions/channel/v1"
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+import "schemas/synnax/versions/status/v2"
+
+Key = uuid {
+    @doc value "uniquely identifies an OPC UA server."
+}
+
+SecurityMode enum {
+    none             = "None" {
+        @doc value "signs and encrypts no messages."
+    }
+    sign             = "Sign" {
+        @doc value "signs every message."
+    }
+    sign_and_encrypt = "SignAndEncrypt" {
+        @doc value "signs and encrypts every message."
+    }
+
+    @doc value "is the OPC UA message security mode of a connection."
+}
+
+SecurityPolicy enum {
+    none                   = "None" {
+        @doc value "uses no security policy."
+    }
+    basic128_rsa15         = "Basic128Rsa15" {
+        @doc value "is the deprecated Basic128Rsa15 policy."
+    }
+    basic256               = "Basic256" {
+        @doc value "is the deprecated Basic256 policy."
+    }
+    basic256_sha256        = "Basic256Sha256" {
+        @doc value "is the Basic256Sha256 policy."
+    }
+    aes128_sha256_rsa_oaep = "Aes128_Sha256_RsaOaep" {
+        @doc value "is the Aes128_Sha256_RsaOaep policy."
+    }
+    aes256_sha256_rsa_pss  = "Aes256_Sha256_RsaPss" {
+        @doc value "is the Aes256_Sha256_RsaPss policy."
+    }
+
+    @doc value "is the OPC UA security policy of a connection."
+}
+
+Connection struct {
+    endpoint                        string           {
+        @doc value "is the endpoint URL of the server."
+    }
+    username                        string = "" {
+        @doc value "is the user name to authenticate with. Empty for anonymous."
+    }
+    password                        secret.Key?      {
+        @doc value "is the secret that holds the password. Absent for no password."
+    }
+    security_mode                   SecurityMode = none {
+        @doc value "is the message security mode."
+    }
+    security_policy                 SecurityPolicy = none {
+        @doc value "is the security policy."
+    }
+    client_certificate              certificate.Key? {
+        @doc value """
+            is the certificate that the Driver presents. Absent for the Driver
+            certificate.
+        """
+    }
+    server_certificate              certificate.Key? {
+        @doc value """
+            is the trusted server certificate. Absent to trust the first certificate
+            that the server presents.
+        """
+    }
+    certificate_validation_disabled bool = false {
+        @doc value "is true when the Driver accepts any server certificate."
+    }
+    client_timeout_ms               uint32 = 5000 {
+        @doc value "is the timeout of each request and connection, in milliseconds."
+    }
+    secure_channel_lifetime_ms      uint32 = 600000 {
+        @doc value "is the lifetime of the secure channel, in milliseconds."
+    }
+    session_timeout_ms              uint32 = 1200000 {
+        @doc value "is the timeout of the session, in milliseconds."
+    }
+
+    @doc value  "holds the settings that the Driver connects to a server with."
+    @go marshal
+}
+
+ReadField struct {
+    node_id string      {
+        @doc value "is the ID of the node that holds the structure."
+    }
+    field   string      {
+        @doc value """
+            is the path to a member of the node's structure value. Names join with '.',
+            and '&' escapes the next character.
+        """
+    }
+    channel channel.Key {
+        @doc value "is the channel that holds the samples of the member."
+    }
+
+    @doc value  "binds a member of a node's structure value to a channel."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the server belongs to."
+    }
+    server    Key      {
+        @doc value "is the key of the server."
+    }
+    connected bool = false {
+        @doc value "is true when the server answered the last health check."
+    }
+
+    @doc value "identifies the server and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a server."
+}
+
+Server struct {
+    key            Key = create {
+        @doc value "uniquely identifies the server."
+        @key
+    }
+    rack           rack.Key                 {
+        @doc value "is the key of the rack whose Driver connects to the server."
+    }
+    name           string                   {
+        @doc value "is a human-readable name for the server."
+    }
+    connection     Connection               {
+        @doc value "holds the settings that the Driver connects with."
+    }
+    read_indexes   channel.Key[] = [] {
+        @doc value "are the index channels of the channels that read tasks write to."
+    }
+    read_channels  map<string, channel.Key> = {} {
+        @doc value "maps a node ID to the channel that holds the node's samples."
+    }
+    read_fields    ReadField[] = [] {
+        @doc value "bind members of structure values to channels."
+    }
+    write_channels map<string, channel.Key> = {} {
+        @doc value "maps a node ID to the channel that commands the node."
+    }
+    status         Status?                  {
+        @doc value  "is the current connection status of the server."
+        @go marshal omit
+    }
+
+    @doc value  "is an OPC UA server that a rack's Driver connects to."
+    @go marshal
+    @go migrate
+}
