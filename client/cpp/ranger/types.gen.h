@@ -58,6 +58,9 @@ struct Range {
     Key key;
     /// @brief name is a human-readable name for the range.
     std::string name;
+    /// @brief has_children is true when a range is nested in the range, derived on read
+    /// and not persisted.
+    bool has_children = false;
     /// @brief time_range is the temporal extent of the range, defining its start and
     /// end timestamps.
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
@@ -69,9 +72,6 @@ struct Range {
     /// @brief parent is the key of the range this range is nested in. Empty for a
     /// top-level range.
     std::optional<Key> parent;
-    /// @brief has_children is true when a range is nested in the range, derived on read
-    /// and not persisted.
-    bool has_children = false;
 
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
