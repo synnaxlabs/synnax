@@ -46,6 +46,7 @@ const renderProps = (
   layout: new Layout([shown.numericBounds], box.DECIMAL),
   region: REGION,
   timeRange,
+  raised: [],
 });
 
 const mount = (recorder = canvasTest.record()): range.Provider => {
@@ -212,7 +213,9 @@ describe("Provider", () => {
         .toEqual(1);
       const names = (): number => {
         recorder.upper2d.calls.length = 0;
-        provider.render(props);
+        const raised: Array<() => void> = [];
+        provider.render({ ...props, raised });
+        raised.forEach((draw) => draw());
         return recorder.upper2d.calls.filter(
           (c) => c.op === "fillText" && c.args[0] === rng.name,
         ).length;
@@ -470,7 +473,9 @@ describe("Provider", () => {
         const props = renderProps(lastMinute(now));
         const texts = (): string[] => {
           recorder.upper2d.calls.length = 0;
-          provider.render(props);
+          const raised: Array<() => void> = [];
+          provider.render({ ...props, raised });
+          raised.forEach((draw) => draw());
           return recorder.upper2d.calls
             .filter((c) => c.op === "fillText")
             .map((c) => c.args[0] as string);
@@ -700,8 +705,42 @@ describe("Provider", () => {
         layout: new Layout(b, box.DECIMAL),
         region: REGION,
         timeRange: new TimeRange(b[0].lower, b[b.length - 1].upper),
+        raised: [],
       };
     };
+
+    it("should leave its tooltip to a raised draw, so it covers the bands", async () => {
+      const start = TimeStamp.now().add(TimeSpan.days(18240));
+      const [rng] = await createRanges(start, [[0, 10]]);
+      try {
+        const recorder = canvasTest.record();
+        const provider = mount(recorder);
+        const props = segmentedProps(start, [
+          [0, 10],
+          [3600, 3610],
+        ]);
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toEqual(1);
+        const names = (): number =>
+          recorder.upper2d.calls.filter(
+            (c) => c.op === "fillText" && c.args[0] === rng.name,
+          ).length;
+        provider.setState((s) => ({ ...s, cursor: { x: 250, y: -14 } }));
+        recorder.upper2d.calls.length = 0;
+        const raised: Array<() => void> = [];
+        provider.render({ ...props, raised });
+        // The bar label.
+        expect(names()).toEqual(1);
+        raised.forEach((draw) => draw());
+        expect(names()).toEqual(2);
+      } finally {
+        await createTestClient().ranges.delete(rng.key);
+      }
+    });
 
     it("should cut a bar at each seam that its range crosses", async () => {
       const start = TimeStamp.now().add(TimeSpan.days(18250));
