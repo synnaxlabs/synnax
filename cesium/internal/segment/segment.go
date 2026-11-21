@@ -215,11 +215,17 @@ func wholeSamples(p []byte) error {
 	return nil
 }
 
-// Commit marks the written bytes as committed, and returns the committed length and the
-// running checksum of the unfinished last block there.
+// Pending returns the stream length of the written bytes and the running checksum of
+// the unfinished last block there, which Commit commits. A caller logs them, and calls
+// Commit once the commit is accepted, or PutBack when it is refused.
+func (w *Writer) Pending() (length, tailCRC uint32) {
+	return uint32(w.at.length), w.at.crc
+}
+
+// Commit marks the written bytes as committed, and returns what Pending returns.
 func (w *Writer) Commit() (length, tailCRC uint32) {
 	w.committed = w.at
-	return uint32(w.at.length), w.at.crc
+	return w.Pending()
 }
 
 // PutBack puts the writer back to its last commit. Later writes overwrite the bytes
