@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/rack/key.h"
@@ -28,6 +29,8 @@
 
 namespace synnax::ethercat::master {
 
+struct Identity;
+struct Configuration;
 struct StatusDetails;
 struct Where;
 struct Cursor;
@@ -36,6 +39,30 @@ struct Master;
 struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
+
+/// @brief Identity holds the master fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the master runs on.
+    ::synnax::rack::Key rack = 0;
+    /// @brief interface is the network interface the master drives, such as eth0 or
+    /// igh:0.
+    std::string interface;
+    /// @brief slaves are the keys of the slaves on the bus, in bus order. A slave's
+    /// position is its index.
+    std::vector<x::uuid::UUID> slaves = {};
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Configuration holds the master fields that the user owns.
+struct Configuration {
+    /// @brief name is a human-readable name for the master.
+    std::string name;
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails identifies the master and rack that a status pertains to.
 struct StatusDetails {
@@ -103,6 +130,29 @@ struct Cursor {
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the fields that the scanner owns.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a master.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
