@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -95,6 +96,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:    db,
 		ImEx:  imex.NewService(),
 		Color: colorSvc,
+		Ranger: MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+			DB:    db,
+			Group: groupSvc,
+		})),
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
