@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const planChangedType = "impact.plan_changed"
+const planChangedType = "sy.impact.plan_changed"
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	changed, ok := errors.AsType[impact.PlanChangedError](err)
