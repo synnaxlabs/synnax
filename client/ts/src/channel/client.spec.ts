@@ -18,7 +18,6 @@ import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { query } from "@/query";
-import { status } from "@/status";
 import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 const RENAMED: channel.Payload = {
@@ -132,7 +131,6 @@ const createStreamedClient = async ({
     framer: frames,
     unary,
     writer: new channel.Writer(unary),
-    statuses: new status.Client({ unary, cache }),
     cache,
     batch: batches,
   });

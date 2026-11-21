@@ -102,15 +102,6 @@ export const useResultName = createResultSelector(({ name }) => name);
 
 export const useResultIsIndex = createResultSelector(({ isIndex }) => isIndex);
 
-/** Compared by variant and message: a heartbeat that changes neither is silenced. */
-export const useResultStatus: Flux.UseResult<
-  RetrieveQuery,
-  channel.Status | undefined
-> = createResultSelector(
-  ({ status }) => status,
-  (a, b) => a?.variant === b?.variant && a?.message === b?.message,
-);
-
 export const useResultDataType = createResultSelector(
   ({ dataType }) => dataType,
   (a, b) => a.equals(b),

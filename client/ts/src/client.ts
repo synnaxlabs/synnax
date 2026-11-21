@@ -421,7 +421,6 @@ export default class Synnax extends framer.Client {
       framer: this,
       unary,
       writer: chCreator,
-      statuses: this.statuses,
       cache,
       batch: this.batch,
     });

@@ -256,7 +256,7 @@ type OneParams = query.OneInput<typeof retrieveParamsZ>;
 const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
   query.addressesOne(params);
 
-/** Statuses and uses are composed from their stores on read. */
+/** Uses are composed from their store on read, and the client composes no status. */
 const stripComposed = ({ status: _status, uses: _uses, ...rest }: Payload): Payload =>
   rest;
 
@@ -289,7 +289,6 @@ export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
   writer: Writer;
-  statuses: status.Client;
   cache: query.Cache;
   batch: batch.Client;
 }
@@ -317,10 +316,7 @@ export class Client extends query.Retriever<
   private readonly uses: query.Uses<Key, Channel, RetrieveRequest>;
 
   constructor(cfg: ClientConfig) {
-    const { writer, statuses, cache } = cfg;
-    const statusStore = statuses.store;
-    const affectedChannelKeys = (event: query.TableEvent<status.Key, status.Status>) =>
-      statuses.ownerKeys(event, "channel")?.map(Number) ?? null;
+    const { writer, cache } = cfg;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
     const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
     const store = cache.createTable<Key, Channel>({
@@ -357,16 +353,6 @@ export class Client extends query.Retriever<
       },
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
-    const composed = cache.derive<Key, Channel, Channel>({
-      name: "channel.composed",
-      source: store,
-      compose: (record) => this.compose(record.payload, { status: true, uses: false }),
-      equal: (a, b) => deep.equal(a.payload, b.payload),
-      triggers: [
-        query.deriveTrigger(statusStore, (event) => affectedChannelKeys(event)),
-      ],
-    });
-    statuses.holdOwned(store, resourceID);
     // The channel table never holds uses. A retrieve that asks for them reads these.
     const uses = new query.Uses<Key, Channel, RetrieveRequest>({
       name: "channel",
@@ -395,12 +381,10 @@ export class Client extends query.Retriever<
     const lines = createLines(() => builtIns);
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
-      table: composed,
+      table: store,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
       compose: (records) => records[0],
       keyOf: (query) => query.key,
-      // Status-free fetches and the stream cache calculated channels with no status.
-      covers: (ch) => !ch.isCalculated || ch.status != null,
       single: true,
     });
     super(cache, {
@@ -414,24 +398,12 @@ export class Client extends query.Retriever<
         matches: (ch, query) =>
           uses.lacks(ch, query) ? null : matches(lines, ch, query.where),
         serverComputed: (query) => serverComputed(lines, query.where),
-        triggers: [
-          query.trigger(
-            statusStore,
-            (event, query: RetrieveRequest) =>
-              query.includeStatus === true ? affectedChannelKeys(event) : null,
-            { contentOnly: true },
-          ),
-          uses.trigger,
-        ],
+        triggers: [uses.trigger],
       },
-      compose: (ch, query) => {
-        const { includeStatus, includeUses } = query as RetrieveRequest;
-        if (includeStatus !== true && includeUses !== true) return ch;
-        return this.compose(ch.payload, {
-          status: includeStatus === true,
-          uses: includeUses === true,
-        });
-      },
+      compose: (ch, query) =>
+        (query as RetrieveRequest).includeUses === true
+          ? this.withUses(ch.payload)
+          : ch,
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
@@ -688,41 +660,20 @@ export class Client extends query.Retriever<
     return new Channel({ ...payloads, frameClient });
   }
 
-  /** Rebuilds a cached channel with its cached status or uses attached. */
-  private compose(
-    payload: Payload,
-    { status, uses }: { status: boolean; uses: boolean },
-  ): Channel {
-    const next: Payload = { ...payload, status: undefined, uses: undefined };
-    if (status && isCalculated(payload)) {
-      const parsed = statusZ.safeParse(
-        this.cfg.statuses.ownedBy(resourceID(payload.key)),
-      );
-      if (parsed.success) next.status = parsed.data;
-    }
-    if (uses) next.uses = this.uses.usesOf(payload.key);
-    return this.sugar(next);
+  /** Rebuilds a cached channel with its cached uses attached. */
+  private withUses(payload: Payload): Channel {
+    return this.sugar({ ...payload, uses: this.uses.usesOf(payload.key) });
   }
 
-  /**
-   * Fetches channel payloads. Missing channels are omitted, not thrown. Saves the
-   * statuses the Core returns.
-   */
+  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
   private async execRetrieve(request: RetrieveRequest): Promise<Payload[]> {
-    const { store } = this.cfg.statuses;
-    // A status that streams in during the fetch is newer than the fetched one.
-    return await store.track(async (since) => {
-      const res = await this.cfg.unary.send(
-        "/channel/retrieve",
-        request,
-        retrieveRequestZ,
-        retrieveResZ,
-      );
-      res.channels.forEach(({ status }) => {
-        if (status != null) store.ingest(status, { since });
-      });
-      return res.channels;
-    });
+    const res = await this.cfg.unary.send(
+      "/channel/retrieve",
+      request,
+      retrieveRequestZ,
+      retrieveResZ,
+    );
+    return res.channels;
   }
 
   private async fetchSingle({ key }: RetrieveSingleParams): Promise<Channel> {
@@ -739,10 +690,6 @@ export class Client extends query.Retriever<
       );
       [ch] = fetched;
     }
-    // A cached calculated channel without a cached status is ambiguous: the
-    // status may not exist, or may simply never have been fetched.
-    if (ch.isCalculated && this.cfg.statuses.ownedBy(resourceID(key)) == null)
-      await this.cfg.statuses.retrieveOwned([resourceID(key)]);
     return ch;
   }
 

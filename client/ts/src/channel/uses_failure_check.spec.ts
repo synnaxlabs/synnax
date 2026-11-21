@@ -16,7 +16,6 @@ import { batch } from "@/batch";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { query } from "@/query";
-import { status } from "@/status";
 import { PushStreamer, TEST_CORE_ADDRESS } from "@/testutil";
 
 const FAILED: channel.Payload = {
@@ -82,7 +81,6 @@ const createFake = async () => {
     }),
     unary,
     writer: new channel.Writer(unary),
-    statuses: new status.Client({ unary, cache }),
     cache,
     batch: new batch.Client(unary),
   });
