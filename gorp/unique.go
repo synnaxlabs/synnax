@@ -60,7 +60,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	name  string
 	space string
 	// value returns the value of an entry, and false when the entry holds none.
-	value func(e *E) (V, bool)
+	value func(e E) (V, bool)
 	store *index.Lookup[*txState, K, V]
 	// members is the space of the index on the DB of its table, registry is the
 	// registry of that DB, and table is the name of that table. All are set when the
@@ -76,7 +76,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
-	value func(e *E) (V, bool),
+	value func(e E) (V, bool),
 ) *UniqueIndex[K, E, V] {
 	return &UniqueIndex[K, E, V]{
 		name:  name,
@@ -92,7 +92,7 @@ func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := u.store.Populate()
 	return func(entry E) {
-			if v, ok := u.value(&entry); ok {
+			if v, ok := u.value(entry); ok {
 				insert(entry.GorpKey(), v)
 			}
 		},
@@ -100,7 +100,7 @@ func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
 }
 
 func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(&entry); ok {
+	if v, ok := u.value(entry); ok {
 		u.store.Set(entry.GorpKey(), v)
 		return
 	}
@@ -110,7 +110,7 @@ func (u *UniqueIndex[K, E, V]) set(entry E) {
 func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
 
 func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(&entry); ok {
+	if v, ok := u.value(entry); ok {
 		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
 		return
 	}
@@ -121,10 +121,12 @@ func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	u.store.StageDelete(tx.txIdentity(), key)
 }
 
-// check returns a UniqueError when another entry of the space holds the value of e in
-// tx, unless the entry of e already holds that value in tx.
-func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
-	v, ok := u.value(e)
+// Check returns the UniqueError that a write of e through the table of u would return:
+// when another entry of the space holds the value of e in tx, unless the entry of e
+// already holds that value in tx. Each write of the table runs it, so call it only to
+// fail before work that a refused write would waste.
+func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
+	v, ok := u.value(*e)
 	if !ok {
 		return nil
 	}
@@ -240,8 +242,8 @@ func (u *UniqueIndex[K, E, V]) leave() {
 // checkedIndex is an index whose value a write of its Table checks.
 type checkedIndex[K Key, E Entry[K]] interface {
 	Index[K, E]
-	// check returns a UniqueError when another entry holds the value of e in tx.
-	check(ctx context.Context, tx Tx, e *E) error
+	// Check returns a UniqueError when another entry holds the value of e in tx.
+	Check(ctx context.Context, tx Tx, e *E) error
 	// release stages, in tx, the removal of the values of the entries with the text
 	// keys keys.
 	release(tx Tx, keys []string) error
