@@ -105,6 +105,74 @@ func readAll(b *testing.B, db *cesium.DB, keys []cesium.ChannelKey) int {
 	return read
 }
 
+// layout returns the options of the old layout, or of the pointer log.
+func layout(pointerLog bool) []cesium.Option {
+	if pointerLog {
+		return []cesium.Option{cesium.WithPointerLog()}
+	}
+	return nil
+}
+
+// writeBenchData writes n timestamps one millisecond apart to the index keys[0], and n
+// -
+// late zeros to each data key of keys from the stamp at late, and returns the stamps.
+// On the pointer log, where each frame holds its clock, one writer writes them.
+func writeBenchData(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	n, late int,
+	pointerLog bool,
+) []telem.TimeStamp {
+	b.Helper()
+	if !pointerLog {
+		stamps := writeBenchStamps(b, db, keys[0], n)
+		data := telem.NewSeriesV(make([]float32, n-late)...)
+		for _, key := range keys[1:] {
+			if err := db.WriteSeries(b.Context(), key, stamps[late], data); err != nil {
+				b.Fatal(err)
+			}
+		}
+		return stamps
+	}
+	stamps := make([]telem.TimeStamp, n)
+	for i := range stamps {
+		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+	}
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Start:    stamps[0],
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	if late > 0 {
+		frame := telem.UnaryFrame(keys[0], telem.NewSeriesV(stamps[:late]...))
+		if _, _, err = w.Write(b.Context(), frame, nil); err != nil {
+			b.Fatal(err)
+		}
+	}
+	series := []telem.Series{telem.NewSeriesV(stamps[late:]...)}
+	data := telem.NewSeriesV(make([]float32, n-late)...)
+	for range keys[1:] {
+		series = append(series, data)
+	}
+	if _, _, err = w.Write(
+		b.Context(),
+		telem.MultiFrame(keys, series),
+		nil,
+	); err != nil {
+		b.Fatal(err)
+	}
+	if _, _, err = w.Commit(b.Context(), nil); err != nil {
+		b.Fatal(err)
+	}
+	if err = w.Close(); err != nil {
+		b.Fatal(err)
+	}
+	return stamps
+}
+
 // writeBenchStamps writes n timestamps one millisecond apart to the index channel key
 // and returns them.
 func writeBenchStamps(
@@ -132,22 +200,20 @@ func writeBenchStamps(
 // BenchmarkReadSamples reads an index and a data channel that hold a million samples in
 // one domain each, with the data starting at the first index sample or partway through
 // the index.
-func BenchmarkReadSamples(b *testing.B) {
+func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
+
+// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where
+// each read checks its blocks.
+func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
+
+func readSamples(b *testing.B, pointerLog bool) {
 	const n = 1_000_000
 	for _, late := range []int{0, n / 2} {
 		b.Run(fmt.Sprintf("late=%d", late), func(b *testing.B) {
-			db := openBenchDB(b, true)
+			db := openBenchDB(b, true, layout(pointerLog)...)
 			keys := []cesium.ChannelKey{1, 2}
 			createBenchChannels(b, db, keys)
-			stamps := writeBenchStamps(b, db, keys[0], n)
-			if err := db.WriteSeries(
-				b.Context(),
-				keys[1],
-				stamps[late],
-				telem.NewSeriesV(make([]float32, n-late)...),
-			); err != nil {
-				b.Fatal(err)
-			}
+			writeBenchData(b, db, keys, n, late, pointerLog)
 			b.ReportAllocs()
 			for b.Loop() {
 				if read := readAll(b, db, keys); read != 2*n-late {
@@ -160,7 +226,13 @@ func BenchmarkReadSamples(b *testing.B) {
 
 // BenchmarkStreamFixedSpan reads an index and its data channels with one fixed-span
 // Next over every sample, taking each chunk as the stream iterator sends it.
-func BenchmarkStreamFixedSpan(b *testing.B) {
+func BenchmarkStreamFixedSpan(b *testing.B) { streamFixedSpan(b, false) }
+
+// BenchmarkStreamFixedSpanPointerLog is BenchmarkStreamFixedSpan on the pointer log,
+// where each read checks its blocks.
+func BenchmarkStreamFixedSpanPointerLog(b *testing.B) { streamFixedSpan(b, true) }
+
+func streamFixedSpan(b *testing.B, pointerLog bool) {
 	for _, c := range []struct{ samples, channels int }{
 		{samples: 1_000_000, channels: 1},
 		{samples: 1_000_000, channels: 8},
@@ -169,20 +241,9 @@ func BenchmarkStreamFixedSpan(b *testing.B) {
 	} {
 		name := fmt.Sprintf("samples=%d/channels=%d", c.samples, c.channels)
 		b.Run(name, func(b *testing.B) {
-			db := openBenchDB(b, true)
+			db := openBenchDB(b, true, layout(pointerLog)...)
 			keys := createIndexedChannels(b, db, 1, c.channels)
-			stamps := writeBenchStamps(b, db, keys[0], c.samples)
-			data := telem.NewSeriesV(make([]float32, c.samples)...)
-			for _, key := range keys[1:] {
-				if err := db.WriteSeries(
-					b.Context(),
-					key,
-					stamps[0],
-					data,
-				); err != nil {
-					b.Fatal(err)
-				}
-			}
+			stamps := writeBenchData(b, db, keys, c.samples, 0, pointerLog)
 			span := stamps[0].Span(stamps[c.samples-1] + 1)
 			want := c.samples * len(keys)
 			b.ReportAllocs()

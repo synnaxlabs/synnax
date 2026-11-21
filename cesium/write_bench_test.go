@@ -147,11 +147,13 @@ func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
 	}
 }
 
-// openBenchDB opens a DB on an in-memory file system when mem is true, and in a
-// temporary directory otherwise. The DB runs until the benchmark ends, then closes.
-func openBenchDB(b *testing.B, mem bool) *cesium.DB {
+// openBenchDB opens a DB with extra on an in-memory file system when mem is true, and
+// in a temporary directory otherwise. The DB runs until the benchmark ends, then
+// closes.
+func openBenchDB(b *testing.B, mem bool, extra ...cesium.Option) *cesium.DB {
 	b.Helper()
-	opts := []cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))}
+	opts := append([]cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))},
+		extra...)
 	dir := b.TempDir()
 	if mem {
 		dir = ""
