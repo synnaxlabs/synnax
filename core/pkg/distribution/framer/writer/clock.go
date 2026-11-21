@@ -16,15 +16,15 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // clockEntry is the Cesium writer of one live clock, which the session that holds the
 // clock's control writes through. Each transfer of the clock moves it as one event,
-// under mu: a Sync and a Close of the old holder's writer, then an open for the new
-// holder from the old writer's last commit end. The uncommitted samples of the old
-// holder drop.
+// under mu: a Close of the old holder's writer, which makes its commits durable, then
+// an
+// open for the new holder from the old writer's last commit end. The uncommitted
+// samples of the old holder drop.
 //
 // Lock order: mu, then a Cesium claim, then a gate region. The skip predicate of a
 // session never takes mu, and no path takes mu while it holds a claim or a region lock.
@@ -73,7 +73,7 @@ func (e *clockEntry) follow(ctx context.Context, ts *cesium.DB) {
 		return
 	}
 	if e.w != nil {
-		if err := errors.Join(e.w.Sync(), e.w.Close()); err != nil && e.holder != nil {
+		if err := e.w.Close(); err != nil && e.holder != nil {
 			e.holder.err = err
 		}
 		e.w = nil
@@ -109,7 +109,7 @@ func (e *clockEntry) leave(m *clockMember) error {
 	if e.w == nil {
 		return nil
 	}
-	err := errors.Join(e.w.Sync(), e.w.Close())
+	err := e.w.Close()
 	e.w, e.handing = nil, true
 	return err
 }
