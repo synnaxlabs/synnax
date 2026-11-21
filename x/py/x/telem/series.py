@@ -745,13 +745,17 @@ class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
         return sum(len(s) for s in self.series)
 
     def __getitem__(self, index: int) -> T:
-        if index < 0:
-            index = len(self) + index
+        length = len(self)
+        if not -length <= index < length:
+            raise IndexError(
+                f"[MultiSeries] - Index {index} out of bounds for {length}"
+            )
+        index %= length
         for s in self.series:
             if index < len(s):
                 return s[index]
             index -= len(s)
-        raise IndexError(f"[MultiSeries] - Index {index} out of bounds for {len(self)}")
+        raise AssertionError("unreachable")
 
     def __iter__(self) -> Iterator[T]:
         for s in self.series:

@@ -11,9 +11,12 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
+import { preloadSettings } from "@/app/settings/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
+
+preloadSettings();
 
 describe("Settings.Splash", () => {
   const querySplash = (container: HTMLElement): Element | null =>

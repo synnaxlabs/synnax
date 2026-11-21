@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	arcranges "github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/color"
@@ -98,6 +99,13 @@ var (
 
 func nodeCtx(ctx context.Context) node.Context {
 	return node.Context{Context: ctx, MarkChanged: func(int) {}}
+}
+
+// fixed is the reference that the node stores for a color string.
+func fixed(c string) servicecolor.Ref {
+	GinkgoHelper()
+	v := MustSucceed(color.Parse(c))
+	return servicecolor.Ref{Variant: servicecolor.FixedRef{Value: v}}
 }
 
 // matchesColor reports whether a diagnostic message is a color.Parse rejection.
@@ -365,7 +373,7 @@ var _ = Describe("createNode.Next", func() {
 
 			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
-			Expect(*r.Color).To(Equal(MustSucceed(color.Parse("#DF6D38"))))
+			Expect(*r.Color).To(Equal(fixed("#DF6D38")))
 			Expect(rep.get()).To(BeEmpty())
 		},
 	)
@@ -376,7 +384,7 @@ var _ = Describe("createNode.Next", func() {
 		n.Next(nodeCtx(ctx))
 		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
-		Expect(*r.Color).To(Equal(MustSucceed(color.Parse("rgb(223, 109, 56)"))))
+		Expect(*r.Color).To(Equal(fixed("rgb(223, 109, 56)")))
 		Expect(rep.get()).To(BeEmpty())
 	})
 

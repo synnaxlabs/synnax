@@ -9,11 +9,22 @@
 
 import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import type { Component } from "@/component";
+import { renderProp } from "@/component/renderProp";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
@@ -540,6 +551,111 @@ const renderSearchless = async (
   return onChange;
 };
 
+interface EditButtonProps {
+  name: string;
+}
+
+const EditButton = ({ name }: EditButtonProps): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.Button
+      size="small"
+      aria-label={`Edit ${name}`}
+      onClick={() => open(`Editing ${name}`, <input aria-label="Name" />)}
+    >
+      <Icon.Edit />
+    </Button.Button>
+  );
+};
+
+/** Opens a select whose options each hold a button that opens a view. */
+const renderEditable = async (): Promise<ReturnType<typeof vi.fn>> => {
+  const onChange = vi.fn();
+  const items = ["low", "medium", "high"].map((key) => (
+    <Select.Item key={key} itemKey={key} textValue={key}>
+      {key}
+      <EditButton name={key} />
+    </Select.Item>
+  ));
+  await renderThemed(
+    <Triggers.Provider>
+      <Select.Simple<string>
+        resourceName="level"
+        multiple
+        value={[]}
+        onChange={onChange}
+      >
+        {items}
+      </Select.Simple>
+    </Triggers.Provider>,
+  );
+  await openEditable();
+  return onChange;
+};
+
+const openEditable = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Levels" }));
+  await expect.element(page.getByPlaceholder("Search levels...")).toHaveFocus();
+};
+
+const openView = async (): Promise<void> => {
+  await userEvent.click(page.getByRole("button", { name: "Edit low" }));
+  await expect.element(page.getByText("Editing low")).toBeVisible();
+};
+
+interface MenuEntry {
+  key: string;
+  name: string;
+}
+
+const MENU_ENTRIES: MenuEntry[] = [
+  { key: "1", name: "First" },
+  { key: "2", name: "Second" },
+];
+
+const renderMenuEntry = renderProp((props: List.ItemProps<string>) => (
+  <Select.Item {...props}>
+    <Text.Text>{MENU_ENTRIES.find((e) => e.key === props.itemKey)?.name}</Text.Text>
+  </Select.Item>
+));
+
+const MenuSingle = ({
+  hasMenu,
+}: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu">): ReactElement => {
+  const { data, getItem } = List.useStaticData<string, MenuEntry>({
+    data: MENU_ENTRIES,
+  });
+  const [value, setValue] = useState<string>();
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MenuEntry>
+        data={data}
+        getItem={getItem}
+        value={value}
+        onChange={setValue}
+        resourceName="Entry"
+        initialHover={1}
+        hasMenu={hasMenu}
+        menu={({ keys }) => (
+          <Menu.Menu>
+            <Menu.Item itemKey="edit">{`menu for ${keys.join(",")}`}</Menu.Item>
+          </Menu.Menu>
+        )}
+      >
+        {renderMenuEntry}
+      </Select.Single>
+    </Triggers.Provider>
+  );
+};
+
+const openMenuSingle = async (
+  props: Pick<Select.SingleProps<string, MenuEntry>, "hasMenu"> = {},
+): Promise<void> => {
+  await renderThemed(<MenuSingle {...props} />);
+  await userEvent.click(page.getByRole("button", { name: "Entry" }));
+  await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
+};
+
 describe("Select", () => {
   describe("described options", () => {
     it("should put the icon beside the name and the description under it", async () => {
@@ -616,14 +732,15 @@ describe("Select", () => {
   });
 
   describe("menu surface", () => {
-    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+    // Opens a select of two stages on the surface, and returns its onChange.
+    const openStage = async (surface: "dialog" | "menu"): Promise<Mock> => {
       const onChange = vi.fn();
       await renderThemed(
         <Triggers.Provider>
           <Dialog.Frame variant="floating">
             <Dialog.Trigger>Stage</Dialog.Trigger>
             <Select.Frame<string, undefined> multiple value={[]} onChange={onChange}>
-              <Select.Dialog surface="menu" aria-label="Stage">
+              <Select.Dialog surface={surface} aria-label="Stage">
                 <Select.List>
                   {["alpha", "beta"].map((key) => (
                     <Select.Item<string> key={key} itemKey={key}>
@@ -639,11 +756,33 @@ describe("Select", () => {
       await userEvent.click(page.getByText("Stage"));
       const dialog = page.getByRole("dialog", { name: "Stage" });
       await expect.poll(() => computed(dialog.element(), "opacity")).toBe("1");
+      return onChange;
+    };
+
+    const viewsPacked = (): boolean | undefined =>
+      page
+        .getByRole("dialog", { name: "Stage" })
+        .element()
+        .querySelector(".lyra-dialog-views")
+        ?.classList.contains("lyra--pack");
+
+    it("should pick with the arrow keys and Enter, and not filter as the user types", async () => {
+      const onChange = await openStage("menu");
       await userEvent.keyboard("b");
       expect(document.querySelector(".lyra-menu-filter")).toBeNull();
       await userEvent.keyboard("{ArrowDown}{Enter}");
       await expect.poll(() => onChange).toHaveBeenCalledOnce();
       expect(onChange.mock.calls[0][0]).toEqual(["alpha"]);
+    });
+
+    it("should not pack the options, as a menu does not", async () => {
+      await openStage("menu");
+      expect(viewsPacked()).toBe(false);
+    });
+
+    it("should pack the options on the dialog surface", async () => {
+      await openStage("dialog");
+      expect(viewsPacked()).toBe(true);
     });
   });
 
@@ -1218,6 +1357,161 @@ describe("Select", () => {
       const find = await renderCheckable();
       expect(rect(find("Type")).left).toBeCloseTo(rect(find("type-1")).left, 0);
       expect(rect(find("Channel")).left).toBeCloseTo(rect(find("channel-1")).left, 0);
+    });
+  });
+
+  describe("views", () => {
+    it("should press Back with Enter and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      // Space opens the view from the focused button, so the opener has the focus in
+      // every browser.
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard(" ");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await expect
+        .element(page.getByRole("button", { name: "Edit low" }))
+        .toHaveFocus();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should open the view again with Enter on the opener and pick nothing", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      const opener = page.getByRole("button", { name: "Edit low" });
+      (opener.element() as HTMLElement).focus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByRole("button", { name: "Back" })).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(opener).toHaveFocus();
+      await userEvent.keyboard("{Enter}");
+      await expect.element(page.getByText("Editing low")).toBeVisible();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should not move the hover with an arrow key on the opener", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      (page.getByRole("button", { name: "Edit low" }).element() as HTMLElement).focus();
+      await userEvent.keyboard("{ArrowDown}");
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
+    });
+
+    it("should keep the keys from the options while a view shows", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.click(page.getByLabelText("Name"));
+      await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+      expect(onChange).not.toHaveBeenCalled();
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      await userEvent.click(page.getByPlaceholder("Search levels..."));
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .poll(() => onChange)
+        .toHaveBeenCalledWith(["low"], {
+          clicked: "low",
+        });
+    });
+
+    it("should answer the keys again after the dialog closes on a view", async () => {
+      const onChange = await renderEditable();
+      await userEvent.keyboard("{ArrowDown}");
+      await openView();
+      await userEvent.keyboard("{Escape}");
+      await expect.element(page.getByText("Editing low")).not.toBeInTheDocument();
+      await openEditable();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect.poll(() => onChange).toHaveBeenCalledOnce();
+    });
+
+    it("should fill the minimum height of the dialog with the list", async () => {
+      const Tall = (): ReactElement => {
+        const { data, getItem } = List.useStaticData<string, MenuEntry>({
+          data: MENU_ENTRIES,
+        });
+        return (
+          <Triggers.Provider>
+            <Select.Single<string, MenuEntry>
+              data={data}
+              getItem={getItem}
+              value={undefined}
+              onChange={() => {}}
+              resourceName="Entry"
+              dialogProps={{ style: { minHeight: "60rem" } }}
+            >
+              {renderMenuEntry}
+            </Select.Single>
+          </Triggers.Provider>
+        );
+      };
+      await renderThemed(<Tall />);
+      await userEvent.click(page.getByRole("button", { name: "Entry" }));
+      await expect.element(page.getByRole("option", { name: "Second" })).toBeVisible();
+      const dialog = document.querySelector(".lyra-select__dialog")!;
+      const list = dialog.querySelector(".lyra-dialog-views > :last-child")!;
+      const style = getComputedStyle(dialog);
+      const inner =
+        dialog.getBoundingClientRect().bottom -
+        Number.parseFloat(style.borderBottomWidth) -
+        Number.parseFloat(style.paddingBottom);
+      expect(list.getBoundingClientRect().bottom).toBeCloseTo(inner, 0);
+    });
+
+    it("should join the search and the list over one hairline", async () => {
+      await renderEditable();
+      const views = document.querySelector(
+        ".lyra-select__dialog > .lyra-dialog-views",
+      )!;
+      const [search, list] = Array.from(views.children);
+      expect(computed(search, "border-bottom-left-radius")).toBe("0px");
+      expect(computed(list, "border-top-left-radius")).toBe("0px");
+      expect(list.getBoundingClientRect().top).toBe(
+        search.getBoundingClientRect().bottom - 1,
+      );
+    });
+  });
+
+  describe("option menu", () => {
+    it("should open the menu of the hovered option on Shift+F10", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should open the menu of the hovered option on the Menu key", async () => {
+      await openMenuSingle();
+      await userEvent.keyboard("{ContextMenu}");
+      await expect
+        .element(page.getByRole("menuitem", { name: "menu for 2" }))
+        .toBeVisible();
+    });
+
+    it("should leave an option that hasMenu refuses to the platform", async () => {
+      const prevented = vi.fn();
+      const record = (e: MouseEvent): void => prevented(e.defaultPrevented);
+      window.addEventListener("contextmenu", record);
+      onTestFinished(() => window.removeEventListener("contextmenu", record));
+      await openMenuSingle({ hasMenu: (key) => key !== "2" });
+      const second = page.getByRole("option", { name: "Second" });
+      await userEvent.click(second, { button: "right" });
+      await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+      expect(prevented).toHaveBeenCalledWith(false);
+      expect(prevented).not.toHaveBeenCalledWith(true);
+      // With no menu open, Escape closes the dialog.
+      await userEvent.keyboard("{Escape}");
+      await expect.element(second).not.toBeInTheDocument();
     });
   });
 });
