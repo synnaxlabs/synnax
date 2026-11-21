@@ -570,6 +570,47 @@ var _ = Describe("Planned delete breaker 4", func() {
 			Expect(plannedDelete(ctx, one, one, none)).To(MatchError(restrict))
 		})
 
+		// D-173 as amended: the walk's order is fixed, so one delete names the same
+		// Restrict holder each time it runs, fresh or planned.
+		holderNamed := func(err error) string {
+			GinkgoHelper()
+			var re gorp.RestrictError
+			Expect(errors.As(err, &re)).To(BeTrue(), "no RestrictError in %v", err)
+			return re.Holder.Key
+		}
+		namedEachRun := func(ctx SpecContext, between func(gorp.Tx) error) []string {
+			GinkgoHelper()
+			one := []uint32{1}
+			named := set.New[string]()
+			for range 16 {
+				named.Add(holderNamed(freshDelete(ctx, one, between)))
+				named.Add(holderNamed(plannedDelete(ctx, one, one, between)))
+			}
+			return named.Slice()
+		}
+
+		It("Should name the same Restrict holder each run with more holders than the "+
+			"index keeps in order", func(ctx SpecContext) {
+			for i := range 40 {
+				create(ctx, b2Task{Key: fmt.Sprintf("t%02d", i), Reads: []uint32{1}})
+			}
+			Expect(namedEachRun(ctx, none)).To(HaveLen(1))
+		})
+
+		It("Should name the same Restrict holder each run after a write in the "+
+			"transaction", func(ctx SpecContext) {
+			create(ctx,
+				b2Task{Key: "r1", Reads: []uint32{1}},
+				b2Task{Key: "r2", Reads: []uint32{1}},
+			)
+			staged := func(tx gorp.Tx) error {
+				return tasks.NewCreate().
+					Entry(&b2Task{Key: "r3", Reads: []uint32{2}}).
+					Exec(ctx, tx)
+			}
+			Expect(namedEachRun(ctx, staged)).To(HaveLen(1))
+		})
+
 		It("Should delete like a fresh walk once the table of a planned Restrict "+
 			"holder closes", func(ctx SpecContext) {
 			create(ctx, b3Guard{Key: "g", Channel: 1})
