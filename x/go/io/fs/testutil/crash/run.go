@@ -15,6 +15,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -50,6 +51,11 @@ type run struct {
 	// recovery that broke it.
 	brokenAt     int
 	brokenFaults []fault.Fault
+	// armed is true once the engine of the workload opened and Run armed the faults of
+	// its disk. unsynced counts the crash images from then that the disk took with a
+	// change that a crash can lose in part, and spoiled the images that spoil changed.
+	armed             atomic.Bool
+	unsynced, spoiled int
 	// mu guards every field below plan.
 	mu sync.Mutex
 }
@@ -57,15 +63,17 @@ type run struct {
 // Run runs the workload of cfg on an engine. After each Stride calls that change the
 // disk it takes a crash image. It opens the engine on each image, and again after a
 // crash in that recovery, and applies the oracle to what the engine recovers, with the
-// acks that the engine gave while the disk held that state. It returns the counts of
-// what it checked, and a *Violation for the first rule that the engine breaks, an error
-// that matches validate.ErrValidation for a bad cfg, or nil when the engine holds.
+// acks that the engine gave while the disk held that state. The faults of the workload
+// disk start once the engine opens. It returns the counts of what it checked, and a
+// *Violation for the first rule that the engine breaks, an error that matches
+// validate.ErrValidation for a bad cfg, an error that matches ErrNoFault when no fault
+// of the profile fired after the open, or nil when the engine holds.
 func Run(ctx context.Context, cfg Config) (Result, error) {
 	if err := cfg.validate(); err != nil {
 		return Result{}, err
 	}
 	r := &run{ctx: ctx, cfg: cfg, plan: newPlan(cfg)}
-	disk, err := fault.New(r.plan.workload)
+	disk, err := fault.New(fault.Config{RunKey: r.plan.workload.RunKey})
 	if err != nil {
 		return Result{}, err
 	}
@@ -79,6 +87,11 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if engine, err := cfg.Open(ctx, &countedFS{inner: disk, c: r.counter}); err != nil {
 		r.worksf(r.faulted(), "open on an empty disk: %v", err)
 	} else {
+		if err = disk.Arm(r.plan.workload); err != nil {
+			r.abort(err)
+		}
+		r.fill(0)
+		r.armed.Store(true)
 		r.work(engine)
 		if err = engine.Close(); err != nil {
 			r.worksf(r.faulted(), "close: %v", err)
@@ -91,10 +104,16 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		r.pending = r.snapshot(events)
 	}
 	r.check(r.pending, r.attempts)
+	if r.armed.Load() && r.needsReadFault() {
+		r.check(r.forcedRead(events), r.attempts)
+	}
 	if r.err != nil {
 		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
 	if r.broken == nil {
+		if r.armed.Load() && !r.fired() {
+			return r.result, errors.Wrapf(ErrNoFault, "profile %d", cfg.Profile)
+		}
 		return r.result, nil
 	}
 	if cfg.Exhaustive {
@@ -124,16 +143,14 @@ func (r *run) violation(b *broken, event int, faults []fault.Fault) Violation {
 
 // work runs the commits of the workload on engine, then reads them back.
 func (r *run) work(engine Engine) {
-	rng := rand.New(rand.NewPCG(r.cfg.RunKey, 0))
+	acks := wants(r.cfg.RunKey, r.cfg.Commits)
 	for id := uint64(1); id <= uint64(r.cfg.Commits) && !r.stopped(); id++ {
-		rec, want := Record{ID: id, Payload: payload(r.cfg.RunKey, id)}, Durable
-		if rng.IntN(5) < 2 {
-			want = Visible
-		}
+		rec, want := Record{ID: id, Payload: payload(r.cfg.RunKey, id)}, acks[id-1]
 		r.mu.Lock()
 		r.attempts = append(r.attempts, attempt{record: rec})
 		r.mu.Unlock()
 		ack, err := engine.Commit(r.ctx, rec, want)
+		r.fill(int(id))
 		if err != nil {
 			r.worksf(
 				r.faulted(),
@@ -167,6 +184,55 @@ func (r *run) work(engine Engine) {
 	if b := checkLive(r.attempts, records); b != nil {
 		r.fail(b, 0, nil)
 	}
+}
+
+// fill fills the disk of the workload when the plan fills it after commit id.
+func (r *run) fill(id int) {
+	if r.plan.fills && r.plan.fillAfter == id {
+		r.disk.Fill(r.plan.room)
+	}
+}
+
+// needsReadFault reports if the profile is one of read faults and no recovery got one.
+func (r *run) needsReadFault() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	read := r.cfg.Profile == OneTimeReadFaults || r.cfg.Profile == RepeatedReadFaults
+	return read && r.result.ReadFaults == 0
+}
+
+// forcedRead takes the crash image behind the event with a read fault on the first
+// block read of its recovery, so that a run of a read fault profile gets one.
+func (r *run) forcedRead(event int) *snapshot {
+	cfg := r.plan.crash(event)
+	cfg.Image.ReadFaultAt = 1
+	image, err := r.disk.Crash(cfg)
+	if err != nil {
+		r.abort(err)
+		return nil
+	}
+	return &snapshot{image: image, rules: strictRules, event: event}
+}
+
+// fired reports if a fault of the profile fired after the engine of the workload
+// opened.
+func (r *run) fired() bool {
+	faulted := r.faulted()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	switch r.cfg.Profile {
+	case Strict:
+		return true
+	case Partial:
+		return r.unsynced > 0
+	case SyncErrors, FullDisk, Mixed:
+		return faulted
+	case OneTimeReadFaults, RepeatedReadFaults:
+		return r.result.ReadFaults > 0
+	case OldCorruption, NewCorruption:
+		return r.spoiled > 0
+	}
+	return true
 }
 
 // faulted reports if the disk of the workload failed a call.
@@ -226,10 +292,17 @@ func (r *run) afterEvent(event int) {
 // snapshot takes the crash image behind the event. The counter does not change while it
 // runs.
 func (r *run) snapshot(event int) *snapshot {
+	unsynced := r.disk.Unsynced()
 	image, err := r.disk.Crash(r.plan.crash(event))
 	if err == nil {
 		var rules rules
 		if rules, err = r.plan.spoil(image, r.counter, event); err == nil {
+			if r.armed.Load() {
+				r.mu.Lock()
+				r.unsynced += btoi(unsynced)
+				r.spoiled += btoi(rules != strictRules)
+				r.mu.Unlock()
+			}
 			return &snapshot{image: image, rules: rules, event: event}
 		}
 	}
@@ -445,4 +518,29 @@ func payload(runKey, id uint64) []byte {
 		out[i] = byte(rng.Uint32())
 	}
 	return out
+}
+
+// wants returns the ack that each commit of a workload asks for, in commit order.
+func wants(runKey uint64, commits int) []Ack {
+	rng := rand.New(rand.NewPCG(runKey, 0))
+	out := make([]Ack, commits)
+	for i := range out {
+		out[i] = Durable
+		if rng.IntN(5) < 2 {
+			out[i] = Visible
+		}
+	}
+	return out
+}
+
+// payloadSize returns the length of payload(runKey, id).
+func payloadSize(runKey, id uint64) int {
+	return 1 + rand.New(rand.NewPCG(runKey, id)).IntN(1400)
+}
+
+func btoi(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

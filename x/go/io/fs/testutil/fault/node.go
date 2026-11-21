@@ -30,6 +30,10 @@ type disk struct {
 	changes uint64
 	// syncedThrough is the seq of the newest change that a SyncDir made durable.
 	syncedThrough uint64
+	// syncs counts the Syncs and SyncDirs with changes, for SyncErrorAt.
+	syncs uint64
+	// blockReads counts the block reads of the disk, for ReadFaultAt.
+	blockReads uint64
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
