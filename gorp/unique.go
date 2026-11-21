@@ -138,12 +138,10 @@ func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	u.store.StageDelete(tx.txIdentity(), key)
 }
 
-// Check returns the UniqueError that a write of e through the table of u would return:
-// when another entry of the space holds the value of e in tx, unless the entry of e
-// already holds that value in tx. It returns the error of the value of e as is. Each
-// write of the table runs it, so call it only to
-// fail before work that a refused write would waste.
-func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
+// check returns the UniqueError of a write of e through the table of u: when another
+// entry of the space holds the value of e in tx, unless the entry of e already holds
+// that value in tx. It returns the error of the value of e as is.
+func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
 	v, ok, err := u.value(*e)
 	if err != nil || !ok {
 		return err
@@ -276,8 +274,8 @@ func (u *UniqueIndex[K, E, V]) leave() {
 // checkedIndex is an index whose value a write of its Table checks.
 type checkedIndex[K Key, E Entry[K]] interface {
 	Index[K, E]
-	// Check returns a UniqueError when another entry holds the value of e in tx.
-	Check(ctx context.Context, tx Tx, e *E) error
+	// check returns a UniqueError when another entry holds the value of e in tx.
+	check(ctx context.Context, tx Tx, e *E) error
 	// release stages, in tx, the removal of the values of the entries with the text
 	// keys keys.
 	release(tx Tx, keys []string) error
