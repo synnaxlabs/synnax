@@ -4501,4 +4501,146 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
     EXPECT_FALSE(statuses.contains(synnax::task::resource_id(deleted.key)));
     expect_no_driver_status(deleted, true);
 }
+
+namespace {
+/// @brief a stream of responses that a spec pushes, in place of the Core's.
+class ScriptedStream final : public synnax::framer::StreamerStream {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::vector<grpc::framer::StreamerResponse> responses;
+    bool closed = false;
+
+public:
+    void push(grpc::framer::StreamerResponse res) {
+        {
+            std::lock_guard lock(this->mu);
+            this->responses.push_back(std::move(res));
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<grpc::framer::StreamerResponse, x::errors::Error> receive() override {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] {
+            return this->closed || !this->responses.empty();
+        });
+        if (this->responses.empty()) return {{}, freighter::ERR_EOF};
+        auto res = std::move(this->responses.front());
+        this->responses.erase(this->responses.begin());
+        return {std::move(res), x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::StreamerRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->closed = true;
+        }
+        this->cv.notify_all();
+    }
+};
+
+/// @brief opens the one scripted stream.
+class ScriptedStreamerClient final : public synnax::framer::StreamerClient {
+    std::shared_ptr<ScriptedStream> scripted;
+
+public:
+    explicit ScriptedStreamerClient(std::shared_ptr<ScriptedStream> stream):
+        scripted(std::move(stream)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<synnax::framer::StreamerStream>, x::errors::Error>
+    stream(const std::string &) override {
+        class Handle final : public synnax::framer::StreamerStream {
+            std::shared_ptr<ScriptedStream> s;
+
+        public:
+            explicit Handle(std::shared_ptr<ScriptedStream> s): s(std::move(s)) {}
+            std::pair<grpc::framer::StreamerResponse, x::errors::Error>
+            receive() override {
+                return this->s->receive();
+            }
+            x::errors::Error send(grpc::framer::StreamerRequest &req) const override {
+                return this->s->send(req);
+            }
+            void close_send() override { this->s->close_send(); }
+        };
+        return {std::make_unique<Handle>(this->scripted), x::errors::NIL};
+    }
+};
+}
+
+/// @brief it should apply a command that arrived before a missed marker, remove a task
+/// the Core deleted, and keep a task with an unchanged config running.
+TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    auto deleted = synnax::task::Task{
+        .rack = rack.key,
+        .name = "deleted",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(deleted));
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    const auto stream = std::make_shared<ScriptedStream>();
+    const auto managed = std::make_shared<synnax::Synnax>(new_test_client());
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    thread = std::thread([&] {
+        ASSERT_NIL(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    // The stream never delivers this delete.
+    ASSERT_NIL(rack.tasks.del(deleted.key));
+    const auto cmd_ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::task::CMD_CHANNEL)
+    );
+    const synnax::task::Command cmd{.task = kept.key, .type = "test", .key = "before"};
+    grpc::framer::StreamerResponse cmd_res;
+    *cmd_res.mutable_frame() = x::telem::Frame(
+                                   cmd_ch.key,
+                                   x::telem::Series(cmd.to_json())
+    )
+                                   .to_proto();
+    stream->push(cmd_res);
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    stream->push(missed);
+    const auto stopped = [&] {
+        const auto states = built(*f);
+        return std::ranges::count_if(states, [](const auto &st) {
+            return st->stopped.load();
+        });
+    };
+    ASSERT_EVENTUALLY_EQ(stopped(), 1);
+    const auto states = built(*f);
+    ASSERT_EQ(states.size(), 2);
+    const auto running = std::ranges::find_if(states, [](const auto &st) {
+        return !st->stopped.load();
+    });
+    ASSERT_NE(running, states.end());
+    ASSERT_EVENTUALLY_EQ((*running)->exec_count.load(), 1);
+    EXPECT_EQ(built(*f).size(), 2);
+}
 }
