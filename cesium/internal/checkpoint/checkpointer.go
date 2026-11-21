@@ -51,6 +51,10 @@ type Config struct {
 	// Cache is the part cache that a rewrite reads through. Nil means a cache of its
 	// own of 64 MiB.
 	Cache *Cache
+	// Parted, when set, gets the parts that each new head names and the tags of the
+	// records that its switch wrote to parts, once the head commits. It runs on the
+	// executor and must not wait for another of its jobs.
+	Parted func(parts []Part, tags []state.Tag)
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -229,6 +233,9 @@ func (c *Checkpointer) write(h head) error {
 		return c.undo(written, err)
 	}
 	c.index = pl.index
+	if c.cfg.Parted != nil {
+		c.cfg.Parted(refs, pl.tags())
+	}
 	return errors.Join(pl.err, clean(c.cfg.FS, h.generation, c.index.ids()))
 }
 

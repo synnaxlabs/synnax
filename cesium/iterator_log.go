@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -63,8 +64,11 @@ type logCursor struct {
 	// pinned holds the segments of the last load, which the cursor pins until the next
 	// load or Close.
 	pinned []uint64
-	// err holds the error of an unlink after an unpin of a load, which Close returns.
-	err error
+	// err holds the errors of the loads, an unlink after an unpin or a part read, which
+	// Close returns. broken is true once a load failed to read a part, which ends the
+	// cursor.
+	err    error
+	broken bool
 }
 
 var _ domain.Ranges = (*logCursor)(nil)
@@ -78,7 +82,13 @@ func (c *logCursor) load() {
 		return
 	}
 	for _, seg := range ch.Segments {
-		for _, ptr := range seg.Pointers {
+		ptrs, err := c.pointers(seg)
+		if err != nil {
+			c.err, c.broken = errors.Join(c.err, err), true
+			c.ranges = c.ranges[:0]
+			return
+		}
+		for _, ptr := range ptrs {
 			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
 		}
 	}
@@ -93,10 +103,47 @@ func (c *logCursor) load() {
 	}
 }
 
+// pointers returns the pointers of seg: from the part that its tag names, through the
+// part cache, or its own.
+func (c *logCursor) pointers(seg state.Segment) ([]state.Pointer, error) {
+	if seg.Part == 0 {
+		return seg.Pointers, nil
+	}
+	p, ok := c.e.part(seg.Part)
+	if !ok {
+		return nil, errors.Newf(
+			"segment %d of key %d names part %d, which no head names",
+			seg.ID,
+			c.key,
+			seg.Part,
+		)
+	}
+	r, err := c.e.cache.Records(p, c.key)
+	if err != nil {
+		return nil, err
+	}
+	i, found := slices.BinarySearchFunc(r.Segments, seg.ID, func(
+		s state.Segment,
+		id uint64,
+	) int {
+		return cmp.Compare(s.ID, id)
+	})
+	if !found {
+		return nil, errors.Wrapf(
+			place.ErrCorrupt,
+			"part %d holds no record of segment %d of key %d",
+			seg.Part,
+			seg.ID,
+			c.key,
+		)
+	}
+	return r.Segments[i].Pointers, nil
+}
+
 // at moves the cursor to position pos, which is valid when it holds a range that
-// overlaps the bounds.
+// overlaps the bounds. A cursor that failed to read a part is never valid.
 func (c *logCursor) at(pos int) bool {
-	c.valid = pos >= 0 && pos < len(c.ranges) &&
+	c.valid = !c.broken && pos >= 0 && pos < len(c.ranges) &&
 		c.ranges[pos].timeRange().OverlapsWith(c.bounds)
 	if c.valid {
 		c.pos, c.cur = pos, c.ranges[pos]

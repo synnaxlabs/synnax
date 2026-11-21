@@ -70,6 +70,13 @@ type engine struct {
 	shutdown sync.Once
 	closeErr error
 	pins     pins
+	// cache is the part cache of the checkpointer and the readers.
+	cache *checkpoint.Cache
+	// parts holds the parts that the last two heads name, which a tag may name.
+	parts struct {
+		sync.Mutex
+		live, older map[uint64]checkpoint.Part
+	}
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -210,6 +217,7 @@ func (e *engine) recover(r *recovery) (err error) {
 	if err != nil {
 		return err
 	}
+	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
 	e.ckpt, err = checkpoint.New(checkpoint.Config{
 		FS:       e.fs,
 		DB:       r.db,
@@ -218,9 +226,36 @@ func (e *engine) recover(r *recovery) (err error) {
 		Executor: e.exec,
 		Parts:    r.parts,
 		Live:     r.head.Generation,
-		Cache:    checkpoint.NewCache(e.fs, r.db, partCacheSize),
+		Cache:    e.cache,
+		Parted:   e.parted,
 	})
 	return err
+}
+
+// parted keeps the parts of a new head for readers, and hands the tags of its switch
+// to the state.
+func (e *engine) parted(parts []checkpoint.Part, tags []state.Tag) {
+	live := make(map[uint64]checkpoint.Part, len(parts))
+	for _, p := range parts {
+		live[p.ID] = p
+	}
+	e.parts.Lock()
+	e.parts.older, e.parts.live = e.parts.live, live
+	e.parts.Unlock()
+	if err := e.state.Parted(tags); err != nil {
+		e.ins.L.Error("state refused the tags of a switch", zap.Error(err))
+	}
+}
+
+// part returns the part id that one of the last two heads names.
+func (e *engine) part(id uint64) (checkpoint.Part, bool) {
+	e.parts.Lock()
+	defer e.parts.Unlock()
+	if p, ok := e.parts.live[id]; ok {
+		return p, true
+	}
+	p, ok := e.parts.older[id]
+	return p, ok
 }
 
 func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }

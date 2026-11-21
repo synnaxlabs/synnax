@@ -194,3 +194,43 @@ var _ = Describe("Part determinism", func() {
 		Expect(write()).To(Equal(write()))
 	})
 })
+
+var _ = Describe("Part hand-off", func() {
+	It("Should hand each committed head's parts and the tags of the records it wrote "+
+		"to the Parted hook", func() {
+		type call struct {
+			parts []checkpoint.Part
+			tags  []state.Tag
+		}
+		calls := make(chan call, 4)
+		fs := xfs.NewMem()
+		c := MustSucceed(checkpoint.New(checkpoint.Config{
+			FS:       fs,
+			DB:       db,
+			LogSize:  logSize,
+			Prepared: func(uint64, error) {},
+			Executor: goExec,
+			PartSize: 1,
+			Parted: func(parts []checkpoint.Part, tags []state.Tag) {
+				calls <- call{parts: parts, tags: tags}
+			},
+		}))
+		start(c)
+		c.Head(2, withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)))
+		var first call
+		Eventually(calls).Should(Receive(&first))
+		Expect(first.parts).To(HaveLen(1))
+		Expect(first.parts[0].ID).To(Equal(uint64(1)))
+		Expect(first.tags).To(Equal([]state.Tag{
+			{Part: 1, Segment: sealed(1, 10)},
+			{Part: 1, Segment: sealed(2, 20)},
+			{Part: 1, Segment: sealed(3, 30)},
+		}))
+		c.Head(3, withSealed(sealed(1, 10)))
+		var second call
+		Eventually(calls).Should(Receive(&second))
+		Expect(second.parts).To(HaveLen(1))
+		Expect(second.parts[0].ID).To(Equal(uint64(2)))
+		Expect(second.tags).To(Equal([]state.Tag{{Part: 2, Segment: sealed(1, 10)}}))
+	})
+})

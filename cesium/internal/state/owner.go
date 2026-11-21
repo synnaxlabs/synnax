@@ -295,14 +295,14 @@ type partedRequest struct{ tags []Tag }
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
-	changed := make(map[uint32]bool)
+	changed := set.New[uint32]()
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
 		if !ok || seg.holder != nil || !sameRecord(seg.vis, t.Segment) {
 			continue
 		}
 		seg.vis.Part = t.Part
-		changed[seg.key] = true
+		changed.Add(seg.key)
 	}
 	for key := range changed {
 		s.core.channels[key].publish()

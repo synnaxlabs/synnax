@@ -105,6 +105,19 @@ func (c *Checkpointer) live(p indexed) ([]*state.Channel, error) {
 	return out, nil
 }
 
+// tags returns the tags of the records of the parts that pl writes.
+func (pl *plan) tags() []state.Tag {
+	var tags []state.Tag
+	for _, w := range pl.writes {
+		for _, ch := range w.channels {
+			for _, seg := range ch.Segments {
+				tags = append(tags, state.Tag{Part: w.id, Segment: seg})
+			}
+		}
+	}
+	return tags
+}
+
 // add queues a new part of channels.
 func (pl *plan) add(channels []*state.Channel) {
 	pl.writes = append(pl.writes, partWrite{id: pl.index.limit, channels: channels})
