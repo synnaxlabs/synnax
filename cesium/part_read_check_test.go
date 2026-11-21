@@ -163,6 +163,27 @@ var _ = Describe("Part read check", func() {
 			Expect(fs.reads.Load() - before).To(BeNumerically(">=", partedCount-1))
 		})
 
+	It("Should read every sample of each key through its part after a reopen",
+		func(ctx SpecContext) {
+			want := make([]int64, partedWriters)
+			for w := range want {
+				want[w] = int64(w)
+			}
+			Expect(closeDB()).To(Succeed())
+			db, closeDB = MustSucceed2(openLog(ctx, fs))
+			// The open reads each part whole, then tags the segments in the background.
+			opened := fs.reads.Load()
+			Eventually(func() int64 {
+				MustSucceed(int64s(ctx, db, keys[1]))
+				return fs.reads.Load() - opened
+			}).WithTimeout(time.Minute).Should(BeNumerically(">", 0))
+			before := fs.reads.Load()
+			for _, key := range keys[1:] {
+				Expect(int64s(ctx, db, key)).To(Equal(want), "key %d", key)
+			}
+			Expect(fs.reads.Load() - before).To(BeNumerically(">=", partedCount-1))
+		})
+
 	It("Should fail a read of a key whose part is gone, and not read it as empty",
 		func(ctx SpecContext) {
 			for _, info := range MustSucceed(fs.List("")) {
