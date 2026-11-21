@@ -77,9 +77,9 @@ func (b *builtInSet) keys() Keys {
 	return keys
 }
 
-// IsBuiltIn reports whether a Core service declared the channel with key k for its own
+// isBuiltIn reports whether a Core service declared the channel with key k for its own
 // work through Writer.Declare.
-func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
+func (s *Service) isBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
 
 // BuiltIns returns the keys of the channels that Core services declared, in ascending
 // order.
@@ -141,7 +141,7 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 // rehome renames h, a channel that holds the name of a built-in, with the first free
 // suffix and writes a warning status that says so.
 func (w Writer) rehome(ctx context.Context, h Channel) error {
-	if w.svc.IsBuiltIn(h.Key()) {
+	if w.svc.isBuiltIn(h.Key()) {
 		return errors.Newf(
 			"built-in channel %q has another data type or virtual flag",
 			h.Name,

@@ -117,8 +117,6 @@ export class Channel {
   readonly index: Key;
   /** This is set to true if the channel is an index channel, and false otherwise. */
   readonly isIndex: boolean;
-  /** This is set to true if the channel is an internal channel, and false otherwise. */
-  readonly internal: boolean;
   /**
    * Whether the channel is virtual. Virtual channels do not store any data in the
    * database, but can still be used for streaming purposes.
@@ -148,7 +146,6 @@ export class Channel {
     key = 0,
     isIndex = false,
     index = 0,
-    internal = false,
     virtual = false,
     frameClient,
     status: argsStatus,
@@ -164,7 +161,6 @@ export class Channel {
     this.leaseholder = leaseholder;
     this.index = zod.parse(keyZ, index, { label: "channel index" });
     this.isIndex = isIndex;
-    this.internal = internal;
     this.virtual = virtual;
     this.expression = expression;
     this.operations = zod.parse(operationZ.array(), operations, {
@@ -199,7 +195,6 @@ export class Channel {
         leaseholder: this.leaseholder,
         index: this.index,
         isIndex: this.isIndex,
-        internal: this.internal,
         virtual: this.virtual,
         expression: this.expression,
         status: this.status,

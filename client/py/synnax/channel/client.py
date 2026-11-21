@@ -71,7 +71,6 @@ class Channel(Payload):
         leaseholder: node.Key = 0,
         key: Key = 0,
         virtual: bool | None = None,
-        internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
         concurrency: control.Concurrency = control.Concurrency.exclusive,
@@ -98,8 +97,6 @@ class Channel(Payload):
         :param expression: An optional Lua expression that defines the channel as a
         calculation of another channel. If this is set, the channel will be
         automatically configured as virtual.
-        :param internal: Boolean indicating whether the channel is internal. Internal
-        channels are not visible to the user and are used for internal purposes only.
         :param operations: A list of operations to apply to the channel. Operations
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
@@ -122,7 +119,6 @@ class Channel(Payload):
             key=key,
             is_index=is_index,
             index=index,
-            internal=internal,
             virtual=virtual,
             expression=expression,
             operations=operations,
@@ -215,7 +211,6 @@ class Channel(Payload):
             index=self.index,
             is_index=self.is_index,
             virtual=self.virtual,
-            internal=self.internal,
             expression=self.expression,
             operations=self.operations,
             group=self.group,

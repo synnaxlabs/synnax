@@ -29,7 +29,6 @@ const RENAMED: channel.Payload = {
   isIndex: false,
   index: 0,
   virtual: true,
-  internal: false,
   expression: "",
   operations: [],
   concurrency: control.Concurrency.exclusive,
@@ -230,28 +229,6 @@ describe("channel.Client", () => {
       stream.push(createdFrame(1));
       await expect.poll(() => channels.store.get(CREATED_KEY)?.name).toEqual("created");
       expect(channels.store.get(CREATED_KEY)?.index).toEqual((3 << 20) | 5);
-    });
-
-    it("should cache a channel whose stored form holds the internal flag of a 0.62 Core", async () => {
-      const { stream, channels } = await createStreamedClient();
-      stream.push(
-        new framer.Frame({
-          [channel.ACTION_CHANNEL_NAME]: new Series([
-            {
-              key: CREATED_KEY,
-              dispatchKey: "create-legacy",
-              seq: 1,
-              actions: [
-                {
-                  type: "create",
-                  create: { channel: { ...CREATED, internal: false } },
-                },
-              ],
-            },
-          ]),
-        }),
-      );
-      await expect.poll(() => channels.store.get(CREATED_KEY)?.name).toEqual("created");
     });
 
     it("should keep the cached channel when its create echoes again during a refused dispatch", async () => {

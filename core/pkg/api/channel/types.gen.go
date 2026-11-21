@@ -51,8 +51,6 @@ type Channel struct {
 	// Virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `json:"internal" msgpack:"internal"`
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`

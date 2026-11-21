@@ -41,7 +41,7 @@ func (r *symbolResolver) toSymbol(ch Channel) *symbol.Symbol {
 		Kind:       symbol.KindChannel,
 		Type:       types.Chan(types.FromTelem(ch.DataType)),
 		ID:         int(ch.Key()),
-		Renameable: !r.svc.IsBuiltIn(ch.Key()),
+		Renameable: !r.svc.isBuiltIn(ch.Key()),
 	}
 }
 

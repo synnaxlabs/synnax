@@ -612,7 +612,6 @@ class TestChannel:
                 name=f"sensor_{i + 1}_{channel_name()}",
                 virtual=True,
                 data_type=sy.DataType.FLOAT64,
-                internal=True,
             )
             for i in range(100)
         ]

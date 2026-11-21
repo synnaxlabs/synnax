@@ -55,7 +55,6 @@ inline Channel Channel::parse(x::json::Parser parser) {
         .is_index = parser.field<bool>("is_index", false),
         .index = parser.field<Key>("index", Key(0)),
         .is_virtual = parser.field<bool>("virtual", false),
-        .internal = parser.field<bool>("internal", false),
         .expression = parser.field<std::string>("expression", ""),
         .operations = parser.field<std::vector<Operation>>(
             "operations",
@@ -78,7 +77,6 @@ inline x::json::json Channel::to_json() const {
     j["is_index"] = this->is_index;
     j["index"] = this->index;
     j["virtual"] = this->is_virtual;
-    j["internal"] = this->internal;
     j["expression"] = this->expression;
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;

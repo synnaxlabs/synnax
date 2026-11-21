@@ -208,8 +208,6 @@ export const payloadZ = z.object({
    * be used for streaming purposes.
    */
   virtual: z.boolean().default(false),
-  /** internal is true if this is a system channel hidden from normal user queries. */
-  internal: z.boolean().default(false),
   /**
    * expression is an Arc expression for calculated channels. If set, the channel is
    * automatically configured as virtual.

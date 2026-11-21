@@ -125,7 +125,7 @@ var _ = Describe("OpenService", func() {
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, node.DB)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
-			Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
+			Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
 		}
 	})
 })

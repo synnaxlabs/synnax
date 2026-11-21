@@ -251,11 +251,6 @@ APIChannel struct {
             used for streaming purposes.
         """
     }
-    internal    bool = false {
-        @doc value """
-            is true if this is a system channel hidden from normal user queries.
-        """
-    }
     expression  string = "" {
         @doc value """
             is an Arc expression for calculated channels. If set, the channel is

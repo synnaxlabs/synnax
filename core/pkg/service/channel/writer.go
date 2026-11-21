@@ -148,7 +148,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 // checkGroup checks that next, an edit of prev, sits in a group that holds channels,
 // and that a built-in channel stays in its group.
 func (w Writer) checkGroup(ctx context.Context, prev, next Channel) error {
-	if !sameGroup(prev.Group, next.Group) && w.svc.IsBuiltIn(prev.Key()) {
+	if !sameGroup(prev.Group, next.Group) && w.svc.isBuiltIn(prev.Key()) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"can't move built-in channel %q",
@@ -908,7 +908,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+			if !allowInternal && w.svc.isBuiltIn(c.Key()) {
 				return errors.Wrapf(
 					validate.ErrValidation,
 					"can't delete built-in channel %q",
@@ -956,7 +956,7 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+			if !allowInternal && w.svc.isBuiltIn(c.Key()) {
 				return Channel{}, errors.Wrapf(
 					validate.ErrValidation,
 					"can't rename built-in channel %q",

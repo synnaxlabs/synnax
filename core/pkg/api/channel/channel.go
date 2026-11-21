@@ -193,7 +193,7 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse{
-		Channels: translateChannelsForward(translated, s.internal.IsBuiltIn),
+		Channels: translateChannelsForward(translated),
 	}, nil
 }
 
@@ -221,7 +221,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{
-		Channels: translateChannelsForward(resChannels, s.internal.IsBuiltIn),
+		Channels: translateChannelsForward(resChannels),
 	}
 	if req.IncludeStatus {
 		statuses, err := s.status.Join[struct{}](
@@ -318,10 +318,7 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
-func translateChannelsForward(
-	channels []channel.Channel,
-	builtIn func(channel.Key) bool,
-) []Channel {
+func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
@@ -332,7 +329,6 @@ func translateChannelsForward(
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
-			Internal:    builtIn(ch.Key()),
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,

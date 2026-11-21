@@ -28,7 +28,7 @@ enum OrderField {
 // single source. Channels are the fundamental unit of telemetry storage and streaming
 // in Synnax.
 message Channel {
-  reserved 14;
+  reserved 13;
   // key is the unique identifier for this channel, automatically assigned by Synnax.
   uint32 key = 1;
   // name is the human-readable channel name.
@@ -49,21 +49,19 @@ message Channel {
   // virtual is true if this channel does not store data in the database but can still
   // be used for streaming purposes.
   bool virtual = 7;
-  // internal is true if this is a system channel hidden from normal user queries.
-  bool internal = 8;
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
-  string expression = 9;
+  string expression = 8;
   // operations contains optional aggregation operations (min, max, avg, derivative)
   // applied to channel data over time or triggered by a reset channel.
-  repeated .service.channel.pb.Operation operations = 10;
+  repeated .service.channel.pb.Operation operations = 9;
   // concurrency sets the policy for concurrent writes to the channel's data. Only
   // virtual channels can have a policy of shared concurrency.
-  .x.control.pb.Concurrency concurrency = 11;
+  .x.control.pb.Concurrency concurrency = 10;
   // status is the current operational status of the channel.
-  optional .service.status.pb.Status status = 12;
+  optional .service.status.pb.Status status = 11;
   // group is the group the channel sits in, if any.
-  optional string group = 13;
+  optional string group = 12;
 }
 
 // Cursor is a position in an order of channels: the sort value and the key of a

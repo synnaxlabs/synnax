@@ -104,21 +104,19 @@ type Channel struct {
 	// virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	// internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `protobuf:"varint,8,opt,name=internal,proto3" json:"internal,omitempty"`
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
-	Expression string `protobuf:"bytes,9,opt,name=expression,proto3" json:"expression,omitempty"`
+	Expression string `protobuf:"bytes,8,opt,name=expression,proto3" json:"expression,omitempty"`
 	// operations contains optional aggregation operations (min, max, avg, derivative)
 	// applied to channel data over time or triggered by a reset channel.
-	Operations []*pb.Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
+	Operations []*pb.Operation `protobuf:"bytes,9,rep,name=operations,proto3" json:"operations,omitempty"`
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
-	Concurrency pb1.Concurrency `protobuf:"varint,11,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
+	Concurrency pb1.Concurrency `protobuf:"varint,10,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// status is the current operational status of the channel.
-	Status *pb2.Status `protobuf:"bytes,12,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status *pb2.Status `protobuf:"bytes,11,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// group is the group the channel sits in, if any.
-	Group         *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group         *string `protobuf:"bytes,12,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -198,13 +196,6 @@ func (x *Channel) GetIndex() uint32 {
 func (x *Channel) GetVirtual() bool {
 	if x != nil {
 		return x.Virtual
-	}
-	return false
-}
-
-func (x *Channel) GetInternal() bool {
-	if x != nil {
-		return x.Internal
 	}
 	return false
 }
@@ -496,7 +487,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xdf\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xc3\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -504,20 +495,19 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x19\n" +
 	"\bis_index\x18\x05 \x01(\bR\aisIndex\x12\x14\n" +
 	"\x05index\x18\x06 \x01(\rR\x05index\x12\x18\n" +
-	"\avirtual\x18\a \x01(\bR\avirtual\x12\x1a\n" +
-	"\binternal\x18\b \x01(\bR\binternal\x12\x1e\n" +
+	"\avirtual\x18\a \x01(\bR\avirtual\x12\x1e\n" +
 	"\n" +
-	"expression\x18\t \x01(\tR\n" +
+	"expression\x18\b \x01(\tR\n" +
 	"expression\x12=\n" +
 	"\n" +
-	"operations\x18\n" +
-	" \x03(\v2\x1d.service.channel.pb.OperationR\n" +
+	"operations\x18\t \x03(\v2\x1d.service.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
-	"\vconcurrency\x18\v \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
-	"\x06status\x18\f \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
-	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01B\t\n" +
+	"\vconcurrency\x18\n" +
+	" \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
+	"\x06status\x18\v \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
+	"\x05group\x18\f \x01(\tH\x01R\x05group\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
-	"\x06_groupJ\x04\b\x0e\x10\x0f\"<\n" +
+	"\x06_groupJ\x04\b\r\x10\x0e\"<\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +

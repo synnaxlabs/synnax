@@ -88,7 +88,6 @@ export const ZERO_FORM_VALUES: z.infer<
   name: "",
   index: 0,
   dataType: DataType.FLOAT32.toString(),
-  internal: false,
   isIndex: false,
   leaseholder: 0,
   virtual: false,

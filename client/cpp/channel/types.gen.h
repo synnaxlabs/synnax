@@ -204,9 +204,6 @@ struct Channel {
     /// @brief is_virtual is true if this channel does not store data in the database
     /// but can still be used for streaming purposes.
     bool is_virtual = false;
-    /// @brief internal is true if this is a system channel hidden from normal user
-    /// queries.
-    bool internal = false;
     /// @brief expression is an Arc expression for calculated channels. If set, the
     /// channel is automatically configured as virtual.
     std::string expression = "";

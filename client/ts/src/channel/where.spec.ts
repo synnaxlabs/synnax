@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { channel } from "@/channel";
 import { createLines } from "@/channel/where";
@@ -15,8 +16,9 @@ import { matches, serverComputed } from "@/channel/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  const vectors = readVectors("channels", channel.payloadZ, channel.whereZ);
   // The internal records of the vectors are the built-in channels.
+  const recordZ = channel.payloadZ.extend({ internal: z.boolean().default(false) });
+  const vectors = readVectors("channels", recordZ, channel.whereZ);
   const builtIns = new Set(
     vectors.records.filter(([, ch]) => ch.internal).map(([, ch]) => ch.key),
   );

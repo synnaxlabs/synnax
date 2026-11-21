@@ -175,27 +175,6 @@ var _ = Describe("Built-in channels", func() {
 		})).To(Succeed())
 	})
 
-	It("Should report a built-in channel as internal", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(
-			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
-		))
-		grantOn(
-			ctx,
-			u.ResourceID(),
-			[]access.Action{access.ActionRetrieve},
-			channel.ResourceID(builtIn.Key()),
-		)
-		res := MustSucceed(
-			retrieveChannels(AuthedCtx(ctx, u), apichannel.RetrieveRequest{
-				Where: &channel.Where{
-					Key: &filter.Set[channel.Key]{Eq: new(builtIn.Key())},
-				},
-			}),
-		)
-		Expect(res.Channels).To(HaveLen(1))
-		Expect(res.Channels[0].Internal).To(BeTrue())
-	})
-
 	It("Should return the built-in keys to a subject with no grants", func(
 		ctx SpecContext,
 	) {

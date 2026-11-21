@@ -211,7 +211,6 @@ class Payload(BaseModel):
             value with a timestamp.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
-        internal: Is true if this is a system channel hidden from normal user queries.
         expression: Is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
         operations: Contains optional aggregation operations (min, max, avg, derivative)
@@ -232,7 +231,6 @@ class Payload(BaseModel):
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)
     virtual: bool = False
-    internal: bool = False
     expression: str = ""
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive

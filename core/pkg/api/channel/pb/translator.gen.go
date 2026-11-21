@@ -44,7 +44,6 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		IsIndex:     r.IsIndex,
 		Index:       uint32(r.Index),
 		Virtual:     r.Virtual,
-		Internal:    r.Internal,
 		Expression:  r.Expression,
 		Operations:  operationsVal,
 		Concurrency: concurrencyVal,
@@ -89,7 +88,6 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.IsIndex = pb.IsIndex
 	r.Index = servicechannel.Key(pb.Index)
 	r.Virtual = pb.Virtual
-	r.Internal = pb.Internal
 	r.Expression = pb.Expression
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)

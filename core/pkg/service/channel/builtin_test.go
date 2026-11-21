@@ -81,7 +81,7 @@ var _ = Describe("Built-in channels", func() {
 		ch := command()
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).ToNot(BeZero())
-		Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
+		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		Expect(retrieve(ctx, ch.Name)).To(HaveLen(1))
 	})
@@ -113,10 +113,10 @@ var _ = Describe("Built-in channels", func() {
 		Expect(free.Free()).To(BeTrue())
 		Expect(leased.Free()).To(BeFalse())
 		for _, ch := range []channel.Channel{free, leased} {
-			Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
+			Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 		}
 		for _, ch := range []channel.Channel{before, beforeIndex, after, afterIndex} {
-			Expect(svc.IsBuiltIn(ch.Key())).To(BeFalse())
+			Expect(svc.BuiltIns()).ToNot(ContainElement(ch.Key()))
 		}
 		builtIns := svc.BuiltIns()
 		Expect(builtIns).To(ContainElements(free.Key(), leased.Key()))
@@ -132,7 +132,7 @@ var _ = Describe("Built-in channels", func() {
 		ch.Name = held.Name
 		Expect(declare(ctx, &ch)).To(Succeed())
 		Expect(ch.Key()).To(Equal(held.Key()))
-		Expect(svc.IsBuiltIn(held.Key())).To(BeTrue())
+		Expect(svc.BuiltIns()).To(ContainElement(held.Key()))
 	})
 
 	It("Should take an adopted channel out of the license count", func(
@@ -302,7 +302,7 @@ var _ = Describe("Built-in channels", func() {
 			}
 			return rollback
 		})).To(MatchError(rollback))
-		Expect(svc.IsBuiltIn(ch.Key())).To(BeFalse())
+		Expect(svc.BuiltIns()).ToNot(ContainElement(ch.Key()))
 	})
 
 	Describe("Guards", func() {
@@ -378,7 +378,7 @@ var _ = Describe("Built-in channels across restarts", func() {
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Declare(ctx, &ch)
 			})).To(Succeed())
-			Expect(svc.IsBuiltIn(ch.Key())).To(BeTrue())
+			Expect(svc.BuiltIns()).To(ContainElement(ch.Key()))
 			return ch.Key()
 		}
 		first := declare()

@@ -211,7 +211,6 @@ Channel::to_proto() const {
     pb.set_is_index(this->is_index);
     pb.set_index(this->index);
     pb.set_virtual_(this->is_virtual);
-    pb.set_internal(this->internal);
     pb.set_expression(this->expression);
     for (const auto &item: this->operations) {
         auto [v, err] = item.to_proto();
@@ -237,7 +236,6 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     cpp.is_index = pb.is_index();
     cpp.index = pb.index();
     cpp.is_virtual = pb.virtual_();
-    cpp.internal = pb.internal();
     cpp.expression = pb.expression();
     if (auto err = x::pb::from_proto_repeated<Operation>(
             cpp.operations,

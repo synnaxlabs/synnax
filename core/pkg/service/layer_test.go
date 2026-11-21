@@ -130,8 +130,9 @@ var _ = Describe("Layer", func() {
 		var existing []channel.Channel
 		Expect(layer.Channel.NewRetrieve().Entries(&existing).Exec(ctx, node.DB)).
 			To(Succeed())
+		builtIns := layer.Channel.BuiltIns()
 		external := lo.CountBy(existing, func(ch channel.Channel) bool {
-			return !layer.Channel.IsBuiltIn(ch.Key()) && !ch.Virtual
+			return !slices.Contains(builtIns, ch.Key()) && !ch.Virtual
 		})
 		newIndices := func(n int) []channel.Channel {
 			return lo.Times(n, func(int) channel.Channel {
@@ -175,7 +176,7 @@ var _ = Describe("Layer", func() {
 					Entry(&ch).
 					Exec(ctx, node.DB)).To(Succeed())
 				Expect(ch.Virtual).To(BeTrue())
-				Expect(layer.Channel.IsBuiltIn(ch.Key())).To(BeTrue())
+				Expect(layer.Channel.BuiltIns()).To(ContainElement(ch.Key()))
 				streamer := MustSucceed(layer.Framer.NewStreamer(
 					ctx,
 					framer.StreamerConfig{

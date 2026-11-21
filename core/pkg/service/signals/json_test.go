@@ -133,7 +133,7 @@ var _ = Describe("JSON", func() {
 			func() {
 				Expect(ch.Virtual).To(BeTrue())
 				Expect(ch.Free()).To(BeTrue())
-				Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
+				Expect(channelSvc.BuiltIns()).To(ContainElement(ch.Key()))
 				Expect(ch.DataType).To(Equal(telem.JSONT))
 			},
 		)
