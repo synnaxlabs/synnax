@@ -56,8 +56,7 @@ const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
 // The channels of the task, while no menu is open.
 const getItems = () => screen.queryAllByRole("option");
 
-// A trigger's label comes from its menu, so a click on the label text does not reach
-// the trigger in jsdom.
+// A trigger's label comes from its menu, so the spec finds the trigger by its role.
 const findByteOrder = () => screen.findByRole("button", { name: /^Byte order/ });
 
 const createDraft = async (

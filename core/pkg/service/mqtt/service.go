@@ -133,7 +133,7 @@ func (s *Service) Stores() []config.Store {
 func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 	resolver := readResolver{
 		icds:     cfg.ICD,
-		channels: readChannels(cfg.Channel),
+		channels: icd.ReadChannels(cfg.Channel),
 		create:   createICD(cfg.ICD),
 		ins:      cfg.Instrumentation,
 	}
