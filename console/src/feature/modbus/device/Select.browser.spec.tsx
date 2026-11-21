@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { renderWithDeviceForm } from "@/platform/device/testutil";
+import { pickDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger } from "@/testutil";
 
@@ -41,10 +41,7 @@ describe("Modbus.Device.Select", () => {
       { deviceKey: "", client },
     );
     fireEvent.click(await findDialogTrigger());
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: dev.name },
-    });
-    fireEvent.click(await screen.findByText(dev.name));
+    await pickDevice(dev.name, "Search devices...");
     await screen.findByText("Modbus server");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });

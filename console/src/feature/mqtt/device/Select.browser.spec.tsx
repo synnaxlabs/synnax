@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker } from "@/feature/mqtt/testutil";
-import { renderWithDeviceForm } from "@/platform/device/testutil";
+import { pickDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { findDialogTrigger } from "@/testutil";
 
@@ -40,10 +40,7 @@ describe("MQTT.Device.Select", () => {
     const dev = await createBroker(client, { configured: false });
     await renderSelect();
     fireEvent.click(await findDialogTrigger());
-    fireEvent.change(await screen.findByPlaceholderText("Search devices..."), {
-      target: { value: dev.name },
-    });
-    fireEvent.click(await screen.findByText(dev.name));
+    await pickDevice(dev.name, "Search devices...");
     await screen.findByPlaceholderText("broker.example.com");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
