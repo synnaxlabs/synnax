@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
@@ -33,10 +34,10 @@ import (
 
 // ServiceConfig is the configuration for opening the EtherCAT service.
 type ServiceConfig struct {
-	// DB is the database config records and masters are stored in.
+	// DB is the database config records, masters, and slaves are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Signals publishes master changes.
+	// Signals publishes master and slave changes.
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Device reads the slave devices whose discovered PDO entries address channels.
@@ -64,11 +65,13 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service owns the EtherCAT masters and the stored configuration records of the
+// Service owns the EtherCAT masters, slaves, and stored configuration records of the
 // EtherCAT task types.
 type Service struct {
 	// Masters stores EtherCAT masters.
 	Masters *master.Service
+	// Slaves stores EtherCAT slaves.
+	Slaves *slave.Service
 	// Read stores ethercat_read task configuration records.
 	Read *config.Service[ReadConfig]
 	// Write stores ethercat_write task configuration records.
@@ -95,6 +98,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Signals:         cfg.Signals,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.Masters) {
+		return nil, err
+	}
+	if s.Slaves, err = slave.OpenService(ctx, slave.ServiceConfig{
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Slaves) {
 		return nil, err
 	}
 	if s.Read, err = config.OpenService(

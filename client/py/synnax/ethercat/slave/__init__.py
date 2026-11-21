@@ -9,6 +9,7 @@
 
 from synnax.ethercat.slave.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
     PDOEntry,
     PDOs,
@@ -16,12 +17,15 @@ from synnax.ethercat.slave.types_gen import (
     Slave,
     Status,
     StatusDetails,
+    Where,
+    WhereInput,
     WriteBinding,
     resource_id,
 )
 
 __all__ = [
     "TYPE_RESOURCE_ID",
+    "Cursor",
     "Key",
     "PDOEntry",
     "PDOs",
@@ -29,6 +33,8 @@ __all__ = [
     "Slave",
     "Status",
     "StatusDetails",
+    "Where",
+    "WhereInput",
     "WriteBinding",
     "resource_id",
 ]
