@@ -23,7 +23,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -422,6 +422,25 @@ describe("LinePlot breaks", () => {
     expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
   });
 
+  it("should count no hidden breaks while the x source of x1 fails", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    stack.driver.update(base, LinePlot.TYPE, { ...plot.state });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
   it("should not count a hidden break outside the manual bounds of x1", () => {
     const { plot, recorder, stack, base } = mount();
     stack.driver.update([...base, "x1"], XAxis.TYPE, {
@@ -535,6 +554,17 @@ describe("LinePlot breaks", () => {
       .map((c) => String(c.args[0]));
     expect(texts).toContain("ΔX");
     expect(texts.filter((t) => t.endsWith(" //"))).toEqual([]);
+  });
+
+  it("should count no breaks while the x source of x1 fails", () => {
+    const { plot, recorder, setOpenBreaks } = mount();
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    setOpenBreaks([]);
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
   it("should lay out every x axis after the first in true time", () => {
