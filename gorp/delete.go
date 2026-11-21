@@ -34,7 +34,7 @@ type Delete[K Key, E Entry[K]] struct {
 }
 
 // HeldFunc is called with an entry that a delete removes and the entries that hold it
-// through a Weak reference.
+// through a Weak reference, nil when none does.
 type HeldFunc[K Key, E Entry[K]] = func(
 	ctx context.Context,
 	tx Tx,
@@ -82,9 +82,9 @@ func (d Delete[K, E]) Planned(effects DeleteEffects) Delete[K, E] {
 	return d
 }
 
-// Held makes the delete call f with each entry that it removes and that a Weak
-// reference holds, and with those holders, before it changes anything in the
-// transaction. An error from f fails the delete, and so does f on a Delete that no
+// Held makes the delete call f with each entry that it removes from the table, and with
+// the Weak holders of each, before it changes anything in the transaction. An error
+// from f fails the delete, and so does f on a Delete that no
 // Table built.
 func (d Delete[K, E]) Held(f HeldFunc[K, E]) Delete[K, E] {
 	d.held = f

@@ -188,15 +188,17 @@ var _ = Describe("Weak reference", func() {
 			Tag:       weakTag,
 		}}
 
-		DescribeTable("Should call f with each held entry and its holders",
+		DescribeTable("Should call f with each removed entry and its holders",
 			func(ctx SpecContext, planned bool) {
 				createChannel(ctx, 1)
 				createChannel(ctx, 2)
 				Expect(symbols.NewCreate().
 					Entry(&weakSymbol{Key: "s", Channels: []uint32{1}}).
 					Exec(ctx, db)).To(Succeed())
-				Expect(deleteHeld(ctx, planned, nil, 1, 2)).
-					To(Equal([]call{{entry: weakChannel{Key: 1}, held: held}}))
+				Expect(deleteHeld(ctx, planned, nil, 1, 2)).To(Equal([]call{
+					{entry: weakChannel{Key: 1}, held: held},
+					{entry: weakChannel{Key: 2}},
+				}))
 				Expect(channels.NewRetrieve().Count(ctx, db)).To(Equal(0))
 			},
 			Entry("walking the references", false),
@@ -216,9 +218,25 @@ var _ = Describe("Weak reference", func() {
 			Expect(channels.NewRetrieve().Count(ctx, db)).To(Equal(1))
 		})
 
-		It("Should not call f when nothing holds the entries", func(ctx SpecContext) {
+		It("Should call f with no holders when nothing holds an entry", func(
+			ctx SpecContext,
+		) {
 			createChannel(ctx, 1)
-			Expect(deleteHeld(ctx, false, nil, 1)).To(BeEmpty())
+			Expect(deleteHeld(ctx, false, nil, 1)).
+				To(Equal([]call{{entry: weakChannel{Key: 1}}}))
+		})
+	})
+
+	Describe("References", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list each reference that points at a table", func(ctx SpecContext) {
+			Expect(db.References("channel")).To(Equal([]gorp.ReferenceInfo{{
+				ID:       gorp.ReferenceID{Table: "symbol", Name: "channels"},
+				OnDelete: gorp.Weak,
+				Kind:     gorp.Use,
+			}}))
+			Expect(db.References("symbol")).To(BeEmpty())
 		})
 	})
 

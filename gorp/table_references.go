@@ -343,7 +343,7 @@ func (t *Table[K, E]) Retarget(
 
 // delete deletes entries and applies the OnDelete of every reference that points at
 // them, from planned when it is not nil. Before it changes anything, it calls held,
-// when not nil, with each entry that a Weak reference holds and those holders.
+// when not nil, with each entry it removes from the table and its Weak holders.
 func (t *Table[K, E]) delete(
 	ctx context.Context,
 	tx Tx,
@@ -380,8 +380,8 @@ func (t *Table[K, E]) delete(
 		if err != nil {
 			return err
 		}
-		if len(plan.weak) > 0 {
-			if err = t.callHeld(ctx, tx, entries, plan.weak, held); err != nil {
+		if held != nil {
+			if err = t.callHeld(ctx, tx, entries, plan, held); err != nil {
 				return err
 			}
 		}
@@ -393,52 +393,50 @@ func (t *Table[K, E]) delete(
 	return w.Delete(ctx, keys...)
 }
 
-// callHeld calls held with each entry of the table that weak holds: the entries the
-// caller asked to delete first, then, in key order, those that a cascade deletes.
+// callHeld calls held with each entry of the table that the delete of plan removes, and
+// with the Weak holders of each: the entries the caller asked to delete first, then, in
+// key order, those that a cascade deletes.
 func (t *Table[K, E]) callHeld(
 	ctx context.Context,
 	tx Tx,
 	entries []E,
-	weak map[string][]Dependent,
+	plan *deletePlan,
 	held HeldFunc[K, E],
 ) error {
-	requested := make(set.Set[string], len(entries))
+	holders := func(e E) []Dependent {
+		if len(plan.weak) == 0 {
+			return nil
+		}
+		return plan.weak[FormatKey(e.GorpKey())]
+	}
 	for _, e := range entries {
-		k := FormatKey(e.GorpKey())
-		requested.Add(k)
-		if deps := weak[k]; len(deps) > 0 {
-			if err := held(ctx, tx, e, deps); err != nil {
-				return err
-			}
+		if err := held(ctx, tx, e, holders(e)); err != nil {
+			return err
 		}
 	}
-	var texts []string
-	for text := range weak {
-		if !requested.Contains(text) {
-			texts = append(texts, text)
-		}
-	}
-	if len(texts) == 0 {
+	cascaded := plan.cascades[t.name]
+	if len(cascaded) == 0 {
 		return nil
 	}
+	texts := cascaded.Slice()
 	slices.Sort(texts)
-	cascaded := make([]K, len(texts))
+	keys := make([]K, len(texts))
 	for i, text := range texts {
 		k, err := key.Parse[K](text)
 		if err != nil {
 			return err
 		}
-		cascaded[i] = k
+		keys[i] = k
 	}
 	var more []E
 	if err := t.NewRetrieve().
-		Where(MatchKeys[K, E](cascaded...)).
+		Where(MatchKeys[K, E](keys...)).
 		Entries(&more).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
 	for _, e := range more {
-		if err := held(ctx, tx, e, weak[FormatKey(e.GorpKey())]); err != nil {
+		if err := held(ctx, tx, e, holders(e)); err != nil {
 			return err
 		}
 	}
