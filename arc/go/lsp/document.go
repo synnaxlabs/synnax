@@ -188,16 +188,52 @@ func channelNameAt(
 	pos protocol.Position,
 ) (parser.Name, protocol.Range, bool) {
 	for _, t := range tokenizeContent(content) {
-		if t.GetTokenType() != parser.ArcLexerCHANNEL_NAME ||
-			uint32(t.GetLine()-1) != pos.Line {
-			continue
-		}
-		r := tokenRange(t)
-		if pos.Character >= r.Start.Character && pos.Character < r.End.Character {
-			return parser.TokenName(t), r, true
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME:
+			if r := tokenRange(t); holds(r, pos) {
+				return parser.TokenName(t), r, true
+			}
+		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
+			if n, r, ok := placeholderChannelNameAt(t, pos); ok {
+				return n, r, true
+			}
 		}
 	}
 	return parser.Name{}, protocol.Range{}, false
+}
+
+// placeholderChannelNameAt returns the quoted channel name at pos inside a placeholder
+// of the format string t, and its range.
+func placeholderChannelNameAt(
+	t antlr.Token,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	f, ok := parseFormatString(t)
+	if !ok {
+		return parser.Name{}, protocol.Range{}, false
+	}
+	for _, seg := range f.segs {
+		if !seg.IsPlaceholder {
+			continue
+		}
+		inner, spans := f.innerTokens(seg)
+		for i, it := range inner {
+			if it.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+				continue
+			}
+			r := protocol.Range{Start: f.at[spans[i][0]], End: f.at[spans[i][1]]}
+			if holds(r, pos) {
+				return parser.TokenName(it), r, true
+			}
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// holds reports whether the one-line range r holds pos.
+func holds(r protocol.Range, pos protocol.Position) bool {
+	return pos.Line == r.Start.Line && pos.Character >= r.Start.Character &&
+		pos.Character < r.End.Character
 }
 
 // tokenRange returns the range of a token that spans one line.

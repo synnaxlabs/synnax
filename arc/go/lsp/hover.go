@@ -59,6 +59,10 @@ func (s *Server) Hover(
 
 	displayContent := d.displayContent()
 
+	if n, _, quoted := channelNameAt(displayContent, params.Position); quoted {
+		return s.channelHover(ctx, d, n, params.Position), nil
+	}
+
 	operator := s.getOperatorAtPosition(displayContent, params.Position)
 	if operator != "" {
 		contents := s.getOperatorHoverContents(operator)
@@ -70,10 +74,6 @@ func (s *Server) Hover(
 				},
 			}, nil
 		}
-	}
-
-	if n, _, quoted := channelNameAt(displayContent, params.Position); quoted {
-		return s.channelHover(ctx, d, n, params.Position), nil
 	}
 
 	word := d.getWordAtPosition(params.Position)
