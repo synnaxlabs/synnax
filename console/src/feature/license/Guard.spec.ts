@@ -26,9 +26,8 @@ import {
   HANDOFF_CODE,
   renderGuard,
 } from "@/feature/license/testutil";
-import { stubHub } from "@/platform/license/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { TEST_URL } from "@/platform/portal/testutil";
+import { createTestPortal, TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { fakePickedFile, interceptFilePicker, UNLICENSED_STATUS } from "@/testutil";
 
@@ -145,8 +144,6 @@ describe("License.Guard", () => {
   });
 
   it("should copy the link that the portal opens with", async () => {
-    // A copied link starts the wait for the key, which polls the hub.
-    stubHub(async () => new Response(null, { status: 204 }));
     const writeText = stubClipboardWriteText();
     await renderGuard(createTestClient(), UNLICENSED_STATUS);
     const href = await findPortalLink("Activate on the portal");
@@ -158,8 +155,10 @@ describe("License.Guard", () => {
   });
 
   it("should activate the license key that the portal hands back", async () => {
-    const hub = stubHub(async () => Response.json({ key: "not-a-license-key" }));
-    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    const { client: portal, fetch: hub } = createTestPortal(async () =>
+      Response.json({ key: "not-a-license-key" }),
+    );
+    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
     const code = new URL(
       await findPortalLink("Activate on the portal"),
     ).searchParams.get("handoff");
@@ -172,10 +171,8 @@ describe("License.Guard", () => {
   });
 
   it("should wait for a portal it cannot reach", async () => {
-    const hub = stubHub(async () => {
-      throw new TypeError("Failed to fetch");
-    });
-    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    const { client: portal, fetch: hub } = createTestPortal();
+    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
     await findPortalLink("Activate on the portal");
     fireEvent.click(screen.getByText("Activate on the portal"));
     await waitFor(() => expect(hub).toHaveBeenCalledTimes(2));
@@ -185,7 +182,7 @@ describe("License.Guard", () => {
   });
 
   it("should ask again when the portal does not answer", async () => {
-    const hub = stubHub(
+    const { client: portal, fetch: hub } = createTestPortal(
       async (_, init) =>
         await new Promise((_, reject) => {
           const signal = init?.signal;
@@ -195,7 +192,7 @@ describe("License.Guard", () => {
           );
         }),
     );
-    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
     await findPortalLink("Activate on the portal");
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     onTestFinished(() => {
@@ -212,8 +209,10 @@ describe("License.Guard", () => {
   });
 
   it("should ask the portal less often after ten minutes", async () => {
-    const hub = stubHub(async () => new Response(null, { status: 204 }));
-    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    const { client: portal, fetch: hub } = createTestPortal(
+      async () => new Response(null, { status: 204 }),
+    );
+    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
     await findPortalLink("Activate on the portal");
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     onTestFinished(() => {
