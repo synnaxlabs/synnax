@@ -10,6 +10,7 @@
 package literal_test
 
 import (
+	"math"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -727,7 +728,14 @@ var _ = Describe("Literal Parser", func() {
 				Expect(MustSucceed(parseSigned(text, negate, target)).Value).
 					To(Equal(expected))
 			},
-			Entry("negated i8 minimum", "128", true, types.I8(), int8(-128)),
+			Entry("negated i8 minimum", "128", true, types.I8(), int8(math.MinInt8)),
+			Entry(
+				"negated i64 minimum",
+				"9223372036854775808",
+				true,
+				types.I64(),
+				int64(math.MinInt64),
+			),
 			Entry("unnegated magnitude", "128", false, types.I16(), int16(128)),
 			Entry("negated unit literal", "5s", true, types.I64(), telem.TimeSpan(-5)),
 			Entry("negated float", "2.5", true, types.F64(), float64(-2.5)),
@@ -736,6 +744,11 @@ var _ = Describe("Literal Parser", func() {
 		It("Should reject a negated magnitude into an unsigned target", func() {
 			Expect(parseSigned("1", true, types.U8())).
 				Error().To(MatchError(ContainSubstring("out of range for u8")))
+		})
+
+		It("Should reject a negation out of the range of the target", func() {
+			Expect(parseSigned("129", true, types.I8())).
+				Error().To(MatchError(ContainSubstring("out of range for i8")))
 		})
 	})
 

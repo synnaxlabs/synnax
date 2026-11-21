@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Command sift runs the fake Sift server of the Core specs for Studio captures, with
-// the assets of the docs examples. Run it from the core module, which holds its
-// dependencies.
+// the assets of the docs examples.
 package main
 
 import (
@@ -26,12 +25,18 @@ import (
 func main() {
 	port := flag.Int("port", 50551, "the port the server listens on")
 	flag.Parse()
+	if err := run(*port); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(port int) error {
 	srv, err := fake.Open(fake.Config{
-		Address: fmt.Sprintf("127.0.0.1:%d", *port),
+		Address: fmt.Sprintf("127.0.0.1:%d", port),
 		Assets:  []string{"TPC", "Engine stand 2"},
 	})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -40,7 +45,5 @@ func main() {
 	)
 	defer stop()
 	<-ctx.Done()
-	if err := srv.Close(); err != nil {
-		log.Fatal(err)
-	}
+	return srv.Close()
 }

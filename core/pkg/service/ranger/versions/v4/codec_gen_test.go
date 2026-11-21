@@ -25,54 +25,36 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Range", func() {
+	Describe("Ref", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v4.Range) {
+			func(original v4.Ref) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v4.Range
+				var decoded v4.Ref
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v4.Range{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:      "test_2",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
-				Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-				Parent:    new(v4.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-			}),
-			Entry("zero values", v4.Range{
-				Key:       uuid.Nil(),
-				Name:      "",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
-				Color:     nil,
-				Labels:    []uuid.UUID{},
-				Parent:    nil,
-			}),
-			Entry("empty collections", v4.Range{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:      "test_2",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
-				Labels:    []uuid.UUID{},
-				Parent:    new(v4.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-			}),
+			Entry("key variant", v4.Ref{Variant: v4.KeyRef{
+				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				T0:    new(telem.TimeStamp(3)),
+				Color: new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
+			}}),
+			Entry("window variant", v4.Ref{Variant: v4.WindowRef{
+				Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(3)}},
+				Color:  new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
+			}}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeRange(b *testing.B) {
-	seed := v4.Range{
-		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:      "test_2",
-		TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-		Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
-		Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-		Parent:    new(v4.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-	}
+func BenchmarkEncodeDecodeRef(b *testing.B) {
+	seed := v4.Ref{Variant: v4.KeyRef{
+		Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		T0:    new(telem.TimeStamp(3)),
+		Color: new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
+	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -80,7 +62,7 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v4.Range
+		var decoded v4.Ref
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -88,16 +70,13 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 	}
 }
 
-func FuzzDecodeRange(f *testing.F) {
+func FuzzDecodeRef(f *testing.F) {
 	{
-		seed := v4.Range{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:      "test_2",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
-			Labels:    []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
-			Parent:    new(v4.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-		}
+		seed := v4.Ref{Variant: v4.KeyRef{
+			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			T0:    new(telem.TimeStamp(3)),
+			Color: new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -105,29 +84,10 @@ func FuzzDecodeRange(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v4.Range{
-			Key:       uuid.Nil(),
-			Name:      "",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
-			Color:     nil,
-			Labels:    []uuid.UUID{},
-			Parent:    nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v4.Range{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:      "test_2",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
-			Labels:    []uuid.UUID{},
-			Parent:    new(v4.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
-		}
+		seed := v4.Ref{Variant: v4.WindowRef{
+			Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: telem.TimeSpan(3)}},
+			Color:  new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -135,7 +95,7 @@ func FuzzDecodeRange(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v4.Range
+		var decoded v4.Ref
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -145,7 +105,7 @@ func FuzzDecodeRange(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v4.Range
+		var redecoded v4.Ref
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

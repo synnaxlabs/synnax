@@ -14,95 +14,113 @@ package v4
 import (
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"uuid"
+	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (rv Range) EncodeOrc(w *orc.Writer) error {
-	w.Write(rv.Key[:])
-	w.String(rv.Name)
-	if err := rv.TimeRange.EncodeOrc(w); err != nil {
-		return err
-	}
-	if rv.Color != nil {
-		w.Bool(true)
-		if err := rv.Color.EncodeOrc(w); err != nil {
+func (rv Ref) EncodeOrc(w *orc.Writer) error {
+	switch v := rv.Variant.(type) {
+	case KeyRef:
+		w.String("key")
+		w.Write(v.Key[:])
+		if v.T0 != nil {
+			w.Bool(true)
+			w.Int64(int64(*v.T0))
+		} else {
+			w.Bool(false)
+		}
+		if v.Color != nil {
+			w.Bool(true)
+			if err := v.Color.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case WindowRef:
+		w.String("window")
+		if err := v.Window.EncodeOrc(w); err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
-	}
-	w.Bool(rv.Labels != nil)
-	if rv.Labels != nil {
-		w.Uint32(uint32(len(rv.Labels)))
-		for i := range rv.Labels {
-			w.Write(rv.Labels[i][:])
+		if v.Color != nil {
+			w.Bool(true)
+			if err := v.Color.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
 		}
-	}
-	if rv.Parent != nil {
-		w.Bool(true)
-		w.Write((*rv.Parent)[:])
-	} else {
-		w.Bool(false)
+	default:
+		return errors.Newf("Ref: nil or unknown variant %T", rv.Variant)
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (rv *Range) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(rv.Key[:]); err != nil {
+func (rv *Ref) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
 		return err
 	}
-	if rv.Name, err = r.String(); err != nil {
-		return err
-	}
-	if err = rv.TimeRange.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
+	switch string(tag) {
+	case "key":
+		var v KeyRef
+		if _, err := r.Read(v.Key[:]); err != nil {
 			return err
 		}
-		if present {
-			var hv color.Ref
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			rv.Color = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
+		{
+			present, err := r.Bool()
 			if err != nil {
 				return err
 			}
-			rv.Labels = make([]uuid.UUID, n)
-			for i := range rv.Labels {
-				if _, err := r.Read(rv.Labels[i][:]); err != nil {
-					return err
+			if present {
+				var hv telem.TimeStamp
+				{
+					rawV, err := r.Int64()
+					if err != nil {
+						return err
+					}
+					hv = telem.TimeStamp(rawV)
 				}
+				v.T0 = &hv
 			}
 		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv Key
-			if _, err := r.Read(hv[:]); err != nil {
+		{
+			present, err := r.Bool()
+			if err != nil {
 				return err
 			}
-			rv.Parent = &hv
+			if present {
+				var hv color.Ref
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Color = &hv
+			}
 		}
+		rv.Variant = v
+	case "window":
+		var v WindowRef
+		if err = v.Window.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Ref
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Color = &hv
+			}
+		}
+		rv.Variant = v
+	default:
+		return errors.Newf("Ref: unknown variant %q", tag)
 	}
 	return nil
 }
