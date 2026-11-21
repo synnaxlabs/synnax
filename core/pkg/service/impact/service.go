@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact plans each change to channels: every record that the change touches,
-// the picks for each, and the default. It applies a change with the caller's picks.
+// Package impact plans each change to channels and groups: every record that the change
+// touches, the picks for each, and the default. It applies a change with the caller's
+// picks.
 package impact
 
 import (
@@ -17,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -31,6 +33,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Group is the service of the groups that a change touches.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// RecordOf returns the record that the holder of a reference stands for.
 	//
 	// [REQUIRED]
@@ -47,6 +53,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
 	return c
@@ -56,12 +63,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("impact")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
 	return v.Error()
 }
 
-// Service applies changes to channels.
+// Service applies changes to channels and groups.
 type Service struct{ cfg ServiceConfig }
 
 // OpenService opens a Service from cfgs.
@@ -108,10 +116,11 @@ func (s *Service) Plan(
 	c Change,
 	opts PlanOptions,
 ) (Plan, error) {
-	keys, err := deletedKeys(c)
-	if err != nil {
-		return Plan{}, err
+	d, ok := c.Variant.(DeleteChannelsChange)
+	if !ok {
+		return Plan{}, errors.Wrap(validate.ErrValidation, "unknown change")
 	}
+	keys := d.Keys
 	chosen, err := newPicks(opts)
 	if err != nil {
 		return Plan{}, err
@@ -211,15 +220,16 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 }
 
 // Apply carries out c in tx with the picks of opts. With no picks, no hidden pick, and
-// no token, it deletes as channel.Writer.DeleteMany does with allowInternal false,
-// which applies the default of every record, and returns a plan of c with no entries.
-// Otherwise it plans c with the picks in tx, as Plan does, and fails with a
-// PlanChangedError before any write when opts.Token names another plan. It returns the
-// entries that it applied, as opts.Visible lets the caller see them. A restrict entry
-// that takes cancel fails Apply with the gorp.RestrictError of its record. A delete
-// pick on a record other than a channel deletes it through ServiceConfig.Delete before
-// the channels go. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a
-// transaction of its own.
+// no token, a delete of channels deletes as channel.Writer.DeleteMany does with
+// allowInternal false, which applies the default of every record, and returns a plan of
+// c with no entries. Otherwise it plans c with the picks in tx, as Plan does, and fails
+// with a PlanChangedError before any write when opts.Token names another plan. It
+// returns the entries that it applied, as opts.Visible lets the caller see them. A
+// restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
+// record. A delete pick on a record other than a channel deletes it through
+// ServiceConfig.Delete before the channels go. A delete of groups deletes as
+// group.Writer.Delete does and returns a plan of c with no entries. Picks fail as they
+// fail Plan. Given a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -233,13 +243,59 @@ func (s *Service) Apply(
 		})
 		return applied, err
 	}
-	keys, err := deletedKeys(c)
-	if err != nil {
-		return Plan{}, err
+	switch v := c.Variant.(type) {
+	case DeleteChannelsChange:
+		return s.deleteChannels(ctx, tx, c, v.Keys, opts)
+	case DeleteGroupsChange:
+		if err = s.deleteGroups(ctx, tx, v.Keys, opts); err != nil {
+			return Plan{}, err
+		}
+		return Plan{Change: c}, nil
 	}
+	// Formatting the variant would make every change escape to the heap.
+	return Plan{}, errors.New("[impact] - unknown change")
+}
+
+// deleteGroups deletes the groups with keys. Its plan has no entries, so every pick
+// fails.
+func (s *Service) deleteGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []group.Key,
+	opts ApplyOptions,
+) error {
+	if err := pickWithoutEntry(opts.Picks, nil); err != nil {
+		return err
+	}
+	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
+}
+
+// pickWithoutEntry returns a validation error that names the smallest pick of picks
+// whose record no entry has, or nil when each has one.
+func pickWithoutEntry(picks map[string]Choice, entries set.Set[string]) error {
+	var missing []string
+	for id := range picks {
+		if !entries.Contains(id) {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return errors.Wrapf(validate.ErrValidation, "no entry is %s", slices.Min(missing))
+}
+
+// deleteChannels deletes the channels with keys, as Apply describes.
+func (s *Service) deleteChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	c Change,
+	keys []channel.Key,
+	opts ApplyOptions,
+) (Plan, error) {
 	w := s.cfg.Channel.NewWriter(tx)
 	if len(opts.Picks) == 0 && opts.Hidden == nil && opts.Token == "" {
-		if err = w.DeleteMany(ctx, keys, false); err != nil {
+		if err := w.DeleteMany(ctx, keys, false); err != nil {
 			return Plan{}, err
 		}
 		return Plan{Change: c}, nil
@@ -432,13 +488,4 @@ func choose(
 		}
 	}
 	return channels, records, cancel, nil
-}
-
-// deletedKeys returns the keys of the channels that c deletes.
-func deletedKeys(c Change) ([]channel.Key, error) {
-	d, ok := c.Variant.(DeleteChannelsChange)
-	if !ok {
-		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
-	}
-	return d.Keys, nil
 }

@@ -1021,7 +1021,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		Group: cfg.Service.Group,
+		Group:  cfg.Service.Group,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}
@@ -1038,6 +1039,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
 		Symbol: cfg.Service.Schematic.Symbol,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}
