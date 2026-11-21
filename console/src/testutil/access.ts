@@ -15,7 +15,10 @@ import {
   type SynnaxParams,
   user,
 } from "@synnaxlabs/client";
-import { createTestClientWithPolicy } from "@synnaxlabs/client/testutil";
+import {
+  createRequestHold,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 
 // Every console surface resolves the subject and its policies before it renders, and
@@ -59,4 +62,28 @@ export const createTestClientWithGrants = async (
     undefined,
     params,
   );
+};
+
+export interface HeldGrants {
+  client: Client;
+  /** Sends the held policy reads on to the Core. */
+  release: () => void;
+}
+
+/**
+ * Creates a client as {@link createTestClientWithGrants} does, whose policy reads wait
+ * until release is called. The reads that create the client are not held.
+ */
+export const createTestClientWithHeldGrants = async (
+  client: Client,
+  grants: Grants = {},
+): Promise<HeldGrants> => {
+  const hold = createRequestHold((target) =>
+    target.endsWith("/access/policy/retrieve"),
+  );
+  const held = await createTestClientWithGrants(client, grants, {
+    middleware: [hold.middleware],
+  });
+  hold.engage();
+  return { client: held, release: hold.release };
 };
