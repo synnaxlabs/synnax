@@ -714,8 +714,9 @@ jobs:
 
   # Fails on the exported identifiers no other package uses that the change adds, and
   # on every one of a module and usage that .github/exports-go.json gates, for Linux. It
-  # checks each changed module and each module that depends on one. Check - Go exports
-  # reports every finding each night.
+  # checks each changed module and each module that depends on one. It also checks the
+  # module of each pending entry, so the change that adds its caller fails on the entry.
+  # Check - Go exports reports every finding each night.
   exports-go:
     needs: changes
     if:
@@ -744,6 +745,8 @@ jobs:
           # shellcheck disable=SC2086
           affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
             xargs)
+          pending=$(jq -r '.pending[].module' .github/exports-go.json)
+          affected=$(echo "$affected" "$pending" | xargs -rn1 | sort -u | xargs)
           if grep -qx .github/exports-go.json <<< "$changed"; then
             affected=$MODULES
           fi
