@@ -49,7 +49,7 @@ import { assert } from "vitest";
 
 import { FileBrowser } from "@/platform/file-browser";
 import { Portal } from "@/platform/portal";
-import { TEST_URL } from "@/platform/portal/testutil";
+import { createTestPortal } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -230,16 +230,10 @@ const WINDOW_STYLE: CSSProperties = {
   height: 800,
 };
 
-// Specs stub the global fetch to answer for the portal.
-const PORTAL = new Portal.Client({
-  url: TEST_URL,
-  fetch: async (input, init) => await fetch(input, init),
-});
-
 const composeConsole = (
   SynnaxWrapper: FC<PropsWithChildren>,
   store: EnhancedStore,
-  portal: Portal.Client = PORTAL,
+  portal: Portal.Client = createTestPortal().client,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
@@ -280,7 +274,7 @@ export const renderSuspended = async (
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
-  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
 }
 
@@ -304,7 +298,7 @@ export const renderWithConsole = async (
 export interface RenderLinkHookOptions {
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
-  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
 }
 
@@ -331,7 +325,7 @@ export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<P
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
   client?: Client | null;
-  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
 }
 
@@ -355,7 +349,7 @@ export interface CreateConsoleWrapperParams {
   store?: TestStore;
   /** Extra aether components merged over the default (eraser) test registry. */
   additionalRegistry?: aether.ComponentRegistry;
-  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
 }
 
