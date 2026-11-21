@@ -155,14 +155,19 @@ type of an index channel.
 
 ## Name rules
 
-- A name contains only letters, digits, and underscores.
-- A name cannot start with a digit.
+- A name can hold any character that you can see, and spaces, but not `.`.
+- A name cannot be empty or hold only spaces.
+- A name cannot hold a character that shows as nothing or as a space other than a plain
+  space, such as a tab, a no-break space, or a zero-width space.
 - Each name is unique. Names are case-sensitive, so `tank_pressure` and `Tank_pressure`
   are two different names.
+- The Core stores each name in Unicode Normalization Form C (NFC), so two names that
+  differ only in their Unicode form are the same name.
 
-An administrator can turn off these rules on a Core with the
-[`--disable-channel-name-validation`](/reference/enterprise/cli-reference#flags) flag.
-Then names can have any characters, and two channels can have the same name.
+A Core that starts with the
+[`--disable-channel-name-validation`](/reference/enterprise/cli-reference#flags) flag
+reads a dashed name in Arc, such as `pt-01`, as one channel name. The flag does not
+change these rules.
 
 <Divider.Divider x />
 

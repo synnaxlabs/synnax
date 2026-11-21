@@ -599,6 +599,40 @@ var _ = Describe("Framer", func() {
 		})
 	})
 
+	Describe("Delete by a decomposed name", func() {
+		It("Should delete the data of the channel that holds the name in NFC", func(
+			ctx SpecContext,
+		) {
+			name := UniqueChannelName() + "_e\u0301"
+			index := channel.Channel{
+				Name:     name,
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
+			keys := channel.Keys{index.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
+				Names:  []string{name},
+				Bounds: telem.TimeRangeMax,
+			})).Error().ToNot(HaveOccurred())
+			iter := MustOpen(framerSvc.OpenIterator(ctx, svcframer.IteratorConfig{
+				Keys:   keys,
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeFalse())
+		})
+	})
+
 	Describe("Stream", func() {
 		var (
 			readable = resource.ID{Type: resource.TypeTask, Key: "readable"}

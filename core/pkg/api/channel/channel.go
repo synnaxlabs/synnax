@@ -292,6 +292,10 @@ func (s *Service) retrieve(
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
 	var res []channel.Channel
+	if req.Where != nil {
+		where := channel.NormalizeWhere(*req.Where)
+		req.Where = &where
+	}
 	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
 	if err != nil {
 		return nil, err
