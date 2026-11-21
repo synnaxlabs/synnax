@@ -11,6 +11,7 @@ package graph
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sync"
 
@@ -349,27 +350,37 @@ func (g *Graph) calculationOf(
 	return c, ok, err
 }
 
-// fetchNode returns the channel with key and its calculation, as tx sees them. It
-// reports false when the channel does not exist, and returns a nil calculation when no
-// calculation writes the channel.
-func (g *Graph) fetchNode(
+// channelOf returns the channel of chg, and false when chg deletes it. A change of a
+// calculation holds only the key of its output, so channelOf reads that channel from
+// tx.
+func (g *Graph) channelOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	chg channelChange,
+) (channel.Channel, bool, error) {
+	switch {
+	case chg.Kind == gorp.ChangeDelete:
+		return chg.Value, false, nil
+	case chg.Value.Key() != 0:
+		return chg.Value, true, nil
+	default:
+		return g.fetchChannel(ctx, tx, chg.Key)
+	}
+}
+
+// fetchChannel returns the channel with key as tx sees it, and false when it does not
+// exist. Each channel reads alone, so one that fails to read leaves the others.
+func (g *Graph) fetchChannel(
 	ctx context.Context,
 	tx gorp.Tx,
 	key channel.Key,
-) (channel.Channel, *calculation.Calculation, bool, error) {
+) (channel.Channel, bool, error) {
 	var ch channel.Channel
 	err := g.svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, tx)
 	if errors.Is(err, query.ErrNotFound) {
-		return ch, nil, false, nil
+		return ch, false, nil
 	}
-	if err != nil {
-		return ch, nil, false, err
-	}
-	c, ok, err := g.calculationOf(ctx, tx, key)
-	if err != nil || !ok {
-		return ch, nil, true, err
-	}
-	return ch, &c, true, nil
+	return ch, err == nil, err
 }
 
 // renameStatus gives the status of c the new name of its output.
@@ -515,7 +526,7 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		if st != nil {
 			g.setNodeStatus(ctx, tx, st)
 		} else {
-			g.clearNodeStatus(ctx, tx, key)
+			g.clearNodeStatus(ctx, tx, byOutput[key])
 		}
 	}
 	g.mu.Lock()
@@ -560,8 +571,16 @@ func (g *Graph) handleChanges(
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
+		calcs, err := g.calculations.Outputs(
+			ctx,
+			tx,
+			slices.Collect(maps.Keys(latest))...,
+		)
+		if err != nil {
+			return err
+		}
 		for _, chg := range latest {
-			ch, c, found, err := g.fetchNode(ctx, tx, chg.Key)
+			ch, found, err := g.channelOf(ctx, tx, chg)
 			if err != nil {
 				g.L.Warn(
 					"failed to retrieve changed channel",
@@ -595,7 +614,8 @@ func (g *Graph) handleChanges(
 			})
 			unresolvedNames = append(unresolvedNames, ch.Name)
 			prev, tracked := g.mu.nodes[chg.Key]
-			if c == nil {
+			c, calculated := calcs[chg.Key]
+			if !calculated {
 				if tracked {
 					g.removeNode(chg.Key)
 					g.mu.rejected.Remove(chg.Key)
@@ -604,9 +624,9 @@ func (g *Graph) handleChanges(
 				continue
 			}
 			if tracked && prev.Name != ch.Name {
-				g.renameStatus(ctx, tx, *c, ch.Name)
+				g.renameStatus(ctx, tx, c, ch.Name)
 			}
-			nd, err := g.inspectNode(ctx, tx, ch, *c, analyzer)
+			nd, err := g.inspectNode(ctx, tx, ch, c, analyzer)
 			if err != nil {
 				g.L.Info("calculated channel has invalid expression",
 					zap.Stringer("channel", ch.Key()),
@@ -629,7 +649,7 @@ func (g *Graph) handleChanges(
 				if (!tracked && chg.Kind == gorp.ChangeUpdate) ||
 					(tracked && (prev.invalid ||
 						prev.calculation.Expression != c.Expression)) {
-					g.clearNodeStatus(ctx, tx, ch.Key())
+					g.clearNodeStatus(ctx, tx, c)
 				}
 			}
 			if !nd.invalid && nd.DataType != ch.DataType {
@@ -694,11 +714,16 @@ func (g *Graph) setNodeStatus(
 	}
 }
 
-func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
-	if err := g.deleteStatus(ctx, tx, key); err != nil {
+func (g *Graph) clearNodeStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	c calculation.Calculation,
+) {
+	err := g.status.NewWriter(tx).DeleteOwned(ctx, calculation.ResourceID(c.Key))
+	if err != nil {
 		g.L.Warn(
 			"failed to clear status for channel",
-			zap.Stringer("channel", key),
+			zap.Stringer("channel", c.Output),
 			zap.Error(err),
 		)
 	}
@@ -754,13 +779,28 @@ func (g *Graph) reconcileQueued(
 	updates = make([]channel.Channel, 0)
 	for len(queued) > 0 {
 		next := make(set.Set[channel.Key])
+		tracked := make([]channel.Key, 0, len(queued))
 		for key := range queued {
-			nd, ok := g.mu.nodes[key]
-			if !ok {
+			if _, ok := g.mu.nodes[key]; ok {
+				tracked = append(tracked, key)
+			}
+		}
+		calcs, err := g.calculations.Outputs(ctx, tx, tracked...)
+		if err != nil {
+			g.L.Warn(
+				"failed to refetch calculations during reconciliation",
+				zap.Error(err),
+			)
+			return updates, valid
+		}
+		for _, key := range tracked {
+			nd := g.mu.nodes[key]
+			c, calculated := calcs[key]
+			if !calculated {
 				continue
 			}
-			refetched, c, found, err := g.fetchNode(ctx, tx, key)
-			if err != nil || !found || c == nil {
+			refetched, found, err := g.fetchChannel(ctx, tx, key)
+			if err != nil || !found {
 				if err != nil {
 					g.L.Warn(
 						"failed to refetch channel during reconciliation",
@@ -770,7 +810,7 @@ func (g *Graph) reconcileQueued(
 				}
 				continue
 			}
-			newNode, err := g.inspectNode(ctx, tx, refetched, *c, analyzer)
+			newNode, err := g.inspectNode(ctx, tx, refetched, c, analyzer)
 			oldInvalid := nd.invalid
 			oldType := nd.DataType
 			g.upsertNode(newNode)
@@ -790,7 +830,7 @@ func (g *Graph) reconcileQueued(
 			}
 			valid = append(valid, refetched)
 			if oldInvalid || c.Expression != nd.calculation.Expression {
-				g.clearNodeStatus(ctx, tx, key)
+				g.clearNodeStatus(ctx, tx, c)
 			}
 			if oldInvalid || oldType != newNode.DataType {
 				if oldType != newNode.DataType {

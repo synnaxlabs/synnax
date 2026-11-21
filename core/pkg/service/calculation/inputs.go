@@ -75,9 +75,8 @@ func (s *Service) Inputs(
 	unsaved []Unsaved,
 ) (channel.Keys, error) {
 	var (
-		analyzer = s.newAnalyzer(snap)
-		visited  = set.New[channel.Key]()
-		inputs   channel.Keys
+		visited = set.New[channel.Key]()
+		inputs  channel.Keys
 	)
 	for _, u := range unsaved {
 		visited.Add(u.Output.Key())
@@ -94,6 +93,10 @@ func (s *Service) Inputs(
 		return nil, err
 	}
 	level = append(slices.Clone(unsaved), level...)
+	if len(level) == 0 {
+		return nil, nil
+	}
+	analyzer := s.newAnalyzer(snap)
 	for len(level) > 0 {
 		var next channel.Keys
 		for _, u := range level {

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -126,11 +127,21 @@ func (s *Service) Outputs(
 	if len(keys) == 0 {
 		return nil, nil
 	}
+	held, err := s.indexes.output.Get(ctx, snap, keys...)
+	q := s.NewRetrieve()
+	switch {
+	case errors.Is(err, gorp.ErrIndexInvalid):
+		q = q.Where(MatchOutputs(keys...))
+	case err != nil:
+		return nil, err
+	case len(held) == 0:
+		return nil, nil
+	default:
+		// A key from a commit in flight may have no entry in snap.
+		q = q.Where(MatchKeys(held...)).SkipMissingKeys()
+	}
 	var calcs []Calculation
-	if err := s.NewRetrieve().
-		Where(MatchOutputs(keys...)).
-		Entries(&calcs).
-		Exec(ctx, snap); err != nil {
+	if err = q.Entries(&calcs).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	byOutput := make(map[channel.Key]Calculation, len(calcs))
