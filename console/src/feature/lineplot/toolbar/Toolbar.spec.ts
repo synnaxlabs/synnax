@@ -40,6 +40,7 @@ import { documentIn } from "@/session/window/testutil";
 import {
   captureBrowserDownloads,
   getIconButton,
+  getIconButtons,
   readBlob,
   removeSaveFilePicker,
 } from "@/testutil";
@@ -81,6 +82,14 @@ describe("lineplot/toolbar/Toolbar", () => {
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));
     expect(await screen.findByText(`Download data for ${name} as CSV`)).toBeDefined();
+  });
+
+  it("hides the CSV download in relative time", async () => {
+    const { result } = await renderToolbar();
+    await screen.findByText("Data");
+    expect(getIconButtons(result.container, "csv")).toHaveLength(1);
+    fireEvent.click(screen.getByText("Relative"));
+    await waitFor(() => expect(getIconButtons(result.container, "csv")).toEqual([]));
   });
 
   describe("download CSV", () => {

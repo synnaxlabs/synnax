@@ -347,6 +347,40 @@ describe("Lists", () => {
       expect(window?.end).toEqual({ key: "2", name: "b" });
     });
 
+    it("should fill a window that a deleted member leaves short", async () => {
+      const { table, core, list, handler } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records = core.records.filter((r) => r.key !== "1");
+      table.delete("1");
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
+    it("should fill a window that a member moved past the end leaves short", async () => {
+      const { table, core, list } = await maintained(
+        [rec("1", "a"), rec("2", "b"), rec("3", "c")],
+        { order: byName, limit: 1 },
+      );
+      core.records[0] = rec("1", "z");
+      table.set("1", rec("1", "z"));
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+    });
+
+    it("should not fetch again when a change leaves the window full", async () => {
+      const { table, core, list, fetch } = await maintained([
+        rec("1", "a"),
+        rec("2", "c"),
+        rec("3", "d"),
+      ]);
+      core.records.push(rec("4", "b"));
+      table.set("4", rec("4", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b", "c"]);
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it("should place several changes of one batch", async () => {
       const { table, list } = await maintained([rec("1", "b"), rec("2", "d")], {
         order: byName,
@@ -361,6 +395,40 @@ describe("Lists", () => {
       });
       table.set("3", rec("3", "b"));
       expect(names(list.getCached())).toEqual(["c", "b", "a"]);
+    });
+
+    it("should place again a written key that a refetch left out", async () => {
+      const { table, lists, list, fetch, core } = await maintained([rec("1", "a")], {
+        order: byName,
+      });
+      table.set("2", rec("2", "b"));
+      lists.refetchMatching(() => true);
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await expect.poll(() => names(list.getCached())).toEqual(["a"]);
+      core.records.push(rec("2", "b"));
+      table.set("2", rec("2", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b"]);
+    });
+  });
+
+  describe("local edits", () => {
+    it("should place a record by its local edit when the Core answers without the edit", async () => {
+      const { table, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+      // Shows key 1 as matching until the Core applies its edit, as the action
+      // controller does.
+      const bases = new Map<string, Rec>();
+      table.intercept({
+        base: (key) => bases.get(key),
+        apply: (key, value) => {
+          if (key !== "1") return value;
+          bases.set(key, value);
+          return { ...value, value: 1 };
+        },
+        keys: () => bases.keys(),
+      });
+      table.set("1", rec("1", "a", 0));
+      const window = await lists.list({ min: 1, order: byName, limit: 5 }).retrieve();
+      expect(names(window)).toEqual(["a", "b"]);
     });
   });
 
@@ -411,6 +479,51 @@ describe("Lists", () => {
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write that leaves a record as it was", async () => {
+      const { table, list, fetch, core } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await fetch.mock.results[1].value;
+      expect(names(list.getCached())).toEqual(["ab"]);
+      core.records.push(rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write during a fetch", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      const list = lists.list({ searchTerm: "a", limit: 2 });
+      list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        core.records.push(rec("2", "ac"));
+        table.set("2", rec("2", "ac"));
+        return [rec("1", "ab")];
+      });
+      await list.retrieve();
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should fetch once for writes inside one debounce", async () => {
+      const { table, fetch } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      table.stampWrite("2");
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not fetch an unmaintained search after a write", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await lists.list({ searchTerm: "a", limit: 2 }).retrieve();
+      table.set("2", rec("2", "ac"));
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should show a change to a member at once", async () => {
@@ -468,7 +581,7 @@ describe("Lists", () => {
         onError: () => {},
       });
       const table = new query.Table<string, Rec>({ onError: () => {} });
-      const { fetch } = createCore(records);
+      const { core, fetch } = createCore(records);
       const lists = new Lists<
         Q,
         Rec & { variant?: string },
@@ -482,17 +595,35 @@ describe("Lists", () => {
           table,
           fetch,
           compose: (r) => ({ ...r, variant: statuses.get(r.key)?.variant }),
-          // A pending status leaves the match undecided.
-          matches: (r, q) =>
-            statuses.get(r.key)?.variant === "pending" ? null : matches(r, q),
+          // A pending status leaves the match undecided, and a hidden one rejects it.
+          matches: (r, q) => {
+            const variant = statuses.get(r.key)?.variant;
+            if (variant === "pending") return null;
+            return variant !== "hidden" && matches(r, q);
+          },
           cursor,
           compare: compareCursors,
           triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
-      return { statuses, table, fetch, lists };
+      return { statuses, table, core, fetch, lists };
     };
+
+    it("should fill a window that a watched change leaves short", async () => {
+      const { statuses, core, lists } = setupWatched([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      const list = lists.list({ order: byName, limit: 1 });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      core.records = core.records.filter((r) => r.key !== "1");
+      statuses.set("1", { key: "1", variant: "hidden" });
+      await expect.poll(() => names(list.getCached())).toEqual(["b"]);
+      release();
+    });
 
     it("should compose a member again when a watched table changes it", async () => {
       const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);

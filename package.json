@@ -99,6 +99,7 @@
     "install-browsers:docs": "pnpm --filter @synnaxlabs/docs install-browsers",
     "install-browsers:lyra": "pnpm --filter @synnaxlabs/lyra install-browsers",
     "install-browsers:pluto": "pnpm --filter @synnaxlabs/pluto install-browsers",
+    "install-browsers:portal": "pnpm --filter @synnaxlabs/portal install-browsers",
     "lint": "turbo lint --continue",
     "lint:alamos": "turbo lint --filter @synnaxlabs/alamos",
     "lint:arc": "turbo lint --filter @synnaxlabs/arc",

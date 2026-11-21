@@ -180,6 +180,8 @@ export interface Config<S extends object> {
    * Receives each storage failure the session recovers from. Defaults to console.error.
    */
   onError?: (error: Error) => void;
+  /** Reloads the page after a revert or clear. Defaults to window.location.reload. */
+  reload?: () => void;
 }
 
 export const revertState = createAction("persist/revertState");
@@ -403,6 +405,7 @@ class Engine<S extends object> {
   /** Whether composing state on open failed outright. */
   unreadable = false;
   readonly onError: (error: Error) => void;
+  readonly reload: () => void;
 
   private readonly db: SugaredKV;
   private readonly partitions = new Map<string, Partition<S>>();
@@ -437,6 +440,7 @@ class Engine<S extends object> {
     migrate,
     openKV = openSugaredKV,
     onError = console.error,
+    reload = () => window.location.reload(),
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
@@ -457,6 +461,7 @@ class Engine<S extends object> {
     this.exclude = exclude;
     this.migrate = migrate;
     this.onError = onError;
+    this.reload = reload;
     this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
@@ -492,12 +497,14 @@ class Engine<S extends object> {
   /**
    * Load the Core and project (or project-only) slices for the target context,
    * defaulting unvisited partitions to their initial slices. When includeCore is
-   * true the target project is re-derived from the loaded Core partition.
+   * true the target project is re-derived from the loaded Core partition, unless
+   * projectPicked is true: then the project in context stays.
    */
   async loadSwap(
     state: S,
     context: Context,
     includeCore: boolean,
+    projectPicked: boolean,
   ): Promise<Partial<S>> {
     const out: Partial<S> = {};
     let project = context.project;
@@ -505,8 +512,14 @@ class Engine<S extends object> {
       const coreSlices =
         context.core == null ? {} : await this.core(context.core).read();
       this.fill(out, this.scopes.core, coreSlices);
+      if (projectPicked)
+        // A stored slice that names another project would undo the pick.
+        scopeKeys(this.scopes.core).forEach((key) => {
+          if (this.getContext({ ...state, [key]: out[key] }).project !== project)
+            out[key] = state[key];
+        });
       // The target Core's partition records which project was last active.
-      project = this.getContext({ ...state, ...out }).project;
+      else project = this.getContext({ ...state, ...out }).project;
     }
     const projectSlices =
       context.core == null || project == null
@@ -712,8 +725,9 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
  * Saves every change dispatched so far without waiting out the debounce, and resolves
- * once storage holds them. Only the main window persists: elsewhere, and in a store
- * without persistence, it resolves at once.
+ * once storage holds them. During a session swap it saves nothing and resolves once the
+ * swap is done. Only the main window persists: elsewhere, and in a store without
+ * persistence, it resolves at once.
  * @throws {Error} if the write fails.
  */
 export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
@@ -725,7 +739,8 @@ export const flush = async (dispatch: (action: Action) => unknown): Promise<void
  * Creates a middleware that persists the redux store state to the given engine after an
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
- * target's partitions load, and a single hydrate action applies them.
+ * target's partitions load, and a single hydrate action applies them. Nothing else is
+ * saved while the swap is in flight, so a change made then is lost.
  */
 const createMiddleware = <S extends object>(
   engine: Engine<S>,
@@ -736,9 +751,11 @@ const createMiddleware = <S extends object>(
   // Concurrent switches race: a slow stale swap hydrating last would clobber
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
+  // The swap in flight, or null. While one is, `current` names a context whose slices
+  // the store does not hold yet, so nothing is saved until it hydrates or ends.
+  let swap: { includeCore: boolean } | null = null;
   // Everything the store writes runs in turn. A swap flushes the partition it leaves,
-  // so a purge of that partition has to wait behind it or the keys come back, and a
-  // write queued mid-swap lands under the context it hydrated into.
+  // so a purge of that partition has to wait behind it or the keys come back.
   let queue: Promise<unknown> = Promise.resolve();
   return (store) => {
     // Redux forbids dispatching while middleware is constructed, so an engine that
@@ -771,20 +788,23 @@ const createMiddleware = <S extends object>(
       if (type === storeUnavailable.type) return result;
       const state = store.getState() as S;
       if (type === revertState.type)
-        engine
-          .revert(current, state)
-          .then(() => window.location.reload())
+        // Mid-swap, no partition holds what the store shows. The swap's flush already
+        // selected the target, so the reload alone composes it.
+        (swap == null ? engine.revert(current, state) : queue)
+          .then(() => engine.reload())
           .catch((err: unknown) => {
             engine.onError(new Error("failed to revert state", { cause: err }));
           });
       else if (type === clearState.type)
         engine
           .clear()
-          .then(() => window.location.reload())
+          .then(() => engine.reload())
           .catch((err: unknown) => {
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
       else if (type === flushState.type) {
+        // Mid-swap, the swap's own flush is the last save before the hydrate.
+        if (swap != null) return queue;
         debouncedPersist.cancel();
         return persist(state, current);
       } else if (type === purge.type) {
@@ -797,21 +817,36 @@ const createMiddleware = <S extends object>(
             );
           });
       } else if (type === hydrate.type) {
+        swap = null;
         current = getContext(state);
         debouncedPersist();
-      } else {
+      } else if (type === endSwap.type) swap = null;
+      else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
-          const includeCore = ctx.core !== old.core;
+          // A swap in flight already flushed the store's slices, and may have left the
+          // Core they came from.
+          const superseded = swap;
+          const includeCore = ctx.core !== old.core || superseded?.includeCore === true;
+          // The Core stayed, so the user picked this project during a Core swap.
+          const projectPicked =
+            includeCore && ctx.core === old.core && ctx.project != null;
+          swap = { includeCore };
+          debouncedPersist.cancel();
           current = ctx;
           const gen = ++swapGen;
           store.dispatch(beginSwap());
           queue = queue
             .then(async () => {
-              await engine.persist(state, old);
+              if (superseded == null) await engine.persist(state, old);
               if (gen !== swapGen) return;
-              const loaded = await engine.loadSwap(state, ctx, includeCore);
+              const loaded = await engine.loadSwap(
+                state,
+                ctx,
+                includeCore,
+                projectPicked,
+              );
               if (gen !== swapGen) return;
               store.dispatch(hydrate(loaded));
             })
@@ -821,7 +856,7 @@ const createMiddleware = <S extends object>(
                 new Error("failed to swap session context", { cause: err }),
               );
             });
-        } else debouncedPersist();
+        } else if (swap == null) debouncedPersist();
       }
       return result;
     };

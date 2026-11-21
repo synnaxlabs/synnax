@@ -15,7 +15,7 @@ import { createKeys, createPayload } from "@/framer/testutil";
 
 const CHANNEL_COUNTS = [10, 100, 1000];
 
-// Every streamed message constructs a Frame from the decoded payload.
+// The constructor parses a crude payload with Zod before it builds the Frame.
 test("from payload", async ({ bench }) => {
   await bench.compare(
     ...CHANNEL_COUNTS.map((n) => {
