@@ -123,7 +123,7 @@ type Service struct {
 	// names keeps channel names unique across the Core.
 	names *gorp.UniqueIndex[Key, Channel, string]
 	// tombstones holds the paths of deleted channels that a display still holds.
-	tombstones tombstones
+	tombstones *tombstones
 	mu         struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of the non-virtual channels that are not

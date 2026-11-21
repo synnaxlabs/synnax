@@ -53,9 +53,11 @@ type tombstones struct {
 	write gorp.HeldFunc[Key, Channel]
 }
 
-// openTombstones opens the table of tombstones.
-func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
-	t := tombstones{
+// openTombstones opens the table of tombstones. Its references are written by hand:
+// Oracle generates one retrievable record per Go package, and a package of its own
+// would import channel in a cycle.
+func openTombstones(ctx context.Context, db *gorp.DB) (*tombstones, error) {
+	t := &tombstones{
 		paths: gorp.NewUniqueIndex("path", tombstoneSpace, tombstonePath),
 		groups: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Tombstone, group.Key]{
 			Name:     "group",
@@ -70,6 +72,7 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 			},
 		}),
 	}
+	t.write = t.writeHeld
 	var err error
 	t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Tombstone]{
 		DB:      db,
@@ -88,8 +91,6 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 			}),
 		},
 	})
-	// The hook copies t, so it binds once the table is open.
-	t.write = t.writeHeld
 	return t, err
 }
 
@@ -181,15 +182,13 @@ func (w Writer) DeleteTombstones(
 
 // writeHeld writes, in tx, the tombstone of c, which a delete removes, when a link
 // other than a rewires entry holds it.
-func (t tombstones) writeHeld(
+func (t *tombstones) writeHeld(
 	ctx context.Context,
 	tx gorp.Tx,
 	c Channel,
 	held []gorp.Dependent,
 ) error {
-	if !slices.ContainsFunc(held, func(d gorp.Dependent) bool {
-		return d.Reference != rewiresReference
-	}) {
+	if !slices.ContainsFunc(held, func(d gorp.Dependent) bool { return !isRewire(d) }) {
 		return nil
 	}
 	ts := Tombstone{
@@ -199,4 +198,10 @@ func (t tombstones) writeHeld(
 		Rewires: withGap(c.Rewires, telem.Now()),
 	}
 	return t.table.NewCreate().Entry(&ts).Exec(ctx, tx)
+}
+
+// isRewire reports whether d is the link of a channel or tombstone to a past holder.
+func isRewire(d gorp.Dependent) bool {
+	return d.Reference == rewiresReference &&
+		(d.Holder.Table == tableName || d.Holder.Table == tombstoneTableName)
 }

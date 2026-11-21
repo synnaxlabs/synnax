@@ -226,8 +226,7 @@ func (t *Table[K, E]) detach(
 
 // delete deletes entries and applies the OnDelete of every reference that points at
 // them, from planned when it is not nil. Before it changes anything, it calls held,
-// when
-// not nil, with each entry that a Weak reference holds and those holders.
+// when not nil, with each entry that a Weak reference holds and those holders.
 func (t *Table[K, E]) delete(
 	ctx context.Context,
 	tx Tx,

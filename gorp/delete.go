@@ -84,8 +84,8 @@ func (d Delete[K, E]) Planned(effects DeleteEffects) Delete[K, E] {
 
 // Held makes the delete call f with each entry that it removes and that a Weak
 // reference holds, and with those holders, before it changes anything in the
-// transaction. An error from f fails the delete. A Delete that no Table built ignores
-// f.
+// transaction. An error from f fails the delete, and so does f on a Delete that no
+// Table built.
 func (d Delete[K, E]) Held(f HeldFunc[K, E]) Delete[K, E] {
 	d.held = f
 	return d
@@ -117,6 +117,9 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	}
 	if d.table != nil {
 		return d.table.delete(ctx, tx, entries, d.planned, d.held)
+	}
+	if d.held != nil {
+		return errors.New("[gorp] - Held needs a Delete that a Table built")
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
 	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
