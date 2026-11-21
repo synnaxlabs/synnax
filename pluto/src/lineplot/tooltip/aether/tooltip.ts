@@ -135,7 +135,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     this.internal.ruleColor = ruleColor ?? theme.colors.gray.l7;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textInverted;
-    this.internal.hintColor = theme.colors.gray.l8;
+    this.internal.hintColor = theme.colors.gray.l9;
 
     this.internal.render = render.Context.use(ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
