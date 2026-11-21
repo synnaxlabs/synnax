@@ -11,7 +11,7 @@ import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, useRef } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Notifications } from "@/platform/notifications";
@@ -167,21 +167,12 @@ describe("Notifications", () => {
     /** A popover over the whole window, opened after the feed mounts. */
     const Cover = (): ReactElement => {
       const ref = useRef<HTMLDivElement>(null);
-      const [shown, setShown] = useState(false);
       return (
         <>
-          <button
-            onClick={() => {
-              ref.current?.showPopover();
-              setShown(true);
-            }}
-          >
-            cover
-          </button>
+          <button onClick={() => ref.current?.showPopover()}>cover</button>
           <div
             ref={ref}
             popover="manual"
-            aria-label={shown ? "cover" : undefined}
             style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
           />
         </>
