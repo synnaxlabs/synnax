@@ -53,7 +53,8 @@ import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/S
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
-import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
+import type { Kind } from "@/feature/mqtt/task/discover/Discover";
+import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
