@@ -447,14 +447,22 @@ func (w Writer) create(
 		return err
 	}
 	channels = append(channels, indexChannels...)
-	if err = w.takeLists(ctx, channels); err != nil {
+	dead, err := w.takeLists(ctx, channels)
+	if err != nil {
 		return err
 	}
 	written, err := w.allocateNew(ctx, channels, opts)
 	if err != nil {
 		return err
 	}
-	if err = w.heal(ctx, channels...); err != nil {
+	var to map[Key]Key
+	if len(dead) > 0 {
+		to = make(map[Key]Key, len(dead))
+		for i, k := range dead {
+			to[k] = channels[i].Key()
+		}
+	}
+	if err = w.healLinks(ctx, to); err != nil {
 		return err
 	}
 	linked, err := w.linkStoredIndexes(ctx, channels, calcNeedingIndex)

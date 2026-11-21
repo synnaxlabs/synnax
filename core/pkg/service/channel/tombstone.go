@@ -137,8 +137,13 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 }
 
 // takeLists sets the rewires of each new channel of channels, one with no local key, to
-// the list of the tombstone at its path, or to none, since a create sets no list.
-func (w Writer) takeLists(ctx context.Context, channels []Channel) error {
+// the list of the tombstone at its path, or to none, since a create sets no list. It
+// returns the keys of those tombstones, by the position of their channel.
+func (w Writer) takeLists(
+	ctx context.Context,
+	channels []Channel,
+) (map[int]Key, error) {
+	var dead map[int]Key
 	for i := range channels {
 		c := &channels[i]
 		if c.LocalKey != 0 {
@@ -146,19 +151,22 @@ func (w Writer) takeLists(ctx context.Context, channels []Channel) error {
 		}
 		t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		c.Rewires = t.Rewires
 		if !ok {
-			c.Rewires = nil
+			continue
 		}
+		if dead == nil {
+			dead = make(map[int]Key)
+		}
+		dead[i] = t.Key
 	}
-	return nil
+	return dead, nil
 }
 
 // heal gives each of channels, which are written, that takes the path of a tombstone
-// the list of that tombstone, moves the links that hold the dead key and that Retargets
-// accepts onto it, and deletes the tombstone.
+// the list of that tombstone, and then heals the links of those tombstones.
 func (w Writer) heal(ctx context.Context, channels ...Channel) error {
 	var to map[Key]Key
 	for _, c := range channels {
@@ -180,6 +188,12 @@ func (w Writer) heal(ctx context.Context, channels ...Channel) error {
 		}
 		to[t.Key] = c.Key()
 	}
+	return w.healLinks(ctx, to)
+}
+
+// healLinks moves the links that hold each dead key of to, and that Retargets accepts,
+// onto the key it maps to, and deletes the tombstones of the dead keys.
+func (w Writer) healLinks(ctx context.Context, to map[Key]Key) error {
 	if len(to) == 0 {
 		return nil
 	}
