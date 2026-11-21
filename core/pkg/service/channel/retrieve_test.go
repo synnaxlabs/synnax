@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -157,64 +158,48 @@ var _ = Describe("Retrieve", Ordered, func() {
 			},
 		)
 	})
-	Describe("MatchCalculated", func() {
-		It("Should only return calculated channels", func(ctx SpecContext) {
-			base := channel.Channel{
-				Virtual:  true,
+	Describe("MatchVirtual", func() {
+		It("Should match every virtual channel, free ones too", func(ctx SpecContext) {
+			plain := channel.Channel{
+				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
-				Name:     "wc_base",
+				Virtual:  true,
 			}
-			calc := channel.Channel{
-				Virtual:    true,
-				DataType:   telem.Float32T,
-				Name:       "wc_calc",
-				Expression: "return wc_base * 2",
+			free := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			stored := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &base)
-			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
-
-			var results []channel.Channel
-			Expect(svc.
-				NewRetrieve().
-				Where(channel.MatchCalculated()).
-				Entries(&results).
-				Exec(ctx, db)).To(Succeed())
-			for _, ch := range results {
-				Expect(ch.IsCalculated()).To(BeTrue())
-			}
-			Expect(results).To(ContainElement(
-				HaveField("Name", Equal("wc_calc")),
-			))
-		})
-
-		It(
-			"Should return empty when no calculated channels exist on a fresh node",
-			func(ctx SpecContext) {
-				fresh := testutil.NewNode(ctx)
-				freshSvc := openService(ctx, fresh)
-				base := channel.Channel{
-					Virtual:  true,
-					DataType: telem.Float32T,
-					Name:     "wc_only_base",
+				w := svc.NewWriter(tx)
+				if err := w.Create(ctx, &plain); err != nil {
+					return err
 				}
-				Expect(fresh.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return freshSvc.NewWriter(tx).
-						CreateMany(ctx, &[]channel.Channel{base})
-				})).To(Succeed())
-
-				var results []channel.Channel
-				Expect(freshSvc.
-					NewRetrieve().
-					Where(channel.MatchCalculated()).
-					Entries(&results).
-					Exec(ctx, fresh.DB)).To(Succeed())
-				Expect(results).To(BeEmpty())
-			},
-		)
+				if err := w.Create(ctx, &stored); err != nil {
+					return err
+				}
+				return w.Create(ctx, &free, channel.FreeIndex())
+			})).To(Succeed())
+			match := func(virtual bool) channel.Keys {
+				GinkgoHelper()
+				var res []channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchVirtual(virtual)).
+					Entries(&res).
+					Exec(ctx, db)).To(Succeed())
+				return channel.KeysFromChannels(res)
+			}
+			Expect(match(true)).To(ContainElements(plain.Key(), free.Key()))
+			Expect(match(true)).ToNot(ContainElement(stored.Key()))
+			Expect(match(false)).To(ContainElement(stored.Key()))
+			Expect(match(false)).ToNot(ContainElements(plain.Key(), free.Key()))
+		})
 	})
 
 	Describe("MatchIndexes", func() {
@@ -265,22 +250,17 @@ var _ = Describe("Retrieve", Ordered, func() {
 			},
 		)
 
-		It("Should match a calculated channel", func(ctx SpecContext) {
-			base := channel.Channel{
-				Name: "mi_base", DataType: telem.Float32T, Virtual: true,
-			}
-			calc := channel.Channel{
-				Name:       "mi_calc",
-				DataType:   telem.Float32T,
-				Expression: "return mi_base * 2",
+		It("Should match a free channel by its free index", func(ctx SpecContext) {
+			free := channel.Channel{
+				Name:        "mi_free",
+				DataType:    telem.Float32T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &base)
+				return svc.NewWriter(tx).Create(ctx, &free, channel.FreeIndex())
 			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
-			Expect(retrieveKeys(ctx, calc.Index())).To(ConsistOf(calc.Key()))
+			Expect(retrieveKeys(ctx, free.Index())).To(ConsistOf(free.Key()))
 		})
 
 		It("Should match across several index keys", func(ctx SpecContext) {
