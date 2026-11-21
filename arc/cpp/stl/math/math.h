@@ -64,6 +64,8 @@ private:
     types::Kind kind;
     Op op;
     int64_t sample_count = 0;
+    /// @brief the running sum of an average, cleared when the count restarts.
+    double sum = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
     size_t input_idx;
@@ -206,8 +208,7 @@ private:
     template<typename T>
     void reduce(const runtime::state::Series &input_data) {
         const auto n = static_cast<int64_t>(input_data->size());
-        auto &output = this->state.output(0);
-        const bool fresh = output->empty();
+        const bool fresh = this->sample_count == 0;
         switch (this->op) {
             case Op::Avg:
                 this->reduce_avg<T>(input_data, n, fresh);
@@ -224,22 +225,13 @@ private:
 
     template<typename T>
     void reduce_avg(const runtime::state::Series &input_data, int64_t n, bool fresh) {
-        double new_sum = 0;
+        if (fresh) this->sum = 0;
         for (int64_t i = 0; i < n; i++)
-            new_sum += static_cast<double>(input_data->at<T>(i));
-        auto &output = this->state.output(0);
-        if (fresh) {
-            *output = x::telem::Series(
-                static_cast<T>(new_sum / static_cast<double>(n))
-            );
-        } else {
-            auto prev_avg = static_cast<double>(output->at<T>(0));
-            auto total = static_cast<double>(this->sample_count + n);
-            auto result = (prev_avg * static_cast<double>(this->sample_count) +
-                           new_sum) /
-                          total;
-            *output = x::telem::Series(static_cast<T>(result));
-        }
+            this->sum += static_cast<double>(input_data->at<T>(i));
+        const auto total = this->sample_count + n;
+        *this->state.output(0) = x::telem::Series(
+            static_cast<T>(this->sum / static_cast<double>(total))
+        );
     }
 
     template<typename T>
