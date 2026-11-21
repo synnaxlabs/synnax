@@ -57,13 +57,7 @@ type engine struct {
 	ready    chan struct{}
 	shutdown sync.Once
 	closeErr error
-	// keys holds the key of each segment that the state may give back as dead, so
-	// that reap can name its file.
-	keys struct {
-		sync.Mutex
-		of map[uint64]ChannelKey
-	}
-	pins pins
+	pins     pins
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -85,8 +79,7 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	e := &engine{fs: o.fs, exec: o.executor, ready: make(chan struct{})}
-	e.keys.of = make(map[uint64]ChannelKey)
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(set.Set[uint64])
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -225,22 +218,18 @@ func (e *engine) onHead(
 	e.ckpt.Head(generation, s)
 }
 
-// named records the key of segment id, so that reap can name its file.
-func (e *engine) named(id uint64, key ChannelKey) {
-	e.keys.Lock()
-	e.keys.of[id] = key
-	e.keys.Unlock()
-}
-
 // reap unlinks the file of each segment that left the state, once no reader pins it.
 func (e *engine) reap() error {
-	ids, err := e.state.TakeDead()
+	dead, err := e.state.TakeDead()
 	if err != nil {
 		return err
 	}
-	return e.release(ids)
+	return e.release(dead)
 }
 
+// run runs the owners until ctx is done, then closes them in order: the log, so that
+// its queued entries and a clean mark reach the file, then the checkpointer, then the
+// state. It runs the orphan pass first.
 func (e *engine) run(ctx context.Context) error {
 	owners, cancel := signal.Isolated()
 	defer cancel()
@@ -286,7 +275,6 @@ func (e *engine) orphans() error {
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
 			named[segmentName(ch.Key, seg.ID)] = seg
-			e.named(seg.ID, ch.Key)
 		}
 	}
 	infos, err := e.fs.List("")

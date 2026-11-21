@@ -111,27 +111,20 @@ func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
 	return nil
 }
 
-// tombstone applies t to both views, which a durable Tombstone changes at once. It
-// removes a sealed segment that no live pointer is left in, and returns it.
-func (c *core) tombstone(t *log.Tombstone) ([]uint64, error) {
+// tombstone applies t to both views, which a durable Tombstone changes at once, and
+// buries each sealed segment that no live pointer is left in.
+func (c *core) tombstone(t *log.Tombstone) error {
 	if err := c.checkTombstone(t); err != nil {
-		return nil, err
+		return err
 	}
 	ch := c.channels[t.Key]
-	var dead []uint64
-	for _, s := range ch.segs {
+	for _, s := range slices.Clone(ch.segs) {
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
-		if s.vis.Sealed && s.dur.sealed && len(s.vis.Pointers) == 0 {
-			dead = append(dead, s.vis.ID)
-		}
-	}
-	for _, id := range dead {
-		ch.remove(id)
-		delete(c.segments, id)
+		c.bury(s)
 	}
 	ch.publish()
-	return dead, nil
+	return nil
 }
 
 // cut returns a new slice of ptrs with the samples of t's range taken out. An open

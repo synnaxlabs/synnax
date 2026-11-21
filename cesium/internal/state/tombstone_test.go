@@ -86,8 +86,32 @@ var _ = Describe("Tombstone", func() {
 		MustSucceed(s.Snapshot())
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 		Expect(s.Channel(5).Segments[0].ID).To(Equal(uint64(4)))
-		Expect(s.TakeDead()).To(Equal([]uint64{2}))
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 2, Key: 5}}))
 		Expect(s.TakeDead()).To(BeEmpty())
+	})
+
+	DescribeTable("Should bury an open segment that a Tombstone empties once it is "+
+		"sealed, in replay as at runtime",
+		func(seal log.Record) {
+			Expect(s.Replay(10, []log.Record{
+				&log.Tombstone{Key: 6, Start: 0, End: 100},
+				seal,
+			})).To(Succeed())
+			run(s)
+			Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6}}))
+			Expect(s.Channel(6).Segments).To(BeEmpty())
+		},
+		Entry("by its Seal", &log.Seal{Segment: 3, Length: 12, TailCRC: 3}),
+		Entry("by a Restart", &log.Restart{}),
+	)
+
+	It("Should bury a segment that a Tombstone empties after a replayed Seal", func() {
+		Expect(s.Replay(10, []log.Record{
+			&log.Seal{Segment: 3, Length: 12, TailCRC: 3},
+			&log.Tombstone{Key: 6, Start: 0, End: 100},
+		})).To(Succeed())
+		run(s)
+		Expect(s.TakeDead()).To(Equal([]state.Dead{{Segment: 3, Key: 6}}))
 	})
 
 	DescribeTable(

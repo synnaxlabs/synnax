@@ -291,8 +291,16 @@ func (s *State) Durable(sequence uint64, records []log.Record) error {
 	return s.enqueue(&durableRequest{sequence: sequence, records: records})
 }
 
+// Dead is a segment that left the state, whose file the database unlinks.
+type Dead struct {
+	// Segment is the identity of the segment.
+	Segment uint64
+	// Key is the key whose samples the segment held.
+	Key uint32
+}
+
 type deadRequest struct {
-	dead []uint64
+	dead []Dead
 	done chan error
 }
 
@@ -303,10 +311,10 @@ func (r *deadRequest) run(s *State) {
 	r.done <- nil
 }
 
-// TakeDead returns the segments that left the state since the last call, by a
-// Tombstone that left a sealed segment no live pointer or with no durable byte, whose
-// files the database unlinks once no reader pins them.
-func (s *State) TakeDead() ([]uint64, error) {
+// TakeDead returns the segments that left the state since the last call, by a Tombstone
+// or a Seal that left them sealed with no live pointer, or with no durable byte. The
+// database unlinks their files once no reader pins them.
+func (s *State) TakeDead() ([]Dead, error) {
 	r := &deadRequest{done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {
 		return nil, err

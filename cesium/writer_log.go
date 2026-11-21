@@ -293,7 +293,6 @@ func (w *logWriter) append(lk *logKey, p []byte) error {
 		if err != nil {
 			return err
 		}
-		w.e.named(id, lk.ch.Key)
 		w.entry.Add(&log.Create{
 			Segment:  id,
 			Key:      lk.ch.Key,

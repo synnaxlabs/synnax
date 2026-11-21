@@ -14,15 +14,14 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
-// pins counts the readers of each segment, and holds the dead segments that wait for
-// their last reader before the engine unlinks their files.
+// pins counts the readers of each segment, and holds the key of each dead segment that
+// waits for its last reader before the engine unlinks its file.
 type pins struct {
 	mu      sync.Mutex
 	readers map[uint64]int
-	dead    set.Set[uint64]
+	dead    map[uint64]ChannelKey
 }
 
 // load returns the visible Channel of key from e, and pins each of its segments under
@@ -61,36 +60,29 @@ func (e *engine) unpin(ids []uint64) error {
 	return e.unlink(free)
 }
 
-// release unlinks each segment of ids, which left the state, once no reader pins it.
-func (e *engine) release(ids []uint64) error {
-	var free []uint64
+// release unlinks the file of each segment of dead, which left the state, once no
+// reader pins it.
+func (e *engine) release(dead []state.Dead) error {
+	var free []state.Dead
 	e.pins.mu.Lock()
-	for _, id := range ids {
-		if e.pins.readers[id] > 0 {
-			e.pins.dead.Add(id)
+	for _, d := range dead {
+		if e.pins.readers[d.Segment] > 0 {
+			e.pins.dead[d.Segment] = d.Key
 		} else {
-			free = append(free, id)
+			free = append(free, d)
 		}
 	}
 	e.pins.mu.Unlock()
 	return e.unlink(free)
 }
 
-// unlink removes the file of each segment of ids.
-func (e *engine) unlink(ids []uint64) error {
-	e.keys.Lock()
-	defer e.keys.Unlock()
-	for _, id := range ids {
-		key, ok := e.keys.of[id]
-		if !ok {
-			return errors.Newf("no key of dead segment %d", id)
-		}
-		delete(e.keys.of, id)
-		if err := e.fs.Remove(segmentName(key, id)); err != nil {
-			return err
-		}
+// unlink removes the file of each segment of dead, and tries every removal.
+func (e *engine) unlink(dead []state.Dead) error {
+	errs := make([]error, 0, len(dead))
+	for _, d := range dead {
+		errs = append(errs, e.fs.Remove(segmentName(d.Key, d.Segment)))
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // pin adds a reader of each segment of ids. The caller holds p.mu.
@@ -102,16 +94,16 @@ func (p *pins) pin(ids []uint64) {
 
 // unpin drops a reader of each segment of ids, and returns the dead segments that no
 // reader pins after it. The caller holds p.mu.
-func (p *pins) unpin(ids []uint64) []uint64 {
-	var free []uint64
+func (p *pins) unpin(ids []uint64) []state.Dead {
+	var free []state.Dead
 	for _, id := range ids {
 		if p.readers[id]--; p.readers[id] > 0 {
 			continue
 		}
 		delete(p.readers, id)
-		if p.dead.Contains(id) {
-			p.dead.Remove(id)
-			free = append(free, id)
+		if key, dead := p.dead[id]; dead {
+			delete(p.dead, id)
+			free = append(free, state.Dead{Segment: id, Key: key})
 		}
 	}
 	return free

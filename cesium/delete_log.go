@@ -20,18 +20,26 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // deleteLog deletes tr from each of keys on the pointer log layout: the data keys
-// first,
-// then the indexes, since the state refuses a clock range that a data key still uses.
-// Each key with data in tr gets one durable Tombstone and a HistoryChange. The caller
-// holds db.mu.
+// first, then the indexes, since the state refuses a clock range that a data key still
+// uses. Each key with data in tr gets one durable Tombstone and a HistoryChange. It
+// refuses a range that starts after it ends. The caller holds db.mu.
 func (db *DB) deleteLog(
 	ctx context.Context,
 	keys []ChannelKey,
 	tr telem.TimeRange,
 ) error {
+	if !tr.Valid() {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"delete start %d cannot be after delete end %d",
+			tr.Start,
+			tr.End,
+		)
+	}
 	var data, indexes []Channel
 	for _, k := range lo.Uniq(keys) {
 		ch, ok := db.mu.channels[k]
@@ -69,7 +77,7 @@ func (e *engine) deleteRange(
 	clock ChannelKey,
 	tr telem.TimeRange,
 ) (bool, error) {
-	if tr.Start >= tr.End {
+	if tr.Start == tr.End {
 		return false, nil
 	}
 	d, err := e.state.BeginDelete(key, tr.Start, tr.End)
