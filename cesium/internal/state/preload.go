@@ -135,7 +135,7 @@ type pendingSeg struct {
 // pendingSegs returns the segments of c with visible commits that are not durable yet,
 // with the time range of the pointers of those commits.
 func (c *chanState) pendingSegs() []pendingSeg {
-	var out []pendingSeg
+	out := make([]pendingSeg, 0, len(c.pending))
 	for _, s := range c.pending {
 		// The last durable pointer may grow with the commits after it.
 		ptrs := s.vis.Pointers[max(len(s.dur.pointers)-1, 0):]
