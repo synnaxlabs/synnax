@@ -831,6 +831,7 @@ describe("Input.Table", () => {
       fireEvent.click(removeButton(0));
       expect(document.activeElement).toBe(addButton());
     });
+
     it("should focus the first cell on mount with autoFocus", () => {
       renderTable({ value: VALUE, autoFocus: true });
       expect(document.activeElement).toBe(cell("Raw", "1"));
