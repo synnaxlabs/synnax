@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/errors";
@@ -188,6 +189,45 @@ describe("Lists", () => {
       expect(lists.list({ order: byName, limit: 3 })).not.toBe(list);
     });
 
+    it("should return undefined from getCached while a smaller limit shortens the window", async () => {
+      const { lists } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      expect(names(small.getCached())).toEqual(["a"]);
+      const larger = lists.list({ order: byName, limit: 2 });
+      expect(larger.getCached()).toBeUndefined();
+      expect(lists.list({ order: byName }).getCached()).toBeUndefined();
+      expect(names(await larger.retrieve())).toEqual(["a", "b"]);
+      expect(names(larger.getCached())).toEqual(["a", "b"]);
+      expect(names(await lists.list({ order: byName }).retrieve())).toEqual([
+        "a",
+        "b",
+        "c",
+      ]);
+      expect(names(lists.list({ order: byName }).getCached())).toEqual(["a", "b", "c"]);
+    });
+
+    it("should not deliver a short window to a reader whose fetch is in flight", async () => {
+      const { lists, fetch, table } = setup([rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      const all = lists.list({ order: byName });
+      const handler = vi.fn();
+      all.onChange(handler);
+      const page = Promise.withResolvers<Rec[]>();
+      fetch.mockImplementationOnce(async () => await page.promise);
+      const read = all.retrieve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      table.set("1", rec("1", "a"));
+      expect(names(small.getCached())).toEqual(["a", "b"]);
+      expect(handler).not.toHaveBeenCalled();
+      page.resolve([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      expect(names(await read)).toEqual(["a", "b", "c"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["a", "b", "c"]);
+    });
+
     it("should return undefined from getCached before a fetch", () => {
       const { lists } = setup([rec("1", "a")]);
       expect(lists.list({ order: byName }).getCached()).toBeUndefined();
@@ -335,6 +375,17 @@ describe("Lists", () => {
       expect(names(list.getCached())).toEqual(["b"]);
     });
 
+    it("should serve and deliver a paged window that a delete shortens", async () => {
+      const { table, list, handler } = await maintained([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      table.delete("1");
+      expect(names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
     it("should remove a deleted member and keep the end", async () => {
       const { table, list } = await maintained([
         rec("1", "a"),
@@ -412,6 +463,24 @@ describe("Lists", () => {
   });
 
   describe("local edits", () => {
+    /**
+     * Puts the record in the table as its base and shows the value on top of it until
+     * the Core applies the edit, as the action controller does.
+     */
+    const showEdit = (table: query.Table<string, Rec>, base: Rec, value: number) => {
+      const bases = new Map<string, Rec>();
+      table.intercept({
+        base: (key) => bases.get(key),
+        apply: (key, next) => {
+          if (key !== base.key) return next;
+          bases.set(key, next);
+          return { ...next, value };
+        },
+        keys: () => bases.keys(),
+      });
+      table.set(base.key, base);
+    };
+
     it("should place a record by its local edit when the Core answers without the edit", async () => {
       const { table, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
       // Shows key 1 as matching until the Core applies its edit, as the action
@@ -430,6 +499,72 @@ describe("Lists", () => {
       const window = await lists.list({ min: 1, order: byName, limit: 5 }).retrieve();
       expect(names(window)).toEqual(["a", "b"]);
     });
+
+    it("should place on more a record that an unsent edit makes match", async () => {
+      const base = rec("3", "c", 0);
+      const { lists, table } = setup([
+        rec("1", "a"),
+        rec("2", "b"),
+        base,
+        rec("4", "d"),
+      ]);
+      showEdit(table, base, 1);
+      const list = lists.list({ order: byName, min: 1, limit: 2 });
+      list.onChange(vi.fn());
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      expect(names(await list.more(2))).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("should leave out on more a record an unsent edit stops matching", async () => {
+      const base = rec("3", "c");
+      const { lists, table } = setup([
+        rec("1", "a"),
+        rec("2", "b"),
+        base,
+        rec("4", "d"),
+      ]);
+      showEdit(table, base, 0);
+      const list = lists.list({ order: byName, min: 1, limit: 2 });
+      list.onChange(vi.fn());
+      expect(names(await list.retrieve())).toEqual(["a", "b"]);
+      expect(names(await list.more(2))).toEqual(["a", "b", "d"]);
+    });
+  });
+
+  it("should place an edited key whose edit the Core applies while a page is in flight", async () => {
+    const { table, fetch, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+    // Shows key 1 as matching until the Core applies its edit, as the action
+    // controller does.
+    const bases = new Map<string, Rec>();
+    table.intercept({
+      base: (key) => bases.get(key),
+      apply: (key, value) => {
+        if (key !== "1") return value;
+        bases.set(key, value);
+        return { ...value, value: 1 };
+      },
+      keys: () => bases.keys(),
+    });
+    table.set("1", rec("1", "a", 0));
+    const list = lists.list({ min: 1, order: byName, limit: 5 });
+    list.onChange(() => {});
+    const { promise: answered, resolve: answer } = Promise.withResolvers<void>();
+    const fetchCore = fetch.getMockImplementation();
+    assertDefined(fetchCore);
+    // The Core answers for the base, which the edit does not reach yet.
+    fetch.mockImplementationOnce(async (q) => {
+      const page = await fetchCore(q);
+      await answered;
+      return page;
+    });
+    const retrieving = list.retrieve();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    // The echo of the edit lands before the page, so the edit is no longer pending.
+    bases.delete("1");
+    table.renotify("1");
+    answer();
+    await retrieving;
+    expect(names(list.getCached())).toEqual(["a", "b"]);
   });
 
   describe("search", () => {

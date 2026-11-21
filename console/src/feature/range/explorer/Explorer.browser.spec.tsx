@@ -165,10 +165,13 @@ const focusedTabs = (store: TestStore): string[] => {
 const checkboxOf = (name: string): HTMLInputElement =>
   within(itemOf(name)).getByRole<HTMLInputElement>("checkbox", { name: "Select" });
 
-/** Searches for the range, then opens the context menu on it. */
+/**
+ * Searches for the range, then opens the context menu on it once the search lands, so
+ * the item does not mount again and end a rename that the menu started.
+ */
 const openMenuOf = async (rng: ranger.Range): Promise<void> => {
   await search(rng.name);
-  await findItem(rng.name);
+  await findSearchedItem(rng.name, rng.name);
   await openContextMenu(() => itemOf(rng.name));
 };
 
@@ -587,7 +590,13 @@ describe("range/explorer/Explorer", () => {
         expect(copies).toHaveLength(2);
         return copies[1];
       };
-      await waitFor(second);
+      await waitFor(() => {
+        const copies = screen.getAllByRole("listitem", { name: rng.name });
+        expect(copies).toHaveLength(2);
+        copies.forEach((copy) =>
+          within(copy).getByText(rng.name, { selector: "mark" }),
+        );
+      });
       await openContextMenu(second);
       fireEvent.click(await menuItem("Rename"));
       const editing = await awaitTextEditingElement();

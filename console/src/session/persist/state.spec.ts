@@ -123,6 +123,16 @@ class CountingKV extends MemoryKV {
   }
 }
 
+/** A store whose reads of keys matching failOn reject, standing in for a lost disk. */
+class ReadFailingKV extends CountingKV {
+  failOn: RegExp | null = null;
+
+  override async get<V>(key: string): Promise<V | null> {
+    if (this.failOn?.test(key) === true) throw new Error("read failed");
+    return await super.get<V>(key);
+  }
+}
+
 /** Holds reads of the keys matching pattern, standing in for a slow disk. */
 class GatedKV implements Persist.SugaredKV {
   held = false;
@@ -1081,41 +1091,165 @@ describe("Persist.middleware", () => {
     );
   });
 
-  it("should save again once a failed swap ends", async () => {
-    const store = new CountingKV();
-    let readFailed = false;
-    const failing: Persist.SugaredKV = {
-      get: async <V>(key: string): Promise<V | null> => {
-        if (!readFailed && key.startsWith("core.c2.")) {
-          readFailed = true;
-          throw new Error("read failed");
-        }
-        return await store.get<V>(key);
-      },
-      set: async (key, value) => await store.set(key, value),
-      setMany: async (entries) => await store.setMany(entries),
-      delete: async (key) => await store.delete(key),
-      deleteMany: async (keys) => await store.deleteMany(keys),
-      length: async () => await store.length(),
-      keys: async () => await store.keys(),
-      clear: async () => await store.clear(),
+  describe("after a failed swap", () => {
+    const P2_SWAP = { core: "c1", project: "p2" };
+    const C2_SWAP = { core: "c2", project: "p1" };
+
+    /**
+     * Leaves p1 loaded with p1-work, then swaps to the target, failing the swap's first
+     * read of a key matching failOn.
+     */
+    const failSwap = async (
+      target: Persist.Context,
+      failOn: RegExp,
+      scopes: Persist.Scopes<MockState> = SCOPES,
+    ) => {
+      const store = new ReadFailingKV();
+      const driver = await createDriver(store, {
+        onError: vi.fn(),
+        debounceInterval: TimeSpan.hours(1),
+        scopes,
+      });
+      await enter(driver, P2_SWAP);
+      await commit(driver, "p2-work");
+      await enter(driver, CTX);
+      await commit(driver, "p1-work");
+      store.failOn = failOn;
+      driver.dispatch(
+        { type: "context/select" },
+        {
+          ...driver.getState(),
+          core: { selected: target.core },
+          project: { selected: target.project },
+        },
+      );
+      await vi.waitFor(() =>
+        expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
+      );
+      return { store, driver, written: store.writes.length };
     };
-    const driver = await createDriver(store, {
-      onError: vi.fn(),
-      openKV: () => failing,
-      debounceInterval: TimeSpan.hours(1),
+
+    /** Lists the work values written under the key pattern, in write order. */
+    const worksAt = (store: CountingKV, pattern: RegExp): Array<string | undefined> =>
+      store.writes
+        .flat()
+        .filter(({ key }) => pattern.test(key))
+        .map(
+          ({ value }) => z.object({ work: workZ }).safeParse(value).data?.work.value,
+        );
+
+    it("should save no project slice until a later swap hydrates", async () => {
+      const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE);
+      await commit(driver, "late");
+      expect(store.writes.length).toBe(written);
     });
-    await enter(driver, CTX);
-    driver.dispatch(
-      { type: "Core/select" },
-      { ...driver.getState(), core: { selected: "c2" }, project: {} },
-    );
-    await vi.waitFor(() =>
-      expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
-    );
-    const written = store.writes.length;
-    await commit(driver, "after-failed-swap");
-    expect(store.writes.length).toBeGreaterThan(written);
+
+    it("should save a global edit but not a project edit", async () => {
+      const scopes: Persist.Scopes<MockState> = {
+        global: { core: selectedZ, work: workZ },
+        core: { project: selectedZ },
+        project: { view: viewZ, windows: z.string().array() },
+        window: {},
+        transient: [],
+      };
+      const { store, driver, written } = await failSwap(P2_SWAP, P2_STATE, scopes);
+      driver.dispatch(
+        { type: "edit" },
+        {
+          ...driver.getState(),
+          work: { value: "global-edit" },
+          view: { label: "project-edit", windows: {} },
+        },
+      );
+      await Persist.flush((action) => driver.dispatch(action));
+      const entries = store.writes.slice(written).flat();
+      expect(entries.map(({ key }) => key)).toEqual(
+        expect.arrayContaining([expect.stringMatching(/^global\./)]),
+      );
+      entries.forEach(({ key }) => expect(key).toMatch(/^global\./));
+      store.failOn = null;
+      const { initialState } = await openPersist(store, { scopes });
+      expect(initialState?.work.value).toBe("global-edit");
+    });
+
+    it("should save again once a later swap hydrates", async () => {
+      const { store, driver } = await failSwap(P2_SWAP, P2_STATE);
+      store.failOn = null;
+      await enter(driver, { core: "c1", project: "p3" });
+      await commit(driver, "p3-work");
+      expect(works(store, "p3")).toContain("p3-work");
+    });
+
+    it("should reload the context the store held on a return to it", async () => {
+      const { store, driver } = await failSwap(P2_SWAP, P2_STATE);
+      store.failOn = null;
+      await commit(driver, "late");
+      await enter(driver, CTX);
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(worksAt(store, /^project\.c1\.p\d\.\d+$/)).not.toContain("late");
+    });
+
+    it("should reload the old Core on a return after a failed Core swap", async () => {
+      const scopes: Persist.Scopes<MockState> = {
+        ...SCOPES,
+        core: { project: selectedZ, work: workZ },
+        project: { windows: z.string().array() },
+      };
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./, scopes);
+      // The target Core's synchronizers change the store after the failure.
+      await commit(driver, "c2-sync");
+      store.failOn = null;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c1" } },
+      );
+      await driver.settle();
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      expect(worksAt(store, /^core\.c\d\.\d+$/)).not.toContain("c2-sync");
+    });
+
+    it("should keep a project picked in the target Core after a failed Core swap", async () => {
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./);
+      store.failOn = null;
+      driver.dispatch(
+        { type: "project/select" },
+        { ...driver.getState(), project: { selected: "p3" } },
+      );
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p3");
+      await Persist.flush((action) => driver.dispatch(action));
+      const c1Projects = store.writes
+        .flat()
+        .filter(({ key }) => /^core\.c1\.\d+$/.test(key))
+        .map(
+          ({ value }) => z.object({ project: selectedZ }).parse(value).project.selected,
+        );
+      expect(c1Projects).not.toContain("p3");
+    });
+
+    it("should reload the old Core after a retry of a failed Core swap fails", async () => {
+      const { store, driver } = await failSwap(C2_SWAP, /^core\.c2\./);
+      // The project remover clears a project the new Core does not have.
+      driver.dispatch({ type: "project/clear" }, { ...driver.getState(), project: {} });
+      await vi.waitFor(() =>
+        expect(
+          driver.dispatched.mock.calls.filter(([a]) => Persist.endSwap.match(a)),
+        ).toHaveLength(2),
+      );
+      store.failOn = null;
+      driver.dispatch(
+        { type: "Core/select" },
+        { ...driver.getState(), core: { selected: "c1" } },
+      );
+      await driver.settle();
+      expect(driver.getState().project.selected).toBe("p1");
+      expect(driver.getState().work.value).toBe("p1-work");
+      await Persist.flush((action) => driver.dispatch(action));
+      const { initialState } = await openPersist(store);
+      expect(initialState?.project.selected).toBe("p1");
+    });
   });
 
   it("should mark the swap window with beginSwap before hydrate", async () => {

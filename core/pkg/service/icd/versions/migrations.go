@@ -9,7 +9,10 @@
 
 package versions
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"github.com/synnaxlabs/gorp"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
+)
 
 // Migrations is the ordered migration chain for stored ICDs.
-var Migrations []gorp.Migration
+var Migrations = []gorp.Migration{v1.Migration}

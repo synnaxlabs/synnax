@@ -509,7 +509,10 @@ type Message struct {
 	// name is the name of the message, unique within its ICD.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// payload is the layout of the message's payload.
-	Payload       *Payload `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload *Payload `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	// cycle_time is the send cycle that the protocol states for the message. When absent
+	// the protocol states none.
+	CycleTime     *int64 `protobuf:"varint,4,opt,name=cycle_time,json=cycleTime,proto3,oneof" json:"cycle_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -563,6 +566,13 @@ func (x *Message) GetPayload() *Payload {
 		return x.Payload
 	}
 	return nil
+}
+
+func (x *Message) GetCycleTime() int64 {
+	if x != nil && x.CycleTime != nil {
+		return *x.CycleTime
+	}
+	return 0
 }
 
 // ICD is an interface control document: the messages a system sends and receives, and
@@ -2575,11 +2585,14 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x04_minB\x06\n" +
 	"\x04_max\")\n" +
 	"\rJSONBaseMatch\x12\x18\n" +
-	"\apointer\x18\x01 \x01(\tR\apointer\"b\n" +
+	"\apointer\x18\x01 \x01(\tR\apointer\"\x95\x01\n" +
 	"\aMessage\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\apayload\x18\x03 \x01(\v2\x17.service.icd.pb.PayloadR\apayload\"`\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.service.icd.pb.PayloadR\apayload\x12\"\n" +
+	"\n" +
+	"cycle_time\x18\x04 \x01(\x03H\x00R\tcycleTime\x88\x01\x01B\r\n" +
+	"\v_cycle_time\"`\n" +
 	"\x03ICD\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -2841,6 +2854,7 @@ func file_core_pkg_service_icd_pb_icd_proto_init() {
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[2].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[8].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[9].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[10].OneofWrappers = []any{}
