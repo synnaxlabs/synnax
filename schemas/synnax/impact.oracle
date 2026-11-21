@@ -21,18 +21,18 @@ Change union on type {
 
         @doc value "deletes channels."
     }
-    delete_folders {
+    delete_groups {
         keys group.Key[] {
             @doc value """
-                are the keys of the folders to delete. A folder inside one of them must
-                be named too.
+                are the keys of the groups to delete. A group inside one of them must be
+                named too.
             """
         }
 
-        @doc value "deletes folders."
+        @doc value "deletes groups."
     }
 
-    @doc value "is a change to channels or folders that a plan covers."
+    @doc value "is a change to channels or groups that a plan covers."
 }
 
 Effect enum {

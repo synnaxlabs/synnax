@@ -29,8 +29,8 @@ type ChangeType string
 const (
 	// DeleteChannelsChangeType deletes channels.
 	DeleteChannelsChangeType ChangeType = "delete_channels"
-	// DeleteFoldersChangeType deletes folders.
-	DeleteFoldersChangeType ChangeType = "delete_folders"
+	// DeleteGroupsChangeType deletes groups.
+	DeleteGroupsChangeType ChangeType = "delete_groups"
 )
 
 // ChangeVariant is implemented by every Change variant.
@@ -46,16 +46,16 @@ type DeleteChannelsChange struct {
 
 func (DeleteChannelsChange) isChangeVariant() {}
 
-// DeleteFoldersChange deletes folders.
-type DeleteFoldersChange struct {
-	// Keys are the keys of the folders to delete. A folder inside one of them must be
+// DeleteGroupsChange deletes groups.
+type DeleteGroupsChange struct {
+	// Keys are the keys of the groups to delete. A group inside one of them must be
 	// named too.
 	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
-func (DeleteFoldersChange) isChangeVariant() {}
+func (DeleteGroupsChange) isChangeVariant() {}
 
-// Change is a change to channels or folders that a plan covers.
+// Change is a change to channels or groups that a plan covers.
 type Change struct {
 	Variant ChangeVariant
 }
@@ -70,11 +70,11 @@ func (u Change) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ChangeType `json:"type"`
 			DeleteChannelsChange
 		}{Type: DeleteChannelsChangeType, DeleteChannelsChange: v})
-	case DeleteFoldersChange:
+	case DeleteGroupsChange:
 		return json.MarshalEncode(enc, struct {
 			Type ChangeType `json:"type"`
-			DeleteFoldersChange
-		}{Type: DeleteFoldersChangeType, DeleteFoldersChange: v})
+			DeleteGroupsChange
+		}{Type: DeleteGroupsChangeType, DeleteGroupsChange: v})
 	default:
 		return errors.Newf("Change: unknown variant %T", v)
 	}
@@ -109,15 +109,15 @@ func (u *Change) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.DeleteChannelsChange
-	case DeleteFoldersChangeType:
+	case DeleteGroupsChangeType:
 		var v struct {
 			Type ChangeType `json:"type"`
-			DeleteFoldersChange
+			DeleteGroupsChange
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.DeleteFoldersChange
+		u.Variant = v.DeleteGroupsChange
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -133,8 +133,8 @@ func (u Change) Type() ChangeType {
 	switch u.Variant.(type) {
 	case DeleteChannelsChange:
 		return DeleteChannelsChangeType
-	case DeleteFoldersChange:
-		return DeleteFoldersChangeType
+	case DeleteGroupsChange:
+		return DeleteGroupsChangeType
 	}
 	return ""
 }

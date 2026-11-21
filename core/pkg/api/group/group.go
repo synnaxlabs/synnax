@@ -194,7 +194,7 @@ func (s *Service) Delete(
 	_, err := s.impact.Apply(
 		ctx,
 		tx,
-		impact.Change{Variant: impact.DeleteFoldersChange{Keys: req.Keys}},
+		impact.Change{Variant: impact.DeleteGroupsChange{Keys: req.Keys}},
 		impact.ApplyOptions{},
 	)
 	return struct{}{}, err
