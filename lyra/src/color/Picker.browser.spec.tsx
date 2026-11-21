@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
+// The pure entry leaves the act environment of the browser specs alone.
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   type RenderResult,
   within,
-} from "@testing-library/react";
+} from "@testing-library/react/pure";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -22,7 +24,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -111,6 +113,8 @@ const SwatchMenu = (): ReactElement | null => {
 };
 
 describe("Picker", () => {
+  afterEach(cleanup);
+
   describe("library", () => {
     describe("slots", () => {
       const PALETTES: Color.Palette[] = [

@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// The pure entry leaves the act environment of the browser specs alone.
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   renderHook,
   type RenderResult,
-} from "@testing-library/react";
+} from "@testing-library/react/pure";
 import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
   useState,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -69,6 +71,8 @@ const ClickOpener = (): ReactElement => {
 };
 
 describe("Views", () => {
+  afterEach(cleanup);
+
   it("should show a view in place of the children until Back", () => {
     const c = renderViews(
       <>
