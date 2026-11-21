@@ -173,7 +173,7 @@ describe("queries", () => {
       const { result } = renderHook(
         () =>
           Flux.useList((c) => c.colors, {
-            name: "named colors",
+            name: "colors",
             query: { where: { key: { in: [named.key] } } },
           }),
         { wrapper },
@@ -188,7 +188,31 @@ describe("queries", () => {
   });
 
   describe("useCreate", () => {
-    it("should create a named color", async () => {
+    const order = async (palette: group.Group): Promise<color.Named[]> =>
+      (
+        await createTestClient().colors.retrieve({ where: { groups: [palette.key] } })
+      ).sort(color.compare);
+
+    const append = async (
+      palette: group.Group,
+      position?: string,
+    ): Promise<color.Key> => {
+      const { result } = renderHook(Color.useCreate, { wrapper });
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          key,
+          name: `created-${id.create()}`,
+          light: "#FF0000",
+          group: palette.key,
+          position,
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      return key;
+    };
+
+    it("should create a named color in no palette", async () => {
       const { result } = renderHook(Color.useCreate, { wrapper });
       const name = `created-${id.create()}`;
       await act(async () => {
@@ -196,6 +220,36 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       expect((await createTestClient().colors.retrieve(name)).name).toBe(name);
+    });
+
+    it("should keep a given position", async () => {
+      const palette = await createPalette();
+      const key = await append(palette, "a0");
+      expect((await createTestClient().colors.retrieve(key)).position).toBe("a0");
+    });
+
+    it("should create a named color after the last one of its palette", async () => {
+      const palette = await createPalette();
+      const last = await remote.colors.create({
+        name: `color-${id.create()}`,
+        light: "#00FF00",
+        group: palette.key,
+        position: "a5",
+      });
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([last.key, key]);
+      expect(stored[0].position).toBe("a5");
+    });
+
+    it("should write no position to the colors that have none", async () => {
+      const palette = await createPalette();
+      await Promise.all([createInPalette(palette), createInPalette(palette)]);
+      const before = (await order(palette)).map((c) => c.key);
+      const key = await append(palette);
+      const stored = await order(palette);
+      expect(stored.map((c) => c.key)).toEqual([key, ...before]);
+      expect(stored.filter((c) => c.position == null)).toHaveLength(2);
     });
   });
 

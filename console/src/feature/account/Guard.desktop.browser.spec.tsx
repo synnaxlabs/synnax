@@ -20,10 +20,10 @@ import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFailed, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import { License } from "@/platform/license";
-import { stubHub } from "@/platform/license/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
+import { Portal } from "@/platform/portal";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -54,10 +54,9 @@ const createReportingClient = (): Client => {
   });
   const reads: Read[] = [];
   const requests: Read[] = [];
-  // Each request, the login included, goes out through fetch. A plain stub, not a spy,
-  // so it wraps the hub stub instead of replacing it.
+  // Each request, the login included, goes out through fetch.
   const fetch = globalThis.fetch.bind(globalThis);
-  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const request: Read = { target: new URL(url).pathname, start: performance.now() };
     requests.push(request);
@@ -114,8 +113,6 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   client: Client;
   store: TestStore;
 }> => {
-  // A linked machine can renew its license on mount, and no spec may reach the hub.
-  stubHub(async () => Response.json({ error: "Unknown" }, { status: 401 }));
   const client = createReportingClient();
   const { wrapper, store } = await createStatusConsoleWrapper({
     client,
@@ -136,10 +133,7 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
 };
 
 describe("Account.Guard", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
+  afterEach(() => vi.restoreAllMocks());
 
   it("should render children while the Core is not refused for a license", async () => {
     await renderGuard();
@@ -206,9 +200,9 @@ describe("Account.Guard", () => {
     fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
+    expect(url.origin + url.pathname).toBe(`${TEST_URL}/desktop/login`);
     const { fingerprint } = await client.license.retrieve();
-    expect(url.searchParams.get("fp")).toBe(License.joinFingerprint(fingerprint));
+    expect(url.searchParams.get("fp")).toBe(Portal.joinFingerprint(fingerprint));
     expect(url.searchParams.get("name")).toBe("Synnax Desktop");
     expect(url.searchParams.get("state")).toBe(
       Session.Account.selectPending(store.getState()),

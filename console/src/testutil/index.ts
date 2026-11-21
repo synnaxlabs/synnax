@@ -15,6 +15,7 @@ export * from "@/testutil/editableText";
 export * from "@/testutil/filePicker";
 export * from "@/testutil/fsAccess";
 export * from "@/testutil/kv";
+export * from "@/testutil/lazy";
 export * from "@/testutil/location";
 export * from "@/testutil/preload";
 export * from "@/testutil/resizeLoop";

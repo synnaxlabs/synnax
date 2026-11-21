@@ -14,8 +14,8 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/color/types.gen.h"
 #include "client/cpp/resource/id.h"
-#include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -36,8 +36,9 @@ struct Label {
     Key key;
     /// @brief name is a human-readable name for the label.
     std::string name;
-    /// @brief color is the display color for visual identification of the label.
-    ::x::color::Color color;
+    /// @brief color is the display color for visual identification of the label, a
+    /// named color or a fixed color.
+    ::synnax::color::Ref color;
 
     static Label parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

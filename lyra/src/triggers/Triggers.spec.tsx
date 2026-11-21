@@ -870,6 +870,7 @@ describe("Triggers", () => {
     const TEXT_ENTRY_KEYS: [Triggers.Key, string][] = [
       ["Minus", "-"],
       ["Equal", "="],
+      ["Period", "."],
       ["Space", " "],
     ];
 
