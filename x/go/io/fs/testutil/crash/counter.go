@@ -39,10 +39,11 @@ type counter struct {
 	lossFrom []int
 	// events is the count of calls that changed the disk.
 	events int
-	// faults is the count of calls that the disk failed with a sync error or with no
-	// space.
-	faults int
-	mu     sync.Mutex
+	// syncErrors and fullDisk count the calls that the disk failed with a sync error
+	// and
+	// with no space.
+	syncErrors, fullDisk int
+	mu                   sync.Mutex
 }
 
 // blockSize is the unit that a disk loses or keeps as a whole.
@@ -65,8 +66,11 @@ func (c *counter) begin() {
 // end ends a call that began. It notes a fault of the disk in err, and counts the call
 // as an event when it changed the disk.
 func (c *counter) end(err error, changed bool) {
-	if errors.Is(err, syscall.EIO) || errors.Is(err, syscall.ENOSPC) {
-		c.faults++
+	switch {
+	case errors.Is(err, syscall.EIO):
+		c.syncErrors++
+	case errors.Is(err, syscall.ENOSPC):
+		c.fullDisk++
 	}
 	if changed {
 		c.events++

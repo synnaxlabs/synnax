@@ -52,10 +52,8 @@ type run struct {
 	brokenAt     int
 	brokenFaults []fault.Fault
 	// armed is true once the engine of the workload opened and Run armed the faults of
-	// its disk. unsynced counts the crash images from then that the disk took with a
-	// change that a crash can lose in part, and spoiled the images that spoil changed.
-	armed             atomic.Bool
-	unsynced, spoiled int
+	// its disk.
+	armed atomic.Bool
 	// mu guards every field below plan.
 	mu sync.Mutex
 }
@@ -107,6 +105,11 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 	if r.armed.Load() && r.needsReadFault() {
 		r.check(r.forcedRead(events), r.attempts)
 	}
+	r.counter.mu.Lock()
+	r.mu.Lock()
+	r.result.SyncErrors, r.result.FullDisk = r.counter.syncErrors, r.counter.fullDisk
+	r.mu.Unlock()
+	r.counter.mu.Unlock()
 	if r.err != nil {
 		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
@@ -217,20 +220,24 @@ func (r *run) forcedRead(event int) *snapshot {
 // fired reports if a fault of the profile fired after the engine of the workload
 // opened.
 func (r *run) fired() bool {
-	faulted := r.faulted()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	res := r.result
 	switch r.cfg.Profile {
 	case Strict:
 		return true
 	case Partial:
-		return r.unsynced > 0
-	case SyncErrors, FullDisk, Mixed:
-		return faulted
+		return res.Unsynced > 0
+	case SyncErrors:
+		return res.SyncErrors > 0
+	case FullDisk:
+		return res.FullDisk > 0
+	case Mixed:
+		return res.SyncErrors+res.FullDisk > 0
 	case OneTimeReadFaults, RepeatedReadFaults:
-		return r.result.ReadFaults > 0
+		return res.ReadFaults > 0
 	case OldCorruption, NewCorruption:
-		return r.spoiled > 0
+		return res.Spoiled > 0
 	}
 	return true
 }
@@ -239,7 +246,7 @@ func (r *run) fired() bool {
 func (r *run) faulted() bool {
 	r.counter.mu.Lock()
 	defer r.counter.mu.Unlock()
-	return r.counter.faults > 0
+	return r.counter.syncErrors+r.counter.fullDisk > 0
 }
 
 // worksf breaks R0, before any crash, when ok is false.
@@ -299,8 +306,8 @@ func (r *run) snapshot(event int) *snapshot {
 		if rules, err = r.plan.spoil(image, r.counter, event); err == nil {
 			if r.armed.Load() {
 				r.mu.Lock()
-				r.unsynced += btoi(unsynced)
-				r.spoiled += btoi(rules != strictRules)
+				r.result.Unsynced += btoi(unsynced)
+				r.result.Spoiled += btoi(rules != strictRules)
 				r.mu.Unlock()
 			}
 			return &snapshot{image: image, rules: rules, event: event}
