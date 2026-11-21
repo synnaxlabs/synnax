@@ -49,10 +49,11 @@ type Config struct {
 
 // Read builds the state of a root of the old layout. Each old data file that a pointer
 // names is a sealed version 0 segment, and each old index pointer takes one alignment
-// number. Read also returns the channel of each directory with a meta.json, in rising
-// order of key. It skips a directory with no meta.json and logs its key. It returns an
-// error that names the file when an old file has no two agreeing reads in three, when
-// a pointer ends past its file, or when a data pointer holds samples with no stamps.
+// number. Read also returns the channel of each directory whose meta.json names a
+// channel with storage, in rising order of key. It skips a virtual channel, and a
+// directory with no meta.json, whose key it logs. It returns an error that names the
+// file when an old file has no two agreeing reads in three, when a pointer ends past
+// its file, or when a data pointer holds samples with no stamps.
 func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
 	r := &reader{
 		Config: cfg,
@@ -105,7 +106,7 @@ func (r *reader) read() error {
 		)
 	}
 	for _, ch := range r.channels {
-		if !ch.IsIndex && !ch.Virtual {
+		if !ch.IsIndex {
 			if err := r.data(ch); err != nil {
 				return err
 			}
@@ -152,7 +153,7 @@ func (r *reader) list() error {
 }
 
 // channel decodes the meta.json file name of key and migrates it as the old open does.
-// It returns false for a channel that the old open ignores.
+// It returns false for a channel that the old open ignores, and for a virtual channel.
 func (r *reader) channel(key uint32, name string) (channel.Channel, bool, error) {
 	info, err := r.FS.Stat(name)
 	if err != nil {
@@ -171,7 +172,7 @@ func (r *reader) channel(key uint32, name string) (channel.Channel, bool, error)
 		return channel.Channel{}, false, err
 	}
 	s := migrate.Migrate(migrate.DBState{Channel: ch, FS: sub})
-	if s.ShouldIgnoreChannel {
+	if s.ShouldIgnoreChannel || s.Channel.Virtual {
 		return channel.Channel{}, false, nil
 	}
 	switch err = s.Channel.Validate(); {
@@ -179,8 +180,7 @@ func (r *reader) channel(key uint32, name string) (channel.Channel, bool, error)
 		return channel.Channel{}, false, errors.Wrapf(err, "%s", name)
 	case s.Channel.Key != key:
 		return channel.Channel{}, false, errors.Newf("%s holds key %d", name, ch.Key)
-	case !s.Channel.Virtual && telem.CodeOf(s.Channel.DataType) ==
-		telem.DataTypeCodeUnknown:
+	case telem.CodeOf(s.Channel.DataType) == telem.DataTypeCodeUnknown:
 		return channel.Channel{}, false, errors.Newf(
 			"%s has data type %s, which has no type code",
 			name,
@@ -294,8 +294,8 @@ func fileName(
 }
 
 // agreed reads n bytes at off of the file name, and returns them once two reads agree.
-// With no two agreeing reads in three, it returns an error that wraps
-// place.ErrCorrupt and names the file.
+// With no two agreeing reads in three, it returns an error that wraps place.ErrCorrupt
+// and names the file.
 func (r *reader) agreed(name string, off int64, n int) ([]byte, error) {
 	if r.openName != name {
 		if r.open != nil {

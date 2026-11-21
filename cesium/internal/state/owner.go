@@ -297,6 +297,9 @@ type Dead struct {
 	Segment uint64
 	// Key is the key whose samples the segment held.
 	Key uint32
+	// File is the old file number of a version 0 segment, and zero for every other
+	// version.
+	File uint16
 }
 
 type deadRequest struct {

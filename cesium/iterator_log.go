@@ -174,7 +174,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 		e:      c.e,
 		id:     r.seg.ID,
 		cfg:    c.e.segmentConfig(r.seg),
-		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
+		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID, r.seg.File)),
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
 	}, nil

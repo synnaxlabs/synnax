@@ -80,12 +80,6 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	if old && len(r.heads) == 0 {
-		return nil, errors.Wrap(
-			errors.ErrUnsupported,
-			"the pointer log cannot open a root of the old layout",
-		)
-	}
 	snapshot, err := r.pickHead()
 	if err != nil {
 		return nil, err
@@ -98,9 +92,29 @@ func openEngine(o *options) (*engine, error) {
 		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
-	if snapshot == nil {
-		if snapshot, err = e.create(o, r); err != nil {
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
+	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
+		return nil, err
+	}
+	created := snapshot == nil
+	if created {
+		if snapshot, err = e.create(o, r, old); err != nil {
+			return nil, err
+		}
+	}
+	// The state loads a created snapshot before head 1 commits it, so a conversion that
+	// breaks a rule leaves the old layout.
+	if e.state, err = state.Open(state.Config{
+		Versions: set.New[uint16](0, segmentVersion),
+		Version:  segmentVersion,
+		Append:   e.append,
+		Executor: e.exec,
+		OnHead:   e.onHead,
+	}, snapshot); err != nil {
+		return nil, err
+	}
+	if created {
+		if err = commit(o, r, snapshot); err != nil {
 			return nil, err
 		}
 	}
@@ -109,28 +123,17 @@ func openEngine(o *options) (*engine, error) {
 	for _, ch := range snapshot.Channels {
 		e.stored.Add(ch.Key)
 	}
-	if e.state, err = state.Open(state.Config{
-		Versions: set.New[uint16](segmentVersion),
-		Version:  segmentVersion,
-		Append:   e.append,
-		Executor: e.exec,
-		OnHead:   e.onHead,
-	}, snapshot); err != nil {
-		return nil, err
-	}
 	if err = e.recover(r); err != nil {
-		return nil, err
-	}
-	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-// create makes a new database in a root with no head that passes: it removes the head
-// and log files that a cut-short create left, draws the identity, and writes head 1
-// over the file of log 1, whose header the log writes at its start.
-func (e *engine) create(o *options, r *recovery) (*state.Snapshot, error) {
+// create starts a new database in a root with no head that passes: it removes the head
+// and log files that a cut-short create left and draws the identity. In a root of the
+// old layout, it returns the converted state and makes the file of log 2. Otherwise it
+// returns an empty state.
+func (e *engine) create(o *options, r *recovery, old bool) (*state.Snapshot, error) {
 	for _, g := range r.heads {
 		if err := o.fs.Remove(checkpoint.Name(g)); err != nil {
 			return nil, err
@@ -148,20 +151,33 @@ func (e *engine) create(o *options, r *recovery) (*state.Snapshot, error) {
 	for db == 0 {
 		db = o.random.Uint64()
 	}
-	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
+	r.db = db
+	if !old {
+		return &state.Snapshot{}, nil
+	}
+	snapshot, err := e.convert(o, db)
+	if err != nil {
 		return nil, err
 	}
-	snapshot := &state.Snapshot{}
+	return snapshot, log.Prepare(o.fs, 2, log.FileSize)
+}
+
+// commit writes head 1 of snapshot over the file of log 1, whose header the log writes
+// at its start.
+func commit(o *options, r *recovery, snapshot *state.Snapshot) error {
+	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
+		return err
+	}
 	if err := checkpoint.Write(
 		o.fs,
 		1,
-		checkpoint.Encode(db, 1, snapshot),
+		checkpoint.Encode(r.db, 1, snapshot),
 	); err != nil {
-		return nil, err
+		return err
 	}
-	r.db, r.head = db, checkpoint.Header{DB: db, Generation: 1}
+	r.head = checkpoint.Header{DB: r.db, Generation: 1}
 	r.heads, r.logs = []uint64{1}, []uint64{1}
-	return snapshot, nil
+	return nil
 }
 
 // recover replays the logs into the state, writes again what recovery read, logs a
@@ -326,8 +342,12 @@ func (e *engine) close() error {
 	return e.closeErr
 }
 
-// segmentName returns the file name of segment id of key.
-func segmentName(key ChannelKey, id uint64) string {
+// segmentName returns the file name of segment id of key, or the name of old file n of
+// key for a version 0 segment, whose n is not zero.
+func segmentName(key ChannelKey, id uint64, n uint16) string {
+	if n != 0 {
+		return fmt.Sprintf("%d/%d.domain", key, n)
+	}
 	return fmt.Sprintf("%d/%016x.seg", key, id)
 }
 
@@ -338,7 +358,7 @@ func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
-			named[segmentName(ch.Key, seg.ID)] = seg
+			named[segmentName(ch.Key, seg.ID, seg.File)] = seg
 		}
 	}
 	infos, err := e.fs.List("")
@@ -408,5 +428,6 @@ func (e *engine) segmentConfig(seg state.Segment) segment.Config {
 		DataType: seg.DataType,
 		Clock:    seg.Clock,
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
+		Bare:     seg.Version == 0,
 	}
 }

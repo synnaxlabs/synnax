@@ -11,6 +11,8 @@ package segment_test
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -18,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/x/errors"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -99,6 +102,89 @@ var _ = Describe("Budget", func() {
 				})
 				return hs
 			}
+
+			Describe("SyncFiles", func() {
+				// old writes each of names with no sync, as the old layout did.
+				old := func(names ...string) {
+					GinkgoHelper()
+					for _, name := range names {
+						if d := path.Dir(name); d != "." {
+							MustSucceed(fs.Sub(d))
+						}
+						f := MustSucceed(fs.Open(name, os.O_CREATE|os.O_RDWR))
+						Expect(f.WriteAt([]byte(name), 0)).To(Equal(len(name)))
+						Expect(f.Close()).To(Succeed())
+					}
+				}
+
+				It("Should sync and close each file, then sync each directory", func() {
+					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					old("a/1.domain", "a/2.domain", "b/1.domain")
+					Expect(b.SyncFiles(
+						fs,
+						[]string{"a/1.domain", "a/2.domain", "b/1.domain"},
+						[]string{"a", "b"},
+					)).To(Succeed())
+					ops := fs.Ops()
+					Expect(ops).To(ContainElements(
+						"sync a/1.domain", "sync a/2.domain", "sync b/1.domain",
+						"close a/1.domain", "close a/2.domain", "close b/1.domain",
+					))
+					Expect(ops[len(ops)-2:]).To(ConsistOf("syncdir a", "syncdir b"))
+				})
+
+				It("Should run at most its width of syncs at once", func() {
+					b := MustSucceed(segment.NewBudget(16, 2, segment.GoExecutor))
+					old("1.domain", "2.domain", "3.domain")
+					release := fs.Hold()
+					done := make(chan error, 1)
+					go func() {
+						done <- b.SyncFiles(
+							fs,
+							[]string{"1.domain", "2.domain", "3.domain"},
+							nil,
+						)
+					}()
+					Eventually(fs.held).Should(Receive())
+					Eventually(fs.held).Should(Receive())
+					Consistently(fs.held).ShouldNot(Receive())
+					fs.Unhold()
+					close(release)
+					Eventually(done).Should(Receive(BeNil()))
+					Expect(fs.MaxSyncs()).To(Equal(2))
+				})
+
+				It("Should sync no directory after a file sync fails", func() {
+					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					old("1.domain", "2.domain")
+					fs.FailSync("2.domain", errInjected)
+					Expect(b.SyncFiles(
+						fs,
+						[]string{"1.domain", "2.domain"},
+						[]string{""},
+					)).To(MatchError(errInjected))
+					Expect(fs.Ops()).To(ContainElement("close 2.domain"))
+					Expect(fs.Ops()).ToNot(ContainElement("syncdir "))
+				})
+
+				It("Should mark a failed directory sync with ErrDirSync", func() {
+					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					fs.FailSyncDir(errInjected)
+					Expect(b.SyncFiles(fs, nil, []string{""})).To(SatisfyAll(
+						MatchError(errInjected),
+						Satisfy(func(err error) bool {
+							return errors.Is(err, segment.ErrDirSync)
+						}),
+					))
+				})
+
+				It("Should return the error of a file that does not exist", func() {
+					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					Expect(b.SyncFiles(fs, []string{"9.domain"}, nil)).To(
+						MatchError(os.ErrNotExist),
+					)
+				})
+			})
 
 			It("Should run at most its width of syncs at once across callers", func() {
 				b := MustSucceed(segment.NewBudget(16, 2, segment.GoExecutor))

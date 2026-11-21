@@ -106,6 +106,18 @@ var _ = Describe("Load", func() {
 		Entry("a version this binary does not read", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Version = 2
 		}, log.ErrUnknown, "segment 3 has format version 2"),
+		Entry("a version 0 segment that is not sealed", func(h *state.Snapshot) {
+			h.Channels[1].Segments[0].Version = 0
+			h.Channels[1].Segments[0].File = 4
+			h.Channels[1].Segments[0].Sealed = false
+		}, state.ErrRefused, "segment 3 of version 0 is not a sealed old file"),
+		Entry("a version 0 segment with no old file", func(h *state.Snapshot) {
+			h.Channels[1].Segments[0].Version = 0
+			h.Channels[1].Segments[0].Sealed = true
+		}, state.ErrRefused, "segment 3 of version 0 is not a sealed old file"),
+		Entry("a version 1 segment that names an old file", func(h *state.Snapshot) {
+			h.Channels[1].Segments[0].File = 4
+		}, state.ErrRefused, "segment 3 of version 1 names old file 4"),
 		Entry("a pointer of no samples", func(h *state.Snapshot) {
 			h.Channels[1].Segments[0].Pointers[0].Samples = 0
 		}, state.ErrRefused, "a pointer of 0 samples"),
@@ -278,6 +290,8 @@ var _ = Describe("Replay", func() {
 		Entry("a create of a version this binary does not read",
 			&log.Create{Segment: 7, Key: 9, Clock: 5, Version: 2}, log.ErrUnknown,
 			"segment 7 has format version 2"),
+		Entry("a create of version 0", &log.Create{Segment: 7, Key: 9, Clock: 5},
+			state.ErrRefused, "create of segment 7 of version 0"),
 		Entry("a commit with no slot", commit(1, 3, 0, 60, 60), state.ErrRefused,
 			"commit with no slot"),
 		Entry("a commit of no samples", commit(0, 3, 0, 60, 60, slot(4, 20)),

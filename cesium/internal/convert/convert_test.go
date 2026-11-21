@@ -42,6 +42,7 @@ type old struct {
 type oldRoot struct{ fs xfs.FS }
 
 func (r oldRoot) write(name string, b []byte) {
+	GinkgoHelper()
 	sub := MustSucceed(r.fs.Sub(path.Dir(name)))
 	f := MustSucceed(sub.Open(path.Base(name), os.O_CREATE|os.O_RDWR|os.O_TRUNC))
 	MustSucceed(f.WriteAt(b, 0))
@@ -49,11 +50,13 @@ func (r oldRoot) write(name string, b []byte) {
 }
 
 func (r oldRoot) channel(ch channel.Channel) {
+	GinkgoHelper()
 	ch.Version = channel.Version3
 	r.write(fmt.Sprintf("%d/meta.json", ch.Key), MustSucceed(codec.Encode(ch)))
 }
 
 func (r oldRoot) pointers(key uint32, ptrs ...old) {
+	GinkgoHelper()
 	b := make([]byte, 26*len(ptrs))
 	for i, p := range ptrs {
 		e := b[26*i:]
@@ -67,6 +70,7 @@ func (r oldRoot) pointers(key uint32, ptrs ...old) {
 }
 
 func (r oldRoot) file(key uint32, n uint16, b []byte) {
+	GinkgoHelper()
 	r.write(fmt.Sprintf("%d/%d.domain", key, n), b)
 }
 
@@ -121,12 +125,10 @@ var _ = Describe("Read", func() {
 		fs = xfs.NewMem()
 		root = oldRoot{fs: fs}
 	})
+	cfg := func() convert.Config { return convert.Config{FS: fs, Codec: codec} }
 	read := func() (*state.Snapshot, []channel.Channel) {
-		return MustSucceed2(convert.Read(convert.Config{FS: fs, Codec: codec}))
-	}
-	readErr := func() error {
-		_, _, err := convert.Read(convert.Config{FS: fs, Codec: codec})
-		return err
+		GinkgoHelper()
+		return MustSucceed2(convert.Read(cfg()))
 	}
 
 	It(
@@ -288,8 +290,9 @@ var _ = Describe("Read", func() {
 	)
 
 	It(
-		"Should keep a virtual channel with no segments, and skip other directories",
+		"Should skip a virtual channel, and a directory with no meta.json or no key",
 		func() {
+			root.channel(idx(1))
 			root.channel(channel.Channel{
 				Key:      3,
 				Name:     "virtual",
@@ -301,8 +304,7 @@ var _ = Describe("Read", func() {
 			root.write("notes/meta.json", []byte("{}"))
 			s, chs := read()
 			Expect(chs).To(HaveLen(1))
-			Expect(chs[0].Key).To(BeEquivalentTo(3))
-			Expect(chs[0].Virtual).To(BeTrue())
+			Expect(chs[0].Key).To(BeEquivalentTo(1))
 			Expect(s.Channels).To(BeEmpty())
 			Expect(s.Limits).To(Equal(state.Limits{Segments: 1, Alignments: 1}))
 		},
@@ -321,7 +323,7 @@ var _ = Describe("Read", func() {
 		root.channel(idx(1))
 		root.file(1, 1, stamps(1, 2))
 		root.pointers(1, old{1, 4, 1, 0, 24})
-		Expect(readErr()).To(MatchError(
+		Expect(convert.Read(cfg())).Error().To(MatchError(
 			"a pointer of key 1 ends at 24, past the length 16 of 1/1.domain",
 		))
 	})
@@ -329,7 +331,7 @@ var _ = Describe("Read", func() {
 	It("Should refuse a pointer to a file that does not exist", func() {
 		root.channel(idx(1))
 		root.pointers(1, old{1, 4, 2, 0, 24})
-		Expect(readErr()).To(MatchError(
+		Expect(convert.Read(cfg())).Error().To(MatchError(
 			"a pointer of key 1 ends at 24, past the length 0 of 1/2.domain",
 		))
 	})
@@ -341,7 +343,7 @@ var _ = Describe("Read", func() {
 		root.channel(data(telem.Int64T))
 		root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3).Data)
 		root.pointers(2, old{1, 4, 1, 0, 24})
-		Expect(readErr()).To(MatchError(
+		Expect(convert.Read(cfg())).Error().To(MatchError(
 			"bytes 16 to 24 of 2/1.domain have no stamps in key 1",
 		))
 	})
@@ -350,7 +352,7 @@ var _ = Describe("Read", func() {
 		"Should refuse a data key whose index is not an index of the old layout",
 		func() {
 			root.channel(data(telem.Int64T))
-			Expect(readErr()).To(MatchError(
+			Expect(convert.Read(cfg())).Error().To(MatchError(
 				"key 2 is timed by key 1, which is no index of the old layout",
 			))
 		},
@@ -358,6 +360,7 @@ var _ = Describe("Read", func() {
 
 	Describe("Reads of an old file", func() {
 		faulty := func(repeated bool) {
+			GinkgoHelper()
 			fs = MustSucceed(fault.New(fault.Config{
 				RunKey:             7,
 				ReadCorruptionRate: 1,
@@ -379,11 +382,12 @@ var _ = Describe("Read", func() {
 
 		It("Should refuse a file with no two agreeing reads in three", func() {
 			faulty(true)
-			err := readErr()
-			Expect(err).To(MatchError(place.ErrCorrupt))
-			Expect(err).To(MatchError(ContainSubstring(
-				"of 1/meta.json have no two agreeing reads in three",
-			)))
+			Expect(convert.Read(cfg())).Error().To(SatisfyAll(
+				MatchError(place.ErrCorrupt),
+				MatchError(ContainSubstring(
+					"of 1/meta.json have no two agreeing reads in three",
+				)),
+			))
 		})
 	})
 })

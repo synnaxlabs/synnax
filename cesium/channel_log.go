@@ -17,7 +17,9 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -32,38 +34,49 @@ const channelHeaderSize = 8
 // createLogChannel keeps ch in the channel list of the pointer log layout: in memory,
 // and durable in the channel file of its directory.
 func (db *DB) createLogChannel(ch Channel) error {
-	body, err := db.metaCodec.Encode(ch)
+	name, err := writeChannel(db.fs, db.metaCodec, db.engine.db, ch)
 	if err != nil {
 		return err
 	}
-	b := make([]byte, channelHeaderSize, channelHeaderSize+len(body))
-	binary.LittleEndian.PutUint32(b, uint32(len(body)))
-	b = append(b, body...)
-	binary.LittleEndian.PutUint32(b[4:], channelSum(db.engine.db, ch.Key, b))
-	dir := keyToDirName(ch.Key)
-	sub, err := db.fs.Sub(dir)
-	if err != nil {
-		return err
-	}
-	f, err := sub.Open(channelFile, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
-	if err != nil {
-		return err
-	}
-	if _, err = f.WriteAt(b, 0); err == nil {
-		err = f.Sync()
-	}
-	if err = errors.Join(err, f.Close()); err != nil {
-		return err
-	}
-	if err = db.fs.SyncDir(dir); err != nil {
-		return err
-	}
-	if err = db.fs.SyncDir(""); err != nil {
+	if err = db.engine.budget.SyncFiles(
+		db.fs,
+		[]string{name},
+		[]string{keyToDirName(ch.Key), ""},
+	); err != nil {
 		return err
 	}
 	db.mu.channels[ch.Key] = ch
 	db.mu.torn.Remove(ch.Key)
 	return nil
+}
+
+// writeChannel writes the channel file of ch in database db to fs, with no sync, and
+// returns its name. It creates the directory of ch when it does not exist.
+func writeChannel(
+	fs xfs.FS,
+	codec encoding.Encoder,
+	db uint64,
+	ch Channel,
+) (string, error) {
+	body, err := codec.Encode(ch)
+	if err != nil {
+		return "", err
+	}
+	b := make([]byte, channelHeaderSize, channelHeaderSize+len(body))
+	binary.LittleEndian.PutUint32(b, uint32(len(body)))
+	b = append(b, body...)
+	binary.LittleEndian.PutUint32(b[4:], channelSum(db, ch.Key, b))
+	dir := keyToDirName(ch.Key)
+	sub, err := fs.Sub(dir)
+	if err != nil {
+		return "", err
+	}
+	f, err := sub.Open(channelFile, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
+	if err != nil {
+		return "", err
+	}
+	_, err = f.WriteAt(b, 0)
+	return path.Join(dir, channelFile), errors.Join(err, f.Close())
 }
 
 // channelSum returns the checksum of the channel file b of key, over its length and its

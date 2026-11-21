@@ -346,7 +346,7 @@ func (w *logWriter) append(lk *logKey, p []byte) error {
 			Clock:    w.clock,
 			Variable: lk.ch.DataType.IsVariable(),
 		}
-		h, err := w.e.budget.Create(w.e.fs, segmentName(lk.ch.Key, id))
+		h, err := w.e.budget.Create(w.e.fs, segmentName(lk.ch.Key, id, 0))
 		if err != nil {
 			return err
 		}

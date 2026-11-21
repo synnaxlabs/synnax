@@ -65,6 +65,11 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 	case !c.versions.Contains(seg.Version):
 		return errors.Wrapf(log.ErrUnknown, "segment %d has format version %d", seg.ID,
 			seg.Version)
+	case seg.Version == 0 && (!seg.Sealed || seg.File == 0):
+		return refuse("segment %d of version 0 is not a sealed old file", seg.ID)
+	case seg.Version != 0 && seg.File != 0:
+		return refuse("segment %d of version %d names old file %d", seg.ID,
+			seg.Version, seg.File)
 	}
 	var end uint32
 	for _, p := range seg.Pointers {

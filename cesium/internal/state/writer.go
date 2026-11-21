@@ -637,7 +637,10 @@ func (s *State) drop(seg *segState) {
 	ch := s.core.channels[seg.key]
 	ch.remove(seg.vis.ID)
 	delete(s.core.segments, seg.vis.ID)
-	s.core.dead = append(s.core.dead, Dead{Segment: seg.vis.ID, Key: seg.key})
+	s.core.dead = append(
+		s.core.dead,
+		Dead{Segment: seg.vis.ID, Key: seg.key, File: seg.vis.File},
+	)
 	ch.publish()
 }
 

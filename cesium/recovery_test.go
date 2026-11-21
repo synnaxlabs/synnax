@@ -20,9 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
-	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -85,21 +83,6 @@ var _ = Describe("Recovery", func() {
 		db := MustSucceed(open(ctx))
 		Expect(db.Close()).To(Succeed())
 		cycle(ctx)
-	})
-
-	It("Should refuse a root that holds the old layout", func(ctx SpecContext) {
-		old := MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs)))
-		Expect(old.CreateChannel(ctx, cesium.Channel{
-			Key:      1,
-			Name:     "time",
-			IsIndex:  true,
-			DataType: telem.TimestampT,
-		})).To(Succeed())
-		Expect(old.Close()).To(Succeed())
-		Expect(open(ctx)).Error().To(And(
-			MatchError(xerrors.ErrUnsupported),
-			MatchError(ContainSubstring("cannot open a root of the old layout")),
-		))
 	})
 
 	It("Should cut a torn tail after the last frame", func(ctx SpecContext) {

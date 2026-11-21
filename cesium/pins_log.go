@@ -16,12 +16,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// pins counts the readers of each segment, and holds the key of each dead segment that
-// waits for its last reader before the engine unlinks its file.
+// pins counts the readers of each segment, and holds each dead segment that waits for
+// its last reader before the engine unlinks its file.
 type pins struct {
 	mu      sync.Mutex
 	readers map[uint64]int
-	dead    map[uint64]ChannelKey
+	dead    map[uint64]state.Dead
 }
 
 // load returns the visible Channel of key from e, and pins each of its segments under
@@ -67,7 +67,7 @@ func (e *engine) release(dead []state.Dead) error {
 	e.pins.mu.Lock()
 	for _, d := range dead {
 		if e.pins.readers[d.Segment] > 0 {
-			e.pins.dead[d.Segment] = d.Key
+			e.pins.dead[d.Segment] = d
 		} else {
 			free = append(free, d)
 		}
@@ -80,7 +80,7 @@ func (e *engine) release(dead []state.Dead) error {
 func (e *engine) unlink(dead []state.Dead) error {
 	errs := make([]error, 0, len(dead))
 	for _, d := range dead {
-		errs = append(errs, e.fs.Remove(segmentName(d.Key, d.Segment)))
+		errs = append(errs, e.fs.Remove(segmentName(d.Key, d.Segment, d.File)))
 	}
 	return errors.Join(errs...)
 }
@@ -101,9 +101,9 @@ func (p *pins) unpin(ids []uint64) []state.Dead {
 			continue
 		}
 		delete(p.readers, id)
-		if key, dead := p.dead[id]; dead {
+		if d, dead := p.dead[id]; dead {
 			delete(p.dead, id)
-			free = append(free, state.Dead{Segment: id, Key: key})
+			free = append(free, d)
 		}
 	}
 	return free

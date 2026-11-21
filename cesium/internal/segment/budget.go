@@ -10,6 +10,7 @@
 package segment
 
 import (
+	"os"
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
@@ -80,13 +81,47 @@ func (b *Budget) Open(fs xfs.FS, name string) *Handle {
 // of hs. A sync that fails, from any caller, marks its handle failed for good.
 // errors.Is matches a failed sync of a directory with ErrDirSync.
 func (b *Budget) Sync(hs []*Handle) error {
+	return b.jobs(len(hs), func(i int) error { return hs[i].sync() })
+}
+
+// SyncFiles makes each file of names in fs durable, then each directory of dirs, with
+// one job per name on the executor. A job opens, syncs, and closes its file in a slot
+// of the pool, outside the handle limit. It returns once every job returned, with the
+// errors of the failed jobs. errors.Is matches a failed sync of a directory with
+// ErrDirSync.
+func (b *Budget) SyncFiles(fs xfs.FS, names, dirs []string) error {
+	if err := b.jobs(len(names), func(i int) error {
+		return b.do(func() error {
+			f, err := fs.Open(names[i], os.O_RDWR)
+			if err != nil {
+				return err
+			}
+			return errors.Join(f.Sync(), f.Close())
+		})
+	}); err != nil {
+		return err
+	}
+	return b.jobs(len(dirs), func(i int) error {
+		if err := b.do(func() error { return fs.SyncDir(dirs[i]) }); err != nil {
+			return errors.Mark(
+				errors.Wrapf(err, "sync of directory %q", dirs[i]),
+				ErrDirSync,
+			)
+		}
+		return nil
+	})
+}
+
+// jobs runs f for each index below n, one job each on the executor, and returns once
+// every job returned, with their errors in the order of the indexes.
+func (b *Budget) jobs(n int, f func(i int) error) error {
 	var wg sync.WaitGroup
-	errs := make([]error, len(hs))
-	wg.Add(len(hs))
-	for i, h := range hs {
+	errs := make([]error, n)
+	wg.Add(n)
+	for i := range n {
 		b.exec(func() {
 			defer wg.Done()
-			errs[i] = h.sync()
+			errs[i] = f(i)
 		})
 	}
 	wg.Wait()

@@ -51,6 +51,8 @@ type Config struct {
 	// Variable is true for a variable-density type. Each of its samples is a uint32
 	// length and then that many bytes, and a sample can cross blocks.
 	Variable bool
+	// Bare is true for a version 0 segment: an old data file with no trailers.
+	Bare bool
 }
 
 func (c Config) place(offset int64) place.Place {
@@ -58,7 +60,10 @@ func (c Config) place(offset int64) place.Place {
 }
 
 func (c Config) trailer() int64 {
-	if c.Variable {
+	switch {
+	case c.Bare:
+		return 0
+	case c.Variable:
 		return VariableTrailer
 	}
 	return FixedTrailer

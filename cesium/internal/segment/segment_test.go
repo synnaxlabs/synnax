@@ -10,6 +10,7 @@
 package segment_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 	"os"
@@ -433,7 +434,19 @@ var _ = Describe("Segment", func() {
 		Entry("variable, inside the first block", varCfg, int64(65_535), int64(65_535)),
 		Entry("variable, second block", varCfg, int64(65_536), int64(65_552)),
 		Entry("variable, third block", varCfg, int64(131_073), int64(131_105)),
+		Entry("bare, third block", segment.Config{Bare: true}, int64(131_073),
+			int64(131_073)),
+		Entry("bare variable, third block", segment.Config{Bare: true, Variable: true},
+			int64(131_073), int64(131_073)),
 	)
+
+	It("Should read a bare segment, which holds no trailers, across blocks", func() {
+		data := pattern(2*segment.BlockSize + 9)
+		got := make([]byte, segment.BlockSize+7)
+		Expect(segment.Config{Bare: true}.ReadAt(bytes.NewReader(data), got, 100)).
+			To(Succeed())
+		Expect(got).To(Equal(data[100 : 100+segment.BlockSize+7]))
+	})
 })
 
 func first[A, B any](a A, _ B) A { return a }

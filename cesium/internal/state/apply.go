@@ -131,6 +131,9 @@ func (c *core) create(r *log.Create) error {
 	case !c.versions.Contains(r.Version):
 		return errors.Wrapf(log.ErrUnknown, "segment %d has format version %d",
 			r.Segment, r.Version)
+	case r.Version == 0:
+		return refuse("create of segment %d of version 0, which only a conversion "+
+			"makes", r.Segment)
 	case s != nil && (s.key != r.Key || s.vis.Clock != r.Clock ||
 		s.vis.Version != r.Version || s.vis.DataType != r.DataType):
 		return refuse("create of segment %d differs from the segment it names",
@@ -260,7 +263,7 @@ func (c *core) bury(s *segState) {
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
-	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key})
+	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key, File: s.vis.File})
 	ch.publish()
 }
 
