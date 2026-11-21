@@ -204,7 +204,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       .filter((t) => now.before(t))
       .map((t) => new TimeRange(now, t).span.milliseconds);
     const running = visible ? bars.filter((b) => b.running) : [];
-    if (running.some((b) => b.end <= box.right(region))) delays.push(HEAD_PERIOD);
+    // A seam that cuts a running bar hides its head, so that piece does not pulse.
+    if (running.some((b) => !b.endCut && b.end <= box.right(region)))
+      delays.push(HEAD_PERIOD);
     else if (running.length > 0) delays.push(CLOCK_PERIOD);
     this.redrawIn(delays.length === 0 ? undefined : Math.min(...delays));
     // The range of an open menu stays hovered while a live plot slides it away from the

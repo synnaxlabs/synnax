@@ -770,6 +770,66 @@ describe("Provider", () => {
       }
     });
 
+    it("should light every piece of a hovered range that a seam cuts", async () => {
+      const start = TimeStamp.now().add(TimeSpan.days(18260));
+      const ranges = await createRanges(start, [[5, 25]]);
+      try {
+        const recorder = canvasTest.record();
+        const provider = mount(recorder);
+        const props = segmentedProps(start, [
+          [0, 10],
+          [20, 30],
+        ]);
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toEqual(1);
+        provider.setState((s) => ({ ...s, cursor: { x: 400, y: -14 } }));
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        expect(provider.state.hovered?.key).toEqual(ranges[0].key);
+        const alphas = recorder.upper2d.calls
+          .filter((c) => c.op === "set:globalAlpha")
+          .map((c) => c.args[0]);
+        expect(alphas.length).toBeGreaterThan(1);
+        alphas.forEach((alpha) => expect(alpha).toEqual(1));
+      } finally {
+        await createTestClient().ranges.delete(ranges.map((r) => r.key));
+      }
+    });
+
+    it("should not pulse a running bar whose head a seam cuts off", async () => {
+      const now = TimeStamp.now();
+      const start = now.sub(TimeSpan.seconds(120));
+      const ranges = await createRanges(start, [[30, 3720]]);
+      try {
+        const provider = mount();
+        const props = segmentedProps(start, [
+          [0, 40],
+          [60, 100],
+        ]);
+        await expect
+          .poll(() => {
+            provider.render(props);
+            return provider.state.count;
+          })
+          .toEqual(1);
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        requested.mockImplementation(() => provider.render(props));
+        provider.render(props);
+        requested.mockClear();
+        vi.advanceTimersByTime(1000);
+        // Only the time since its start changes, once a second.
+        expect(requested).toHaveBeenCalledTimes(1);
+      } finally {
+        requested.mockReset();
+        vi.useRealTimers();
+        await createTestClient().ranges.delete(ranges.map((r) => r.key));
+      }
+    });
+
     it("should draw no bar for a range inside a collapsed gap", async () => {
       const start = TimeStamp.now().add(TimeSpan.days(18615));
       const ranges = await createRanges(start, [

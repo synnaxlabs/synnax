@@ -10,6 +10,7 @@
 import { lineplot as lineplotClient } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
+  bounds,
   box,
   color,
   id,
@@ -35,6 +36,7 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useState,
 } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -636,7 +638,7 @@ describe("LinePlot", () => {
       canvas.className = "pluto-canvas-container";
       document.body.appendChild(canvas);
       wrapper = await createAsyncSynnaxWrapper({
-        client,
+        client: null,
         additionalRegistry: { ...lineplot.REGISTRY, ...range.REGISTRY },
         renderContext: canvasTest.record(),
         onRoot: (r) => roots.push(r),
@@ -654,9 +656,12 @@ describe("LinePlot", () => {
       cursor: xy.ZERO,
     });
 
-    // renderFrame renders a frame whose plot has a closed break and returns change for
-    // each break action.
-    const renderFrame = async (change: lineplot.BreaksChange | null = CHANGE) => {
+    // renderFrame renders a frame, with the elements that extra returns, whose plot
+    // has a closed break and an open one, and returns change for each break action.
+    const renderFrame = async (
+      change: lineplot.BreaksChange | null = CHANGE,
+      extra: () => ReactNode = () => null,
+    ) => {
       const getBreakChange = vi
         .spyOn(lineplot.LinePlot.prototype, "getBreakChange")
         .mockReturnValue(change);
@@ -665,19 +670,22 @@ describe("LinePlot", () => {
       const onBreaksChange = vi.fn();
       const sync = vi.fn();
       const viewportRef = { current: { reset: vi.fn(), sync } };
+      const ref = createRef<LinePlot.FrameRef>();
       const Wrapper = wrapper;
       const frame = ({ children }: PropsWithChildren): ReactElement => (
         <Wrapper>
           <LinePlot.Frame
+            ref={ref}
             viewportRef={viewportRef}
             onViewportChange={onViewportChange}
             onBreaksChange={onBreaksChange}
           >
+            {extra()}
             {children}
           </LinePlot.Frame>
         </Wrapper>
       );
-      const { result } = renderHook(
+      const { result, rerender } = renderHook(
         () => {
           LinePlot.useViewport(onViewport, "test");
           return LinePlot.useContext("test");
@@ -696,7 +704,18 @@ describe("LinePlot", () => {
       const view = (): box.Box => onViewport.mock.calls.at(-1)?.[0].box;
       const selected = (): box.Box | undefined =>
         onViewportChange.mock.calls.findLast(([e]) => e.mode === "select")?.[0].box;
-      return { result, getBreakChange, onViewportChange, sync, view, selected };
+      return {
+        result,
+        rerender,
+        ref,
+        plot,
+        getBreakChange,
+        onViewportChange,
+        onBreaksChange,
+        sync,
+        view,
+        selected,
+      };
     };
 
     it("should report the break counts of the plot", async () => {
@@ -764,13 +783,96 @@ describe("LinePlot", () => {
     it("should keep a selection made while a break change loads", async () => {
       const { result, getBreakChange, selected } = await renderFrame();
       act(() => result.current.setViewport(select(SELECTION)));
-      act(() => {
-        result.current.toggleBreak(120, "axis");
-        result.current.setViewport(select(decimal(0.7, 0.8)));
+      const later = decimal(0.7, 0.8);
+      getBreakChange.mockImplementationOnce(() => {
+        result.current.setViewport(select(later));
+        return CHANGE;
       });
-      await waitFor(() => expect(getBreakChange).toHaveBeenCalled());
+      await act(async () => {
+        result.current.toggleBreak(120, "axis");
+        await expect.poll(() => getBreakChange.mock.calls.length).toEqual(1);
+      });
       await act(async () => {});
-      expect(selected()).toEqual(decimal(0.7, 0.8));
+      expect(selected()).toEqual(later);
+    });
+
+    it("should map again a view set while a break change loads", async () => {
+      const { result, getBreakChange, sync } = await renderFrame();
+      const panned = decimal(0.1, 0.6);
+      getBreakChange.mockImplementationOnce(() => {
+        result.current.setViewport({
+          box: panned,
+          mode: "pan",
+          stage: "end",
+          cursor: xy.ZERO,
+        });
+        return CHANGE;
+      });
+      await act(async () => {
+        result.current.toggleBreak(120, "axis");
+        await expect.poll(() => getBreakChange.mock.calls.length).toEqual(2);
+      });
+      expect(getBreakChange.mock.calls[1][0]).toMatchObject({
+        action: { variant: "set", open: CHANGE.openBreaks },
+        viewport: panned,
+      });
+      await waitFor(() => expect(sync).toHaveBeenCalledWith(CHANGE.viewport, box.ZERO));
+    });
+
+    it("should start each break change from the open breaks of the last", async () => {
+      const { result, getBreakChange, plot } = await renderFrame();
+      const seen: number[][] = [];
+      getBreakChange.mockImplementation(() => {
+        seen.push(plot.state.openBreaks);
+        return CHANGE;
+      });
+      await act(async () => {
+        result.current.toggleBreak(120, "axis");
+        result.current.toggleBreak(300, "axis");
+        await expect.poll(() => seen.length).toEqual(2);
+      });
+      expect(seen).toEqual([[2], CHANGE.openBreaks]);
+    });
+
+    it("should toggle the break under a click on the x axis", async () => {
+      const { getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.XAxis axisKey="x1" location="bottom" type="time" />
+      ));
+      const axis = document.querySelector(".pluto-axis");
+      expect(axis).not.toBeNull();
+      fireEvent.click(axis!, { clientX: 120 });
+      await waitFor(() => expect(getBreakChange).toHaveBeenCalled());
+      expect(getBreakChange.mock.calls[0][0].action).toEqual({
+        variant: "toggle",
+        x: 120,
+        source: "axis",
+      });
+    });
+
+    it("should open every break from its ref", async () => {
+      const { ref, getBreakChange, view } = await renderFrame();
+      act(() => ref.current?.setAllBreaks(true));
+      await waitFor(() => expect(view()).toEqual(CHANGE.viewport));
+      expect(getBreakChange.mock.calls[0][0].action).toEqual({
+        variant: "all",
+        open: true,
+      });
+    });
+
+    it("should close every break when the home view changes", async () => {
+      const home = { initial: box.DECIMAL };
+      const { getBreakChange, rerender } = await renderFrame(CHANGE, () => (
+        <LinePlot.Viewport initial={home.initial} />
+      ));
+      getBreakChange.mockClear();
+      home.initial = decimal(0.2, 0.8);
+      rerender();
+      await waitFor(() =>
+        expect(getBreakChange.mock.calls[0]?.[0].action).toEqual({
+          variant: "all",
+          open: false,
+        }),
+      );
     });
 
     it("should pass on a click that opens no break", async () => {
@@ -801,6 +903,39 @@ describe("LinePlot", () => {
           open: false,
         }),
       );
+    });
+
+    describe("select bound", () => {
+      it("should bound a select drag by the seams on each side of its start", async () => {
+        vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockReturnValue([0.3, 0.6]);
+        const { result } = await renderFrame();
+        const bound = result.current.selectBound;
+        expect(await bound(0.45)).toEqual({ lower: 0.3, upper: 0.6 });
+        expect(await bound(0.3)).toEqual({ lower: 0.3, upper: 0.6 });
+        expect(await bound(0.1)).toEqual({ lower: -Infinity, upper: 0.3 });
+        expect(await bound(0.9)).toEqual({ lower: 0.6, upper: Infinity });
+      });
+
+      it("should not bound a select drag when no break is closed", async () => {
+        const getSeams = vi.spyOn(lineplot.LinePlot.prototype, "getSeams");
+        const { result, plot, onBreaksChange } = await renderFrame();
+        const counts = { open: 1, closed: 0 };
+        act(() => plot.setState((p) => ({ ...p, breaks: counts })));
+        await waitFor(() => expect(onBreaksChange).toHaveBeenLastCalledWith(counts));
+        expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
+        expect(getSeams).not.toHaveBeenCalled();
+      });
+
+      it("should not bound a select drag when the seams fail to load", async () => {
+        vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockImplementation(() => {
+          throw new Error("no seams");
+        });
+        const { result } = await renderFrame();
+        expect(await result.current.selectBound(0.45)).toEqual({
+          lower: -Infinity,
+          upper: Infinity,
+        });
+      });
     });
   });
 });
