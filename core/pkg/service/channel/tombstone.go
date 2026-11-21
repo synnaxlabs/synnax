@@ -28,6 +28,10 @@ const (
 	rewiresReference = "rewires.from"
 )
 
+// MirrorTables returns the tables of the records that a channel change writes beside
+// the channel: its tombstones. Pass them as bind.ServiceConfig.Mirrors.
+func MirrorTables() []string { return []string{tombstoneTableName} }
+
 // path is the group and name of a channel or a tombstone.
 type path struct {
 	group group.Key
