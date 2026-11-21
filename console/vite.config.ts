@@ -73,7 +73,6 @@ const browserProject = ({
     test: {
       name,
       setupFiles: ["src/testutil/browser.ts"],
-      hookTimeout: 15_000,
       include,
       exclude,
       // A browser has no `process` to read the test Core from.
@@ -223,6 +222,7 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 15_000,
+    hookTimeout: 15_000,
     // Specs cover the work that flags hide, as the integration build does.
     env: { VITE_FLAGS_ENABLED: "true" },
     // DESKTOP is a build constant, so the specs of each build run as their own project.

@@ -24,7 +24,7 @@ import {
   createBroker,
   openAddData,
   openScanner,
-  preloadReadForm,
+  preloadForms,
 } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
@@ -37,7 +37,7 @@ import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-preloadReadForm();
+preloadForms();
 
 const TOPIC = "plant/oven";
 

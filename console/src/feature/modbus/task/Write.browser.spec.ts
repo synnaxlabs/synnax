@@ -14,7 +14,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
-import { createModbusDevice } from "@/feature/modbus/testutil";
+import { createModbusDevice, preloadForms } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
@@ -28,6 +28,8 @@ import {
 import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 // The channels of the task, while no menu is open.
 const getItems = () => screen.queryAllByRole("option");
