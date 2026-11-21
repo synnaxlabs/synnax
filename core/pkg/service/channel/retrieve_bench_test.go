@@ -28,6 +28,10 @@ import (
 // benchEnv holds a channel service whose table has a fixed number of calculated
 // channels.
 type benchEnv struct {
+	// db is the DB that svc writes through.
+	db *gorp.DB
+	// groups is the group service that svc's channels sit in.
+	groups *group.Service
 	// svc is the channel service under test.
 	svc *channel.Service
 	// closer tears down the service and everything it was opened over.
@@ -70,6 +74,8 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	}
 	indexes := createBenchChannels(b, node.DB, svc, count)
 	return &benchEnv{
+		db:      node.DB,
+		groups:  groupSvc,
 		svc:     svc,
 		indexes: indexes,
 		closer: io.MultiCloser{

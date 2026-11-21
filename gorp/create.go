@@ -57,7 +57,7 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	var w Writer[K, E]
 	if c.table != nil {
-		w = c.table.writer(tx, true)
+		w = c.table.writer(tx, checkAll)
 	} else {
 		w = wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	}
