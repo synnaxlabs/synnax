@@ -24,4 +24,6 @@ Operation = v0.Operation
 
 Channel struct extends v1.Channel {
     -internal
+    -operations
+    -expression
 }

@@ -1882,13 +1882,12 @@ var _ = Describe("Calculation", Ordered, func() {
 				res.Frame.Get(calcCh.Key()).Series[0],
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
-			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
 			Expect(creator.Apply(
 				ctx,
 				calcs[0].Key(),
 				channel.NewSetAction(channel.SetPayload{
 					Path:  []string{"expression"},
-					Value: calcs[0].Expression,
+					Value: fmt.Sprintf("return %s * 3", bases[0].Name),
 				}),
 			)).To(Succeed())
 
@@ -2015,13 +2014,12 @@ var _ = Describe("Calculation", Ordered, func() {
 				res.Frame.Get(calcCh.Key()).Series[0],
 			).To(telem.MatchSeriesDataV[int64](2, 4))
 
-			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
 			Expect(creator.Apply(
 				ctx,
 				calcs[0].Key(),
 				channel.NewSetAction(channel.SetPayload{
 					Path:  []string{"expression"},
-					Value: calcs[0].Expression,
+					Value: fmt.Sprintf("return %s * 3", baseCh2.Name),
 				}),
 			)).To(Succeed())
 

@@ -198,7 +198,6 @@ var _ = Describe("Writer", func() {
 				Expect(output.Name).To(Equal("doubled"))
 				Expect(output.Virtual).To(BeTrue())
 				Expect(output.DataType).To(Equal(telem.Int64T))
-				Expect(output.Expression).To(BeEmpty())
 				Expect(channels.NewRetrieve().
 					Where(channel.MatchKeys(output.Index())).
 					Entry(&index).

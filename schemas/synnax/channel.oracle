@@ -146,15 +146,6 @@ Channel struct {
             channels can have a policy of shared concurrency.
         """
     }
-    operations  Operation[]         {
-        @doc value "contains aggregation operations applied to this channel's data."
-    }
-    expression  string              {
-        @doc value """
-            is an Arc expression for calculated channels. If set, the channel is
-            automatically configured as virtual.
-        """
-    }
     group       group.Key?          {
         @doc value     "is the group the channel sits in, if any."
         @group scope   channel
@@ -374,8 +365,8 @@ Where filter Channel {
     }
     virtual     bool        {
         @doc value """
-            matches virtual channels that are not calculated, or every other channel
-            when false.
+            matches virtual channels, or every other channel when false. The channel API
+            counts the output of a calculation as not virtual.
         """
     }
     groups      group.Key[] {

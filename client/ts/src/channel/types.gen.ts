@@ -133,8 +133,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
   /**
-   * virtual matches virtual channels that are not calculated, or every other channel
-   * when false.
+   * virtual matches virtual channels, or every other channel when false. The channel
+   * API counts the output of a calculation as not virtual.
    */
   virtual: z.boolean().optional(),
   /** groups matches the channels in any of the given groups. */

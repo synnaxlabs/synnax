@@ -118,8 +118,8 @@ class Where(BaseModel):
         data_type: Selects by data_type.
         is_index: Selects by is_index.
         internal: Matches the built-in channels, or every other channel when false.
-        virtual: Matches virtual channels that are not calculated, or every other
-            channel when false.
+        virtual: Matches virtual channels, or every other channel when false. The
+            channel API counts the output of a calculation as not virtual.
         groups: Matches the channels in any of the given groups.
         grouped: Matches the channels in a group, or in no group when false.
     """

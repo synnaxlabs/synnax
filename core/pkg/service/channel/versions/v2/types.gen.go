@@ -12,8 +12,6 @@
 package v2
 
 import (
-	"strconv"
-
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	node "github.com/synnaxlabs/synnax/pkg/service/node/versions/v0"
@@ -83,11 +81,6 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// Operations contains aggregation operations applied to this channel's data.
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	// Expression is an Arc expression for calculated channels. If set, the channel is
-	// automatically configured as virtual.
-	Expression string `json:"expression" msgpack:"expression"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
@@ -97,8 +90,5 @@ type Channel struct {
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	v.NotEmptyString("name", c.Name)
-	for i := range c.Operations {
-		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
-	}
 	return v.Error()
 }
