@@ -169,13 +169,20 @@ func (w Writer) rehome(ctx context.Context, h Channel) error {
 	})
 }
 
-// freeName returns name with the first suffix (_2, _3) that no channel holds.
+// freeName returns name with the first suffix (_2, _3) that no channel holds and no
+// tombstone holds at the root.
 func (w Writer) freeName(ctx context.Context, name string) (string, error) {
 	for i := 2; ; i++ {
 		candidate := fmt.Sprintf("%s_%d", name, i)
 		taken, err := w.svc.newRetrieve().
 			Where(MatchNames(candidate)).
 			Exists(ctx, w.tx)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			_, taken, err = w.tombstoneAt(ctx, candidate, nil)
+		}
 		if err != nil || !taken {
 			return candidate, err
 		}

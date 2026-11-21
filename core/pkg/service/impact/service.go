@@ -97,9 +97,10 @@ type ApplyOptions struct {
 // gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
 // delete, and the holders of that channel take their picks or defaults. A delete pick
 // on another record deletes it through ServiceConfig.Delete before the channels go. A
-// delete of folders deletes as group.Writer.Delete does and plans no entries. A pick
-// for no entry, or one that its entry does not allow, fails with a validation error.
-// Given a gorp.DB, Apply runs in a transaction of its own.
+// delete of folders deletes the tombstones in them, then the folders as
+// group.Writer.Delete does, and plans no entries. A pick for no entry, or one that its
+// entry does not allow, fails with a validation error. Given a gorp.DB, Apply runs in a
+// transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,

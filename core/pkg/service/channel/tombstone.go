@@ -129,20 +129,13 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 func (w Writer) clearTombstones(ctx context.Context, channels ...Channel) error {
 	var keys []Key
 	for _, c := range channels {
-		probe := Tombstone{Name: c.Name, Group: c.Group}
-		err := w.svc.tombstones.paths.Check(ctx, w.tx, &probe)
-		var clash gorp.UniqueError
-		if !errors.As(err, &clash) {
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		k, err := ParseKey(clash.Holder.Key)
+		k, ok, err := w.tombstoneAt(ctx, c.Name, c.Group)
 		if err != nil {
 			return err
 		}
-		keys = append(keys, k)
+		if ok {
+			keys = append(keys, k)
+		}
 	}
 	if len(keys) == 0 {
 		return nil
@@ -150,6 +143,23 @@ func (w Writer) clearTombstones(ctx context.Context, channels ...Channel) error 
 	return w.svc.tombstones.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// tombstoneAt returns the key of the tombstone at the path of name in g, and false when
+// none is there.
+func (w Writer) tombstoneAt(
+	ctx context.Context,
+	name string,
+	g *group.Key,
+) (Key, bool, error) {
+	probe := Tombstone{Name: name, Group: g}
+	err := w.svc.tombstones.paths.Check(ctx, w.tx, &probe)
+	var clash gorp.UniqueError
+	if !errors.As(err, &clash) {
+		return 0, false, err
+	}
+	k, err := ParseKey(clash.Holder.Key)
+	return k, err == nil, err
 }
 
 // DeleteTombstones deletes the tombstones in the groups with keys. A tombstone refuses
