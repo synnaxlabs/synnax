@@ -23,12 +23,13 @@ import (
 // clock's control writes through. Each transfer of the clock moves it as one event,
 // under mu: a Close of the old holder's writer, which makes its commits durable, then
 // an open for the new holder from the old writer's last commit end. The uncommitted
-// samples of the old holder drop.
+// samples of the old holder drop. A transfer takes mu to write, and a call of a
+// session takes it to read, so a session that is refused does not wait for the holder.
 //
 // Lock order: mu, then a Cesium claim, then a gate region. The skip predicate of a
 // session never takes mu, and no path takes mu while it holds a claim or a region lock.
 type clockEntry struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex
 	clock cesium.ChannelKey
 	ctl   *controlled
 	// members holds the sessions that write the clock, by control subject key.
@@ -142,12 +143,19 @@ func (c *clockWriter) held() (*cesium.Writer, error) {
 	return c.entry.w, nil
 }
 
-func (c *clockWriter) lock() func() {
-	if !c.shares {
-		return func() {}
+// lock locks the entry of a shared writer to read. A session changes only its own
+// member under it, and only the holder writes through the entry's writer and sets its
+// end, which only a transfer reads.
+func (c *clockWriter) lock() {
+	if c.shares {
+		c.entry.mu.RLock()
 	}
-	c.entry.mu.Lock()
-	return c.entry.mu.Unlock
+}
+
+func (c *clockWriter) unlock() {
+	if c.shares {
+		c.entry.mu.RUnlock()
+	}
 }
 
 // Write writes fr through the writer of the clock, and leaves out the keys of the clock
@@ -157,7 +165,8 @@ func (c *clockWriter) Write(
 	fr cesium.Frame,
 	skip func(cesium.ChannelKey) bool,
 ) (cesium.Frame, bool, error) {
-	defer c.lock()()
+	c.lock()
+	defer c.unlock()
 	w, err := c.held()
 	if err != nil {
 		return fr, false, err
@@ -197,7 +206,8 @@ func (c *clockWriter) Commit(
 	ctx context.Context,
 	skip func(cesium.ChannelKey) bool,
 ) (telem.TimeStamp, bool, error) {
-	defer c.lock()()
+	c.lock()
+	defer c.unlock()
 	w, err := c.held()
 	if err != nil {
 		return 0, false, err
@@ -219,7 +229,8 @@ func (c *clockWriter) Commit(
 
 // Sync syncs the writer of the clock when the session holds it.
 func (c *clockWriter) Sync() error {
-	defer c.lock()()
+	c.lock()
+	defer c.unlock()
 	w, err := c.held()
 	if err != nil || w == nil {
 		return err
@@ -229,7 +240,8 @@ func (c *clockWriter) Sync() error {
 
 // EndStretch ends the stretch of the writer of the clock when the session holds it.
 func (c *clockWriter) EndStretch(ctx context.Context) error {
-	defer c.lock()()
+	c.lock()
+	defer c.unlock()
 	w, err := c.held()
 	if err != nil || w == nil {
 		return err
