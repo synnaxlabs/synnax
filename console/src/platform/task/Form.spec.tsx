@@ -102,13 +102,21 @@ const findNameInput = (): HTMLInputElement => {
   return input;
 };
 
+// Unique keys, since the Core keeps the devices of an earlier run.
+const DEVICES = {
+  dev: uniqueName("dev"),
+  valid: uniqueName("valid"),
+  filled: uniqueName("filled"),
+  remote: uniqueName("remote"),
+};
+
 describe("wrapForm", () => {
   // The Core refuses a config that names a device it does not hold.
   beforeAll(async () => {
     const client = createTestClient();
     const rack = await client.racks.create({ name: uniqueName("rack") });
     await client.devices.create(
-      ["dev", "valid", "filled", "remote"].map((key) => ({
+      Object.values(DEVICES).map((key) => ({
         key,
         name: key,
         rack: rack.key,
@@ -225,7 +233,7 @@ describe("wrapForm", () => {
       const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
-          onClick={() => onChange("dev")}
+          onClick={() => onChange(DEVICES.dev)}
         >{`device-status:${status.message}`}</button>
       );
     };
@@ -332,7 +340,7 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({
         ...INITIAL_VALUES,
-        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        config: { device: DEVICES.dev, channels: [{ key: "ch1", disabled: false }] },
         rack: 0,
       });
       const Renderer = createRenderer({
@@ -491,7 +499,9 @@ describe("wrapForm", () => {
         return (
           <>
             <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
-            <button onClick={() => set(path.config.device, "valid")}>valid</button>
+            <button onClick={() => set(path.config.device, DEVICES.valid)}>
+              valid
+            </button>
           </>
         );
       };
@@ -515,7 +525,7 @@ describe("wrapForm", () => {
       await act(async () => fireEvent.click(screen.getByText("valid")));
       await clickDeploy(container);
       await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
-      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
+      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: DEVICES.valid });
     });
 
     it("should keep a deploy error after an edit to another field", async () => {
@@ -693,7 +703,10 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
-        onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
+        onConfigure: async (_client, config) => [
+          { ...config, device: DEVICES.filled },
+          0,
+        ],
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       try {
@@ -704,7 +717,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "filled" });
+        expect(updated.config).toMatchObject({ device: DEVICES.filled });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
@@ -722,10 +735,10 @@ describe("wrapForm", () => {
           expect(
             await other.tasks.dispatch(
               draft.key,
-              task.set({ path: ["config", "device"], value: "remote" }),
+              task.set({ path: ["config", "device"], value: DEVICES.remote }),
             ),
           ).toBe(true);
-          await screen.findByText("device:remote");
+          await screen.findByText(`device:${DEVICES.remote}`);
           return [config, 0];
         },
       });
@@ -738,7 +751,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "remote" });
+        expect(updated.config).toMatchObject({ device: DEVICES.remote });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
