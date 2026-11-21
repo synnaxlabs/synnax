@@ -30,8 +30,8 @@ Take three 1-minute tests, each one day after the last, at 1 kHz. Today:
   (`pluto/src/lineplot/LinePlot.tsx:230-242`), and each trace draws the whole view.
   Three ranges draw three copies of each channel, and the tooltip lists each channel
   three times.
-- **Export**: The plot export merges its ranges into one span
-  (`console/src/feature/lineplot/useDownloadAsCSV.tsx:77`), so it downloads about 172M
+- **Export**: The plot export merges its ranges into one span (`useDownloadPlotAsCSV` in
+  `console/src/feature/lineplot/useDownloadAsCSV.tsx`), so it downloads about 172M
   samples per channel.
 - **Relative mode** (RFC 0116): A shorter range draws past its own end, out to the end
   of the longest range.
