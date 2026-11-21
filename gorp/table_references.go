@@ -27,10 +27,22 @@ func (t *Table[K, E]) register(named bool) error {
 	if !named && len(t.references) == 0 {
 		return nil
 	}
+	names := make(set.Set[string], len(t.references))
 	for i, r := range t.references {
-		if err := r.validate(t.name); err != nil {
+		err := r.validate(t.name)
+		if err == nil && names.Contains(r.referenceName()) {
+			err = validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"names another reference of the table",
+				),
+				"name",
+			)
+		}
+		if err != nil {
 			return validate.PathedError(err, t.name, "references", strconv.Itoa(i))
 		}
+		names.Add(r.referenceName())
 		r.bind(t.name, i)
 	}
 	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {
@@ -140,8 +152,12 @@ func (t *Table[K, E]) exists(
 	if err != nil {
 		return false, err
 	}
-	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(codec.Encode(pk))
+	return t.has(snap, key.NewCodec[K](t.keyPrefix), pk)
+}
+
+// has reports whether snap holds the entry with key k, which codec encodes.
+func (t *Table[K, E]) has(snap Snapshot, codec key.Codec[K], k K) (bool, error) {
+	_, closer, err := snap.Get(codec.Encode(k))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}
@@ -244,8 +260,8 @@ func (t *Table[K, E]) delete(
 			err  error
 		)
 		weak := held != nil
-		if planned != nil {
-			plan, err = t.db.registry.planned(ctx, tx, t.name, *planned, weak)
+		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
+			plan, err = t.db.registry.planned(tx, t.name, *planned, weak)
 		} else {
 			formatted := make([]string, len(keys))
 			for i, k := range keys {
@@ -287,7 +303,15 @@ func (t *Table[K, E]) callHeld(
 	plan *deletePlan,
 	held HeldFunc[K, E],
 ) error {
-	removed := func(d Dependent) bool { return plan.contains(d.Holder) }
+	requested := make(set.Set[string], len(entries))
+	for _, e := range entries {
+		requested.Add(FormatKey(e.GorpKey()))
+	}
+	// A plan from PlanDelete lists no requested key, so they are checked here.
+	removed := func(d Dependent) bool {
+		return plan.contains(d.Holder) ||
+			(d.Holder.Table == t.name && requested.Contains(d.Holder.Key))
+	}
 	holders := func(text string) []Dependent {
 		deps := plan.weak[text]
 		if !slices.ContainsFunc(deps, removed) {
@@ -295,11 +319,8 @@ func (t *Table[K, E]) callHeld(
 		}
 		return slices.DeleteFunc(slices.Clone(deps), removed)
 	}
-	requested := make(set.Set[string], len(entries))
 	for _, e := range entries {
-		text := FormatKey(e.GorpKey())
-		requested.Add(text)
-		if deps := holders(text); len(deps) > 0 {
+		if deps := holders(FormatKey(e.GorpKey())); len(deps) > 0 {
 			if err := held(ctx, tx, e, deps); err != nil {
 				return err
 			}
