@@ -346,48 +346,93 @@ var _ = Describe("Index", func() {
 
 		It("Should rank a match in primary text above the same match in secondary "+
 			"text", func() {
-			idx.SetText(1, []string{"other"}, []string{"pressure"})
-			idx.SetText(2, []string{"pressure"}, []string{"at the inlet of the tank"})
+			idx.SetText(
+				1,
+				search.Text{
+					Primary:   []string{"other"},
+					Secondary: []string{"pressure"},
+				},
+			)
+			idx.SetText(
+				2,
+				search.Text{
+					Primary:   []string{"pressure"},
+					Secondary: []string{"at the inlet of the tank"},
+				},
+			)
 			Expect(find("pressure")).To(Equal([]int{2, 1}))
 		})
 
 		It("Should break ties on the primary tokens alone", func() {
-			idx.SetText(1, []string{"pressure_2"}, nil)
-			idx.SetText(2, []string{"pressure"}, []string{"at the inlet of the tank"})
+			idx.SetText(1, search.Text{Primary: []string{"pressure_2"}})
+			idx.SetText(
+				2,
+				search.Text{
+					Primary:   []string{"pressure"},
+					Secondary: []string{"at the inlet of the tank"},
+				},
+			)
 			Expect(find("pressure")).To(Equal([]int{2, 1}))
 		})
 
 		It("Should score an exact secondary match as a primary prefix", func() {
-			idx.SetText(1, []string{"pressures"}, nil)
-			idx.SetText(2, []string{"tank"}, []string{"pressure"})
+			idx.SetText(1, search.Text{Primary: []string{"pressures"}})
+			idx.SetText(
+				2,
+				search.Text{Primary: []string{"tank"}, Secondary: []string{"pressure"}},
+			)
 			// Both score 10 and hold one primary token, so the lower key ranks first.
 			Expect(find("pressure")).To(Equal([]int{1, 2}))
 		})
 
 		It("Should count a fuzzy secondary match as a match", func() {
-			idx.SetText(1, []string{"tank"}, []string{"pressure"})
+			idx.SetText(
+				1,
+				search.Text{Primary: []string{"tank"}, Secondary: []string{"pressure"}},
+			)
 			Expect(find("tank presure")).To(Equal([]int{1}))
 		})
 
 		It("Should count a token in both texts as primary", func() {
-			idx.SetText(1, []string{"tank"}, []string{"tank"})
-			idx.SetText(2, []string{"other tank"}, nil)
+			idx.SetText(
+				1,
+				search.Text{Primary: []string{"tank"}, Secondary: []string{"tank"}},
+			)
+			idx.SetText(2, search.Text{Primary: []string{"other tank"}})
 			Expect(find("tank")).To(Equal([]int{1, 2}))
 		})
 
 		It("Should move a token between texts when the tokens stay the same", func() {
-			idx.SetText(1, []string{"pressure"}, []string{"other"})
-			idx.SetText(2, []string{"pressure"}, nil)
-			idx.SetText(1, []string{"other"}, []string{"pressure"})
+			idx.SetText(
+				1,
+				search.Text{
+					Primary:   []string{"pressure"},
+					Secondary: []string{"other"},
+				},
+			)
+			idx.SetText(2, search.Text{Primary: []string{"pressure"}})
+			idx.SetText(
+				1,
+				search.Text{
+					Primary:   []string{"other"},
+					Secondary: []string{"pressure"},
+				},
+			)
 			Expect(find("pressure")).To(Equal([]int{2, 1}))
 		})
 
 		It("Should drop the secondary tokens of a deleted or replaced key", func() {
-			idx.SetText(1, []string{"alpha"}, []string{"beta"})
-			idx.SetText(2, []string{"gamma"}, []string{"beta"})
+			idx.SetText(
+				1,
+				search.Text{Primary: []string{"alpha"}, Secondary: []string{"beta"}},
+			)
+			idx.SetText(
+				2,
+				search.Text{Primary: []string{"gamma"}, Secondary: []string{"beta"}},
+			)
 			idx.Delete(1)
 			Expect(find("beta")).To(Equal([]int{2}))
-			idx.SetText(2, []string{"gamma"}, nil)
+			idx.SetText(2, search.Text{Primary: []string{"gamma"}})
 			Expect(find("beta")).To(BeEmpty())
 		})
 	})

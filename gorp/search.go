@@ -25,10 +25,9 @@ import (
 type SearchIndex[K Key, E Entry[K]] struct {
 	// name is the human-readable index name, used in diagnostics.
 	name string
-	// text reads the indexed text from an entry, and secondary the text that ranks
-	// below it, or is nil.
-	text, secondary func(e *E) []string
-	store           *index.Search[*txState, K]
+	// text reads the indexed text from an entry.
+	text  func(e *E) []string
+	store *index.Search[*txState, K]
 }
 
 // NewSearchIndex constructs a SearchIndex over the text that text returns for each
@@ -46,26 +45,9 @@ func NewSearchIndex[K Key, E Entry[K]](
 	}
 }
 
-// NewWeightedSearchIndex constructs a SearchIndex as NewSearchIndex does, over the
-// text that text returns and the secondary text that secondary returns for each entry.
-// A match in secondary text ranks below the same match in text, and ties between
-// matches break on the words of text alone.
-func NewWeightedSearchIndex[K Key, E Entry[K]](
-	name string,
-	text, secondary func(e *E) []string,
-) *SearchIndex[K, E] {
-	s := NewSearchIndex[K, E](name, text)
-	s.secondary = secondary
-	return s
-}
-
 // textOf returns the indexed text of entry.
-func (s *SearchIndex[K, E]) textOf(entry *E) index.Text {
-	t := index.Text{Primary: s.text(entry)}
-	if s.secondary != nil {
-		t.Secondary = s.secondary(entry)
-	}
-	return t
+func (s *SearchIndex[K, E]) textOf(entry *E) search.Text {
+	return search.Text{Primary: s.text(entry)}
 }
 
 // Name implements Index.
@@ -139,8 +121,7 @@ func (s *SearchIndex[K, E]) scan(
 	}
 	idx := search.New[K]()
 	for e := range entries {
-		t := s.textOf(&e)
-		idx.SetText(e.GorpKey(), t.Primary, t.Secondary)
+		idx.SetText(e.GorpKey(), s.textOf(&e))
 	}
 	if err = closer.Close(); err != nil {
 		return search.Result[K]{}, err

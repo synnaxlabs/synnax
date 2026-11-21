@@ -55,8 +55,14 @@ type posting struct {
 	slot uint32
 }
 
-// secondaryBit marks the slot of a posting whose token is in secondary text only.
+// secondaryBit marks the slot of a posting, and the position of a term, whose token is
+// in secondary text only.
 const secondaryBit = 1 << 31
+
+// secondaryEntries returns the count of entries that hold secondary text. The count
+// lives in the parent field of the root, which has no parent, so that an index with no
+// secondary text pays nothing for it.
+func (t *trie) secondaryEntries() *uint32 { return &t.node(root).parent }
 
 func newTrie() trie {
 	t := trie{}
