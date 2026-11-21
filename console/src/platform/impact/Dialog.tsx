@@ -72,9 +72,12 @@ const messageOf = (names: string[]): string =>
   names.length === 1 ? `Delete channel ${names[0]}` : `Delete ${names.length} channels`;
 
 const descriptionOf = (names: string[], empty: boolean): string => {
-  if (names.length === 1)
-    return `Deletes the channel and its data.${empty ? " Nothing else uses it." : ""}`;
-  return `Deletes the channels and their data.${empty ? " Nothing else uses them." : ""}`;
+  const one = names.length === 1;
+  const text = one
+    ? "Deletes the channel and its data."
+    : "Deletes the channels and their data.";
+  if (!empty) return text;
+  return `${text} Nothing else uses ${one ? "it" : "them"}.`;
 };
 
 const failureOf = (names: string[]): string =>
