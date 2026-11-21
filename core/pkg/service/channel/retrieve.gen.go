@@ -31,9 +31,10 @@ const tableName = "channel"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name   *gorp.SortedIndex[Key, Channel, string]
-	group  *gorp.KeyReference[Key, Channel, group.Key]
-	search *gorp.SearchIndex[Key, Channel]
+	name        *gorp.SortedIndex[Key, Channel, string]
+	group       *gorp.KeyReference[Key, Channel, group.Key]
+	rewiresFrom *gorp.KeyReference[Key, Channel, Key]
+	search      *gorp.SearchIndex[Key, Channel]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -58,6 +59,32 @@ func newIndexes() indexes {
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
 		}),
+		rewiresFrom: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, Key]{
+			Name:     "rewires.from",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Channel) []Key {
+				var targets []Key
+				for _, v1 := range e.Rewires {
+					if v1.From != 0 {
+						if targets == nil {
+							targets = make([]Key, 0, len(e.Rewires))
+						}
+						targets = append(targets, v1.From)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Channel, t Key) {
+				for i2 := range e.Rewires {
+					if e.Rewires[i2].From == t {
+						e.Rewires[i2].From = 0
+					}
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",
 			func(e *Channel) []string {
@@ -81,6 +108,7 @@ func (i indexes) all() []gorp.Index[Key, Channel] {
 func (i indexes) references() []gorp.Reference[Key, Channel] {
 	return []gorp.Reference[Key, Channel]{
 		i.group,
+		i.rewiresFrom,
 	}
 }
 

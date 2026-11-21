@@ -45,6 +45,17 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if c.Rewires != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(c.Rewires)))
+		for j := range c.Rewires {
+			if err := c.Rewires[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -127,6 +138,121 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			c.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Rewires = make([]Rewire, n)
+			for j := range c.Rewires {
+				if err = c.Rewires[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rv Rewire) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(rv.From))
+	w.Int64(int64(rv.At))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rv *Rewire) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rv.From = Key(rawV)
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		rv.At = telem.TimeStamp(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (t Tombstone) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(t.Key))
+	w.String(t.Name)
+	if t.Group != nil {
+		w.Bool(true)
+		w.Write((*t.Group)[:])
+	} else {
+		w.Bool(false)
+	}
+	if t.Rewires != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(t.Rewires)))
+		for j := range t.Rewires {
+			if err := t.Rewires[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (t *Tombstone) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		t.Key = Key(rawV)
+	}
+	if t.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv group.Key
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			t.Group = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			t.Rewires = make([]Rewire, n)
+			for j := range t.Rewires {
+				if err = t.Rewires[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
