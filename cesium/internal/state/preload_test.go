@@ -172,3 +172,72 @@ var _ = Describe("Replay preloads", func() {
 			))
 		})
 })
+
+var _ = Describe("Clock users", func() {
+	// user is a sealed record of key 6 on clock 5 that part 7 holds, and that the
+	// state lacks.
+	user := state.User{Key: 6, Segment: state.Segment{
+		ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+		TailCRC: 3, Part: 7,
+		Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+	}}
+	var s *state.State
+	BeforeEach(func() {
+		head := sample()
+		head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+		s = MustSucceed(state.Open(config(&appended{}), head))
+	})
+	users := state.Preload{Key: 5, Generation: 1, Users: []state.User{user}}
+
+	It("Should refuse a replayed Drop of a clock that a parted record of a kept key "+
+		"names", func() {
+		Expect(s.Replay(10, []log.Record{&log.Drop{Key: 5}}, users)).To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(
+				ContainSubstring("drop of key 5, the clock of segment 3 of key 6"),
+			),
+		))
+	})
+
+	It("Should drop a clock whose parted users belong to a key that a Drop took out",
+		func() {
+			Expect(s.Replay(10, []log.Record{
+				&log.Drop{Key: 6},
+				&log.Drop{Key: 5},
+			}, users)).To(Succeed())
+		})
+
+	It("Should refuse a replayed Tombstone of a clock in the range of a parted user",
+		func() {
+			Expect(s.Replay(10, []log.Record{
+				&log.Tombstone{Key: 5, Start: 15, End: 25},
+			}, users)).To(SatisfyAll(
+				MatchError(state.ErrRefused),
+				MatchError(
+					ContainSubstring("tombstone of clock 5 from 15 to 25, which "+
+						"key 6 uses from 10 to 30"),
+				),
+			))
+		})
+
+	It("Should refuse the Tombstone of a delete of a clock whose preload names a "+
+		"parted user", func() {
+		run(s)
+		d := MustSucceed(s.BeginDelete(5, 15, 25, users))
+		Expect(d.Check(&log.Tombstone{Key: 5, Start: 15, End: 25})).To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(ContainSubstring("which key 6 uses from 10 to 30")),
+		))
+		Expect(d.Release()).To(Succeed())
+	})
+
+	It("Should refuse the durable Drop of a clock that BeginDrop found a parted user "+
+		"of", func() {
+		run(s)
+		Expect(s.BeginDrop(5, users)).To(Succeed())
+		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 5}})).To(Succeed())
+		Expect(s.Snapshot()).Error().To(MatchError(
+			ContainSubstring("drop of key 5, the clock of segment 3 of key 6"),
+		))
+	})
+})

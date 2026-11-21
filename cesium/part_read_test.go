@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -331,6 +332,41 @@ var _ = Describe("Reads through parts", func() {
 })
 
 var _ = Describe("Claims over parts", func() {
+	It("Should refuse a delete of an index over the parted data of a key that it times",
+		func(ctx SpecContext) {
+			fs := xfs.NewMem()
+			db := partedDB(ctx, fs)
+			stop := StartRun(db.Run)
+			idx, data := GenerateChannelKey(), GenerateChannelKey()
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{
+					Key:      idx,
+					Name:     "time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+				cesium.Channel{
+					Key:      data,
+					Name:     "data",
+					Index:    idx,
+					DataType: telem.Int64T,
+				},
+			)).To(Succeed())
+			writeParted(ctx, db, fs, idx, data, 3, 10)
+			stop()
+			Expect(db.Close()).To(Succeed())
+			db = partedDB(ctx, fs)
+			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+			DeferCleanup(StartRun(db.Run))
+			Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{idx}, telem.TimeRange{
+				Start: 5 * telem.SecondTS,
+				End:   6 * telem.SecondTS,
+			})).To(MatchError(ContainSubstring(fmt.Sprintf(
+				"which key %d uses from 1000000000 to 10000000000", data,
+			))))
+		})
+
 	It("Should write in a gap between parted segments, and replay the commit to the "+
 		"same state", func(ctx SpecContext) {
 		fs := xfs.NewMem()
