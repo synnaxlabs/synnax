@@ -485,20 +485,17 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 }
 
 // validateComparisonRules errors on a `@go validate` rule that is not lt <field>, on
-// one
-// outside a struct field or in a generic struct, and on one whose field and compared
-// field are not two required numbers of one type in the same struct.
+// one outside a struct field or in a generic struct, and on one whose field and
+// compared field are not two required numbers of one type in the same struct.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		var problems []string
-		switch form := t.Form.(type) {
-		case resolution.AliasForm, resolution.DistinctForm:
-			if _, set := t.Domains["go"].Expressions.Find("validate"); set {
-				problems = append(problems, t.QualifiedName+
-					" has a @go validate rule, but only a struct field can have one")
-			}
-		case resolution.StructForm:
-			problems = structComparisonProblems(t, form, table)
+		if _, set := t.Domains["go"].Expressions.Find("validate"); set {
+			problems = append(problems, t.QualifiedName+
+				" has a @go validate rule, but only a struct field can have one")
+		}
+		if form, ok := t.Form.(resolution.StructForm); ok {
+			problems = append(problems, structComparisonProblems(t, form, table)...)
 		}
 		for _, p := range problems {
 			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil, "%s", p))
