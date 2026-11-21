@@ -10,8 +10,6 @@
 package index_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
@@ -235,18 +233,11 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should be staged with no allocation", func() {
-			txn.cleanups = make([]func(bool), 0, 1)
 			key := 100
-			stage := func() {
+			Expect(allocsPerScope(txn, func() {
 				key++
 				m.Stage(txn, key, nil)
-				for _, fn := range txn.cleanups {
-					fn(false)
-				}
-				txn.cleanups = txn.cleanups[:0]
-			}
-			stage()
-			Expect(testing.AllocsPerRun(100, stage)).To(BeZero())
+			})).To(BeZero())
 		})
 	})
 
@@ -285,16 +276,22 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should be deleted with no allocation", func() {
-			txn.cleanups = make([]func(bool), 0, 1)
-			del := func() {
-				m.StageDelete(txn, 7)
-				for _, fn := range txn.cleanups {
-					fn(false)
-				}
-				txn.cleanups = txn.cleanups[:0]
-			}
-			del()
-			Expect(testing.AllocsPerRun(100, del)).To(BeZero())
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 7) })).To(BeZero())
+		})
+	})
+
+	Describe("Changes of a scope", func() {
+		It("Should allocate nothing for a scope that stages nothing", func() {
+			values := []string{"a", "b"}
+			var current bool
+			Expect(allocsPerScope(txn, func() {
+				current = m.Current(txn, 1, values)
+			})).To(BeZero())
+			Expect(current).To(BeTrue())
+		})
+
+		It("Should reuse its changes, allocating nothing to stage a delete", func() {
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 2) })).To(BeZero())
 		})
 	})
 

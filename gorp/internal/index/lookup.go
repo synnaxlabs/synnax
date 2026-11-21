@@ -36,7 +36,7 @@ func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 		forward:    make(map[V][]K),
 		reverse:    make(map[K]V),
 	}
-	l.overlay.create, l.overlay.flush = newDelta[K, V], l.flush
+	l.overlay.init(newDelta[K, V](), l.flush)
 	return l
 }
 
