@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/arc"
@@ -166,7 +167,8 @@ func (a *CalculationAnalyzer) AnalyzeExpression(
 	}, nil
 }
 
-// reads returns the keys of the channels that the analysis of block t resolved.
+// reads returns the keys of the channels that the analysis of block t resolved, in
+// order.
 func reads(aCtx acontext.Context[parser.IBlockContext], t parser.IBlockContext) Keys {
 	var deps Keys
 	funcScope, err := aCtx.Scope.GetChildByParserRule(t)
@@ -175,5 +177,6 @@ func reads(aCtx acontext.Context[parser.IBlockContext], t parser.IBlockContext) 
 			deps = append(deps, Key(k))
 		}
 	}
+	slices.Sort(deps)
 	return deps
 }

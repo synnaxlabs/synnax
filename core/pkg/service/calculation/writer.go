@@ -263,7 +263,7 @@ func (w Writer) compile(
 	}), "operations"); err != nil {
 		return err
 	}
-	c.Reads = sortedReads(result.Deps)
+	c.Reads = result.Deps
 	return nil
 }
 
@@ -342,17 +342,18 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 
 func (w Writer) newAnalyzer() *channel.CalculationAnalyzer { return w.svc.newAnalyzer(w.tx) }
 
-// SetReads stores reads as the reads of c, as a compile found them, and broadcasts a
-// set of them. It writes nothing when c already holds them.
+// SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
+// set
+// of them. It writes nothing when c already holds the same channels.
 func (w Writer) SetReads(
 	ctx context.Context,
 	c Calculation,
 	reads []channel.Key,
 ) error {
-	reads = sortedReads(reads)
-	if slices.Equal(reads, c.Reads) {
+	if sameKeys(reads, c.Reads) {
 		return nil
 	}
+	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
 		Change(func(_ gorp.Context, stored Calculation) Calculation {
@@ -367,11 +368,6 @@ func (w Writer) SetReads(
 		Value: reads,
 	}))
 	return nil
-}
-
-// sortedReads returns reads in order, each once, as a record holds them.
-func sortedReads(reads []channel.Key) []channel.Key {
-	return slices.Sorted(slices.Values(lo.Uniq(reads)))
 }
 
 // Delete deletes the calculations with the given keys. A key with no calculation is not
@@ -428,4 +424,20 @@ func reindex(err error, at func(p int) []string) error {
 	}
 	pathErr.Path = slices.Concat(at(p), pathErr.Path[1:])
 	return pathErr
+}
+
+// sameKeys reports whether a and b hold the same keys, in any order and with any
+// repeats, without allocating.
+func sameKeys(a, b []channel.Key) bool {
+	for _, k := range a {
+		if !slices.Contains(b, k) {
+			return false
+		}
+	}
+	for _, k := range b {
+		if !slices.Contains(a, k) {
+			return false
+		}
+	}
+	return true
 }

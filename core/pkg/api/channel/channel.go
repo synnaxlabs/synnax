@@ -233,7 +233,7 @@ func (s *Service) Create(
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	calcs, err := s.calculations.Outputs(ctx, tx, channel.KeysFromChannels(stored)...)
+	calcs, err := s.calculations.Outputs(ctx, tx, virtualKeys(stored)...)
 	if err != nil {
 		return CreateResponse{}, err
 	}
@@ -294,17 +294,15 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	calcs, err := s.calculations.Outputs(
-		ctx,
-		snap,
-		channel.KeysFromChannels(resChannels)...,
-	)
+	calcs, err := s.calculations.Outputs(ctx, snap, virtualKeys(resChannels)...)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	shown, err := s.shown(calcs, allowedIn(snap))
-	if err != nil {
-		return RetrieveResponse{}, err
+	var shown map[channel.Key]calculation.Calculation
+	if len(calcs) > 0 {
+		if shown, err = s.shown(calcs, allowedIn(snap)); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
 	res := RetrieveResponse{Channels: s.translateForward(resChannels, shown)}
 	if req.IncludeStatus {
@@ -497,6 +495,18 @@ func (s *Service) translateForward(
 	return translated
 }
 
+// virtualKeys returns the keys of the virtual channels of channels, the only channels
+// that a calculation can write.
+func virtualKeys(channels []channel.Channel) channel.Keys {
+	var keys channel.Keys
+	for _, ch := range channels {
+		if ch.Virtual {
+			keys = append(keys, ch.Key())
+		}
+	}
+	return keys
+}
+
 // shown returns the calculations of calcs that readable allows, given the record and
 // every channel it links. The old API shows the output of any other calculation as a
 // plain virtual channel.
@@ -504,6 +514,9 @@ func (s *Service) shown(
 	calcs map[channel.Key]calculation.Calculation,
 	readable func(ids []resource.ID) (bool, error),
 ) (map[channel.Key]calculation.Calculation, error) {
+	if len(calcs) == 0 {
+		return nil, nil
+	}
 	shown := make(map[channel.Key]calculation.Calculation, len(calcs))
 	for output, c := range calcs {
 		ids := append(
