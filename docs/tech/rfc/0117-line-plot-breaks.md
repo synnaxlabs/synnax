@@ -248,19 +248,20 @@ one span from the first range to the last. The read request
 merges the spans that overlap or touch, so each sample reads once, and writes one file
 with one header and the samples in time order. Latest, Earliest, and a limit reduction
 take one span after the merge, and the Core rejects them over more. A stride keeps the
-samples that each span keeps when read alone. A shipped client that sends one `bounds`
-reads as before. The dialog shows one span as today, and lists several spans with no
-edit. To export another span, the user makes a selection. The multi-range export of the
-range menu uses the same list.
+samples whose stored position is a multiple of its factor, so the merge does not change
+the samples of a span. A shipped client that sends one `bounds` reads as before. The
+dialog shows one span as today, and lists several spans with no edit. To export another
+span, the user makes a selection. The multi-range export of the range menu uses the same
+list.
 
 ### 4.10 Stored state
 
 No stored shape on the Core changes. The Session state of a plot gains `breaks.open`,
 the lower edges of its open gaps, and `breaks.hidden`. They default to none and to
-false. The viewport and the selection hold the times of the layout with those breaks
+false. The viewport and the selection hold positions in the layout with those breaks
 open. The Console parses stored Session state through its schema on load
-(`console/src/session/store.ts:62`), so a saved Session loads with every break closed
-and shown.
+(`console/src/session/store.ts:62`), so a Session saved before this change loads with
+every break closed and shown.
 
 ## 5 Implementation phases
 
@@ -310,8 +311,8 @@ change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`, a
 | 8     | Ship line plot breaks in Desktop with a toggle     | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`                | 7          |
 | 9     | Release line plot breaks to the Console            | `console/src/flags`, `console/src/feature/lineplot`                                                                                | 8          |
 
-Compatibility: no stored shape changes. The read request accepts one `bounds` from
-shipped clients.
+Compatibility: no stored shape on the Core changes, and the Session state of a plot
+gains `breaks`. The read request accepts one `bounds` from shipped clients.
 
 ## 6 Resolved decisions
 
