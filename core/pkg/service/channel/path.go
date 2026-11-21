@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -183,4 +184,43 @@ func Paths(
 		}
 	}
 	return paths, nil
+}
+
+// ambiguousName returns a validation error for name, which every one of holders holds,
+// that names the path of each holder as seen by snap.
+func ambiguousName(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	name string,
+	holders []Channel,
+) error {
+	paths, err := Paths(ctx, snap, holders)
+	if err != nil {
+		return err
+	}
+	texts := PathTexts(paths)
+	slices.Sort(texts)
+	return validate.Errorf(
+		"%d channels are named '%s': %s. Name one by its path",
+		len(holders),
+		name,
+		strings.Join(texts, ", "),
+	)
+}
+
+// holdersByName returns the channels of channels that hold each name of names after
+// NFC,
+// in the order of names.
+func holdersByName(names []string, channels []Channel) [][]Channel {
+	at := make(map[string]int, len(names))
+	for i, n := range names {
+		at[validate.NormalizeName(n)] = i
+	}
+	holders := make([][]Channel, len(names))
+	for _, ch := range channels {
+		if i, ok := at[validate.NormalizeName(ch.Name)]; ok {
+			holders[i] = append(holders[i], ch)
+		}
+	}
+	return holders
 }

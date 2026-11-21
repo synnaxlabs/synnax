@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -274,9 +273,10 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels with the given names, compared in NFC. Unless
-// allowInternal is true, deleting any internal channel returns an error and no channels
-// are deleted.
+// DeleteManyByNames deletes the channels with the given names, compared in NFC. A name
+// that several channels hold returns a validation error that names the path of each,
+// and deletes nothing. Unless allowInternal is true, deleting any internal channel
+// returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
@@ -286,6 +286,11 @@ func (w Writer) DeleteManyByNames(
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
+	}
+	for i, holders := range holdersByName(names, res) {
+		if len(holders) > 1 {
+			return ambiguousName(ctx, w.tx, names[i], holders)
+		}
 	}
 	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
 }
@@ -548,7 +553,11 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 	return positions
 }
 
-// resetStoredNames resets each channel whose name exists to its stored record.
+// resetStoredNames resets each channel at a position not in reset to the stored channel
+// of its name: the one in its group when it has a group and one is there, else the one
+// anywhere, so a channel that a user moved still matches. A record that holds the name
+// exactly wins over one that holds it after NFC. A name that several channels hold
+// returns a validation error that names the path of each.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
@@ -563,31 +572,38 @@ func (w Writer) resetStoredNames(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	exact, normalPositions := positions(names), positions(normal)
-	// A record whose name the request holds exactly wins over one that holds its NFC.
-	slices.SortStableFunc(existing, func(a, b Channel) int {
-		_, aExact := exact[a.Name]
-		_, bExact := exact[b.Name]
-		return cmp.Compare(boolRank(bExact), boolRank(aExact))
-	})
+	exact, normalized := make(map[string][]Channel), make(map[string][]Channel)
 	for _, e := range existing {
-		at, ok := exact[e.Name]
-		if !ok {
-			at = normalPositions[e.Name]
+		exact[e.Name] = append(exact[e.Name], e)
+		n := validate.NormalizeName(e.Name)
+		normalized[n] = append(normalized[n], e)
+	}
+	for i, ch := range channels {
+		if reset.Contains(i) {
+			continue
 		}
-		if !reset.Contains(at[0]) {
-			channels[at[0]] = e
-			reset = addPosition(reset, at[0])
+		holders := exact[ch.Name]
+		if len(holders) == 0 {
+			holders = normalized[normal[i]]
+		}
+		if ch.Group != nil {
+			inGroup := lo.Filter(holders, func(e Channel, _ int) bool {
+				return sameGroup(e.Group, ch.Group)
+			})
+			if len(inGroup) > 0 {
+				holders = inGroup
+			}
+		}
+		switch len(holders) {
+		case 0:
+		case 1:
+			channels[i] = holders[0]
+			reset = addPosition(reset, i)
+		default:
+			return nil, ambiguousName(ctx, w.tx, ch.Name, holders)
 		}
 	}
 	return reset, nil
-}
-
-func boolRank(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // synthesizeIndexes returns a new index channel for each calculated channel without

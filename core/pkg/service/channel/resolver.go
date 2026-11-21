@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/samber/lo"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -53,23 +55,45 @@ func (r *symbolResolver) retrieve() Retrieve {
 	return q
 }
 
-// Resolve resolves a single cluster channel by name or numeric key.
+// Resolve resolves a single cluster channel by numeric key, by path when name holds
+// validate.PathSeparator, or else by name. A resolved path is the name of its symbol. A
+// name that several channels hold returns a validation error that names the path of
+// each.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
-	key, err := strconv.ParseUint(name, 10, 32)
-	var ch Channel
-	q := r.retrieve().Entry(&ch)
-	if err == nil {
-		q = q.Where(MatchKeys(Key(key)))
-	} else {
-		q = q.Where(MatchNames(name))
+	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
+		var ch Channel
+		if err = r.retrieve().
+			Where(MatchKeys(Key(key))).
+			Entry(&ch).
+			Exec(ctx, r.snap); err != nil {
+			return nil, err
+		}
+		return r.toSymbol(ch), nil
 	}
-	if err = q.Exec(ctx, r.snap); err != nil {
+	path := strings.IndexByte(name, validate.PathSeparator) >= 0
+	match := MatchNames(validate.NormalizeName(name))
+	if path {
+		match = MatchPaths(name)
+	}
+	var chs []Channel
+	if err := r.retrieve().Where(match).Entries(&chs).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return r.toSymbol(ch), nil
+	switch len(chs) {
+	case 0:
+		return nil, errors.Wrapf(query.ErrNotFound, "channel '%s'", name)
+	case 1:
+		sym := r.toSymbol(chs[0])
+		if path {
+			sym.Name = name
+		}
+		return sym, nil
+	default:
+		return nil, ambiguousName(ctx, r.snap, name, chs)
+	}
 }
 
 // Search fuzzy-searches non-internal cluster channels by name.
