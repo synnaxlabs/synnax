@@ -227,11 +227,10 @@ var _ = Describe("Rename breaker", func() {
 	) {
 		content := "func test() {\n    count := 2.0\n    x := count * 2.0\n}"
 		server := openServer(ctx, false, content)
-		_, err := server.Rename(ctx, &protocol.RenameParams{
+		Expect(server.Rename(ctx, &protocol.RenameParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			Position:     protocol.Position{Line: 2, Character: 10},
 			NewName:      "PT-FU 01",
-		})
-		Expect(err).To(MatchError(ContainSubstring("'PT-FU 01' is not a valid name")))
+		})).Error().To(MatchError(ContainSubstring("'PT-FU 01' is not a valid name")))
 	})
 })

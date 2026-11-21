@@ -144,7 +144,9 @@ func (s *Server) renameTextEdits(
 			return
 		}
 		text := newName
-		if n.Quoted || !bareFits(ctx, scope, newName, targetSym) {
+		if n.Quoted ||
+			targetSym.Kind == symbol.KindChannel &&
+				!bareFits(ctx, scope, newName, targetSym) {
 			text = parser.QuoteChannelName(newName)
 		}
 		edits = append(
@@ -208,6 +210,9 @@ func bareFits(
 		parser.Name{Head: newName},
 		symbol.WithoutUsageTracking,
 	)
+	if _, undefined := errors.AsType[*symbol.UndefinedSymbolError](err); undefined {
+		return true
+	}
 	return errors.Is(err, query.ErrNotFound) || err == nil && sameSymbol(sym, target)
 }
 

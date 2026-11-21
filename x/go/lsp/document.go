@@ -107,15 +107,6 @@ func UTF16Column(line string, offset int) uint32 {
 	return units
 }
 
-// UTF16Len returns the number of UTF-16 units that s takes.
-func UTF16Len(s string) uint32 {
-	var units uint32
-	for _, r := range s {
-		units += utf16Units(r)
-	}
-	return units
-}
-
 func utf16Units(r rune) uint32 {
 	if r >= 0x10000 {
 		return 2
