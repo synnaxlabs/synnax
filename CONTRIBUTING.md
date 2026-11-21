@@ -88,8 +88,8 @@ head gets no second review on one base once one succeeds, and a push that leaves
 diff the same, as a merge of the base does, gets the last review at once. To review that
 head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. To
 make Sedosaur stop reporting a finding, someone with write access replies
-`@sedosaur dismiss` and a reason on its thread. A finding on a file outside the diff
-has no thread: they run
+`@sedosaur dismiss` and a reason on its thread. A finding on a file outside the diff has
+no thread: they run
 `gh workflow run dismiss.sedosaur.yaml -f pr=<number> -f finding='<title>' -f reason='<why>'`,
 with `path:<file>` after the title when two findings share it. Sedosaur resolves the
 thread, later reviews of the PR leave the finding out, and the head scores 5/5 once
