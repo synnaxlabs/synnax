@@ -15,8 +15,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
-  type ReactNode,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -29,6 +27,7 @@ import { useFrequent, useFrequentUpdater } from "@/color/Provider";
 import { Swatches } from "@/color/Swatches";
 import { context } from "@/context";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useDebouncedCallback } from "@/hooks";
@@ -75,14 +74,6 @@ export interface PickerContextValue {
    * palette renders. The slot reads `focused` from `usePalette` and takes the focus.
    */
   focusPalette: (key: string) => void;
-  /**
-   * Shows the view in place of the tabs, under a back button and the title. Back
-   * returns to the tabs as they were, with the focus on the element that opened the
-   * view. The view renders outside every palette, so it cannot call `usePalette`: give
-   * it what it needs, such as a key. A click passes its target as the opener, since a
-   * click in WebKit focuses no button.
-   */
-  openView: (title: string, view: ReactNode, opener?: HTMLElement) => void;
 }
 
 const [PickerContext, usePickerContext] = context.create<PickerContextValue>({
@@ -183,15 +174,6 @@ const Tabbed = ({
   ...rest
 }: TabbedProps): ReactElement => {
   const handleChange = useChangeHandler(onChange);
-  const [view, setView] = useState<View | null>(null);
-  const root = useRef<HTMLDivElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (view != null || opener.current == null) return;
-    if (opener.current.isConnected) opener.current.focus();
-    else root.current?.focus();
-    opener.current = null;
-  }, [view]);
   const frequent = useFrequent();
   const linked = named == null ? undefined : findNamed(palettes, named);
   const [tab, setTab] = useState<Tab>(
@@ -225,64 +207,18 @@ const Tabbed = ({
     },
     clearSearch: () => setSearch(""),
     focusPalette: setFocusedPalette,
-    openView: (title, content, clicked) => {
-      const active = document.activeElement;
-      if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
-      // A click in WebKit leaves the focus on the body or on a focusable box around the
-      // button.
-      else if (clicked != null && active.contains(clicked)) opener.current = clicked;
-      else opener.current = active;
-      setView({ title, content });
-    },
   };
   return (
     <PickerContext value={ctx}>
-      <Flex.Box
-        y
-        gap={0}
+      <Dialog.Views
         className={CSS.cls(
           CSS.B("color-picker"),
           CSS.BM("color-picker", "tabbed"),
-          view != null && CSS.BM("color-picker", "viewing"),
           className,
         )}
         background={1}
-        ref={root}
-        tabIndex={-1}
         {...rest}
       >
-        {view != null && (
-          <>
-            <Flex.Box
-              x
-              align="center"
-              gap="small"
-              className={CSS.cls(
-                CSS.BE("color-picker", "header"),
-                CSS.BE("color-picker", "view-header"),
-              )}
-            >
-              <Button.Button
-                variant="text"
-                size="small"
-                square
-                textColor={9}
-                onClick={() => setView(null)}
-                autoFocus
-                tooltip="Back"
-                aria-label="Back"
-              >
-                <Icon.Arrow.Left />
-              </Button.Button>
-              <Text.Text level="small" weight={500} overflow="fade">
-                {view.title}
-              </Text.Text>
-            </Flex.Box>
-            <Flex.Box y gap="medium" className={CSS.BE("color-picker", "view")}>
-              {view.content}
-            </Flex.Box>
-          </>
-        )}
         <Flex.Box
           x
           align="center"
@@ -369,15 +305,10 @@ const Tabbed = ({
             )}
           </Flex.Box>
         )}
-      </Flex.Box>
+      </Dialog.Views>
     </PickerContext>
   );
 };
-
-interface View {
-  title: string;
-  content: ReactNode;
-}
 
 interface SectionProps extends Omit<Flex.BoxProps, "title"> {
   title: string;

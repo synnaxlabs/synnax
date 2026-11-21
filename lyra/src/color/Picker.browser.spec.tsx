@@ -14,6 +14,7 @@ import { page, userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
@@ -61,26 +62,15 @@ const swatchRect = (i: number): DOMRect =>
     .element()
     .getBoundingClientRect();
 
-const ViewOpener = (): ReactElement => {
-  const { openView } = Color.usePicker();
-  return (
-    <Button.Button
-      onClick={(e) => openView("Edit color", <span>view body</span>, e.currentTarget)}
-    >
-      open
-    </Button.Button>
-  );
-};
-
 const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
-  const { openView } = Color.usePicker();
+  const { open } = Dialog.useViews();
   if (swatch == null) return null;
   return (
     <Menu.Menu>
       <Menu.Item
         itemKey="edit"
-        onClick={() => openView("Edit color", <span>{`editing ${swatch.name}`}</span>)}
+        onClick={() => open("Edit color", <span>{`editing ${swatch.name}`}</span>)}
       >
         Edit
       </Menu.Item>
@@ -109,14 +99,6 @@ describe("Picker", () => {
       expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
     });
 
-    it("should focus a clicked slot button after Back", async () => {
-      await renderLibrary(undefined, <ViewOpener />);
-      const open = page.getByRole("button", { name: "open" });
-      await userEvent.click(open);
-      await userEvent.click(page.getByRole("button", { name: "Back" }));
-      expect(document.activeElement).toBe(open.element());
-    });
-
     it("should focus a right-clicked swatch after an item opens a view and Back", async () => {
       await renderLibrary(undefined, undefined, <SwatchMenu />);
       const swatch = page.getByRole("button", { name: "Color 2", exact: true });
@@ -125,6 +107,16 @@ describe("Picker", () => {
       await expect.element(page.getByText("editing Color 2")).toBeVisible();
       await userEvent.click(page.getByRole("button", { name: "Back" }));
       expect(document.activeElement).toBe(swatch.element());
+    });
+
+    it("should take the width of an open view, not its own", async () => {
+      const picker = await renderLibrary(undefined, undefined, <SwatchMenu />);
+      const swatch = page.getByRole("button", { name: "Color 2", exact: true });
+      await userEvent.click(swatch, { button: "right" });
+      await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
+      await expect.element(page.getByText("editing Color 2")).toBeVisible();
+      picker.style.setProperty("--pluto-dialog-views-width", "300px");
+      expect(picker.getBoundingClientRect().width).toBeCloseTo(300, 0);
     });
 
     it("should draw no focus ring around the picker", async () => {

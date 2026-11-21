@@ -26,6 +26,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Menu } from "@/menu";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
@@ -570,18 +571,19 @@ describe("Picker", () => {
       };
 
       const ViewOpener = (): ReactElement => {
-        const { value, openView } = Color.usePicker();
+        const { value } = Color.usePicker();
+        const { open } = Dialog.useViews();
         return (
-          <button onClick={() => openView("Edit color", <span>view body</span>)}>
+          <button onClick={() => open("Edit color", <span>view body</span>)}>
             {`open from ${color.hex(value)}`}
           </button>
         );
       };
 
       const EditMenu = (): ReactElement => {
-        const { openView } = Color.usePicker();
+        const { open } = Dialog.useViews();
         return (
-          <Menu.Menu onChange={() => openView("Edit color", <span>view body</span>)}>
+          <Menu.Menu onChange={() => open("Edit color", <span>view body</span>)}>
             <Menu.Item itemKey="edit">Edit</Menu.Item>
           </Menu.Menu>
         );
@@ -792,24 +794,6 @@ describe("Picker", () => {
         ).toBe("o");
       });
 
-      it("should show a view in place of the tabs until Back", () => {
-        const c = renderSlots(
-          { named: "ocean", footer: <ViewOpener /> },
-          { value: "#3e8bff" },
-        );
-        const viewing = CSS.BM("color-picker", "viewing");
-        const picker = c
-          .getByRole("group", { name: "Series" })
-          .closest(`.${CSS.BM("color-picker", "tabbed")}`);
-        fireEvent.click(c.getByText("open from #3e8bff"));
-        expect(c.getByText("Edit color")).toBeTruthy();
-        expect(c.getByText("view body")).toBeTruthy();
-        expect(picker?.classList.contains(viewing)).toBe(true);
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(c.queryByText("view body")).toBeNull();
-        expect(picker?.classList.contains(viewing)).toBe(false);
-      });
-
       it("should give a slot the linked color and link the value through the library", () => {
         const onNamedChange = vi.fn();
         const Linker = (): ReactElement => {
@@ -824,41 +808,6 @@ describe("Picker", () => {
         );
         fireEvent.click(c.getByText("linked Ocean"));
         expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
-      });
-
-      it("should focus the picker after Back when the opener is gone", () => {
-        const RemovableOpener = (): ReactElement | null => {
-          const [present, setPresent] = useState(true);
-          const { openView } = Color.usePicker();
-          if (!present) return null;
-          const remove = <button onClick={() => setPresent(false)}>remove</button>;
-          return <button onClick={() => openView("Edit color", remove)}>open</button>;
-        };
-        const c = renderSlots(
-          { named: "ocean", footer: <RemovableOpener /> },
-          { value: "#3e8bff" },
-        );
-        const open = c.getByText("open");
-        open.focus();
-        fireEvent.click(open);
-        fireEvent.click(c.getByText("remove"));
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(document.activeElement).toBe(
-          c.getByRole("group", { name: "Series" }).closest(`.${CSS.B("color-picker")}`),
-        );
-      });
-
-      it("should focus Back in a view, then the opener after Back", () => {
-        const c = renderSlots(
-          { named: "ocean", footer: <ViewOpener /> },
-          { value: "#3e8bff" },
-        );
-        const open = c.getByText("open from #3e8bff");
-        open.focus();
-        fireEvent.click(open);
-        expect(document.activeElement).toBe(c.getByLabelText("Back"));
-        fireEvent.click(c.getByLabelText("Back"));
-        expect(document.activeElement).toBe(open);
       });
 
       it("should focus the swatch after Back from a view its menu opened", () => {

@@ -9,6 +9,7 @@
 
 import type { color } from "@synnaxlabs/client";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -50,13 +51,13 @@ const EditView = ({ itemKey }: EditViewProps): ReactElement => (
  */
 export const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
-  const { openView } = Color.usePicker();
+  const { open } = Dialog.useViews();
   if (swatch == null) return null;
   return (
     <Menu.Menu gap="small">
       <Menu.Item
         itemKey="edit"
-        onClick={() => openView("Edit color", <EditView itemKey={swatch.key} />)}
+        onClick={() => open("Edit color", <EditView itemKey={swatch.key} />)}
       >
         <Icon.Edit />
         Edit
