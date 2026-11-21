@@ -506,7 +506,8 @@ code, `client.icds.check` returns the problems of an ICD.
 
 <Problem.Item message={"default is not valid"}>
   <Problem.Cause>
-    The default of a number field is text that is not a number, or an integer default
+    The default of a number field is text that is not a number of the field's kind, such
+    as `-1` for an unsigned field or `1.5` for an integer field, or an integer default
     that 64 bits cannot hold.
   </Problem.Cause>
   <Problem.Fix>Enter a number, or clear the default.</Problem.Fix>
