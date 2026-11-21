@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact plans each change to channels and folders: every record that the
-// change touches, the picks for each, and the default. It applies a change with the
-// caller's picks.
+// Package impact plans each change to channels and groups: every record that the change
+// touches, the picks for each, and the default. It applies a change with the caller's
+// picks.
 package impact
 
 import (
 	"context"
-	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -34,7 +33,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Group is the service of the folders that a change touches.
+	// Group is the service of the groups that a change touches.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -70,7 +69,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service applies changes to channels and folders.
+// Service applies changes to channels and groups.
 type Service struct{ cfg ServiceConfig }
 
 // OpenService opens a Service from cfgs.
@@ -96,12 +95,10 @@ type ApplyOptions struct {
 // deleted channel. A restrict entry that takes cancel fails Apply with the
 // gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
 // delete, and the holders of that channel take their picks or defaults. A delete pick
-// on
-// another record deletes it through ServiceConfig.Delete before the channels go. A
-// delete of folders deletes as group.Writer.Delete does and plans no entries. A pick
-// for no entry, or one that its entry does not allow, fails with a validation error.
-// Given a
-// gorp.DB, Apply runs in a transaction of its own.
+// on another record deletes it through ServiceConfig.Delete before the channels go. A
+// delete of groups deletes as group.Writer.Delete does and plans no entries. A pick for
+// no entry, or one that its entry does not allow, fails with a validation error. Given
+// a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -118,28 +115,40 @@ func (s *Service) Apply(
 	switch v := c.Variant.(type) {
 	case DeleteChannelsChange:
 		return s.deleteChannels(ctx, tx, v.Keys, opts)
-	case DeleteFoldersChange:
-		return Plan{}, s.deleteFolders(ctx, tx, v.Keys, opts)
+	case DeleteGroupsChange:
+		return Plan{}, s.deleteGroups(ctx, tx, v.Keys, opts)
 	}
-	return Plan{}, errors.Wrap(validate.ErrValidation, "unknown change")
+	// Formatting the variant would make every change escape to the heap.
+	return Plan{}, errors.New("[impact] - unknown change")
 }
 
-// deleteFolders deletes the folders with keys. Its plan has no entries, so every pick
+// deleteGroups deletes the groups with keys. Its plan has no entries, so every pick
 // fails.
-func (s *Service) deleteFolders(
+func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys []group.Key,
 	opts ApplyOptions,
 ) error {
-	if len(opts.Picks) > 0 {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"no entry is %s",
-			slices.Min(slices.Collect(maps.Keys(opts.Picks))),
-		)
+	if err := pickWithoutEntry(opts.Picks, nil); err != nil {
+		return err
 	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
+}
+
+// pickWithoutEntry returns a validation error that names the smallest pick of picks
+// whose record no entry has, or nil when each has one.
+func pickWithoutEntry(picks map[string]Choice, entries set.Set[string]) error {
+	var missing []string
+	for id := range picks {
+		if !entries.Contains(id) {
+			missing = append(missing, id)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return errors.Wrapf(validate.ErrValidation, "no entry is %s", slices.Min(missing))
 }
 
 // deleteChannels deletes the channels with keys, as Apply describes.
@@ -210,14 +219,8 @@ func (s *Service) resolve(
 		earlier = append(earlier, p.Entries...)
 		keys = append(keys, more...)
 	}
-	for id := range picks {
-		if !seen.Contains(id) {
-			return Plan{}, planned{}, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"no entry is %s",
-				id,
-			)
-		}
+	if err := pickWithoutEntry(picks, seen); err != nil {
+		return Plan{}, planned{}, nil, err
 	}
 	applied := Plan{Entries: slices.Clone(p.Entries), Kept: p.Kept}
 	last := set.New[string]()

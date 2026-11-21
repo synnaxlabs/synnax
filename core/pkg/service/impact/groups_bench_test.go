@@ -22,10 +22,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// BenchmarkDeleteFolders measures a folder delete as the route ran it before impact
-// ("today"), and through Apply as the route runs it now ("impact"). Each run rolls
-// back, so the folder stays.
-func BenchmarkDeleteFolders(b *testing.B) {
+// BenchmarkDeleteGroups measures a group delete through group.Writer.Delete ("today")
+// and through Apply ("impact"). Each run rolls back, so the group stays.
+func BenchmarkDeleteGroups(b *testing.B) {
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
@@ -66,7 +65,7 @@ func BenchmarkDeleteFolders(b *testing.B) {
 			_, err := layer.Impact.Apply(
 				ctx,
 				tx,
-				impact.Change{Variant: impact.DeleteFoldersChange{Keys: keys}},
+				impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}},
 				impact.ApplyOptions{},
 			)
 			return err

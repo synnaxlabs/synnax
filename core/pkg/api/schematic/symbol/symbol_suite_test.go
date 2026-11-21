@@ -10,6 +10,7 @@
 package symbol_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -21,20 +22,24 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPISchematicSymbol(t *testing.T) {
@@ -76,8 +81,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -108,8 +113,23 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
 	}))
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
+	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
+		Channel:  channelSvc,
+		Group:    groupSvc,
+		RecordOf: taskconfig.RecordOf,
+		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
+			return errors.New("[symbol suite] - no record to delete")
+		},
+	}))
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
 		Symbol: symbolSvc,
+		Impact: impactSvc,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,
