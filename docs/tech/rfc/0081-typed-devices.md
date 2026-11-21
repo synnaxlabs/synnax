@@ -104,9 +104,11 @@ one shared behavior, and it stays in the status service (§4.2).
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
 - **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, NI-MAX resource name, model, chassis, bus topology.
-- **Configuration group**: The fields a user owns: name, identifier, index channel keys,
-  channel maps, enabled flags, connection settings.
+  serial, NI-MAX resource name, model, chassis, bus topology. On a connected resource,
+  the fields that the connect form owns: rack, name, connection settings.
+- **Configuration group**: The fields a user owns on a discovered resource: name,
+  identifier, index channel keys, channel maps, enabled flags. On a connected resource,
+  the fields that the task forms own: index channel keys and channel maps.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
   discovered resource with an empty identifier is unconfigured.
 - **Scanner**: An integration's scan task in the Driver. It discovers hardware, reports
@@ -125,8 +127,9 @@ one shared behavior, and it stays in the status service (§4.2).
 4. **Repeat, then deduplicate across every resource**: Device services repeat the writer
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
-5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group.
+5. **One writer per field**: The scanner, or the connect form of a connected resource,
+   writes the identity group, and the user writes the configuration group. Neither write
+   path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
