@@ -27,6 +27,15 @@ CSS.applyVars(
 
 // Testing Library unmounts each spec in an afterEach hook, which must run before the
 // pointer reset of setupBrowser. Hooks run last-in first-out, so it loads after.
-const { configure } = await import("@testing-library/react");
-// Waits allow 5 s, as in the jsdom setup.
-configure({ asyncUtilTimeout: 5000 });
+const { configure, prettyDOM } = await import("@testing-library/react");
+configure({
+  // Waits allow 5 s, as in the jsdom setup.
+  asyncUtilTimeout: 5000,
+  // A browser has no DEBUG_PRINT_LIMIT, so a failed query prints the whole page.
+  getElementError: (message, container) => {
+    const dom = prettyDOM(container, Number.POSITIVE_INFINITY);
+    const error = new Error(`${message ?? ""}\n\n${dom === false ? "" : dom}`);
+    error.name = "TestingLibraryElementError";
+    return error;
+  },
+});
