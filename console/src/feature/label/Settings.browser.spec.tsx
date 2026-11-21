@@ -140,12 +140,8 @@ describe("Label.Settings", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create" }));
     });
-    // The optimistic create lists the label in its sorted place until the Core answers.
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole("option").map((o) => o.getAttribute("aria-label")),
-      ).toEqual([created, `${prefix}-a`]),
-    );
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+    expect(optionNames()).toEqual([created, `${prefix}-a`]);
   });
 
   it("should list a new label first before the Core answers", async () => {
