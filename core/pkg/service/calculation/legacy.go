@@ -256,7 +256,9 @@ func (w Writer) applyLegacy(
 	if err != nil {
 		return nil, err
 	}
-	if err = w.Apply(
+	// The reads that Apply adds belong to the calculation, which the old API does not
+	// show.
+	if _, err = w.Apply(
 		ctx,
 		c.Key,
 		NewSetAction(SetPayload{Path: []string{"expression"}, Value: doc.Expression}),

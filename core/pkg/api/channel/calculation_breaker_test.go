@@ -122,7 +122,7 @@ var _ = Describe("Calculation records breaker", func() {
 			edited := fmt.Sprintf("return %s * 5", input.Name)
 			rec := recordsOf(ctx, ch.Key)[0]
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return layer.Calculation.NewWriter(tx).Apply(
+				_, err := layer.Calculation.NewWriter(tx).Apply(
 					ctx,
 					rec.Key,
 					calculation.NewSetAction(calculation.SetPayload{
@@ -130,6 +130,7 @@ var _ = Describe("Calculation records breaker", func() {
 						Value: edited,
 					}),
 				)
+				return err
 			})).To(Succeed())
 			Expect(rename(ctx, ch.Key)).To(Succeed())
 			Expect(recordsOf(ctx, ch.Key)[0].Expression).To(Equal(edited))

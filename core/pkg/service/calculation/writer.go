@@ -173,46 +173,48 @@ func outputError(format string, ch channel.Channel) error {
 // broadcasts them. It returns an error wrapping validate.ErrValidation when an action
 // is a create or the result is not valid, and an error wrapping query.ErrNotFound when
 // no calculation has the key. It fails as compile does, and sets the data type of the
-// output to the type of the expression.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// output to the type of the expression. It returns the actions it adds to acts, such
+// as a set of the reads that the new expression changed.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var c Calculation
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Calculation](key)).
 		Entry(&c).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	next, err := Reduce(c, acts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = next.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	var output channel.Channel
 	if err = w.channels.NewRetrieve().
 		Where(channel.MatchKeys(next.Output)).
 		Entry(&output).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	if err = w.compile(ctx, output, &next); err != nil {
-		return err
+		return nil, err
 	}
 	if err = w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](key)).
 		Change(func(gorp.Context, Calculation) Calculation { return next }).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
+	var computed []Action
 	if !slices.Equal(next.Reads, c.Reads) {
-		acts = append(acts, NewSetAction(SetPayload{
+		computed = append(computed, NewSetAction(SetPayload{
 			Path:  []string{"reads"},
 			Value: next.Reads,
 		}))
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
+	return computed, nil
 }
 
 // compile analyzes c as the calculation that writes output. It returns the analysis
@@ -261,7 +263,7 @@ func (w Writer) compile(
 	}), "operations"); err != nil {
 		return err
 	}
-	c.Reads = slices.Sorted(slices.Values(lo.Uniq(result.Deps)))
+	c.Reads = sortedReads(result.Deps)
 	return nil
 }
 
@@ -339,6 +341,38 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 }
 
 func (w Writer) newAnalyzer() *channel.CalculationAnalyzer { return w.svc.newAnalyzer(w.tx) }
+
+// SetReads stores reads as the reads of c, as a compile found them, and broadcasts a
+// set of them. It writes nothing when c already holds them.
+func (w Writer) SetReads(
+	ctx context.Context,
+	c Calculation,
+	reads []channel.Key,
+) error {
+	reads = sortedReads(reads)
+	if slices.Equal(reads, c.Reads) {
+		return nil
+	}
+	if err := w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
+		Change(func(_ gorp.Context, stored Calculation) Calculation {
+			stored.Reads = reads
+			return stored
+		}).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, c.Key, NewSetAction(SetPayload{
+		Path:  []string{"reads"},
+		Value: reads,
+	}))
+	return nil
+}
+
+// sortedReads returns reads in order, each once, as a record holds them.
+func sortedReads(reads []channel.Key) []channel.Key {
+	return slices.Sorted(slices.Values(lo.Uniq(reads)))
+}
 
 // Delete deletes the calculations with the given keys. A key with no calculation is not
 // an error. The output of each one stays as a channel with no producer.

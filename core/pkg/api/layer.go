@@ -216,7 +216,10 @@ type Transport struct {
 	]
 	CalculationDelete freighter.UnaryServer[calculation.DeleteRequest, struct{}]
 	// CalculationDispatch applies path actions to a calculation.
-	CalculationDispatch freighter.UnaryServer[calculation.DispatchRequest, struct{}]
+	CalculationDispatch freighter.UnaryServer[
+		calculation.DispatchRequest,
+		calculation.DispatchResponse,
+	]
 	// ENUMERATION
 	EnumerationCreate freighter.UnaryServer[
 		enumeration.CreateRequest,

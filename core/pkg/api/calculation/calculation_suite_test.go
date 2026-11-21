@@ -48,7 +48,10 @@ var (
 		apicalculation.CreateResponse,
 	]
 	del      freighter.UnaryHandler[apicalculation.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apicalculation.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[
+		apicalculation.DispatchRequest,
+		apicalculation.DispatchResponse,
+	]
 	retrieve freighter.UnaryHandler[
 		apicalculation.RetrieveRequest,
 		apicalculation.RetrieveResponse,

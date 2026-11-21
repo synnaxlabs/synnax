@@ -506,7 +506,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/calculation/delete",
 		),
-		CalculationDispatch: unary[calculation.DispatchRequest, struct{}](
+		CalculationDispatch: unary[calculation.DispatchRequest, calculation.DispatchResponse](
 			router,
 			"/api/v1/calculation/dispatch",
 		),

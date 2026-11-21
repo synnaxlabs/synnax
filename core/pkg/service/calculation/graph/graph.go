@@ -529,6 +529,17 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 			g.clearNodeStatus(ctx, tx, byOutput[key])
 		}
 	}
+	// The start pass fills the reads of a record that the upgrade or a later rename
+	// left behind.
+	calcWriter := g.calculations.NewWriter(tx)
+	for _, nd := range nextNodes {
+		if nd.invalid {
+			continue
+		}
+		if err := calcWriter.SetReads(ctx, nd.calculation, nd.deps); err != nil {
+			return err
+		}
+	}
 	g.mu.Lock()
 	g.mu.nodes = nextNodes
 	g.mu.dependents = nextDependents

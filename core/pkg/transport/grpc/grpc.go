@@ -234,7 +234,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		calculation.RetrieveResponse,
 	]{}
 	t.CalculationDelete = noop.UnaryServer[calculation.DeleteRequest, struct{}]{}
-	t.CalculationDispatch = noop.UnaryServer[calculation.DispatchRequest, struct{}]{}
+	t.CalculationDispatch = noop.UnaryServer[
+		calculation.DispatchRequest,
+		calculation.DispatchResponse,
+	]{}
 
 	// ENUMERATION
 	t.EnumerationCreate = noop.UnaryServer[

@@ -382,7 +382,7 @@ var _ = Describe("Old API breaker d", func() {
 			c := recordOf(ctx, ch.Key)
 			expression := fmt.Sprintf("return %s * 5", input.Name)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return layer.Calculation.NewWriter(tx).Apply(
+				_, err := layer.Calculation.NewWriter(tx).Apply(
 					ctx,
 					c.Key,
 					calculation.NewSetAction(calculation.SetPayload{
@@ -390,6 +390,7 @@ var _ = Describe("Old API breaker d", func() {
 						Value: expression,
 					}),
 				)
+				return err
 			})).To(Succeed())
 			Expect(retrieveOne(ctx, ch.Key).Expression).To(Equal(expression))
 		})
