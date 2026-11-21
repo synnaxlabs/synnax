@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from typing import Any, assert_type
 from uuid import UUID, uuid4
 
@@ -39,6 +40,27 @@ def _ai_channel(
         name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
     )
     return sy.ni.AIVoltageChannel(port=port, channel=ch.key, device=device)
+
+
+class _Driver:
+    """Runs a fake Driver on a thread. join raises the error that ended the thread, so
+    an assertion in the Driver fails the test."""
+
+    def __init__(self, target: Callable[..., None], *args: object) -> None:
+        self._error: BaseException | None = None
+        self._thread = threading.Thread(target=self._run, args=(target, *args))
+        self._thread.start()
+
+    def _run(self, target: Callable[..., None], *args: object) -> None:
+        try:
+            target(*args)
+        except BaseException as e:
+            self._error = e
+
+    def join(self) -> None:
+        self._thread.join()
+        if self._error is not None:
+            raise self._error
 
 
 def _reply_to_next_command(
@@ -109,8 +131,20 @@ class _ManualTimers:
     def started(self, index: int) -> _ManualTimer:
         """Returns the timer started at the index, once it starts."""
         with self._started:
-            assert self._started.wait_for(lambda: len(self._timers) > index, 30)
+            assert self._started.wait_for(lambda: len(self._timers) > index, 10)
             return self._timers[index]
+
+    @contextmanager
+    def released(self, client: sy.Synnax) -> Generator[None]:
+        """Passes every timer on exit, so a failed Driver does not leave the command
+        waiting."""
+        try:
+            yield
+        finally:
+            with self._started:
+                for timer in self._timers:
+                    timer.passed = True
+            _wake(client)
 
 
 def _wake(client: sy.Synnax) -> None:
@@ -359,8 +393,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         ev.wait()
         tsk.execute_command_sync("test", args={"key": "value"})
@@ -418,8 +451,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         timer = sy.Timer()
         with pytest.raises(RuntimeError) as err:
@@ -466,8 +498,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         status = tsk.execute_command_sync("test", timeout=60)
         assert status.message == "Command executed."
@@ -502,8 +533,7 @@ class TestTaskClient:
                     sy.sleep(2)
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         status = tsk.execute_command_sync("start", timeout=1)
         assert status.variant == sy.status.VARIANT_SUCCESS
@@ -518,11 +548,14 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_ERROR, "Failed", "slave 1 refused"),
+        t = _Driver(
+            _reply_to_next_command,
+            client,
+            ready,
+            sy.status.VARIANT_ERROR,
+            "Failed",
+            "slave 1 refused",
         )
-        t.start()
         ready.wait()
         with pytest.raises(RuntimeError) as err:
             tsk.start(timeout=5)
@@ -538,11 +571,14 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert")
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_ERROR, "Failed to read data", ""),
+        t = _Driver(
+            _reply_to_next_command,
+            client,
+            ready,
+            sy.status.VARIANT_ERROR,
+            "Failed to read data",
+            "",
         )
-        t.start()
         ready.wait()
         tsk.stop(timeout=5)
         t.join()
@@ -556,11 +592,9 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_SUCCESS, "Done", ""),
+        t = _Driver(
+            _reply_to_next_command, client, ready, sy.status.VARIANT_SUCCESS, "Done", ""
         )
-        t.start()
         ready.wait()
         getattr(tsk, command)(timeout=5)
         t.join()
@@ -582,14 +616,11 @@ class TestTaskClient:
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
-                final = timers.started(1)
-                assert final.span == 2 * sy.TimeSpan.MINUTE
-                final.passed = True
-                _wake(client)
+                with timers.released(client):
+                    assert timers.started(1).span == 2 * sy.TimeSpan.MINUTE
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         with pytest.raises(TimeoutError) as err:
             tsk.execute_command_sync("start", timeout=5, timer=timers)
@@ -612,16 +643,16 @@ class TestTaskClient:
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
-                first = timers.started(1)
-                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
-                timers.started(2)
-                first.passed = True
-                _wake(client)
-                _set_reply(client, cmd, sy.status.VARIANT_SUCCESS)
+                with timers.released(client):
+                    first = timers.started(1)
+                    _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                    timers.started(2)
+                    first.passed = True
+                    _wake(client)
+                    _set_reply(client, cmd, sy.status.VARIANT_SUCCESS)
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         status = tsk.execute_command_sync("start", timeout=5, timer=timers)
         assert status.variant == sy.status.VARIANT_SUCCESS
