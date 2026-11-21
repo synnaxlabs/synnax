@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import type { deep } from "@synnaxlabs/x";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Task } from "@/platform/task";
 
@@ -46,7 +46,7 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const holding = held?.at === at;
   const shown: Range = holding ? held : { minVal, maxVal };
 
-  Task.useFlushFirst(useCallback(async () => !holding, [holding]));
+  Task.useFlushFirst(async () => !holding);
 
   useEffect(() => {
     if (!holding) return;
