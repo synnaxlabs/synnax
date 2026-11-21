@@ -810,7 +810,12 @@ describe("wrapForm", () => {
       expect(onConfigure).not.toHaveBeenCalled();
     });
 
-    it("should start again after a start that got no response", async () => {
+    it("should start again after a start that got no response", async ({ signal }) => {
+      // Vitest goes on to the next spec while a timed-out body keeps running, so the
+      // restore registers first and the body stops before it would fake the clock.
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
       const client = createTestClient();
       const running = await client.racks.create({ name: uniqueName("rack") });
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: running.key });
@@ -841,12 +846,14 @@ describe("wrapForm", () => {
           throw new Error("start button is disabled");
         return b;
       });
+      // The command wait starts on real timers, so it still times out by itself.
+      const sent = awaitCommand(streamer, draft.key);
+      if (signal.aborted) return;
       // Only the start's reply timer runs on the fake clock. vi.waitFor moves the
       // clock with each check, so no wait depends on how fast a busy runner ticks.
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-      onTestFinished(() => vi.useRealTimers());
       await act(async () => fireEvent.click(start));
-      await awaitCommand(streamer, draft.key);
+      await sent;
       await vi.waitFor(() => screen.getByText("Sending start command"), {
         timeout: getConfig().asyncUtilTimeout,
       });
