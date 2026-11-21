@@ -11,15 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, override as _override
+from typing import TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel as channel_, rack as rack_, status as status_
-from synnax.ethercat import master as master_
+from synnax.ethercat import master as master_, types_gen
 from synnax.resource import ID
-from x import telem
+from x import filter, telem
 
 Key: TypeAlias = UUID
 
@@ -61,21 +61,7 @@ class ReadBinding(BaseModel):
     sub_index: int = Field(ge=0, le=255)
     scaled: bool = False
     calibrated: bool = False
-    channel: channel_.Key = Field(gt=0, le=4294967295)
-
-
-class StartupParameterBase(BaseModel):
-    """Carries the fields that every startup parameter shares.
-
-    Attributes:
-        index: Is the CoE object dictionary index of the object.
-        sub_index: Is the CoE object dictionary sub-index of the object.
-        name: Is what the parameter sets, for display.
-    """
-
-    index: int = Field(ge=0, le=65535)
-    sub_index: int = Field(ge=0, le=255)
-    name: str = ""
+    channel: channel_.Key = Field(ge=0, le=4294967295)
 
 
 class WriteBinding(BaseModel):
@@ -84,13 +70,13 @@ class WriteBinding(BaseModel):
     Attributes:
         index: Is the CoE object dictionary index of the output entry.
         sub_index: Is the CoE object dictionary sub-index of the output entry.
-        command: Is the channel that commands the entry.
+        command: Is the channel that commands the entry. 0 is no channel.
         state: Is the channel that holds the state of the entry. 0 is no channel.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    command: channel_.Key = Field(gt=0, le=4294967295)
+    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
 
@@ -106,6 +92,66 @@ class StatusDetails(BaseModel):
     slave: Key
 
 
+class Where(BaseModel):
+    """Is a filter that selects EtherCAT slaves.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        serial: Selects by serial.
+        vendor_id: Selects by vendor_id.
+        product_code: Selects by product_code.
+        master: Selects by master.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    serial: filter.Ordered[int] | None = None
+    vendor_id: filter.Ordered[int] | None = None
+    product_code: filter.Ordered[int] | None = None
+    master: filter.Set[master_.Key] | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "serial": filter.OrderedInput[int],
+        "vendor_id": filter.OrderedInput[int],
+        "product_code": filter.OrderedInput[int],
+        "master": filter.SetInput[master_.Key],
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of slaves: the sort value and the key of a slave.
+
+    Attributes:
+        key: Is the key of the slave at the position.
+    """
+
+    key: Key
+
+
 class PDOs(BaseModel):
     """Holds the PDO entries of a slave.
 
@@ -118,94 +164,27 @@ class PDOs(BaseModel):
     outputs: list[PDOEntry] = Field(default_factory=list)
 
 
-class Int8StartupParameter(StartupParameterBase):
-    """Writes a int8 value."""
-
-    data_type: Literal["int8"] = "int8"
-    value: int = Field(ge=-128, le=127)
-
-
-class Int16StartupParameter(StartupParameterBase):
-    """Writes a int16 value."""
-
-    data_type: Literal["int16"] = "int16"
-    value: int = Field(ge=-32768, le=32767)
-
-
-class Int32StartupParameter(StartupParameterBase):
-    """Writes a int32 value."""
-
-    data_type: Literal["int32"] = "int32"
-    value: int = Field(ge=-2147483648, le=2147483647)
-
-
-class Int64StartupParameter(StartupParameterBase):
-    """Writes a int64 value."""
-
-    data_type: Literal["int64"] = "int64"
-    value: int = Field(ge=-9223372036854775808, le=9223372036854775807)
-
-
-class Uint8StartupParameter(StartupParameterBase):
-    """Writes a uint8 value."""
-
-    data_type: Literal["uint8"] = "uint8"
-    value: int = Field(ge=0, le=255)
-
-
-class Uint16StartupParameter(StartupParameterBase):
-    """Writes a uint16 value."""
-
-    data_type: Literal["uint16"] = "uint16"
-    value: int = Field(ge=0, le=65535)
-
-
-class Uint32StartupParameter(StartupParameterBase):
-    """Writes a uint32 value."""
-
-    data_type: Literal["uint32"] = "uint32"
-    value: int = Field(ge=0, le=4294967295)
-
-
-class Uint64StartupParameter(StartupParameterBase):
-    """Writes a uint64 value."""
-
-    data_type: Literal["uint64"] = "uint64"
-    value: int = Field(ge=0, le=18446744073709551615)
-
-
-class Float32StartupParameter(StartupParameterBase):
-    """Writes a float32 value."""
-
-    data_type: Literal["float32"] = "float32"
-    value: float
-
-
-class Float64StartupParameter(StartupParameterBase):
-    """Writes a float64 value."""
-
-    data_type: Literal["float64"] = "float64"
-    value: float
-
-
-# Is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
-# moves to SAFE-OP. Its data type sets the size of the write and the type of its
-# value.
-StartupParameter = Annotated[
-    Int8StartupParameter
-    | Int16StartupParameter
-    | Int32StartupParameter
-    | Int64StartupParameter
-    | Uint8StartupParameter
-    | Uint16StartupParameter
-    | Uint32StartupParameter
-    | Uint64StartupParameter
-    | Float32StartupParameter
-    | Float64StartupParameter,
-    Field(discriminator="data_type"),
-]
-
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve slaves.
+
+    Attributes:
+        where: Selects the slaves to retrieve. An absent where selects all of them.
+        search_term: Keeps the slaves that match the term, closest match first.
+        after: Starts the slaves strictly past this position in their order.
+        limit: Is the most slaves to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class Slave(BaseModel):
@@ -245,7 +224,7 @@ class Slave(BaseModel):
     pdos: PDOs = Field(default_factory=lambda: PDOs())
     identifier: str = ""
     disabled: bool = False
-    startup_parameters: list[StartupParameter] = Field(default_factory=list)
+    startup_parameters: list[types_gen.StartupParameter] = Field(default_factory=list)
     read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     write_state_index: channel_.Key = Field(
         default=channel_.Key(0), ge=0, le=4294967295
@@ -257,6 +236,19 @@ class Slave(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the slaves a RetrieveRequest selects.
+
+    Attributes:
+        slaves: Are the slaves the request selects.
+    """
+
+    slaves: list[Slave] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="ethercat_slave")

@@ -14,15 +14,19 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <variant>
+#include <utility>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ethercat/master/types.gen.h"
+#include "client/cpp/ethercat/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -30,11 +34,14 @@ namespace synnax::ethercat::slave {
 
 struct PDOEntry;
 struct ReadBinding;
-struct StartupParameterBase;
 struct WriteBinding;
 struct StatusDetails;
+struct Where;
+struct Cursor;
 struct PDOs;
+struct RetrieveRequest;
 struct Slave;
+struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
 
@@ -77,27 +84,14 @@ struct ReadBinding {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief StartupParameterBase carries the fields that every startup parameter shares.
-struct StartupParameterBase {
-    /// @brief index is the CoE object dictionary index of the object.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the object.
-    std::uint8_t sub_index = 0;
-    /// @brief name is what the parameter sets, for display.
-    std::string name = "";
-
-    static StartupParameterBase parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief WriteBinding is the pair of channels that a slave maps for one output entry.
 struct WriteBinding {
     /// @brief index is the CoE object dictionary index of the output entry.
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the output entry.
     std::uint8_t sub_index = 0;
-    /// @brief command is the channel that commands the entry.
-    ::synnax::channel::Key command = 0;
+    /// @brief command is the channel that commands the entry. 0 is no channel.
+    ::synnax::channel::Key command = ::synnax::channel::Key(0);
     /// @brief state is the channel that holds the state of the entry. 0 is no channel.
     ::synnax::channel::Key state = ::synnax::channel::Key(0);
 
@@ -116,6 +110,68 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Where is a filter that selects EtherCAT slaves.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief serial selects by serial.
+    ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> serial;
+    /// @brief vendor_id selects by vendor_id.
+    ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> vendor_id;
+    /// @brief product_code selects by product_code.
+    ::x::filter::Field<::x::filter::Ordered<std::uint32_t>> product_code;
+    /// @brief master selects by master.
+    ::x::filter::Field<::x::filter::Set<::synnax::ethercat::master::Key>> master;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Cursor is a position in an order of slaves: the sort value and the key of a
+/// slave.
+struct Cursor {
+    /// @brief key is the key of the slave at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief PDOs holds the PDO entries of a slave.
 struct PDOs {
     /// @brief inputs are the entries that the slave sends.
@@ -127,133 +183,48 @@ struct PDOs {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Int8StartupParameter writes a int8 value.
-struct Int8StartupParameter : public StartupParameterBase {
-    std::string data_type = "int8";
-    /// @brief value is the value written to the object.
-    std::int8_t value = 0;
-
-    static Int8StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int16StartupParameter writes a int16 value.
-struct Int16StartupParameter : public StartupParameterBase {
-    std::string data_type = "int16";
-    /// @brief value is the value written to the object.
-    std::int16_t value = 0;
-
-    static Int16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int32StartupParameter writes a int32 value.
-struct Int32StartupParameter : public StartupParameterBase {
-    std::string data_type = "int32";
-    /// @brief value is the value written to the object.
-    std::int32_t value = 0;
-
-    static Int32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Int64StartupParameter writes a int64 value.
-struct Int64StartupParameter : public StartupParameterBase {
-    std::string data_type = "int64";
-    /// @brief value is the value written to the object.
-    std::int64_t value = 0;
-
-    static Int64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint8StartupParameter writes a uint8 value.
-struct Uint8StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint8";
-    /// @brief value is the value written to the object.
-    std::uint8_t value = 0;
-
-    static Uint8StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint16StartupParameter writes a uint16 value.
-struct Uint16StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint16";
-    /// @brief value is the value written to the object.
-    std::uint16_t value = 0;
-
-    static Uint16StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint32StartupParameter writes a uint32 value.
-struct Uint32StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint32";
-    /// @brief value is the value written to the object.
-    std::uint32_t value = 0;
-
-    static Uint32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Uint64StartupParameter writes a uint64 value.
-struct Uint64StartupParameter : public StartupParameterBase {
-    std::string data_type = "uint64";
-    /// @brief value is the value written to the object.
-    std::uint64_t value = 0;
-
-    static Uint64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float32StartupParameter writes a float32 value.
-struct Float32StartupParameter : public StartupParameterBase {
-    std::string data_type = "float32";
-    /// @brief value is the value written to the object.
-    float value = 0;
-
-    static Float32StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Float64StartupParameter writes a float64 value.
-struct Float64StartupParameter : public StartupParameterBase {
-    std::string data_type = "float64";
-    /// @brief value is the value written to the object.
-    double value = 0;
-
-    static Float64StartupParameter parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP,
-/// before the slave moves to SAFE-OP. Its data type sets the size of the write and the
-/// type of its value.
-using StartupParameter = std::variant<
-    Int8StartupParameter,
-    Int16StartupParameter,
-    Int32StartupParameter,
-    Int64StartupParameter,
-    Uint8StartupParameter,
-    Uint16StartupParameter,
-    Uint32StartupParameter,
-    Uint64StartupParameter,
-    Float32StartupParameter,
-    Float64StartupParameter>;
-
-StartupParameter parse_startup_parameter(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const StartupParameter &value);
-
-/// @brief returns the fields every variant of the union shares.
-[[nodiscard]] inline const StartupParameterBase &base(const StartupParameter &value) {
-    return std::visit(
-        [](const auto &v) -> const StartupParameterBase & { return v; },
-        value
-    );
-}
-
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the slaves that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the slaves strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most slaves to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve slaves.
+struct RetrieveRequest {
+    /// @brief where selects the slaves to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the slaves that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the slaves strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most slaves to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Slave is an EtherCAT slave: one module on the bus of a master.
 struct Slave {
@@ -282,7 +253,7 @@ struct Slave {
     bool disabled = false;
     /// @brief startup_parameters are the CoE objects the Driver writes to the slave in
     /// PRE-OP.
-    std::vector<StartupParameter> startup_parameters = {};
+    std::vector<::synnax::ethercat::StartupParameter> startup_parameters = {};
     /// @brief read_index is the index channel of the channels that the slave reads
     /// into.
     ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
@@ -297,6 +268,15 @@ struct Slave {
     std::optional<Status> status;
 
     static Slave parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RetrieveResponse holds the slaves a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief slaves are the slaves the request selects.
+    std::vector<Slave> slaves;
+
+    static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
+	ethercatslave "github.com/synnaxlabs/synnax/pkg/api/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -279,6 +280,9 @@ type Transport struct {
 	// OPC UA SERVER
 	OPCUAServerRetrieve    freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	EtherCATMasterRetrieve freighter.UnaryServer[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse]
+
+	// ETHERCAT SLAVE
+	EtherCATSlaveRetrieve freighter.UnaryServer[ethercatslave.RetrieveRequest, ethercatslave.RetrieveResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -380,6 +384,7 @@ type Layer struct {
 	NIChassis      *nichassis.Service
 	OPCUAServer    *server.Service
 	EtherCATMaster *ethercatmaster.Service
+	EtherCATSlave  *ethercatslave.Service
 	Policy         *policy.Service
 	Role           *role.Service
 	Arc            *arc.Service
@@ -612,6 +617,9 @@ func (l *Layer) BindTo(t Transport) {
 
 		// OPC UA SERVER
 		t.OPCUAServerRetrieve,
+
+		// ETHERCAT SLAVE
+		t.EtherCATSlaveRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -914,6 +922,9 @@ func (l *Layer) BindTo(t Transport) {
 	// OPC UA SERVER
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
 
+	// ETHERCAT SLAVE
+	t.EtherCATSlaveRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATSlave.Retrieve))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -1180,6 +1191,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.EtherCATMaster, err = ethercatmaster.NewService(ethercatmaster.ServiceConfig{
 		Master: cfg.Service.EtherCAT.Masters,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.EtherCATSlave, err = ethercatslave.NewService(ethercatslave.ServiceConfig{
+		Slave:  cfg.Service.EtherCAT.Slaves,
 		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
