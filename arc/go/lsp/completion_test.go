@@ -899,6 +899,30 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	It("should filter out an already-listed dashed channel", func(ctx SpecContext) {
+		channels := []symbol.Symbol{{
+			Name: "vent-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   1,
+		}, {
+			Name: "press-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   2,
+		}}
+		server = MustSucceed(lsp.New(lsp.Config{
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			AllowDashedNames: true,
+		}))
+		server.SetClient(&MockClient{})
+		content := "authority (\n    200\n    vent-1 100\n    \n)"
+		OpenArcDocument(server, ctx, docURI, content)
+		completions := Completion(server, ctx, docURI, 3, 4)
+		Expect(HasCompletion(completions.Items, "vent-1")).To(BeFalse())
+		Expect(HasCompletion(completions.Items, "press-1")).To(BeTrue())
+	})
+
 	Describe("Loop Keyword Completion", func() {
 		It(
 			"should show for keyword at statement start inside func body",
