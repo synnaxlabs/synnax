@@ -136,11 +136,8 @@ func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
 	return findScopeAt(d.IR.Symbols, d.isBlock(), newLineText(d.Content).fromUTF16(pos))
 }
 
-// findScopeAt is the snapshot-friendly form of (*Document).findScopeAtPosition:
-// it operates on a symbol tree and isBlock flag passed in by the caller so
-// handlers can snapshot doc fields under the server lock and then resolve a
-// scope without touching the live Document. The column of pos counts code points, as
-// token columns do.
+// findScopeAt returns the scope of symbols at pos, whose column counts code points as
+// token columns do. isBlock reports that symbols come from the body of a function.
 func findScopeAt(
 	symbols *symbol.Symbol,
 	isBlock bool,
@@ -234,10 +231,11 @@ func placeholderChannelNameAt(
 	return parser.Name{}, protocol.Range{}, false
 }
 
-// holds reports whether the one-line range r holds pos.
+// holds reports whether the one-line range r holds pos, its end included, as a word
+// lookup does.
 func holds(r protocol.Range, pos protocol.Position) bool {
 	return pos.Line == r.Start.Line && pos.Character >= r.Start.Character &&
-		pos.Character < r.End.Character
+		pos.Character <= r.End.Character
 }
 
 // tokenRange returns the range of a token that spans one line, with columns in code

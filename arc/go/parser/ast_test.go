@@ -513,6 +513,33 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
+	Describe("ChannelText", func() {
+		free := func(string) bool { return false }
+		DescribeTable(
+			"Should write an identifier that nothing else holds bare",
+			func(name string) { Expect(parser.ChannelText(name, free)).To(Equal(name)) },
+			Entry("lower case", "pressure"),
+			Entry("with digits and underscores", "pt_01"),
+		)
+		DescribeTable("Should quote a name that is no identifier",
+			func(name, want string) {
+				Expect(parser.ChannelText(name, free)).To(Equal(want))
+			},
+			Entry("a space", "Stand A", "'Stand A'"),
+			Entry("a dash", "pt-01", "'pt-01'"),
+			Entry("a path", "rig.pt", "'rig.pt'"),
+			Entry("a keyword", "func", "'func'"),
+			Entry("a literal", "true", "'true'"),
+			Entry("a type name", "f64", "'f64'"),
+			Entry("a quote", "it's", `'it\'s'`),
+		)
+		It("Should quote an identifier that another symbol holds", func() {
+			taken := func(name string) bool { return name == "count" }
+			Expect(parser.ChannelText("count", taken)).To(Equal("'count'"))
+			Expect(parser.ChannelText("other", taken)).To(Equal("other"))
+		})
+	})
+
 	Describe("AssignmentName", func() {
 		assignmentOf := func(code string) parser.IAssignmentContext {
 			GinkgoHelper()

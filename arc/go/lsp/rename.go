@@ -12,10 +12,14 @@ package lsp
 import (
 	"context"
 
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 	"go.uber.org/zap"
@@ -64,8 +68,8 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
-	if _, r, quoted := channelNameAt(doc.displayContent(), params.Position); quoted {
-		return &r, nil
+	if n, r, quoted := channelNameAt(doc.displayContent(), params.Position); quoted {
+		return &protocol.PrepareRenamePlaceholder{Range: r, Placeholder: n.Head}, nil
 	}
 	if r := doc.getWordRangeAtPosition(params.Position); r != nil {
 		return r, nil
@@ -87,14 +91,17 @@ func (s *Server) Rename(
 	}
 	s.logUnexpectedSymbolError(targetSym, err)
 	// Only a channel has a quoted form, so any other symbol takes a bare identifier.
-	if targetSym.Kind != symbol.KindChannel && !isIdentifier(params.NewName) {
-		return nil, errors.Newf("'%s' is not a valid name", params.NewName)
+	if targetSym.Kind != symbol.KindChannel && !parser.IsIdentifier(params.NewName) {
+		return nil, validate.Errorf("'%s' is not a valid name", params.NewName)
 	}
 	// Reference matching for global symbols (no AST) re-resolves each identifier
 	// through GlobalResolver, so it must run before OnRename — otherwise an
 	// OnRename that renames the backing resource (e.g., a Synnax channel) makes
 	// the old name unresolvable and renameTextEdits returns nothing.
-	edits := s.renameTextEdits(ctx, doc, targetSym, params.NewName)
+	edits, err := s.renameTextEdits(ctx, doc, targetSym, params.NewName)
+	if err != nil {
+		return nil, err
+	}
 	if len(edits) == 0 {
 		return nil, nil
 	}
@@ -115,45 +122,57 @@ func (s *Server) Rename(
 	}, nil
 }
 
-// renameTextEdits walks every identifier and quoted channel name token in doc,
-// including those in format string placeholders, keeps the ones that resolve to the
-// same symbol as targetSym, and emits a TextEdit per occurrence that replaces the token
-// with newName, quoted for a quoted token. Edit ranges are in UTF-16 units.
+// renameTextEdits returns an edit for each token in doc, placeholders included, that
+// names targetSym, writing newName in the token's form: a quoted token stays quoted,
+// and a bare one stays bare when parser.ChannelText allows it. For a channel, only the
+// tokens where a channel can be named count. Ranges are in UTF-16 units. It returns a
+// validation error when newName cannot stand at some token.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
 	doc *document,
 	targetSym *symbol.Symbol,
 	newName string,
-) []protocol.TextEdit {
+) ([]protocol.TextEdit, error) {
 	if doc.IR.Symbols == nil || targetSym == nil {
-		return nil
+		return nil, nil
 	}
-	lines := newLineText(doc.Content)
-	var edits []protocol.TextEdit
-	rename := func(n parser.Name, r protocol.Range) {
+	var (
+		channel = targetSym.Kind == symbol.KindChannel
+		cfg     = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+		lines   = newLineText(doc.Content)
+		edits   []protocol.TextEdit
+	)
+	// text returns what replaces the token that holds n at r, and false when the token
+	// does not name targetSym.
+	text := func(n parser.Name, r protocol.Range) (string, bool, error) {
 		if n.Head == "" || n.Head != targetSym.Name {
-			return
+			return "", false, nil
 		}
 		scope := findScopeAt(doc.IR.Symbols, doc.isBlock(), r.Start)
 		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
 		if !isRenameable(sym, err) {
-			return
+			return "", false, nil
 		}
 		s.logUnexpectedSymbolError(sym, err)
 		if !sameSymbol(sym, targetSym) {
-			return
+			return "", false, nil
 		}
-		text := newName
-		if n.Quoted ||
-			targetSym.Kind == symbol.KindChannel &&
-				!bareFits(ctx, scope, newName, targetSym) {
-			text = parser.QuoteChannelName(newName)
+		taken := s.taken(ctx, scope, targetSym)
+		switch {
+		case !channel && taken(newName):
+			return "", false, validate.Errorf(
+				"'%s' already names another symbol where '%s' is used",
+				newName,
+				targetSym.Name,
+			)
+		case !channel:
+			return newName, true, nil
+		case n.Quoted:
+			return parser.QuoteChannelName(newName), true, nil
 		}
-		edits = append(
-			edits,
-			protocol.TextEdit{Range: lines.rangeToUTF16(r), NewText: text},
-		)
+		return parser.ChannelText(newName, taken), true, nil
 	}
+	sites := channelSites(doc.Content, doc.isBlock(), cfg)
 	for _, t := range tokenizeContent(doc.Content) {
 		switch t.GetTokenType() {
 		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
@@ -166,60 +185,150 @@ func (s *Server) renameTextEdits(
 					continue
 				}
 				inner, spans := f.innerTokens(seg)
+				innerSites := expressionSites(seg.Text, cfg)
 				for i, it := range inner {
-					rename(
-						parser.TokenName(it),
-						protocol.Range{
-							Start: f.at[spans[i][0]],
-							End:   f.at[spans[i][1]],
+					if channel && !innerSites.Contains(it.GetStart()) {
+						continue
+					}
+					r := protocol.Range{
+						Start: f.at[spans[i][0]],
+						End:   f.at[spans[i][1]],
+					}
+					newText, ok, err := text(parser.TokenName(it), r)
+					if err != nil {
+						return nil, err
+					}
+					if !ok {
+						continue
+					}
+					escaped, fits := literal.Escape(newText, f.flags)
+					if !fits {
+						return nil, validate.Errorf(
+							"a raw string cannot hold %s",
+							newText,
+						)
+					}
+					edits = append(
+						edits,
+						protocol.TextEdit{
+							Range:   lines.rangeToUTF16(r),
+							NewText: escaped,
 						},
 					)
 				}
 			}
 		default:
-			rename(parser.TokenName(t), tokenRange(t))
+			if channel && !sites.Contains(t.GetStart()) {
+				continue
+			}
+			r := tokenRange(t)
+			newText, ok, err := text(parser.TokenName(t), r)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				edits = append(
+					edits,
+					protocol.TextEdit{Range: lines.rangeToUTF16(r), NewText: newText},
+				)
+			}
 		}
 	}
-	return edits
+	return edits, nil
 }
 
 // sameSymbol reports whether sym is target. Source-defined symbols match by AST
-// identity. Global symbols, such as channels, have no AST and match by kind, since
-// every in-scope reference to one name resolves to the same global symbol.
+// identity, and global symbols, such as channels, by kind and ID.
 func sameSymbol(sym, target *symbol.Symbol) bool {
 	if target.AST != nil {
 		return sym.AST == target.AST
 	}
-	return sym.Kind == target.Kind && sym.AST == nil
+	return sym.AST == nil && sym.Kind == target.Kind && sym.ID == target.ID
 }
 
-// bareFits reports whether a bare reference to target can take the name newName in
-// scope: newName lexes as one identifier, and no other symbol in scope holds it, so the
-// reference keeps resolving to target.
-func bareFits(
+// taken returns whether a symbol other than target holds a name in scope. A failed
+// lookup counts as taken, so the name is quoted or refused.
+func (s *Server) taken(
 	ctx context.Context,
 	scope *symbol.Symbol,
-	newName string,
 	target *symbol.Symbol,
-) bool {
-	if !isIdentifier(newName) {
-		return false
+) func(string) bool {
+	return func(name string) bool {
+		sym, err := scope.ResolveName(
+			ctx,
+			parser.Name{Head: name},
+			symbol.WithoutUsageTracking,
+		)
+		if symbol.IsUndefined(err) {
+			return false
+		}
+		if err != nil {
+			s.cfg.L.Warn(
+				"failed to resolve a name for a rename",
+				zap.String("name", name),
+				zap.Error(err),
+			)
+			return true
+		}
+		return !sameSymbol(sym, target)
 	}
-	sym, err := scope.ResolveName(
-		ctx,
-		parser.Name{Head: newName},
-		symbol.WithoutUsageTracking,
-	)
-	if _, undefined := errors.AsType[*symbol.UndefinedSymbolError](err); undefined {
-		return true
-	}
-	return errors.Is(err, query.ErrNotFound) || err == nil && sameSymbol(sym, target)
 }
 
-// isIdentifier reports whether name lexes as one identifier, and not as a keyword.
-func isIdentifier(name string) bool {
-	tokens := tokenizeContent(name)
-	return len(tokens) == 1 &&
-		tokens[0].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		tokens[0].GetText() == name
+// channelSites returns the start of each token of content where a channel can be
+// named, in code points. block parses content as the body of a function.
+func channelSites(content string, block bool, cfg parser.Config) set.Set[int] {
+	if !block {
+		tree, _ := parser.Parse(content, cfg)
+		return sitesOf(tree, 0)
+	}
+	tree, _ := parser.ParseBlock("{"+content+"}", cfg)
+	return sitesOf(tree, 1)
+}
+
+// expressionSites returns the start of each token of the expression source where a
+// channel can be named, in code points.
+func expressionSites(source string, cfg parser.Config) set.Set[int] {
+	tree, _ := parser.ParseExpression(source, cfg)
+	return sitesOf(tree, 0)
+}
+
+// sitesOf returns the start, less shift, of each token of tree where a channel can be
+// named: a primary expression, a flow identifier, an assignment target, or an
+// authority entry.
+func sitesOf(tree antlr.ParseTree, shift int) set.Set[int] {
+	l := &siteListener{sites: make(set.Set[int]), shift: shift}
+	if tree != nil {
+		antlr.ParseTreeWalkerDefault.Walk(l, tree)
+	}
+	return l.sites
+}
+
+type siteListener struct {
+	parser.BaseArcParserListener
+	sites set.Set[int]
+	shift int
+}
+
+func (l *siteListener) add(nodes ...antlr.TerminalNode) {
+	for _, n := range nodes {
+		if n != nil {
+			l.sites.Add(n.GetSymbol().GetStart() - l.shift)
+		}
+	}
+}
+
+func (l *siteListener) EnterPrimaryExpression(c *parser.PrimaryExpressionContext) {
+	l.add(c.IDENTIFIER(), c.CHANNEL_NAME())
+}
+
+func (l *siteListener) EnterIdentifier(c *parser.IdentifierContext) {
+	l.add(c.IDENTIFIER(), c.CHANNEL_NAME())
+}
+
+func (l *siteListener) EnterAssignment(c *parser.AssignmentContext) {
+	l.add(c.IDENTIFIER(), c.CHANNEL_NAME())
+}
+
+func (l *siteListener) EnterAuthorityEntry(c *parser.AuthorityEntryContext) {
+	l.add(c.IDENTIFIER(), c.CHANNEL_NAME())
 }

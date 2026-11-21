@@ -75,8 +75,7 @@ var _ = Describe("Rename breaker", func() {
 			NewName:      newName,
 		}))
 	}
-	// apply writes edits into content, with positions counted in code points as the
-	// server counts them.
+	// apply writes edits into content, which holds only ASCII.
 	apply := func(content string, edits []protocol.TextEdit) string {
 		lines := strings.Split(content, "\n")
 		sorted := slices.Clone(edits)
