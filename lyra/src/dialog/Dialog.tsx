@@ -21,7 +21,6 @@ import {
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { SURFACE_CLASS, useContext, useInternalContext } from "@/dialog/Frame";
 import { trapTab } from "@/dialog/tabOrder";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
@@ -30,6 +29,9 @@ import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
 import { Portal } from "@/portal";
 import { getRootElement } from "@/util/rootElement";
+
+/** The class of the native modal dialog around a modal surface. */
+const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
 
 /** Whether the nearest dialog around the element is a modal. */
 export const inModal = (el: Element): boolean =>
