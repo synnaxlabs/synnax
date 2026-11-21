@@ -150,4 +150,40 @@ var _ = Describe("One clock handoff check", func() {
 		Expect(stored(ctx, telem.TimeRangeMax)).
 			To(Equal([]int64{10, 11, 12, 13, 14, 30, 31}))
 	})
+
+	DescribeTable(
+		"Should refuse the commit of samples that a handoff dropped after the clock "+
+			"comes back",
+		func(ctx SpecContext, giveBack func(*storageWriter) error) {
+			a := open(ctx, storageConfig{
+				ControlSubject: control.Subject{Key: "a"},
+				Channels:       keys,
+				Start:          10 * telem.SecondTS,
+				Authorities:    []control.Authority{100},
+			})
+			MustSucceed(a.Write(ctx, fr(10, 11)))
+			b := MustSucceed(db.OpenWriter(ctx, storageConfig{
+				ControlSubject: control.Subject{Key: "b"},
+				Channels:       keys,
+				Start:          20 * telem.SecondTS,
+				Authorities:    []control.Authority{200},
+			}))
+			Expect(giveBack(b)).To(Succeed())
+			end, err := a.Commit(ctx)
+			Expect(stored(ctx, telem.TimeRangeMax)).To(BeEmpty())
+			Expect(err).To(
+				MatchError(control.ErrUnauthorized),
+				"commit of dropped samples returned end %v",
+				end,
+			)
+		},
+		Entry("close", func(b *storageWriter) error { return b.Close() }),
+		Entry("set authority", func(b *storageWriter) error {
+			DeferCleanup(func() { Expect(b.Close()).To(Succeed()) })
+			return b.SetAuthority(storageConfig{
+				Channels:    []cesium.ChannelKey{idx, data},
+				Authorities: []control.Authority{0},
+			})
+		}),
+	)
 })
