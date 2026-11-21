@@ -46,6 +46,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
+	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -254,6 +255,9 @@ type Transport struct {
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
 	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
+
+	// OPC UA SERVER
+	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -345,6 +349,7 @@ type Layer struct {
 	Device       *device.Service
 	NIDevice     *nidevice.Service
 	NIChassis    *nichassis.Service
+	OPCUAServer  *server.Service
 	Policy       *policy.Service
 	Role         *role.Service
 	Arc          *arc.Service
@@ -567,6 +572,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisRetrieve,
 		t.NIChassisUpdate,
 		t.NIChassisDelete,
+
+		// OPC UA SERVER
+		t.OPCUAServerRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -841,6 +849,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
+	// OPC UA SERVER
+	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -1089,6 +1100,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
 		Device: cfg.Service.NI.Devices,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.OPCUAServer, err = server.NewService(server.ServiceConfig{
+		Server: cfg.Service.OPCUA.Servers,
 		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
