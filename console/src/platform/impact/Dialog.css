@@ -24,8 +24,31 @@
     min-width: 0;
 }
 
+.console-impact__entries {
+    margin-top: 1rem;
+}
+
+.console-impact__scroll {
+    overscroll-behavior: contain;
+}
+
+/* a row is not a control: it keeps no hover or press tint */
 .console-impact__entry {
     padding-inline: 1.5rem;
+    height: 6rem;
+    cursor: default;
+
+    --pluto-hover-bg: transparent;
+    --pluto-active-bg: transparent;
+}
+
+.console-impact__error {
+    color: var(--pluto-error-text);
+}
+
+.console-impact__summary {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 .console-impact__pick {

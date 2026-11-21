@@ -294,8 +294,11 @@ describe("channel/tree", () => {
       await screen.findByText(task.name);
       await clickDelete();
       await screen.findByText("Uses the channel");
+      await screen.findByText("1 record blocks the delete");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
-      fireEvent.click(screen.getByLabelText(`Delete ${task.name} too`));
+      fireEvent.click(
+        screen.getByRole("checkbox", { name: `${task.name} Delete too` }),
+      );
       await waitFor(() => expect(screen.queryByText("Uses the channel")).toBeNull());
       await clickDelete();
       await expectGone(async () => await client.channels.retrieve(ch.key));

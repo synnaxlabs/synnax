@@ -9,7 +9,14 @@
 
 import "@/platform/impact/Dialog.css";
 
-import { impact, PlanChangedError, resource } from "@synnaxlabs/client";
+import {
+  AccessDeniedError,
+  impact,
+  PlanChangedError,
+  resource,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
@@ -23,9 +30,9 @@ import { Note } from "@synnaxlabs/lyra/note";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
-import { Resource, Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { type ReactElement, Suspense, useState } from "react";
+import { type ReactElement, useId, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -40,11 +47,18 @@ export interface DialogParams {
 
 const ITEM_HEIGHT = 36;
 const DISPLAY_ITEMS = 8;
+/** Past this many entries, every group but the first starts closed. */
+const MANY_ENTRIES = 100;
 
-const GROUPS: { effect: impact.Effect; title: string }[] = [
+interface GroupSpec {
+  effect: impact.Effect;
+  title: string;
+}
+
+const groupsOf = (plural: boolean): GroupSpec[] => [
   { effect: "restrict", title: "Blocks the delete" },
-  { effect: "cascade", title: "Deleted with it" },
-  { effect: "detach", title: "Loses the channel" },
+  { effect: "cascade", title: plural ? "Deleted with them" : "Deleted with it" },
+  { effect: "detach", title: plural ? "Loses a channel" : "Loses the channel" },
 ];
 
 type Picks = Record<string, impact.Choice>;
@@ -54,21 +68,61 @@ const recordKey = (e: impact.Entry): string => resource.idToString(e.record);
 const messageOf = (names: string[]): string =>
   names.length === 1 ? `Delete channel ${names[0]}` : `Delete ${names.length} channels`;
 
-const messageOfError = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+const descriptionOf = (names: string[], empty: boolean): string => {
+  if (names.length === 1)
+    return `Deletes the channel and its data.${empty ? " Nothing else uses it." : ""}`;
+  return `Deletes the channels and their data.${empty ? " Nothing else uses them." : ""}`;
+};
 
 const failureOf = (names: string[]): string =>
   names.length === 1 ? "Failed to delete channel" : "Failed to delete channels";
 
-const descriptionOf = (names: string[]): string =>
-  names.length === 1
-    ? "Deletes the channel and its data."
-    : "Deletes the channels and their data.";
+const blockedOf = (count: number): string =>
+  count === 1 ? "1 record blocks the delete" : `${count} records block the delete`;
+
+const reasonOf = (err: unknown): string => {
+  const text = err instanceof Error ? err.message : String(err);
+  if (!AccessDeniedError.matches(err)) return text;
+  return `Your role cannot change every record that this delete changes. ${text}`;
+};
+
+/** A plan with the records it names, as the dialog shows it. */
+interface View {
+  plan: impact.Plan;
+  resources: Map<string, resource.Resource>;
+  /** fresh holds each record that the plan lists and the plan before it did not. */
+  fresh: Set<string>;
+}
+
+/**
+ * Returns the view of plan, with the records that its entries name. A record that
+ * previous does not list is fresh.
+ */
+const createView = async (
+  client: Client,
+  plan: impact.Plan,
+  previous: impact.Plan | null,
+): Promise<View> => {
+  const ids = plan.entries.map((e) => e.record);
+  const found = ids.length === 0 ? [] : await client.resources.retrieve(ids);
+  const fresh = new Set<string>();
+  if (previous != null) {
+    const listed = new Set(previous.entries.map(recordKey));
+    for (const e of plan.entries)
+      if (!listed.has(recordKey(e))) fresh.add(recordKey(e));
+  }
+  return {
+    plan,
+    resources: new Map(found.map((r) => [resource.idToString(r.id), r])),
+    fresh,
+  };
+};
 
 interface Row {
   key: string;
   entry: impact.Entry;
   resource?: resource.Resource;
+  fresh: boolean;
 }
 
 /** Icons for the record types that no tree item shows, such as a channel's status. */
@@ -79,6 +133,11 @@ const ROW_ORDER = compare.chain<Row>(
   compare.by((r) => r.resource?.name ?? r.entry.record.key),
   compare.by((r) => r.key),
 );
+
+interface FooterStatus {
+  message: string;
+  description: string;
+}
 
 interface EntryProps {
   row: Row;
@@ -91,7 +150,7 @@ interface EntryProps {
 }
 
 const Entry = ({
-  row: { key, entry, resource: res },
+  row: { key, entry, resource: res, fresh },
   index,
   translate,
   picked,
@@ -99,6 +158,7 @@ const Entry = ({
   autoFocus,
   onPick,
 }: EntryProps): ReactElement => {
+  const id = useId();
   const Item = Tree.useItems()[entry.record.type] ?? Tree.DefaultItem;
   const TypeIcon = TYPE_ICONS[entry.record.type];
   const name = res?.name ?? entry.record.key;
@@ -114,23 +174,27 @@ const Entry = ({
       gap="medium"
     >
       <span className={CSS.BE("impact", "icon")}>{icon}</span>
-      <Text.Text overflow="fade" grow>
+      <Text.Text id={`${id}-name`} overflow="fade" grow>
         {name}
       </Text.Text>
+      {fresh && <Badge.Badge status="warning">New</Badge.Badge>}
       {entry.effect === "restrict" && (
         <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
           {unpicked && (
-            <Text.Text level="small" status="error">
+            <Text.Text level="small" className={CSS.BE("impact", "error")}>
               Uses the channel
             </Text.Text>
           )}
           <Input.Checkbox
-            aria-label={`Delete ${name} too`}
+            id={id}
+            aria-labelledby={`${id}-name ${id}-label`}
             value={picked}
             onChange={(v) => onPick(key, v)}
             autoFocus={autoFocus}
           />
-          <Text.Text level="small">Delete too</Text.Text>
+          <Text.Text el="label" id={`${id}-label`} htmlFor={id} level="small">
+            Delete too
+          </Text.Text>
         </Flex.Box>
       )}
     </List.Item>
@@ -143,6 +207,7 @@ interface GroupProps {
   picks: Picks;
   unpicked: Set<string>;
   focusFirst: boolean;
+  initiallyOpen: boolean;
   onPick: (key: string, picked: boolean) => void;
 }
 
@@ -152,9 +217,10 @@ const Group = ({
   picks,
   unpicked,
   focusFirst,
+  initiallyOpen,
   onPick,
 }: GroupProps): ReactElement => {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(initiallyOpen);
   const byKey = new Map(rows.map((r) => [r.key, r]));
   const { data, getItem } = List.useStaticData<string, Row>({ data: rows });
   return (
@@ -172,7 +238,12 @@ const Group = ({
           itemHeight={ITEM_HEIGHT}
           virtual
         >
-          <List.Scroll displayItems={DISPLAY_ITEMS}>
+          <List.Scroll
+            displayItems={DISPLAY_ITEMS}
+            tabIndex={0}
+            aria-label={title}
+            className={CSS.BE("impact", "scroll")}
+          >
             <List.Items<string>>
               {({ key, index, translate }) => (
                 <Entry
@@ -194,31 +265,38 @@ const Group = ({
   );
 };
 
-interface EntriesProps extends Omit<GroupProps, "title" | "rows" | "focusFirst"> {
-  plan: impact.Plan;
+interface EntriesProps extends Pick<GroupProps, "picks" | "unpicked" | "onPick"> {
+  view: View;
+  plural: boolean;
 }
 
-const Entries = ({ plan, ...rest }: EntriesProps): ReactElement => {
-  const resources = Resource.useMultiple({ ids: plan.entries.map((e) => e.record) });
-  const byID = new Map(resources.map((r) => [resource.idToString(r.id), r]));
+const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
+  const many = view.plan.entries.length > MANY_ENTRIES;
+  const groups = groupsOf(plural);
+  const first = groups.find(({ effect }) =>
+    view.plan.entries.some((e) => e.effect === effect),
+  );
   return (
-    <Flex.Box y gap="small">
-      {GROUPS.map(({ effect, title }) => {
-        const rows = plan.entries
+    <Flex.Box y gap="small" className={CSS.BE("impact", "entries")}>
+      {groups.map(({ effect, title }) => {
+        const rows = view.plan.entries
           .filter((e) => e.effect === effect)
           .map((entry) => ({
             key: recordKey(entry),
             entry,
-            resource: byID.get(recordKey(entry)),
+            resource: view.resources.get(recordKey(entry)),
+            fresh: view.fresh.has(recordKey(entry)),
           }))
           .toSorted(ROW_ORDER);
         if (rows.length === 0) return null;
+        const initiallyOpen = !many || effect === first?.effect;
         return (
           <Group
             key={effect}
             title={title}
             rows={rows}
             focusFirst={effect === "restrict"}
+            initiallyOpen={initiallyOpen}
             {...rest}
           />
         );
@@ -227,49 +305,76 @@ const Entries = ({ plan, ...rest }: EntriesProps): ReactElement => {
   );
 };
 
+interface SummaryProps {
+  status: FooterStatus;
+}
+
+const Summary = ({ status: { message, description } }: SummaryProps): ReactElement => (
+  <Flex.Box y empty className={CSS.BE("impact", "summary")}>
+    <Status.Summary variant="error" message={message} />
+    <Text.Text level="small" color={9}>
+      {description}
+    </Text.Text>
+  </Flex.Box>
+);
+
 const Dialog = ({
   change,
   names,
   close,
 }: Modals.ContentProps<DialogParams, impact.Plan>): ReactElement => {
   const client = Synnax.use();
+  const hiddenID = useId();
   const [picks, setPicks] = useState<Picks>({});
   const [hidden, setHidden] = useState(false);
-  const [plan, setPlan] = useState<impact.Plan | null>(null);
+  const [view, setView] = useState<View | null>(null);
   const [planning, setPlanning] = useState(true);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<FooterStatus | null>(null);
   const [changed, setChanged] = useState(false);
   const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
-  const [applyError, setApplyError] = useState<string | null>(null);
+  const [footer, setFooter] = useState<FooterStatus | null>(null);
   Modals.useBusy(applying);
   const hiddenPick = hidden ? "delete" : undefined;
+  const plural = names.length > 1;
 
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
       setPlanning(true);
+      let next: View | null = null;
+      let failure: unknown = null;
       try {
-        const next = await client.impact.plan(change, { picks, hidden: hiddenPick });
-        if (signal.aborted) return;
-        setPlan(next);
-        setPlanError(null);
-        setPlanning(false);
+        const planned = await client.impact.plan(change, { picks, hidden: hiddenPick });
+        next = await createView(client, planned, null);
       } catch (e) {
-        if (signal.aborted) return;
-        setPlanError(messageOfError(e));
-        setPlanning(false);
+        failure = e;
       }
+      if (signal.aborted) return;
+      setPlanning(false);
+      if (next == null) {
+        setPlanError({
+          message: "Failed to list the records that this delete touches",
+          description: reasonOf(failure),
+        });
+        return;
+      }
+      const planned = next;
+      setPlanError(null);
+      setView((prev) => (prev == null ? planned : { ...planned, fresh: prev.fresh }));
     },
     [client, change, picks, hiddenPick],
   );
 
+  // A pick plans again, so Delete waits for that plan.
   const handlePick = (key: string, picked: boolean) => {
+    setPlanning(true);
     setUnpicked((prev) => {
       const next = new Set(prev);
       next.delete(key);
       return next;
     });
+    setFooter(null);
     setPicks((prev) => {
       const next = { ...prev };
       if (picked) next[key] = "delete";
@@ -279,43 +384,64 @@ const Dialog = ({
   };
 
   const handleDelete = async () => {
-    if (client == null || plan == null) return;
-    const blockers = plan.entries
+    if (client == null || view == null) return;
+    const blockers = view.plan.entries
       .filter((e) => e.effect === "restrict" && picks[recordKey(e)] !== "delete")
       .map(recordKey);
     if (blockers.length > 0) {
       setUnpicked(new Set(blockers));
+      setFooter({
+        message: blockedOf(blockers.length),
+        description: "Delete each one too, or cancel.",
+      });
       return;
     }
     setApplying(true);
-    setApplyError(null);
+    setFooter(null);
+    let applied: impact.Plan | null = null;
+    let failure: unknown = null;
     try {
-      const applied = await client.impact.apply(change, {
-        token: plan.token,
+      applied = await client.impact.apply(change, {
+        token: view.plan.token,
         picks,
         hidden: hiddenPick,
       });
+    } catch (e) {
+      failure = e;
+    }
+    if (applied != null) {
       setApplying(false);
       close(applied);
-    } catch (e) {
-      setApplying(false);
-      if (!(e instanceof PlanChangedError)) {
-        setApplyError(messageOfError(e));
-        return;
-      }
-      const next = impact.planOf(e);
-      const kept = new Set(next.entries.map(recordKey));
-      setPlan(next);
-      setChanged(true);
-      setPicks((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([key]) => kept.has(key))),
-      );
+      return;
     }
+    if (!(failure instanceof PlanChangedError)) {
+      setApplying(false);
+      setFooter({ message: failureOf(names), description: reasonOf(failure) });
+      return;
+    }
+    const current = impact.planOf(failure);
+    let next: View | null = null;
+    try {
+      next = await createView(client, current, view.plan);
+    } catch (e) {
+      failure = e;
+    }
+    setApplying(false);
+    if (next == null) {
+      setFooter({ message: failureOf(names), description: reasonOf(failure) });
+      return;
+    }
+    const kept = new Set(current.entries.map(recordKey));
+    setView(next);
+    setChanged(true);
+    setPicks((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => kept.has(key))),
+    );
   };
 
+  const plan = view?.plan;
   const empty =
     plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
-  const hasBlockers = plan?.entries.some((e) => e.effect === "restrict") ?? false;
 
   return (
     <Modal.Frame className={CSS.B("impact")}>
@@ -331,26 +457,22 @@ const Dialog = ({
         <Text.Text level="h3" weight={450}>
           {messageOf(names)}
         </Text.Text>
-        <Text.Text weight={450}>
-          {descriptionOf(names)}
-          {empty && " Nothing else uses it."}
-        </Text.Text>
-        {planError != null && (
+        <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
+        {view == null && planError == null && (
           <Status.Summary
-            variant="error"
-            message="Failed to list the records that this delete touches"
-            description={planError}
+            variant="loading"
+            message="Listing the records that this delete touches"
           />
         )}
-        {plan != null && plan.entries.length > 0 && (
-          <Suspense fallback={null}>
-            <Entries
-              plan={plan}
-              picks={picks}
-              unpicked={unpicked}
-              onPick={handlePick}
-            />
-          </Suspense>
+        {planError != null && <Summary status={planError} />}
+        {view != null && view.plan.entries.length > 0 && (
+          <Entries
+            view={view}
+            plural={plural}
+            picks={picks}
+            unpicked={unpicked}
+            onPick={handlePick}
+          />
         )}
         {plan != null && plan.kept > 0 && (
           <Text.Text level="small" color={9}>
@@ -361,17 +483,26 @@ const Dialog = ({
         )}
         {plan != null && plan.hidden > 0 && (
           <Flex.Box x align="center" gap="small">
-            <Text.Text level="small">
+            <Text.Text level="small" id={`${hiddenID}-count`}>
               {plan.hidden === 1
                 ? "1 record you cannot see."
                 : `${plan.hidden} records you cannot see.`}
             </Text.Text>
             <Input.Checkbox
-              aria-label="Delete the records you cannot see too"
+              id={hiddenID}
+              aria-labelledby={`${hiddenID}-count ${hiddenID}-label`}
               value={hidden}
-              onChange={setHidden}
+              onChange={(v) => {
+                setPlanning(true);
+                setHidden(v);
+              }}
             />
-            <Text.Text level="small">
+            <Text.Text
+              el="label"
+              id={`${hiddenID}-label`}
+              htmlFor={hiddenID}
+              level="small"
+            >
               {plan.hidden === 1 ? "Delete it too" : "Delete them too"}
             </Text.Text>
           </Flex.Box>
@@ -379,14 +510,7 @@ const Dialog = ({
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.Start className={CSS.BE("impact", "status")}>
-          {applyError != null && (
-            <Flex.Box y empty>
-              <Status.Summary variant="error" message={failureOf(names)} />
-              <Text.Text level="small" color={9}>
-                {applyError}
-              </Text.Text>
-            </Flex.Box>
-          )}
+          {footer != null && <Summary status={footer} />}
         </Nav.Bar.Start>
         <Nav.Bar.End x align="center">
           <Button.Button
@@ -398,11 +522,10 @@ const Dialog = ({
           </Button.Button>
           <Button.Button
             variant="filled"
-            status={applying || planning ? "loading" : "error"}
-            disabled={plan == null}
+            status={applying ? "loading" : "error"}
+            disabled={view == null || planning}
             trigger={Triggers.SAVE}
             triggerIndicator
-            autoFocus={plan != null && !hasBlockers}
             onClick={() => void handleDelete()}
           >
             Delete
