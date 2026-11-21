@@ -33,6 +33,7 @@ import {
 import { useResetZoomOnRangeChange } from "@/feature/lineplot/useResetZoomOnRangeChange";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Sift } from "@/feature/sift";
+import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import type { Panel } from "@/platform/panel";
@@ -213,7 +214,8 @@ const Internal = (): ReactElement => {
   }));
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
-  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const storedBreaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const breaksHidden = !FLAGS.breaks || storedBreaksHidden;
   const mode = Session.LinePlot.useSelectViewportMode();
   const triggers = Viewport.DEFAULT_TRIGGERS[mode];
   // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
@@ -309,7 +311,9 @@ const Internal = (): ReactElement => {
         >
           <Controls
             hasAnnotations={hasAnnotations}
-            hasBreaks={breaksHidden || breaks.open + breaks.closed > 0}
+            hasBreaks={
+              FLAGS.breaks && (breaksHidden || breaks.open + breaks.closed > 0)
+            }
           />
         </Base.LinePlot>
       </Menu.ContextMenu>
