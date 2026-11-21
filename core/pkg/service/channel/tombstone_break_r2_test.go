@@ -202,7 +202,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		ctx SpecContext,
 	) {
 		g := createFolder(ctx)
-		var keys []channel.Key
+		keys := make([]channel.Key, 0, 5)
 		for range 5 {
 			keys = append(keys, create(ctx, channel.Channel{Group: &g.Key}).Key())
 		}
