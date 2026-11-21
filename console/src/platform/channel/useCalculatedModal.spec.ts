@@ -134,7 +134,8 @@ describe("useCalculatedModal", () => {
       await waitFor(async () => {
         const updated = await client.channels.retrieve(ch.key);
         expect(updated.name).toBe(next);
-        expect(updated.expression).toBe("return 2");
+        const [calc] = await client.calculations.retrieve({ output: ch.key });
+        expect(calc.expression).toBe("return 2");
       });
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Channel name")).toBeNull(),

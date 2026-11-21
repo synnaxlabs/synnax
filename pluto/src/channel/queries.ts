@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, channel, DataType, query } from "@synnaxlabs/client";
+import {
+  actions,
+  calculation,
+  channel,
+  DataType,
+  NotFoundError,
+  query,
+} from "@synnaxlabs/client";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -53,6 +60,8 @@ export const calculatedFormSchema = formSchema.safeExtend({
     .refine((v) => v.includes("return"), {
       message: "Expression must contain a return statement",
     }),
+  /** calculation is the key of the record that writes the channel, once saved. */
+  calculation: calculation.keyZ.optional(),
 });
 
 export const calculatedFormPath = deep.path<z.infer<typeof calculatedFormSchema>>();
@@ -218,17 +227,118 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   mountListeners: formMountListeners,
 });
 
+// The form edits one operation in the channel form that its fields name, so these
+// convert between it and the operations of a calculation.
+const toFormOperation = (op?: calculation.Operation): channel.Operation => {
+  if (op == null) return ZERO_OPERATION;
+  if (op.type === "derivative") return { ...ZERO_OPERATION, type: "derivative" };
+  return { type: op.type, duration: op.duration, resetChannel: op.reset ?? 0 };
+};
+
+const toCalculationOperations = (op?: channel.Operation): calculation.Operation[] => {
+  if (op == null || op.type === "none") return [];
+  if (op.type === "derivative") return [{ type: "derivative" }];
+  const reset = op.resetChannel === 0 ? undefined : op.resetChannel;
+  return [{ type: op.type, duration: new TimeSpan(op.duration), reset }];
+};
+
+// The values of the calculated form that the channel holds.
+const toChannelFormValues = (ch: channel.Channel) => {
+  const { expression: _, operations: __, ...values } = channelToFormValues(ch);
+  return values;
+};
+
+// The values of the calculated form that the calculation holds.
+const toCalculationFormValues = (calc?: calculation.Calculation) => ({
+  expression: calc?.expression ?? "",
+  operations: [toFormOperation(calc?.operations[0])],
+  calculation: calc?.key,
+});
+
+const toCalculatedFormValues = (
+  ch: channel.Channel,
+  calc?: calculation.Calculation,
+) => ({ ...toChannelFormValues(ch), ...toCalculationFormValues(calc) });
+
+const retrieveCalculatedFormValues = async ({
+  query: { key },
+  client,
+}: Flux.RetrieveParams<FormQuery>) => {
+  const [ch, calcs] = await Promise.all([
+    client.channels.retrieve(key),
+    client.calculations.retrieve({ output: key }),
+  ]);
+  return toCalculatedFormValues(ch, calcs[0]);
+};
+
+// A change to the channel or to its calculation from elsewhere reloads the form. Each
+// change carries the values of one record, so the form keeps the last values of the
+// other, starting from the values it loaded with.
+const calculatedFormMountListeners: Flux.CreateFormParams<
+  FormQuery,
+  typeof calculatedFormSchema
+>["mountListeners"] = ({ client, query: { key }, reset, value }) => {
+  let latest = value();
+  const reload = (next: Partial<typeof latest>) => {
+    latest = { ...latest, ...next };
+    reset(latest);
+  };
+  const destructors = [
+    client.channels.watch({ key }).onChange((result) => {
+      if (query.isLive(result)) reload(toChannelFormValues(result));
+    }),
+  ];
+  if (latest.calculation != null)
+    destructors.push(
+      client.calculations.watch({ key: latest.calculation }).onChange((result) => {
+        if (query.isLive(result)) reload(toCalculationFormValues(result));
+      }),
+    );
+  return destructors;
+};
+
+const updateCalculatedForm = async ({
+  client,
+  set,
+  value,
+  stored,
+}: Flux.FormUpdateParams<typeof calculatedFormSchema>) => {
+  const values = value();
+  const operations = toCalculationOperations(values.operations[0]);
+  if (primitive.isZero(values.key)) {
+    const calc = await client.calculations.create({
+      name: values.name,
+      expression: values.expression,
+      operations,
+    });
+    set(calculatedFormPath.key, calc.output);
+    set(calculatedFormPath.calculation, calc.key);
+    return;
+  }
+  if (stored?.name !== values.name)
+    await client.channels.dispatch(values.key, channel.rename({ name: values.name }));
+  if (values.calculation == null) return;
+  const edits: calculation.Action[] = [];
+  if (stored?.expression !== values.expression)
+    edits.push(calculation.set({ path: ["expression"], value: values.expression }));
+  if (!deep.equal(toCalculationOperations(stored?.operations[0]), operations))
+    edits.push(calculation.set({ path: ["operations"], value: operations }));
+  if (edits.length === 0) return;
+  // The form watches its calculation, so the cache drops it only on a delete.
+  if (!(await client.calculations.dispatch(values.calculation, edits)))
+    throw new NotFoundError("Calculation was deleted");
+};
+
 export const useCalculatedForm = Flux.createForm<
   FormQuery,
   typeof calculatedFormSchema
 >({
   name: "calculated channel",
   schema: calculatedFormSchema,
-  initialValues: ZERO_FORM_VALUES,
-  retrieve: retrieveInitialFormValues,
-  getCached: getCachedFormValues,
-  update: updateForm,
-  mountListeners: formMountListeners,
+  initialValues: { ...ZERO_FORM_VALUES, calculation: undefined },
+  retrieve: retrieveCalculatedFormValues,
+  update: updateCalculatedForm,
+  mountListeners: calculatedFormMountListeners,
 });
 
 export type ListQuery = channel.RetrieveMultipleParams;

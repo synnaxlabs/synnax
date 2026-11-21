@@ -885,7 +885,9 @@ describe("queries", () => {
         expect(result.current.form.value().expression).toEqual(
           `return ${sourceChannel.name} * 3`,
         );
-        const stored = await client.channels.retrieve(existingCalculated.key);
+        const [stored] = await client.calculations.retrieve({
+          output: existingCalculated.key,
+        });
         expect(stored.expression).toEqual(`return ${sourceChannel.name} * 3`);
       });
     });
@@ -925,10 +927,12 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       await waitFor(async () => {
-        const stored = await client.channels.retrieve(existing.key);
-        expect(stored.name).toEqual(name);
+        expect((await client.channels.retrieve(existing.key)).name).toEqual(name);
+        const [stored] = await client.calculations.retrieve({ output: existing.key });
         expect(stored.expression).toEqual(`return ${sourceChannel.name}`);
-        expect(stored.operations).toEqual(operations);
+        expect(stored.operations).toEqual([
+          { type: "avg", reset: resetChannel.key, duration: TimeSpan.seconds(5) },
+        ]);
       });
     });
 
