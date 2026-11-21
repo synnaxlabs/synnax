@@ -50,7 +50,7 @@ var _ = Describe("Service", func() {
 			Key:        uuid.New(),
 			Rack:       svc.Rack.EmbeddedKey,
 			Name:       "PLC-" + uuid.New().String(),
-			Connection: server.Connection{Endpoint: "opc.tcp://plc:4840"},
+			Connection: newConnection("opc.tcp://plc:4840"),
 		}
 		for _, override := range overrides {
 			override(&s)

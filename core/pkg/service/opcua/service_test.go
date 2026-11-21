@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -42,7 +43,11 @@ var _ = Describe("Service", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		secrets := secrettestutil.OpenService(ctx, db)
+		secrets := secrettestutil.OpenService(
+			ctx,
+			db,
+			secret.ServiceConfig{EncryptionKey: secretsKey},
+		)
 		svc = MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB:     db,
 			Status: statusSvc,

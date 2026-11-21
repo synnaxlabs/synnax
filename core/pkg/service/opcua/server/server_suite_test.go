@@ -33,6 +33,9 @@ import (
 
 var db *gorp.DB
 
+// secretsKey encrypts the secrets of every spec, which share db.
+var secretsKey = secret.NewEncryptionKey()
+
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
@@ -70,7 +73,11 @@ func openEnv(ctx SpecContext, db *gorp.DB, sigs *signals.Provider) env {
 		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
 		HealthCheckInterval: telem.Hour,
 	}))
-	e.secret = secrettestutil.OpenService(ctx, db)
+	e.secret = secrettestutil.OpenService(
+		ctx,
+		db,
+		secret.ServiceConfig{EncryptionKey: secretsKey},
+	)
 	e.certs = MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
 		DB:      db,
 		Secret:  e.secret,
@@ -86,4 +93,12 @@ func openEnv(ctx SpecContext, db *gorp.DB, sigs *signals.Provider) env {
 		Signals:     sigs,
 	}))
 	return e
+}
+
+// newConnection returns a connection to endpoint with the schema defaults.
+func newConnection(endpoint string) server.Connection {
+	var c server.Connection
+	c.SetDefaults()
+	c.Endpoint = endpoint
+	return c
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -90,4 +91,12 @@ func grant(
 	MustSucceed(
 		rbactestutil.Grant(ctx, db, svc.RBAC, svc.User, u.Key, actions, objects...),
 	)
+}
+
+// newConnection returns a connection to endpoint with the schema defaults.
+func newConnection(endpoint string) server.Connection {
+	var c server.Connection
+	c.SetDefaults()
+	c.Endpoint = endpoint
+	return c
 }

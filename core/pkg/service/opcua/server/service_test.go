@@ -44,7 +44,7 @@ var _ = Describe("Service", func() {
 		return server.Server{
 			Rack:       e.racks.EmbeddedKey,
 			Name:       "Boiler PLC",
-			Connection: server.Connection{Endpoint: "opc.tcp://boiler:4840"},
+			Connection: newConnection("opc.tcp://boiler:4840"),
 		}
 	}
 	create := func(ctx context.Context) server.Server {
@@ -181,7 +181,7 @@ var _ = Describe("Service", func() {
 				Variant: server.IdentityUpdate{Identity: server.Identity{
 					Rack:       s.Rack,
 					Name:       "Renamed",
-					Connection: server.Connection{Endpoint: "opc.tcp://other:4840"},
+					Connection: newConnection("opc.tcp://other:4840"),
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -239,7 +239,7 @@ var _ = Describe("Service", func() {
 			Entry("an identity without a name", server.Update{
 				Variant: server.IdentityUpdate{Identity: server.Identity{
 					Rack:       1,
-					Connection: server.Connection{Endpoint: "opc.tcp://plc:4840"},
+					Connection: newConnection("opc.tcp://plc:4840"),
 				}},
 			}),
 			Entry("a field without a node", server.Update{
