@@ -271,13 +271,20 @@ export abstract class BaseAxis<
 }
 
 // clip drops the segments wholly outside lower and upper, and moves the outer edges to
-// them. A bound in a gap moves to the nearest segment it keeps, as the gap collapses.
-// When no segment is left inside, the nearest one takes both edges.
+// them. A bound in a gap moves to the nearest segment it keeps, as the gap collapses. A
+// window of two bounds that holds no segment stays as set. When one bound leaves no
+// segment inside, the nearest one takes both edges.
 const clip = (
   segments: bounds.Bounds[],
   lower?: number,
   upper?: number,
 ): bounds.Bounds[] => {
+  if (
+    lower != null &&
+    upper != null &&
+    !segments.some((b) => b.upper > lower && b.lower < upper)
+  )
+    return [{ lower, upper }];
   let s = segments;
   if (lower != null) {
     const inside = s.filter((b) => b.upper > lower);
