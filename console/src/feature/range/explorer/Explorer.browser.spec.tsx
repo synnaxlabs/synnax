@@ -24,8 +24,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { Explorer } from "@/feature/range/explorer/Explorer";
-import { TAB_TYPE } from "@/feature/range/explorer/external";
+import { Range } from "@/feature/range";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
@@ -43,7 +42,7 @@ import {
   isPlutoDisabled,
   openContextMenu,
   openSubmenu,
-  renderSuspended,
+  renderLazy,
   resolveFocusedTab,
   selectRange,
   selectTestProject,
@@ -52,6 +51,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const { Content: Explorer } = Range.Explorer.TAB;
 
 interface RenderOptions {
   /** The Core a copied link names. */
@@ -72,14 +73,14 @@ const renderExplorer = async (
     as,
     tab:
       shown == null
-        ? { variant: "view", type: TAB_TYPE }
+        ? { variant: "view", type: Range.Explorer.TAB_TYPE }
         : { variant: "resource", resource: view.resourceID(shown.key) },
     store:
       core == null
         ? undefined
         : await createTestStore({ preloadedState: createCoreState([core], core.key) }),
   });
-  await renderSuspended(
+  await renderLazy(
     <>
       <div
         style={{
@@ -115,7 +116,7 @@ const createLabeled = async (
 }> => {
   const label = await createTestLabel(client, {
     name: uniqueName("label"),
-    color: "#000000",
+    color: { type: "fixed", value: "#000000" },
   });
   const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
   const other = await createRange(`${token} other`);
@@ -572,9 +573,9 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(uniqueName("rename"));
       const { wrapper } = await createTabWrapper({
         client,
-        tab: { variant: "view", type: TAB_TYPE },
+        tab: { variant: "view", type: Range.Explorer.TAB_TYPE },
       });
-      await renderSuspended(
+      await renderLazy(
         <>
           <Explorer />
           <Explorer />
@@ -725,7 +726,7 @@ describe("range/explorer/Explorer", () => {
     it("should add a label that the menu search finds", async () => {
       const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(uniqueName("found"));
       await renderExplorer();
@@ -843,7 +844,7 @@ describe("range/explorer/Explorer", () => {
       const token = uniqueToken();
       const label = await createTestLabel(client, {
         name: uniqueName("label"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(`${token} labeled`);
       // A list narrower than 80rem hides the labels.
@@ -870,12 +871,14 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Color" }));
+      // A range with no color opens the picker on its palettes.
+      fireEvent.click(await screen.findByText("Custom"));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });
       await waitFor(async () => {
         const { color: stored } = await client.ranges.retrieve(rng.key);
-        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+        expect(stored).toEqual({ type: "fixed", value: color.construct("#123456") });
       });
     });
   });

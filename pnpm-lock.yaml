@@ -1500,6 +1500,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.15.0(jiti@2.7.0)(supports-color@8.1.1)
+      fractional-indexing:
+        specifier: 'catalog:'
+        version: 4.0.0
       jsdom:
         specifier: 'catalog:'
         version: 31.0.1(@noble/hashes@2.4.0)

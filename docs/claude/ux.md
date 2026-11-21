@@ -402,12 +402,19 @@ bound, a log precision, or the line plot X channel.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
   Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
-  under it. Each palette sits under its title, which ends with the name of the hovered
-  color, else the linked one. Swatches have no tooltips.
+  under it. Each palette sits under its title, which ends with the name of the color an
+  open swatch menu acts on, else the hovered color, else the focused color, else the
+  linked one. A hovered name stays until the pointer leaves the palette, and a focused
+  name until the focus leaves it. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- A named color has one view in the picker for create and edit. Its labels, Name,
+  Palette (create only), and Color, share an 8rem column at the left. Every control is
+  small: 24 px, with 12 px text. The Light and Dark buttons each show a swatch of their
+  value. Create sits at the trailing edge, under a hairline across the view, 9 px from
+  each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
@@ -479,6 +486,11 @@ bound, a log precision, or the line plot X channel.
   text changes, so a second click makes no copy. It needs create permission. A filter
   never creates. A new parent range covers the ranges that move into it. Under the
   divider, the create option comes first, then "No <noun>".
+- A create button at the foot of a dialog, such as "New project" in the project selector
+  or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
+  the sides and the bottom of the dialog. Under a hairline, it keeps the same 1rem
+  above, so its fill has an even edge. It matches a small button: 24 px, with 12 px
+  text. A dialog never restyles it.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".

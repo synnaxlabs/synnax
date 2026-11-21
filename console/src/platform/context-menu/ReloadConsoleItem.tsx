@@ -16,8 +16,12 @@ import { Session } from "@/session";
 
 export const ReloadConsoleItem = (): ReactElement => {
   const dispatch = Session.useDispatch();
+  const reload = () => dispatch(Drift.reloadWindow({}));
+  // A change saves after a debounce, so the reload saves first. A failed save still
+  // reloads, as the Session reports the failure itself.
+  const handleClick = () => void Session.Persist.flush(dispatch).then(reload, reload);
   return (
-    <Menu.Item onClick={() => dispatch(Drift.reloadWindow({}))} itemKey="hardReload">
+    <Menu.Item onClick={handleClick} itemKey="hardReload">
       <Icon.Refresh />
       Reload Console
     </Menu.Item>

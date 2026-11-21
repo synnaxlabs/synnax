@@ -16,7 +16,7 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Flux, Ranger } from "@synnaxlabs/pluto";
+import { Color, Flux, Ranger } from "@synnaxlabs/pluto";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, Fragment, type ReactElement } from "react";
 
@@ -32,7 +32,7 @@ const at = (t: TimeStamp, now: TimeStamp, day: boolean): string => {
   return day ? `${Telem.Text.describeDay(t, now)} ${time}` : time;
 };
 
-const colorStyle = (c: ranger.Range["color"]): CSSProperties =>
+const colorStyle = (c?: color.Color): CSSProperties =>
   (c == null ? {} : { "--console-range-color": color.hex(c) }) as CSSProperties;
 
 const usePath = (range: ranger.Range): string[] => {
@@ -76,6 +76,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
   const path = usePath(range);
   const { children, complete } = useChildren(range);
   const labels = Ranger.useLabels(range.key) ?? [];
+  const resolve = Color.useResolve();
   const tr = range.timeRange.makeValid();
   const stage = Ranger.getStage(range.timeRange, now);
   const StageIcon = Ranger.STAGE_ICONS[stage];
@@ -91,13 +92,13 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
     const left = (v.start.nanoseconds - tr.start.nanoseconds) / total;
     const width = (e.nanoseconds - v.start.nanoseconds) / total;
     return {
-      ...colorStyle(r.color),
+      ...colorStyle(resolve(r.color)),
       left: `${Math.max(0, left) * 100}%`,
       width: `${Math.max(0.006, Math.min(1, width)) * 100}%`,
     };
   };
   return (
-    <div className={CSS.B(B)} style={colorStyle(range.color)}>
+    <div className={CSS.B(B)} style={colorStyle(resolve(range.color))}>
       <div className={CSS.BE(B, "head")}>
         <span className={CSS.BE(B, "mark")} />
         <span className={CSS.BE(B, "name")}>{range.name}</span>
@@ -151,7 +152,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
                     CSS.BE(B, "child"),
                     running && CSS.BEM(B, "child", "live"),
                   )}
-                  style={colorStyle(c.color)}
+                  style={colorStyle(resolve(c.color))}
                 >
                   <span className={CSS.BE(B, "mark")} />
                   <span className={CSS.BE(B, "child-name")}>{c.name}</span>
@@ -171,7 +172,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
       {labels.length > 0 && (
         <div className={CSS.BE(B, "labels")}>
           {labels.map((l) => (
-            <Tag.Tag key={l.key} color={l.color} size="tiny">
+            <Tag.Tag key={l.key} color={resolve(l.color)} size="tiny">
               {l.name}
             </Tag.Tag>
           ))}
