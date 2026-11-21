@@ -15,7 +15,7 @@ import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useNow } from "@synnaxlabs/lyra/hooks";
+import { useClock, useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -34,7 +34,7 @@ import {
   staticWindow,
   type TimeRange,
   TimeSpan,
-  TimeStamp,
+  type TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
@@ -171,9 +171,9 @@ interface StaticTagProps {
 }
 
 const StaticTag = ({ onRemove, window }: StaticTagProps): ReactElement => {
-  const timeRange = resolveWindow(window, TimeStamp.now());
   // The day prefix changes at midnight.
   const now = useNow((now) => Telem.Text.nextMidnight(now));
+  const timeRange = resolveWindow(window, now);
   return (
     <Tag.Tag
       icon={<Ranger.StageIcon timeRange={timeRange} />}
@@ -350,10 +350,8 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     { name: "ranges", query: { order: NEWEST } },
   );
   // `1h ago` reads against the time it was typed, so Enter adds what the option shows.
-  const [{ term, typedAt }, setTerm] = useState(() => ({
-    term: "",
-    typedAt: TimeStamp.now(),
-  }));
+  const clock = useClock();
+  const [{ term, typedAt }, setTerm] = useState(() => ({ term: "", typedAt: clock() }));
   const language = Input.useLanguage();
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
@@ -462,7 +460,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           <Select.Dialog>
             <WindowSearch
               onSearch={(next) => {
-                setTerm({ term: next, typedAt: TimeStamp.now() });
+                setTerm({ term: next, typedAt: clock() });
                 search(next);
               }}
               typed={typed}
