@@ -14,8 +14,11 @@ import {
   NotFoundError,
   query,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { binary, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -27,7 +30,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
@@ -43,12 +46,7 @@ import {
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  awaitTextEditingElement,
-  CaptureStatuses,
-  commitTextEdit,
-  resolveFocusedTab,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -64,6 +62,38 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
   });
 
 // Clients cannot create internal channels, so this reads one the Core made.
+const createReadTask = async (ch: channelClient.Key) => {
+  const rack = await client.racks.create({ name: uniqueName("rack") });
+  const device = await client.devices.create({
+    key: uuid.create(),
+    rack: rack.key,
+    location: "127.0.0.1:502",
+    name: uniqueName("plc"),
+    make: "modbus",
+    model: "modbus",
+    properties: {},
+  });
+  return await rack.createTask({
+    name: uniqueName("read"),
+    type: "modbus_read",
+    config: {
+      device: device.key,
+      channels: [{ type: "coil", key: "coil", channel: ch }],
+    },
+  });
+};
+
+/** Waits for the dialog's Delete button to finish planning, then clicks it. */
+const clickDelete = async () => {
+  await waitFor(() => expect(findButton("Delete").disabled).toBe(false));
+  fireEvent.click(findButton("Delete"));
+};
+
+const expectGone = async (retrieve: () => Promise<unknown>) =>
+  await waitFor(async () => {
+    await expect(retrieve()).rejects.toSatisfy((e) => NotFoundError.matches(e));
+  });
+
 const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
   const [ch] = await client.channels.retrieve({ internal: true, limit: 1 });
   assertDefined(ch);
@@ -241,60 +271,78 @@ describe("channel/tree", () => {
       );
     });
 
-    it("deletes a channel after confirmation", async () => {
+    it("deletes a channel that nothing else uses", async () => {
       const ch = await createChannel();
-      const host = hostChannels(ch);
-      await renderChannelTree(host);
+      await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
-      await screen.findByText(`Are you sure you want to delete ${ch.name}?`);
-      fireEvent.click(findButton("Delete"));
-      await waitFor(async () => {
-        await expect(client.channels.retrieve(ch.key)).rejects.toSatisfy((e) =>
-          NotFoundError.matches(e),
-        );
-      });
+      await screen.findByText(`Delete channel ${ch.name}`);
+      await screen.findByText(
+        "Deletes the channel and its data. Nothing else uses it.",
+      );
+      await clickDelete();
+      await expectGone(async () => await client.channels.retrieve(ch.key));
     });
 
-    it("reports a delete that a task config refuses", async () => {
+    it("deletes a task that blocks the delete once the user picks it", async () => {
       const ch = await createChannel();
-      const rack = await client.racks.create({ name: uniqueName("rack") });
-      const device = await client.devices.create({
-        key: uuid.create(),
-        rack: rack.key,
-        location: "127.0.0.1:502",
-        name: uniqueName("plc"),
-        make: "modbus",
-        model: "modbus",
-        properties: {},
-      });
-      const task = await rack.createTask({
-        name: uniqueName("read"),
-        type: "modbus_read",
-        config: {
-          device: device.key,
-          channels: [{ type: "coil", key: "coil", channel: ch.key }],
-        },
-      });
-      let statuses: Status.NotificationSpec[] = [];
-      await renderChannelTree(
-        hostChannels(ch),
-        undefined,
-        createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
-      );
+      const task = await createReadTask(ch.key);
+      await renderChannelTree(hostChannels(ch));
       await openTreeRowContextMenu(ch.name);
       fireEvent.click(await screen.findByText("Delete"));
-      await screen.findByText(`Are you sure you want to delete ${ch.name}?`);
-      fireEvent.click(findButton("Delete"));
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to delete channel",
-            description: `cannot delete channel ${ch.name} because task ${task.name} uses it`,
-          }),
-        ),
-      );
+      await screen.findByText("Blocks the delete");
+      await screen.findByText(task.name);
+      await clickDelete();
+      await screen.findByText("Uses the channel");
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
+      fireEvent.click(screen.getByLabelText(`Delete ${task.name} too`));
+      await waitFor(() => expect(screen.queryByText("Uses the channel")).toBeNull());
+      await clickDelete();
+      await expectGone(async () => await client.channels.retrieve(ch.key));
+      await expectGone(async () => await client.tasks.retrieve({ key: task.key }));
+    });
+
+    it("shows the new plan when a holder appears before the delete", async () => {
+      const ch = await createChannel({
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        virtual: true,
+      });
+      await renderChannelTree(hostChannels(ch));
+      await openTreeRowContextMenu(ch.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(
+        "Deletes the channel and its data. Nothing else uses it.",
+      );
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      const plot = await client.lineplots.create({
+        project: proj.key,
+        name: uniqueName("plot"),
+        channels: { y1: [ch.key] },
+      });
+      await clickDelete();
+      await screen.findByText("These records changed. Check them again.");
+      await screen.findByText("Loses the channel");
+      await screen.findByText(plot.name);
+      expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
+    });
+
+    it("counts a task that the user cannot see", async () => {
+      const ch = await createChannel();
+      await createReadTask(ch.key);
+      const userClient = await createTestClientWithPolicy(client, {
+        name: uniqueName("impact"),
+        objects: [channelClient.resourceID(ch.key)],
+        actions: ["retrieve", "delete"],
+      });
+      assertDefined(Item.ContextMenu);
+      await renderTreeContextMenu(Item.ContextMenu, {
+        client: userClient,
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
+      });
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText("1 record you cannot see.");
+      expect(screen.queryByText("Blocks the delete")).toBeNull();
     });
 
     it("opens the calculation editor for a calculated channel", async () => {

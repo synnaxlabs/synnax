@@ -31,6 +31,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
+import { Impact } from "@/platform/impact";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
@@ -62,11 +63,18 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
   return <PChannel.HaulPreview channel={ch.payload} index={index} count={count} />;
 };
 
-const useDelete = Tree.createUseDelete({
-  type: "Channel",
-  useUpdate: PChannel.useDelete,
-  convertKey: Number,
-});
+const useDelete = ({
+  selection: { ids },
+  state: { getResource },
+}: Tree.ContextMenuProps): (() => void) => {
+  const open = Impact.useDialog();
+  return () => {
+    void open({
+      change: { type: "delete_channels", keys: ids.map((id) => Number(id.key)) },
+      names: getResource(ids).map((r) => r.name),
+    });
+  };
+};
 
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
