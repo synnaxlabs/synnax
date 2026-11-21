@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  dynamicWindow,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -447,7 +455,7 @@ describe("Layout breaks", () => {
 describe("shownSpans", () => {
   const HOUR = Number(TimeSpan.HOUR.valueOf());
   const window = (start: number, hours: number) =>
-    new TimeRange(start * HOUR, (start + hours) * HOUR);
+    staticWindow(new TimeRange(start * HOUR, (start + hours) * HOUR));
   const ns = (t: { valueOf: () => bigint }) => Number(t.valueOf());
   const NOW = new TimeStamp(1000 * HOUR);
 
@@ -473,7 +481,7 @@ describe("shownSpans", () => {
       start.add(TimeSpan.days(2)),
       start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
     );
-    const shown = shownSpans([first, later], NOW, NOW);
+    const shown = shownSpans([staticWindow(first), staticWindow(later)], NOW, NOW);
     expect(shown[0].start).toEqual(first.start);
     expect(shown[1].end).toEqual(later.end);
   });
@@ -481,7 +489,7 @@ describe("shownSpans", () => {
   it("should leave the span of a running window open", () => {
     const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
     const at101 = new TimeStamp(101 * HOUR);
-    const shown = shownSpans([window(0, 1), running], at101, at101);
+    const shown = shownSpans([window(0, 1), staticWindow(running)], at101, at101);
     expect(shown).toHaveLength(2);
     expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
     expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
@@ -501,7 +509,7 @@ describe("shownSpans", () => {
     // A fixed margin of 5% of eight hours would join the two windows.
     const planned = new TimeRange(1.25 * HOUR, 9.25 * HOUR);
     const at2 = new TimeStamp(2 * HOUR);
-    const shown = shownSpans([window(0, 1), planned], at2, at2);
+    const shown = shownSpans([window(0, 1), staticWindow(planned)], at2, at2);
     expect(shown).toHaveLength(2);
     // A running window stops at the newest sample, so its margin is 5% of 45 minutes.
     expect(ns(shown[1].start)).toBeCloseTo(1.25 * HOUR - 0.05 * 0.75 * HOUR, -3);
@@ -519,6 +527,17 @@ describe("shownSpans", () => {
     );
     expect(shown).toHaveLength(1);
     expect(ns(shown[0].end)).toEqual(2.08 * HOUR);
+  });
+
+  it("should give a dynamic window no margin after its newest sample", () => {
+    // A margin of 5% of 40 minutes after the dynamic window would join the windows.
+    const at2 = new TimeStamp(2 * HOUR);
+    const planned = staticWindow(new TimeRange(2 * HOUR + MINUTE, 3 * HOUR));
+    const live = dynamicWindow(TimeSpan.minutes(40));
+    const shown = shownSpans([live, planned], new TimeStamp(1.9 * HOUR), at2);
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].start)).toEqual(2 * HOUR - 40 * MINUTE);
+    expect(ns(shown[0].end)).toEqual(2 * HOUR);
   });
 
   it("should list the spans in time order", () => {

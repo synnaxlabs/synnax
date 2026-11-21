@@ -99,13 +99,9 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       }));
       const live = windows.some((w) => w.variant === "dynamic");
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
-      // The newest sample can be after now, and a live window that ends there does not
-      // run.
-      const now = TimeStamp.max(TimeStamp.now(), end);
-      const resolved = windows.map((w) => resolveWindow(w, end));
       const timeRanges = FLAGS.breaks
-        ? LinePlot.shownSpans(resolved, now, end, openBreaks)
-        : [TimeRange.merge(...resolved)];
+        ? LinePlot.shownSpans(windows, TimeStamp.now(), end, openBreaks)
+        : [TimeRange.merge(...windows.map((w) => resolveWindow(w, end)))];
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };
