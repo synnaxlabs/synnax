@@ -122,6 +122,10 @@ describe("User.Members", () => {
     await renderMembers();
     await search(u.name);
     await clickAndSettle("Operator");
+    // Other tests leave roles on the Core, so the first page of roles can miss Viewer.
+    fireEvent.change(await screen.findByPlaceholderText("Search roles..."), {
+      target: { value: "Viewer" },
+    });
     await clickAndSettle("Viewer");
     const viewer = await roleKey("Viewer");
     await expect
@@ -220,7 +224,7 @@ describe("User.Members", () => {
     await openContextMenu(root.name);
     expect(await screen.findByText("Manage sign-in")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
-    const picker = within(line).getByRole("button", { name: /Owner/ });
+    const picker = await within(line).findByRole("button", { name: /Owner/ });
     expect(picker.getAttribute("aria-disabled")).toBe("true");
   });
 
