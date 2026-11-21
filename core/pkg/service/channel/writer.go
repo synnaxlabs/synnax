@@ -65,9 +65,10 @@ func (o createOptions) limited(ch Channel) bool { return !o.builtIn && !ch.Virtu
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
 
-// RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
-// or key already exists, populates the provided channel from the existing record
-// instead of returning an error.
+// RetrieveIfNameExists returns a CreateOption that populates a channel from the stored
+// channel of its name, compared in NFC, instead of creating it. A channel with a group
+// takes only the stored channel in that group. A name that several stored channels
+// hold returns an AmbiguousNameError.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
 }
@@ -273,10 +274,9 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels with the given names, compared in NFC. A name
-// that several channels hold returns a validation error that names the path of each,
-// and deletes nothing. Unless allowInternal is true, deleting any internal channel
-// returns an error and no channels are deleted.
+// DeleteManyByNames deletes every channel that holds one of names, compared in NFC.
+// Unless allowInternal is true, deleting any internal channel returns an error and no
+// channels are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
@@ -286,14 +286,6 @@ func (w Writer) DeleteManyByNames(
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
-	}
-	for i, holders := range holdersByName(names, res) {
-		if len(holders) > 1 {
-			return AmbiguousNameError{
-				Name:    names[i],
-				Holders: KeysFromChannels(holders),
-			}
-		}
 	}
 	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
 }
@@ -557,10 +549,9 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 }
 
 // resetStoredNames resets each channel at a position not in reset to the stored channel
-// of its name: the one in its group when it has a group and one is there, else the one
-// anywhere, so a channel that a user moved still matches. A record that holds the name
-// exactly wins over one that holds it after NFC. A name that several channels hold
-// returns a validation error that names the path of each.
+// of its name: in its group when it has a group, else in any group. A record that holds
+// the name exactly wins over one that holds it after NFC. A name that several channels
+// hold returns an AmbiguousNameError.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
@@ -586,12 +577,9 @@ func (w Writer) resetStoredNames(
 		}
 		holders := normalized[normal[i]]
 		if ch.Group != nil {
-			inGroup := lo.Filter(holders, func(e Channel, _ int) bool {
+			holders = lo.Filter(holders, func(e Channel, _ int) bool {
 				return sameGroup(e.Group, ch.Group)
 			})
-			if len(inGroup) > 0 {
-				holders = inGroup
-			}
 		}
 		if exact := lo.Filter(holders, func(e Channel, _ int) bool {
 			return e.Name == ch.Name

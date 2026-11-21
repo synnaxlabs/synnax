@@ -183,6 +183,112 @@ func createFolder(ctx context.Context, groups *group.Service) (group.Group, erro
 	}
 }
 
+// channelKeyPrefix prefixes the KV key that holds the key of a metrics channel, by the
+// name that the service gives the channel.
+const channelKeyPrefix = "sy_metrics_channel/"
+
+// openChannels sets each of chs to its stored channel: the one whose key is stored for
+// its name, so that a rename or a move keeps it. With no stored key, it takes the one
+// channel of its name in folder, else the one channel of its name anywhere, as a store
+// from before stored keys holds it. It creates the rest and stores the key of each.
+func openChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels *channel.Service,
+	folder group.Key,
+	chs []channel.Channel,
+) error {
+	var (
+		names   = channel.Names(chs)
+		missing = make(map[string]int, len(chs))
+		unfound = make([]string, 0, len(chs))
+	)
+	for i, ch := range chs {
+		stored, found, err := storedChannel(ctx, tx, channels, ch.Name)
+		if err != nil {
+			return err
+		}
+		if found {
+			chs[i] = stored
+			continue
+		}
+		missing[ch.Name] = i
+		unfound = append(unfound, ch.Name)
+	}
+	var held []channel.Channel
+	if err := channels.NewRetrieve().
+		Where(channel.MatchNames(unfound...)).
+		Entries(&held).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	holders := make(map[string][]channel.Channel, len(unfound))
+	for _, ch := range held {
+		holders[ch.Name] = append(holders[ch.Name], ch)
+	}
+	for name, hs := range holders {
+		inFolder := lo.Filter(hs, func(ch channel.Channel, _ int) bool {
+			return ch.Group != nil && *ch.Group == folder
+		})
+		if len(inFolder) == 0 {
+			inFolder = hs
+		}
+		if len(inFolder) == 1 {
+			chs[missing[name]] = inFolder[0]
+			delete(missing, name)
+		}
+	}
+	created := make([]channel.Channel, 0, len(missing))
+	for _, ch := range chs {
+		if _, ok := missing[ch.Name]; ok {
+			created = append(created, ch)
+		}
+	}
+	if err := channels.NewWriter(tx).CreateMany(ctx, &created); err != nil {
+		return err
+	}
+	for _, ch := range created {
+		chs[missing[ch.Name]] = ch
+	}
+	for i, ch := range chs {
+		if err := tx.Set(
+			ctx,
+			[]byte(channelKeyPrefix+names[i]),
+			[]byte(ch.Key().String()),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// storedChannel returns the channel whose key is stored for name, and whether it
+// exists.
+func storedChannel(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels *channel.Service,
+	name string,
+) (channel.Channel, bool, error) {
+	b, closer, err := tx.Get([]byte(channelKeyPrefix + name))
+	if errors.Is(err, query.ErrNotFound) {
+		return channel.Channel{}, false, nil
+	}
+	if err != nil {
+		return channel.Channel{}, false, err
+	}
+	key, err := channel.ParseKey(string(b))
+	if err = errors.Combine(err, closer.Close()); err != nil {
+		return channel.Channel{}, false, err
+	}
+	var ch channel.Channel
+	err = channels.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return channel.Channel{}, false, nil
+	}
+	return ch, err == nil, err
+}
+
 // OpenService opens a new metric.Service using the provided configuration. See the
 // ServiceConfig struct for details on the required configuration values. If OpenService
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
@@ -210,23 +316,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	var metricsChannels []channel.Channel
 	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		chWriter := cfg.Channel.NewWriter(tx)
-		if err = chWriter.Create(
-			ctx,
-			&idx,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
+		indexes := []channel.Channel{idx}
+		if err = openChannels(ctx, tx, cfg.Channel, s.group.Key, indexes); err != nil {
 			return err
 		}
+		idx = indexes[0]
 		metrics := s.createMetrics(namePrefix, idx.LocalKey)
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			m.ch.Group = &s.group.Key
 			return m.ch
 		})
-		if err = chWriter.CreateMany(
+		if err = openChannels(
 			ctx,
-			&metricsChannels,
-			channel.RetrieveIfNameExists(),
+			tx,
+			cfg.Channel,
+			s.group.Key,
+			metricsChannels,
 		); err != nil {
 			return err
 		}
@@ -245,11 +350,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		for i := range calculatedChannels {
 			calculatedChannels[i].Group = &s.group.Key
 		}
-		return cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-		)
+		return openChannels(ctx, tx, cfg.Channel, s.group.Key, calculatedChannels)
 	}); err != nil {
 		return nil, err
 	}

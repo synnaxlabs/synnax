@@ -28,7 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Folder", func() {
+var _ = Describe("Stored records", func() {
 	var (
 		cfg      metrics.ServiceConfig
 		groups   *group.Service
@@ -68,6 +68,60 @@ var _ = Describe("Folder", func() {
 			CollectionInterval: 5 * time.Second,
 		}
 		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+	})
+
+	named := func(ctx SpecContext, name string) []channel.Channel {
+		GinkgoHelper()
+		var chs []channel.Channel
+		Expect(channels.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Entries(&chs).
+			Exec(ctx, db)).To(Succeed())
+		return chs
+	}
+	const indexName = "sy_node_1_metrics_time"
+
+	It("Should keep a metrics channel that a user renamed", func(ctx SpecContext) {
+		idx := named(ctx, indexName)[0]
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channels.NewWriter(tx).Rename(ctx, idx.Key(), "renamed_time", false)
+		})).To(Succeed())
+		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+		Expect(named(ctx, indexName)).To(BeEmpty())
+		Expect(
+			named(ctx, "renamed_time"),
+		).To(ConsistOf(HaveField("Name", "renamed_time")))
+	})
+
+	It("Should take the channels of its folder by name when no key is stored", func(
+		ctx SpecContext,
+	) {
+		idx := named(ctx, indexName)[0]
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return tx.Delete(ctx, []byte("sy_metrics_channel/"+indexName))
+		})).To(Succeed())
+		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+		Expect(named(ctx, indexName)).To(ConsistOf(HaveField("LocalKey", idx.LocalKey)))
+	})
+
+	It("Should take the one channel of its name in another folder when no key is "+
+		"stored", func(ctx SpecContext) {
+		idx := named(ctx, indexName)[0]
+		plant := MustSucceed(
+			groups.CreateOrRetrieve(ctx, "Plant", resource.TypeChannel),
+		)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := channels.NewWriter(tx).
+				SetGroup(ctx, &plant.Key, idx.Key()); err != nil {
+				return err
+			}
+			return tx.Delete(ctx, []byte("sy_metrics_channel/"+indexName))
+		})).To(Succeed())
+		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+		Expect(named(ctx, indexName)).To(ConsistOf(SatisfyAll(
+			HaveField("LocalKey", idx.LocalKey),
+			HaveField("Group", HaveValue(Equal(plant.Key))),
+		)))
 	})
 
 	It("Should open after a user renames the folder and names a root channel Metrics",

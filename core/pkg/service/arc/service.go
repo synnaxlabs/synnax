@@ -312,16 +312,9 @@ func (s *Service) newLSPRoot(
 		return access.allows(ctx, a.ResourceID())
 	})
 	return s.newRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(
-			s.cfg.DB,
-			channel.Match(func(
-				ctx gorp.Context,
-				_ channel.Retrieve,
-				ch *channel.Channel,
-			) (bool, error) {
-				return access.allows(ctx, ch.ResourceID())
-			}),
-		)),
+		channel.NewConsistentResolver(
+			s.cfg.Channel.NewSubjectResolver(s.cfg.DB, access.predicate),
+		),
 		s.moduleSource(s.cfg.DB, readable),
 		s.modulePaths(access.allows),
 	)
@@ -335,12 +328,18 @@ type readAccess struct {
 	err     error
 }
 
-func (a *readAccess) allows(ctx context.Context, id resource.ID) (bool, error) {
+// predicate returns whether the subject can retrieve a record.
+func (a *readAccess) predicate(ctx context.Context) (func(resource.ID) bool, error) {
 	a.once.Do(func() { a.allowed, a.err = a.read(ctx) })
-	if a.err != nil {
-		return false, a.err
+	return a.allowed, a.err
+}
+
+func (a *readAccess) allows(ctx context.Context, id resource.ID) (bool, error) {
+	allowed, err := a.predicate(ctx)
+	if err != nil {
+		return false, err
 	}
-	return a.allowed(id), nil
+	return allowed(id), nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

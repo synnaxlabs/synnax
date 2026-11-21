@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -18,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +37,6 @@ var _ = Describe("Ambiguous names", func() {
 		stand, rig           group.Group
 		inStand, inRig, solo channel.Channel
 	)
-	const ambiguous = "2 channels are named 'pt': rig.pt, stand.pt. Name one by its path"
 	BeforeEach(func(ctx SpecContext) {
 		fresh := testutil.NewNode(ctx)
 		db = fresh.DB
@@ -70,32 +73,110 @@ var _ = Describe("Ambiguous names", func() {
 			Where(channel.MatchKeys(k)).
 			Exists(ctx, db))
 	}
+	ambiguousPT := func() channel.AmbiguousNameError {
+		return channel.AmbiguousNameError{
+			Name:    "pt",
+			Holders: channel.Keys{inStand.Key(), inRig.Key()},
+		}
+	}
+	matchAmbiguousPT := func() OmegaMatcher {
+		return SatisfyAll(
+			MatchError(validate.ErrValidation),
+			WithTransform(func(err error) channel.Keys {
+				ambiguous, _ := errors.AsType[channel.AmbiguousNameError](err)
+				return ambiguous.Holders
+			}, ConsistOf(inStand.Key(), inRig.Key())),
+		)
+	}
+	// access returns an access read that lets the subject retrieve every record but
+	// hidden.
+	access := func(hidden ...resource.ID) func(
+		context.Context,
+	) (func(resource.ID) bool, error) {
+		return func(context.Context) (func(resource.ID) bool, error) {
+			return func(id resource.ID) bool {
+				for _, h := range hidden {
+					if id == h {
+						return false
+					}
+				}
+				return true
+			}, nil
+		}
+	}
 
-	Describe("DeleteManyByNames", func() {
-		It("Should refuse a name that several channels hold and delete nothing", func(
+	Describe("AmbiguousNameError", func() {
+		It("Should name the holders by key and no path", func() {
+			Expect(ambiguousPT().Error()).To(Equal(
+				"2 channels are named 'pt' (keys " + inStand.Key().String() + ", " +
+					inRig.Key().String() + ")",
+			))
+		})
+	})
+
+	Describe("KeysByNames", func() {
+		It("Should return the key of each name that one channel holds", func(
 			ctx SpecContext,
 		) {
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteManyByNames(
-					ctx,
-					[]string{"solo", "pt"},
-					false,
-				)
-			})).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(ambiguous)),
-			))
-			Expect(exists(ctx, solo.Key())).To(BeTrue())
-			Expect(exists(ctx, inStand.Key())).To(BeTrue())
+			Expect(svc.KeysByNames(ctx, db, []string{"solo", "missing"})).
+				To(Equal(channel.Keys{solo.Key()}))
 		})
 
-		It("Should delete a channel whose name one channel holds", func(
+		It("Should refuse a name that several channels hold", func(ctx SpecContext) {
+			Expect(svc.KeysByNames(ctx, db, []string{"solo", "pt"})).Error().
+				To(matchAmbiguousPT())
+		})
+	})
+
+	Describe("DescribeAmbiguity", func() {
+		It("Should quote the path of each holder that the subject can see", func(
 			ctx SpecContext,
 		) {
+			Expect(svc.DescribeAmbiguity(ctx, db, ambiguousPT(), access())).
+				To(SatisfyAll(
+					MatchError("2 channels are named 'pt': 'rig.pt', 'stand.pt'"),
+					matchAmbiguousPT(),
+				))
+		})
+
+		It("Should count the holders in a folder that the subject cannot see", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.DescribeAmbiguity(
+				ctx,
+				db,
+				ambiguousPT(),
+				access(rig.ResourceID()),
+			)).To(MatchError(
+				"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
+			))
+		})
+
+		It("Should count a holder that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.DescribeAmbiguity(
+				ctx,
+				db,
+				ambiguousPT(),
+				access(inStand.ResourceID(), inRig.ResourceID()),
+			)).To(MatchError("2 channels are named 'pt': 2 you cannot see"))
+		})
+
+		It("Should return another error unchanged", func(ctx SpecContext) {
+			err := errors.New("other")
+			Expect(svc.DescribeAmbiguity(ctx, db, err, access())).To(BeIdenticalTo(err))
+		})
+	})
+
+	Describe("DeleteManyByNames", func() {
+		It("Should delete every channel that holds a name", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).DeleteManyByNames(ctx, []string{"solo"}, false)
+				return svc.NewWriter(tx).DeleteManyByNames(ctx, []string{"pt"}, false)
 			})).To(Succeed())
-			Expect(exists(ctx, solo.Key())).To(BeFalse())
+			Expect(exists(ctx, inStand.Key())).To(BeFalse())
+			Expect(exists(ctx, inRig.Key())).To(BeFalse())
+			Expect(exists(ctx, solo.Key())).To(BeTrue())
 		})
 	})
 
@@ -119,21 +200,19 @@ var _ = Describe("Ambiguous names", func() {
 			Expect(ch.Key()).To(Equal(inRig.Key()))
 		})
 
-		It(
-			"Should match a name anywhere when the folder of the request holds none",
-			func(
-				ctx SpecContext,
-			) {
-				ch := channel.Channel{
-					Name:     "solo",
-					DataType: telem.Float32T,
-					Virtual:  true,
-					Group:    &stand.Key,
-				}
-				Expect(create(ctx, &ch)).To(Succeed())
-				Expect(ch.Key()).To(Equal(solo.Key()))
-			},
-		)
+		It("Should not take the channel of the name in another folder", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:     "solo",
+				DataType: telem.Float32T,
+				Virtual:  true,
+				Group:    &stand.Key,
+			}
+			Expect(create(ctx, &ch)).To(MatchError(
+				ContainSubstring("channel with name 'solo' already exists"),
+			))
+		})
 
 		It("Should match a name anywhere when the request names no folder", func(
 			ctx SpecContext,
@@ -146,19 +225,33 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should refuse a name that several channels hold when the request names no "+
 			"folder", func(ctx SpecContext) {
 			ch := channel.Channel{Name: "pt", DataType: telem.Float32T, Virtual: true}
-			Expect(create(ctx, &ch)).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(ambiguous)),
-			))
+			Expect(create(ctx, &ch)).To(matchAmbiguousPT())
+		})
+	})
+
+	Describe("A calculated channel", func() {
+		It("Should report a name that several channels hold as a diagnostic", func(
+			ctx SpecContext,
+		) {
+			calc := channel.Channel{
+				Name:       "calc",
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: "return pt",
+			}
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &calc)
+			})
+			diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
+			Expect(ok).To(BeTrue(), "expected diagnostics, got %v", err)
+			Expect(diags.Error()).To(ContainSubstring("2 channels are named 'pt'"))
 		})
 	})
 
 	Describe("The Arc resolver", func() {
-		It("Should refuse a name that several channels hold, naming each path", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a name that several channels hold", func(ctx SpecContext) {
 			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "pt")).Error().
-				To(MatchError(ContainSubstring(ambiguous)))
+				To(matchAmbiguousPT())
 		})
 
 		It("Should resolve a path to its channel, with the path as the name", func(
@@ -178,13 +271,51 @@ var _ = Describe("Ambiguous names", func() {
 			Expect(MustSucceed(r.Resolve(ctx, key)).ID).To(Equal(int(solo.Key())))
 		})
 
+		It("Should find nothing at a path that no channel is at", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "stand.missing")).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("The subject resolver", func() {
 		It(
-			"Should find nothing at a path that no channel is at",
-			func(ctx SpecContext) {
+			"Should find nothing at a path through a folder the subject cannot see",
+			func(
+				ctx SpecContext,
+			) {
+				r := svc.NewSubjectResolver(db, access(rig.ResourceID()))
 				Expect(
-					svc.NewArcSymbolResolver(db).Resolve(ctx, "stand.missing"),
+					r.Resolve(ctx, "rig.pt"),
 				).Error().
 					To(MatchError(query.ErrNotFound))
+				Expect(MustSucceed(r.Resolve(ctx, "stand.pt")).ID).
+					To(Equal(int(inStand.Key())))
+			},
+		)
+
+		It("Should name only the paths that the subject can see", func(
+			ctx SpecContext,
+		) {
+			r := svc.NewSubjectResolver(db, access(rig.ResourceID()))
+			Expect(r.Resolve(ctx, "pt")).Error().To(SatisfyAll(
+				MatchError(
+					"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
+				),
+				matchAmbiguousPT(),
+			))
+		})
+
+		It(
+			"Should leave a channel the subject cannot retrieve out of the holders",
+			func(
+				ctx SpecContext,
+			) {
+				r := svc.NewSubjectResolver(db, access(inRig.ResourceID()))
+				Expect(
+					MustSucceed(r.Resolve(ctx, "pt")).ID,
+				).To(Equal(int(inStand.Key())))
 			},
 		)
 	})
