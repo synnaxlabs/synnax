@@ -51,4 +51,11 @@ var _ = DescribeTable("Crash harness, pointer log",
 	Entry("Durable, Mixed", crash.Durable, crash.Mixed, false),
 	Entry("Durable, Mixed, ordered", crash.Durable, crash.Mixed, true),
 	Entry("Visible, Mixed", crash.Visible, crash.Mixed, false),
+	Entry("Durable, OneTimeReadFaults", crash.Durable, crash.OneTimeReadFaults, false),
+	Entry(
+		"Durable, RepeatedReadFaults",
+		crash.Durable,
+		crash.RepeatedReadFaults,
+		false,
+	),
 )
