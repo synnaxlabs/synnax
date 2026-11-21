@@ -71,7 +71,9 @@ describe("panel tree item", () => {
   it("should picture a dragged panel with its icon", async () => {
     const pan = await renderPanelTree({ icon: "valve" });
     await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
-    fireEvent.dragStart(await findTreeRow(pan.name));
+    fireEvent.dragStart(await findTreeRow(pan.name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     expect(layer?.querySelector(".lyra-icon--valve")).not.toBeNull();
     expect(layer?.textContent).toBe(`${pan.name}Panel`);
@@ -93,7 +95,9 @@ describe("panel tree item", () => {
         ),
       ).toEqual("18, 52, 86"),
     );
-    fireEvent.dragStart(await findTreeRow(pan.name));
+    fireEvent.dragStart(await findTreeRow(pan.name), {
+      dataTransfer: new DataTransfer(),
+    });
     const icon = document
       .querySelector(".lyra-haul__layer")
       ?.querySelector<SVGElement>(".lyra-icon--valve");

@@ -314,7 +314,9 @@ const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
 describe("Browser drag preview", () => {
   it("should picture a dragged node with its data type and node ID", async () => {
     await renderBrowser();
-    fireEvent.dragStart(screen.getByRole("treeitem", { name: /TankPressure/ }));
+    fireEvent.dragStart(screen.getByRole("treeitem", { name: /TankPressure/ }), {
+      dataTransfer: new DataTransfer(),
+    });
     expect(layer()?.querySelector(".lyra-icon--variable")).toBeInstanceOf(Element);
     expect(layer()?.textContent).toBe("TankPressurefloat64·ns=2;s=TankPressure");
   });
@@ -323,7 +325,9 @@ describe("Browser drag preview", () => {
     await renderBrowser();
     fireEvent.click(screen.getByText("TankPressure"));
     withControlHeld(() => fireEvent.click(screen.getByText("PumpSpeed")));
-    fireEvent.dragStart(screen.getByRole("treeitem", { name: /PumpSpeed/ }));
+    fireEvent.dragStart(screen.getByRole("treeitem", { name: /PumpSpeed/ }), {
+      dataTransfer: new DataTransfer(),
+    });
     expect(layer()?.querySelector(".lyra-haul-preview__count")?.textContent).toBe("2");
   });
 
@@ -338,7 +342,7 @@ describe("Browser drag preview", () => {
     await screen.findByText("Double");
     const title = document.querySelector('[aria-expanded][draggable="true"]');
     if (title == null) throw new Error("expected a draggable details title");
-    fireEvent.dragStart(title);
+    fireEvent.dragStart(title, { dataTransfer: new DataTransfer() });
     expect(layer()?.textContent).toBe("TankPressurefloat64·ns=2;s=TankPressure");
   });
 });

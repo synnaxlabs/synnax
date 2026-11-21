@@ -91,8 +91,9 @@ describe("arc editor toolbar", () => {
     const stages = await screen.findByRole("listbox", { name: "Stages" });
     const stage = stages.querySelector('[aria-label="Constant"]');
     if (stage == null) throw new Error("expected a Constant stage");
-    const setDragImage = vi.fn();
-    fireEvent.dragStart(stage, { dataTransfer: { setDragImage } });
+    const dataTransfer = new DataTransfer();
+    const setDragImage = vi.spyOn(dataTransfer, "setDragImage");
+    fireEvent.dragStart(stage, { dataTransfer });
     const layer = document.querySelector(".lyra-haul__layer");
     expect(layer?.children).toHaveLength(1);
     expect(layer?.firstElementChild?.classList).toContain("pluto-arc__stage");
