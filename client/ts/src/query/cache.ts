@@ -130,12 +130,11 @@ export class Cache {
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly downObserver = new observe.Observer<void>();
+  private readonly missedObserver = new observe.Observer<void>();
   private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
   private reconciling: Promise<void> | null = null;
-  // Set when an epoch bumps during a reconcile, whose fetches may predate the change
-  // that the bump reports.
   private reconcileQueued = false;
   private unmaintained = false;
   /** Whether the change stream is live, so tables may drop records. */
@@ -291,6 +290,7 @@ export class Cache {
     return {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      onMissed: (callback) => this.onMissed(callback),
       epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
@@ -349,9 +349,12 @@ export class Cache {
           this.bumpEpoch();
           this.trim();
         },
-        // The Core dropped changes, but the stream stays open.
+        // The stream stays open, so the epoch holds: changes sent after the drop
+        // still arrive.
         onMissed: () => {
-          if (this.streamer === streamer) this.bumpEpoch();
+          if (this.streamer !== streamer) return;
+          this.scheduleReconcile();
+          this.missedObserver.notify();
         },
         onDead: (error) => {
           if (this.streamer !== streamer) return;
@@ -375,9 +378,8 @@ export class Cache {
   }
 
   /**
-   * The connection epoch: 0 before streaming starts, 1 once live, incremented on every
-   * reconnect and every time the Core drops changes for the stream. Changes may have
-   * been missed between epochs.
+   * The connection epoch: 0 before streaming starts, 1 once live, incremented
+   * on every reconnect. Changes may have been missed between epochs.
    */
   get epoch(): number {
     return this.epochCount;
@@ -397,6 +399,15 @@ export class Cache {
   }
 
   /**
+   * Subscribes to misses: the Core dropped changes for the stream because it fell
+   * behind. The stream stays open and the epoch holds, so changes sent after the drop
+   * still arrive. Returns a destructor that unsubscribes.
+   */
+  onMissed(callback: () => void): destructor.Destructor {
+    return this.missedObserver.onChange(callback);
+  }
+
+  /**
    * Subscribes to the change stream going down: a drop that starts a reconnect, a
    * failure that ends it, a reset, or a close. No change made while it is down ever
    * arrives. Returns a destructor that unsubscribes.
@@ -412,8 +423,8 @@ export class Cache {
 
   /**
    * Re-checks every cached entry against the cluster: refreshes entries that
-   * still exist and tombstones entries that vanished. Runs at every epoch bump for
-   * tables that declare a fetch.
+   * still exist and tombstones entries that vanished. Runs after every reconnect and
+   * every miss for tables that declare a fetch.
    */
   private async reconcile(): Promise<void> {
     await Promise.all(
@@ -465,7 +476,8 @@ export class Cache {
     this.scheduleReconcile();
   }
 
-  // Runs one reconcile at a time. A bump during a reconcile runs one more after it.
+  // Runs one reconcile at a time. A request during a reconcile runs one more after it,
+  // since the running one can have fetched before the change that the request reports.
   private scheduleReconcile(): void {
     if (this.reconciling != null) {
       this.reconcileQueued = true;
