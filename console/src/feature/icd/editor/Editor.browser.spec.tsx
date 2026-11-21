@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -53,6 +53,13 @@ const commit = async (column: string, row: number, value: string): Promise<void>
   await screen.findByLabelText(`${column} ${row}`);
   const input = cell(column, row);
   fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
+
+const typeCycleTime = async (text: string): Promise<void> => {
+  const input = await screen.findByLabelText("Cycle time");
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
   fireEvent.blur(input);
 };
 
@@ -261,6 +268,99 @@ describe("ICD editor", () => {
         fields: [],
       });
     });
+  });
+
+  it("should store a cycle time typed alone in milliseconds", async () => {
+    const ic = await createICD([createMessage([])]);
+    await renderEditor(ic);
+    await typeCycleTime("100");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+        TimeSpan.milliseconds(100),
+      ),
+    );
+  });
+
+  it("should store a cycle time typed with a unit", async () => {
+    const ic = await createICD([createMessage([])]);
+    await renderEditor(ic);
+    await typeCycleTime("1.5s");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+        TimeSpan.milliseconds(1500),
+      ),
+    );
+  });
+
+  it("should show the cycle time of a message", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const cycleTime = await screen.findByLabelText<HTMLInputElement>("Cycle time");
+    expect(cycleTime.value).toBe("250ms");
+  });
+
+  it("should remove the cycle time when its text is cleared", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    await typeCycleTime("");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
+    );
+  });
+
+  it("should check the ICD with the Core after a cycle time is cleared", async () => {
+    const ic = await createICD([
+      {
+        ...createMessage([createBinaryField("Rpm", 0), createBinaryField("Temp", 8)]),
+        cycleTime: TimeSpan.milliseconds(250),
+      },
+    ]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Cycle time");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
+    );
+    await commit("Scale", 2, "0");
+    expect(
+      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
+    ).toBeTruthy();
+  });
+
+  it("should refuse a cycle time of zero", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Cycle time");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "0" } });
+    expect(await screen.findByText("Cycle time must be 1ns or more")).toBeTruthy();
+    fireEvent.blur(input);
+    expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+      TimeSpan.milliseconds(250),
+    );
+  });
+
+  it("should refuse a cycle time past the largest time span", async () => {
+    const ic = await createICD([
+      { ...createMessage([]), cycleTime: TimeSpan.milliseconds(250) },
+    ]);
+    await renderEditor(ic);
+    const input = await screen.findByLabelText("Cycle time");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "3000000h" } });
+    expect(await screen.findByText("Cycle time is too long")).toBeTruthy();
+    fireEvent.blur(input);
+    expect((await retrieveMessage(ic.key)).cycleTime).toEqual(
+      TimeSpan.milliseconds(250),
+    );
   });
 
   it("should store the pointer of a JSON field", async () => {

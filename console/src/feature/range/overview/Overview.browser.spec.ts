@@ -16,7 +16,11 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { assert, describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
-import { CORE, renderOverview } from "@/feature/range/overview/testutil";
+import {
+  CORE,
+  preloadOverview,
+  renderOverview,
+} from "@/feature/range/overview/testutil";
 import { createTestLabel } from "@/platform/label/testutil";
 import { createTestRange, rangeColorBeside } from "@/platform/range/testutil";
 import {
@@ -28,6 +32,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+preloadOverview();
 
 const TAB = Range.Overview.TABS[ranger.TYPE_RESOURCE_ID.type];
 

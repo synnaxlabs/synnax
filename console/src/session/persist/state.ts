@@ -726,8 +726,8 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 /**
  * Saves every change dispatched so far without waiting out the debounce, and resolves
  * once storage holds them. During a session swap it saves nothing and resolves once the
- * swap is done. Only the main window persists: elsewhere, and in a store without
- * persistence, it resolves at once.
+ * swap is done. After a failed swap it saves only the global slices. Only the main
+ * window persists: elsewhere, and in a store without persistence, it resolves at once.
  * @throws {Error} if the write fails.
  */
 export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
@@ -740,7 +740,8 @@ export const flush = async (dispatch: (action: Action) => unknown): Promise<void
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
  * target's partitions load, and a single hydrate action applies them. Nothing else is
- * saved while the swap is in flight, so a change made then is lost.
+ * saved while the swap is in flight, so a change made then is lost. A failed swap stays
+ * in flight, and until a later swap hydrates only the global slices are saved.
  */
 const createMiddleware = <S extends object>(
   engine: Engine<S>,
@@ -752,8 +753,15 @@ const createMiddleware = <S extends object>(
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
   // The swap in flight, or null. While one is, `current` names a context whose slices
-  // the store does not hold yet, so nothing is saved until it hydrates or ends.
-  let swap: { includeCore: boolean } | null = null;
+  // the store does not hold yet, so no Core or project slice is saved until a swap
+  // hydrates.
+  let swap: { includeCore: boolean; failed: boolean } | null = null;
+  // The context saves go under, or null while a swap loads. A failed swap leaves the
+  // store's swapped slices in no context, so only the global partition is saved.
+  const saveContext = (): Context | null => {
+    if (swap == null) return current;
+    return swap.failed ? {} : null;
+  };
   // Everything the store writes runs in turn. A swap flushes the partition it leaves,
   // so a purge of that partition has to wait behind it or the keys come back.
   let queue: Promise<unknown> = Promise.resolve();
@@ -773,10 +781,10 @@ const createMiddleware = <S extends object>(
       });
       return write;
     };
-    const debouncedPersist = scheduler.debounce(
-      () => void persist(store.getState() as S, current),
-      debounceInterval,
-    );
+    const debouncedPersist = scheduler.debounce(() => {
+      const context = saveContext();
+      if (context != null) void persist(store.getState() as S, context);
+    }, debounceInterval);
     return (next) => (action) => {
       const result = next(action);
       if (!announced) {
@@ -803,10 +811,11 @@ const createMiddleware = <S extends object>(
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
       else if (type === flushState.type) {
+        const context = saveContext();
         // Mid-swap, the swap's own flush is the last save before the hydrate.
-        if (swap != null) return queue;
+        if (context == null) return queue;
         debouncedPersist.cancel();
-        return persist(state, current);
+        return persist(state, context);
       } else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
         queue = queue
@@ -820,8 +829,7 @@ const createMiddleware = <S extends object>(
         swap = null;
         current = getContext(state);
         debouncedPersist();
-      } else if (type === endSwap.type) swap = null;
-      else {
+      } else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
@@ -832,7 +840,8 @@ const createMiddleware = <S extends object>(
           // The Core stayed, so the user picked this project during a Core swap.
           const projectPicked =
             includeCore && ctx.core === old.core && ctx.project != null;
-          swap = { includeCore };
+          const started = { includeCore, failed: false };
+          swap = started;
           debouncedPersist.cancel();
           current = ctx;
           const gen = ++swapGen;
@@ -851,12 +860,15 @@ const createMiddleware = <S extends object>(
               store.dispatch(hydrate(loaded));
             })
             .catch((err: unknown) => {
-              if (gen === swapGen) store.dispatch(endSwap());
+              if (gen === swapGen) {
+                started.failed = true;
+                store.dispatch(endSwap());
+              }
               engine.onError(
                 new Error("failed to swap session context", { cause: err }),
               );
             });
-        } else if (swap == null) debouncedPersist();
+        } else if (saveContext() != null) debouncedPersist();
       }
       return result;
     };

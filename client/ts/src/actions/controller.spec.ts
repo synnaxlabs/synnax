@@ -1241,6 +1241,36 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("overlaid", () => {
+    it("reports a doc with a pending dispatch as overlaid", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      prime(docs, "other", { a: 0 });
+      expect([...docs.overlaid()]).toEqual([]);
+      await controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+    });
+
+    it("drops the doc once the echo of its dispatch settles it", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+
+    it("drops the doc once the Core refuses its dispatch", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect([...docs.overlaid()]).toEqual(["k"]);
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      expect([...docs.overlaid()]).toEqual([]);
+    });
+  });
+
   describe("applyRemote", () => {
     it("applies foreign actions and stamps targets as remote-touched", async () => {
       const { docs, controller } = setupStore();
@@ -1422,6 +1452,19 @@ describe("actions.Controller", () => {
       calls[0].resolve();
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("tells the doc's subscribers when the echo of the first pending dispatch arrives", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      const events: string[] = [];
+      docs.subscribe((event) => events.push(event.variant), "k");
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      expect(events).toEqual(["set"]);
+      calls[0].resolve();
+      await dispatched;
     });
 
     it("applies the actions that the Core adds to the echo of a dispatch", async () => {
