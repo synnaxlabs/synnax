@@ -14,7 +14,11 @@ import {
   NotFoundError,
   query,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  failRequests,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { binary, uuid } from "@synnaxlabs/x";
@@ -310,6 +314,30 @@ describe("channel/tree", () => {
       const edit = await screen.findByText("Edit calculation");
       await act(async () => fireEvent.click(edit));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
+    });
+
+    it("should show a calculation lookup that fails as an error", async () => {
+      const calc = await createChannel({
+        isIndex: false,
+        virtual: true,
+        expression: "return 1",
+      });
+      // A new client holds no answer for the channel, so the lookup goes to the Core.
+      const viewer = createTestClient();
+      failRequests(
+        viewer,
+        "/calculation/retrieve",
+        new Error("calculations unavailable"),
+      );
+      await renderLiveTree({
+        client: viewer,
+        root: HOST_ID,
+        items: { ...Channel.TREE_ITEMS, ...hostChannels(calc) },
+      });
+      const row = await findTreeRow(calc.name);
+      await waitFor(() =>
+        expect(row.querySelector(".lyra-icon--status-concentric")).not.toBeNull(),
+      );
     });
 
     it("should offer Reload Console", async () => {

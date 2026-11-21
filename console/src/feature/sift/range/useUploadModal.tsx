@@ -153,7 +153,7 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
   });
   const [rejection, setRejection] = useState<status.Status | null>(null);
   // The query keeps calculated channels, which the Core does not store.
-  const isStored = Calculation.useNonOutputFilter();
+  const stored = Calculation.useNonOutputFilter();
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
@@ -182,7 +182,8 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
                 value={value}
                 onChange={onChange}
                 query={CHANNEL_QUERY}
-                filter={isStored}
+                filter={stored.filter}
+                status={stored.status}
                 triggerProps={CHANNEL_TRIGGER_PROPS}
                 full="x"
               />

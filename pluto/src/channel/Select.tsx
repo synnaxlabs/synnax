@@ -46,9 +46,15 @@ export interface SelectMultipleProps
   extends
     Omit<
       Select.MultipleProps<channel.Key, channel.Channel | undefined>,
-      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+      "resourceName" | "data" | "getItem" | "subscribe" | "children" | "status"
     >,
-    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {
+  /**
+   * Shown in place of the list's status while set, such as the status of the lookups
+   * a filter makes.
+   */
+  status?: Select.MultipleProps<channel.Key, channel.Channel | undefined>["status"];
+}
 
 const isChannel = (entry: unknown): entry is channel.Channel =>
   entry != null && typeof entry === "object" && "payload" in entry;
@@ -87,19 +93,18 @@ export const SelectMultiple = ({
   query,
   filter,
   triggerProps,
+  status,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
-  const { data, getItem, subscribe, status, more, search } = useList({
-    query,
-    filter,
-  });
+  const list = useList({ query, filter });
+  const { data, getItem, subscribe, more, search } = list;
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
       onFetchMore={more}
       onSearch={search}
-      status={status}
+      status={status ?? list.status}
       icon={<Icon.Channel />}
       triggerProps={withDefaults(client, triggerProps)}
       {...rest}

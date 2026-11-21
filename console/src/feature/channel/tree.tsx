@@ -155,7 +155,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key) };
-  const { data: chStatus } = Calculation.useResultStatus({ channel: params.key });
+  const calcStatus = Calculation.useResultStatus({ channel: params.key });
+  // A failed lookup shows as an error, so a calculated channel never reads as plain.
+  const chStatus = calcStatus.variant === "error" ? calcStatus.status : calcStatus.data;
   const kind = PChannel.useKind(params);
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);

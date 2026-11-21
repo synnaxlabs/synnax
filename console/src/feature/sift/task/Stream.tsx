@@ -75,7 +75,7 @@ const Progress = () => {
 
 const Form: FC = () => {
   // The query keeps calculated channels, which the Core does not store.
-  const isStored = Calculation.useNonOutputFilter();
+  const stored = Calculation.useNonOutputFilter();
   return (
     <PForm.Sections className={CSS.B("sift-stream")}>
       <PForm.Section title="Data">
@@ -86,7 +86,8 @@ const Form: FC = () => {
               onChange={onChange}
               preview={preview}
               query={CHANNEL_QUERY}
-              filter={isStored}
+              filter={stored.filter}
+              status={stored.status}
               triggerProps={CHANNEL_TRIGGER_PROPS}
               full="x"
             />

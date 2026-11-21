@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType } from "@synnaxlabs/client";
+import { type channel, DataType, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/channel";
@@ -106,6 +106,21 @@ describe("Channel select", () => {
       expect(c.getByText(third.name)).toBeTruthy();
       expect(c.getByPlaceholderText(/search/i)).toBe(search);
       expect(search).toHaveProperty("value", term);
+    });
+
+    it("should show a caller's status in place of the list's", async () => {
+      const failure = status.create({
+        variant: "error",
+        message: "Failed to find calculated channels",
+      });
+      const props = { value: [], onChange: vi.fn(), filter: () => false };
+      const c = render(<Channel.SelectMultiple {...props} status={failure} />, {
+        wrapper: Wrapper,
+      });
+      fireEvent.click(c.getAllByRole("button")[0]);
+      expect(await c.findByText(failure.message)).toBeTruthy();
+      c.rerender(<Channel.SelectMultiple {...props} />);
+      await waitFor(() => expect(c.queryByText(failure.message)).toBeNull());
     });
   });
 });
