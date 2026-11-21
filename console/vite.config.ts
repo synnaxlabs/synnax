@@ -38,6 +38,7 @@ interface BrowserProjectProps {
   exclude?: string[];
   desktop?: boolean;
   webkit?: boolean;
+  setupFiles?: string[];
 }
 
 /**
@@ -51,8 +52,10 @@ const browserProject = ({
   exclude = [],
   desktop = false,
   webkit = true,
+  setupFiles = ["src/testutil/browser.ts"],
 }: BrowserProjectProps): TestProjectInlineConfiguration => {
   const prefix = desktop ? "desktop-" : "";
+  const diag = /^d\d$/.test(name) ? `${name}-` : "";
   // A CI runner has 4 CPUs. Parallel Chromium pages starve the jsdom workers that share
   // them, so their timers fire seconds late and their specs time out. WebKit runs in a
   // step of its own, with no jsdom workers beside it.
@@ -72,7 +75,7 @@ const browserProject = ({
     },
     test: {
       name,
-      setupFiles: ["src/testutil/browser.ts"],
+      setupFiles,
       include,
       exclude,
       // A browser has no `process` to read the test Core from.
@@ -89,8 +92,8 @@ const browserProject = ({
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
         instances: webkit
           ? [
-              { browser: "chromium", name: `${prefix}chromium`, ...pages },
-              { browser: "webkit", name: `${prefix}webkit` },
+              { browser: "chromium", name: `${prefix}${diag}chromium`, ...pages },
+              { browser: "webkit", name: `${prefix}${diag}webkit` },
             ]
           : [{ browser: "chromium", name: `${name}-chromium`, ...pages }],
       },
@@ -241,6 +244,18 @@ export default defineConfig({
         test: { ...JSDOM, name: "desktop", include: [DESKTOP_SPECS] },
       },
       browserProject({ name: "browser", exclude: [DESKTOP_BROWSER_SPECS] }),
+      ...[
+        ["d0", []],
+        ["d1", ["src/zzdiag/setup/css.ts"]],
+        ["d2", ["src/zzdiag/setup/noTrace.ts"]],
+        ["d3", ["src/zzdiag/setup/noCss.ts"]],
+      ].map(([n, files]) =>
+        browserProject({
+          name: n as string,
+          include: ["src/zzdiag/e1/*.browser.spec.ts"],
+          setupFiles: files as string[],
+        }),
+      ),
       browserProject({
         name: "desktop-browser",
         include: [DESKTOP_BROWSER_SPECS],
