@@ -330,6 +330,46 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(second).ToNot(Equal(first))
 	})
 
+	DescribeTable("Should write a generated default beside a match rule",
+		func(match icd.JSONMatch, expectedType string) {
+			enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
+				Name: "status",
+				Payload: icd.JSONPayload{
+					Match: &match,
+					Fields: []icd.JSONField{{Variant: icd.UuidJSONField{
+						Key:     uuid.New(),
+						Name:    "id",
+						Scale:   1,
+						Pointer: "/id",
+						Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+					}}},
+				},
+			}))
+			var doc struct {
+				Type string `json:"type"`
+				ID   string `json:"id"`
+			}
+			Expect(
+				json.Unmarshal(MustSucceed(enc.Encode(nil, nil)), &doc),
+			).To(Succeed())
+			Expect(doc.Type).To(Equal(expectedType))
+			Expect(MustSucceed(uuid.Parse(doc.ID))).ToNot(Equal(uuid.Nil()))
+		},
+		Entry("a rule that writes its value",
+			icd.JSONMatch{Variant: icd.StringJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
+				Value:         "status",
+			}},
+			"status",
+		),
+		Entry("a rule on a present field",
+			icd.JSONMatch{Variant: icd.PresentJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/id"},
+			}},
+			"",
+		),
+	)
+
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
