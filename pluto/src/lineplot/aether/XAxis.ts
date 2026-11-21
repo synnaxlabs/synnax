@@ -169,6 +169,15 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     };
   }
 
+  /**
+   * @returns the values that the closed break of layout at a decimal position across
+   * the plot hides, or null.
+   */
+  hiddenAt(layout: Layout, position: number, plot: box.Box): bounds.Bounds | null {
+    const hit = BREAK_HIT_DISTANCE / box.width(plot);
+    return layout.gapAt(position, hit, true)?.bounds ?? null;
+  }
+
   private yAxisProps(
     props: Omit<AxisRenderProps, "canvases">,
   ): Omit<YAxisProps, "canvases"> {

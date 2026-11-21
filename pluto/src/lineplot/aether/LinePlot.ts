@@ -77,6 +77,8 @@ export const linePlotMethodsZ = {
     input: z.tuple([breaksRequestZ]),
     output: breaksChangeZ.nullable(),
   }),
+  /** Returns the decimal positions across the home view of the seams of x1. */
+  getSeams: z.function({ input: z.tuple([]), output: z.array(z.number()) }),
 };
 
 interface InternalState {
@@ -186,18 +188,25 @@ export class LinePlot
       this.setState((p) => ({ ...p, breaks }));
   }
 
-  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
+  // renderAxes draws each x axis and returns the layout of x1, or null.
+  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): Layout | null {
     const p = { ...this.state, plot, canvases };
     // Raised lines draw after the lines of every axis, so they draw over all of them.
     const raised: Array<() => void> = [];
     try {
       const drawn = this.axes.map((xAxis, i) => xAxis.render(axisProps(i, p), raised));
-      this.syncBreaks(drawn[0]?.[0] ?? null);
+      const x1 = drawn[0]?.[0] ?? null;
+      this.syncBreaks(x1);
       const err = drawn.find((d) => d?.[1] != null)?.[1];
       if (err != null) throw err;
+      return x1;
     } finally {
       raised.forEach((draw) => draw());
     }
+  }
+
+  getSeams(): number[] {
+    return this.axes.at(0)?.layout(this.state).seams ?? [];
   }
 
   getBreakChange(req: BreaksRequest): BreaksChange | null {
@@ -206,9 +215,16 @@ export class LinePlot
     return x1.breaks(this.state, req, this.calculatePlot());
   }
 
-  private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
+  private renderTooltips(
+    region: box.Box,
+    canvases: render.CanvasVariant[],
+    x1: Layout | null,
+  ): void {
     const findByXDecimal = this.findDrawnByXDecimal.bind(this);
-    const p = { findByXDecimal, region, canvases };
+    const axis = this.axes.at(0);
+    const hiddenAt = (position: number) =>
+      axis == null || x1 == null ? null : axis.hiddenAt(x1, position, region);
+    const p = { findByXDecimal, hiddenAt, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
 
@@ -248,10 +264,16 @@ export class LinePlot
     );
   }
 
-  private renderMeasures(region: box.Box): void {
+  private renderMeasures(region: box.Box, x1: Layout | null): void {
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
+      // Only the lines of x1 break.
+      closedBetween: (a, b) =>
+        x1 != null &&
+        x1.hasSpan(a.key) &&
+        x1.hasSpan(b.key) &&
+        x1.closedBetween(a.value.x, b.value.x),
       region,
     };
     this.measures.forEach((m) => m.render(p));
@@ -299,9 +321,9 @@ export class LinePlot
     );
 
     try {
-      this.renderAxes(plot, canvases);
-      this.renderTooltips(plot, canvases);
-      this.renderMeasures(plot);
+      const x1 = this.renderAxes(plot, canvases);
+      this.renderTooltips(plot, canvases, x1);
+      this.renderMeasures(plot, x1);
     } catch (e) {
       handleError(e, "Failed to render line plot");
     } finally {

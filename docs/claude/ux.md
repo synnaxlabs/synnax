@@ -903,6 +903,12 @@ says why in a sentence, then gives the raw error.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
   while one is open. Reset zoom closes all breaks. The Session stores the open breaks
   with the view, so a reload shows the same times.
+- Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
+  show". Over a segment, it lists only the lines of that segment.
+- A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It
+  draws no oblique line and no slope, as no line joins data across a break.
+- A select drag stops at the seams of the segment where it starts. A zoom box crosses
+  seams. To select across a gap, open its break.
 
 ### Plot controls
 
