@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -166,7 +165,7 @@ var _ = Describe("Checkpointer", func() {
 				Expect(leftover.Close()).To(Succeed())
 				c.Head(2, sample(2))
 				Eventually(c.Err).Should(MatchError(ContainSubstring("exists")))
-				Expect(readErr(fs, 2)).To(MatchError(place.ErrCorrupt))
+				Expect(readErr(fs, 2)).To(MatchError(checkpoint.ErrIncomplete))
 				Expect(exists(log.Name(1))).To(BeTrue())
 				c.Head(3, sample(2))
 				Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
