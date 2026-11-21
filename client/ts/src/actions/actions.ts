@@ -42,10 +42,8 @@ export interface ReduceAllResult<S, A> {
 
 /**
  * Returns a plain-object snapshot of an Immer draft so the result is safe to embed in
- * an action stored on the undo stack. Returns non-draft inputs unchanged. The non-draft
- * passthrough exists because when a reducer applies multiple actions in one produce(),
- * an earlier action's wholesale assignment leaves the slot as a plain object, so the
- * next action would crash if it called `current` unconditionally.
+ * an action stored on the undo stack. Returns non-draft inputs, such as primitives and
+ * class instances, unchanged.
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
@@ -176,9 +174,7 @@ export const applyField = <S extends object>(
   const value = snapshotDraft(draft[field]);
   const next: unknown = zod.parse(fieldZ, value, { label: field });
   if (next === undefined) delete draft[field];
-  // The parse copies the field but shares its frozen values, so writing back an equal
-  // copy would leave a later action in the batch unable to edit them.
-  else if (!deep.equal(next, value)) draft[field] = next;
+  else draft[field] = next;
   return result;
 };
 
@@ -249,13 +245,18 @@ export const createReduceAll =
   (state: S, actions: A[]): ReduceAllResult<S, A> => {
     const inverse: A[] = [];
     const targetsSet = new Set<string>();
-    const next = produce(state, (draft) => {
-      for (const action of actions) {
-        const result = reduceOne(draft, action);
-        if (result.inverse.length > 0) inverse.unshift(...result.inverse);
-        for (const t of result.targets) targetsSet.add(t);
-      }
-    });
+    // Each action gets its own draft. Immer does not draft a value that an earlier
+    // action placed in the same draft, so a later action would edit the action's own
+    // payload, which a past reduce froze.
+    const next = actions.reduce(
+      (prev, action) =>
+        produce(prev, (draft) => {
+          const result = reduceOne(draft, action);
+          if (result.inverse.length > 0) inverse.unshift(...result.inverse);
+          for (const t of result.targets) targetsSet.add(t);
+        }),
+      state,
+    );
     return { next, inverse, targets: Array.from(targetsSet) };
   };
 

@@ -441,10 +441,13 @@ describe("applyField", () => {
   it("should apply two actions to one field of a frozen document", () => {
     const documentZ = z.object({ props: record.unknownZ() });
     const doc = freeze({ key: "a", props: { a: { b: {} }, c: 1 } }, true);
-    const next = produce(doc, (draft) => {
-      actions.applyField(draft, setAt(["props", "c"], 2), documentZ);
-      actions.applyField(draft, setAt(["props", "a", "b", "d"], 3), documentZ);
-    });
+    const reduce = actions.createReduceAll<typeof doc, patch.Action>((draft, action) =>
+      actions.applyField(draft, action, documentZ),
+    );
+    const { next } = reduce(doc, [
+      setAt(["props", "c"], 2),
+      setAt(["props", "a", "b", "d"], 3),
+    ]);
     expect(next).toEqual({ key: "a", props: { a: { b: { d: 3 } }, c: 2 } });
   });
 });
@@ -644,6 +647,15 @@ describe("createReduceAll", () => {
   it("Should drop NO_OP_RESULT entries from the inverse list", () => {
     const { inverse } = reduceAll(initial, [removeItemAction("missing")]);
     expect(inverse).toHaveLength(0);
+  });
+
+  it("Should edit an item that an earlier action with a frozen payload added", () => {
+    const add = freeze(setItemAction("b", 7), true);
+    const { next } = reduceAll(initial, [add, setItemAction("b", 8)]);
+    expect(next.items).toEqual([
+      { key: "a", value: 1 },
+      { key: "b", value: 8 },
+    ]);
   });
 
   it("Should leave the source state untouched after produce", () => {
