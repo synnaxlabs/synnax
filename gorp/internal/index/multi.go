@@ -259,6 +259,29 @@ func (m *Multi[S, K, V]) GetEach(scope S, values []V) ([][]K, error) {
 	return out, nil
 }
 
+// Empty reports whether no key holds a value in committed state, in the changes of
+// scope, or in the changes of a scope in its commit. It is false until the bulk load
+// finishes, and after the load fails.
+func (m *Multi[S, K, V]) Empty(scope S) bool {
+	if !m.loaded() {
+		return false
+	}
+	m.mu.RLock()
+	empty := m.population.err == nil && len(m.forward) == 0
+	m.mu.RUnlock()
+	if !empty {
+		return false
+	}
+	o := &m.overlay
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	// Only the staging scope, or a scope in its commit, reads the changes.
+	if isNone(o.scope) || (o.scope != scope && !o.scope.Committing()) {
+		return true
+	}
+	return len(o.d.forward) == 0
+}
+
 // CommittingEach returns, at each position of values, the keys that a transaction in
 // its commit maps to that value. See Lookup.Committing for its contract.
 func (m *Multi[S, K, V]) CommittingEach(values []V) [][]K {
