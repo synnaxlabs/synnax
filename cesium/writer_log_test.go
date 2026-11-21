@@ -119,6 +119,89 @@ var _ = Describe("Writer on the pointer log", func() {
 		Expect(w.Close()).To(Succeed())
 	})
 
+	Describe("Reads", func() {
+		read := func(ctx context.Context, key cesium.ChannelKey) telem.MultiSeries {
+			GinkgoHelper()
+			return MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key)
+		}
+		It("Should read the committed samples of each key with their alignment", func(
+			ctx SpecContext,
+		) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			written, _ := MustSucceed2(w.Write(ctx, frame(10, 11, 12), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			values := read(ctx, data)
+			Expect(values.Series).To(HaveLen(1))
+			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+			Expect(values.Series[0].Alignment).To(
+				Equal(written.Get(data).Series[0].Alignment),
+			)
+			Expect(read(ctx, idx).Series[0]).To(
+				telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12)),
+			)
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should not read samples that are not committed", func(ctx SpecContext) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			Expect(read(ctx, data).Series).To(BeEmpty())
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should read the commits of a synced writer after a reopen", func(
+			ctx SpecContext,
+		) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			MustSucceed2(w.Write(ctx, frame(12), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			reopen(ctx)
+			values := read(ctx, data)
+			Expect(values.Series).To(HaveLen(1))
+			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+		})
+		It("Should read the stretches of two writers in time order", func(
+			ctx SpecContext,
+		) {
+			for _, start := range []telem.TimeStamp{20, 10} {
+				w := openWriter(ctx, start*telem.SecondTS)
+				MustSucceed2(w.Write(ctx, frame(start, start+1), nil))
+				MustSucceed2(w.Commit(ctx, nil))
+				Expect(w.Close()).To(Succeed())
+			}
+			values := read(ctx, data)
+			Expect(values.Series).To(HaveLen(2))
+			Expect(values.Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+			Expect(values.Series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+			Expect(values.Series[0].Alignment.DomainIndex()).ToNot(
+				Equal(values.Series[1].Alignment.DomainIndex()),
+			)
+		})
+		It("Should read a channel of variable density", func(ctx SpecContext) {
+			text := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: text, Name: "text", Index: idx, DataType: telem.StringT,
+			})).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{idx, text},
+				Start:    10 * telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(
+				[]cesium.ChannelKey{idx, text},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11),
+					telem.NewSeriesV("hello", "world"),
+				},
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(read(ctx, text).Series[0]).To(
+				telem.MatchSeriesDataV("hello", "world"),
+			)
+		})
+	})
+
 	It("Should refuse a stamp that does not rise", func(ctx SpecContext) {
 		w := openWriter(ctx, 10*telem.SecondTS)
 		MustSucceed2(w.Write(ctx, frame(10, 11), nil))

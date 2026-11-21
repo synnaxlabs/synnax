@@ -80,7 +80,7 @@ var ErrIteratorClosed = resource.NewClosedError("unary.iterator")
 type Iterator struct {
 	alamos.Instrumentation
 	err      error
-	internal *domain.Iterator
+	internal domain.Cursor
 	idx      *index.Domain
 	resolver *offsetResolver
 	Channel  channel.Channel
@@ -117,13 +117,46 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
+	return newIterator(
+		db.cfg.Instrumentation,
+		db.cfg.Channel,
+		db.domain,
+		db.index(),
+		db.resolver,
+		cfg,
+	), nil
+}
+
+// NewIterator returns an iterator of ch over the ranges that src holds, which takes
+// the stamps of ch from idx. The pointer log layout opens its iterators with it.
+func NewIterator(
+	ins alamos.Instrumentation,
+	ch channel.Channel,
+	src domain.Source,
+	idx *index.Domain,
+	cfgs ...IteratorConfig,
+) (*Iterator, error) {
+	cfg, err := config.New(IteratorConfig{AutoChunkSize: 1e5}, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return newIterator(ins, ch, src, idx, newOffsetResolver(ch.DataType, ins), cfg), nil
+}
+
+func newIterator(
+	ins alamos.Instrumentation,
+	ch channel.Channel,
+	src domain.Source,
+	idx *index.Domain,
+	resolver *offsetResolver,
+	cfg IteratorConfig,
+) *Iterator {
 	i := &Iterator{
-		Instrumentation: db.cfg.Instrumentation,
-		idx:             db.index(),
-		Channel:         db.cfg.Channel,
-		resolver:        db.resolver,
-		internal:        iter,
+		Instrumentation: ins,
+		idx:             idx,
+		Channel:         ch,
+		resolver:        resolver,
+		internal:        src.OpenCursor(cfg.domainIteratorConfig()),
 		IteratorConfig:  cfg,
 	}
 	switch r := cfg.Reduction.Variant.(type) {
@@ -133,7 +166,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 		i.aggregation, i.pointLimit = r.Aggregation, r.PointLimit
 	}
 	i.SetBounds(cfg.Bounds)
-	return i, nil
+	return i
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -680,7 +713,7 @@ func (i *Iterator) loadSegments(ctx context.Context, start, end int64) (err erro
 		// An index channel timestamps itself, so the domain it reads is its segment.
 		i.segments = append(i.segments[:0], index.Segment{
 			TimeRange: i.internal.TimeRange(),
-			Alignment: telem.NewAlignment(i.internal.Position(), uint32(start)),
+			Alignment: i.internal.Alignment().AddSamples(uint32(start)),
 			Len:       end - start,
 		})
 		return nil
@@ -804,7 +837,7 @@ func (i *Iterator) prepend(res segmentRead) telem.Series {
 // index keeps the same samples.
 func (i *Iterator) readSegment(
 	ctx context.Context,
-	r *domain.Reader,
+	r domain.RangeReader,
 	seg index.Segment,
 	start int64,
 	tr telem.TimeRange,
