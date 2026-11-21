@@ -603,7 +603,8 @@ which allocates clock keys from it.
 - **Method**: Each gate benchmark runs 10 rounds, base and head interleaved on one quiet
   host, after one run of `main` against `main` that measures the noise.
 - **Fail rule**: A time rise over 5% at p < 0.05 in `benchstat`, or any rise in
-  allocations per operation. TypeScript and Python gate on time only.
+  allocations per operation. TypeScript and Python gate on time only. New work that the
+  base never did is held to its bound in RFC 0116 §4.8 instead.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
   floor never gates. Each ratio is on a shape that Phase 1 records, as channels ×
