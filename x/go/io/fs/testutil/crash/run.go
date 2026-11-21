@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/set"
 )
 
 // snapshot is the crash image behind one event, with the rules for an engine that
@@ -100,8 +102,13 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
 	if r.broken == nil {
-		if r.armed.Load() && !r.fired() {
-			return r.result, errors.Wrapf(ErrNoFault, "profile %d", cfg.Profile)
+		if unfired := r.unfired(); r.armed.Load() && len(unfired) > 0 {
+			return r.result, errors.Wrapf(
+				ErrNoFault,
+				"profile %d: no %s",
+				cfg.Profile,
+				strings.Join(unfired, ", no "),
+			)
 		}
 		return r.result, nil
 	}
@@ -224,29 +231,41 @@ func (r *run) forcedRead(event int) *snapshot {
 	return &snapshot{image: image, rules: strictRules, event: event}
 }
 
-// fired reports if a fault of the profile fired after the engine of the workload
-// opened.
-func (r *run) fired() bool {
+// unfired returns the kinds of fault of the profile that never fired after the engine
+// of the workload opened. Mixed needs one fault of the workload, since an engine that
+// stops on its first fault never meets a second kind.
+func (r *run) unfired() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	res := r.result
+	res, fired := r.result, set.New[string]()
+	add := func(kind string, ok bool) {
+		if ok {
+			fired.Add(kind)
+		}
+	}
+	add("unsynced image", res.Unsynced > 0)
+	add("sync error", res.SyncErrors > 0)
+	add("full disk", res.FullDisk > 0)
+	add("sync error or full disk", res.SyncErrors+res.FullDisk > 0)
+	add("read fault", res.ReadFaults > 0)
+	add("spoiled image", res.Spoiled > 0)
+	var needs []string
 	switch r.cfg.Profile {
 	case Strict:
-		return true
 	case Partial:
-		return res.Unsynced > 0
+		needs = []string{"unsynced image"}
 	case SyncErrors:
-		return res.SyncErrors > 0
+		needs = []string{"sync error"}
 	case FullDisk:
-		return res.FullDisk > 0
+		needs = []string{"full disk"}
 	case Mixed:
-		return res.SyncErrors+res.FullDisk > 0
+		needs = []string{"sync error or full disk"}
 	case OneTimeReadFaults, RepeatedReadFaults:
-		return res.ReadFaults > 0
+		needs = []string{"read fault"}
 	case OldCorruption, NewCorruption:
-		return res.Spoiled > 0
+		needs = []string{"spoiled image"}
 	}
-	return true
+	return slices.DeleteFunc(needs, fired.Contains)
 }
 
 // faulted reports if the disk of the workload failed a call.
