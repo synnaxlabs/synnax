@@ -647,7 +647,7 @@ describe("Read", () => {
         path: "/data",
         fields: [
           createReadField("f1", "/temperature"),
-          createReadField("f2", "/pressure", { name: "bad name" }),
+          createReadField("f2", "/pressure", { name: "bad.name" }),
         ],
       },
     ]);
