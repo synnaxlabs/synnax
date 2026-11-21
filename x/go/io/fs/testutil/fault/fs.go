@@ -50,6 +50,9 @@ type Config struct {
 	// reads its durable bytes from then on. Otherwise the block reads its new bytes
 	// until a crash.
 	EvictionRate float64
+	// SyncErrorAt fails the Sync or SyncDir with changes of this number, from 1, as a
+	// drawn sync error does. Zero fails none. Arm counts again from its call.
+	SyncErrorAt uint64
 	// ReadCorruptionRate is the chance, from 0 to 1, that a read gets one flipped bit
 	// in a 4 KiB block of a file. The bytes on the disk do not change. Until the disk
 	// gives its first read fault of either kind, each read of a block has the chance.
@@ -66,6 +69,9 @@ type Config struct {
 	// ReadFaultsRepeated gives each read of a block the chance of a read fault, also
 	// after the first fault. Then a second read of the same bytes can fault again.
 	ReadFaultsRepeated bool
+	// ReadFaultAt flips one bit of the block read of this number, from 1, among the
+	// block reads of the disk, as a drawn read corruption does. Zero flips none.
+	ReadFaultAt uint64
 	// Capacity is the size of the disk in bytes, which the lengths of its files fill. A
 	// removed file fills it until its last handle closes. Zero is no limit. A write
 	// past it writes the bytes that fit and fails with ENOSPC.

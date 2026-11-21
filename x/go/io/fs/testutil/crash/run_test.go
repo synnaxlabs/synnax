@@ -335,7 +335,8 @@ var _ = Describe("Run", func() {
 				Stride:  1,
 				Profile: crash.OneTimeReadFaults,
 			})
-			if err != nil {
+			// A run whose two commits never became durable has nothing to read.
+			if err != nil && !errors.Is(err, crash.ErrNoFault) {
 				rules.Add(broke(err))
 			}
 		}
