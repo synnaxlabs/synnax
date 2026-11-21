@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
@@ -114,6 +114,13 @@ export const synnaxParamsZ = z.object({
   /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
   // custom, not z.function: parse would wrap the clock and check every reading
   clock: z.custom<() => TimeStamp>((v) => typeof v === "function").optional(),
+  /** Runs on every request and stream the client opens, after its own middleware. */
+  // custom, not z.function: parse would wrap each middleware and check every call
+  middleware: z
+    .custom<Middleware[]>(
+      (v) => Array.isArray(v) && v.every((m) => typeof m === "function"),
+    )
+    .optional(),
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
@@ -388,6 +395,7 @@ export default class Synnax extends framer.Client {
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
+    if (parsedParams.middleware != null) transport.use(...parsedParams.middleware);
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
