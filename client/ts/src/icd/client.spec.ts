@@ -487,6 +487,40 @@ describe("icd", () => {
       ]);
     });
 
+    it.each<[string, z.input<typeof icd.payloadZ>]>([
+      [
+        "binary",
+        {
+          format: "binary",
+          length: 8,
+          fields: [{ kind: "float", name: "level", bitLength: 64, default: Infinity }],
+        },
+      ],
+      [
+        "text",
+        {
+          format: "text",
+          fields: [
+            { encoding: "delimited", name: "level", position: 1, default: Infinity },
+          ],
+        },
+      ],
+    ])(
+      "should return a problem for an infinite default of a %s field",
+      async (_, payload) => {
+        const problems = await client.icds.check({
+          name: "ICD",
+          messages: [{ name: "Reading", payload }],
+        });
+        expect(problemsOf(problems)).toEqual([
+          {
+            path: "messages.0.payload.fields.0.default",
+            message: "default must be finite",
+          },
+        ]);
+      },
+    );
+
     it("should return the problems with a rule of the schema", async () => {
       const problems = await client.icds.check({
         name: "ICD",
