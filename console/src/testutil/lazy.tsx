@@ -17,12 +17,9 @@ import { type ReactElement, Suspense, useEffect } from "react";
 
 import { renderSuspended } from "@/testutil/testutil";
 
-/**
- * Wait options for a query whose element a lazy module renders, such as one that a
- * user action mounts. A cold module load can outlast the default query wait, so the
- * wait ends only short of the test timeout.
- */
-export const LAZY_WAIT: waitForOptions = { timeout: 10_000 };
+// A cold module load can outlast the default query wait, so the wait ends only short
+// of the test timeout.
+const LOAD_WAIT: waitForOptions = { timeout: 10_000 };
 
 interface LoadProbeProps {
   onLoad: () => void;
@@ -36,9 +33,8 @@ const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
 
 /**
  * Renders ui inside a Suspense boundary and resolves once the boundary leaves its
- * fallback, so queries run against loaded lazy components. It waits as long as
- * LAZY_WAIT, and rejects when the boundary does not load, with the first caught error
- * as the cause.
+ * fallback, so queries run against loaded lazy components. Rejects when the boundary
+ * does not load, with the first caught error as the cause.
  */
 export const renderLazy = async (
   ui: ReactElement,
@@ -70,6 +66,6 @@ export const renderLazy = async (
   await waitFor(() => {
     if (loaded) return;
     throw new Error("The lazy component did not load", { cause: loadError });
-  }, LAZY_WAIT);
+  }, LOAD_WAIT);
   return result;
 };

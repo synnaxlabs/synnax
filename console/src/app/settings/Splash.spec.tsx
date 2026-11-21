@@ -11,9 +11,12 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Settings } from "@/app/settings";
+import { preloadSettings } from "@/app/settings/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { LAZY_WAIT, renderWithConsole } from "@/testutil";
+import { renderWithConsole } from "@/testutil";
+
+preloadSettings();
 
 describe("Settings.Splash", () => {
   const querySplash = (container: HTMLElement): Element | null =>
@@ -26,9 +29,7 @@ describe("Settings.Splash", () => {
       </Project.Guard>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(
-      await screen.findByRole("navigation", { name: "Settings" }, LAZY_WAIT),
-    ).toBeDefined();
+    expect(await screen.findByRole("navigation", { name: "Settings" })).toBeDefined();
     expect(querySplash(container)).toBeNull();
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Projects" }));
@@ -43,9 +44,7 @@ describe("Settings.Splash", () => {
       </Project.Guard>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(
-      await screen.findByRole("navigation", { name: "Settings" }, LAZY_WAIT),
-    ).toBeDefined();
+    expect(await screen.findByRole("navigation", { name: "Settings" })).toBeDefined();
     act(() => {
       store.dispatch(Session.Project.select("00000000-0000-0000-0000-000000000001"));
     });
