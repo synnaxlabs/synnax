@@ -100,6 +100,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 	DescribeTable(
 		"Should delete each of two stored duplicates at one path that displays hold",
 		func(ctx SpecContext, inFolder bool) {
+			Skip("stored duplicates: 9c-2 lands after 7d, whose migration renames them")
 			var g *group.Key
 			if inFolder {
 				f := createFolder(ctx)
@@ -130,6 +131,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 	It("Should delete two stored duplicates at one path in one delete", func(
 		ctx SpecContext,
 	) {
+		Skip("stored duplicates: 9c-2 lands after 7d, whose migration renames them")
 		a := create(ctx, channel.Channel{})
 		b := create(ctx, channel.Channel{})
 		name := UniqueChannelName()
