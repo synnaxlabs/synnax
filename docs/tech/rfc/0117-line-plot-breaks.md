@@ -6,6 +6,7 @@
   [RFC 0059 - Bulk telemetry read endpoint](0059-bulk-telemetry-read-endpoint.md),
   [RFC 0068 - Line plot tiles](0068-line-plot-tiles.md),
   [RFC 0083 - Telemetry layers](0083-telemetry-layers.md),
+  [RFC 0116 - Range compare](0116-range-compare.md),
   [PR #6902 - SY-6501: Store range T0, color, and time mode on line plots](https://github.com/synnaxlabs/synnax/pull/6902)
 
 ## 0 Summary
@@ -57,15 +58,17 @@ between intervals of interest, and each tool that knows the spans loads only the
 
 1. **Real time inside each segment**: A segment keeps the true time scale, and all
    segments share it. No line joins across a closed break (SY-5442).
-2. **Read only what the plot shows**: No trace reads a closed gap.
+2. **Read only what the plot shows**: No trace reads a closed gap, except a tile on the
+   edge of one, which reads whole.
 3. **One layout**: Only the layout maps x time to position. No feature makes its own
    map.
 4. **One channel draws once**: In absolute time, the ranges of a channel are one signal
    (SY-2562).
 5. **The view never jumps**: The layout is continuous in time, so a growing gap or a
    moving window changes it smoothly.
-6. **One range works as today**: A plot with one segment has no breaks and reads past
-   its range when the user zooms out (RFC 0068 §5.0).
+6. **One range works as today**: In absolute time, a plot with one segment has no breaks
+   and reads past its range when the user zooms out (RFC 0068 §5.0). Relative traces
+   stop at their range plus the margin (decision 13).
 
 ## 4 Design
 
@@ -123,22 +126,26 @@ The layout gives each trace a span. A trace reads and draws only its span.
 In absolute time, the traces of one stored line split the time:
 
 - A range owns its own window. Where two fixed windows overlap, the one that starts
-  first owns the overlap. Fixed windows come first, and a rolling window takes what is
-  left.
-- A margin goes to the trace it belongs to, unless another range's window covers it.
-- A closed gap belongs to no trace.
-- An open gap goes to the traces on either side of it.
+  first owns the overlap, and on equal starts the one listed first in the plot owns it.
+  A range with no end is a fixed window. Fixed windows come first, and a rolling window
+  takes what is left.
+- The time between two windows goes half to each, and no span leaves the segment of its
+  window. So a closed gap belongs to no trace, and an open gap goes half to each trace
+  beside it.
 - The time before the first segment and after the last one goes to the outer traces.
 
-In relative time, each trace reads its own window plus the margin on both sides, and
-traces do not split time. Each range is a separate test.
+In relative time, each trace reads its own window plus a margin on each side: 5% of its
+duration, with a floor of 1 s. Traces do not split time, because each range is a
+separate test. Phase 3 ships the split and these margins.
 
 `PointsLimit` (`client/ts/src/framer/subscription.ts:23`) gets a NEW `bound`. When it is
 set, the subscription draws only the tiles that overlap it. A tile that crosses an edge
 of the bound stays whole, so the tile keys do not change as a bound moves, and each
 trace draws inside a GL scissor cut to its span. When `bound` is not set, the read works
-as today. The span also bounds the y auto-bounds read. Today, a window that streams
-reads its y bounds over the whole x axis (`pluto/src/telem/aether/remote.ts:476-478`).
+as today. Each trace reads with the view of its own segment's scale (§4.3), so the tile
+level comes from the zoom of that segment, not from the real time across the plot. The
+span also bounds the y auto-bounds read. Today, a window that streams reads its y bounds
+over the whole x axis (`pluto/src/telem/aether/remote.ts:476-478`).
 
 ### 4.3 Drawing
 
@@ -151,8 +158,9 @@ The scissor of §4.2 cuts each trace to its span, which stays inside its segment
 series that recorded through a gap stops at the seam. Today, a series joins all of its
 finite samples, and two series join when their spans touch
 (`pluto/src/vis/line/aether/draw.ts:95`). The GL scissor did not nest, because its
-cleanup turned the test off (`pluto/src/vis/render/context.ts:480`). Its cleanup is now
-a restore of the box before it.
+cleanup turned the test off (`pluto/src/vis/render/context.ts:480`). A nested scissor
+now cuts to the intersection of its box and the box before it, so a trace never draws
+past the plot, and its cleanup restores the box before it.
 
 A closed break draws a grey band over its seam, 12 px wide at every zoom, through the
 plot and the range strip. A `//` of 12 px sits centered on the axis line, and the band
@@ -181,6 +189,9 @@ plot with no breaks keeps today's axis.
   view.
 - Reset zoom closes all breaks. A change to the plot's ranges resets the zoom, so it
   closes them too.
+- Each open break is the time of its gap's lower edge, so a segment that loads late does
+  not open another gap. An open break whose gap merges away has no effect, and the next
+  change to the breaks drops it.
 - Open breaks are window state. The Console saves the viewport
   (`console/src/session/lineplot/slice.ts:20`) as the plot shows it. A restart starts
   with every break closed, so a view saved with a break open can show other times. The
@@ -231,11 +242,13 @@ and the time between ranges inside one segment. It never reads a gap. Open break
 window state that the toolbar export cannot see; to export the time in an open break,
 the user selects it. While the breaks are hidden, the export reads one span from the
 first range to the last. The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059
-§4.0) takes a list of spans. The Core writes one file with one header, and the samples
-of the spans in time order. A shipped client that sends one `bounds` reads as before.
-The dialog shows one span as today, and lists several spans with no edit. To export
-another span, the user makes a selection. The multi-range export of the range menu uses
-the same list.
+§4.0) takes a list of spans. The Core merges the spans that overlap or touch, so each
+sample reads once, and writes one file with one header and the samples in time order.
+Latest, Earliest, and a limit reduction take one span after the merge, and the Core
+rejects them over more. A stride keeps the samples that each span keeps when read alone.
+A shipped client that sends one `bounds` reads as before. The dialog shows one span as
+today, and lists several spans with no edit. To export another span, the user makes a
+selection. The multi-range export of the range menu uses the same list.
 
 ### 4.10 Stored state
 
@@ -258,22 +271,23 @@ interaction, and the release.
 - **Phase 3: Trace spans.** `PointsLimit` gets its `bound`, and the layout sends each
   trace its span. In absolute time each channel draws once, so the copies and the
   repeated tooltip entries go away. In relative time each trace stops at its range plus
-  the margin. The y auto bounds read the span. This phase ships with no flag.
+  the margin. The y auto bounds read the span. With one segment, the time between two
+  ranges goes half to each. This phase ships with no flag.
 - **Phase 4: Draw breaks.** Segments, margins, and seams in the layout. Each segment
   draws with its offset, inside a scissor that nests. Ticks per segment with anchor
   labels, the band and its `//`, and cut bars in the range strip.
-- **Phase 5a: Open and close breaks.** Open and close by click and by menu, with the
+- **Phase 5: Open and close breaks.** Open and close by click and by menu, with the
   view, the held boxes, and the selection mapped through time.
-- **Phase 5b: Work across breaks.** The tooltip over a band, the measure across a break,
+- **Phase 6: Work across breaks.** The tooltip over a band, the measure across a break,
   and a selection that stops at a closed break.
-- **Phase 5c: Export the shown spans.** The plot export reads only the shown spans.
-- **Phase 6: Release.** The docs page, removal of the flag, and the toggle that hides
+- **Phase 7: Export the shown spans.** The plot export reads only the shown spans.
+- **Phase 8: Release.** The docs page, removal of the flag, and the toggle that hides
   and shows the breaks.
 
-Phases 4 to 5c hide behind a `breaks` flag in `console/src/flags`, which the Console
+Phases 4 to 7 hide behind a `breaks` flag in `console/src/flags`, which the Console
 passes to Pluto as a prop. Console phases add their rules to `docs/claude/ux.md`. Phases
-2 to 5 change `line.ts` and `axis.ts`, as RFC 0116 phase 2 does, and phase 3 bounds its
-relative traces.
+2 to 7 change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`,
+and phase 3 bounds its relative traces.
 
 | Phase | Scope                                              | Touches                                                                                                              | Depends on |
 | ----- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -281,10 +295,10 @@ relative traces.
 | 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                    | -          |
 | 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`     | 2          |
 | 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags` | 3          |
-| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                   | 4          |
-| 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                           | 5a         |
-| 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                          | 1, 5b      |
-| 6     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 5c         |
+| 5     | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                   | 4          |
+| 6     | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                           | 5          |
+| 7     | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                          | 1, 6       |
+| 8     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 7          |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
