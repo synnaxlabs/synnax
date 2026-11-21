@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -345,6 +347,14 @@ func (s *Service) retrieve(
 	snap bind.Snapshot,
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
+	if req.Where != nil && hasVirtual(*req.Where) {
+		outputs, err := s.allOutputs(ctx, snap)
+		if err != nil {
+			return nil, err
+		}
+		where := withOldVirtual(*req.Where, outputs)
+		req.Where = &where
+	}
 	var res []channel.Channel
 	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
 	if err != nil {
@@ -363,6 +373,53 @@ func (s *Service) retrieve(
 		}
 	}
 	return res, nil
+}
+
+// allOutputs returns the output of every calculation, as snap sees them.
+func (s *Service) allOutputs(
+	ctx context.Context,
+	snap gorp.Snapshot,
+) ([]channel.Key, error) {
+	var calcs []calculation.Calculation
+	if err := s.calculations.NewRetrieve().Entries(&calcs).Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	return lo.Map(calcs, func(c calculation.Calculation, _ int) channel.Key {
+		return c.Output
+	}), nil
+}
+
+// hasVirtual reports whether w or a child of w filters on virtual.
+func hasVirtual(w channel.Where) bool {
+	return w.Virtual != nil ||
+		slices.ContainsFunc(w.And, hasVirtual) ||
+		slices.ContainsFunc(w.Or, hasVirtual) ||
+		(w.Not != nil && hasVirtual(*w.Not))
+}
+
+// withOldVirtual returns w with the meaning of virtual that the old channel API keeps:
+// a calculation's output is not virtual. outputs are the outputs of every calculation.
+func withOldVirtual(w channel.Where, outputs []channel.Key) channel.Where {
+	w.And = lo.Map(w.And, func(c channel.Where, _ int) channel.Where {
+		return withOldVirtual(c, outputs)
+	})
+	w.Or = lo.Map(w.Or, func(c channel.Where, _ int) channel.Where {
+		return withOldVirtual(c, outputs)
+	})
+	if w.Not != nil {
+		not := withOldVirtual(*w.Not, outputs)
+		w.Not = &not
+	}
+	if w.Virtual == nil || len(outputs) == 0 {
+		return w
+	}
+	output := channel.Where{Key: &filter.Set[channel.Key]{In: outputs}}
+	if *w.Virtual {
+		return channel.Where{And: []channel.Where{w, {Not: &output}}}
+	}
+	rest := w
+	rest.Virtual = nil
+	return channel.Where{Or: []channel.Where{w, {And: []channel.Where{rest, output}}}}
 }
 
 // namesByName reports whether the top level of where names channels by exact name.

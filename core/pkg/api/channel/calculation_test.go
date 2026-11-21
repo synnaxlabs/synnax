@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -71,6 +73,36 @@ var _ = Describe("Calculation records", func() {
 			Operations: ops,
 		}
 	}
+
+	It("Should leave the output of a calculation out of a virtual retrieve", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		output := create(ctx, apichannel.CreateRequest{
+			Channels: []apichannel.Channel{calculated(input)},
+		})
+		keys := func(virtual bool) channel.Keys {
+			GinkgoHelper()
+			res := MustSucceed(retrieveChannels(
+				AuthedCtx(ctx, u),
+				apichannel.RetrieveRequest{Where: &channel.Where{
+					Virtual: &virtual,
+					Key: &filter.Set[channel.Key]{
+						In: channel.Keys{input.Key(), output.Key},
+					},
+				}},
+			))
+			return lo.Map(res.Channels, func(ch apichannel.Channel, _ int) channel.Key {
+				return ch.Key
+			})
+		}
+		Expect(keys(true)).To(ConsistOf(input.Key()))
+		Expect(keys(false)).To(ConsistOf(output.Key))
+		Expect(channelSvc.NewRetrieve().
+			Where(channel.MatchVirtual(true)).
+			Where(channel.MatchKeys(output.Key)).
+			Exists(ctx, db)).To(BeTrue())
+	})
 
 	It("Should give a failed create the position of its channel in the request", func(
 		ctx SpecContext,
