@@ -13,7 +13,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -66,15 +66,20 @@ func (db *DB) lockControllerForNonWriteOp(
 	tr telem.TimeRange,
 	opName string,
 ) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
-		ErrIfControlled: new(true),
-		TimeRange:       tr,
-		Authority:       xcontrol.AuthorityAbsolute,
-		Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
-		OpenResource: func() (*controlledWriter, error) {
-			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
+	g, _, err := db.controller.OpenGate(
+		xcontrol.GateConfig[channel.Key, *controlledWriter]{
+			ErrIfControlled: new(true),
+			TimeRange:       tr,
+			Authority:       xcontrol.AuthorityAbsolute,
+			Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
+			OpenResource: func() (*controlledWriter, error) {
+				return &controlledWriter{
+					Writer:     nil,
+					channelKey: db.cfg.Channel.Key,
+				}, nil
+			},
 		},
-	})
+	)
 	return func() { g.Release() }, err
 }
 

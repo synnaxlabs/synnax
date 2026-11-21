@@ -12,8 +12,8 @@ package framer
 import (
 	"context"
 
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -34,7 +34,7 @@ type HistoryChange struct {
 func (s *Service) OnHistoryChange(
 	handler func(context.Context, HistoryChange),
 ) observe.Disconnect {
-	return s.cfg.TS.OnHistoryChange(func(ctx context.Context, c ts.HistoryChange) {
+	return s.cfg.TS.OnHistoryChange(func(ctx context.Context, c cesium.HistoryChange) {
 		handler(ctx, HistoryChange{Key: channel.Key(c.Key), TimeRange: c.TimeRange})
 	})
 }
