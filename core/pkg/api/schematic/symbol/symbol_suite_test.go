@@ -132,6 +132,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Group:    groupSvc,
 		RecordOf: taskconfig.RecordOf,
+		DB:       db,
+		Policies: suitePolicies(),
 		Delete: func(context.Context, gorp.Tx, []resource.ID) error {
 			return errors.New("[symbol suite] - no record to delete")
 		},
@@ -242,4 +244,17 @@ func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
+}
+
+// suitePolicies maps the references to channels that the suite opens.
+func suitePolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
+		{Table: "channel", Name: "index"}:                          keep,
+		{Table: "channel", Name: "rewires.from"}:                   keep,
+		{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+		{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
+		{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
+		{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
+	}}
 }
