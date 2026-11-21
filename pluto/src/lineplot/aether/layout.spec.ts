@@ -140,13 +140,23 @@ describe("spans", () => {
       expect(empty?.lower).toEqual(empty?.upper);
     });
 
-    it("should give a rolling window only the time after the fixed windows", () => {
+    it("should give a rolling window the time of a fixed window inside it", () => {
       const s = spans(
-        [trace("live", 0, 100, { edge: "rolling" }), trace("fixed", 40, 60)],
+        [trace("fixed", 40, 60), trace("live", 0, 100, { edge: "rolling" })],
         "time",
       );
-      expect(s.get("fixed")).toEqual({ lower: -Infinity, upper: 60 });
-      expect(s.get("live")).toEqual({ lower: 60, upper: Infinity });
+      expect(s.get("live")).toEqual(bounds.INFINITE);
+      const empty = s.get("fixed");
+      expect(empty?.lower).toEqual(empty?.upper);
+    });
+
+    it("should give a fixed window only the time before a rolling window", () => {
+      const s = spans(
+        [trace("fixed", 0, 60), trace("live", 40, 100, { edge: "rolling" })],
+        "time",
+      );
+      expect(s.get("fixed")).toEqual({ lower: -Infinity, upper: 40 });
+      expect(s.get("live")).toEqual({ lower: 40, upper: Infinity });
     });
 
     it("should split each group on its own", () => {

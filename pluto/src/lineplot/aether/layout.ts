@@ -329,18 +329,18 @@ const relativeSpan = (t: Trace): bounds.Bounds => {
   return t.edge == null ? m : { lower: m.lower, upper: Infinity };
 };
 
-// split gives each trace the time of its window that no trace before it takes. Fixed
-// windows go first, in order of start, and a rolling window takes the newest part that
-// is left. The time between two windows goes half to each, and the time before the
-// first window and after the last goes to the outer traces. No span leaves the segment
-// of its window.
+// split gives each trace the time of its window that no trace before it takes. Rolling
+// windows go first, then fixed windows, each in order of start. A rolling window ends
+// at now, so each window keeps one piece. The time between two windows goes half to
+// each, and the time before the first window and after the last goes to the outer
+// traces. No span leaves the segment of its window.
 const split = (
   traces: Trace[],
   segments: bounds.Bounds[],
 ): Map<string, bounds.Bounds> => {
   const ordered = [...traces].sort(
     (a, b) =>
-      Number(a.edge === "rolling") - Number(b.edge === "rolling") ||
+      Number(b.edge === "rolling") - Number(a.edge === "rolling") ||
       a.bounds.lower - b.bounds.lower,
   );
   const result = new Map<string, bounds.Bounds>();
