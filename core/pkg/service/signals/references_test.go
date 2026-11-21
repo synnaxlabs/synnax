@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -370,5 +371,51 @@ var _ = Describe("PublishReferenceChanges with an unknown target table", func() 
 		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(MatchError(
 			`[signals] - referenced table "signals_test_target" names no resource type`,
 		))
+	})
+})
+
+var _ = Describe("PublishReferenceChanges beside a table", func() {
+	It("Should write the set and the reference change of one commit in one frame", func(
+		ctx SpecContext,
+	) {
+		holders := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, refHolder]{
+			DB:         db,
+			Name:       "signals_test_frame_holder",
+			References: refHolderReferences(),
+		}))
+		DeferCleanup(func() { Expect(holders.Close()).To(Succeed()) })
+		sigs := MustSucceed(signals.New(signals.Config{
+			DB:      db,
+			Channel: channelSvc,
+			Framer:  nodeFramer,
+		}))
+		setName := nextName()
+		Expect(sigs.PublishTable(ctx, signals.TableConfig[string, refHolder]{
+			Changes:    holders.Changes,
+			Resource:   testResource[string],
+			SetName:    setName,
+			DeleteName: nextName(),
+		})).To(Succeed())
+		Expect(sigs.PublishReferenceChanges(ctx, holderOf)).To(Succeed())
+		MustOpen(sigs.Start(ctx))
+		set := retrieveChannel(ctx, setName)
+		ref := retrieveChannel(ctx, "sy_reference_change")
+		responses := openStreamer(ctx, set.Key(), ref.Key())
+		c := channel.Channel{Name: nextName(), DataType: telem.Float32T, Virtual: true}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &c)
+		})).To(Succeed())
+		h := refHolder{Key: nextName(), Channels: []channel.Key{c.Key()}}
+		Expect(holders.NewCreate().Entry(&h).Exec(ctx, db)).To(Succeed())
+		var res framer.StreamerResponse
+		Eventually(func() bool {
+			select {
+			case res = <-responses.Outlet():
+				return !res.Frame.Empty()
+			default:
+				return false
+			}
+		}).Should(BeTrue())
+		Expect(res.Frame.KeysSlice()).To(ConsistOf(set.Key(), ref.Key()))
 	})
 })

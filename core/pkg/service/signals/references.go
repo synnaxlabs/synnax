@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -84,6 +85,8 @@ func (p *Provider) PublishReferenceChanges(
 	if err := p.add(ctx, f, &f.ch); err != nil {
 		return err
 	}
+	// The feed goes first, so it starts each frame that it writes to.
+	p.feeds = slices.Insert(p.feeds[:len(p.feeds)-1], 0, feed(f))
 	p.references = ReferenceChanges{Key: f.ch.Key(), feed: f}
 	return nil
 }
@@ -161,7 +164,20 @@ func (f *referenceFeed) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	if watched {
 		f.notify()
 	}
-	return fr.Append(f.ch.Key(), telem.Series{DataType: telem.StringT, Data: data})
+	series := telem.Series{DataType: telem.StringT, Data: data}
+	if !fr.Empty() {
+		return fr.Append(f.ch.Key(), series)
+	}
+	e := &referenceFrame{}
+	e.keys[0], e.series[0] = f.ch.Key(), series
+	return frame.NewMulti(e.keys[:1], e.series[:1])
+}
+
+// referenceFrame holds the entries of a frame that the feed starts, with room for the
+// entry of one more feed, so the frame of a commit takes one allocation.
+type referenceFrame struct {
+	keys   [2]channel.Key
+	series [2]telem.Series
 }
 
 // notify delivers each target of the commit with the holders that changed it.
