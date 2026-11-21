@@ -216,15 +216,14 @@ var _ = Describe("PlanDelete", func() {
 		Expect(effects.Restricts).To(BeEmpty())
 	})
 
-	It("Should list a holder once for each target that it loses", func(
-		ctx SpecContext,
-	) {
+	It("Should list a holder once for each target that it loses, in the order "+
+		"that the delete meets them", func(ctx SpecContext) {
 		open(ctx)
 		create(ctx, db, pdHolder{Key: "h", Plotted: []uint32{1, 2}})
 		effects := MustSucceed(channels.PlanDelete(ctx, db, []uint32{2, 1}))
 		Expect(effects.Detaches).To(Equal([]gorp.DeleteEffect{
-			effect("holder", "h", "plotted", gorp.Use, channel(1)),
 			effect("holder", "h", "plotted", gorp.Use, channel(2)),
+			effect("holder", "h", "plotted", gorp.Use, channel(1)),
 		}))
 	})
 
