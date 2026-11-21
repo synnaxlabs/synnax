@@ -90,6 +90,9 @@ const createdRacks: number[] = [];
 const createdArcs: arc.Key[] = [];
 // The tasks of the running test, Arc tasks included.
 const testTasks: task.Key[] = [];
+// No Driver runs the tasks that a spec marks running, so a delete would wait out the
+// Core's stop timeout unless they report stopped first.
+const runningTasks = new Set<task.Key>();
 
 // Deletion tests already removed their task, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -98,12 +101,20 @@ const ignoreNotFound = (err: unknown) => {
 
 afterEach(async () => {
   testTasks.splice(0);
+  const running = [...runningTasks];
+  runningTasks.clear();
+  if (running.length > 0)
+    await client.statuses.set(
+      running.map((key) => createTaskStatus({ owner: task.resourceID(key) })),
+    );
   await client.arcs.delete(createdArcs.splice(0)).catch(ignoreNotFound);
   await client.tasks.delete(createdTasks.splice(0)).catch(ignoreNotFound);
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
 
-const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
+const setRunning = async (t: task.Task, running: boolean, drifted = false) => {
+  if (running) runningTasks.add(t.key);
+  else runningTasks.delete(t.key);
   await client.statuses.set(
     createTaskStatus({
       owner: task.resourceID(t.key),
@@ -114,6 +125,7 @@ const setRunning = async (t: task.Task, running: boolean, drifted = false) =>
       },
     }),
   );
+};
 
 const createTask = async ({
   config = {},
