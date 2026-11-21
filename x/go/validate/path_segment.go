@@ -59,8 +59,15 @@ func asciiPathSegment(s string) (ascii, ok bool) {
 }
 
 // NormalizeName returns s in Unicode Normalization Form C, the one form in which names
-// are stored and compared.
-func NormalizeName(s string) string { return norm.NFC.String(s) }
+// are stored and compared. It returns an ASCII s as is, since ASCII is in NFC.
+func NormalizeName(s string) string {
+	for i := range len(s) {
+		if s[i] >= utf8.RuneSelf {
+			return norm.NFC.String(s)
+		}
+	}
+	return s
+}
 
 // brailleBlank is U+2800, a symbol (So) that shows as nothing.
 const brailleBlank = '\u2800'
