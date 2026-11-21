@@ -108,7 +108,7 @@ const UNREACHABLE: Record<Step, string> = {
 
 /** Returns why err failed step, as sentences, with the next step when one helps. */
 const reasonOf = (err: unknown, step: Step): string => {
-  const text = err instanceof Error ? err.message : String(err);
+  const text = (err instanceof Error ? err.message : String(err)).trim();
   if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${text}`;
   let sentence = text.charAt(0).toUpperCase() + text.slice(1);
   if (!/[.!?]$/.test(sentence)) sentence += ".";
@@ -519,8 +519,10 @@ const Dialog = ({
 
   const shown = listing ? null : view;
   const plan = shown?.plan;
+  // A held spinner hides a failure until it ends, so the two never show together.
+  const failure = listing || updating ? null : planError;
   let status = footer;
-  if (status == null) status = planError;
+  if (status == null) status = failure;
   if (updating) status = UPDATING;
   const empty =
     plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
@@ -591,7 +593,6 @@ const Dialog = ({
         <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
           {status != null && (
             <Status.Summary
-              className={CSS.BE("impact", "summary")}
               variant={status.variant}
               message={status.message}
               description={status.description}
@@ -608,7 +609,7 @@ const Dialog = ({
           >
             Cancel
           </Button.Button>
-          {planError == null ? (
+          {failure == null ? (
             <Button.Button
               variant="filled"
               status={applying ? "loading" : "error"}

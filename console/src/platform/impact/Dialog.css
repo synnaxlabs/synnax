@@ -25,6 +25,9 @@
 .console-impact__status {
     flex: 1 1 auto;
     min-width: 0;
+    padding-right: 3rem;
+    -webkit-user-select: text;
+    user-select: text;
     min-height: calc(
         var(--pluto-p-line-height) + 1rem + 2 * var(--pluto-small-line-height)
     );
@@ -54,11 +57,6 @@
 
 .console-impact__error {
     color: var(--pluto-error-text);
-}
-
-.console-impact__summary {
-    -webkit-user-select: text;
-    user-select: text;
 }
 
 .console-impact__pick {
