@@ -1712,6 +1712,36 @@ describe("Table", () => {
   });
 });
 
+describe("renotify", () => {
+  interface Counter extends record.Keyed<string> {
+    key: string;
+    n: number;
+  }
+
+  it("should send the shown value of the key as a set and count it as a change", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.set("a", { key: "a", n: 1 });
+    const listener = vi.fn();
+    table.subscribe(listener, "a");
+    const before = table.version();
+    table.renotify("a");
+    expect(setEvents(listener)).toEqual([
+      [{ variant: "set", key: "a", value: { key: "a", n: 1 } }],
+    ]);
+    expect(table.version()).toBeGreaterThan(before);
+  });
+
+  it("should send nothing for a key that the table does not hold", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    const listener = vi.fn();
+    table.subscribe(listener);
+    const before = table.version();
+    table.renotify("a");
+    expect(listener).not.toHaveBeenCalled();
+    expect(table.version()).toBe(before);
+  });
+});
+
 describe("intercept", () => {
   interface Counter extends record.Keyed<string> {
     key: string;
