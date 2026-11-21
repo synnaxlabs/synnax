@@ -250,7 +250,12 @@ describe("Diagram", () => {
       ReturnType<typeof vi.fn<(viewport: Diagram.Viewport) => void>>
     > => {
       const { onViewportChange } = await renderDiagram(<Pan />);
-      await waitFor(() => expect(onViewportChange).toHaveBeenCalled());
+      // The mount reports the initial viewport, and the fit reports a new one.
+      await waitFor(() =>
+        expect(onViewportChange).toHaveBeenCalledWith(
+          expect.not.objectContaining({ position: VIEWPORT.position }),
+        ),
+      );
       onViewportChange.mockClear();
       fireEvent.click(screen.getByRole("button", { name: "Pan" }));
       await waitFor(() => expect(onViewportChange).toHaveBeenCalled());
