@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -286,11 +285,8 @@ func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
 // NewWriter returns a Writer scoped to tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		svc: s,
-		tx:  tx,
-		analyzer: NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
-			AllowDashedNames: !s.ShouldValidateNames(),
-		}),
+		svc:        s,
+		tx:         tx,
 		dispatcher: s.state.Dispatcher(),
 	}
 }

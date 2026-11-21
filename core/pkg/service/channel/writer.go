@@ -41,7 +41,6 @@ const calculatedIndexNameSuffix = "_time"
 type Writer struct {
 	svc        *Service
 	tx         gorp.Tx
-	analyzer   *CalculationAnalyzer
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
@@ -79,8 +78,8 @@ func FreeIndex() CreateOption {
 
 // needsFreeIndex reports whether a create with opts gives ch a free index.
 func needsFreeIndex(ch Channel, opts createOptions) bool {
-	return ch.LocalIndex == 0 && (ch.IsCalculated() ||
-		(opts.freeIndex && ch.Virtual && ch.Leaseholder == node.KeyFree))
+	return ch.LocalIndex == 0 && opts.freeIndex && ch.Virtual &&
+		ch.Leaseholder == node.KeyFree
 }
 
 // RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
@@ -189,13 +188,8 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 	return nil
 }
 
-// CreateMany creates multiple channels, inferring and assigning DataTypes for any
-// calculated channels in the batch by analyzing their expressions. Channels within the
-// batch may reference each other by name. A calculated channel whose expression fails
-// to analyze (invalid syntax or unresolved dependencies) aborts the entire call with
-// the analysis error, so callers get fail-fast validation. The Core assigns the key of
-// a channel that is not calculated. CreateMany returns an error wrapping
-// validate.ErrValidation when a calculated channel's key exists.
+// CreateMany creates multiple channels, and the Core assigns the key of each. A failed
+// channel's error holds its position in channels.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
@@ -205,16 +199,6 @@ func (w Writer) CreateMany(
 	var o createOptions
 	for _, opt := range opts {
 		opt(&o)
-	}
-	for i, ch := range *channels {
-		if !ch.IsCalculated() {
-			continue
-		}
-		result, err := w.analyzer.analyze(ctx, ch)
-		if err != nil {
-			return err
-		}
-		(*channels)[i].DataType = result.ChanDataType
 	}
 	return w.create(ctx, channels, o)
 }
@@ -366,9 +350,9 @@ func (w Writer) RenameMany(
 	return nil
 }
 
-// create orchestrates channel creation: it validates names, preprocesses calculated
-// channels, resolves existing channels, allocates keys through the distribution
-// allocator, and writes the rich channel records to the table.
+// create orchestrates channel creation: it validates names, resolves existing channels,
+// makes free indexes, allocates keys through the distribution allocator, and writes the
+// rich channel records to the table.
 func (w Writer) create(
 	ctx context.Context,
 	_channels *[]Channel,
@@ -378,21 +362,15 @@ func (w Writer) create(
 	if err := w.validateCreate(ctx, channels, opts); err != nil {
 		return err
 	}
-	if err := w.prepareCreate(channels); err != nil {
-		return err
-	}
-	if err := w.resetStoredKeys(ctx, channels, opts); err != nil {
-		return err
-	}
+	w.prepareCreate(channels)
 	// Reset channels that already exist by name to their stored records before index
-	// synthesis, so an existing calculated channel keeps its stored index.
+	// synthesis, so an existing channel keeps its stored index.
 	if opts.retrieveIfNameExists {
 		if err := w.resetStoredNames(ctx, channels); err != nil {
 			return err
 		}
 	}
-	// Auto-create index channels for calculated channels that do not yet have one (both
-	// brand-new calculated channels and existing ones missing an index).
+	// Make a free index for each channel that needs one and has none, new or stored.
 	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels, opts)
 	if err != nil {
 		return err
@@ -451,66 +429,15 @@ func (w Writer) validateCreate(
 	)
 }
 
-// prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
-// and free, and only a calculated channel keeps its local key.
-func (w Writer) prepareCreate(channels []Channel) error {
+// prepareCreate sets the leaseholder of each channel and clears its local key, which
+// the Core assigns.
+func (w Writer) prepareCreate(channels []Channel) {
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = w.svc.cfg.HostKey
 		}
-		if ch.IsCalculated() {
-			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
-				return validate.PathedError(
-					errors.Wrap(
-						validate.ErrValidation,
-						"calculated channels cannot specify an index manually",
-					),
-					"local_index",
-				)
-			}
-			channels[i].Leaseholder = node.KeyFree
-			channels[i].Virtual = true
-		} else if ch.LocalKey != 0 {
-			channels[i].LocalKey = 0
-		}
+		channels[i].LocalKey = 0
 	}
-	return nil
-}
-
-// resetStoredKeys resets each channel whose key exists to its stored record. Only a
-// calculated channel keeps a key at this point. A stored key is an error unless the
-// create retrieves channels that exist.
-func (w Writer) resetStoredKeys(
-	ctx context.Context,
-	channels []Channel,
-	opts createOptions,
-) error {
-	keys := KeysFromChannels(channels)
-	keyed := lo.Filter(keys, func(k Key, _ int) bool { return k.LocalKey() != 0 })
-	if len(keyed) == 0 {
-		return nil
-	}
-	var stored []Channel
-	if err := w.svc.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Channel](keyed...)).
-		SkipMissingKeys().
-		Entries(&stored).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	keyPositions := positions(keys)
-	for _, c := range stored {
-		if !opts.retrieveIfNameExists {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"%s %s already exists",
-				tableName,
-				c.Key(),
-			)
-		}
-		channels[keyPositions[c.Key()][0]] = c
-	}
-	return nil
 }
 
 // resetStoredNames resets each channel whose name exists to its stored record.

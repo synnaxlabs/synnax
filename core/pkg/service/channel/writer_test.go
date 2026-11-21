@@ -264,21 +264,6 @@ var _ = Describe("Writer", func() {
 							To(MatchError(ContainSubstring(fmt.Sprintf("channel with name '%s' already exists", ch.Name))))
 					},
 				)
-				It(
-					"Should return a validation error if an operation has an invalid type",
-					func(ctx SpecContext) {
-						ch2 := channel.Channel{
-							Name:        UniqueChannelName(),
-							DataType:    telem.Float64T,
-							Leaseholder: 1,
-							Operations:  []channel.Operation{{Type: "not-a-real-op"}},
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch2)
-						})).
-							To(MatchError(ContainSubstring("operations.0.type: invalid type")))
-					},
-				)
 			})
 		})
 		Context("Multiple channels", func() {
@@ -385,18 +370,19 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Calculated Channel with Auto-Created Index", func() {
+		Context("Free channel with a free index", func() {
 			It(
-				"Should automatically create an index channel for calculated channels",
+				"Should automatically create an index channel for free channels",
 				func(ctx SpecContext) {
 					calcCh := channel.Channel{
-						Name:       "calculated_temp",
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Virtual:    true,
+						Name:        "calculated_temp",
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).
+							Create(ctx, &calcCh, channel.FreeIndex())
 					})).To(Succeed())
 
 					Expect(calcCh.Leaseholder).To(Equal(node.KeyFree))
@@ -421,47 +407,27 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should reject calculated channel with manually-specified index",
+				"Should retrieve existing free channel with its index",
 				func(ctx SpecContext) {
 					calcCh := channel.Channel{
-						Name:       "calculated_bad",
-						DataType:   telem.Float64T,
-						LocalIndex: channel.LocalKey(999),
-						Expression: "return 1 + 1",
-						Virtual:    true,
+						Name:        "calculated_retrieve_test",
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(
-						MatchError(
-							ContainSubstring(
-								"calculated channels cannot specify an index manually",
-							),
-						),
-					)
-				},
-			)
-
-			It(
-				"Should retrieve existing calculated channel with its index",
-				func(ctx SpecContext) {
-					calcCh := channel.Channel{
-						Name:       "calculated_retrieve_test",
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Virtual:    true,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).
+							Create(ctx, &calcCh, channel.FreeIndex())
 					})).To(Succeed())
 					originalKey := calcCh.Key()
 					originalIndexKey := calcCh.LocalIndex
 
 					// Try to create again with RetrieveIfNameExists
 					calcCh2 := channel.Channel{
-						Name:       "calculated_retrieve_test",
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+						Name:        "calculated_retrieve_test",
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(
@@ -494,10 +460,12 @@ var _ = Describe("Writer", func() {
 						Leaseholder: 1,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &indexCh1)
+						return svc.NewWriter(tx).
+							Create(ctx, &indexCh1, channel.FreeIndex())
 					})).To(Succeed())
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &indexCh2)
+						return svc.NewWriter(tx).
+							Create(ctx, &indexCh2, channel.FreeIndex())
 					})).To(Succeed())
 
 					// Now create channels with proper indexes
@@ -509,9 +477,10 @@ var _ = Describe("Writer", func() {
 							LocalIndex:  indexCh1.LocalKey,
 						},
 						{
-							Name:       "calculated1",
-							DataType:   telem.Float64T,
-							Expression: "return 1 + 1",
+							Name:        "calculated1",
+							DataType:    telem.Float64T,
+							Leaseholder: node.KeyFree,
+							Virtual:     true,
 						},
 						{
 							Name:        "regular2",
@@ -520,18 +489,20 @@ var _ = Describe("Writer", func() {
 							LocalIndex:  indexCh2.LocalKey,
 						},
 						{
-							Name:       "calculated2",
-							DataType:   telem.Float32T,
-							Expression: "return 1 + 2",
+							Name:        "calculated2",
+							DataType:    telem.Float32T,
+							Leaseholder: node.KeyFree,
+							Virtual:     true,
 						},
 					}
 					for i := range channels {
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &channels[i])
+							return svc.NewWriter(tx).
+								Create(ctx, &channels[i], channel.FreeIndex())
 						})).To(Succeed())
 					}
 
-					// Check calculated channels have auto-created indexes
+					// Check free channels have auto-created indexes
 					Expect(channels[1].LocalIndex).ToNot(BeZero())
 					Expect(channels[3].LocalIndex).ToNot(BeZero())
 
@@ -539,7 +510,7 @@ var _ = Describe("Writer", func() {
 					Expect(channels[0].LocalIndex).To(Equal(indexCh1.LocalKey))
 					Expect(channels[2].LocalIndex).To(Equal(indexCh2.LocalKey))
 
-					// Verify auto-created index channels exist for calculated channels
+					// Verify auto-created index channels exist for free channels
 					var indexChannels []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames("calculated1_time", "calculated2_time")).
@@ -550,7 +521,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should reject a calculated channel whose auto-created index name collides with an existing channel",
+				"Should reject a free channel whose auto-created index name collides with an existing channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
 					taken := channel.Channel{
@@ -559,20 +530,23 @@ var _ = Describe("Writer", func() {
 						Virtual:  true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &taken)
+						return svc.NewWriter(tx).
+							Create(ctx, &taken, channel.FreeIndex())
 					})).To(Succeed())
 					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+						Name:        name,
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
+						return svc.NewWriter(tx).
+							Create(ctx, &calcCh, channel.FreeIndex())
 					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for a calculated channel",
+								"cannot serve as the index for a free channel",
 							),
 						),
 					))
@@ -580,7 +554,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should adopt an orphaned index when creating a calculated channel",
+				"Should adopt an orphaned index when creating a free channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
 					// A Core older than 0.61 left the index of a deleted calculated
@@ -593,16 +567,19 @@ var _ = Describe("Writer", func() {
 						Leaseholder: node.KeyFree,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &orphan)
+						return svc.NewWriter(tx).
+							Create(ctx, &orphan, channel.FreeIndex())
 					})).To(Succeed())
 					originalIndex := orphan.LocalKey
 					recreated := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+						Name:        name,
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &recreated)
+						return svc.NewWriter(tx).
+							Create(ctx, &recreated, channel.FreeIndex())
 					})).To(Succeed())
 					Expect(recreated.LocalIndex).To(Equal(originalIndex))
 
@@ -616,7 +593,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should reject adopting a non-index channel as a calculated channel's index",
+				"Should reject adopting a non-index channel as a free channel's index",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
 					taken := channel.Channel{
@@ -625,12 +602,14 @@ var _ = Describe("Writer", func() {
 						Virtual:  true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &taken)
+						return svc.NewWriter(tx).
+							Create(ctx, &taken, channel.FreeIndex())
 					})).To(Succeed())
 					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
+						Name:        name,
+						DataType:    telem.Float64T,
+						Leaseholder: node.KeyFree,
+						Virtual:     true,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(
@@ -642,7 +621,7 @@ var _ = Describe("Writer", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for a calculated channel",
+								"cannot serve as the index for a free channel",
 							),
 						),
 					))
@@ -655,19 +634,21 @@ var _ = Describe("Writer", func() {
 					name := UniqueChannelName()
 					chs := []channel.Channel{
 						{
-							Name:       name,
-							DataType:   telem.Float64T,
-							Expression: "return 1 + 1",
+							Name:        name,
+							DataType:    telem.Float64T,
+							Leaseholder: node.KeyFree,
+							Virtual:     true,
 						},
 						{Name: name + "_time", DataType: telem.Float64T, Virtual: true},
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+						return svc.NewWriter(tx).
+							CreateMany(ctx, &chs, channel.FreeIndex())
 					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for calculated channel",
+								"cannot serve as the index for free channel",
 							),
 						),
 					))
@@ -680,9 +661,10 @@ var _ = Describe("Writer", func() {
 					name := UniqueChannelName()
 					chs := []channel.Channel{
 						{
-							Name:       name,
-							DataType:   telem.Float64T,
-							Expression: "return 1 + 1",
+							Name:        name,
+							DataType:    telem.Float64T,
+							Leaseholder: node.KeyFree,
+							Virtual:     true,
 						},
 						{
 							Name:     name + "_time",
@@ -691,12 +673,13 @@ var _ = Describe("Writer", func() {
 						},
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+						return svc.NewWriter(tx).
+							CreateMany(ctx, &chs, channel.FreeIndex())
 					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for calculated channel",
+								"cannot serve as the index for free channel",
 							),
 						),
 					))
@@ -704,14 +687,15 @@ var _ = Describe("Writer", func() {
 			)
 
 			It(
-				"Should adopt a virtual free index channel in the same batch as a calculated channel",
+				"Should adopt a virtual free index channel in the same batch as a free channel",
 				func(ctx SpecContext) {
 					name := UniqueChannelName()
 					chs := []channel.Channel{
 						{
-							Name:       name,
-							DataType:   telem.Float64T,
-							Expression: "return 1 + 1",
+							Name:        name,
+							DataType:    telem.Float64T,
+							Leaseholder: node.KeyFree,
+							Virtual:     true,
 						},
 						{
 							Name:        name + "_time",
@@ -722,64 +706,11 @@ var _ = Describe("Writer", func() {
 						},
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+						return svc.NewWriter(tx).
+							CreateMany(ctx, &chs, channel.FreeIndex())
 					})).To(Succeed())
 					Expect(chs[0].LocalIndex).To(Equal(chs[1].LocalKey))
 					Expect(chs[0].Index()).To(Equal(chs[1].Key()))
-				},
-			)
-		})
-		Context("Calculated channel with an existing key", func() {
-			var calc channel.Channel
-			BeforeEach(func(ctx SpecContext) {
-				calc = channel.Channel{
-					Name:       UniqueChannelName(),
-					DataType:   telem.Float64T,
-					Expression: "return 1.0",
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
-			})
-			It("Should refuse a channel whose key exists", func(ctx SpecContext) {
-				again := calc
-				again.Name = UniqueChannelName()
-				again.Expression = "return 2.0"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &again)
-				})).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("channel %s already exists", calc.Key()),
-					),
-				))
-				var stored channel.Channel
-				Expect(svc.NewRetrieve().
-					Where(channel.MatchKeys(calc.Key())).
-					Entry(&stored).
-					Exec(ctx, db)).To(Succeed())
-				Expect(stored.Name).To(Equal(calc.Name))
-				Expect(stored.Expression).To(Equal("return 1.0"))
-			})
-			It(
-				"Should return the stored channel with RetrieveIfNameExists",
-				func(ctx SpecContext) {
-					again := calc
-					again.Name = UniqueChannelName()
-					again.Expression = "return 2.0"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).
-							Create(ctx, &again, channel.RetrieveIfNameExists())
-					})).To(Succeed())
-					Expect(again.Name).To(Equal(calc.Name))
-					Expect(again.Expression).To(Equal("return 1.0"))
-					var stored channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(calc.Key())).
-						Entry(&stored).
-						Exec(ctx, db)).To(Succeed())
-					Expect(stored.Name).To(Equal(calc.Name))
-					Expect(stored.Expression).To(Equal("return 1.0"))
 				},
 			)
 		})
@@ -1215,7 +1146,7 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Calculated Channel Index", func() {
+		Context("Free channel index", func() {
 			It(
 				"Should clear on open the index of a channel whose index does not exist",
 				func(ctx SpecContext) {
@@ -1226,7 +1157,6 @@ var _ = Describe("Writer", func() {
 						LocalKey:    7,
 						LocalIndex:  8,
 						DataType:    telem.Float64T,
-						Expression:  "return 1 + 1",
 						Virtual:     true,
 					}
 					createStored(ctx, fresh.DB, calc)
@@ -2009,13 +1939,12 @@ var _ = Describe("Writer", func() {
 			svc = openService(ctx, dist)
 		})
 		It(
-			"Should change the data type of a calculated channel",
+			"Should change the data type of a virtual channel",
 			func(ctx SpecContext) {
 				base := channel.Channel{
-					Name:       UniqueChannelName(),
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return 1",
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &base)

@@ -199,21 +199,4 @@ var _ = Describe("Service", func() {
 			Expect(names).To(Equal([]string{ch.Name}))
 		})
 	})
-
-	Describe("NewWriter", func() {
-		It(
-			"Should create a writer that infers types for calculated channels",
-			func(ctx SpecContext) {
-				ch := channel.Channel{
-					Name:       UniqueChannelName(),
-					Expression: "return 1 + 1",
-					Virtual:    true,
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
-				})).To(Succeed())
-				Expect(ch.DataType).To(Equal(telem.Int64T))
-			},
-		)
-	})
 })

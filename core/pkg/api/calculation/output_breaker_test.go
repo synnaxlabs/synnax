@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -29,13 +28,13 @@ var _ = Describe("Calculation output breaker", func() {
 		ctx SpecContext,
 	) {
 		input := createVirtual(ctx)
-		calc := channel.Channel{
-			Name:       "calc_" + uuid.New().String()[:8],
-			DataType:   telem.Float32T,
-			Expression: "return " + input.Name + " * 2",
-		}
+		var calc channel.Channel
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &calc)
+			c := calculation.Calculation{Expression: "return " + input.Name + " * 2"}
+			created, err := svc.Calculation.NewWriter(tx).
+				CreateOutput(ctx, &c, "calc_"+uuid.New().String()[:8], nil)
+			calc = created[0]
+			return err
 		})).To(Succeed())
 		// The calculation of calc writes this index with each sample.
 		Expect(calc.Index()).ToNot(BeZero())

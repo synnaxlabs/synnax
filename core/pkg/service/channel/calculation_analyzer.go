@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -108,17 +107,6 @@ type CalculationAnalysisResult struct {
 	Deps Keys
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
-}
-
-// analyze runs AnalyzeExpression on the expression and operations of ch.
-func (a *CalculationAnalyzer) analyze(
-	ctx context.Context,
-	ch Channel,
-) (CalculationAnalysisResult, error) {
-	derivative := lo.ContainsBy(ch.Operations, func(op Operation) bool {
-		return op.Type == OperationTypeDerivative
-	})
-	return a.AnalyzeExpression(ctx, ch, ch.Expression, derivative)
 }
 
 // AnalyzeExpression parses expression as the calculation that writes output, infers its

@@ -70,37 +70,31 @@ var _ = Describe("Group", Ordered, func() {
 		Expect(retrieve(ctx, ch.Key()).Group).To(Equal(&g.Key))
 	})
 
-	createCalculated := func(
+	// createFree creates a free virtual channel with a free index, as the output of a
+	// calculation is.
+	createFree := func(
 		ctx context.Context,
 		name string,
 		grp *group.Key,
 	) channel.Channel {
 		GinkgoHelper()
-		idx := create(ctx, nil)
-		data := channel.Channel{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float32T,
-			LocalIndex: idx.LocalKey,
-		}
-		calc := channel.Channel{
-			Name:       name,
-			Expression: "return " + data.Name,
-			Group:      grp,
+		ch := channel.Channel{
+			Name:        name,
+			DataType:    telem.Float32T,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+			Group:       grp,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			w := svc.NewWriter(tx)
-			if err := w.Create(ctx, &data); err != nil {
-				return err
-			}
-			return w.Create(ctx, &calc)
+			return svc.NewWriter(tx).Create(ctx, &ch, channel.FreeIndex())
 		})).To(Succeed())
-		return retrieve(ctx, calc.Key())
+		return retrieve(ctx, ch.Key())
 	}
 
 	It(
-		"Should create the index of a calculated channel in its group",
+		"Should create the index of a free channel in its group",
 		func(ctx SpecContext) {
-			calc := createCalculated(ctx, UniqueChannelName(), &g.Key)
+			calc := createFree(ctx, UniqueChannelName(), &g.Key)
 			calcIdx := retrieve(ctx, calc.Index())
 			Expect(calcIdx.IsIndex).To(BeTrue())
 			Expect(calcIdx.Group).To(Equal(&g.Key))
@@ -108,7 +102,7 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	It(
-		"Should move an adopted index into the group of its calculated channel",
+		"Should move an adopted index into the group of its free channel",
 		func(ctx SpecContext) {
 			name := UniqueChannelName()
 			orphan := channel.Channel{
@@ -121,21 +115,21 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &orphan)
 			})).To(Succeed())
-			calc := createCalculated(ctx, name, &g.Key)
+			calc := createFree(ctx, name, &g.Key)
 			Expect(calc.Index()).To(Equal(orphan.Key()))
 			Expect(retrieve(ctx, calc.Index()).Group).To(Equal(&g.Key))
 		},
 	)
 
 	It(
-		"Should delete a group once every calculated channel in it is deleted",
+		"Should delete a group once every free channel in it is deleted",
 		func(ctx SpecContext) {
 			grp := group.Group{Name: "Calculations", Scope: resource.TypeChannel}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return groupSvc.NewWriter(tx).Create(ctx, &grp)
 			})).To(Succeed())
-			a := createCalculated(ctx, UniqueChannelName(), &grp.Key)
-			b := createCalculated(ctx, UniqueChannelName(), &grp.Key)
+			a := createFree(ctx, UniqueChannelName(), &grp.Key)
+			b := createFree(ctx, UniqueChannelName(), &grp.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
 					DeleteMany(ctx, channel.Keys{a.Key(), b.Key()}, false)
@@ -150,9 +144,9 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	It(
-		"Should delete the index of a calculated channel deleted by name",
+		"Should delete the index of a free channel deleted by name",
 		func(ctx SpecContext) {
-			calc := createCalculated(ctx, UniqueChannelName(), &g.Key)
+			calc := createFree(ctx, UniqueChannelName(), &g.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
 					DeleteManyByNames(ctx, []string{calc.Name}, false)
@@ -180,12 +174,12 @@ var _ = Describe("Group", Ordered, func() {
 	}
 
 	DescribeTable(
-		"Should keep the index of a deleted calculated channel that another uses",
+		"Should keep the index of a deleted free channel that another uses",
 		func(
 			ctx SpecContext,
 			del func(context.Context, channel.Writer, channel.Channel) error,
 		) {
-			calc := createCalculated(ctx, UniqueChannelName(), nil)
+			calc := createFree(ctx, UniqueChannelName(), nil)
 			shareIndex(ctx, calc)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return del(ctx, svc.NewWriter(tx), calc)
@@ -209,24 +203,24 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	It(
-		"Should leave a shared index in place when its calculated channel is created again",
+		"Should leave a shared index in place when its free channel is created again",
 		func(ctx SpecContext) {
 			name := UniqueChannelName()
-			old := createCalculated(ctx, name, nil)
+			old := createFree(ctx, name, nil)
 			shareIndex(ctx, old)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Delete(ctx, old.Key(), false)
 			})).To(Succeed())
-			calc := createCalculated(ctx, name, &g.Key)
+			calc := createFree(ctx, name, &g.Key)
 			Expect(calc.Index()).To(Equal(old.Index()))
 			Expect(retrieve(ctx, calc.Index()).Group).To(BeNil())
 		},
 	)
 
 	It(
-		"Should leave a shared index in place when its calculated channel moves",
+		"Should leave a shared index in place when its free channel moves",
 		func(ctx SpecContext) {
-			calc := createCalculated(ctx, UniqueChannelName(), nil)
+			calc := createFree(ctx, UniqueChannelName(), nil)
 			shareIndex(ctx, calc)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).SetGroup(ctx, &g.Key, calc.Key())
@@ -263,9 +257,9 @@ var _ = Describe("Group", Ordered, func() {
 		})
 
 		It(
-			"Should move the index of a calculated channel with it",
+			"Should move the index of a free channel with it",
 			func(ctx SpecContext) {
-				calc := createCalculated(ctx, UniqueChannelName(), nil)
+				calc := createFree(ctx, UniqueChannelName(), nil)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).SetGroup(ctx, &g.Key, calc.Key())
 				})).To(Succeed())
@@ -274,9 +268,9 @@ var _ = Describe("Group", Ordered, func() {
 		)
 
 		It(
-			"Should move a calculated channel that has no index",
+			"Should move a free channel that has no index",
 			func(ctx SpecContext) {
-				calc := createCalculated(ctx, UniqueChannelName(), nil)
+				calc := createFree(ctx, UniqueChannelName(), nil)
 				calc.LocalIndex = 0
 				Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).
 					Set(ctx, calc)).To(Succeed())
