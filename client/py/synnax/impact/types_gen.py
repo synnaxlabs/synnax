@@ -111,6 +111,6 @@ class ApplyRequest(BaseModel):
     """
 
     change: Change
-    token: str
+    token: str = ""
     picks: dict[str, Choice] = Field(default_factory=dict)
     hidden: Choice | None = None
