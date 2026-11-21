@@ -902,9 +902,11 @@ update backup of RFC 0102. That backup now also holds the `index.domain` and
    place only once it is whole (`cesium/internal/domain/delete.go:480-484`,
    `cesium/internal/unary/truncate.go:162`), so none holds committed data.
 
-No file in a channel directory is written, renamed, or removed before step 8. Until step
-7 is durable, the old binary opens the old layout (`cesium/open.go:59-63`), and the new
-binary starts at step 1.
+No old file in a channel directory is written, renamed, or removed before step 8. The
+only new file there is `<key>/channel`, written and synced with step 5, which the old
+binary does not read (it opens only numbered `.domain` names) and a new conversion
+writes again. Until step 7 is durable, the old binary opens the old layout
+(`cesium/open.go:59-63`), and the new binary starts at step 1.
 
 ### 9.0 Undo: the exception to RFC 0102 §3.1
 
