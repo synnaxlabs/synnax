@@ -33,9 +33,8 @@ export const testClientParams = (): SynnaxParams => ({
   onRetry: () => {},
 });
 
-// A hook registered mid-test is silently dropped by vitest, so per-client afterAll
-// calls leak clients created inside test bodies. This module-level hook registers
-// during spec collection (import time) and covers every call site.
+// Vitest drops an afterAll registered mid-test, so this module-level hook registers
+// during spec collection and closes the clients that outlive a test.
 const openClients: Synnax[] = [];
 // Awaited so every close finishes before vitest tears down the worker; a close
 // still in flight at teardown races its logging against the closing RPC channel.
