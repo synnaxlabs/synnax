@@ -147,7 +147,7 @@ export class MultiplexedStreamer {
     void this.reconcile();
   }, RECONCILE_INTERVAL);
   private readonly scheduleOutdate = scheduler.throttle(() => {
-    this.outdateStored();
+    this.outdateTails();
   }, MISSED_INTERVAL);
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
@@ -403,12 +403,17 @@ export class MultiplexedStreamer {
     });
   }
 
-  // Outdates the cached samples of every channel that the Core stores, streamed or not,
-  // since frames the Core dropped can hold history changes for any of them. The samples
-  // of other channels cannot be read again, so they stay.
-  private outdateStored(): void {
+  // Outdates the open block of each streamed channel that the Core stores, since the
+  // dropped frames can hold its samples. Dropped history signals can name closed data
+  // of any channel, so sealed blocks stay valid only until the stale threshold. Virtual
+  // channels keep their held samples, since the Core stores none to read again.
+  private outdateTails(): void {
     const { joins, store, onWait } = this.props;
-    for (const key of store.storedChannels()) onWait(joins.invalidate(key));
+    store.restartSignals();
+    for (const key of this.sentKeys) {
+      const open = store.open(key);
+      if (open != null && store.stored(key)) onWait(joins.invalidate(key, open.range));
+    }
   }
 
   // Drops every cached block once a stream opens after a drop, since the drop can miss

@@ -812,49 +812,6 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
-    it("should outdate every stored channel once per interval on missed markers", async () => {
-      const hooks: StreamHooks[] = [];
-      const cache = createCache();
-      cache.store.setChannel(
-        new channel.Channel({ key: 1, name: "stored", dataType: "float32" }).payload,
-      );
-      cache.store.setChannel(
-        new channel.Channel({ key: 3, name: "unstreamed", dataType: "float32" })
-          .payload,
-      );
-      cache.store.setChannel(
-        new channel.Channel({
-          key: 2,
-          name: "virtual",
-          dataType: "float32",
-          virtual: true,
-        }).payload,
-      );
-      const invalidate = vi.spyOn(cache.joins, "invalidate");
-      const streamer = new MultiplexedStreamer({
-        ...cache,
-        openStreamer: createStreamOpener([pendingStreamer([1, 2])], hooks),
-      });
-      const sub = streamer.demand([1, 2], () => {});
-      let drops = 0;
-      sub.onDrop(() => drops++);
-      await vi.advanceTimersByTimeAsync(200);
-      invalidate.mockClear();
-      hooks[0].onMissed();
-      hooks[0].onMissed();
-      await vi.advanceTimersByTimeAsync(10);
-      expect(invalidate.mock.calls).toEqual([[1], [3]]);
-      hooks[0].onMissed();
-      await vi.advanceTimersByTimeAsync(500);
-      expect(invalidate.mock.calls).toEqual([[1], [3]]);
-      await vi.advanceTimersByTimeAsync(600);
-      expect(invalidate.mock.calls).toEqual([[1], [3], [1], [3]]);
-      expect(drops).toBe(0);
-      expect(sub.status(1).variant).toEqual("success");
-      sub.close();
-      await streamer.close();
-    });
-
     it("should run the drop handlers when the run loop dies", async () => {
       const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
       const dying = new MockStreamer([1], undefined, [frame]);
@@ -1007,6 +964,46 @@ describe("MultiplexedStreamer", () => {
       const block = store.raw(1, 0);
       expect(block.buffer).toBeNull();
       expect(block.fetched.flatMap((s) => Array.from(s))).toEqual(TIMES);
+      await streamer.close();
+    });
+
+    it("should outdate only open stored blocks, once per interval, on misses", async () => {
+      const cache = createJoined(1);
+      const { store, joins } = cache;
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        ...cache,
+        openStreamer: createStreamOpener(
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
+          hooks,
+        ),
+      });
+      const sub = streamer.demand([1], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      const open = store.open(1);
+      expect(open).not.toBeNull();
+      const invalidate = vi.spyOn(joins, "invalidate");
+      const restart = vi.spyOn(store, "restartSignals");
+      hooks[0].onMissed();
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(invalidate.mock.calls).toEqual([[1, open?.range]]);
+      expect(restart).toHaveBeenCalledTimes(1);
+      hooks[0].onMissed();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(restart).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(600);
+      expect(restart).toHaveBeenCalledTimes(2);
+      expect(sub.status(1).variant).toEqual("success");
+      sub.close();
       await streamer.close();
     });
 
