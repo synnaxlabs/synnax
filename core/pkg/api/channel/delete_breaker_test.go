@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // oldDelete runs the delete of the route before it went through impact.Apply, in a
@@ -132,7 +133,7 @@ var _ = Describe("Delete breaker", func() {
 		createTask(ctx, a.Key(), b.Key())
 		req := apichannel.DeleteRequest{Keys: channel.Keys{b.Key(), a.Key()}}
 		want := oldDelete(ctx, db, channelSvc, req)
-		Expect(want).To(HaveOccurred())
+		Expect(want).To(MatchError(validate.ErrValidation))
 		Expect(deleteChannels(AuthedCtx(ctx, author), req)).Error().
 			To(MatchError(want))
 	})

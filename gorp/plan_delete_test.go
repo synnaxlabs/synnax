@@ -216,17 +216,35 @@ var _ = Describe("PlanDelete", func() {
 		Expect(effects.Restricts).To(BeEmpty())
 	})
 
-	It("Should list a holder once for each target that it loses", func(
-		ctx SpecContext,
-	) {
+	It("Should list a holder once for each target that it loses, in the order "+
+		"that the delete meets them", func(ctx SpecContext) {
 		open(ctx)
 		create(ctx, db, pdHolder{Key: "h", Plotted: []uint32{1, 2}})
 		effects := MustSucceed(channels.PlanDelete(ctx, db, []uint32{2, 1}))
 		Expect(effects.Detaches).To(Equal([]gorp.DeleteEffect{
-			effect("holder", "h", "plotted", gorp.Use, channel(1)),
 			effect("holder", "h", "plotted", gorp.Use, channel(2)),
+			effect("holder", "h", "plotted", gorp.Use, channel(1)),
 		}))
 	})
+
+	It("Should name the lowest Restrict holder of a transaction's staged holders",
+		func(ctx SpecContext) {
+			open(ctx)
+			tx := DeferClose(db.OpenTx())
+			for i := range 40 {
+				key := fmt.Sprintf("h%02d", 39-i)
+				create(ctx, tx, pdHolder{Key: key, Tasks: []uint32{1}})
+			}
+			for range 2 {
+				Expect(channels.NewDelete().
+					Where(gorp.MatchKeys[uint32, pdChannel](1)).
+					Exec(ctx, tx)).To(MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("channel", uint32(1)),
+					Holder:    gorp.Target{Table: "holder", Key: "h00"},
+					Reference: "tasks",
+				}))
+			}
+		})
 
 	It("Should list a holder that restricts two targets once", func(ctx SpecContext) {
 		open(ctx)
@@ -399,14 +417,16 @@ var _ = Describe("Planned delete", func() {
 		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{2}))
 	})
 
-	It("Should apply only the plan, with no walk of its own", func(ctx SpecContext) {
+	It("Should walk the references itself for a plan from another transaction", func(
+		ctx SpecContext,
+	) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return deletePlanned(ctx, tx, gorp.DeleteEffects{})
 		})).To(Succeed())
 		Expect(calcs.NewRetrieve().
 			Where(gorp.MatchKeys[string, pdCalc]("c")).
-			Exists(ctx, db)).To(BeTrue())
-		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{1, 2}))
+			Exists(ctx, db)).To(BeFalse())
+		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{2}))
 	})
 
 	It("Should refuse while a planned Restrict holder still exists", func(

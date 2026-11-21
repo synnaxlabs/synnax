@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -69,8 +70,9 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
-	// dependentsOf returns the text keys of the entries that hold target, as snap holds
-	// them. A transaction holds the DB lock, so it sees no commit in flight.
+	// dependentsOf returns the sorted text keys of the entries that hold target, as
+	// snap holds them, so a delete meets them in a fixed order. A transaction holds the
+	// DB lock, so it sees no commit in flight.
 	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
@@ -83,6 +85,8 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
+	// version counts the changes to the registered tables and their references.
+	version atomic.Uint64
 	// mu guards tables, names, referencing, indexed, and spaces.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
@@ -142,6 +146,7 @@ func (r *registry) indexedTables(prefix []byte) []any {
 func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
@@ -176,6 +181,7 @@ func (r *registry) tableName(prefix []byte) (string, bool) {
 func (r *registry) addReferences(refs []registeredReference) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	for _, ref := range refs {
 		for _, target := range ref.targetTables() {
 			if t, ok := r.tables[target]; ok {
@@ -210,6 +216,7 @@ func checkIssues(ref registeredReference, name string, table registeredTable) er
 func (r *registry) unregister(name string, prefix []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	delete(r.tables, name)
 	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
@@ -447,25 +454,18 @@ func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
 }
 
 // planned returns the plan that effects describe, for a delete from the table named
-// table that PlanDelete planned in tx. It fails with the RestrictError of a holder in
-// effects.Restricts that tx still holds, and on a detach through a reference that its
-// holder's table does not have.
+// table that PlanDelete planned in tx and that is still current. It fails with the
+// RestrictError of a holder in effects.Restricts that tx has not deleted since, and on
+// a detach through a reference that its holder's table does not have.
 func (r *registry) planned(
-	ctx context.Context,
 	tx Tx,
 	table string,
 	effects DeleteEffects,
 ) (*deletePlan, error) {
+	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
+	// since still exists.
 	for _, e := range effects.Restricts {
-		holder, err := r.table(e.Holder.Table)
-		if err != nil {
-			return nil, err
-		}
-		held, err := holder.exists(ctx, tx, e.Holder.Key)
-		if err != nil {
-			return nil, err
-		}
-		if held {
+		if !deletedIn(tx, e.Holder) {
 			return nil, RestrictError{
 				Target:    e.Target,
 				Holder:    e.Holder,
@@ -473,11 +473,18 @@ func (r *registry) planned(
 			}
 		}
 	}
-	p := newDeletePlan(table)
+	p := &deletePlan{
+		table:    table,
+		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
+		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
+	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
 	}
 	for _, e := range effects.Detaches {
+		if deletedIn(tx, e.Holder) {
+			continue
+		}
 		holder, err := r.table(e.Holder.Table)
 		if err != nil {
 			return nil, err
@@ -523,7 +530,7 @@ type planWalk struct {
 	restricted   set.Set[Target]
 	// effects holds, by OnDelete, the effect of the walk on each entry it meets, for
 	// PlanDelete. It is nil for a delete.
-	effects map[OnDelete][]DeleteEffect
+	effects *[Weak + 1][]DeleteEffect
 }
 
 // record adds the effect of the delete of target on dep, which holds it through ref,
@@ -531,6 +538,9 @@ type planWalk struct {
 func (w *planWalk) record(ref registeredReference, dep, target Target) {
 	if w.effects != nil {
 		p := ref.onDeletePolicy()
+		if p == Inline {
+			p = Detach
+		}
 		w.effects[p] = append(w.effects[p], newDeleteEffect(ref, dep, target))
 	}
 }
@@ -601,7 +611,6 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		if w.plan.contains(dep) {
 			return nil
 		}
-		w.record(ref, dep, target)
 		if w.restricted.Contains(dep) {
 			return nil
 		}
@@ -665,7 +674,7 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		if err != nil {
 			return err
 		}
-		if err := t.detach(ctx, tx, dep.Key, ops); err != nil {
+		if err = t.detach(ctx, tx, dep.Key, ops); err != nil {
 			return err
 		}
 	}
