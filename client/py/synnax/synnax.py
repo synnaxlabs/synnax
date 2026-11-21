@@ -39,6 +39,7 @@ from synnax import (
     group,
     icd,
     imex as imex_,
+    impact,
     label,
     license as license_,
     lineplot,
@@ -335,6 +336,10 @@ class Synnax(framer.Client):
     @_Lazy
     def resources(self) -> resource.Client:
         return resource.Client(self._transport.unary)
+
+    @_Lazy
+    def impact(self) -> impact.Client:
+        return impact.Client(self._transport.unary)
 
     @_Lazy
     def license(self) -> license_.Client:

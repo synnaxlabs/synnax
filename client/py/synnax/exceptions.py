@@ -157,6 +157,20 @@ class RouteError(Error):
         self.path = path
 
 
+class PlanChangedError(Error):
+    """Raised by an apply whose plan changed after the caller planned it.
+    ``synnax.impact.plan_of`` parses the plan as it is now.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "impact.plan_changed"
+    plan: str
+    """Is the plan as it is now, as the Core sent it."""
+
+    def __init__(self, plan: str) -> None:
+        super().__init__("the records that the change touches changed")
+        self.plan = plan
+
+
 @dataclass
 class PathError(ValidationError):
     """Raised when a validation error occurs on a specific path."""
@@ -229,6 +243,11 @@ def _decode(registry: Registry, encoded: ExceptionPayload) -> Exception | None:
         if encoded.type.startswith(UnauthorizedError.TYPE):
             return UnauthorizedError(encoded.data)
         return ControlError(encoded.data)
+
+    if encoded.type == PlanChangedError.TYPE:
+        if encoded.data is None:
+            return UnexpectedError(encoded.data)
+        return PlanChangedError(encoded.data)
 
     if encoded.type.startswith(LicenseError.TYPE):
         if encoded.type.startswith(MissingLicense.TYPE):
