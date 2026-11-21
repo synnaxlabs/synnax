@@ -321,6 +321,11 @@ func (r *partedRequest) run(s *State) {
 	for _, rg := range r.ranges {
 		ranges[rg.Key] = rg
 	}
+	// A key that a Drop took out after the snapshot of the head is a new key, and the
+	// range of the head belongs to the dropped one.
+	for _, k := range s.core.dropped {
+		delete(ranges, k.Key)
+	}
 	for key, ch := range s.core.channels {
 		rg := ranges[key]
 		// A range names parts of the new head, even when its bounds stay.
