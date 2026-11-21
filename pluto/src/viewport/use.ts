@@ -388,6 +388,7 @@ export const use = ({
         x: verticalTrigger.current.held ? 0 : cursor.x * (1 - sf),
         y: horizontalTrigger.current.held ? 0 : cursor.y * (1 - sf),
       });
+      setMaskBox(box.ZERO);
       setStateRef(next);
       onChange?.({
         stage: "end",

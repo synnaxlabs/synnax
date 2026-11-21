@@ -568,6 +568,19 @@ describe("viewport/use", () => {
     });
   });
 
+  describe("wheel", () => {
+    it("should clear the mask", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      act(() => {
+        fireEvent.wheel(h.canvas, { deltaY: -100, ...client({ x: 50, y: 50 }) });
+      });
+      expect(lastEvent(h.onChange).mode).toEqual("zoom");
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+  });
+
   describe("sync", () => {
     const VIEW = box.construct(0.2, 0, 0.4, 1, location.TOP_LEFT);
 
