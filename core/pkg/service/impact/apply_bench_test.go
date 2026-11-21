@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
@@ -139,6 +140,32 @@ func BenchmarkApply(b *testing.B) {
 				change,
 				impact.ApplyOptions{Picks: picks},
 			)
+			return err
+		})
+	})
+	visible := func(resource.ID) bool { return true }
+	b.Run("plan", func(b *testing.B) {
+		run(b, func(tx gorp.Tx) error {
+			_, err := layer.Impact.Plan(
+				ctx,
+				tx,
+				change,
+				impact.PlanOptions{Visible: visible},
+			)
+			return err
+		})
+	})
+	planned, err := layer.Impact.Plan(ctx, db, change, impact.PlanOptions{})
+	if err != nil {
+		b.Fatalf("failed to plan: %v", err)
+	}
+	b.Run("token", func(b *testing.B) {
+		run(b, func(tx gorp.Tx) error {
+			_, err := layer.Impact.Apply(ctx, tx, change, impact.ApplyOptions{
+				Token:   planned.Token,
+				Picks:   picks,
+				Visible: visible,
+			})
 			return err
 		})
 	})
