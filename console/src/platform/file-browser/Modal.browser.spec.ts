@@ -658,6 +658,16 @@ describe("FileBrowser.useModal", () => {
       expect(await screen.findByText("Secrets folder")).toBeDefined();
     });
 
+    it("should send one request on Try again at the top level", async () => {
+      const listings = [ROOT];
+      const { served } = await openBrowser(listings);
+      await screen.findByText("Failed to list files");
+      listings.push(TOP);
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await findEntry("secrets");
+      expect(served.paths).toEqual(["", ""]);
+    });
+
     it("should show the error of a folder that fails and go back from it", async () => {
       await openBrowser(LISTINGS);
       await openEtc();
