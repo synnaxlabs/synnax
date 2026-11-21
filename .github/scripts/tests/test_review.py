@@ -264,6 +264,30 @@ class TestInlineFindings:
         post(record(finding()), target=TARGET, gh=gh)
         assert gh.written("PATCH", "pulls/comments/9") == []
 
+    @pytest.mark.parametrize("path", ["a.go", "image.png"])
+    def test_should_post_one_off_the_changed_lines_as_a_file_thread(
+        self, gh: FakeGH, path: str
+    ) -> None:
+        post(record(finding(path=path, line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/reviews") == []
+        [posted] = gh.written("POST", "pulls/7/comments")
+        assert {k: v for k, v in posted.items() if k != "body"} == {
+            "commit_id": "head",
+            "path": path,
+            "subject_type": "file",
+        }
+        heading, where, _ = posted["body"].split("\n\n", 2)
+        assert heading.endswith("**Samples return old data**")
+        assert where == f"[`{path}:10`](https://github.com/{REPO}/blob/head/{path}#L10)"
+        assert gh.written("POST", "issues/7/comments") == []
+
+    def test_should_skip_a_file_finding_an_open_thread_of_the_bot_holds(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("sedosaur")]
+        post(record(finding(line=10)), target=TARGET, gh=gh)
+        assert gh.written("POST", "pulls/7/comments") == []
+
     def test_should_post_a_finding_of_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
         post(record(finding()), target=TARGET, gh=gh)
@@ -429,17 +453,14 @@ class TestOutsideFindings:
     """Tests listing findings off the diff in the bot's one outside-diff comment."""
 
     def test_should_post_them_in_a_new_comment(self, gh: FakeGH) -> None:
-        post(
-            record(finding(line=10), finding(path="b.go", line=1, title="Gone")),
-            target=TARGET,
-            gh=gh,
-        )
+        post(record(finding(path="b.go", line=1, title="Gone")), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
+        assert gh.written("POST", "pulls/7/comments") == []
         [comment] = gh.written("POST", "issues/7/comments")
         body = comment["body"]
         assert body.startswith(OUTSIDE)
         assert "These findings could not be posted inline." in body
-        assert f"[`a.go:10`](https://github.com/{REPO}/blob/head/a.go#L10)" in body
+        assert f"[`b.go:1`](https://github.com/{REPO}/blob/head/b.go#L1)" in body
         assert "**Gone**" in body
 
     def test_should_edit_the_bot_comment_when_none_remain(self, gh: FakeGH) -> None:

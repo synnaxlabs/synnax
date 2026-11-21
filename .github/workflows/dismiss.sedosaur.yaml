@@ -8,15 +8,15 @@
 # included in the file licenses/APL.txt.
 
 # Answers a reply on the thread of a Sedosaur finding, as the sedosaur GitHub App, or
-# dismisses the finding that a dispatch names by its title. A finding outside the diff
-# has no thread, so only a dispatch can dismiss it. An `@sedosaur dismiss` reply from
-# someone with write access to the repository, or a dispatch, dismisses the finding, and
-# later reviews of the pull request do not report it. A rebuttal from such a person or
-# an agent goes to Sedosaur on a review runner: Claude Code checks its evidence against
-# the head, then Sedosaur withdraws the finding until its file changes, or replies why
-# it holds. Any other reply gets the usage. When no finding of the head's review is
-# left, a new check run scores the head 5/5. The scripts and the policy come from the
-# default branch, never from the pull request.
+# dismisses the finding that a dispatch names by its title. A finding on a file outside
+# the diff has no thread, so only a dispatch can dismiss it. An `@sedosaur dismiss`
+# reply from someone with write access to the repository, or a dispatch, dismisses the
+# finding, and later reviews of the pull request do not report it. A rebuttal from such
+# a person or an agent goes to Sedosaur on a review runner: Claude Code checks its
+# evidence against the head, then Sedosaur withdraws the finding until its file changes,
+# or replies why it holds. Any other reply gets the usage. When no finding of the head's
+# review is left, a new check run scores the head 5/5. The scripts and the policy come
+# from the default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}
