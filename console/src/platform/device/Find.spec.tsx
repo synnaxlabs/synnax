@@ -38,8 +38,11 @@ const createHardware = (): Device.Hardware => ({
   checks: [],
   Configure: Device.createConfigure({
     icon: <Icon.Device />,
-    zeroProperties: {},
-    suggestIdentifiers: () => [],
+    adapter: Device.createLegacyAdapter({
+      make: "acme",
+      zeroProperties: {},
+      suggestIdentifiers: () => [],
+    }),
   }),
 });
 

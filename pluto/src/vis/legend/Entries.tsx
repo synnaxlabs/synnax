@@ -10,20 +10,32 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type color, compare, type optional, type state } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import {
+  type HTMLAttributes,
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+} from "react";
 
 import { CSS } from "@/css";
 
 export interface EntryData {
-  color: color.Crude;
+  /** The color of the swatch. An entry with no color has no swatch. */
+  color?: color.Crude;
   key: string;
   label: string;
   visible: boolean;
+  /** Shown before the label, in a column as wide as a swatch. */
+  start?: ReactNode;
 }
 
 export interface EntriesProps {
@@ -32,7 +44,17 @@ export interface EntriesProps {
   data: optional.Optional<EntryData, "visible">[];
   onColorChange?: (key: string, color: color.Color) => void;
   onLabelChange?: (key: string, label: string) => void;
-  onVisibleChange?: (key: string, visible: boolean) => void;
+  /**
+   * Called when the user toggles the visibility of an entry. solo is true when the user
+   * holds Alt to show only that entry.
+   */
+  onVisibleChange?: (key: string, visible: boolean, solo: boolean) => void;
+  /** Called with the key of the entry the pointer enters, and null when it leaves. */
+  onHoverChange?: (key: string | null) => void;
+  /** Sorts the entries by label. Otherwise they keep the order of data. */
+  sorted?: boolean;
+  /** The shade of the label of a visible entry. */
+  shade?: Theming.Shade;
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;
   entryProps?: Omit<Flex.BoxProps, "background">;
@@ -44,12 +66,12 @@ export const Entries = memo(
     allowVisibleChange = true,
     background = 1,
     entryProps,
+    sorted = true,
     ...rest
   }: EntriesProps): ReactElement => (
     <>
-      {data
-        .sort(compare.by((e) => e.label))
-        .map(({ key, visible = true, ...entryRest }) => (
+      {(sorted ? [...data].sort(compare.by((e) => e.label)) : data).map(
+        ({ key, visible = true, ...entryRest }) => (
           <Entry
             key={key}
             entry={{ key, visible, ...entryRest }}
@@ -58,7 +80,8 @@ export const Entries = memo(
             {...entryProps}
             {...rest}
           />
-        ))}
+        ),
+      )}
     </>
   ),
 );
@@ -69,39 +92,85 @@ interface EntryProps
   entry: EntryData;
 }
 
+type HoverHandlers = Pick<
+  HTMLAttributes<HTMLElement>,
+  "onPointerEnter" | "onPointerLeave"
+>;
+
+/**
+ * @returns the pointer handlers that report the hover of the legend entry with key. An
+ * entry that unmounts under the pointer gets no pointerleave, so it ends its hover.
+ */
+export const useHover = (
+  key: string,
+  onHoverChange?: (key: string | null) => void,
+): HoverHandlers => {
+  const hovered = useRef(false);
+  const onHoverChangeRef = useSyncedRef(onHoverChange);
+  useEffect(
+    () => () => {
+      if (hovered.current) onHoverChangeRef.current?.(null);
+    },
+    [onHoverChangeRef],
+  );
+  if (onHoverChange == null) return {};
+  return {
+    onPointerEnter: () => {
+      hovered.current = true;
+      onHoverChange(key);
+    },
+    onPointerLeave: () => {
+      hovered.current = false;
+      onHoverChange(null);
+    },
+  };
+};
+
 const Entry = ({
   allowVisibleChange = true,
   entry,
   onColorChange,
   onLabelChange,
   onVisibleChange,
+  onHoverChange,
+  sorted: _,
+  shade = 10,
   colorPickerVisible,
   onColorPickerVisibleChange,
   className,
   background,
   ...rest
 }: EntryProps): ReactElement => {
-  const { color, key, label, visible } = entry;
+  const { color, key, label, visible, start } = entry;
+  const hover = useHover(key, onHoverChange);
   return (
     <Flex.Box
       align="center"
-      className={CSS.cls(CSS.B("legend-entry"), className)}
+      className={CSS.cls(CSS.B("legend-entry"), Menu.CONTEXT_TARGET, className)}
+      data-menu-key={key}
       gap="small"
       key={key}
       x
+      {...hover}
       {...rest}
     >
       <Flex.Box align="center" gap="small" x>
-        <Color.Swatch
-          draggable={false}
-          onChange={onColorChange == null ? undefined : (c) => onColorChange(key, c)}
-          size="tiny"
-          variant="text"
-          value={color}
-          onVisibleChange={onColorPickerVisibleChange}
-        />
+        {color != null && (
+          <Color.Swatch
+            draggable={false}
+            onChange={onColorChange == null ? undefined : (c) => onColorChange(key, c)}
+            size="tiny"
+            variant="text"
+            value={color}
+            onVisibleChange={onColorPickerVisibleChange}
+          />
+        )}
+        {start != null && (
+          <span className={CSS.BE("legend-entry", "start")}>{start}</span>
+        )}
         <Text.MaybeEditable
-          color={entry.visible ? 10 : 7}
+          color={entry.visible ? shade : 7}
+          className={CSS.BE("legend-entry", "label")}
           level="small"
           onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}
@@ -110,16 +179,32 @@ const Entry = ({
         />
       </Flex.Box>
       {allowVisibleChange && onVisibleChange != null && (
-        <Button.Button
-          className={CSS.B("visible-toggle")}
-          onClick={() => onVisibleChange(key, !visible)}
-          onDoubleClick={stopPropagation}
-          size="tiny"
-          variant="glyph"
-        >
-          {visible ? <Icon.Visible /> : <Icon.Hidden />}
-        </Button.Button>
+        <VisibleButton itemKey={key} visible={visible} onChange={onVisibleChange} />
       )}
     </Flex.Box>
   );
 };
+
+export interface VisibleButtonProps {
+  itemKey: string;
+  visible: boolean;
+  onChange: NonNullable<EntriesProps["onVisibleChange"]>;
+}
+
+/** An eye that hides or shows an item. An Option or Alt click shows only that item. */
+export const VisibleButton = ({
+  itemKey,
+  visible,
+  onChange,
+}: VisibleButtonProps): ReactElement => (
+  <Button.Button
+    className={CSS.B("visible-toggle")}
+    aria-label={visible ? "Hide" : "Show"}
+    onClick={(e) => onChange(itemKey, !visible, e.altKey)}
+    onDoubleClick={stopPropagation}
+    size="tiny"
+    variant="glyph"
+  >
+    {visible ? <Icon.Visible /> : <Icon.Hidden />}
+  </Button.Button>
+);
