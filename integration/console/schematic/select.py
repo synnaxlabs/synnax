@@ -9,7 +9,7 @@
 
 
 import synnax as sy
-from console.schematic.symbol import Symbol, option_text
+from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
@@ -71,17 +71,7 @@ class Select(Symbol):
             self.set_channel(section="State", channel_name=state_channel_name)
 
         if options is not None and len(options) > 0:
-            self.click()
-            self.page.get_by_text("Properties").dispatch_event("click")
-            self.page.get_by_text("Options", exact=True).dispatch_event("click")
-            for option in options:
-                self.page.get_by_text("Add option", exact=True).dispatch_event("click")
-                items = self.page.locator(".lyra-list__item").all()
-                last_item = items[-1]
-                name_input = last_item.locator("input").first
-                name_input.fill(option.name)
-                value_input = last_item.locator("input").nth(1)
-                value_input.fill(option_text(option.value))
+            self.add_options(options)
 
     def send(self, option_name: str) -> None:
         """Select an option from the dropdown and click Set.

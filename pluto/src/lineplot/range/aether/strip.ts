@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import type { color as clientColor, ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import {
   type bounds,
@@ -19,7 +19,8 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type Draw2D } from "@/vis/draw2d";
+import { color as aetherColor } from "@/color/aether";
+import type { Draw2D } from "@/vis/draw2d";
 
 /** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
 const withLightness = (c: color.Color, l: number, alpha = 255): color.Color => {
@@ -127,8 +128,9 @@ export interface Layout {
  * Places each range in the first lane that is free at its start and below every range
  * that holds it, so a parent sits above its children. Lanes pack in time, so a zoom
  * never moves a range to another lane. Ranges past the last thin lane share it. Ranges
- * with no color get no bar.
+ * with no color, or a named color not in named, get no bar.
  * @param position - Maps a timestamp in nanoseconds to a canvas x position.
+ * @param named - The named colors by key.
  * @param now - A range runs when now is inside it.
  * @param newest - The newest sample of a live plot. A running range's bar ends there,
  * or at now when it is undefined.
@@ -138,13 +140,14 @@ export const layout = (
   region: box.Box,
   position: (value: number) => number,
   t: theme.Theme,
+  named: Map<clientColor.Key, clientColor.Named>,
   now: TimeStamp,
   newest?: TimeStamp,
 ): Layout => {
   const bars = ranges.flatMap((range): Bar[] => {
-    const parsed = color.colorZ.safeParse(range.color);
-    if (!parsed.success) return [];
-    const c = parsed.data;
+    if (range.color == null) return [];
+    const c = aetherColor.resolve(range.color, named, t);
+    if (c == null) return [];
     const start = position(Number(range.timeRange.start.valueOf()));
     const running =
       !now.before(range.timeRange.start) && now.before(range.timeRange.end);

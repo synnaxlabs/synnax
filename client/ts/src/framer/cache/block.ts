@@ -9,9 +9,9 @@
 
 import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type Dynamic } from "@/framer/cache/dynamic";
+import type { Dynamic } from "@/framer/cache/dynamic";
 import { index as tileIndex, tileRange } from "@/framer/cache/grid";
 import { buildInsertionPlan } from "@/framer/cache/insertion";
 

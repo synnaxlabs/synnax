@@ -10,7 +10,7 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { type Reader, type Store } from "@/server/db/db";
+import type { Reader, Store } from "@/server/db/db";
 import {
   event,
   type Invitation,
@@ -20,9 +20,9 @@ import {
 } from "@/server/db/schema";
 import { type Directory, roleName } from "@/server/directory";
 import { badRequest, forbidden, notFound } from "@/server/errors";
-import { type Mailer, type Notice } from "@/server/mail";
+import type { Mailer, Notice } from "@/server/mail";
 import { type Change, requireRole, type Team } from "@/server/member";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import { invitationPath } from "@/shell";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

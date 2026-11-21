@@ -72,6 +72,7 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
@@ -219,11 +220,6 @@ type Transport struct {
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,
 	]
-	// EnumerationRetrieveDependents returns the records that use an enumeration.
-	EnumerationRetrieveDependents freighter.UnaryServer[
-		enumeration.RetrieveDependentsRequest,
-		enumeration.RetrieveDependentsResponse,
-	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -302,6 +298,8 @@ type Transport struct {
 	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// CertificateDispatch applies path actions to a certificate.
 	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
+	// CertificateRefresh saves the details that a rack read from a certificate file.
+	CertificateRefresh freighter.UnaryServer[certificate.RefreshRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
 	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
 	// IMPORT/EXPORT
@@ -379,6 +377,7 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthMethods,
 		t.AuthSessionCreate,
 		t.ConnectivityCheck,
 	)
@@ -534,7 +533,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.EnumerationReplace,
 		t.EnumerationDispatch,
 		t.EnumerationRetrieveBuiltins,
-		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -603,6 +601,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.CertificateRetrieve,
 		t.CertificateDelete,
 		t.CertificateDispatch,
+		t.CertificateRefresh,
 
 		// ARC
 		t.ArcCreate,
@@ -628,6 +627,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.Auth.PrepareChangePassword,
@@ -802,9 +802,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.EnumerationReplace.BindHandler(bind.Write(l.binder, l.Enumeration.Replace))
 	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
 	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
-	t.EnumerationRetrieveDependents.BindHandler(
-		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
-	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
@@ -877,6 +874,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
+	t.CertificateRefresh.BindHandler(
+		bind.WriteUnchecked(db, l.Certificate.Refresh),
+	)
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
@@ -913,6 +913,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       panel.OwnedTables(),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err
 	}
@@ -932,6 +933,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		RBAC:     cfg.Service.RBAC,
 		User:     cfg.Service.User,
 		Password: cfg.Service.Password,
+		Auth:     cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}
@@ -1024,7 +1026,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.ICD, err = icd.NewService(icd.ServiceConfig{
-		ICD: cfg.Service.ICD,
+		ICD:    cfg.Service.ICD,
+		Errors: cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}
@@ -1119,8 +1122,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Secret, err = secret.NewService(secret.ServiceConfig{
-		Secret: cfg.Service.Secret,
-		RBAC:   cfg.Service.RBAC,
+		Secret:      cfg.Service.Secret,
+		RBAC:        cfg.Service.RBAC,
+		Task:        cfg.Service.Task,
+		Rack:        cfg.Service.Rack,
+		Certificate: cfg.Service.Certificate,
+		DB:          cfg.Distribution.DB,
 	}); err != nil {
 		return nil, err
 	}

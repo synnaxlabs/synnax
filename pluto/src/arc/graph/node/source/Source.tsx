@@ -13,8 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 
 import { Base } from "@/arc/graph/node/Base";
-import { type Config } from "@/arc/graph/node/source/config";
-import { type types } from "@/arc/graph/node/types";
+import type { Config } from "@/arc/graph/node/source/config";
+import type { types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 

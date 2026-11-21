@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
-import { type Plugin } from "vite";
+import type { Plugin } from "vite";
 
 import { compileEmitted } from "./compiler.js";
 import { files, fullySpecify, tscBin, TSCONFIG } from "./declarations.js";

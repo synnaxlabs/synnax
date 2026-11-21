@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { primitive } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { formPath } from "@/platform/task/types";
 

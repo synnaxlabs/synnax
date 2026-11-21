@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Bounds } from "@/spatial/base";
+import type { Bounds } from "@/spatial/base";
 
 const LARGE_SPAN_DECIMAL_PLACES = 2;
 const MEDIUM_SPAN_DECIMAL_PLACES = 3;

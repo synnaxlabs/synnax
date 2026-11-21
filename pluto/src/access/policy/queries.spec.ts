@@ -10,7 +10,7 @@
 import { type access, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";

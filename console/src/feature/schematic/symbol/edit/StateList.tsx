@@ -10,7 +10,7 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Schematic } from "@synnaxlabs/pluto";

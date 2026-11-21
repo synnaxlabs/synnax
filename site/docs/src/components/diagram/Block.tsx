@@ -9,7 +9,7 @@
 
 import "@/components/diagram/Block.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import {
   type Direction,

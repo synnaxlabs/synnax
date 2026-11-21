@@ -9,7 +9,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import type { Store } from "@/server/db/db";
 import {
   type Activation,
   activation,

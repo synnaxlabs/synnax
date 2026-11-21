@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 import {
   Handle as RFHandle,
   type HandleProps as RFHandleProps,
   type Position as RFPosition,
 } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { adjust, smart, swap } from "@/schematic/node/common/handle/position";
