@@ -235,6 +235,8 @@ const encode: errors.Encoder = (error) => {
       data: JSON.stringify({ path, error: errors.encode(cause) }),
     };
   }
+  if (error instanceof PlanChangedError)
+    return { type: PlanChangedError.TYPE, data: error.plan };
   return { type: error.type, data: error.message };
 };
 
