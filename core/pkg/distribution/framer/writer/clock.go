@@ -22,8 +22,7 @@ import (
 // clockEntry is the Cesium writer of one live clock, which the session that holds the
 // clock's control writes through. Each transfer of the clock moves it as one event,
 // under mu: a Close of the old holder's writer, which makes its commits durable, then
-// an
-// open for the new holder from the old writer's last commit end. The uncommitted
+// an open for the new holder from the old writer's last commit end. The uncommitted
 // samples of the old holder drop.
 //
 // Lock order: mu, then a Cesium claim, then a gate region. The skip predicate of a
@@ -85,9 +84,10 @@ func (e *clockEntry) follow(ctx context.Context, ts *cesium.DB) {
 	if leader == nil || leader.err != nil {
 		return
 	}
-	// A handoff starts the new writer at the old one's last commit end, and a first
-	// open at the session's own start, which refuses stored data there.
-	start := leader.start
+	// A writer opens after the session's own last commit. A handoff also starts it at
+	// the old writer's last commit end, and a first open at the session's own start,
+	// which refuses stored data there.
+	start := leader.end
 	if handoff {
 		start = max(e.end, start)
 	}
@@ -190,9 +190,9 @@ func refuse(fr cesium.Frame, keys []cesium.ChannelKey) (cesium.Frame, bool, erro
 	return fr.ExcludeKeys(keys), true, nil
 }
 
-// Commit commits the writer of the clock. A session that does not hold the clock
-// commits nothing and returns the end of its last commit, or a refusal once after a
-// handoff dropped its samples.
+// Commit commits the writer of the clock. It commits nothing and returns a refusal once
+// after a handoff dropped samples of the session. A session that does not hold the
+// clock commits nothing and returns the end of its last commit.
 func (c *clockWriter) Commit(
 	ctx context.Context,
 	skip func(cesium.ChannelKey) bool,
@@ -202,11 +202,11 @@ func (c *clockWriter) Commit(
 	if err != nil {
 		return 0, false, err
 	}
+	if c.own == nil && c.member.dropped {
+		c.member.dropped = false
+		return 0, true, nil
+	}
 	if w == nil {
-		if c.member.dropped {
-			c.member.dropped = false
-			return 0, true, nil
-		}
 		return c.member.end, false, nil
 	}
 	end, skipped, err := w.Commit(ctx, skip)

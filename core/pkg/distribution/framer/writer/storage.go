@@ -60,19 +60,7 @@ func (s *Service) newStorage(
 		release()
 		return nil, err
 	}
-	for _, c := range ws {
-		if c.shares {
-			c.entry.members[c.member.subject] = c.member
-		}
-	}
-	followAll(ctx, s.cfg.TS, ws)
-	for _, c := range ws {
-		if c.shares && c.member.err != nil {
-			err = c.member.err
-			break
-		}
-	}
-	if err == nil {
+	if err = join(ctx, s.cfg.TS, ws); err == nil {
 		err = s.openOwn(ctx, cfg, ws)
 	}
 	if err != nil {
@@ -86,6 +74,24 @@ func (s *Service) newStorage(
 	}
 	s.controls.notify(transfers)
 	return s.newSession(ws, cfg, autoIndex, release, g), nil
+}
+
+// join adds each sharing handle of ws to the entry of its clock, and moves the writer
+// of each clock to its leader. It returns the error of a writer that a handle of ws
+// needed and that failed to open. The caller holds the entries' locks.
+func join(ctx context.Context, ts *cesium.DB, ws []*clockWriter) error {
+	for _, c := range ws {
+		if c.shares {
+			c.entry.members[c.member.subject] = c.member
+		}
+	}
+	followAll(ctx, ts, ws)
+	for _, c := range ws {
+		if c.shares && c.member.err != nil {
+			return c.member.err
+		}
+	}
+	return nil
 }
 
 // clockWriters returns the handle of the session of cfg on each clock of channels,
