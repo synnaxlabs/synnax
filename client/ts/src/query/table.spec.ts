@@ -1819,6 +1819,20 @@ describe("intercept", () => {
     },
   );
 
+  it("should list the keys that the interceptor shows over a base as overlaid", () => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+    table.set("a", counter(1));
+    expect([...table.overlaid()]).toEqual(["a"]);
+    bases.delete("a");
+    expect([...table.overlaid()]).toEqual([]);
+  });
+
+  it("should list no overlaid keys without an interceptor", () => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    table.set("a", counter(1));
+    expect([...table.overlaid()]).toEqual([]);
+  });
+
   it("should throw when the table already has an interceptor", () => {
     const { table } = newTable((b) => b);
     expect(() => table.intercept(createOverlay((b) => b).interceptor)).toThrow(
