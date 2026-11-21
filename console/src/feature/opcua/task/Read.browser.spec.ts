@@ -834,8 +834,12 @@ describe("Read", () => {
     // The title can be dragged once the details land. It repeats the name below the
     // tree.
     await screen.findByText(node.nodeId);
-    fireEvent.dragStart(screen.getAllByText(node.name)[1]);
-    fireEvent.drop(screen.getByText(new RegExp(held.nodeName)));
+    fireEvent.dragStart(screen.getAllByText(node.name)[1], {
+      dataTransfer: new DataTransfer(),
+    });
+    fireEvent.drop(screen.getByText(new RegExp(held.nodeName)), {
+      dataTransfer: new DataTransfer(),
+    });
     await waitFor(async () =>
       expect(
         (await retrieveChannels(draft.key)).map(({ nodeId, dataType }) => ({
