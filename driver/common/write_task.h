@@ -294,6 +294,7 @@ class WriteTask final : public driver::task::Task {
             std::lock_guard lock(this->logged_mu);
             if (err) {
                 this->logged_warning = {};
+                this->missed_shown = false;
                 this->write_warned = err.matches(errors::TEMPORARY_HARDWARE_ERROR);
                 if (this->write_warned)
                     this->p.state.send_warning("Failed to write commands", err.data);
