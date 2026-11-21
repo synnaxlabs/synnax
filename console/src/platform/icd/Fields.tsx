@@ -20,7 +20,7 @@ import type { ReactElement, ReactNode } from "react";
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
 import { binaryOptionsOf, numberOptionsOf } from "@/platform/icd/number";
-import { Optional, Options, showsDefault } from "@/platform/icd/Options";
+import { Optional, Options } from "@/platform/icd/Options";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
 type Encoding = "binary" | icd.TextFieldType | "json";
@@ -46,7 +46,14 @@ type Cell<F extends Field> = (
 ) => ReactElement;
 
 type Render<F extends Field> =
-  "text" | "number" | "byteOrder" | "type" | "jsonType" | "multiplexor" | Cell<F>;
+  | "text"
+  | "number"
+  | "default"
+  | "byteOrder"
+  | "type"
+  | "jsonType"
+  | "multiplexor"
+  | Cell<F>;
 
 interface Column<F extends Field> {
   name: string;
@@ -112,6 +119,41 @@ const multiplexValues: Column<icd.BinaryField> = {
 };
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
+
+/** @returns the float that text names, or null when it names none. */
+const toFloat = (text: string): number | null => {
+  const value = Number(text);
+  return Number.isNaN(value) && text !== "NaN" ? null : value;
+};
+
+const withFloatDefault = <F extends { default?: number }>(
+  field: F,
+  text: string,
+): F => {
+  const value = toFloat(text);
+  return value == null ? field : { ...field, default: value };
+};
+
+/** An integer default is decimal text, which Check verifies. */
+const withBinaryDefault = (field: icd.BinaryField, text: string): icd.BinaryField =>
+  field.kind === "float" ? withFloatDefault(field, text) : { ...field, default: text };
+
+/**
+ * The default as text, empty when the field has none. Text that is not a number leaves
+ * a float default as it was.
+ */
+const defaultColumn = <F extends icd.BinaryField | icd.TextField>(
+  withDefault: (field: F, text: string) => F,
+): Column<F> => ({
+  name: "Default",
+  render: "default",
+  width: 16,
+  get: (f) => (f.default == null ? "" : String(f.default)),
+  set: (f, cell) => {
+    const text = String(cell).trim();
+    return text === "" ? { ...f, default: undefined } : withDefault(f, text);
+  },
+});
 
 /** The kinds a binary field can hold. */
 type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
@@ -238,6 +280,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
+    defaultColumn(withBinaryDefault),
     multiplexor,
     multiplexValues,
   ],
@@ -251,6 +294,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
     ...conversion<icd.DelimitedTextField>(),
+    defaultColumn<icd.DelimitedTextField>(withFloatDefault),
   ],
   tagged: [
     name(),
@@ -262,6 +306,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
     ...conversion<icd.TaggedTextField>(),
+    defaultColumn<icd.TaggedTextField>(withFloatDefault),
   ],
   json: [
     name(),
@@ -416,6 +461,12 @@ const renderColumn = (
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
+    case "default":
+      return (
+        <Input.TableColumn key={index} name={name} width={width} type="string">
+          {(props) => <Input.Text {...props} placeholder="None" onlyChangeOnBlur />}
+        </Input.TableColumn>
+      );
     case "type":
       return selectColumn(column, index, "type", NUMBER_KIND_NAMES);
     case "jsonType":
@@ -568,7 +619,7 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>
       )}
-      {showsDefault(field) && <Optional path={path} field={field} />}
+      <Optional path={path} field={field} />
       <EnumValues path={path} label="Enum mapping" />
     </Form.Section>
   );

@@ -52,6 +52,7 @@ const cell = (column: string, row: number): HTMLInputElement =>
 const commit = async (column: string, row: number, value: string): Promise<void> => {
   await screen.findByLabelText(`${column} ${row}`);
   const input = cell(column, row);
+  fireEvent.focus(input);
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
 };
@@ -508,6 +509,46 @@ describe("ICD editor", () => {
     });
   });
 
+  it("should set the default of a binary field in its grid", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Odometer", 0)])]);
+    await renderEditor(ic);
+    await commit("Default", 1, "18446744073709551615");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Odometer", default: "18446744073709551615" },
+      ]),
+    );
+  });
+
+  it("should remove a binary default when its cell is cleared", async () => {
+    const ic = await createICD([
+      createMessage([
+        { ...createBinaryField("Gear", 0), kind: "unsigned", default: "3" },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await commit("Default", 1, "");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields[0]).not.toHaveProperty(
+        "default",
+      ),
+    );
+  });
+
+  it("should keep a float default when its cell holds no number", async () => {
+    const ic = await createICD([
+      createMessage([
+        { ...createBinaryField("Gain", 0), kind: "float", bitLength: 32, default: 0.5 },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await commit("Default", 1, "fast");
+    await waitFor(() => expect(cell("Default", 1).value).toBe("0.5"));
+    expect((await retrieveMessage(ic.key)).payload.fields[0]).toMatchObject({
+      default: 0.5,
+    });
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
@@ -725,7 +766,49 @@ describe("ICD editor", () => {
     await renderEditor(ic);
     expect(await screen.findByText("Default Random")).toBeTruthy();
     expect(await screen.findByText('Default {"a":1}')).toBeTruthy();
-    expect(await screen.findByText("Default AQI=")).toBeTruthy();
+    expect(await screen.findByText('Default "AQI="')).toBeTruthy();
+  });
+
+  it("should set the default of a timestamp JSON field to the time now", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: { type: "now" },
+      }),
+    );
+    expect(await screen.findByText("Default Now")).toBeTruthy();
+  });
+
+  it("should set a random and then a constant default of a UUID JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONBase("Device", "/device"), type: "uuid" }]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    expect(await screen.findByText("Default Random")).toBeTruthy();
+    fireEvent.click(await screen.findByText("Constant"));
+    const station = uuid.create();
+    const input = await screen.findByLabelText<HTMLInputElement>("Value");
+    fireEvent.change(input, { target: { value: station } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: { type: "constant", value: station },
+      }),
+    );
+    expect(await screen.findByText(`Default ${station}`)).toBeTruthy();
   });
 
   it("should keep the default of a timestamp JSON field on a time format change", async () => {
@@ -752,14 +835,22 @@ describe("ICD editor", () => {
     );
   });
 
-  it("should open no options for a JSON field that holds any value", async () => {
+  it("should set the default of a JSON field that holds any value", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONBase("Raw", "/raw"), type: "json" }]),
     ]);
     await renderEditor(ic);
     await openOptions(1);
-    expect(screen.getByText("None")).toBeTruthy();
-    expect(screen.queryByText("Optional")).toBeNull();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    expect(await screen.findByText("Default null")).toBeTruthy();
+    const input = await screen.findByLabelText<HTMLInputElement>("Default");
+    fireEvent.change(input, { target: { value: '{"mode":"auto"}' } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        default: '{"mode":"auto"}',
+      }),
+    );
   });
 
   it("should store an edit that leaves a problem", async () => {
@@ -897,6 +988,32 @@ describe("ICD editor", () => {
       ]),
     );
     expect(await screen.findByText(/^Field 1: tag is required/)).toBeTruthy();
+  });
+
+  it("should set the default of a text field in its grid", async () => {
+    const speed: icd.TextField = {
+      key: uuid.create(),
+      name: "Speed",
+      scale: 1,
+      offset: 0,
+      units: "",
+      encoding: "delimited",
+      position: 0,
+    };
+    const ic = await createICD([
+      {
+        key: uuid.create(),
+        name: "Line",
+        payload: { format: "text", delimiter: ",", prefix: "", fields: [speed] },
+      },
+    ]);
+    await renderEditor(ic);
+    await commit("Default", 1, "0.5");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Speed", default: 0.5 },
+      ]),
+    );
   });
 
   it("should offer a field identifier only when the message has a field", async () => {
