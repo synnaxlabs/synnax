@@ -12,9 +12,9 @@ package checkpoint
 import (
 	"cmp"
 	"slices"
+	"sort"
 
 	"github.com/synnaxlabs/cesium/internal/state"
-	"github.com/synnaxlabs/x/set"
 )
 
 // plan is what a switch writes: the parts that it keeps, the parts that it writes, and
@@ -34,58 +34,37 @@ type partWrite struct {
 // record that s no longer holds is dead. A part with half its records dead, or with a
 // record whose segment s holds cut, is written again under a new identity. Sealed
 // segments that no part holds go to a new part once their records pass the part size.
-// The head holds the rest.
+// The head holds the rest. Both s and each part keep their records in rising order of
+// key, then identity, so plan walks them side by side.
 func (c *Checkpointer) plan(s *state.Snapshot) plan {
-	live := make(map[uint64]state.Segment)
-	for _, ch := range s.Channels {
-		for _, seg := range ch.Segments {
-			live[seg.ID] = seg
-		}
-	}
 	pl := plan{index: &Index{limit: max(c.index.limit, s.Limits.Parts, 1)}}
-	parted := set.New[uint64]()
+	f := flatten(s)
 	for _, p := range c.index.parts {
 		q := p
 		q.Dead = slices.Clone(p.Dead)
-		cut := false
-		for i, seg := range q.segs {
-			if q.dead(i) {
-				continue
-			}
-			cur, ok := live[seg.ID]
-			if !ok {
-				q.kill(i)
-			} else if !sameSegment(cur, seg) {
+		at := f.match(&q)
+		dead, cut := q.deadCount(), false
+		for i, j := range at {
+			if j >= 0 && !sameSegment(f.segment(j), q.segs[i]) {
 				cut = true
 			}
 		}
-		dead := q.deadCount()
 		switch {
 		case dead == len(q.segs):
 		case cut || 2*dead >= len(q.segs):
-			pl.add(liveChannels(q, live))
+			pl.add(f.channels(at, q.keys))
+			f.part(at)
 		default:
 			pl.index.parts = append(pl.index.parts, q)
-			for i, seg := range q.segs {
-				if !q.dead(i) {
-					parted.Add(seg.ID)
-				}
-			}
+			f.part(at)
 		}
 	}
-	for _, w := range pl.writes {
-		for _, ch := range w.channels {
-			for _, seg := range ch.Segments {
-				parted.Add(seg.ID)
-			}
-		}
-	}
-	sealed, head := split(s.Channels, parted)
+	sealed := f.sealed()
 	if recordSize(sealed) > c.cfg.PartSize {
 		pl.add(sealed)
-		sealed = nil
+		f.part(f.sealedAt())
 	}
-	pl.head = merge(head, sealed)
+	pl.head = f.rest()
 	return pl
 }
 
@@ -95,72 +74,151 @@ func (pl *plan) add(channels []*state.Channel) {
 	pl.index.limit++
 }
 
-// liveChannels returns the segments of the records of p that are not dead, as s holds
-// them, in record order.
-func liveChannels(p indexed, live map[uint64]state.Segment) []*state.Channel {
-	var out []*state.Channel
+// flat numbers the segments of a state in record order, and marks the ones that a part
+// holds.
+type flat struct {
+	s *state.Snapshot
+	// first holds the number of the first segment of each channel.
+	first  []int
+	parted []bool
+}
+
+func flatten(s *state.Snapshot) *flat {
+	f := &flat{s: s, first: make([]int, len(s.Channels)+1)}
+	for i, ch := range s.Channels {
+		f.first[i+1] = f.first[i] + len(ch.Segments)
+	}
+	f.parted = make([]bool, f.first[len(s.Channels)])
+	return f
+}
+
+// segment returns segment number j.
+func (f *flat) segment(j int) state.Segment {
+	i := sort.SearchInts(f.first, j+1) - 1
+	return f.s.Channels[i].Segments[j-f.first[i]]
+}
+
+// match returns the number of the segment of each record of p, or -1 for a dead record,
+// and kills each live record whose segment the state no longer holds.
+func (f *flat) match(p *indexed) []int {
+	at := make([]int, len(p.segs))
+	ci := 0
 	for i, seg := range p.segs {
+		at[i] = -1
 		if p.dead(i) {
 			continue
 		}
-		if len(out) == 0 || out[len(out)-1].Key != p.keys[i] {
-			out = append(out, &state.Channel{Key: p.keys[i]})
+		for ci < len(f.s.Channels) && f.s.Channels[ci].Key < p.keys[i] {
+			ci++
+		}
+		if ci == len(f.s.Channels) || f.s.Channels[ci].Key != p.keys[i] {
+			p.kill(i)
+			continue
+		}
+		segs := f.s.Channels[ci].Segments
+		k, ok := slices.BinarySearchFunc(segs, seg.ID, compareID)
+		if !ok {
+			p.kill(i)
+			continue
+		}
+		at[i] = f.first[ci] + k
+	}
+	return at
+}
+
+func compareID(s state.Segment, id uint64) int { return cmp.Compare(s.ID, id) }
+
+// part marks the segments at as held by a part.
+func (f *flat) part(at []int) {
+	for _, j := range at {
+		if j >= 0 {
+			f.parted[j] = true
+		}
+	}
+}
+
+// channels returns the segments at, with the key of each in keys, as channels.
+func (f *flat) channels(at []int, keys []uint32) []*state.Channel {
+	var out []*state.Channel
+	for i, j := range at {
+		if j < 0 {
+			continue
+		}
+		if len(out) == 0 || out[len(out)-1].Key != keys[i] {
+			out = append(out, &state.Channel{Key: keys[i]})
 		}
 		c := out[len(out)-1]
-		c.Segments = append(c.Segments, live[seg.ID])
+		c.Segments = append(c.Segments, f.segment(j))
 	}
 	return out
 }
 
-// split returns the sealed segments of channels that no part holds, and the open ones.
-func split(
-	channels []*state.Channel,
-	parted set.Set[uint64],
-) (sealed, open []*state.Channel) {
-	for _, ch := range channels {
-		var s, o []state.Segment
-		for _, seg := range ch.Segments {
-			switch {
-			case parted.Contains(seg.ID):
-			case seg.Sealed:
-				s = append(s, seg)
-			default:
-				o = append(o, seg)
+// keep returns the channels of the state with only the segments numbered j for which
+// want returns true. A channel that keeps every segment is the state's channel, and the
+// rest come from one slab of channels and one of segments.
+func (f *flat) keep(want func(j int, seg state.Segment) bool) []*state.Channel {
+	counts := make([]int, len(f.s.Channels))
+	var emitted, cut, cutSegs int
+	for i, ch := range f.s.Channels {
+		for k, seg := range ch.Segments {
+			if want(f.first[i]+k, seg) {
+				counts[i]++
 			}
 		}
-		if len(s) > 0 {
-			sealed = append(sealed, &state.Channel{Key: ch.Key, Segments: s})
+		if counts[i] > 0 {
+			emitted++
 		}
-		if len(o) > 0 {
-			open = append(open, &state.Channel{Key: ch.Key, Segments: o})
+		if counts[i] > 0 && counts[i] < len(ch.Segments) {
+			cut, cutSegs = cut+1, cutSegs+counts[i]
 		}
 	}
-	return sealed, open
-}
-
-// merge returns the channels of a and b, in rising order of key, with the segments of
-// each key in rising order of identity.
-func merge(a, b []*state.Channel) []*state.Channel {
-	byKey := make(map[uint32]*state.Channel, len(a)+len(b))
-	for _, ch := range slices.Concat(a, b) {
-		c, ok := byKey[ch.Key]
-		if !ok {
-			c = &state.Channel{Key: ch.Key}
-			byKey[ch.Key] = c
+	out := make([]*state.Channel, 0, emitted)
+	channels, segs := make([]state.Channel, cut), make([]state.Segment, 0, cutSegs)
+	for i, ch := range f.s.Channels {
+		switch counts[i] {
+		case 0:
+			continue
+		case len(ch.Segments):
+			out = append(out, ch)
+			continue
 		}
-		c.Segments = append(c.Segments, ch.Segments...)
-	}
-	out := make([]*state.Channel, 0, len(byKey))
-	for _, c := range byKey {
-		slices.SortFunc(c.Segments, func(x, y state.Segment) int {
-			return cmp.Compare(x.ID, y.ID)
-		})
+		start := len(segs)
+		for k, seg := range ch.Segments {
+			if want(f.first[i]+k, seg) {
+				segs = append(segs, seg)
+			}
+		}
+		c := &channels[0]
+		channels = channels[1:]
+		c.Key, c.Segments = ch.Key, segs[start:len(segs):len(segs)]
 		out = append(out, c)
 	}
-	slices.SortFunc(out, func(x, y *state.Channel) int {
-		return cmp.Compare(x.Key, y.Key)
-	})
 	return out
+}
+
+// sealedAt returns the numbers of the sealed segments that no part holds.
+func (f *flat) sealedAt() []int {
+	var at []int
+	for i, ch := range f.s.Channels {
+		for k, seg := range ch.Segments {
+			if j := f.first[i] + k; seg.Sealed && !f.parted[j] {
+				at = append(at, j)
+			}
+		}
+	}
+	return at
+}
+
+// sealed returns the sealed segments that no part holds, as channels.
+func (f *flat) sealed() []*state.Channel {
+	return f.keep(func(j int, seg state.Segment) bool {
+		return seg.Sealed && !f.parted[j]
+	})
+}
+
+// rest returns the segments that no part holds, as channels.
+func (f *flat) rest() []*state.Channel {
+	return f.keep(func(j int, _ state.Segment) bool { return !f.parted[j] })
 }
 
 // recordSize returns the size of the channel, segment, and pointer records of channels

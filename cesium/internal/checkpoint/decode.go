@@ -308,11 +308,17 @@ func (f *format) parseChannels(
 	if cs.count > 0 {
 		channels = make([]*state.Channel, cs.count)
 	}
+	sl := slabs{
+		channels: make([]state.Channel, cs.count),
+		segs:     make([]state.Segment, ss.count),
+		ptrs:     make([]state.Pointer, secs[sectionPtrs].count),
+	}
 	var nextSeg, nextPtr uint64
 	size := uint64(f.sizes[sectionChans])
 	for i := range channels {
 		r := b[cs.off+uint64(i)*size:]
-		c := &state.Channel{Key: binary.LittleEndian.Uint32(r)}
+		c := &sl.channels[i]
+		c.Key = binary.LittleEndian.Uint32(r)
 		first := uint64(binary.LittleEndian.Uint32(r[4:]))
 		end := ss.count
 		if uint64(i)+1 < cs.count {
@@ -337,7 +343,7 @@ func (f *format) parseChannels(
 			binary.LittleEndian.Uint32(r[16:]) != noPart):
 			return nil, f.corrupt("key %d names tombstones or parts", c.Key)
 		}
-		if err := f.parseSegments(b, secs, c, first, end, &nextPtr); err != nil {
+		if err := f.parseSegments(b, secs, &sl, c, first, end, &nextPtr); err != nil {
 			return nil, err
 		}
 		nextSeg = end
@@ -355,17 +361,26 @@ func (f *format) parseChannels(
 	return channels, nil
 }
 
+// slabs hold every channel, segment, and pointer of a file, so a parse allocates once
+// per kind. Each slice cut from them has no spare capacity, so an append copies.
+type slabs struct {
+	channels []state.Channel
+	segs     []state.Segment
+	ptrs     []state.Pointer
+}
+
 // parseSegments parses segment records first to end into c.
 func (f *format) parseSegments(
 	b []byte,
 	secs [sectionCount + 1]section,
+	sl *slabs,
 	c *state.Channel,
 	first, end uint64,
 	nextPtr *uint64,
 ) error {
-	c.Segments = make([]state.Segment, end-first)
+	c.Segments = sl.segs[first:end:end]
 	for j := range c.Segments {
-		seg, err := f.parseSegment(b, secs, first+uint64(j), nextPtr)
+		seg, err := f.parseSegment(b, secs, sl, first+uint64(j), nextPtr)
 		if err != nil {
 			return err
 		}
@@ -385,6 +400,7 @@ func (f *format) parseSegments(
 func (f *format) parseSegment(
 	b []byte,
 	secs [sectionCount + 1]section,
+	sl *slabs,
 	index uint64,
 	nextPtr *uint64,
 ) (state.Segment, error) {
@@ -412,14 +428,20 @@ func (f *format) parseSegment(
 		return seg, f.corrupt("segment %d has pointer records %d to %d", seg.ID, first,
 			end)
 	}
-	parsePointers(b, ps, &seg, first, end)
+	parsePointers(b, ps, sl, &seg, first, end)
 	*nextPtr = end
 	return seg, nil
 }
 
-func parsePointers(b []byte, ps section, seg *state.Segment, first, end uint64) {
+func parsePointers(
+	b []byte,
+	ps section,
+	sl *slabs,
+	seg *state.Segment,
+	first, end uint64,
+) {
 	if end > first {
-		seg.Pointers = make([]state.Pointer, end-first)
+		seg.Pointers = sl.ptrs[first:end:end]
 	}
 	for i := range seg.Pointers {
 		r := b[ps.off+(first+uint64(i))*36:]

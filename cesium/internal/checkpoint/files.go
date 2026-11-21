@@ -201,7 +201,11 @@ func Prepare(fs xfs.FS, next uint64, size int64) error {
 // all exist from its generation to live, and each part that neither of the two heads
 // names. It tries every removal, then syncs the root, and returns the errors of the
 // removals that failed, which the next switch tries again.
-func Clean(fs xfs.FS, live uint64) error {
+func Clean(fs xfs.FS, live uint64) error { return clean(fs, live, nil) }
+
+// clean is Clean with the identities of the parts that the head of live names, or nil
+// to read them from the head when the root holds a part.
+func clean(fs xfs.FS, live uint64, liveParts set.Set[uint64]) error {
 	entries, err := fs.List("")
 	if err != nil {
 		return err
@@ -228,13 +232,14 @@ func Clean(fs xfs.FS, live uint64) error {
 		}
 	}
 	var errs []error
-	if len(parts) > 0 {
+	if len(parts) > 0 && liveParts == nil {
 		h, _, err := Read(fs, live)
 		if err != nil {
 			return err
 		}
-		named.Add(partsOf(h).Slice()...)
+		liveParts = partsOf(h)
 	}
+	named.Add(liveParts.Slice()...)
 	for _, id := range slices.Sorted(maps.Keys(parts)) {
 		if !named.Contains(id) {
 			errs = append(errs, fs.Remove(partName(id)))

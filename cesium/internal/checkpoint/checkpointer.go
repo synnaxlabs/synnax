@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -202,7 +203,11 @@ func (c *Checkpointer) write(h head) error {
 		return c.undo(written, err)
 	}
 	c.index = pl.index
-	return Clean(c.cfg.FS, h.generation)
+	named := set.New[uint64]()
+	for _, p := range refs {
+		named.Add(p.ID)
+	}
+	return clean(c.cfg.FS, h.generation, named)
 }
 
 // undo removes the parts of a failed switch, then syncs the root.
