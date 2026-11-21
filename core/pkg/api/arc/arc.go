@@ -556,10 +556,11 @@ func (s *Service) compileCalculations(
 		return nil, err
 	}
 	for _, ch := range channels {
-		if _, ok := calcs[ch.Key()]; !ok {
+		c, ok := calcs[ch.Key()]
+		if !ok {
 			continue
 		}
-		err = g.Add(ctx, ch)
+		err = g.Add(ctx, ch, c)
 		_, invalid := errors.AsType[*diagnostics.Diagnostics](err)
 		if err != nil && !invalid && !errors.Is(err, graph.ErrCycle) {
 			return nil, err

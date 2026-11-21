@@ -267,16 +267,16 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 	running := s.mu.graph.CalculatedKeys()
 	rebuild := false
 	for _, ch := range changed {
-		_, calculated := calcs[ch.Key()]
+		c, calculated := calcs[ch.Key()]
 		switch {
 		case calculated && s.mu.graph.Contains(ch.Key()):
-			s.updateLocked(ctx, ch)
+			s.updateLocked(ctx, ch, c)
 		case calculated && s.mu.pending[ch.Key()] > 0:
 			// A calculation now writes a channel that requests wait on.
 			n := s.mu.pending[ch.Key()]
 			delete(s.mu.pending, ch.Key())
 			for range n {
-				s.request(ctx, ch)
+				s.request(ctx, ch, c)
 			}
 			rebuild = true
 		case !calculated && s.mu.graph.Contains(ch.Key()):
@@ -300,11 +300,15 @@ func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 	}
 }
 
-func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
+func (s *Service) updateLocked(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) {
 	if !s.mu.graph.Contains(ch.Key()) {
 		return
 	}
-	err := s.updateCalculation(ctx, ch)
+	err := s.updateCalculation(ctx, ch, c)
 	switch {
 	case err == nil:
 		s.acceptDefinition(ctx, ch.Key())
@@ -318,8 +322,12 @@ func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
 
 // request adds a request for ch to the graph. When the channels that ch reads changed
 // during each compile, request holds the request as pending and schedules a retry.
-func (s *Service) request(ctx context.Context, ch channel.Channel) {
-	err := s.mu.graph.Add(ctx, ch)
+func (s *Service) request(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) {
+	err := s.mu.graph.Add(ctx, ch, c)
 	if errors.Is(err, channel.ErrLookupsChanged) {
 		s.mu.pending[ch.Key()]++
 		s.retries.Trigger(ch.Key())
@@ -373,12 +381,13 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		}
 		return
 	}
-	if _, ok := calcs[key]; !ok {
+	c, ok := calcs[key]
+	if !ok {
 		return
 	}
 	// Another request can add the channel while its own request is pending, so the
 	// retry can be for an update and a request at once.
-	s.updateLocked(ctx, ch)
+	s.updateLocked(ctx, ch, c)
 	pending := s.mu.pending[key]
 	if pending == 0 {
 		return
@@ -386,7 +395,7 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	delete(s.mu.pending, key)
 	running := s.mu.graph.CalculatedKeys()
 	for range pending {
-		s.request(ctx, ch)
+		s.request(ctx, ch, c)
 	}
 	if err := s.start(ctx, running); err != nil {
 		s.cfg.L.Error("failed to start calculation",
@@ -394,12 +403,16 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) error {
+func (s *Service) updateCalculation(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) error {
 	s.cfg.L.Debug("updating calculation",
 		zap.String("channel", ch.Key().String()),
 		zap.String("reason", "channel definition changed"),
 	)
-	if err := s.mu.graph.Update(ctx, ch); err != nil {
+	if err := s.mu.graph.Update(ctx, ch, c); err != nil {
 		return err
 	}
 	return s.rebuildGroups(ctx)
@@ -569,8 +582,8 @@ func (s *Service) updateRequests(
 		}
 	}
 	for _, ch := range channels {
-		if _, ok := calcs[ch.Key()]; ok {
-			s.request(ctx, ch)
+		if c, ok := calcs[ch.Key()]; ok {
+			s.request(ctx, ch, c)
 		} else {
 			// The request waits for a calculation to write the channel.
 			s.mu.pending[ch.Key()]++

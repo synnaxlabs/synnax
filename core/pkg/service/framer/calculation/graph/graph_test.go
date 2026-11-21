@@ -71,6 +71,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // rename gives the channel with key the name name.
+// add adds ch to g with the calculation that writes it.
+func add(ctx context.Context, g *graph.Graph, ch channel.Channel) error {
+	GinkgoHelper()
+	return g.Add(ctx, ch, MustSucceed(creator.CalculationOf(ctx, ch.Key())))
+}
+
+// update updates ch in g with the calculation that writes it.
+func update(ctx context.Context, g *graph.Graph, ch channel.Channel) error {
+	GinkgoHelper()
+	return g.Update(ctx, ch, MustSucceed(creator.CalculationOf(ctx, ch.Key())))
+}
+
 func rename(ctx context.Context, key channel.Key, name string) {
 	GinkgoHelper()
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -112,7 +124,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return base1 * 2",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 		})
@@ -134,7 +146,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return calc2 * 2",
 			}))
-			Expect(g.Add(ctx, calc2)).To(Succeed())
+			Expect(add(ctx, g, calc2)).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 			Expect(grouped[0]).To(HaveLen(2))
@@ -163,7 +175,7 @@ var _ = Describe("Graph", func() {
 			rename(ctx, base.Key(), "circ_base_old")
 			rename(ctx, calc2.Key(), "circ_base")
 			Expect(
-				g.Add(ctx, calc1),
+				add(ctx, g, calc1),
 			).To(MatchError(graph.ErrCycle))
 		})
 
@@ -179,8 +191,8 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return base3",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 			for _, mods := range grouped {
@@ -215,9 +227,9 @@ var _ = Describe("Graph", func() {
 					Expression: "return base5 - 1",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[2])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(2))
 		})
@@ -252,10 +264,10 @@ var _ = Describe("Graph", func() {
 					Expression: "return splitsuma + splitsumb",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			Expect(g.CalculateGrouped()).To(HaveLen(2))
-			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(add(ctx, g, calcs[2])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 			for _, mods := range grouped {
@@ -284,8 +296,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return base6 + base7",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 		})
@@ -311,7 +323,7 @@ var _ = Describe("Graph", func() {
 				}
 				calcs := MustSucceed(creator.CreateMany(ctx, calculations))
 				for _, calc := range calcs {
-					Expect(g.Add(ctx, calc)).To(Succeed())
+					Expect(add(ctx, g, calc)).To(Succeed())
 				}
 				keys := channel.KeysFromChannels(calcs)
 				slices.Sort(keys)
@@ -356,14 +368,14 @@ var _ = Describe("Graph", func() {
 					},
 				}))
 				for _, calc := range calcs {
-					Expect(g.Add(ctx, calc)).To(Succeed())
+					Expect(add(ctx, g, calc)).To(Succeed())
 				}
 				setExpression(
 					ctx,
 					&calcs[0],
 					"return calc_nested_order_b + calc_nested_order_c",
 				)
-				Expect(g.Update(ctx, calcs[0])).To(Succeed())
+				Expect(update(ctx, g, calcs[0])).To(Succeed())
 				order := func() []channel.Key {
 					GinkgoHelper()
 					grouped := g.CalculateGrouped()
@@ -412,7 +424,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return flat2 + 1",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(add(ctx, g, calcs[2])).To(Succeed())
 			flat := g.CalculateFlat()
 			Expect(flat).To(HaveLen(3))
 			Expect(flat[0].Channel.Name).To(Equal("flat1"))
@@ -439,7 +451,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return base8",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
@@ -464,8 +476,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return base9 * 2",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.Remove(calcs[0].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -492,8 +504,8 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return base12",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -522,7 +534,7 @@ var _ = Describe("Graph", func() {
 						Expression: "return calc17 * 2",
 					},
 				}))
-				Expect(g.Add(ctx, calcs[1])).To(Succeed())
+				Expect(add(ctx, g, calcs[1])).To(Succeed())
 				grouped := g.CalculateGrouped()
 				Expect(grouped[0]).To(HaveLen(2))
 				Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
@@ -556,8 +568,8 @@ var _ = Describe("Graph", func() {
 						Expression: "return calc19 * 2",
 					},
 				}))
-				Expect(g.Add(ctx, calcs[1])).To(Succeed())
-				Expect(g.Add(ctx, calcs[2])).To(Succeed())
+				Expect(add(ctx, g, calcs[1])).To(Succeed())
+				Expect(add(ctx, g, calcs[2])).To(Succeed())
 				grouped := g.CalculateGrouped()
 				Expect(grouped[0]).To(HaveLen(3))
 				Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
@@ -587,8 +599,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc22 + 1",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.Remove(calcs[1].Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped[0]).To(HaveLen(1))
@@ -618,7 +630,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc24 * 2",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			keys := g.CalculatedKeys()
 			Expect(keys).To(HaveLen(2))
@@ -644,7 +656,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return base17",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 
 			keys := g.CalculatedKeys()
 			Expect(keys).To(HaveLen(1))
@@ -680,7 +692,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return contains_calc_a * 2",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			Expect(g.Contains(calcs[0].Key())).To(BeTrue())
 			Expect(g.Contains(calcs[1].Key())).To(BeTrue())
 			Expect(g.Contains(base.Key())).To(BeFalse())
@@ -700,7 +712,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return contains_removed_base",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			Expect(g.Contains(calc.Key())).To(BeFalse())
 		})
@@ -729,8 +741,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return basekeys_b",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(calcs[0].Key())).Slice()).
 				To(ConsistOf(bases[0].Key()))
 			Expect(MustSucceed(g.BaseKeys(calcs[1].Key())).Slice()).
@@ -756,7 +768,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return basekeys_inner * 2",
 			}))
-			Expect(g.Add(ctx, outer)).To(Succeed())
+			Expect(add(ctx, g, outer)).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(outer.Key())).Slice()).
 				To(ConsistOf(bases[0].Key()))
 		})
@@ -774,9 +786,9 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return basekeys_old",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 			setExpression(ctx, &calc, "return basekeys_new")
-			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(update(ctx, g, calc)).To(Succeed())
 			Expect(MustSucceed(g.BaseKeys(calc.Key())).Slice()).
 				To(ConsistOf(bases[1].Key()))
 		})
@@ -808,8 +820,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return base18 + base19",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
@@ -838,7 +850,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return calc29 * 2",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
@@ -871,8 +883,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return base22",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
@@ -900,10 +912,10 @@ var _ = Describe("Graph", func() {
 					DataType:   telem.Int64T,
 					Expression: "return upbase1 * 2",
 				}))
-				Expect(g.Add(ctx, calc)).To(Succeed())
+				Expect(add(ctx, g, calc)).To(Succeed())
 
 				setExpression(ctx, &calc, "return upbase1 * 4")
-				Expect(g.Update(ctx, calc)).To(Succeed())
+				Expect(update(ctx, g, calc)).To(Succeed())
 				grouped := g.CalculateGrouped()
 				Expect(grouped).To(HaveLen(1))
 				baseKeys := g.ConcreteBaseKeys()
@@ -925,10 +937,10 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return upbase2",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 
 			setExpression(ctx, &calc, "return upbase2 + upbase3")
-			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(update(ctx, g, calc)).To(Succeed())
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(2))
 			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
@@ -948,10 +960,10 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return upbase4 + upbase5",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 
 			setExpression(ctx, &calc, "return upbase4")
-			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(update(ctx, g, calc)).To(Succeed())
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(HaveLen(1))
 			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
@@ -978,14 +990,14 @@ var _ = Describe("Graph", func() {
 					Expression: "return upbase7",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(2))
 
 			setExpression(ctx, &calcs[0], "return upbase7")
-			Expect(g.Update(ctx, calcs[0])).To(Succeed())
+			Expect(update(ctx, g, calcs[0])).To(Succeed())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 		})
@@ -1017,11 +1029,11 @@ var _ = Describe("Graph", func() {
 					Expression: "return dragbase2",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[2])).To(Succeed())
 			Expect(g.CalculateGrouped()).To(HaveLen(2))
 			setExpression(ctx, &calcs[0], "return dragbase2")
-			Expect(g.Update(ctx, calcs[0])).To(Succeed())
+			Expect(update(ctx, g, calcs[0])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 			for _, mods := range grouped {
@@ -1041,11 +1053,11 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return upbase8",
 			}))
-			Expect(g.Add(ctx, calc)).To(Succeed())
-			Expect(g.Add(ctx, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
+			Expect(add(ctx, g, calc)).To(Succeed())
 
 			setExpression(ctx, &calc, "return upbase8 * 3")
-			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(update(ctx, g, calc)).To(Succeed())
 			Expect(MustSucceed(g.Remove(calc.Key()))).To(BeTrue())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
@@ -1075,10 +1087,10 @@ var _ = Describe("Graph", func() {
 						Expression: "return upbase9",
 					},
 				}))
-				Expect(g.Add(ctx, calcs[1])).To(Succeed())
+				Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 				setExpression(ctx, &calcs[1], "return upcalc7 + 1")
-				Expect(g.Update(ctx, calcs[1])).To(Succeed())
+				Expect(update(ctx, g, calcs[1])).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(2))
 				Expect(flat[0].Channel.Name).To(Equal("upcalc7"))
@@ -1105,13 +1117,13 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcalc9 + 1",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			calcKeys := g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(2))
 
 			setExpression(ctx, &calcs[1], "return upbase10")
-			Expect(g.Update(ctx, calcs[1])).To(Succeed())
+			Expect(update(ctx, g, calcs[1])).To(Succeed())
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(1))
 			Expect(calcKeys.Contains(calcs[1].Key())).To(BeTrue())
@@ -1124,7 +1136,7 @@ var _ = Describe("Graph", func() {
 				DataType:   telem.Int64T,
 				Expression: "return 1 + 1",
 			}))
-			Expect(g.Update(ctx, calc)).To(MatchError(query.ErrNotFound))
+			Expect(update(ctx, g, calc)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should detect circular dependency during update", func(ctx SpecContext) {
@@ -1146,13 +1158,13 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcirc1",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[0])).To(Succeed())
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[0])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
 
 			rename(ctx, bases[0].Key(), "upbase12_old")
 			rename(ctx, calcs[1].Key(), "upbase12")
 			Expect(
-				g.Update(ctx, calcs[0]),
+				update(ctx, g, calcs[0]),
 			).To(MatchError(ContainSubstring("circular dependency")))
 		})
 
@@ -1180,14 +1192,14 @@ var _ = Describe("Graph", func() {
 					Expression: "return upcalc11 * 3",
 				},
 			}))
-			Expect(g.Add(ctx, calcs[1])).To(Succeed())
-			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(add(ctx, g, calcs[1])).To(Succeed())
+			Expect(add(ctx, g, calcs[2])).To(Succeed())
 
 			calcKeys := g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(3))
 
 			setExpression(ctx, &calcs[1], "return upbase13")
-			Expect(g.Update(ctx, calcs[1])).To(Succeed())
+			Expect(update(ctx, g, calcs[1])).To(Succeed())
 			calcKeys = g.CalculatedKeys()
 			Expect(calcKeys).To(HaveLen(3))
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
@@ -1216,7 +1228,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return cascade_calc1 * 2",
 				}))
 
-				Expect(g.Add(ctx, calc2)).To(Succeed())
+				Expect(add(ctx, g, calc2)).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(2))
 
@@ -1226,7 +1238,7 @@ var _ = Describe("Graph", func() {
 				// stored DataType is f32 but calc1 now provides f64, the expression
 				// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
 				// f32 return type. The graph should surface this as an error.
-				Expect(g.Update(ctx, calc1)).
+				Expect(update(ctx, g, calc1)).
 					Error().To(MatchError(ContainSubstring("cannot return")))
 			},
 		)
@@ -1260,14 +1272,14 @@ var _ = Describe("Graph", func() {
 					Expression: "return chain3_c2 + 3.0",
 				}))
 
-				Expect(g.Add(ctx, calc3)).To(Succeed())
+				Expect(add(ctx, g, calc3)).To(Succeed())
 				Expect(g.CalculateFlat()).To(HaveLen(3))
 
 				// Change calc1 to f32 output. This should cascade through
 				// calc2 and calc3 and fail because calc2 declares f64 return
 				// but calc1 now provides f32.
 				setExpression(ctx, &calc1, "return f32(chain3_raw)")
-				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
+				Expect(update(ctx, g, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 			},
@@ -1302,14 +1314,14 @@ var _ = Describe("Graph", func() {
 					Expression: "return diamond_left + diamond_right",
 				}))
 
-				Expect(g.Add(ctx, bottom)).To(Succeed())
+				Expect(add(ctx, g, bottom)).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(3))
 
 				// Change left to f32 output. This should cascade to bottom
 				// but not affect right, since right depends on raw, not left.
 				setExpression(ctx, &left, "return f32(diamond_raw)")
-				Expect(g.Update(ctx, left)).To(MatchError(ContainSubstring(
+				Expect(update(ctx, g, left)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 
@@ -1358,7 +1370,7 @@ var _ = Describe("Graph", func() {
 					DataType:   telem.Float64T,
 					Expression: "return f64(rollback_parent) * 2.0",
 				}))
-				Expect(g.Add(ctx, child)).To(Succeed())
+				Expect(add(ctx, g, child)).To(Succeed())
 				dataTypes := func() map[channel.Key]telem.DataType {
 					return lo.SliceToMap(
 						g.CalculateFlat(),
@@ -1371,12 +1383,12 @@ var _ = Describe("Graph", func() {
 
 				setExpression(ctx, &parent, "return f32(rollback_raw)")
 				failing = child.Key()
-				Expect(g.Update(ctx, parent)).
+				Expect(update(ctx, g, parent)).
 					To(MatchError(channel.ErrLookupsChanged))
 				Expect(dataTypes()).To(Equal(before))
 
 				failing, compiled = 0, nil
-				Expect(g.Update(ctx, parent)).To(Succeed())
+				Expect(update(ctx, g, parent)).To(Succeed())
 				Expect(compiled).To(Equal([]channel.Key{parent.Key(), child.Key()}))
 				Expect(dataTypes()[parent.Key()]).To(Equal(telem.Float32T))
 			},
@@ -1397,9 +1409,9 @@ var _ = Describe("Graph", func() {
 					DataType:   telem.Float64T,
 					Expression: "return lone_raw * 2.0",
 				}))
-				Expect(g.Add(ctx, calc)).To(Succeed())
+				Expect(add(ctx, g, calc)).To(Succeed())
 				setExpression(ctx, &calc, "return f32(lone_raw)")
-				Expect(g.Update(ctx, calc)).To(Succeed())
+				Expect(update(ctx, g, calc)).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(1))
 				Expect(flat[0].Channel.DataType).To(Equal(telem.Float32T))
@@ -1455,11 +1467,11 @@ var _ = Describe("Graph", func() {
 
 				for _, dep := range deps {
 					failing = dep.Key()
-					Expect(g.Add(ctx, sum)).To(MatchError(channel.ErrLookupsChanged))
+					Expect(add(ctx, g, sum)).To(MatchError(channel.ErrLookupsChanged))
 					Expect(g.CalculatedKeys()).To(BeEmpty())
 				}
 				failing = 0
-				Expect(g.Add(ctx, sum)).To(Succeed())
+				Expect(add(ctx, g, sum)).To(Succeed())
 				Expect(g.CalculatedKeys()).To(HaveLen(3))
 				Expect(g.Remove(sum.Key())).To(BeTrue())
 				Expect(g.CalculatedKeys()).To(BeEmpty())
@@ -1487,13 +1499,13 @@ var _ = Describe("Graph", func() {
 				Expression: "return nocascade_c1 + 2.0",
 			}))
 
-			Expect(g.Add(ctx, calc2)).To(Succeed())
+			Expect(add(ctx, g, calc2)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(2))
 
 			// Change calc1's expression but keep the same DataType.
 			// This should NOT trigger cascade recompilation.
 			setExpression(ctx, &calc1, "return nocascade_raw + 99.0")
-			Expect(g.Update(ctx, calc1)).To(Succeed())
+			Expect(update(ctx, g, calc1)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(2))
 		})
 		It(
@@ -1531,7 +1543,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return rb_c1 + rb_c2",
 				}))
 
-				Expect(g.Add(ctx, calc3)).To(Succeed())
+				Expect(add(ctx, g, calc3)).To(Succeed())
 				flat := g.CalculateFlat()
 				Expect(flat).To(HaveLen(3))
 
@@ -1549,7 +1561,7 @@ var _ = Describe("Graph", func() {
 				// calc2 recompiles successfully (explicit cast handles i64),
 				// but calc3 fails (i64 + f64 is a type mismatch).
 				setExpression(ctx, &calc1, "return i64(rb_raw)")
-				Expect(g.Update(ctx, calc1)).To(MatchError(ContainSubstring(
+				Expect(update(ctx, g, calc1)).To(MatchError(ContainSubstring(
 					"failed to recompile dependent channel",
 				)))
 
@@ -1570,15 +1582,13 @@ var _ = Describe("Graph", func() {
 			"Should include channel name in Add compilation errors",
 			func(ctx SpecContext) {
 				calc := channel.Channel{
-					Name:       "bad_calc_add",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return invalid_syntax {{",
+					Name:     "bad_calc_add",
+					DataType: telem.Int64T,
+					Virtual:  true,
 				}
-				Expect(
-					g.Add(ctx, calc),
-				).Error().
-					To(MatchError(ContainSubstring("bad_calc_add")))
+				Expect(g.Add(ctx, calc, calculation.Calculation{
+					Expression: "return invalid_syntax {{",
+				})).To(MatchError(ContainSubstring("bad_calc_add")))
 			},
 		)
 
@@ -1596,12 +1606,12 @@ var _ = Describe("Graph", func() {
 					DataType:   telem.Int64T,
 					Expression: "return err_base * 2",
 				}))
-				Expect(g.Add(ctx, calc)).To(Succeed())
+				Expect(add(ctx, g, calc)).To(Succeed())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Delete(ctx, bases[0].Key(), false)
 				})).To(Succeed())
 				Expect(
-					g.Update(ctx, calc),
+					update(ctx, g, calc),
 				).Error().
 					To(MatchError(ContainSubstring("bad_calc_update")))
 			},
@@ -1632,7 +1642,7 @@ var _ = Describe("Graph", func() {
 					DataType:   telem.Float64T,
 					Expression: "return 1.0",
 				}))
-				Expect(g.Add(ctx, calc)).To(MatchError(compileErr))
+				Expect(add(ctx, g, calc)).To(MatchError(compileErr))
 				failures := logs.FilterMessage("failed to compile calculated channel")
 				Expect(failures.Len()).To(Equal(logged))
 			},

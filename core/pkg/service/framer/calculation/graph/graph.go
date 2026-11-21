@@ -118,10 +118,14 @@ func New(cfgs ...Config) (*Graph, error) {
 	}, nil
 }
 
-// Add compiles a channel and its dependencies, then assigns it to a group.
-// Increments the explicit reference count for the channel. A failed Add leaves the
-// graph as it was.
-func (g *Graph) Add(ctx context.Context, ch channel.Channel) (err error) {
+// Add compiles ch, which c writes, and its dependencies, then assigns ch to a group.
+// Increments the explicit reference count for ch. A failed Add leaves the graph as it
+// was.
+func (g *Graph) Add(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) (err error) {
 	if info := g.channels[ch.Key()]; info != nil {
 		oldCount := info.explicitCount
 		info.explicitCount++
@@ -134,34 +138,7 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) (err error) {
 		return nil
 	}
 	defer g.restoreOnError(&err)()
-	c, err := g.calculationOf(ctx, ch)
-	if err != nil {
-		return err
-	}
 	return g.addInternal(ctx, ch, c, true)
-}
-
-// calculationOf returns the calculation that writes ch.
-func (g *Graph) calculationOf(
-	ctx context.Context,
-	ch channel.Channel,
-) (calculation.Calculation, error) {
-	var calcs map[channel.Key]calculation.Calculation
-	if err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		calcs, err = g.cfg.Calculation.Outputs(ctx, snap, ch.Key())
-		return err
-	}); err != nil {
-		return calculation.Calculation{}, err
-	}
-	c, ok := calcs[ch.Key()]
-	if !ok {
-		return calculation.Calculation{}, errors.Wrapf(
-			query.ErrNotFound,
-			"no calculation writes channel %s",
-			ch,
-		)
-	}
-	return c, nil
 }
 
 // restoreOnError saves the state of the graph. The returned function restores that
@@ -184,21 +161,22 @@ func (g *Graph) restoreOnError(err *error) func() {
 	}
 }
 
-// Update recompiles a channel with a new expression and updates its dependencies and
-// group assignment. Preserves reference counts - use this when a channel's calculation
+// Update recompiles ch with c, the calculation that now writes it, and updates its
+// dependencies and group assignment. Preserves reference counts - use this when a
+// channel's calculation
 // changes but the same users are still requesting it. If the channel's DataType
 // changes, all downstream channels that depend on it are recompiled in topological
 // order. A failed Update leaves the graph as it was.
-func (g *Graph) Update(ctx context.Context, ch channel.Channel) (err error) {
+func (g *Graph) Update(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) (err error) {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
 		return err
 	}
 	defer g.restoreOnError(&err)()
-	c, err := g.calculationOf(ctx, ch)
-	if err != nil {
-		return err
-	}
 	mod, err := g.compile(ctx, ch, c)
 	if err != nil {
 		g.logCompileError(ctx, err, ch, c)

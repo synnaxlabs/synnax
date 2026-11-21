@@ -270,13 +270,11 @@ func (s *Service) newCalculationTransform(
 	if err != nil {
 		return nil, nil, err
 	}
-	// A free index has no expression, so add the calculated channel that writes it.
-	owners, err := s.retrieveFreeIndexOwners(ctx, channels)
-	if err != nil {
+	channels, calcs, err := s.retrieveCalculations(ctx, channels)
+	if err != nil || len(calcs) == 0 {
 		return nil, nil, err
 	}
-	channels = append(channels, owners...)
-	calcGraph, err := s.newCalculationGraph(ctx, channels)
+	calcGraph, err := s.newCalculationGraph(ctx, channels, calcs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -340,52 +338,55 @@ func (s *Service) retrieveChannels(
 	return channels, nil
 }
 
-// retrieveFreeIndexOwners returns the calculated channels that write the free indexes
-// in channels.
-func (s *Service) retrieveFreeIndexOwners(
+// retrieveCalculations returns channels with the calculated channels that write their
+// free indexes added, since a free index has no calculation of its own. It also returns
+// the calculations that write any of those channels, by output.
+func (s *Service) retrieveCalculations(
 	ctx context.Context,
 	channels []channel.Channel,
-) ([]channel.Channel, error) {
+) ([]channel.Channel, map[channel.Key]calculation.Calculation, error) {
 	freeIndexes := lo.FilterMap(
 		channels,
 		func(ch channel.Channel, _ int) (channel.Key, bool) {
 			return ch.Key(), ch.IsIndex && ch.Key().Free()
 		},
 	)
-	if len(freeIndexes) == 0 {
-		return nil, nil
-	}
 	var (
 		indexed []channel.Channel
 		calcs   map[channel.Key]calculation.Calculation
 	)
 	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if err = s.cfg.Channel.NewRetrieve().
-			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
-			Entries(&indexed).
-			Exec(ctx, snap); err != nil {
-			return err
+		if len(freeIndexes) > 0 {
+			if err = s.cfg.Channel.NewRetrieve().
+				Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
+				Entries(&indexed).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
 		}
 		calcs, err = s.cfg.Calculation.Outputs(
 			ctx,
 			snap,
-			channel.KeysFromChannels(indexed)...,
+			channel.KeysFromChannels(slices.Concat(channels, indexed))...,
 		)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return lo.Filter(indexed, func(ch channel.Channel, _ int) bool {
-		_, ok := calcs[ch.Key()]
-		return ok
-	}), nil
+	for _, ch := range indexed {
+		if _, ok := calcs[ch.Key()]; ok {
+			channels = append(channels, ch)
+		}
+	}
+	return channels, calcs, nil
 }
 
-// newCalculationGraph returns a graph that holds the calculated channels in channels
-// and their dependencies.
+// newCalculationGraph returns a graph that holds the channels that calcs write in
+// channels, and their dependencies.
 func (s *Service) newCalculationGraph(
 	ctx context.Context,
 	channels []channel.Channel,
+	calcs map[channel.Key]calculation.Calculation,
 ) (*graph.Graph, error) {
 	calcGraph, err := graph.New(graph.Config{
 		Instrumentation: s.cfg.Child("calculation.graph"),
@@ -396,17 +397,9 @@ func (s *Service) newCalculationGraph(
 	if err != nil {
 		return nil, err
 	}
-	calcs, err := s.cfg.Calculation.Outputs(
-		ctx,
-		s.cfg.DB,
-		channel.KeysFromChannels(channels)...,
-	)
-	if err != nil {
-		return nil, err
-	}
 	for _, ch := range channels {
-		if _, ok := calcs[ch.Key()]; ok {
-			if err = calcGraph.Add(ctx, ch); err != nil {
+		if c, ok := calcs[ch.Key()]; ok {
+			if err = calcGraph.Add(ctx, ch, c); err != nil {
 				return nil, err
 			}
 		}
