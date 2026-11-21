@@ -52,6 +52,11 @@ export interface TableData<
 export interface CreateContextValue {
   /** Closes the create item. */
   close: () => void;
+  /**
+   * Lists the item with the key first from the moment the list holds it. Call it
+   * before a save that lists the item before the Core answers.
+   */
+  creating: (key: record.Key) => void;
   /** Lists a new item under the create item, which then starts empty for the next. */
   created: (key: record.Key) => void;
 }
@@ -74,10 +79,11 @@ export interface CreateProviderProps extends CreateContextValue, PropsWithChildr
  */
 export const CreateProvider = ({
   close,
+  creating,
   created,
   children,
 }: CreateProviderProps): ReactElement => (
-  <CreateContext value={{ close, created }}>{children}</CreateContext>
+  <CreateContext value={{ close, creating, created }}>{children}</CreateContext>
 );
 
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
@@ -313,7 +319,11 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
                   >
                     <div>
                       <CreateContext
-                        value={{ close: handleClose, created: handleCreated }}
+                        value={{
+                          close: handleClose,
+                          creating: markFresh,
+                          created: handleCreated,
+                        }}
                       >
                         <Fragment key={round}>{create}</Fragment>
                       </CreateContext>

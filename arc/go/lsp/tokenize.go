@@ -14,16 +14,14 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
-func tokenizeContent(content string) []antlr.Token {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
+func tokenizeContent(content string, cfg parser.Config) []antlr.Token {
+	lexer := parser.NewLexer(content, cfg)
 	lexer.RemoveErrorListeners()
 	return lexer.GetAllTokens()
 }
 
-func tokenizeContentWithComments(content string) []antlr.Token {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
+func tokenizeContentWithComments(content string, cfg parser.Config) []antlr.Token {
+	lexer := parser.NewLexer(content, cfg)
 	lexer.RemoveErrorListeners()
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	stream.Fill()
