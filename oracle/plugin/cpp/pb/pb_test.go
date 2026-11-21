@@ -124,6 +124,31 @@ var _ = Describe("C++ PB Plugin", func() {
 		)
 
 		It(
+			"Should give each protobuf namespace its own translator for one generic use",
+			func() {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Kind struct {
+					keys filter.Set<uuid>?
+					@go output "core/pkg/api/thing"
+				}
+				Thing struct {
+					keys filter.Set<uuid>?
+					@go output "core/pkg/service/thing"
+				}
+			`
+				resp := MustGenerate(source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain("::api::thing::pb::UuidSet", "::service::thing::pb::UuidSet")
+			},
+		)
+
+		It(
 			"Should declare every generic use translator before any definition",
 			func() {
 				source := `
