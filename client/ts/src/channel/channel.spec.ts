@@ -1193,17 +1193,27 @@ describe("cached reads", () => {
     };
 
     it("composes statuses only for a request that includes them", async () => {
-      const ch = await createCalculated();
+      const source = await createVirtual();
+      const ch = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      // The Core writes an error status to the calculation once its input is gone.
+      await client.channels.delete(source.key);
       const local = createTestClient();
       await local.connect();
       const where = { key: { in: [ch.key] } };
       const [bare] = await local.channels.retrieve({ where });
       expect(bare.status).toBeUndefined();
-      const [withStatus] = await local.channels.retrieve({
-        where,
-        includeStatus: true,
-      });
-      expect(withStatus.status?.message).toEqual("calculating");
+      await expect
+        .poll(
+          async () =>
+            (await local.channels.retrieve({ where, includeStatus: true }))[0].status
+              ?.variant,
+        )
+        .toEqual("error");
     });
 
     it("delivers a remote status change to a request that includes them", async () => {
