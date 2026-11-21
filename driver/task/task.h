@@ -545,6 +545,9 @@ private:
     std::unique_ptr<synnax::framer::Streamer> streamer;
     /// @brief signals early shutdown before streamer is opened.
     std::atomic<bool> exit_early{false};
+    /// @brief set by the streamer when the Core dropped task changes. Read and written
+    /// only on the thread that runs the streamer.
+    bool missed = false;
 
     /// @brief channels used to receive task events.
     struct {

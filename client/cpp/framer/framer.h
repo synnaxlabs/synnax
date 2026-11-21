@@ -201,9 +201,9 @@ public:
     /// for telemetry bypass deduplication.
     std::vector<std::uint32_t> exclude_groups;
     /// @brief called by read() when the Core dropped frames because the streamer fell
-    /// behind. Called once for each run of drops, on the thread that calls read(). The
-    /// stream continues, and the dropped frames never arrive. The Core reports drops
-    /// only to a streamer opened with this set.
+    /// behind, on the thread that calls read(). That read() then returns an empty
+    /// frame. The stream continues, and the dropped frames never arrive. The Core
+    /// reports drops only to a streamer opened with this set.
     std::function<void()> on_missed;
 
 private:
