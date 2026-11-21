@@ -18,10 +18,19 @@ interface Size {
   height: number;
 }
 
-// The offset size of an HTML element, unlike its bounding box, ignores transforms.
+// A ResizeObserver loop can come from a change of less than a pixel, which the offset
+// size rounds away. The computed size keeps fractions and, unlike the bounding box,
+// ignores transforms. An inline element computes "auto", and the observer reports 0.
+const pixels = (value: string): number => {
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const measure = (element: Element): Size => {
-  if (element instanceof HTMLElement)
-    return { width: element.offsetWidth, height: element.offsetHeight };
+  if (element instanceof HTMLElement) {
+    const { width, height } = getComputedStyle(element);
+    return { width: pixels(width), height: pixels(height) };
+  }
   const { width, height } = element.getBoundingClientRect();
   return { width, height };
 };
