@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, type Synnax } from "@synnaxlabs/client";
+import { type color, ranger, type Synnax } from "@synnaxlabs/client";
 import { bounds, box, type scale, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { flux } from "@/flux/aether";
 import {
   type Bar,
@@ -49,6 +50,8 @@ export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
   retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
+  colors: flux.Retrieve<aetherColor.ListQuery, color.Named[]>;
+  named: Map<color.Key, color.Named>;
   window?: TimeRange;
   client: Synnax | null;
   render: render.Context;
@@ -120,6 +123,15 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       onChange: () => i.requestRender("tool"),
       onError: (error) => i.runAsync(error, "Failed to retrieve ranges"),
     });
+    i.named ??= new Map();
+    i.colors ??= new flux.Retrieve({
+      definition: aetherColor.listDefinition,
+      onChange: () => {
+        i.named = new Map((i.colors.value ?? []).map((c) => [c.key, c]));
+        i.requestRender("tool");
+      },
+      onError: (error) => i.runAsync(error, "Failed to retrieve colors"),
+    });
     const client = synnax.use(ctx);
     if (client != null) i.client = client;
     i.requestRender("tool");
@@ -127,6 +139,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
 
   override afterDelete(): void {
     this.internal.retrieve.close();
+    this.internal.colors.close();
     clearTimeout(this.internal.timer);
   }
 
@@ -152,11 +165,13 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     } = props;
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
-    if (i.client != null)
+    if (i.client != null) {
       i.retrieve.update(i.client, {
         where: { overlaps: i.window },
         limit: FETCH_LIMIT,
       });
+      i.colors.update(i.client, {});
+    }
     const { draw } = i;
     const fetched = i.retrieve.value ?? [];
     const start = timeRange.start.valueOf();
@@ -173,6 +188,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       region,
       (v) => regionScale.pos(v),
       draw.theme,
+      i.named,
       now,
       newest,
     );

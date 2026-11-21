@@ -9,7 +9,6 @@
 
 import "schemas/synnax/color"
 import "schemas/synnax/label"
-import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/telem"
@@ -52,10 +51,10 @@ Range struct {
         @patch
         @ts type      telem.TimeRangeBounded
     }
-    color        color.Color?    {
+    color        color.Ref?      {
         @doc value """
             is an optional display color for visual identification of the range in user
-            interfaces.
+            interfaces, a named color or a fixed color.
         """
         @patch
     }

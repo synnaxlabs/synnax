@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  color,
   label,
   panel,
   project,
@@ -20,7 +21,7 @@ import {
   holdResponses,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color as xcolor, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -569,6 +570,25 @@ describe("range/Toolbar", () => {
   });
 
   describe("line", () => {
+    it("should repaint a line when its named color changes", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const rng = await createTestRange(client, {
+        name: uniqueName("paint"),
+        color: { type: "named", key: named.key },
+      });
+      await renderToolbar({ favorites: [rng] });
+      const line = await findLine("Favorites", rng.name);
+      const painted = () => line.style.getPropertyValue("--console-range-color");
+      await waitFor(() => expect(painted()).toBe("#123456"));
+      await client.colors.dispatch(named.key, [
+        color.set({ path: ["light"], value: xcolor.construct("#654321") }),
+      ]);
+      await waitFor(() => expect(painted()).toBe("#654321"));
+    });
+
     it("should stop a running range", async () => {
       const rng = await createRunning(uniqueName("stop"));
       await renderToolbar();
@@ -671,6 +691,31 @@ describe("range/Toolbar", () => {
         rng.name,
       );
       expect(preview?.querySelector(".lyra-icon--range")).toBeInstanceOf(Element);
+    });
+
+    it("should fill a dragged line's picture with its named color", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const rng = await createTestRange(client, {
+        name: uniqueName("picture"),
+        color: { type: "named", key: named.key },
+      });
+      await renderToolbar({ favorites: [rng] });
+      const line = await findLine("Favorites", rng.name);
+      // The named colors can load after the range, so each try starts a new drag.
+      await expect
+        .poll(() => {
+          fireEvent.dragStart(line, { dataTransfer: new DataTransfer() });
+          const tile = document.querySelector<HTMLElement>(
+            ".lyra-haul__layer .lyra-haul-preview__tile",
+          );
+          const background = tile?.style.background;
+          fireEvent.dragEnd(line, { dataTransfer: new DataTransfer() });
+          return background;
+        })
+        .toBe("rgb(18, 52, 86)");
     });
 
     it("should add a range dropped on the range picker of a line plot", async () => {
