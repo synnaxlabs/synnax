@@ -16,6 +16,7 @@ import { setupBrowser } from "@synnaxlabs/lyra/styletest";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { beforeEach, onTestFailed } from "vitest";
 
 import { traceResizeLoops } from "@/testutil/resizeLoop";
 
@@ -24,7 +25,14 @@ import { traceResizeLoops } from "@/testutil/resizeLoop";
 failOnConsoleOutput({
   ignore: [/^Error: ResizeObserver loop completed with undelivered notifications\.$/],
 });
-traceResizeLoops();
+// Vitest prints the console output of passed tests, so only a failed test prints the
+// loop reports.
+const loopReports: string[] = [];
+traceResizeLoops((report) => loopReports.push(report));
+beforeEach(() => {
+  loopReports.length = 0;
+  onTestFailed(() => loopReports.forEach((report) => console.info(report)));
+});
 setupBrowser();
 // The Console sets its theme on the document root, where drawings such as the Nebula
 // backdrop read their colors.

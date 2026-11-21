@@ -18,7 +18,10 @@ interface Size {
   height: number;
 }
 
+// The offset size of an HTML element, unlike its bounding box, ignores transforms.
 const measure = (element: Element): Size => {
+  if (element instanceof HTMLElement)
+    return { width: element.offsetWidth, height: element.offsetHeight };
   const { width, height } = element.getBoundingClientRect();
   return { width, height };
 };
@@ -75,15 +78,28 @@ const label = (element: Element): string => {
 };
 
 /**
- * Wraps ResizeObserver so that a ResizeObserver loop error logs, through console.info,
- * each observed element that a callback resized at or above the shallowest target of
- * that callback, with the stack that created the observer. Call it once from a browser
- * setup file.
+ * Wraps the global ResizeObserver to name the cause of each ResizeObserver loop error.
+ * Each report lists the observed elements that a callback resized in the frame of the
+ * error, at or above the shallowest target of that callback, with the stack that
+ * created the observer.
+ *
+ * @param report - Receives each report.
+ * @returns a function that puts back the previous ResizeObserver and stops reporting.
+ * Observers created before then stay traced.
  */
-export const traceResizeLoops = (): void => {
+export const traceResizeLoops = (report: (text: string) => void): (() => void) => {
   const Native = window.ResizeObserver;
   const observed = new Map<Element, number>();
   const changes: string[] = [];
+  let frame: CSSNumberish | null = null;
+
+  // Every callback and the loop error of one rendering update share a timeline time.
+  const enterFrame = (): void => {
+    const now = document.timeline.currentTime;
+    if (now === frame) return;
+    frame = now;
+    changes.length = 0;
+  };
 
   const check = (
     before: Map<Element, Size>,
@@ -111,6 +127,7 @@ export const traceResizeLoops = (): void => {
     entries: ResizeObserverEntry[],
     observer: ResizeObserver,
   ): void => {
+    enterFrame();
     const shallowest = Math.min(...entries.map((e) => depth(e.target)));
     const before = new Map<Element, Size>();
     for (const element of observed.keys())
@@ -139,7 +156,10 @@ export const traceResizeLoops = (): void => {
       const origin = (new Error().stack ?? "")
         .split("\n")
         .map((line) => line.trim())
-        .filter((line) => !["", "Error"].includes(line) && !line.includes("resizeLoop"))
+        .filter(
+          (line) =>
+            !["", "Error"].includes(line) && !line.includes("testutil/resizeLoop.ts"),
+        )
         .slice(0, STACK_FRAMES)
         .join("\n");
       this.observer = new Native((entries) => trace(callback, origin, entries, this));
@@ -171,16 +191,23 @@ export const traceResizeLoops = (): void => {
     }
   }
 
-  window.ResizeObserver = Traced;
-  // Vitest stops reporting unhandled errors while a listener added through
-  // window.addEventListener exists. The prototype method is not counted.
-  EventTarget.prototype.addEventListener.call(window, "error", (event: Event) => {
+  const onError = (event: Event): void => {
     if (!(event instanceof ErrorEvent) || !LOOP_MESSAGE.test(event.message)) return;
-    const report =
+    enterFrame();
+    const causes =
       changes.length === 0
         ? "No observed element at or above the targets of a callback changed size."
         : changes.join("\n");
     changes.length = 0;
-    console.info(`ResizeObserver loop diagnostic:\n${report}`);
-  });
+    report(`ResizeObserver loop diagnostic:\n${causes}`);
+  };
+
+  window.ResizeObserver = Traced;
+  // Vitest stops reporting unhandled errors while a listener added through
+  // window.addEventListener exists. The prototype methods are not counted.
+  EventTarget.prototype.addEventListener.call(window, "error", onError);
+  return () => {
+    window.ResizeObserver = Native;
+    EventTarget.prototype.removeEventListener.call(window, "error", onError);
+  };
 };
