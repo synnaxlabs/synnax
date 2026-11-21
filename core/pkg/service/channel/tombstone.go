@@ -136,25 +136,92 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 	return append(out, Rewire{At: at})
 }
 
-// clearTombstones deletes, in the transaction of w, the tombstone at the path of each
-// of channels, so a path never holds a channel and a tombstone at once.
-func (w Writer) clearTombstones(ctx context.Context, channels ...Channel) error {
-	var keys []Key
-	for _, c := range channels {
-		k, ok, err := w.tombstoneAt(ctx, c.Name, c.Group)
+// takeLists sets the rewires of each new channel of channels, one with no local key, to
+// the list of the tombstone at its path, or to none, since a create sets no list.
+func (w Writer) takeLists(ctx context.Context, channels []Channel) error {
+	for i := range channels {
+		c := &channels[i]
+		if c.LocalKey != 0 {
+			continue
+		}
+		t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
 		if err != nil {
 			return err
 		}
-		if ok {
-			keys = append(keys, k)
+		c.Rewires = t.Rewires
+		if !ok {
+			c.Rewires = nil
 		}
 	}
-	if len(keys) == 0 {
+	return nil
+}
+
+// heal gives each of channels, which are written, that takes the path of a tombstone
+// the list of that tombstone, moves the links that hold the dead key and that
+// Retargets accepts onto it, and deletes the tombstone.
+func (w Writer) heal(ctx context.Context, channels ...Channel) error {
+	var to map[Key]Key
+	for _, c := range channels {
+		t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if !slices.Equal(c.Rewires, t.Rewires) {
+			c.Rewires = t.Rewires
+			if err = w.svc.table.NewCreate().Entry(&c).Exec(ctx, w.tx); err != nil {
+				return err
+			}
+		}
+		if to == nil {
+			to = make(map[Key]Key, len(channels))
+		}
+		to[t.Key] = c.Key()
+	}
+	if len(to) == 0 {
 		return nil
 	}
+	dead := make([]Key, 0, len(to))
+	var holders []gorp.Dependent
+	for k := range to {
+		dead = append(dead, k)
+		deps, err := w.svc.table.Dependents(ctx, w.tx, k)
+		if err != nil {
+			return err
+		}
+		for _, d := range deps {
+			if !isRewire(d) && w.svc.cfg.Retargets(d) {
+				holders = append(holders, d)
+			}
+		}
+	}
+	if err := w.Retarget(ctx, to, holders); err != nil {
+		return err
+	}
 	return w.svc.tombstones.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Tombstone](keys...)).
+		Where(gorp.MatchKeys[Key, Tombstone](dead...)).
 		Exec(ctx, w.tx)
+}
+
+// tombstoneOf returns the tombstone at the path of name in g, and false when none is
+// there.
+func (w Writer) tombstoneOf(
+	ctx context.Context,
+	name string,
+	g *group.Key,
+) (Tombstone, bool, error) {
+	k, ok, err := w.tombstoneAt(ctx, name, g)
+	if err != nil || !ok {
+		return Tombstone{}, false, err
+	}
+	var t Tombstone
+	err = w.svc.tombstones.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Tombstone](k)).
+		Entry(&t).
+		Exec(ctx, w.tx)
+	return t, err == nil, err
 }
 
 // tombstoneAt returns the key of the tombstone at the path of name in g, and false when
@@ -185,14 +252,18 @@ func (w Writer) DeleteTombstones(
 }
 
 // writeHeld writes, in tx, the tombstone of c, which a delete removes, when a link
-// other than a rewires entry holds it.
+// other than a rewires entry holds it, or when it holds rewires.
 func (t *tombstones) writeHeld(
 	ctx context.Context,
 	tx gorp.Tx,
 	c Channel,
 	held []gorp.Dependent,
 ) error {
-	if !slices.ContainsFunc(held, func(d gorp.Dependent) bool { return !isRewire(d) }) {
+	if len(c.Rewires) == 0 &&
+		!slices.ContainsFunc(
+			held,
+			func(d gorp.Dependent) bool { return !isRewire(d) },
+		) {
 		return nil
 	}
 	ts := Tombstone{

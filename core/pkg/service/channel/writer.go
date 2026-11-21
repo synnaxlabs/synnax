@@ -101,6 +101,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err != nil {
 		return nil, err
 	}
+	// Only a heal or a delete writes a list.
+	next.Rewires = prev.Rewires
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
@@ -131,7 +133,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		return nil, nameTaken(err, 0)
 	}
 	if next.Name != prev.Name || !sameGroup(prev.Group, next.Group) {
-		if err = w.clearTombstones(ctx, next); err != nil {
+		if err = w.heal(ctx, next); err != nil {
 			return nil, err
 		}
 	}
@@ -396,7 +398,7 @@ func (w Writer) RenameMany(
 	if err != nil {
 		return err
 	}
-	if err = w.clearTombstones(ctx, renamed...); err != nil {
+	if err = w.heal(ctx, renamed...); err != nil {
 		return err
 	}
 	for i, k := range keys {
@@ -445,11 +447,14 @@ func (w Writer) create(
 		return err
 	}
 	channels = append(channels, indexChannels...)
+	if err = w.takeLists(ctx, channels); err != nil {
+		return err
+	}
 	written, err := w.allocateNew(ctx, channels, opts)
 	if err != nil {
 		return err
 	}
-	if err = w.clearTombstones(ctx, channels...); err != nil {
+	if err = w.heal(ctx, channels...); err != nil {
 		return err
 	}
 	linked, err := w.linkStoredIndexes(ctx, channels, calcNeedingIndex)
