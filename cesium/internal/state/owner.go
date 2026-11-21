@@ -325,6 +325,7 @@ func (r *partedRequest) run(s *State) {
 			continue
 		}
 		seg.vis.Part = t.Part
+		s.core.carry(seg)
 		changed.Add(seg.key)
 	}
 	folded := func(k Kill) bool { return k.Generation < r.generation }

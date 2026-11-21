@@ -60,9 +60,8 @@ func usersOf(pre []Preload, key uint32) []User {
 }
 
 // preloadOf returns the records of the preload of ch in pre, which is in rising order
-// of
-// key. It returns ErrStale for a preload from the parts of a head before the last one
-// that c took, and refuses a step with none when ch has a part range.
+// of key. It returns ErrStale for a preload from the parts of a head other than the
+// head of the core, and refuses a step with none when ch has a part range.
 func (c *core) preloadOf(ch *chanState, pre []Preload) ([]Segment, error) {
 	i, found := search(pre, ch.key)
 	switch {
@@ -124,6 +123,37 @@ func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 		return err
 	}
 	return <-r.done
+}
+
+// carry hands seg, which a part now holds, to each step in progress that took its part
+// records before seg was tagged: a delete or a Drop of the clock of seg, and the
+// durable apply of a visible commit of the key of seg. Each would miss seg otherwise,
+// since its checks skip tagged segments.
+func (c *core) carry(seg *segState) {
+	user := User{Key: seg.key, Segment: seg.vis}
+	if seg.vis.Clock != seg.key {
+		if ch := c.channels[seg.vis.Clock]; ch != nil {
+			for _, cl := range ch.claims {
+				if cl.w == nil && overlaps(seg.vis.Pointers, cl.start, cl.end) {
+					cl.users = append(cl.users, user)
+				}
+			}
+		}
+		if users, ok := c.dropUsers[seg.vis.Clock]; ok {
+			c.dropUsers[seg.vis.Clock] = append(users, user)
+		}
+	}
+	for _, s := range c.channels[seg.key].segs {
+		if s != seg && s.dur.length < s.vis.Length {
+			s.pre = union(s.pre, []Segment{seg.vis})
+		}
+	}
+}
+
+// overlaps reports whether a pointer of ptrs shares a stamp with [first, last].
+func overlaps(ptrs []Pointer, first, last telem.TimeStamp) bool {
+	_, ok := overlap(ptrs, first, last)
+	return ok
 }
 
 // search returns the index of the preload of key in pre, which is in rising order of

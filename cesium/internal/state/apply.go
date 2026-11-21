@@ -239,9 +239,8 @@ func (c *core) commit(r *log.Commit, pre []Preload) error {
 }
 
 // durableOverlap returns the first durable pointer of the key of s that shares a stamp
-// with
-// [first, last]. It reads the part records that the visible commits of s preloaded,
-// and those of the key in pre.
+// with [first, last]. It reads the part records that the visible commits of s
+// preloaded, and those of the key in pre.
 func (c *core) durableOverlap(
 	s *segState,
 	first, last telem.TimeStamp,

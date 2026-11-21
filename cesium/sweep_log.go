@@ -115,8 +115,7 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 }
 
 // timesItself reports whether a stored segment of key has key as its clock: a segment
-// of
-// ch, the stored channel of key, that no part holds, or a part record of parted.
+// of ch, the stored channel of key, that no part holds, or a part record of parted.
 func timesItself(ch *state.Channel, parted []state.Segment, key ChannelKey) bool {
 	clocked := func(seg state.Segment) bool { return seg.Clock == key }
 	if ch != nil && slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
