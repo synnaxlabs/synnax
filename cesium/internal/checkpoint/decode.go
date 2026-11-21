@@ -345,12 +345,19 @@ func (f *format) parseChannels(
 			)
 		}
 		if f.kind == kindHead {
-			var err error
-			if c.Oldest, c.Newest, err = f.partRange(c.Key, r, parts); err != nil {
+			oldest, newest, err := f.partRange(c.Key, r, parts)
+			if err != nil {
 				return nil, err
 			}
+			if oldest != 0 {
+				if len(sl.parts) == 0 {
+					sl.parts = make([]state.Parts, cs.count-uint64(i))
+				}
+				c.Parts, sl.parts = &sl.parts[0], sl.parts[1:]
+				c.Parts.Oldest, c.Parts.Newest = oldest, newest
+			}
 		}
-		if end == first && c.Oldest == 0 {
+		if end == first && c.Parts == nil {
 			return nil, f.corrupt("key %d has no segment record and no part", c.Key)
 		}
 		if err := f.parseSegments(b, secs, &sl, c, first, end, &nextPtr); err != nil {
@@ -395,6 +402,8 @@ type slabs struct {
 	channels []state.Channel
 	segs     []state.Segment
 	ptrs     []state.Pointer
+	// parts holds the part ranges of the channels after the first that names one.
+	parts []state.Parts
 }
 
 // parseSegments parses segment records first to end into c.

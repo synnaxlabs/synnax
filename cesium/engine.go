@@ -271,13 +271,14 @@ func (e *engine) parted(
 
 // partsOf returns the parts of the range of ch, from the head that ch names.
 func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
-	if ch.Oldest == 0 {
+	p := ch.Parts
+	if p == nil {
 		return nil, nil
 	}
 	e.parts.Lock()
 	defer e.parts.Unlock()
 	var head headParts
-	switch ch.Generation {
+	switch p.Generation {
 	case e.parts.live.generation:
 		head = e.parts.live
 	case e.parts.older.generation:
@@ -286,18 +287,18 @@ func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
 		return nil, errors.Newf(
 			"key %d names the parts of head %d, which the engine no longer holds",
 			ch.Key,
-			ch.Generation,
+			p.Generation,
 		)
 	}
-	lo, found := slices.BinarySearchFunc(head.parts, ch.Oldest, compareParts)
-	hi, foundNewest := slices.BinarySearchFunc(head.parts, ch.Newest, compareParts)
+	lo, found := slices.BinarySearchFunc(head.parts, p.Oldest, compareParts)
+	hi, foundNewest := slices.BinarySearchFunc(head.parts, p.Newest, compareParts)
 	if !found || !foundNewest {
 		return nil, errors.Newf(
 			"key %d names parts %d to %d, which head %d does not name",
 			ch.Key,
-			ch.Oldest,
-			ch.Newest,
-			ch.Generation,
+			p.Oldest,
+			p.Newest,
+			p.Generation,
 		)
 	}
 	return head.parts[lo : hi+1], nil

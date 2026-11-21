@@ -131,6 +131,7 @@ func (c *core) tombstone(t *log.Tombstone) error {
 					Segment:    s.vis.ID,
 					Generation: c.generation,
 				})
+				ch.repart()
 			}
 		}
 		c.bury(s)

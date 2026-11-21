@@ -121,8 +121,7 @@ var _ = Describe("Parts", func() {
 		Expect(s.Channels).To(HaveLen(1))
 		Expect(s.Channels[0].Segments).To(HaveLen(1))
 		Expect(s.Channels[0].Segments[0].ID).To(Equal(uint64(100)))
-		Expect(s.Channels[0].Oldest).To(Equal(uint64(1)))
-		Expect(s.Channels[0].Newest).To(Equal(uint64(1)))
+		Expect(*s.Channels[0].Parts).To(Equal(state.Parts{Oldest: 1, Newest: 1}))
 	})
 
 	It("Should give a key that only parts hold a channel with its part range", func() {
@@ -148,8 +147,10 @@ var _ = Describe("Parts", func() {
 		Expect(got.Channels).To(HaveLen(2))
 		Expect(got.Channels[1].Key).To(Equal(uint32(6)))
 		Expect(got.Channels[1].Segments).To(BeEmpty())
-		Expect(got.Channels[1].Oldest).To(Equal(h.Parts[0].ID))
-		Expect(got.Channels[1].Newest).To(Equal(h.Parts[0].ID))
+		Expect(*got.Channels[1].Parts).To(Equal(state.Parts{
+			Oldest: h.Parts[0].ID,
+			Newest: h.Parts[0].ID,
+		}))
 	})
 
 	It("Should give back the whole state from a head and its parts, with each record "+
