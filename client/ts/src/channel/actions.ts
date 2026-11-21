@@ -28,6 +28,7 @@ export const storedZ = z.object({
   operations: zod.nullToUndefined(operationZ.array()),
   expression: z.string(),
   group: zod.nullToUndefined(group.keyZ),
+  description: z.string().default(""),
 });
 
 export type Stored = z.infer<typeof storedZ>;

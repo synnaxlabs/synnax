@@ -40,6 +40,7 @@ const documentZ = z.object({
   expression: z.string(),
   operations: operationZ.array(),
   group: zod.nullToUndefined(group.keyZ),
+  description: z.string(),
 });
 
 const applyPath = (state: Draft<Payload>, action: patch.Action) =>
@@ -47,7 +48,7 @@ const applyPath = (state: Draft<Payload>, action: patch.Action) =>
 
 /**
  * Applies actions to a channel in order. Path actions edit only the channel's data
- * type, expression, operations, and group.
+ * type, expression, operations, group, and description.
  * @throws {Error} if the channel cannot hold an action, such as a set of its key.
  */
 export const reduceAll = actions.createReduceAll<Payload, Action>((state, action) => {

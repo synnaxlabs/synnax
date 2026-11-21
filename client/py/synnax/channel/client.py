@@ -227,6 +227,7 @@ class Channel(Payload):
             expression=self.expression,
             operations=self.operations,
             group=self.group,
+            description=self.description,
         )
 
 
@@ -292,6 +293,7 @@ class Client:
         expression: str = "",
         operations: list[Operation] | None = None,
         group: group_.Key | None = None,
+        description: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Channel: ...
 
@@ -318,6 +320,7 @@ class Client:
         expression: str = "",
         operations: list[Operation] | None = None,
         group: group_.Key | None = None,
+        description: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates new channel(s) in the Synnax cluster.
@@ -339,6 +342,7 @@ class Client:
         set if expression is not an empty string. If expression is not an empty string,
         this should have at least one channel.
         :param group: The group to create the channel in, if any.
+        :param description: Free text that says what the channel holds.
         :param retrieve_if_name_exists: Boolean indicating whether to retrieve channels
         with the same name if they already exist in the cluster.
         :returns: The created channel.
@@ -375,6 +379,7 @@ class Client:
                     expression=expression,
                     operations=operations,
                     group=group,
+                    description=description,
                 )
             ]
         elif isinstance(channels, Channel):

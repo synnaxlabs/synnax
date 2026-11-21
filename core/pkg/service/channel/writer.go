@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -103,7 +104,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err != nil {
 		return nil, err
 	}
-	if err = next.Validate(); err != nil {
+	if err = validateChannel(next); err != nil {
 		return nil, err
 	}
 	if err = w.checkGroup(ctx, prev, next); err != nil {
@@ -436,11 +437,26 @@ func (w Writer) create(
 	return w.attachCreates(ctx, lo.Uniq(written))
 }
 
+// validateChannel returns the error of ch.Validate, or a validation error when the
+// description of ch is not valid UTF-8, which has no length in characters.
+func validateChannel(ch Channel) error {
+	if err := ch.Validate(); err != nil {
+		return err
+	}
+	if !utf8.ValidString(ch.Description) {
+		return validate.PathedError(
+			validate.Errorf("must be valid UTF-8"),
+			"description",
+		)
+	}
+	return nil
+}
+
 // validateCreate validates each channel and its group. checkCreatedNames checks the
 // names once the create knows which channels exist.
 func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 	for i, ch := range channels {
-		if err := ch.Validate(); err != nil {
+		if err := validateChannel(ch); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i))
 		}
 		if err := group.CheckMember(
