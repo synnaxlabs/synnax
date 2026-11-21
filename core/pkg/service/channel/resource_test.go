@@ -183,9 +183,9 @@ var _ = Describe("Resource", Ordered, func() {
 		)
 	})
 	Describe("ToPayload", func() {
-		It("Should hold an empty expression and no operations", func() {
+		It("Should hold neither an expression nor operations", func() {
 			ch := channel.Channel{Name: "payload", DataType: telem.Float64T}
-			Expect(ch.ToPayload()).To(HaveKeyWithValue("expression", ""))
+			Expect(ch.ToPayload()).ToNot(HaveKey("expression"))
 			Expect(ch.ToPayload()).ToNot(HaveKey("operations"))
 		})
 	})
