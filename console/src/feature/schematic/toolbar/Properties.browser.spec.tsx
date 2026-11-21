@@ -625,7 +625,7 @@ describe("Schematic toolbar Properties", () => {
                 enumeration: e.key,
                 options: [{ key: "a", name: "A", value: 0, color: RED }],
               }
-            : { ...createBoxConfig(), strokeColor: GREEN },
+            : { ...createBoxConfig(), strokeColor: fixed(GREEN) },
       });
       await screen.findByText("Selection");
       expect(getSwatches("Selection")).toHaveLength(1);
