@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll, onTestFinished, vi } from "vitest";
+import { afterAll, onTestFinished, TestRunner, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 import { testCoreAddress } from "@/testutil/address";
@@ -19,7 +19,7 @@ export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
 
 /**
  * @returns the params of a client that signs in to the test Core as root.
- * @throws where there is no `process`, as {@link testCoreAddress} does.
+ * @throws where {@link testCoreAddress} does.
  */
 export const testClientParams = (): SynnaxParams => ({
   ...testCoreAddress(),
@@ -33,9 +33,8 @@ export const testClientParams = (): SynnaxParams => ({
   onRetry: () => {},
 });
 
-// A hook registered mid-test is silently dropped by vitest, so per-client afterAll
-// calls leak clients created inside test bodies. This module-level hook registers
-// during spec collection (import time) and covers every call site.
+// Vitest drops an afterAll registered mid-test, so this module-level hook registers
+// during spec collection and closes the clients that outlive a test.
 const openClients: Synnax[] = [];
 // Awaited so every close finishes before vitest tears down the worker; a close
 // still in flight at teardown races its logging against the closing RPC channel.
@@ -50,11 +49,23 @@ afterAll(async () => {
 });
 
 /**
- * Creates a client connected to the local test cluster. The client is closed
- * automatically once every test in the current spec file has finished, so callers do
- * not need to close it themselves.
+ * Creates a client connected to the local test cluster. A client made inside a test or
+ * its hooks closes when that test finishes, and any other closes once every test in the
+ * spec file has finished, so callers do not need to close it themselves.
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
+  // An open client keeps its change stream, so later tests would pay for its frames.
+  if (TestRunner.getCurrentTest() == null) return createFileTestClient(params);
+  const client = new Synnax({ ...testClientParams(), ...params });
+  onTestFinished(async () => await client.close());
+  return client;
+};
+
+/**
+ * Creates a client connected to the local test cluster that stays open until every test
+ * in the current spec file has finished, for a client that a spec reuses across tests.
+ */
+export const createFileTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   const client = new Synnax({ ...testClientParams(), ...params });
   openClients.push(client);
   return client;

@@ -19,6 +19,25 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bv Base) EncodeOrc(w *orc.Writer) error {
+	w.Write(bv.Key[:])
+	w.String(bv.Name)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bv *Base) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(bv.Key[:]); err != nil {
+		return err
+	}
+	if bv.Name, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (c Certificate) EncodeOrc(w *orc.Writer) error {
 	switch v := c.Variant.(type) {
 	case StoredCertificate:

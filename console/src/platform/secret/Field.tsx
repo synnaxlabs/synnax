@@ -44,9 +44,17 @@ interface ControlProps extends Input.Control<secret.Key> {
   defaultName: string;
   rack: rack.Key;
   preview?: boolean;
+  allowNone: boolean;
 }
 
-const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
+const Control = ({
+  value,
+  onChange,
+  defaultName,
+  rack,
+  allowNone,
+  preview,
+}: ControlProps): ReactElement => {
   const list = Secret.useList({ query: { where: whereOnRack(rack) } });
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
@@ -55,10 +63,17 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
     result.variant === "success" &&
     result.data.source === "file" &&
     result.data.rack !== rack;
+  // A cleared field holds the zero key, as one never set does.
+  const selection = allowNone
+    ? {
+        value,
+        onChange: (key: secret.Key | null) => onChange(key ?? ""),
+        allowNone: true as const,
+      }
+    : { value, onChange, allowNone: false as const };
   return (
     <Flex.Box y gap="small" grow>
-      <Picker.Select<secret.Key, secret.Secret>
-        value={value}
+      <Picker.Select<secret.Secret>
         resourceName="secret"
         icon={Icon.Secret}
         describe={describe}
@@ -69,7 +84,8 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
             ? (name) => openCreate({ name: name === "" ? defaultName : name, rack })
             : undefined
         }
-        {...rest}
+        preview={preview}
+        {...selection}
       />
       {onOtherRack && (
         <Picker.Line>
@@ -87,13 +103,20 @@ export interface FieldProps extends Omit<Form.FieldProps<secret.Key>, "children"
   defaultName: string;
   /** The rack of the device. The field lists only the file items of this rack. */
   rack: rack.Key;
+  /** Whether the user may clear the field, which then holds no secret. */
+  allowNone?: boolean;
 }
 
 /**
  * A form field that holds the key of a secret. It selects a secret, or creates one that
  * starts with the default name and selects it.
  */
-export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement => (
+export const Field = ({
+  defaultName,
+  rack,
+  allowNone = false,
+  ...rest
+}: FieldProps): ReactElement => (
   <Form.Field<secret.Key> {...rest}>
     {({ value, onChange, preview }) => (
       <Control
@@ -102,6 +125,7 @@ export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement 
         defaultName={defaultName}
         rack={rack}
         preview={preview}
+        allowNone={allowNone}
       />
     )}
   </Form.Field>

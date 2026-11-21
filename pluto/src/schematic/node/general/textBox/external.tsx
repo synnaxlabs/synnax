@@ -10,6 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
 import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
@@ -17,8 +18,12 @@ import type { Spec } from "@/schematic/node/spec";
 
 const Preview = ({
   label: _label,
+  textColor,
   ...rest
-}: schematic.TextBoxNodeConfig): ReactElement => <TextBox {...rest} value="Text box" />;
+}: schematic.TextBoxNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <TextBox {...rest} textColor={resolve(textColor)} value="Text box" />;
+};
 
 export const spec: Spec<"text_box", schematic.TextBoxNodeConfig> = {
   key: "text_box",

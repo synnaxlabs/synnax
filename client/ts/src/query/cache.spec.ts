@@ -389,6 +389,45 @@ describe("Cache", () => {
       });
     });
 
+    describe("with an answer fetch running", () => {
+      const setupAnswer = async () => {
+        const held = Promise.withResolvers<Doc[]>();
+        const fetch = vi.fn(async () => await held.promise);
+        const { cache, onError, table } = setup(fetch);
+        const space = cache.queries<string, Doc, string, Doc>({
+          name: "docs",
+          table,
+          fetch: async (key) =>
+            (await table.retrieve([key], { refresh: true })).map((doc) => doc.key),
+          compose: (records) => records[0],
+          keyOf: (query) => query,
+          single: true,
+          covers: (record) => record.name !== "partial",
+        });
+        table.set("k1", { key: "k1", name: "partial" });
+        space.onChange("k1", vi.fn());
+        await expect.poll(() => fetch.mock.calls.length).toBe(1);
+        return { cache, held, onError };
+      };
+
+      it("should not report the close", async () => {
+        const { cache, onError } = await setupAnswer();
+        await cache.close();
+        await sleep.sleep(TimeSpan.milliseconds(30));
+        expect(onError).not.toHaveBeenCalled();
+      });
+
+      it("should report a failure before the close", async () => {
+        const { cache, held, onError } = await setupAnswer();
+        held.reject(new Error("connection dropped"));
+        await expect.poll(() => onError.mock.calls.length).toBe(1);
+        expect(onError.mock.calls[0][0]).toMatchObject({
+          message: "failed to maintain docs answers",
+        });
+        await cache.close();
+      });
+    });
+
     it("should keep the entries of a closed table", async () => {
       const { cache, table } = setup(async () => []);
       table.set("k1", { key: "k1", name: "a" });

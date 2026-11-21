@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/color/bind";
+export * from "@/color/Editor";
+export * from "@/color/Field";
 export * from "@/color/library";
+export * from "@/color/Provider";
 export * from "@/color/queries";
 export * from "@/color/Swatch";

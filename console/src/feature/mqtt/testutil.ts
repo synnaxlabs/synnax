@@ -21,6 +21,7 @@ import {
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -98,3 +99,11 @@ export const openAddData = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
   return within(await screen.findByRole("dialog"));
 };
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/mqtt/task/Read"),
+    async () => await import("@/feature/mqtt/task/Write"),
+    async () => await import("@/feature/mqtt/task/Edge"),
+  );

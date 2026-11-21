@@ -341,6 +341,10 @@ func MessageToPB(r icd.Message) (*Message, error) {
 		Key:     r.Key.String(),
 		Payload: payloadVal,
 	}
+	if r.CycleTime != nil {
+		v := int64(*r.CycleTime)
+		pb.CycleTime = &v
+	}
 	return pb, nil
 }
 
@@ -366,6 +370,10 @@ func MessageFromPB(pb *Message) (icd.Message, error) {
 		}
 	}
 	r.Name = pb.Name
+	if pb.CycleTime != nil {
+		v := telem.TimeSpan(*pb.CycleTime)
+		r.CycleTime = &v
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }
@@ -1537,6 +1545,47 @@ func BooleanJSONMatchesFromPB(pbs []*JSONMatchBooleanPayload) ([]icd.BooleanJSON
 	return result, nil
 }
 
+// PresentJSONMatchToPB converts PresentJSONMatch to JSONMatchPresentPayload.
+func PresentJSONMatchToPB(r icd.PresentJSONMatch) (*JSONMatchPresentPayload, error) {
+	pb := &JSONMatchPresentPayload{}
+	return pb, nil
+}
+
+// PresentJSONMatchFromPB converts JSONMatchPresentPayload to PresentJSONMatch.
+func PresentJSONMatchFromPB(pb *JSONMatchPresentPayload) (icd.PresentJSONMatch, error) {
+	var r icd.PresentJSONMatch
+	if pb == nil {
+		return r, nil
+	}
+	return r, nil
+}
+
+// PresentJSONMatchesToPB converts a slice of PresentJSONMatch to JSONMatchPresentPayload.
+func PresentJSONMatchesToPB(rs []icd.PresentJSONMatch) ([]*JSONMatchPresentPayload, error) {
+	result := make([]*JSONMatchPresentPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = PresentJSONMatchToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PresentJSONMatchesFromPB converts a slice of JSONMatchPresentPayload to PresentJSONMatch.
+func PresentJSONMatchesFromPB(pbs []*JSONMatchPresentPayload) ([]icd.PresentJSONMatch, error) {
+	result := make([]icd.PresentJSONMatch, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = PresentJSONMatchFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // BinaryPayloadToPB converts BinaryPayload to PayloadBinaryPayload.
 func BinaryPayloadToPB(r icd.BinaryPayload) (*PayloadBinaryPayload, error) {
 	fieldsVal, err := BinaryFieldsToPB(r.Fields)
@@ -2234,6 +2283,16 @@ func JSONMatchToPB(r icd.JSONMatch) (*JSONMatch, error) {
 			return nil, err
 		}
 		pb.Variant = &JSONMatch_Boolean{Boolean: inner}
+	case icd.PresentJSONMatch:
+		inner, err := PresentJSONMatchToPB(v)
+		if err != nil {
+			return nil, err
+		}
+		pb.JsonBaseMatch, err = JSONBaseMatchToPB(v.JSONBaseMatch)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &JSONMatch_Present{Present: inner}
 	default:
 		return nil, errors.Newf("JSONMatch: unknown variant %T", r.Variant)
 	}
@@ -2301,6 +2360,19 @@ func JSONMatchFromPB(pb *JSONMatch) (icd.JSONMatch, error) {
 		r.Variant = m
 	case *JSONMatch_Boolean:
 		inner, err := BooleanJSONMatchFromPB(v.Boolean)
+		if err != nil {
+			return r, err
+		}
+		m := inner
+		if pb.JsonBaseMatch != nil {
+			m.JSONBaseMatch, err = JSONBaseMatchFromPB(pb.JsonBaseMatch)
+			if err != nil {
+				return r, err
+			}
+		}
+		r.Variant = m
+	case *JSONMatch_Present:
+		inner, err := PresentJSONMatchFromPB(v.Present)
 		if err != nil {
 			return r, err
 		}

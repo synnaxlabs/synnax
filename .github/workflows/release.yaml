@@ -102,6 +102,7 @@ jobs:
     outputs:
       green: ${{ steps.find.outputs.green }}
       run_id: ${{ steps.find.outputs.run_id }}
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -159,6 +160,7 @@ jobs:
     if: ${{ !cancelled() }}
     permissions: {}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Require a green full CI run of the commit
         env:
@@ -219,6 +221,7 @@ jobs:
       desktop_previous_tag: ${{ steps.desktop.outputs.previous_tag }}
       desktop_build_version: ${{ steps.desktop-build.outputs.version }}
       desktop_driver_release: ${{ steps.desktop-build.outputs.driver_release }}
+    timeout-minutes: 10
     steps:
       - name: Require a product
         if: >-
@@ -349,6 +352,7 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -412,6 +416,7 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -434,6 +439,7 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -503,6 +509,7 @@ jobs:
       SYNNAX_TS_ENV: prod
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -636,6 +643,7 @@ jobs:
       contents: write
       id-token: write
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -725,6 +733,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -807,6 +816,7 @@ jobs:
       contents: write
       id-token: write
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -882,6 +892,7 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -961,6 +972,7 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
       VERSION: ${{ needs.resolve.outputs.core_version }}
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1016,6 +1028,7 @@ jobs:
       contents: write
       pull-requests: read
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1111,6 +1124,7 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1167,6 +1181,7 @@ jobs:
       actions: read
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       # The repo has one Latest badge, and a publish takes it by default. It belongs to
       # the newest stable Core, so a Console, Driver, or Desktop publish declines it.

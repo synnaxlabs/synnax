@@ -119,9 +119,10 @@ var _ = Describe("Stored v7 line plots", func() {
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:    db,
-				ImEx:  imex.NewService(),
-				Color: colorSvc,
+				DB:     db,
+				ImEx:   imex.NewService(),
+				Color:  colorSvc,
+				Ranger: rangerSvc,
 			}))
 			var got lineplot.LinePlot
 			Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
@@ -166,9 +167,10 @@ var _ = Describe("Stored v7 line plots", func() {
 			Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-			DB:    db,
-			ImEx:  imex.NewService(),
-			Color: colorSvc,
+			DB:     db,
+			ImEx:   imex.NewService(),
+			Color:  colorSvc,
+			Ranger: rangerSvc,
 		}))
 		var got lineplot.LinePlot
 		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
