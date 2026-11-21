@@ -2123,6 +2123,26 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    it("refetches a maintained answer on a miss", async () => {
+      const table = newTable();
+      const fetch = fetchOf(table, [rec("a", 5)]);
+      let miss = (): void => {};
+      const answers = new Space<LimitQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { onMissed: (callback) => ((miss = callback), () => {}) },
+      );
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      miss();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    });
+
     describe("reconnect during the first fetch", () => {
       const setup = () => {
         const table = newTable();

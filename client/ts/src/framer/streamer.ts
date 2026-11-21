@@ -32,6 +32,7 @@ const reqZ = z.object({
   excludeGroups: z.uint32().array().optional(),
   keepAlive: TimeSpan.z.optional(),
   ackRequested: z.boolean().optional(),
+  missedRequested: z.boolean().optional(),
 });
 
 /**
@@ -173,6 +174,7 @@ export const createStreamOpener =
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
       keepAlive: cfg.keepAlive,
+      missedRequested: onMissed != null,
     });
     // A keep-alive can beat the open ack onto the wire, so the ack is the first
     // non-keep-alive response.
