@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { z } from "zod";
 
 import { PagerDuty } from "@/feature/pagerduty";
+import { preloadForms } from "@/feature/pagerduty/testutil";
 import { findOption } from "@/platform/picker/testutil";
 import { createFileSecret, createSecret } from "@/platform/secret/testutil";
 import {
@@ -26,6 +27,8 @@ import {
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 const secrets: secret.Key[] = [];
 

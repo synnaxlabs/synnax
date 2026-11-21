@@ -42,6 +42,7 @@ import {
 } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Access } from "@/platform/access";
 import { Tree } from "@/platform/tree";
 import {
   countHiddenTrees,
@@ -66,6 +67,7 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
+  renderSuspended,
   uniqueToken,
   withControlHeld,
 } from "@/testutil";
@@ -137,15 +139,22 @@ const createWrapper = async (items: Tree.Items = GROUP_ITEMS, as: Client = clien
   return Wrapper;
 };
 
+const PERMISSIONS_LOADING = "loading permissions";
+
+// The Console mounts every tree below a permissions boundary, so a row reads its grants
+// on its first render.
 const renderTree = async (
   root: resource.ID | null,
   items: Tree.Items = GROUP_ITEMS,
   as: Client = client,
   listRoot?: Tree.TreeProps["listRoot"],
 ) =>
-  render(<Tree.Tree root={root} listRoot={listRoot} />, {
-    wrapper: await createWrapper(items, as),
-  });
+  await renderSuspended(
+    <Access.PermissionsBoundary loading={PERMISSIONS_LOADING}>
+      <Tree.Tree root={root} listRoot={listRoot} />
+    </Access.PermissionsBoundary>,
+    { wrapper: await createWrapper(items, as) },
+  );
 
 const NO_CHILDREN = "no children here";
 
@@ -163,6 +172,7 @@ const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
     const { container } = await renderTree(null);
+    await waitFor(() => expect(screen.queryByText(PERMISSIONS_LOADING)).toBeNull());
     // The test wrapper draws only its window box.
     expect(container.firstElementChild?.innerHTML).toBe("");
   });
@@ -1299,6 +1309,28 @@ describe("Tree.Tree", () => {
       const before = counts.get(childName) ?? 0;
       await client.groups.rename(foreign.key, uniqueName("foreign-renamed"));
       // Ordered events: the child rename rendering proves the foreign one processed.
+      const childRenamed = uniqueName("child-renamed");
+      await client.groups.rename(child.key, childRenamed);
+      await screen.findByText(childRenamed);
+      expect(counts.get(childName)).toBe(before);
+    });
+
+    it("should not re-render rows for a color change", async () => {
+      const container = await client.groups.create({
+        scope: "channel",
+        name: uniqueName("container"),
+      });
+      const childName = uniqueName("child");
+      const child = await client.groups.create({
+        parent: group.resourceID(container.key),
+        name: childName,
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.resourceID(container.key), countingItems(counts));
+      await screen.findByText(childName);
+      const before = counts.get(childName) ?? 0;
+      await client.colors.create({ name: uniqueName("color"), light: "#123456" });
+      // Ordered events: the child rename rendering proves the color one processed.
       const childRenamed = uniqueName("child-renamed");
       await client.groups.rename(child.key, childRenamed);
       await screen.findByText(childRenamed);

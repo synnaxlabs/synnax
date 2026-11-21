@@ -167,6 +167,10 @@ const TabDragSource = ({ source, tab }: TabDragSourceProps): ReactElement => {
   );
 };
 
+// A drag leaves a copy of its source in the haul layer for a moment. The copy is
+// aria-hidden, so a role query finds only the source.
+const dragSource = (): HTMLElement => screen.getByRole("button", { name: DRAG_HANDLE });
+
 const CURSOR = { x: 1, y: 1 };
 
 const fireDrop = (el: Element): void => fireDragEvent(el, "drop", CURSOR);
@@ -349,7 +353,7 @@ describe("Panel.Selector", () => {
 
     const startDrag = async (): Promise<void> => {
       await act(async () => {
-        fireEvent.dragStart(screen.getByText(DRAG_HANDLE), {
+        fireEvent.dragStart(dragSource(), {
           dataTransfer: new DataTransfer(),
         });
       });
@@ -449,7 +453,7 @@ describe("Panel.Selector", () => {
       );
       await act(async () => {
         fireDrop(leaf);
-        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE), {
+        fireEvent.dragEnd(dragSource(), {
           dataTransfer: new DataTransfer(),
         });
       });
@@ -469,7 +473,7 @@ describe("Panel.Selector", () => {
         expect(Session.Panel.selectSelected(store.getState())).toEqual(destination.key),
       );
       await act(async () => {
-        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE), {
+        fireEvent.dragEnd(dragSource(), {
           dataTransfer: new DataTransfer(),
         });
       });
