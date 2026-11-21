@@ -543,6 +543,9 @@ const renderTaskFormTabSteps = async (
   return { ...result, ...created, store, tabKey: tab.key };
 };
 
+// The default fallback resolves source maps, which outlasts the warm-up.
+const NoFallback = (): null => null;
+
 /**
  * Loads the modules of a domain's lazy task forms before the specs of a file run, so a
  * cold load counts against the hook timeout and not the first spec that renders a form.
@@ -553,7 +556,7 @@ export const preloadForms = (forms: Forms): void =>
     const { unmount } = await renderLazy(
       <>
         {Object.entries(forms).map(([type, Form]) => (
-          <Errors.Boundary key={type}>
+          <Errors.Boundary key={type} FallbackComponent={NoFallback}>
             <Form taskKey="" />
           </Errors.Boundary>
         ))}
