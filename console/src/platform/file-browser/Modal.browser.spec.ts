@@ -228,6 +228,28 @@ describe("FileBrowser.useModal", () => {
       expect(served.paths).not.toContain("/b");
     });
 
+    it("should not list a folder that failed again in the background", async () => {
+      const etc = createListing({
+        ...ETC,
+        entries: [...ETC.entries, dir("/etc/pki", "pki")],
+      });
+      const { served } = await openBrowser([
+        TOP,
+        ROOT,
+        etc,
+        createListing({ path: "/etc/pki", parent: "/etc" }),
+      ]);
+      await openEtc();
+      await openFolder("ssl");
+      fireEvent.click(await screen.findByRole("button", { name: "Go back" }));
+      served.hold();
+      fireEvent.mouseEnter(await findEntry("ssl"));
+      fireEvent.mouseEnter(await findEntry("pki"));
+      await waitFor(() => expect(served.paths).toContain("/etc/pki"));
+      await served.release();
+      expect(served.paths.filter((p) => p === "/etc/ssl")).toHaveLength(1);
+    });
+
     it("should list a selected folder before it opens", async () => {
       const { served } = await openBrowser(LISTINGS);
       await openFolder("/");
@@ -310,6 +332,18 @@ describe("FileBrowser.useModal", () => {
       const path = screen.getByLabelText("Path");
       fireEvent.click(within(path).getByRole("button", { name: "etc" }));
       expect(await findEntry("hosts")).toBeDefined();
+    });
+
+    it("should keep the selection when the open folder opens again", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.click(await findEntry("hosts"));
+      await findEntry("hosts", true);
+      const path = screen.getByLabelText("Path");
+      fireEvent.click(within(path).getByRole("button", { name: "etc" }));
+      expect(
+        screen.getByRole("option", { name: /^hosts/, selected: true }),
+      ).toBeDefined();
     });
 
     it("should select a folder on a single click and not open it", async () => {
@@ -406,6 +440,269 @@ describe("FileBrowser.useModal", () => {
       fireEvent.keyDown(findFiles(), { key: forward, ...mod });
       expect(await findEntry("etc")).toBeDefined();
       expect(screen.queryByRole("option", { name: /^hosts/ })).toBeNull();
+    });
+  });
+
+  describe("path field", () => {
+    const openField = (): HTMLElement => {
+      fireEvent.click(screen.getByRole("group", { name: "Path" }));
+      return screen.getByRole("textbox", { name: "Path" });
+    };
+
+    const submit = (field: HTMLElement, text: string): void => {
+      fireEvent.change(field, { target: { value: text } });
+      fireEvent.keyDown(field, { key: "Enter" });
+    };
+
+    it("should open a typed folder", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      submit(openField(), "/etc");
+      expect(await findEntry("hosts")).toBeDefined();
+    });
+
+    it("should list the places that failed again when a typed folder opens", async () => {
+      const listings = [ROOT, ETC];
+      await openBrowser(listings);
+      await screen.findByText("Failed to list files");
+      listings.push(TOP);
+      submit(openField(), "/etc");
+      expect(await screen.findByText("Secrets folder")).toBeDefined();
+    });
+
+    it("should open the folder of a typed file with the file selected", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      submit(openField(), "/etc/client.crt");
+      expect(await findEntry("client.crt", true)).toBeDefined();
+    });
+
+    it("should read a leading ~ as the home folder", async () => {
+      const top = createListing({
+        secretsDir: SECRETS_DIR,
+        entries: [...TOP.entries, { name: "op", path: "/home/op", kind: "directory" }],
+      });
+      const home = createListing({ path: "/home/op", parent: "/home" });
+      const certs = createListing({
+        path: "/home/op/certs",
+        parent: "/home/op",
+        entries: [{ name: "a.crt", path: "/home/op/certs/a.crt", kind: "file" }],
+      });
+      await openBrowser([top, home, certs]);
+      await screen.findByText("This folder is empty");
+      submit(openField(), "~/certs");
+      expect(await findEntry("a.crt")).toBeDefined();
+    });
+
+    it("should suggest folders and complete one on Tab", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/e" } });
+      await screen.findByRole("option", { name: "etc/" });
+      fireEvent.keyDown(field, { key: "Tab" });
+      expect(field).toHaveProperty("value", "/etc/");
+    });
+
+    it("should suggest a hidden folder only after a typed dot", async () => {
+      const root = createListing({
+        path: "/",
+        entries: [
+          ...ROOT.entries,
+          { name: ".cache", path: "/.cache", kind: "directory" },
+        ],
+      });
+      await openBrowser([TOP, root, ETC]);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/" } });
+      await screen.findByRole("option", { name: "etc/" });
+      expect(screen.queryByRole("option", { name: ".cache/" })).toBeNull();
+      fireEvent.change(field, { target: { value: "/." } });
+      expect(await screen.findByRole("option", { name: ".cache/" })).toBeDefined();
+    });
+
+    it("should close the field on Escape and keep the dialog open", async () => {
+      const { result } = await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      fireEvent.keyDown(openField(), { key: "Escape" });
+      expect(screen.queryByRole("textbox", { name: "Path" })).toBeNull();
+      fireEvent.click(findButton("Cancel"));
+      await expect(result()).resolves.toBeNull();
+    });
+
+    it("should open the field with a / typed in the list", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "/" });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/",
+      );
+    });
+
+    it("should open the field with a / typed in an empty folder", async () => {
+      await openBrowser([TOP, createListing({ path: "/" })]);
+      await openFolder("/");
+      fireEvent.keyDown(await screen.findByText("This folder is empty"), { key: "/" });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/",
+      );
+    });
+
+    it("should open the field with the open folder on Ctrl+L", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/etc/",
+      );
+    });
+
+    it("should highlight the last suggestion on ArrowUp and open it on Enter", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/etc/" } });
+      await screen.findByRole("option", { name: "hosts" });
+      fireEvent.keyDown(field, { key: "ArrowUp" });
+      expect(
+        screen.getByRole("option", { name: "hosts", selected: true }),
+      ).toBeDefined();
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("hosts", true)).toBeDefined();
+    });
+
+    it("should complete the prefix that all matches share on Tab", async () => {
+      const certs = createListing({
+        path: "/certs",
+        entries: ["client-a.crt", "client-b.crt"].map((name) => ({
+          name,
+          path: `/certs/${name}`,
+          kind: "file" as const,
+        })),
+      });
+      await openBrowser([...LISTINGS, certs]);
+      await findEntry("secrets");
+      const field = openField();
+      fireEvent.change(field, { target: { value: "/certs/c" } });
+      await screen.findByRole("option", { name: "client-a.crt" });
+      fireEvent.keyDown(field, { key: "Tab" });
+      expect(field).toHaveProperty("value", "/certs/client-");
+    });
+
+    it("should open the folder of a file suggestion picked with the mouse", async () => {
+      await openBrowser(LISTINGS);
+      await findEntry("secrets");
+      fireEvent.change(openField(), { target: { value: "/etc/cl" } });
+      fireEvent.mouseDown(await screen.findByRole("option", { name: "client.crt" }));
+      expect(await findEntry("client.crt", true)).toBeDefined();
+    });
+
+    it("should read a typed Windows path in the Driver's form", async () => {
+      await openBrowser([
+        createListing({ entries: [dir("C:\\", "C:\\")] }),
+        createListing({
+          path: "C:\\certs",
+          entries: [{ name: "a.crt", path: "C:\\certs\\a.crt", kind: "file" }],
+        }),
+      ]);
+      await findEntry("C:");
+      submit(openField(), "C:/certs/../certs//a.crt");
+      expect(await findEntry("a.crt", true)).toBeDefined();
+    });
+
+    it("should not open a typed path that resolves after a later navigation", async () => {
+      const { served } = await openBrowser([...LISTINGS, SECRETS]);
+      await findEntry("secrets");
+      served.hold();
+      submit(openField(), "/etc/client.crt");
+      expect(await screen.findByRole("progressbar")).toBeDefined();
+      fireEvent.click(screen.getByRole("button", { name: "Secrets folder" }));
+      await served.release();
+      expect(await findEntry("ca.crt")).toBeDefined();
+      await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
+      expect(screen.queryByRole("option", { name: /^client\.crt/ })).toBeNull();
+    });
+
+    it("should open the field with the open folder on Ctrl+Shift+G", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "G", ctrlKey: true, shiftKey: true });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "/etc/",
+      );
+    });
+
+    it("should open a typed Windows file in another case", async () => {
+      const file = (name: string): FileBrowser.Entry => ({
+        name,
+        path: `C:\\certs\\${name}`,
+        kind: "file",
+      });
+      await openBrowser(
+        [createListing({ path: "C:\\certs", entries: [file("a.crt"), file("b.crt")] })],
+        "C:\\certs\\b.crt",
+      );
+      await findEntry("b.crt", true);
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "C:\\certs\\A.CRT" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("a.crt", true)).toBeDefined();
+    });
+
+    it("should open a typed file that came after its folder listed", async () => {
+      const listings = [...LISTINGS];
+      await openBrowser(listings);
+      await openEtc();
+      const added: FileBrowser.Entry = {
+        name: "new.crt",
+        path: "/etc/new.crt",
+        kind: "file",
+      };
+      listings[2] = { ...ETC, entries: [...ETC.entries, added] };
+      fireEvent.keyDown(findFiles(), { key: "l", ctrlKey: true });
+      const field = screen.getByRole("textbox", { name: "Path" });
+      fireEvent.change(field, { target: { value: "/etc/new.crt" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await findEntry("new.crt", true)).toBeDefined();
+    });
+
+    it.each([
+      ["", {}],
+      [" with AltGr", { ctrlKey: true, altKey: true, modifierAltGraph: true }],
+    ])("should open the field with a ~ typed in the list%s", async (_, mods) => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "~", ...mods });
+      expect(screen.getByRole("textbox", { name: "Path" })).toHaveProperty(
+        "value",
+        "~",
+      );
+    });
+
+    it("should select the entry that starts with letters typed in a row", async () => {
+      await openBrowser([
+        TOP,
+        createListing({ path: "/", entries: [dir("/sa", "sa"), dir("/sb", "sb")] }),
+      ]);
+      await openFolder("/");
+      await findEntry("sb");
+      fireEvent.keyDown(findFiles(), { key: "s" });
+      await findEntry("sa", true);
+      fireEvent.keyDown(findFiles(), { key: "b" });
+      expect(await findEntry("sb", true)).toBeDefined();
+    });
+
+    it("should select the first entry that starts with a typed letter", async () => {
+      await openBrowser(LISTINGS);
+      await openEtc();
+      fireEvent.keyDown(findFiles(), { key: "h" });
+      expect(await findEntry("hosts", true)).toBeDefined();
     });
   });
 

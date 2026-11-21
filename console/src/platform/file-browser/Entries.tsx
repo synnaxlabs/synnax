@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { certificate, TimeStamp } from "@synnaxlabs/client";
+import { type certificate, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -18,6 +19,7 @@ import {
   type ComponentPropsWithRef,
   type KeyboardEvent,
   type ReactElement,
+  type Ref,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -284,30 +286,48 @@ export interface EntriesProps extends Pick<
   /** The folder of the entries. Each new folder scrolls to its selected entry. */
   folder: string | null;
   selected: string | null;
+  ref?: Ref<HTMLDivElement>;
+  /** Selects the entry with the path. */
+  onSelect: (path: string) => void;
   /** Opens the parent folder on Backspace. */
   onUp: () => void;
   /** Called with the sideways offset of the entries when they mount or scroll. */
   onScrollX: (left: number) => void;
 }
 
+/** @returns whether Ctrl, Cmd, or Alt makes the key a shortcut, not a character. */
+export const isShortcut = (e: KeyboardEvent<HTMLElement>): boolean =>
+  // AltGr reports Ctrl and Alt on Windows, and still types a character.
+  (e.ctrlKey || e.metaKey || e.altKey) && !e.getModifierState("AltGraph");
+
+// A pause this long starts a new name for the keys typed to jump to an entry.
+const TYPE_AHEAD_RESET = TimeSpan.milliseconds(900);
+
 /**
- * The entries of a folder. Enter double-clicks the selected entry. A state that takes
- * the place of the list keeps the focus in its holder, so keys still reach the dialog.
+ * The entries of a folder. Enter double-clicks the selected entry, and typed letters
+ * select the first entry whose name starts with them. A state that takes the place of
+ * the list keeps the focus in its holder, so keys still reach the dialog.
  */
 export const Entries = ({
   folder,
   selected,
+  ref: propsRef,
+  onSelect,
   onUp,
   onScrollX,
   ...rest
 }: EntriesProps): ReactElement => {
   const keyboard = Select.useKeyboard();
-  const { getData, scrollToIndex } = List.useUtilContext<string>();
+  const { getData, getItem, scrollToIndex } = List.useUtilContext<string, KeyedEntry>();
+  // A new folder opens at its top. The selected entry, if any, then scrolls into view.
+  useEffect(() => scrollToIndex(0), [folder]);
   useEffect(() => {
     const index = selected == null ? -1 : getData().indexOf(selected);
-    scrollToIndex(Math.max(index, 0));
-  }, [folder]);
+    if (index >= 0) scrollToIndex(index);
+  }, [folder, selected]);
   const ref = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(ref, propsRef);
+  const typed = useRef({ text: "", at: TimeStamp.ZERO });
   useLayoutEffect(() => {
     const el = ref.current;
     const holder = el?.parentElement;
@@ -317,17 +337,33 @@ export const Entries = ({
     };
   }, []);
   useLayoutEffect(() => onScrollX(ref.current?.scrollLeft ?? 0), [onScrollX]);
-  const handleKeyDown = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === "Backspace" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  const typeAhead = (key: string): void => {
+    const now = TimeStamp.now();
+    const t = typed.current;
+    t.text = t.at.span(now).greaterThan(TYPE_AHEAD_RESET) ? key : `${t.text}${key}`;
+    t.at = now;
+    const name = t.text.toLowerCase();
+    const keys = getData();
+    const i = keys.findIndex(
+      (k) => getItem?.(k)?.name.toLowerCase().startsWith(name) === true,
+    );
+    if (i < 0) return;
+    onSelect(keys[i]);
+    scrollToIndex(i);
+  };
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    if (isShortcut(e)) keyboard.onKeyDown(e);
+    else if (e.key === "Backspace") {
       e.preventDefault();
       onUp();
-      return;
-    }
-    keyboard.onKeyDown(e);
+    } else if (e.key.length === 1 && e.key !== " ") {
+      e.preventDefault();
+      typeAhead(e.key);
+    } else keyboard.onKeyDown(e);
   };
   return (
     <List.Scroll
-      ref={ref}
+      ref={combinedRef}
       role="listbox"
       aria-label="Files"
       tabIndex={0}

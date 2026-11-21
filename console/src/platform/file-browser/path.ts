@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /** @returns the separator of a path on the Driver: a backslash for a Windows path. */
-const separatorOf = (path: string): string =>
+export const separatorOf = (path: string): string =>
   path.includes("\\") && !path.includes("/") ? "\\" : "/";
 
 /**
@@ -63,6 +63,16 @@ export const dirnameOf = (path: string): string => {
   const names = rest.split(root === "/" ? "/" : /[\\/]/).slice(0, -1);
   return join(root, names.filter(Boolean));
 };
+
+/** @returns the path with one separator at its end, as a folder is typed. */
+export const withSeparator = (path: string): string => {
+  const sep = separatorOf(path);
+  return path.endsWith(sep) ? path : `${path}${sep}`;
+};
+
+/** @returns the text with a leading ~ replaced by the home folder, once it is known. */
+export const expandHome = (text: string, home: string | undefined): string =>
+  home != null && text.startsWith("~") ? `${home}${text.slice(1)}` : text;
 
 /** @returns whether the path is the folder or inside it. */
 export const inside = (path: string, folder: string): boolean => {
