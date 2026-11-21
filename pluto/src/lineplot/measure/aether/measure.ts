@@ -137,8 +137,8 @@ const TIME_FORMAT_THRESHOLD = TimeSpan.milliseconds(10);
 export interface MeasureProps {
   findByXDecimal: (target: number) => FindResult[];
   findByXValue: (target: number) => FindResult[];
-  /** @returns true when a closed break lies between the x values a and b. */
-  closedBetween: (a: number, b: number) => boolean;
+  /** @returns true when a closed break lies between the points one and two. */
+  closedBetween: (one: FindResult, two: FindResult) => boolean;
   region: box.Box;
 }
 
@@ -594,7 +594,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     });
 
     // No line joins data across a closed break, so neither does the oblique line.
-    const broken = props.closedBetween(oneValue.value.x, twoValue.value.x);
+    const broken = props.closedBetween(oneValue, twoValue);
     if (!broken)
       draw.line({
         start: xy.construct(onePos.x, onePos.y),

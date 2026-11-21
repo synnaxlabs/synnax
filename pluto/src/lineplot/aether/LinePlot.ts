@@ -248,7 +248,12 @@ export class LinePlot
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
-      closedBetween: (a, b) => x1?.closedBetween(a, b) ?? false,
+      // Only the lines of x1 break.
+      closedBetween: (a, b) =>
+        x1 != null &&
+        x1.hasSpan(a.key) &&
+        x1.hasSpan(b.key) &&
+        x1.closedBetween(a.value.x, b.value.x),
       region,
     };
     this.measures.forEach((m) => m.render(p));

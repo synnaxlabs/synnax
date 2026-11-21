@@ -139,6 +139,11 @@ export class Layout {
     this.positionLowers = this.positions.map((b) => b.lower);
   }
 
+  /** @returns whether the layout gives the line of key a span. */
+  hasSpan(key: string): boolean {
+    return this.spans.has(key);
+  }
+
   /**
    * @returns the span of values that the line of key reads and draws. A line with no
    * span spans every value.
