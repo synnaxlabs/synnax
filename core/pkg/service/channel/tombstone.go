@@ -157,8 +157,8 @@ func (w Writer) takeLists(ctx context.Context, channels []Channel) error {
 }
 
 // heal gives each of channels, which are written, that takes the path of a tombstone
-// the list of that tombstone, moves the links that hold the dead key and that
-// Retargets accepts onto it, and deletes the tombstone.
+// the list of that tombstone, moves the links that hold the dead key and that Retargets
+// accepts onto it, and deletes the tombstone.
 func (w Writer) heal(ctx context.Context, channels ...Channel) error {
 	var to map[Key]Key
 	for _, c := range channels {

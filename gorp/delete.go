@@ -84,8 +84,7 @@ func (d Delete[K, E]) Planned(effects DeleteEffects) Delete[K, E] {
 
 // Held makes the delete call f with each entry that it removes from the table, and with
 // the Weak holders of each, before it changes anything in the transaction. An error
-// from f fails the delete, and so does f on a Delete that no
-// Table built.
+// from f fails the delete, and so does f on a Delete that no Table built.
 func (d Delete[K, E]) Held(f HeldFunc[K, E]) Delete[K, E] {
 	d.held = f
 	return d
