@@ -28,6 +28,7 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -264,20 +265,20 @@ func fillPaths(
 	if err != nil {
 		return err
 	}
-	allowed := make(map[group.Key]bool)
-	allowedOf := func(g group.Group) bool {
-		ok, read := allowed[g.Key]
-		if !read {
-			ok = snap.Allowed(g.ResourceID())
-			allowed[g.Key] = ok
+	// Each folder is checked once, though many paths pass it.
+	checked, allowed := make(set.Set[group.Key]), make(set.Set[group.Key])
+	visible := func(g group.Group) bool {
+		if !checked.Contains(g.Key) {
+			checked.Add(g.Key)
+			if snap.Allowed(g.ResourceID()) {
+				allowed.Add(g.Key)
+			}
 		}
-		return ok
+		return allowed.Contains(g.Key)
 	}
-	// One array backs the path of every channel.
-	text := make([]string, len(paths))
+	text := channel.PathTexts(paths)
 	for i, p := range paths {
-		if lo.EveryBy(p.Folders, allowedOf) {
-			text[i] = p.String()
+		if lo.EveryBy(p.Folders, visible) {
 			channels[i].Path = &text[i]
 		}
 	}

@@ -14,10 +14,12 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -48,15 +50,45 @@ func BenchmarkPathFill(b *testing.B) {
 		}
 	}()
 	retrieve := benchRetrieve(b, node.DB, layer)
+	subject, keys := createPathChannels(b, node.DB, layer)
+	run := func(b *testing.B, path bool) {
+		b.Helper()
+		b.ReportAllocs()
+		for range b.N {
+			res, err := retrieve(subject, apichannel.RetrieveRequest{
+				Where:       &channel.Where{Key: &filter.Set[channel.Key]{In: keys}},
+				IncludePath: path,
+			})
+			if err != nil {
+				b.Fatalf("failed to retrieve: %v", err)
+			}
+			if len(res.Channels) != len(keys) || path && res.Channels[0].Path == nil {
+				b.Fatalf("expected %d channels with paths", len(keys))
+			}
+		}
+	}
+	b.Run("page", func(b *testing.B) { run(b, false) })
+	b.Run("page_path", func(b *testing.B) { run(b, true) })
+}
+
+// createPathChannels creates 100 channels in 10 folders two levels down, and a subject
+// that can retrieve channels and groups. It returns the subject and the keys.
+func createPathChannels(
+	b *testing.B,
+	db *gorp.DB,
+	layer *service.Layer,
+) (freighter.Context, channel.Keys) {
+	b.Helper()
+	ctx := b.Context()
 	u, err := rbactestutil.CreateUser(
-		ctx, node.DB, layer.RBAC, layer.User, user.User{Name: "bench_paths"},
+		ctx, db, layer.RBAC, layer.User, user.User{Name: "bench_paths"},
 	)
 	if err != nil {
 		b.Fatalf("failed to create the user: %v", err)
 	}
 	if _, err = rbactestutil.Grant(
 		ctx,
-		node.DB,
+		db,
 		layer.RBAC,
 		layer.User,
 		u.Key,
@@ -68,7 +100,7 @@ func BenchmarkPathFill(b *testing.B) {
 	}
 	subject := AuthedCtx(ctx, u)
 	channels := make([]channel.Channel, 0, 100)
-	if err = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = db.WithTx(ctx, func(tx gorp.Tx) error {
 		top := group.Group{Name: "bench_paths", Scope: resource.TypeChannel}
 		if err := layer.Group.NewWriter(tx).Create(ctx, &top); err != nil {
 			return err
@@ -95,23 +127,5 @@ func BenchmarkPathFill(b *testing.B) {
 	}); err != nil {
 		b.Fatalf("failed to create the channels: %v", err)
 	}
-	keys := channel.KeysFromChannels(channels)
-	run := func(b *testing.B, path bool) {
-		b.Helper()
-		b.ReportAllocs()
-		for range b.N {
-			res, err := retrieve(subject, apichannel.RetrieveRequest{
-				Where:       &channel.Where{Key: &filter.Set[channel.Key]{In: keys}},
-				IncludePath: path,
-			})
-			if err != nil {
-				b.Fatalf("failed to retrieve: %v", err)
-			}
-			if len(res.Channels) != len(keys) || path && res.Channels[0].Path == nil {
-				b.Fatalf("expected %d channels with paths", len(keys))
-			}
-		}
-	}
-	b.Run("page", func(b *testing.B) { run(b, false) })
-	b.Run("page_path", func(b *testing.B) { run(b, true) })
+	return subject, channel.KeysFromChannels(channels)
 }

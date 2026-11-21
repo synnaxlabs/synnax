@@ -11,6 +11,7 @@ package group
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
@@ -74,8 +75,7 @@ func Paths(ctx context.Context, snap gorp.Snapshot, keys ...Key) (map[Key]Path, 
 		}
 		var p Path
 		if parent, ok := parents[key]; ok {
-			above := pathOf(parent)
-			p = append(above[:len(above):len(above)], groups[key])
+			p = slices.Concat(pathOf(parent), Path{groups[key]})
 		} else {
 			p = Path{groups[key]}
 		}

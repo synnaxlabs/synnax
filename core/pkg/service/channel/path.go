@@ -132,6 +132,28 @@ type Path struct {
 // validate.PathSeparator.
 func (p Path) String() string { return p.prefix + p.Name }
 
+// PathTexts returns the text of each of paths, as Path.String does. The texts share one
+// allocation.
+func PathTexts(paths []Path) []string {
+	n := 0
+	for _, p := range paths {
+		n += len(p.prefix) + len(p.Name)
+	}
+	var b strings.Builder
+	b.Grow(n)
+	for _, p := range paths {
+		b.WriteString(p.prefix)
+		b.WriteString(p.Name)
+	}
+	all, at := b.String(), 0
+	texts := make([]string, len(paths))
+	for i, p := range paths {
+		end := at + len(p.prefix) + len(p.Name)
+		texts[i], at = all[at:end], end
+	}
+	return texts
+}
+
 // Paths returns the path of each of channels, as seen by snap. Channels in one folder
 // share its folders and the text of their names.
 func Paths(
