@@ -109,6 +109,32 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, &m)).To(MatchError(validate.ErrValidation))
 		})
 
+		It("Should give an existing status the name of a replaced master", func(
+			ctx SpecContext,
+		) {
+			m := create(ctx)
+			running := statusOf(ctx, m)
+			running.Variant = status.VariantSuccess
+			running.Message = "Running"
+			Expect(stat.NewWriter(tx).Set(ctx, &running)).To(Succeed())
+			m.Name = "Replaced"
+			Expect(w.Create(ctx, &m)).To(Succeed())
+			s := statusOf(ctx, m)
+			Expect(s.Message).To(Equal("Running"))
+			Expect(s.Name).To(Equal("Replaced"))
+			Expect(s.Details.Rack).To(Equal(m.Rack))
+		})
+
+		It("Should reject a bus order that repeats a slave", func(ctx SpecContext) {
+			m := newMaster()
+			k := uuid.New()
+			m.Slaves = []uuid.UUID{k, k}
+			Expect(w.Create(ctx, &m)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("slaves: must not repeat a key")),
+			))
+		})
+
 		It("Should refuse a master on a rack that does not exist", func(
 			ctx SpecContext,
 		) {
@@ -126,6 +152,31 @@ var _ = Describe("Writer", func() {
 				return m, nil
 			})).To(Succeed())
 			Expect(statusOf(ctx, m).Name).To(Equal("Renamed"))
+		})
+
+		It("Should move the status with the rack", func(ctx SpecContext) {
+			m := create(ctx)
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			Expect(w.Update(ctx, m.Key, func(m master.Master) (master.Master, error) {
+				m.Rack = other.Key
+				return m, nil
+			})).To(Succeed())
+			Expect(statusOf(ctx, m).Details.Rack).To(Equal(other.Key))
+		})
+
+		It("Should write an unknown status when the status is missing", func(
+			ctx SpecContext,
+		) {
+			m := create(ctx)
+			Expect(stat.NewWriter(tx).DeleteOwned(ctx, m.ResourceID())).To(Succeed())
+			Expect(w.Update(ctx, m.Key, func(m master.Master) (master.Master, error) {
+				m.Name = "Renamed"
+				return m, nil
+			})).To(Succeed())
+			s := statusOf(ctx, m)
+			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(s.Name).To(Equal("Renamed"))
 		})
 
 		It("Should return the error change returns", func(ctx SpecContext) {
@@ -176,6 +227,19 @@ var _ = Describe("Writer", func() {
 			got := retrieve(ctx, m.Key)
 			Expect(got.Name).To(Equal("Bench bus"))
 			Expect(got.Interface).To(Equal(m.Interface))
+		})
+
+		It("Should reject a bus order that repeats a slave", func(ctx SpecContext) {
+			m := create(ctx)
+			k := uuid.New()
+			Expect(w.Apply(ctx, m.Key, master.Update{Variant: master.IdentityUpdate{
+				Identity: master.Identity{
+					Rack:      m.Rack,
+					Interface: m.Interface,
+					Slaves:    []uuid.UUID{k, uuid.New(), k},
+				},
+			}})).To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx, m.Key).Slaves).To(BeEmpty())
 		})
 
 		It("Should reject an identity without an interface", func(ctx SpecContext) {
