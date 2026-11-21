@@ -76,7 +76,7 @@ func (n *node) wrote(s Span) {
 func (d *disk) sync(n *node, p string) {
 	if len(n.dirty) > 0 {
 		file, nth := hashPath(p), d.next(drawSync, p, 0)
-		if d.draw(drawSync, file, nth) < d.cfg.SyncErrorRate {
+		if d.syncFails(file, nth) {
 			d.drop(n, file, nth)
 			n.syncErrors++
 			return
@@ -125,6 +125,14 @@ func (n *node) writtenIn(changed blocks, size int64) []Span {
 	return out
 }
 
+// syncFails counts a Sync or SyncDir with changes of the file at the hash file, and
+// reports if it fails: at SyncErrorAt, or by a draw.
+func (d *disk) syncFails(file, nth uint64) bool {
+	d.syncs++
+	return d.syncs == d.cfg.SyncErrorAt ||
+		d.draw(drawSync, file, nth) < d.cfg.SyncErrorRate
+}
+
 // drop loses the dirty blocks of the file n, as a failed Sync does. Each block keeps
 // its new bytes for a read, or at the eviction rate goes back to its durable bytes. The
 // written ranges stay: a later Sync of their block makes them durable.
@@ -171,7 +179,7 @@ func (d *disk) syncDir(n *node, p string) error {
 		return nil
 	}
 	nth := d.next(drawSync, p, 0)
-	if d.draw(drawSync, hashPath(p), nth) < d.cfg.SyncErrorRate {
+	if d.syncFails(hashPath(p), nth) {
 		return pathError("sync", p, syscall.EIO)
 	}
 	kept := d.pending[:0]
