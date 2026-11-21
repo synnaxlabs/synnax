@@ -192,11 +192,10 @@ plot with no breaks keeps today's axis.
 - Each open break is the time of its gap's lower edge, so a segment that loads late does
   not open another gap. An open break whose gap merges away has no effect, and the next
   change to the breaks drops it.
-- Open breaks are window state. The Console saves the viewport
-  (`console/src/session/lineplot/slice.ts:20`) as the plot shows it. A restart starts
-  with every break closed, so a view saved with a break open can show other times. The
-  conversion to closed coordinates is not worth its code for a view that the next reset
-  replaces.
+- The Console saves the viewport (`console/src/session/lineplot/slice.ts:20`) as the
+  plot shows it, so it saves the open breaks next to it. Each change stores the open
+  breaks, the viewport, and the selection in one action, and a plot mounts with the open
+  breaks it saved. A reload then shows the same times.
 - A toggle in the plot controls hides and shows the breaks. Hidden breaks lay out the
   plot in true time as one segment, which shows a range that sits inside a gap. The
   toggle resets the zoom, and it shows while the plot has breaks or hides them.
@@ -237,25 +236,27 @@ with older ones, the user switches to relative mode.
 
 ### 4.9 Export
 
-The plot export reads only the time the plot shows with every break closed: each range,
-and the time between ranges inside one segment. It never reads a gap. Open breaks are
-window state that the toolbar export cannot see; to export the time in an open break,
-the user selects it. While the breaks are hidden, the export reads one span from the
-first range to the last. The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059
-§4.0) takes a list of spans. The Core merges the spans that overlap or touch, so each
-sample reads once, and writes one file with one header and the samples in time order.
-Latest, Earliest, and a limit reduction take one span after the merge, and the Core
-rejects them over more. A stride keeps the samples that each span keeps when read alone.
-A shipped client that sends one `bounds` reads as before. The dialog shows one span as
-today, and lists several spans with no edit. To export another span, the user makes a
-selection. The multi-range export of the range menu uses the same list.
+The plot export reads only the time the plot shows: each range, the time between ranges
+inside one segment, and each open gap. It never reads a closed gap. It reads the open
+breaks from the Session, as the plot does. While the breaks are hidden, the export reads
+one span from the first range to the last. The read request
+(`core/pkg/api/framer/framer.go:184`, RFC 0059 §4.0) takes a list of spans. The Core
+merges the spans that overlap or touch, so each sample reads once, and writes one file
+with one header and the samples in time order. Latest, Earliest, and a limit reduction
+take one span after the merge, and the Core rejects them over more. A stride keeps the
+samples that each span keeps when read alone. A shipped client that sends one `bounds`
+reads as before. The dialog shows one span as today, and lists several spans with no
+edit. To export another span, the user makes a selection. The multi-range export of the
+range menu uses the same list.
 
 ### 4.10 Stored state
 
-No stored shape on the Core changes. Open breaks are window state in Pluto and never
-enter the Session store. The Session state of a plot gains `breaks.hidden`, which
-defaults to false. The Console parses stored Session state through its schema on load
-(`console/src/session/store.ts:62`), so a saved Session loads with the breaks shown.
+No stored shape on the Core changes. The Session state of a plot gains `breaks.open`,
+the lower edges of its open gaps, and `breaks.hidden`. They default to none and to
+false. The viewport and the selection hold the times of the layout with those breaks
+open. The Console parses stored Session state through its schema on load
+(`console/src/session/store.ts:62`), so a saved Session loads with every break closed
+and shown.
 
 ## 5 Implementation phases
 
@@ -277,7 +278,8 @@ interaction, and the release.
   draws with its offset, inside a scissor that nests. Ticks per segment with anchor
   labels, the band and its `//`, and cut bars in the range strip.
 - **Phase 5: Open and close breaks.** Open and close by click and by menu, with the
-  view, the held boxes, and the selection mapped through time.
+  view, the held boxes, and the selection mapped through time. The Session stores the
+  open breaks.
 - **Phase 6: Work across breaks.** The tooltip over a band, the measure across a break,
   and a selection that stops at a closed break.
 - **Phase 7: Export the shown spans.** The plot export reads only the shown spans.
@@ -292,17 +294,17 @@ a new feature. Console phases add their rules to `docs/claude/ux.md`. Phases 2 t
 change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`, and phase
 3 bounds its relative traces.
 
-| Phase | Scope                                              | Touches                                                                                                              | Depends on |
-| ----- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`              | -          |
-| 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                    | -          |
-| 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`     | 2          |
-| 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags` | 3          |
-| 5     | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                   | 4          |
-| 6     | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                           | 5          |
-| 7     | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                          | 1, 6       |
-| 8     | Ship line plot breaks in Desktop with a toggle     | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 7          |
-| 9     | Release line plot breaks to the Console            | `console/src/flags`, `console/src/feature/lineplot`                                                                  | 8          |
+| Phase | Scope                                              | Touches                                                                                                                            | Depends on |
+| ----- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`                            | -          |
+| 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                                  | -          |
+| 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`                   | 2          |
+| 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags`               | 3          |
+| 5     | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`, `console/src/session/lineplot` | 4          |
+| 6     | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                                         | 5          |
+| 7     | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                                        | 1, 6       |
+| 8     | Ship line plot breaks in Desktop with a toggle     | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`                | 7          |
+| 9     | Release line plot breaks to the Console            | `console/src/flags`, `console/src/feature/lineplot`                                                                                | 8          |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
