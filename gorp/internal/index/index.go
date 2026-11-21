@@ -91,13 +91,53 @@ type delta[K, V comparable] struct {
 	// so a batch of staged keys allocates a few arrays instead of slices per key.
 	arena []V
 	keys  []K
+	// fresh holds the keys staged with no value that held nothing before, and gone the
+	// keys in none that the scope deleted. Neither needs an entry in state. Only Multi
+	// stages them.
+	fresh, gone set.Set[K]
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
 	return &delta[K, V]{state: make(map[K]staged[V])}
 }
 
-func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
+func (d *delta[K, V]) isEmpty() bool {
+	return len(d.state) == 0 && len(d.fresh) == 0 && len(d.gone) == 0
+}
+
+// reset empties d for the next scope.
+func (d *delta[K, V]) reset() {
+	if d.state = emptied(d.state); d.state == nil {
+		d.state = make(map[K]staged[V])
+	}
+	d.forward = emptied(d.forward)
+	d.fresh = emptied(d.fresh)
+	d.gone = emptied(d.gone)
+	d.arena = truncated(d.arena)
+	d.keys = truncated(d.keys)
+}
+
+// retained is the most entries that an emptied map keeps room for.
+const retained = 1024
+
+// truncated returns s with no elements, or nil when s grew past retained.
+func truncated[T any](s []T) []T {
+	if cap(s) > retained {
+		return nil
+	}
+	clear(s)
+	return s[:0]
+}
+
+// emptied returns m with no entries, or nil when m grew past retained, so that one
+// large transaction does not hold its memory.
+func emptied[M ~map[K]V, K comparable, V any](m M) M {
+	if len(m) > retained {
+		return nil
+	}
+	clear(m)
+	return m
+}
 
 // set stages values for key. The delta owns values from then on.
 func (d *delta[K, V]) set(key K, values []V) {
@@ -182,6 +222,12 @@ func (d *delta[K, V]) applyHolding(keys set.Set[K], holding bool) {
 			keys.Remove(k)
 		}
 	}
+	if !holding {
+		maps.Copy(keys, d.fresh)
+	}
+	for k := range d.gone {
+		keys.Remove(k)
+	}
 }
 
 // anyOfSetSize is the number of values past which AnyOf builds a set. A scan of a few
@@ -199,41 +245,58 @@ func AnyOf[V comparable](values []V) func(V) bool {
 }
 
 // changes is the set of changes that one scope has staged against an index.
-type changes interface{ isEmpty() bool }
-
-// overlay holds the changes of every scope that has staged changes against an index.
-type overlay[S Scope, D changes] struct {
-	// mu guards deltas.
-	mu     sync.RWMutex
-	deltas map[S]D
-	// create returns an empty set of changes.
-	create func() D
-	// flush applies the changes of a committed scope to committed state.
-	flush func(D)
+type changes interface {
+	isEmpty() bool
+	reset()
 }
 
-// load returns the changes of scope, creating them on first use. New changes register
-// a cleanup on scope that flushes them if scope committed, and then drops them.
+// overlay holds the changes that the writing scope has staged against an index. The DB
+// lets one transaction write at a time, and ends it before the next writes, so one set
+// of changes serves every scope.
+type overlay[S Scope, D changes] struct {
+	// mu guards scope, and d against the reads of committing.
+	mu sync.RWMutex
+	// scope is the scope that staged d, or the zero S when no scope has staged since
+	// the last one ended.
+	scope S
+	d     D
+	// flush applies the changes of a committed scope to committed state.
+	flush func(D)
+	// end is finish, bound once so that registering it allocates nothing.
+	end func(committed bool)
+}
+
+// init gives o the empty changes d, and flush to apply them.
+func (o *overlay[S, D]) init(d D, flush func(D)) {
+	o.d, o.flush, o.end = d, flush, o.finish
+}
+
+// load returns the changes of scope. The first load of a scope registers a cleanup on
+// scope that flushes the changes if scope committed, and then empties them. It panics
+// when another scope staged changes and has not ended.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if d, ok := o.deltas[scope]; ok {
-		return d
-	}
-	if o.deltas == nil {
-		o.deltas = make(map[S]D)
-	}
-	d := o.create()
-	o.deltas[scope] = d
-	scope.OnCleanup(func(committed bool) {
-		if committed && !d.isEmpty() {
-			o.flush(d)
+	if o.scope != scope {
+		if !isNone(o.scope) {
+			panic("[index] - a scope staged changes while another was open")
 		}
-		o.mu.Lock()
-		delete(o.deltas, scope)
-		o.mu.Unlock()
-	})
-	return d
+		o.scope = scope
+		scope.OnCleanup(o.end)
+	}
+	return o.d
+}
+
+// finish flushes the changes when their scope committed, and then empties them.
+func (o *overlay[S, D]) finish(committed bool) {
+	if committed && !o.d.isEmpty() {
+		o.flush(o.d)
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.d.reset()
+	var none S
+	o.scope = none
 }
 
 // get returns the changes of scope, or false when scope has staged none.
@@ -243,12 +306,23 @@ func (o *overlay[S, D]) get(scope S) (D, bool) {
 		return none, false
 	}
 	o.mu.RLock()
-	d, ok := o.deltas[scope]
+	staged := o.scope == scope && !o.d.isEmpty()
 	o.mu.RUnlock()
-	if !ok || d.isEmpty() {
+	if !staged {
 		return none, false
 	}
-	return d, true
+	return o.d, true
+}
+
+// committing returns the changes of the scope in its commit, or false when no scope is
+// in its commit. Call it with mu held for reading, and read the changes before
+// releasing it.
+func (o *overlay[S, D]) committing() (D, bool) {
+	if isNone(o.scope) || !o.scope.Committing() {
+		var none D
+		return none, false
+	}
+	return o.d, true
 }
 
 // mergeValues returns committed with the delta of scope applied for values. The result
@@ -272,14 +346,13 @@ func committingKeys[S Scope, K, V comparable](
 ) []K {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+	d, ok := o.committing()
+	if !ok {
+		return nil
+	}
 	var keys []K
-	for scope, d := range o.deltas {
-		if !scope.Committing() {
-			continue
-		}
-		for _, v := range values {
-			keys = d.forward[v].appendTo(keys)
-		}
+	for _, v := range values {
+		keys = d.forward[v].appendTo(keys)
 	}
 	return keys
 }
@@ -292,17 +365,13 @@ func committingEach[S Scope, K, V comparable](
 ) [][]K {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	var out [][]K
-	for scope, d := range o.deltas {
-		if !scope.Committing() {
-			continue
-		}
-		if out == nil {
-			out = make([][]K, len(values))
-		}
-		for i, v := range values {
-			out[i] = d.forward[v].appendTo(out[i])
-		}
+	d, ok := o.committing()
+	if !ok {
+		return nil
+	}
+	out := make([][]K, len(values))
+	for i, v := range values {
+		out[i] = d.forward[v].appendTo(out[i])
 	}
 	return out
 }
