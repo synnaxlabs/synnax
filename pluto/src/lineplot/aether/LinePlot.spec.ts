@@ -419,6 +419,25 @@ describe("LinePlot breaks", () => {
     expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
   });
 
+  it("should not count a hidden break outside the manual bounds of x1", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update([...base, "x1"], XAxis.TYPE, {
+      location: "bottom",
+      type: "time",
+      autoBoundPadding: 0,
+      bounds: { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) * 2 },
+      manualBounds: { lower: true, upper: true },
+    });
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
+  });
+
   it("should give the seams of its first x axis across the home view", () => {
     const { plot } = mount();
     const seams = plot.getSeams();
