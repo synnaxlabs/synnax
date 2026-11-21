@@ -715,16 +715,14 @@ func (w Writer) allocateNew(
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	// Allocate uses up keys, so a name that an index refuses fails before it.
-	for _, i := range newIndices {
-		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
-			return nil, nameTaken(err, requested[i])
-		}
-		if err := w.svc.indexes.sibling.Check(ctx, w.tx, &channels[i]); err != nil {
-			return nil, nameTaken(err, requested[i])
-		}
-	}
-	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
+	if err := w.allocateAndWrite(
+		ctx,
+		channels,
+		requested,
+		newIndices,
+		minimal,
+		opts,
+	); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -800,6 +798,7 @@ func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
+	requested []int,
 	newIndices []int,
 	minimal []channel.Channel,
 	opts createOptions,
@@ -831,13 +830,18 @@ func (w Writer) allocateAndWrite(
 	}
 	// A data channel's index must exist before the data channel is written.
 	slices.SortStableFunc(toCreate, indexesFirst)
-	// allocateNew checked the names of the new channels before Allocate.
+	// A refused name leaves a gap in the allocated keys, which are never reused.
 	if err := w.svc.table.NewCreate().
 		Exclusive().
-		UniqueChecked().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		at, name := -1, takenName(err)
+		for _, i := range newIndices {
+			if channels[i].Name == name {
+				at = requested[i]
+			}
+		}
+		return nameTaken(err, at)
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
