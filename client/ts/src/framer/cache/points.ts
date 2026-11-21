@@ -101,9 +101,9 @@ interface Live {
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
   tileRange({ level, index: tileIndex(ts, level) + 1 }).start.valueOf();
 
-// placeless returns the limit without its view and bound, which move a subscription
-// inside the tiles it draws.
-const placeless = ({ view, bound, ...rest }: PointsLimit): Partial<PointsLimit> => rest;
+// slideKey returns the parts of a limit that a slide keeps. Two limits with equal keys
+// differ only in their view and bound, which move a subscription inside its tiles.
+const slideKey = ({ view, bound, ...rest }: PointsLimit): Partial<PointsLimit> => rest;
 
 /**
  * Serves one channel under a points limit: reduced tiles across the window, and raw
@@ -207,7 +207,7 @@ export class Points {
     const wasDynamic = this.dynamic;
     if (!moved && deep.equal(limit, this.limit)) return;
     const prev = this.limit;
-    const slid = !moved && deep.equal(placeless(prev), placeless(limit));
+    const slid = !moved && deep.equal(slideKey(prev), slideKey(limit));
     const prevKeys = slid ? (this.tileKeys ?? this.tilesOf(prev)) : null;
     this.window = window;
     this.limit = limit;

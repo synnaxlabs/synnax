@@ -20,10 +20,11 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { segments } from "@/lineplot/aether/layout";
+import { collapse } from "@/lineplot/aether/layout";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
 import type { TickSegment, TickType } from "@/vis/axis/ticks";
+import { Draw2D } from "@/vis/draw2d";
 import { grid } from "@/vis/grid";
 import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
@@ -128,7 +129,7 @@ const autoBounds = (
 
 interface InternalState {
   render: render.Context;
-  theme: baseTheme.Theme;
+  draw: Draw2D;
   base: axis.Axis;
   // A hold keeps a snapshot of the segments, so the plot draws in the same place while
   // the data changes.
@@ -150,7 +151,7 @@ export abstract class BaseAxis<
     // A held view in one tick type means nothing in another.
     if (this.state.type !== this.prevState.type) i.segmentSnapshot = undefined;
     const theme = theming.use(ctx);
-    i.theme = theme;
+    i.draw = new Draw2D(i.render.upper2d, theme);
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"
         ? DEFAULT_X_BOUND_PADDING
@@ -226,7 +227,7 @@ export abstract class BaseAxis<
       const dataBounds = fetchDataBounds();
       loading = dataBounds.some((b) => b.loading);
       auto = collapsed
-        ? segments(align(dataBounds), autoBoundPadding ?? 0)
+        ? collapse(align(dataBounds), autoBoundPadding ?? 0)
         : [autoBounds(dataBounds, autoBoundPadding, type)];
       if (auto.length === 0) auto = [emptyBounds(type)];
     } catch (err_) {

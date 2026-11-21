@@ -756,7 +756,7 @@ describe("remote", () => {
         ]);
       });
 
-      it("should draw only the tiles inside the bound it is passed", async () => {
+      it("should draw only the tiles inside the span it is passed", async () => {
         const core = createCore();
         const client = connect(core);
         const subscribe = vi.spyOn(client.feed, "subscribe");
@@ -768,7 +768,7 @@ describe("remote", () => {
             y.value({
               bounds: { lower, upper },
               points: 100,
-              bound: { lower, upper: Infinity },
+              span: { lower, upper: Infinity },
             });
             return subscribe.mock.calls.length;
           }, POLL)

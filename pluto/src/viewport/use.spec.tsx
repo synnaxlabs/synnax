@@ -9,7 +9,7 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, location, xy } from "@synnaxlabs/x";
+import { type bounds, box, location, xy } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement, RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
@@ -484,6 +484,24 @@ describe("viewport/use", () => {
       expect(box.right(h.result.current.maskBox)).toBeCloseTo(50);
       release(h.canvas, { x: 5, y: 80 });
       fireEvent.keyUp(document.body, { code: ALT });
+    });
+
+    it("should commit each select drag with its own bound", async () => {
+      const resolvers: Array<(b: bounds.Bounds) => void> = [];
+      const h = setup({
+        selectBound: async () => await new Promise((r) => resolvers.push(r)),
+      });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 10, y: 20 });
+      await act(async () => resolvers[1]({ lower: 0, upper: 0.2 }));
+      await act(async () => resolvers[0](BOUND));
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.6);
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.2);
     });
 
     it("should not bound a zoom", () => {
