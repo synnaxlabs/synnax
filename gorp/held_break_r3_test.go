@@ -38,6 +38,12 @@ type r3Mark struct {
 
 func (m r3Mark) GorpKey() string { return m.Key }
 
+// r3Call is a call of the f of Held: the node and the number of its holders.
+type r3Call struct {
+	Key     uint32
+	Holders int
+}
+
 var _ = Describe("Held break r3", func() {
 	var (
 		db    *gorp.DB
@@ -100,14 +106,14 @@ var _ = Describe("Held break r3", func() {
 	}
 
 	// deleteRoot deletes node 1 in one transaction. With planned, it plans the delete
-	// first, then runs before, then applies the plan. With held, it records each entry
-	// that Held passes to f with holders.
+	// first, then runs before, then applies the plan. With held, it records each call
+	// of the f of Held.
 	deleteRoot := func(
 		ctx SpecContext,
 		planned, held bool,
 		before func(tx gorp.Tx) error,
-	) ([]uint32, error) {
-		var called []uint32
+	) ([]r3Call, error) {
+		var called []r3Call
 		err := db.WithTx(ctx, func(tx gorp.Tx) error {
 			var effects gorp.DeleteEffects
 			if planned {
@@ -129,9 +135,7 @@ var _ = Describe("Held break r3", func() {
 					n r3Node,
 					holders []gorp.Dependent,
 				) error {
-					if len(holders) > 0 {
-						called = append(called, n.Key)
-					}
+					called = append(called, r3Call{Key: n.Key, Holders: len(holders)})
 					return nil
 				})
 			}
@@ -153,9 +157,9 @@ var _ = Describe("Held break r3", func() {
 			)
 			called := MustSucceed(deleteRoot(ctx, planned, true, nil))
 			Expect(marks.NewRetrieve().Count(ctx, db)).To(Equal(0))
-			Expect(called).To(BeEmpty(),
+			Expect(called).To(Equal([]r3Call{{Key: 1}, {Key: 2}}),
 				"mark m goes in the same delete, so nothing holds node 2 after it, "+
-					"and a plan of the same delete calls f for nothing")
+					"and f gets node 2 with no holders")
 		},
 		Entry("walking the references", false),
 		Entry("from a plan", true),
@@ -168,12 +172,18 @@ var _ = Describe("Held break r3", func() {
 				[]r3Node{{Key: 1}, {Key: 2, Parent: 1}},
 				[]r3Mark{{Key: "m", Node: 2}},
 			)
-			Expect(deleteRoot(ctx, true, held, func(tx gorp.Tx) error {
+			called := MustSucceed(deleteRoot(ctx, true, held, func(tx gorp.Tx) error {
 				return nodes.NewDelete().
 					Where(gorp.MatchKeys[uint32, r3Node](2)).
 					Exec(ctx, tx)
-			})).Error().ToNot(HaveOccurred())
+			}))
 			Expect(nodes.NewRetrieve().Count(ctx, db)).To(Equal(0))
+			if held {
+				Expect(called).To(Equal([]r3Call{{Key: 1}}),
+					"tx removed node 2 before the delete, so f does not get it")
+			} else {
+				Expect(called).To(BeEmpty())
+			}
 		},
 		Entry("without Held", false),
 		Entry("with Held", true),
@@ -185,6 +195,10 @@ var _ = Describe("Held break r3", func() {
 			[]r3Node{{Key: 1}, {Key: 9, Parent: 1}, {Key: 10, Parent: 1}},
 			[]r3Mark{{Key: "a", Node: 9}, {Key: "b", Node: 10}},
 		)
-		Expect(deleteRoot(ctx, false, true, nil)).To(Equal([]uint32{9, 10}))
+		Expect(deleteRoot(ctx, false, true, nil)).To(Equal([]r3Call{
+			{Key: 1},
+			{Key: 9, Holders: 1},
+			{Key: 10, Holders: 1},
+		}))
 	})
 })
