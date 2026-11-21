@@ -89,7 +89,13 @@ func (s *Service) planDelete(
 	}
 	kept := set.New[string]()
 	for _, e := range effects.Weak {
-		if id := s.cfg.RecordOf(e.Holder).String(); !listed.Contains(id) {
+		// A holder with no resource type, such as a tombstone, is no record of the
+		// caller's.
+		record := s.cfg.RecordOf(e.Holder)
+		if !record.Type.IsValid() {
+			continue
+		}
+		if id := record.String(); !listed.Contains(id) {
 			kept.Add(id)
 		}
 	}

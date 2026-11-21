@@ -87,7 +87,7 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 	}
 	tombstoneOf := func(ctx SpecContext, k channel.Key) (channel.Tombstone, bool) {
 		GinkgoHelper()
-		for _, t := range MustSucceed(svc.Tombstones(ctx, db)) {
+		for _, t := range allTombstones(ctx, db) {
 			if t.Key == k {
 				return t, true
 			}
@@ -213,12 +213,12 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 			); err != nil {
 				return err
 			}
-			if err := w.DeleteTombstones(ctx, parent.Key, child.Key); err != nil {
+			if _, err := w.DeleteTombstones(ctx, parent.Key, child.Key); err != nil {
 				return err
 			}
 			return groupSvc.NewWriter(tx).Delete(ctx, parent.Key, child.Key)
 		})).To(Succeed())
-		Expect(MustSucceed(svc.Tombstones(ctx, db))).ToNot(ContainElement(
+		Expect(allTombstones(ctx, db)).ToNot(ContainElement(
 			HaveField("Key", BeElementOf(a.Key(), b.Key())),
 		))
 	})
@@ -319,3 +319,13 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 		Expect(tb.Name).To(Equal(a.Name))
 	})
 })
+
+// allTombstones returns every tombstone that db holds.
+func allTombstones(ctx SpecContext, db *gorp.DB) []channel.Tombstone {
+	GinkgoHelper()
+	var tombstones []channel.Tombstone
+	Expect(gorp.NewRetrieve[channel.Key, channel.Tombstone]().
+		Entries(&tombstones).
+		Exec(ctx, db)).To(Succeed())
+	return tombstones
+}

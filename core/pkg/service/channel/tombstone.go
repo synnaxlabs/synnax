@@ -83,9 +83,9 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 				Table:    tableName,
 				OnDelete: gorp.Weak,
 				Kind:     gorp.Use,
-				Tag:      1,
-				Targets:  func(t *Tombstone) []Key { return rewireTargets(t.Rewires) },
-				Detach:   func(t *Tombstone, k Key) { detachRewire(t.Rewires, k) },
+				// No direction: a tombstone reads no channel, so uses leave it out.
+				Targets: func(t *Tombstone) []Key { return rewireTargets(t.Rewires) },
+				Detach:  func(t *Tombstone, k Key) { detachRewire(t.Rewires, k) },
 			}),
 		},
 	})
@@ -119,7 +119,11 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 	out := slices.Clone(rewires)
 	at := now
 	if n := len(out); n > 0 {
-		at = max(at, out[n-1].At+1)
+		next := out[n-1].At
+		if next < telem.TimeStampMax {
+			next++
+		}
+		at = max(at, next)
 		if out[n-1].From == 0 {
 			out[n-1].At = at
 			return out
