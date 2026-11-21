@@ -143,6 +143,7 @@ func (w *logWriter) openState(db *DB, cfg WriterConfig, keys []state.WriterKey) 
 	for i, k := range keys {
 		stateKeys[i] = k.Key
 	}
+	slices.Sort(stateKeys)
 	var st *state.Writer
 	_, err := db.engine.withPreloads(nil, stateKeys, start, start, func(
 		pre []state.Preload,
@@ -422,6 +423,7 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			return cmp.Compare(a.Segment, b.Segment)
 		})
 		c.Slots = slices.Clone(w.keySegments)
+		slices.Sort(w.committed)
 		var err error
 		w.pre, err = w.e.withPreloads(w.pre, w.committed, w.first, w.end, func(
 			pre []state.Preload,

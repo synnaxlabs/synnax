@@ -71,13 +71,12 @@ var _ = Describe("Preloads", func() {
 			To(MatchError(state.ErrStale))
 	})
 
-	It("Should refuse a step with no preload of a key that parts hold as stale",
-		func() {
-			Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
-				MatchError(state.ErrStale),
-				MatchError(ContainSubstring("no preload of key 6, which parts hold")),
-			))
-		})
+	It("Should refuse a step with no preload of a key that parts hold", func() {
+		Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(ContainSubstring("no preload of key 6, which parts hold")),
+		))
+	})
 
 	It("Should find the ends of a delete in the preloaded records of parted segments",
 		func() {

@@ -10,6 +10,9 @@
 package state
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -30,24 +33,23 @@ type Preload struct {
 	Segments []Segment
 }
 
-// preloadOf returns the records of the preload of c in pre. It returns ErrStale for a
-// preload from the parts of a head that c no longer reads, and for none when c has a
-// part range.
+// preloadOf returns the records of the preload of c in pre, which is in rising order of
+// key. It returns ErrStale for a preload from the parts of a head that c no longer
+// reads, and refuses a step with none when c has a part range.
 func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
-	for _, p := range pre {
-		if p.Key != c.key {
-			continue
-		}
-		if p.Generation != c.generation {
-			return nil, errors.Wrapf(ErrStale, "key %d reads the parts of head %d, "+
-				"not %d", c.key, c.generation, p.Generation)
-		}
-		return p.Segments, nil
-	}
-	if c.oldest == 0 {
+	i, found := slices.BinarySearchFunc(pre, c.key, func(p Preload, key uint32) int {
+		return cmp.Compare(p.Key, key)
+	})
+	switch {
+	case !found && c.oldest == 0:
 		return nil, nil
+	case !found:
+		return nil, refuse("no preload of key %d, which parts hold", c.key)
+	case pre[i].Generation != c.generation:
+		return nil, errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
+			c.key, c.generation, pre[i].Generation)
 	}
-	return nil, errors.Wrapf(ErrStale, "no preload of key %d, which parts hold", c.key)
+	return pre[i].Segments, nil
 }
 
 // stored returns the first visible pointer of c that shares a stamp with [first,

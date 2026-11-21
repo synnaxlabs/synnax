@@ -109,11 +109,12 @@ func (r *openRequest) fail(err error) { r.w.done <- err }
 func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w, r.pre) }
 
 // OpenWriter opens a writer of cfg. pre holds the preload of each key of cfg at its
-// start. It returns an error that wraps ErrConflict when the start lies in stored data
-// of one of its keys, when a bounded claim starts inside another claim, or when another
-// writer that is not bounded claims one of its keys, and ErrStale when a preload is
-// stale. The writer takes over each open segment of its keys that no writer holds, when
-// it has the same clock, type, and version, and every commit of it is durable.
+// start, in rising order of key. It returns an error that wraps ErrConflict when the
+// start lies in stored data of one of its keys, when a bounded claim starts inside
+// another claim, or when another writer that is not bounded claims one of its keys, and
+// ErrStale when a preload is stale. The writer takes over each open segment of its keys
+// that no writer holds, when it has the same clock, type, and version, and every commit
+// of it is durable.
 func (s *State) OpenWriter(cfg WriterConfig, pre ...Preload) (*Writer, error) {
 	w := &Writer{
 		s:      s,
@@ -437,10 +438,11 @@ func (r *commitRequest) fail(err error) { r.w.done <- err }
 func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c, r.pre) }
 
 // Commit checks c against the claims and the stored data of its keys, and makes its
-// samples visible. pre holds the preload of each key of c from First to Last. The
-// caller logs c at its next sync. It returns an error that wraps ErrConflict when c
-// overlaps stored data of a key or reaches another writer's claim, ErrStale when a
-// preload is stale, and an error that wraps ErrRefused when c breaks a value rule.
+// samples visible. pre holds the preload of each key of c from First to Last, in rising
+// order of key. The caller logs c at its next sync. It returns an error that wraps
+// ErrConflict when c overlaps stored data of a key or reaches another writer's claim,
+// ErrStale when a preload is stale, and an error that wraps ErrRefused when c breaks a
+// value rule.
 func (w *Writer) Commit(c *log.Commit, pre ...Preload) error {
 	return w.call(&commitRequest{w: w, c: c, pre: pre})
 }
