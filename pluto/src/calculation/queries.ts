@@ -44,36 +44,3 @@ export const { useResult: useResultOutput } = Flux.createRetrieve<
  */
 export const useIsOutput = (channel: channel.Key): boolean =>
   useResultOutput(channel === 0 ? null : { channel }).data?.calculation != null;
-
-const statusQuery = (channel: channel.Key) => ({
-  output: channel,
-  includeStatus: true,
-});
-
-const statusOf = (calcs: calculation.Calculation[]): calculation.Status | null =>
-  calcs[0]?.status ?? null;
-
-/**
- * Answers with the status of the calculation that writes the channel of the query, or
- * null when no calculation writes it or the calculation has no status. Compared by
- * variant and message, so a heartbeat that changes neither is silenced.
- */
-export const { useResult: useResultStatus } = Flux.createRetrieve<
-  RetrieveOutputQuery,
-  calculation.Status | null
->({
-  name: "calculation status",
-  retrieve: async ({ client, query: { channel } }) =>
-    statusOf(
-      (await client.calculations.watch(statusQuery(channel)).retrieve()).records,
-    ),
-  onChange: ({ client, query: { channel } }, handler) =>
-    client.calculations
-      .watch(statusQuery(channel))
-      .onChange((w) => handler(w == null ? undefined : statusOf(w.records))),
-  getCached: ({ client, query: { channel } }) => {
-    const window = client.calculations.watch(statusQuery(channel)).getCached();
-    return window == null ? undefined : statusOf(window.records);
-  },
-  equal: (a, b) => a?.variant === b?.variant && a?.message === b?.message,
-});

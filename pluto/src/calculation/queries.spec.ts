@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { calculation, DataType } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeStamp } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { id } from "@synnaxlabs/x";
+import { renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -39,10 +39,18 @@ describe("queries", () => {
         () => ({
           output: Calculation.useIsOutput(calc.output),
           plain: Calculation.useIsOutput(plain.key),
+          plainAnswer: Calculation.useResultOutput({ channel: plain.key }).data,
         }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.output).toBe(true));
+      // False reads the same before the answer loads, so the spec waits for it.
+      await waitFor(() =>
+        expect(result.current.plainAnswer).toEqual({
+          key: plain.key,
+          calculation: null,
+        }),
+      );
       expect(result.current.plain).toBe(false);
     });
 
@@ -57,55 +65,6 @@ describe("queries", () => {
       await waitFor(() => expect(result.current).toBe(true));
       await client.calculations.delete(calc.key);
       await waitFor(() => expect(result.current).toBe(false));
-    });
-  });
-
-  describe("useResultStatus", () => {
-    const setStatus = async (
-      calc: calculation.Calculation,
-      message: string,
-    ): Promise<void> => {
-      await client.statuses.set({
-        owner: calculation.resourceID(calc.key),
-        name: "Calculation Status",
-        variant: "error",
-        message,
-        time: TimeStamp.now(),
-      });
-    };
-
-    it("should answer with the status of the calculation that writes a channel", async () => {
-      const calc = await client.calculations.create({
-        name: id.create(),
-        expression: "return 2",
-      });
-      await setStatus(calc, "invalid expression");
-      const { result } = renderHook(
-        () => Calculation.useResultStatus({ channel: calc.output }),
-        { wrapper },
-      );
-      await waitFor(() =>
-        expect(result.current.data?.message).toEqual("invalid expression"),
-      );
-    });
-
-    it("should follow a change of the status", async () => {
-      const calc = await client.calculations.create({
-        name: id.create(),
-        expression: "return 2",
-      });
-      await setStatus(calc, "invalid expression");
-      const { result } = renderHook(
-        () => Calculation.useResultStatus({ channel: calc.output }),
-        { wrapper },
-      );
-      await waitFor(() =>
-        expect(result.current.data?.message).toEqual("invalid expression"),
-      );
-      await act(async () => await setStatus(calc, "broken expression"));
-      await waitFor(() =>
-        expect(result.current.data?.message).toEqual("broken expression"),
-      );
     });
   });
 });
