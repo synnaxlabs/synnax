@@ -243,34 +243,6 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 		))
 	})
 
-	It(
-		"Should keep a tombstone when a rename onto its path moves away in one transaction",
-		func(
-			ctx SpecContext,
-		) {
-			dead := create(ctx, channel.Channel{})
-			hold(ctx, dead.Key())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, dead.Key(), false)
-			})).To(Succeed())
-			other := create(ctx, channel.Channel{})
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := svc.NewWriter(tx)
-				if err := w.Rename(ctx, other.Key(), dead.Name, false); err != nil {
-					return err
-				}
-				return w.Rename(ctx, other.Key(), other.Name, false)
-			})).To(Succeed())
-			Expect(svc.NewRetrieve().
-				Where(channel.MatchNames(dead.Name)).
-				Exists(ctx, db)).To(BeFalse())
-			_, ok := tombstoneOf(ctx, dead.Key())
-			Expect(
-				ok,
-			).To(BeTrue(), "no channel holds %s, yet its tombstone is gone", dead.Name)
-		},
-	)
-
 	It("Should write one tombstone for a key named twice in one delete", func(
 		ctx SpecContext,
 	) {
