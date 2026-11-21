@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter, retrieveRequired } from "@/framer/adapter";
 import { Frame } from "@/framer/frame";
 
 const READ_ENDPOINT = "/frame/read";
@@ -152,7 +152,10 @@ export class Reader {
     encoding: FileOptions["encoding"],
     opts: ReadFileOptions,
   ): Promise<ReadableStream<Uint8Array>> {
-    const payloads = await this.retrieveChannels(channels);
+    const payloads = await retrieveRequired(
+      this.retrieveChannels,
+      channel.analyzeParams(channels).normalized,
+    );
     return await this.download(
       payloads.map((c) => c.key),
       tr,

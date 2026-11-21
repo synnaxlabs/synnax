@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -374,8 +375,7 @@ func (s *Server) Completion(
 		return &protocol.CompletionList{Items: []protocol.CompletionItem{}}, nil
 	}
 	line := lines[params.Position.Line]
-	col := min(int(params.Position.Character), len(line))
-	linePrefix := line[:col]
+	linePrefix := line[:xlsp.CharacterToByte(line, params.Position.Character)]
 
 	items := getCompletionsForContext(linePrefix)
 
