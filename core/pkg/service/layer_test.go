@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	ethercatmaster "github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
@@ -202,7 +203,7 @@ var _ = Describe("Layer", func() {
 	})
 
 	DescribeTable(
-		"Should publish NI resource changes on signal channels",
+		"Should publish device resource changes on signal channels",
 		func(
 			ctx SpecContext,
 			name string,
@@ -241,8 +242,8 @@ var _ = Describe("Layer", func() {
 				Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
 				return responses
 			}
-			sets := openStreamer("sy_ni_" + name + "_set")
-			deletes := openStreamer("sy_ni_" + name + "_delete")
+			sets := openStreamer("sy_" + name + "_set")
+			deletes := openStreamer("sy_" + name + "_delete")
 
 			var key uuid.UUID
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -270,8 +271,8 @@ var _ = Describe("Layer", func() {
 			Expect(removed).To(ContainElement(key))
 		},
 		Entry(
-			"chassis",
-			"chassis",
+			"NI chassis",
+			"ni_chassis",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
 				c := chassis.Chassis{
@@ -293,8 +294,8 @@ var _ = Describe("Layer", func() {
 			},
 		),
 		Entry(
-			"device",
-			"device",
+			"NI device",
+			"ni_device",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
 				d := device.Device{
@@ -313,6 +314,33 @@ var _ = Describe("Layer", func() {
 				key uuid.UUID,
 			) error {
 				return layer.NI.Devices.NewWriter(tx).Delete(ctx, key)
+			},
+		),
+		Entry(
+			"EtherCAT master",
+			"ethercat_master",
+			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				m := ethercatmaster.Master{
+					Key:       uuid.New(),
+					Rack:      layer.Rack.EmbeddedKey,
+					Name:      "EtherCAT eth0",
+					Interface: "eth0",
+				}
+				Expect(gorp.NewCreate[ethercatmaster.Key, ethercatmaster.Master]().
+					Entry(&m).
+					Exec(ctx, tx)).To(Succeed())
+				return m.Key
+			},
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				layer *service.Layer,
+				key uuid.UUID,
+			) error {
+				return gorp.NewDelete[ethercatmaster.Key, ethercatmaster.Master]().
+					Where(gorp.MatchKeys[ethercatmaster.Key, ethercatmaster.Master](key)).
+					Exec(ctx, tx)
 			},
 		),
 	)
@@ -941,6 +969,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Color", resource.TypeColor),
 		Entry("Device", resource.TypeDevice),
 		Entry("Enumeration", resource.TypeEnumeration),
+		Entry("EthercatMaster", resource.TypeEthercatMaster),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),

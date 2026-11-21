@@ -2524,5 +2524,154 @@
         "expected": []
       }
     ]
+  },
+  "ethercat_masters": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000030a",
+        "rack": 65538,
+        "name": "Bench bus",
+        "interface": "eth0",
+        "slaves": []
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000030b",
+        "rack": 65538,
+        "name": "Bench IgH",
+        "interface": "igh:0",
+        "slaves": []
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000030c",
+        "rack": 131073,
+        "name": "Cart bus",
+        "interface": "eth0",
+        "slaves": []
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every master",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000030a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000030a",
+              "00000000-0000-4000-8000-00000000030c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-0000000003ff"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name contains",
+        "where": {
+          "name": {
+            "contains": "Bench"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "bus$"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "interface eq",
+        "where": {
+          "interface": {
+            "eq": "eth0"
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "interface in",
+        "where": {
+          "interface": {
+            "in": ["igh:0"]
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 131073
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "rack": {
+            "eq": 65538
+          },
+          "interface": {
+            "eq": "eth0"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "interface": {
+                "eq": "igh:0"
+              }
+            },
+            {
+              "rack": {
+                "eq": 131073
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "interface": {
+              "eq": "eth0"
+            }
+          }
+        },
+        "expected": ["b"]
+      }
+    ]
   }
 }

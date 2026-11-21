@@ -15,11 +15,13 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -29,11 +31,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening the EtherCAT task config service.
+// ServiceConfig is the configuration for opening the EtherCAT service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records and masters are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Signals publishes master changes.
+	// [OPTIONAL]
+	Signals *signals.Provider
 	// Device reads the slave devices whose discovered PDO entries address channels.
 	// [REQUIRED]
 	Device *device.Service
@@ -46,6 +51,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Device = override.Nil(c.Device, other.Device)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -58,8 +64,11 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the EtherCAT task types.
+// Service owns the EtherCAT masters and the stored configuration records of the
+// EtherCAT task types.
 type Service struct {
+	// Masters stores EtherCAT masters.
+	Masters *master.Service
 	// Read stores ethercat_read task configuration records.
 	Read *config.Service[ReadConfig]
 	// Write stores ethercat_write task configuration records.
@@ -69,7 +78,7 @@ type Service struct {
 	closer xio.MultiCloser
 }
 
-// OpenService opens the EtherCAT task config service with the provided configuration.
+// OpenService opens the EtherCAT service with the provided configuration.
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
@@ -81,6 +90,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Masters, err = master.OpenService(ctx, master.ServiceConfig{
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Masters) {
+		return nil, err
+	}
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
+	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -649,6 +650,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		OPCUAServerRetrieve: unary[server.RetrieveRequest, server.RetrieveResponse](
 			router,
 			"/api/v1/opcua/server/retrieve",
+		),
+
+		// ETHERCAT MASTER
+		EtherCATMasterRetrieve: unary[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse](
+			router,
+			"/api/v1/ethercat/master/retrieve",
 		),
 
 		// ACCESS
