@@ -109,11 +109,12 @@ var _ = Describe("Check: executor", func() {
 		Expect(log.Prepare(fs, 2, logSize)).To(Succeed())
 		var cp *checkpoint.Checkpointer
 		st := MustSucceed(state.Open(state.Config{
-			Versions: set.New[uint16](1),
-			Version:  1,
-			Append:   func(*log.Entry) {},
-			Executor: ex,
-			OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+			Versions:   set.New[uint16](1),
+			Version:    1,
+			Append:     func(*log.Entry) {},
+			Executor:   ex,
+			OnHead:     func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+			Generation: 1,
 		}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
 		cp = MustSucceed(checkpoint.New(checkpoint.Config{
 			FS:       fs,
@@ -143,11 +144,12 @@ var _ = Describe("Check: executor", func() {
 			switched = make(chan uint64, 1)
 		)
 		st := MustSucceed(state.Open(state.Config{
-			Versions: set.New[uint16](1),
-			Version:  1,
-			Append:   func(e *log.Entry) { l.Append(e) },
-			Executor: ex,
-			OnHead:   func(uint64, *state.Snapshot) {},
+			Versions:   set.New[uint16](1),
+			Version:    1,
+			Append:     func(e *log.Entry) { l.Append(e) },
+			Executor:   ex,
+			OnHead:     func(uint64, *state.Snapshot) {},
+			Generation: 1,
 		}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
 		l = MustSucceed(log.Start(log.Config{
 			FS:       fs,
