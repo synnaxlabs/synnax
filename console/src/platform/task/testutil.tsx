@@ -30,7 +30,6 @@ import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
-  getConfig,
   type RenderOptions,
   type RenderResult,
   screen,
@@ -488,7 +487,8 @@ export const renderTaskFormTab = async (
     onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
-  const loaded = Promise.withResolvers<void>();
+  let loaded = false;
+  let loadError: unknown;
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
@@ -497,18 +497,34 @@ export const renderTaskFormTab = async (
           <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
             <Suspense fallback={null}>
               <Form taskKey={taskKey} />
-              <LoadProbe onLoad={loaded.resolve} />
+              <LoadProbe
+                onLoad={() => {
+                  loaded = true;
+                }}
+              />
             </Suspense>
             {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
           </PanelScopes>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
-    { wrapper, onCaughtError },
+    {
+      wrapper,
+      onCaughtError: (error, info) => {
+        loadError ??= error;
+        // React logs a caught error when the root sets no handler.
+        if (onCaughtError == null) console.error(error);
+        else onCaughtError(error, info);
+      },
+    },
   );
-  // A lazy form loads its module after the first render. The wait runs outside act,
-  // as findBy does, since act holds React's retry until its callback returns.
-  await getConfig().asyncWrapper(async () => await loaded.promise);
+  // A lazy form loads its module after the first render. waitFor runs outside act,
+  // since act holds React's retry until its callback returns.
+  await waitFor(() => {
+    if (loaded) return;
+    // A boundary that caught an error in place of the form holds the cause.
+    throw new Error("The task form did not load", { cause: loadError });
+  });
   return { ...result, ...created, store, tabKey: tab.key };
 };
 
