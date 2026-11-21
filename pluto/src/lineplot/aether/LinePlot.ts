@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import type { Layout } from "@/lineplot/aether/layout";
+import type { Gap, Layout } from "@/lineplot/aether/layout";
 import {
   type BreaksChange,
   breaksChangeZ,
@@ -46,7 +46,10 @@ export const linePlotStateZ = z.object({
   breaksHidden: z.boolean().default(false),
   /** The lower bounds of the gaps of x1 that show in place of a break. */
   openBreaks: z.array(z.number()).default([]),
-  /** The number of open and of closed breaks on x1, which the plot sets. */
+  /**
+   * The number of open and of closed breaks on x1, which the plot sets. It counts them
+   * while they are hidden too.
+   */
   breaks: breakCountsZ.default({ open: 0, closed: 0 }),
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
@@ -175,8 +178,7 @@ export class LinePlot
       this.setState((p) => ({ ...p, loading, fetching }));
   }
 
-  private syncBreaks(layout: Layout | null): void {
-    const gaps = layout?.gaps ?? [];
+  private syncBreaks(gaps: readonly Gap[]): void {
     const open = gaps.filter((g) => g.open).length;
     const breaks = { open, closed: gaps.length - open };
     const prev = this.state.breaks;
@@ -192,7 +194,7 @@ export class LinePlot
     try {
       const x1 =
         this.axes.map((xAxis, i) => xAxis.render(axisProps(i, p), raised))[0] ?? null;
-      this.syncBreaks(x1);
+      this.syncBreaks(x1 == null ? [] : this.axes[0].gaps(x1, p));
       return x1;
     } finally {
       raised.forEach((draw) => draw());

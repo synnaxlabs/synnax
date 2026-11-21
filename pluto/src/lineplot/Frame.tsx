@@ -203,7 +203,10 @@ export interface FrameProps
   onZoomedChange?: (key: string | null) => void;
   /** Called with each change of the view and the selection by the viewport. */
   onViewportChange?: Viewport.UseHandler;
-  /** Called when the number of open or of closed breaks of x1 changes. */
+  /**
+   * Called when the number of open or of closed breaks of x1 changes. It counts them
+   * while they are hidden too.
+   */
   onBreaksChange?: (breaks: lineplot.BreakCounts) => void;
   /** The open breaks of x1 when the plot mounts, as the lower bounds of their gaps. */
   initialOpenBreaks?: number[];

@@ -390,7 +390,7 @@ describe("LinePlot breaks", () => {
       stack.driver.update([...base, key], type, state);
       renderPlot(recorder);
     };
-    return { plot, recorder, setOpenBreaks, texts, lines, update };
+    return { plot, recorder, stack, base, setOpenBreaks, texts, lines, update };
   };
 
   it("should count the open and closed breaks of its first x axis", () => {
@@ -405,6 +405,18 @@ describe("LinePlot breaks", () => {
     setOpenBreaks(change?.openBreaks ?? []);
     renderPlot(recorder);
     expect(plot.state.breaks).toEqual({ open: 1, closed: 0 });
+  });
+
+  it("should count the breaks of its first x axis while they are hidden", () => {
+    const { plot, recorder, stack, base } = mount();
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      breaksHidden: true,
+    });
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
   });
 
   it("should give the seams of its first x axis across the home view", () => {

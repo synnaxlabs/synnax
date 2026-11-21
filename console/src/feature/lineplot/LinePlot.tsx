@@ -112,6 +112,7 @@ interface ContextMenuContentProps {
   linePlotRef: RefObject<Base.FrameRef | null>;
   editable: boolean;
   breaks: pLineplot.BreakCounts;
+  breaksHidden: boolean;
 }
 
 const ContextMenuContent = ({
@@ -119,6 +120,7 @@ const ContextMenuContent = ({
   linePlotRef,
   editable,
   breaks,
+  breaksHidden,
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useName({});
   const { undo, canUndo } = Base.useUndo({});
@@ -158,7 +160,7 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
-      {FLAGS.breaks && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
+      {!breaksHidden && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
       {!box.areaIsZero(selection) && (
         <>
           <Menu.CopyItem
@@ -308,6 +310,7 @@ const Internal = (): ReactElement => {
       linePlotRef={linePlotRef}
       editable={hasUpdatePermission}
       breaks={breaks}
+      breaksHidden={breaksHidden}
     />
   );
 
@@ -345,7 +348,7 @@ const Internal = (): ReactElement => {
         >
           <Controls
             hasAnnotations={hasAnnotations}
-            hasBreaks={storedBreaksHidden || breaks.open + breaks.closed > 0}
+            hasBreaks={breaks.open + breaks.closed > 0}
           />
         </Base.LinePlot>
       </Menu.ContextMenu>

@@ -17,7 +17,14 @@ import {
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
-import { join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
+import {
+  collapse,
+  type Gap,
+  join,
+  Layout,
+  spans,
+  type Trace,
+} from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { axis } from "@/vis/axis";
@@ -201,6 +208,13 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const [bound, err] = this.iBounds(hold, this.traces.bind(this));
     if (err != null) throw err;
     return bound;
+  }
+
+  /** @returns the gaps of layout, or while the breaks are hidden, the gaps they hide. */
+  gaps(layout: Layout, { breaksHidden, openBreaks }: LayoutProps): readonly Gap[] {
+    const { type, autoBoundPadding } = this.state;
+    if (!breaksHidden || type !== "time") return layout.gaps;
+    return join(collapse(align(this.traces()), autoBoundPadding ?? 0), openBreaks).gaps;
   }
 
   /** @returns the layout of the axis for the viewport. */
