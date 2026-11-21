@@ -518,6 +518,20 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 | Start pass at 5,000 calculations | <= 1.10 x today's graph start                                                                                                                                         | One analysis each, as today, and one write per new list                                                                                                                   |
 | Migration at 100,000             | <= 5 s, one transaction per chain                                                                                                                                     | 100,000 x 3 µs = 0.3 s; a 10 MB batch                                                                                                                                     |
 
+Every other path holds the gate: at most 5% more time than base and no more allocations.
+New work that base never did holds a bound instead, which the bench host checks on every
+change:
+
+- Weak links: the weak link row above; a create with no link stays at base.
+- The reference change signal: at most 2 more allocations per commit that changes a
+  link, only while a stream watches.
+- A tombstone: at most 4 allocations and 0.32 µs per held delete, plus 20 allocations
+  and 1.78 µs per tombstone.
+- A heal: at most 15.2 µs and 70 allocations, plus 5.74 µs and 36 allocations per link
+  moved, only on a write that takes a tombstone's path.
+- An edit of a calculated channel through the old channel API, until Phase 3's last
+  piece removes it: at most 1,250 more allocations and 241 µs more.
+
 ### 4.9 Migrations and compatibility
 
 - **Phase 1: Channel v2.** It drops `internal` and logs each record that held it. A
