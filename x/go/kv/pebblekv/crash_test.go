@@ -142,9 +142,17 @@ type crashEngine struct {
 	kv      kv.DB
 	halt    *halt
 	commits int
+	// forced is true when the engine flushes and compacts on its own schedule.
+	forced bool
 }
 
-func openCrashEngine(_ context.Context, fs xfs.FS) (engine *crashEngine, err error) {
+// openCrashEngine opens Pebble on fs. With forced false, it forces no flush or
+// compaction, and a memtable of 4 KiB makes Pebble flush on its own.
+func openCrashEngine(
+	_ context.Context,
+	fs xfs.FS,
+	forced bool,
+) (engine *crashEngine, err error) {
 	h := &halt{done: make(chan struct{})}
 	defer stopOnDiskPanic(h, &err)
 	logger := crashLogger{halt: h}
@@ -157,6 +165,9 @@ func openCrashEngine(_ context.Context, fs xfs.FS) (engine *crashEngine, err err
 		DisableAutomaticCompactions: true,
 		DisableTableStats:           true,
 	}
+	if !forced {
+		opts.MemTableSize = 4 << 10
+	}
 	// An open that stops leaves the scheduler of Pebble registered, and its granter
 	// running. A scheduler with no granter is enough for one compaction at a time.
 	scheduler := pebble.NewConcurrencyLimitSchedulerWithNoPeriodicGrantingForTest()
@@ -165,7 +176,12 @@ func openCrashEngine(_ context.Context, fs xfs.FS) (engine *crashEngine, err err
 	if err != nil {
 		return nil, errors.Combine(err, h.cause())
 	}
-	return &crashEngine{pebble: db, kv: pebblekv.Wrap(db, logger), halt: h}, nil
+	return &crashEngine{
+		pebble: db,
+		kv:     pebblekv.Wrap(db, logger),
+		halt:   h,
+		forced: forced,
+	}, nil
 }
 
 func (e *crashEngine) Commit(
@@ -188,6 +204,11 @@ func (e *crashEngine) Commit(
 		return 0, e.halt.cause()
 	}
 	e.commits++
+	// The Core never forces a flush. A forced one rotates the WAL under the lock of
+	// Pebble, where a panic on a failed write cannot be recovered.
+	if !e.forced {
+		return want, nil
+	}
 	if e.commits%5 == 0 {
 		e.flush()
 	}
@@ -278,10 +299,12 @@ func run(
 	ordered bool,
 ) (int, error) {
 	count := 0
+	forced := profile != crash.SyncErrors && profile != crash.FullDisk &&
+		profile != crash.Mixed
 	_, err := crash.Run(ctx, crash.Config{
 		RunKey: runKey,
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
-			e, err := openCrashEngine(ctx, fs)
+			e, err := openCrashEngine(ctx, fs, forced)
 			if err != nil {
 				return nil, err
 			}
@@ -334,7 +357,7 @@ var _ = DescribeTable("Crash harness",
 		crash.R4, 4, "invalid key=value syntax"),
 	Entry("Mixed, manifest: R4", crash.Mixed, uint64(3), crash.R4, 1,
 		"malformed manifest file"),
-	Entry("Mixed, OPTIONS: R4", crash.Mixed, uint64(1), crash.R4, 1,
+	Entry("Mixed, OPTIONS: R4", crash.Mixed, uint64(7), crash.R4, 1,
 		"invalid key=value syntax"),
 	// The OPTIONS file has no checksum, so a flipped byte in it stops the open with an
 	// error that is not pebble.ErrCorruption.
@@ -376,9 +399,9 @@ func flipped(ctx context.Context, reopened bool, n uint64, at int64) *fault.FS {
 	GinkgoHelper()
 	disk := MustSucceed(fault.New(fault.Config{}))
 	if reopened {
-		Expect(MustSucceed(openCrashEngine(ctx, disk)).Close()).To(Succeed())
+		Expect(MustSucceed(openCrashEngine(ctx, disk, true)).Close()).To(Succeed())
 	}
-	e := MustSucceed(openCrashEngine(ctx, disk))
+	e := MustSucceed(openCrashEngine(ctx, disk, true))
 	for id := range n {
 		key := binary.BigEndian.AppendUint64(nil, id+1)
 		Expect(e.kv.Set(ctx, key, make([]byte, 500))).To(Succeed())
@@ -464,7 +487,7 @@ var _ = Describe("Crash adapter", func() {
 	DescribeTable(
 		"Should lose each commit from a flipped bit in the WAL on, with no error",
 		func(ctx SpecContext, reopened bool, n uint64, at int64, kept int) {
-			e := MustSucceed(openCrashEngine(ctx, flipped(ctx, reopened, n, at)))
+			e := MustSucceed(openCrashEngine(ctx, flipped(ctx, reopened, n, at), true))
 			Expect(MustSucceed(e.Recovered(ctx))).To(HaveLen(kept))
 			Expect(e.Close()).To(Succeed())
 		},
@@ -478,7 +501,7 @@ var _ = Describe("Crash adapter", func() {
 	It("Should return each payload whole when the values come from sstables",
 		func(ctx SpecContext) {
 			disk := MustSucceed(fault.New(fault.Config{}))
-			e := MustSucceed(openCrashEngine(ctx, disk))
+			e := MustSucceed(openCrashEngine(ctx, disk, true))
 			payload := func(id uint64) []byte {
 				p := make([]byte, 300)
 				for i := range p {
@@ -502,7 +525,7 @@ var _ = Describe("Crash adapter", func() {
 
 	It("Should fail the open on a flipped bit in an earlier block of the WAL",
 		func(ctx SpecContext) {
-			_, err := openCrashEngine(ctx, flipped(ctx, true, 100, 2500))
+			_, err := openCrashEngine(ctx, flipped(ctx, true, 100, 2500), true)
 			Expect(errors.Is(err, pebble.ErrCorruption)).To(BeTrue())
 			Expect(err).To(MatchError(ContainSubstring("pebble/record: invalid chunk")))
 		},
@@ -510,7 +533,7 @@ var _ = Describe("Crash adapter", func() {
 
 	It("Should stop the open on a failed sync of the directory", func(ctx SpecContext) {
 		disk := MustSucceed(fault.New(fault.Config{SyncErrorRate: 0.05}))
-		Expect(openCrashEngine(ctx, disk)).Error().To(MatchError(
+		Expect(openCrashEngine(ctx, disk, true)).Error().To(MatchError(
 			"pebble: stopped: sync /kv: input/output error",
 		))
 	})
@@ -518,7 +541,7 @@ var _ = Describe("Crash adapter", func() {
 	It("Should stop on a failed sync of the manifest in a flush, and refuse each "+
 		"later commit", func(ctx SpecContext) {
 		cfg := fault.Config{RunKey: 8, SyncErrorRate: 0.02}
-		e := MustSucceed(openCrashEngine(ctx, MustSucceed(fault.New(cfg))))
+		e := MustSucceed(openCrashEngine(ctx, MustSucceed(fault.New(cfg)), true))
 		for id := uint64(1); id <= 15; id++ {
 			record := crash.Record{ID: id, Payload: []byte("taco")}
 			Expect(e.Commit(ctx, record, crash.Durable)).To(Equal(crash.Durable))
