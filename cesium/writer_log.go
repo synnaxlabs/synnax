@@ -186,17 +186,8 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil {
 		return fr, false, err
 	}
-	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
-		if _, refused, err := w.commit(skip); err != nil || refused {
-			return fr, refused, err
-		}
-		w.number = 0
-	}
-	if w.number == 0 {
-		if w.number, err = w.newAlignment(); err != nil {
-			return fr, false, err
-		}
-		w.next = 0
+	if refused, err := w.stretch(n, skip); err != nil || refused {
+		return fr, refused, err
 	}
 	alignment := telem.NewAlignment(w.number, w.next)
 	tr := telem.TimeRange{Start: first, End: last + 1}
@@ -229,13 +220,28 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
 }
 
-// newAlignment returns the alignment number of a new stretch.
-func (w *logWriter) newAlignment() (uint32, error) {
+// stretch makes room for n samples in the stretch of w. It starts a new stretch when w
+// has none, or when n samples would pass the 2^32 - 1 samples of one, after a commit of
+// the uncommitted run with skip. It returns true when skip refuses that commit.
+func (w *logWriter) stretch(n int64, skip func(ChannelKey) bool) (bool, error) {
+	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
+		if _, refused, err := w.commit(skip); err != nil || refused {
+			return refused, err
+		}
+		w.number = 0
+	}
+	if w.number != 0 {
+		return false, nil
+	}
+	w.next = 0
 	if w.unstored {
 		a, err := w.e.unstored.Next()
-		return a.DomainIndex(), err
+		w.number = a.DomainIndex()
+		return false, err
 	}
-	return w.st.NewAlignment()
+	var err error
+	w.number, err = w.st.NewAlignment()
+	return false, err
 }
 
 // validate checks the series of fr for the keys of w: exactly one per key, of the key's
@@ -391,8 +397,7 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 			if lk.w == nil || lk.w.Len() == lk.committed {
 				continue
 			}
-			length, crc := lk.w.Commit()
-			lk.committed = int64(length)
+			length, crc := lk.w.Pending()
 			w.keySegments = append(w.keySegments, log.Slot{
 				Segment: lk.id,
 				Length:  length,
@@ -406,6 +411,12 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 		if err := w.st.Commit(c); err != nil {
 			w.putBack()
 			return 0, false, err
+		}
+		for _, lk := range w.keys {
+			if lk.w != nil && lk.w.Len() != lk.committed {
+				length, _ := lk.w.Commit()
+				lk.committed = int64(length)
+			}
 		}
 		w.entry.Add(c)
 	}

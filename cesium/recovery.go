@@ -291,17 +291,8 @@ func (r *recovery) replay(
 		}
 		return errors.Wrapf(place.ErrCorrupt, "no header of log %d passes", r.gen)
 	}
-	if err = checkSize(h, b); err != nil {
+	if err = r.checkHeadLog(h, b); err != nil {
 		return err
-	}
-	if h.Sequence > r.head.Sequence+1 {
-		return errors.Wrapf(
-			place.ErrCorrupt,
-			"log %d starts at entry %d, after entry %d of its head",
-			r.gen,
-			h.Sequence,
-			r.head.Sequence,
-		)
 	}
 	r.first, r.logHeader = h.Sequence, h
 	sequence, end := h.Sequence, int64(log.FramesStart)
@@ -356,6 +347,24 @@ func (r *recovery) fresh1(b []byte) (bool, error) {
 	r.fresh, r.first = true, 1
 	r.pos = log.Position{End: log.FramesStart, Sequence: 1}
 	return true, nil
+}
+
+// checkHeadLog refuses the log of the head in b when its size differs from the size in
+// its header h, or when it starts after the head.
+func (r *recovery) checkHeadLog(h log.Header, b []byte) error {
+	if err := checkSize(h, b); err != nil {
+		return err
+	}
+	if h.Sequence > r.head.Sequence+1 {
+		return errors.Wrapf(
+			place.ErrCorrupt,
+			"log %d starts at entry %d, after entry %d of its head",
+			r.gen,
+			h.Sequence,
+			r.head.Sequence,
+		)
+	}
+	return nil
 }
 
 // checkSize refuses a log in b whose size differs from the size in its header h.
