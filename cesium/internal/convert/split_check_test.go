@@ -21,8 +21,8 @@ var _ = Describe("Split check", func() {
 	// Index key 1 holds two stretches of two writers: 1 to 3 s in file 1, and 20 to
 	// 22 s in file 2. The second writer wrote no sample of data key 2.
 	DescribeTable(
-		"Should refuse data samples with no stamps in the range of their pointer when a "+
-			"later index pointer exists",
+		"Should refuse data samples with no stamps in the range of their pointer "+
+			"when a later index pointer exists",
 		func(first old, samples []int64, msg string) {
 			fs := xfs.NewMem()
 			root := oldRoot{fs: fs}
