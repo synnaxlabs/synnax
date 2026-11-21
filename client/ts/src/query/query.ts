@@ -407,6 +407,7 @@ export class Space<
   private sweepTimer?: ReturnType<typeof setTimeout>;
   /** Counts stale marks. */
   private marks = 0;
+  private closed = false;
 
   constructor(config: SpaceConfig<P, D, K, V>, hooks: SpaceHooks = {}) {
     this.config = config;
@@ -583,8 +584,12 @@ export class Space<
     });
   }
 
-  /** Detaches the epoch subscription. Queries and handlers are dropped. */
+  /**
+   * Detaches the epoch subscription. Queries and handlers are dropped, and a fetch
+   * still in flight reports no failure.
+   */
   close(): void {
+    this.closed = true;
     this.detachEpoch?.();
     this.release();
     if (this.sweepTimer != null) {
@@ -672,6 +677,8 @@ export class Space<
     exc: unknown,
     message = `failed to maintain ${this.config.name} answers`,
   ): void {
+    // A closed space has no subscribers left to answer.
+    if (this.closed) return;
     this.hooks.onError(new Error(message, { cause: exc }));
   }
 
