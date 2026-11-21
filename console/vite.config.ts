@@ -65,6 +65,7 @@ const browserProject = ({
     test: {
       name,
       setupFiles: ["src/testutil/browser.ts"],
+      hookTimeout: 15_000,
       include,
       exclude,
       // A browser has no `process` to read the test Core from.
