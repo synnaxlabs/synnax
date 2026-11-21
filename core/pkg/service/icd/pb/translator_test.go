@@ -52,8 +52,9 @@ var _ = Describe("Translator", func() {
 			Name: "Rig",
 			Messages: []icd.Message{
 				{
-					Key:  uuid.New(),
-					Name: "Engine",
+					Key:       uuid.New(),
+					Name:      "Engine",
+					CycleTime: new(100 * telem.Millisecond),
 					Payload: icd.Payload{Variant: icd.BinaryPayload{
 						Length: new(uint16(8)),
 						Identifier: &icd.Identifier{Variant: icd.CanIdentifier{
