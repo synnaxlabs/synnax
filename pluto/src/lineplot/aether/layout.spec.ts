@@ -503,13 +503,15 @@ describe("shownSpans", () => {
     const at2 = new TimeStamp(2 * HOUR);
     const shown = shownSpans([window(0, 1), planned], at2, at2);
     expect(shown).toHaveLength(2);
-    expect(ns(shown[1].start)).toEqual(1.25 * HOUR - Number(TimeSpan.SECOND.valueOf()));
+    // A running window stops at the newest sample, so its margin is 5% of 45 minutes.
+    expect(ns(shown[1].start)).toBeCloseTo(1.25 * HOUR - 0.05 * 0.75 * HOUR, -3);
     expect(shown[1].end).toEqual(planned.end);
   });
 
   it("should lay out a window that ends before now in full", () => {
-    // The channels stopped before the second window ended. As a running window, its
-    // margin of 1 s would leave the gap between the windows out.
+    // The channels stopped before the second window ended. As a running window, it
+    // would stop at the newest sample, and its smaller margin would leave the gap
+    // between the windows out.
     const shown = shownSpans(
       [window(0, 1), window(1.08, 1)],
       new TimeStamp(3 * HOUR),

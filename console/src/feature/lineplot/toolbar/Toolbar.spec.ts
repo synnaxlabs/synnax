@@ -208,8 +208,6 @@ describe("lineplot/toolbar/Toolbar", () => {
     });
 
     it("should not lay out a live window that ends after now as running", async () => {
-      removeSaveFilePicker();
-      const downloads = captureBrowserDownloads();
       const suffix = id.create().replace(/-/g, "_");
       const index = await client.channels.create({
         name: `toolbar_csv_time_${suffix}`,
@@ -221,26 +219,18 @@ describe("lineplot/toolbar/Toolbar", () => {
         dataType: DataType.FLOAT64,
         index: index.key,
       });
-      // The live window ends at the newest sample, 2 minutes from now, so it starts 38
-      // minutes ago. Its margin of 2 minutes joins it to the range that ends 2 minutes
-      // before it, so the sample between them is in the export.
+      // The live window ends at the newest sample, 2 minutes from now. A planned range
+      // starts a minute after it, inside the margin after the live window, so the
+      // download shows one span.
       const now = TimeStamp.now();
-      const ago = (minutes: number) => now.sub(TimeSpan.minutes(minutes));
-      await client.write(ago(45), {
-        [index.key]: [ago(45), ago(39), ago(30), now.add(TimeSpan.minutes(2))],
-        [data.key]: [1, 2, 3, 4],
+      const at = (minutes: number) => now.add(TimeSpan.minutes(minutes));
+      await client.write(at(-30), {
+        [index.key]: [at(-30), at(2)],
+        [data.key]: [1, 2],
       });
-      const range = staticWindow(new TimeRange(ago(50), ago(40)));
-      const download = await openDownload(
-        [data.key],
-        [range, dynamicWindow(TimeSpan.minutes(40))],
-      );
-      await act(async () => {
-        fireEvent.click(download);
-      });
-      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
-      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
-      expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4]);
+      const planned = staticWindow(new TimeRange(at(3), at(63)));
+      await openDownload([data.key], [dynamicWindow(TimeSpan.minutes(40)), planned]);
+      expect(document.querySelectorAll(".console-download-csv__arrow")).toHaveLength(1);
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {
