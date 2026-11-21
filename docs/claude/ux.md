@@ -863,9 +863,10 @@ says why in a sentence, then gives the raw error.
 
 ### Plot breaks
 
-- On an absolute time axis, each gap between ranges, past a margin on each side,
-  collapses into a seam. A seam draws a 12 px grey band through the plot and the range
-  strip, with dashed edges, and a `//` centered in a gap in the axis line.
+- On an absolute time x1 axis, each gap between ranges, past a margin on each side,
+  collapses into a seam. An x2 axis always shows true time, as the axes share one view.
+  A seam draws a 12 px grey band through the plot and the range strip, with dashed
+  edges, and a `//` centered in a gap in the axis line.
 - All segments share one tick interval. In each segment, the first tick whose full label
   fits is an anchor with the date and time: "Nov 18 14:31". No label comes before the
   anchor of its segment, and no label overlaps a seam or an anchor.
