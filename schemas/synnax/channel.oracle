@@ -164,7 +164,7 @@ Channel struct {
     }
     description string = "" {
         @doc value           "is free text that says what the channel holds."
-        @search
+        @search secondary
         @validate max_length 1024
     }
 

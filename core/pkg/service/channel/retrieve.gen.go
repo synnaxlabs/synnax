@@ -60,10 +60,13 @@ func newIndexes() indexes {
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
 		}),
-		search: gorp.NewSearchIndex[Key, Channel](
+		search: gorp.NewWeightedSearchIndex[Key, Channel](
 			"search",
 			func(e *Channel) []string {
-				return []string{string(e.Name), e.Description}
+				return []string{string(e.Name)}
+			},
+			func(e *Channel) []string {
+				return []string{e.Description}
 			},
 		),
 		sibling: group.NewMemberIndex[Key, Channel](
