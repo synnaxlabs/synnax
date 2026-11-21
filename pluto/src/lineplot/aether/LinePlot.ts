@@ -63,11 +63,11 @@ export const linePlotMethodsZ = {
    */
   getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
   /**
-   * Applies a break action to x1, and returns the open breaks and the boxes of the
-   * request mapped so each holds the same values, or null when the action changes
-   * nothing. The caller sets the open breaks and the boxes.
+   * Returns the open breaks of x1 after a break action, and the boxes of the request
+   * mapped so each holds the same values, or null when the action changes nothing. It
+   * sets nothing: the caller sets the open breaks and the boxes.
    */
-  setBreaks: z.function({
+  getBreakChange: z.function({
     input: z.tuple([breaksRequestZ]),
     output: breaksChangeZ.nullable(),
   }),
@@ -184,7 +184,7 @@ export class LinePlot
     }
   }
 
-  setBreaks(req: BreaksRequest): BreaksChange | null {
+  getBreakChange(req: BreaksRequest): BreaksChange | null {
     const x1 = this.axes.at(0);
     if (x1 == null) return null;
     return x1.breaks(this.state, req, this.calculatePlot());

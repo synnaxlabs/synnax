@@ -36,8 +36,8 @@ export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 export interface UseRefValue {
   reset: () => void;
   /**
-   * Moves the view to b without emitting a change, for a view set elsewhere. Clears
-   * the mask, as a pan does.
+   * Moves the view to b without emitting a change, for a view set elsewhere. Clears the
+   * mask, as a pan does.
    */
   sync: (b: box.Box) => void;
 }

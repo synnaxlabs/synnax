@@ -13,13 +13,14 @@ import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { box, xy } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
+import { Canvas } from "@/vis/canvas";
 
 /** The props of the menu of a range in the strip. */
 export interface MenuProps extends range.SelectedState {
@@ -76,9 +77,9 @@ export const Provider = ({
   }, [menuProps.visible, setState]);
 
   const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    const canvas = document.querySelector(".pluto-canvas-container");
-    if (canvas == null) return;
-    const cursor = xy.sub(xy.construct(e), box.topLeft(canvas));
+    const topLeft = Canvas.topLeft();
+    if (topLeft == null) return;
+    const cursor = xy.sub(xy.construct(e), topLeft);
     setState((state) => ({ ...state, cursor }));
   };
 

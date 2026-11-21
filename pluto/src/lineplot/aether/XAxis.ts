@@ -26,11 +26,11 @@ import type { line } from "@/vis/line/aether";
 export const xAxisStateZ = baseAxisStateZ;
 
 /** Where a click lands: a click on the plot finds only closed breaks. */
-export const breakSourceZ = z.enum(["plot", "axis"]);
+const breakSourceZ = z.enum(["plot", "axis"]);
 export type BreakSource = z.infer<typeof breakSourceZ>;
 
 /** Opens or closes the break under a click, or opens or closes every break. */
-export const breakActionZ = z.discriminatedUnion("variant", [
+const breakActionZ = z.discriminatedUnion("variant", [
   z.object({
     variant: z.literal("toggle"),
     /** The x of the click, in pixels from the left of the canvas. */
