@@ -35,18 +35,18 @@ type held struct {
 	parts    []checkpoint.Part
 }
 
-// load returns the visible Channel of key from e and the parts of its range. It pins
-// each segment and part under the same lock that release takes, so release never
-// unlinks a segment that a Channel it returned still names, and a switch keeps each
-// part. It unpins prev, the pins of an earlier load, and returns the new pins.
-func (e *engine) load(key ChannelKey, prev held) (*state.Channel, held, error) {
+// load returns the visible Channel of key from e and the parts of its range, or the
+// error of parts that e no longer holds. It pins each segment and part under the same
+// lock that release takes, so release never unlinks a segment that a Channel it
+// returned still names, and a switch keeps each part. It unpins prev, the pins of an
+// earlier load, and returns the new pins and the error of the unlinks that the unpin
+// frees.
+func (e *engine) load(
+	key ChannelKey,
+	prev held,
+) (ch *state.Channel, h held, err, unlinkErr error) {
 	e.pins.mu.Lock()
-	ch := e.state.Channel(key)
-	var (
-		h   held
-		err error
-	)
-	if ch != nil {
+	if ch = e.state.Channel(key); ch != nil {
 		h.segments = make([]uint64, len(ch.Segments))
 		for i, seg := range ch.Segments {
 			h.segments[i] = seg.ID
@@ -56,7 +56,7 @@ func (e *engine) load(key ChannelKey, prev held) (*state.Channel, held, error) {
 	e.pins.pin(h)
 	free := e.pins.unpin(prev)
 	e.pins.mu.Unlock()
-	return ch, h, errors.Join(err, e.unlink(free))
+	return ch, h, err, e.unlink(free)
 }
 
 // pinned returns the parts that readers pin.

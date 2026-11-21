@@ -109,9 +109,9 @@ func (x *Index) Merge(s *state.Snapshot) {
 	}
 }
 
-// Ranges returns the part range of each key that records of the parts of x hold, and
+// ranges returns the part range of each key that records of the parts of x hold, and
 // that are not dead, in rising order of key.
-func (x *Index) Ranges() []state.Range {
+func (x *Index) ranges() []state.Range {
 	at := map[uint32]int{}
 	var ranges []state.Range
 	for _, p := range x.parts {

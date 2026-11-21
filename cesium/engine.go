@@ -289,8 +289,17 @@ func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
 			ch.Generation,
 		)
 	}
-	lo, _ := slices.BinarySearchFunc(head.parts, ch.Oldest, compareParts)
-	hi, _ := slices.BinarySearchFunc(head.parts, ch.Newest, compareParts)
+	lo, found := slices.BinarySearchFunc(head.parts, ch.Oldest, compareParts)
+	hi, foundNewest := slices.BinarySearchFunc(head.parts, ch.Newest, compareParts)
+	if !found || !foundNewest {
+		return nil, errors.Newf(
+			"key %d names parts %d to %d, which head %d does not name",
+			ch.Key,
+			ch.Oldest,
+			ch.Newest,
+			ch.Generation,
+		)
+	}
 	return head.parts[lo : hi+1], nil
 }
 

@@ -204,6 +204,10 @@ var _ = Describe("Parts", func() {
 		Expect(ids(h)).To(Equal([]uint64{1, 2}))
 		Expect(h.Parts[1].Dead).To(BeNil())
 		Expect(parted(h)[1].Pointers).To(BeEmpty())
+		// A kill of generation 3 reaches part 2 too, whose only record it kills.
+		h = switchTo(5, killed(withSealed(sealed(1, 10), sealed(3, 30)), 3, 2))
+		Expect(ids(h)).To(Equal([]uint64{1}))
+		Expect(partedIDs(h)).To(Equal([]uint64{1, 3}))
 	})
 
 	It("Should drop a part whose key a kill of every segment names", func() {

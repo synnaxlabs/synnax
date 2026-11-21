@@ -225,7 +225,7 @@ func (c *Checkpointer) write(h head) error {
 	for i, p := range pl.index.parts {
 		refs[i] = p.Part
 	}
-	ranges := pl.index.Ranges()
+	ranges := pl.index.ranges()
 	s := *h.snapshot
 	s.Channels, s.Limits.Parts = withRanges(pl.head, ranges), pl.index.limit
 	if gone, err := writeFile(

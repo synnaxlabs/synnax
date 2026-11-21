@@ -78,13 +78,13 @@ var _ domain.Ranges = (*logCursor)(nil)
 // part holds.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
-	ch, pinned, err := c.e.load(c.key, c.pinned)
-	c.pinned, c.err = pinned, errors.Join(c.err, err)
-	if ch == nil {
-		return
-	}
+	ch, pinned, err, unlinkErr := c.e.load(c.key, c.pinned)
+	c.pinned, c.err = pinned, errors.Join(c.err, err, unlinkErr)
 	if err != nil {
 		c.broken = true
+		return
+	}
+	if ch == nil {
 		return
 	}
 	for _, p := range pinned.parts {
