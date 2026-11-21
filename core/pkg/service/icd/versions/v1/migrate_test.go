@@ -27,16 +27,16 @@ var _ = Describe("Migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.ICD]{DB: db}))
-		pld := v0.Payload{Variant: v0.BinaryPayload{
-			Length: new(uint16(2)),
-			Fields: []v0.BinaryField{{
-				Key:       uuid.New(),
-				Name:      "speed",
-				BitLength: 16,
-				ByteOrder: v0.ByteOrderLittleEndian,
-				Kind:      payload.KindUnsigned,
-			}},
+		fields := []v0.BinaryField{{
+			Key:       uuid.New(),
+			Name:      "speed",
+			BitLength: 16,
+			ByteOrder: v0.ByteOrderLittleEndian,
+			Kind:      payload.KindUnsigned,
 		}}
+		pld := v0.Payload{
+			Variant: v0.BinaryPayload{Length: new(uint16(2)), Fields: fields},
+		}
 		old := v0.ICD{
 			Key:      uuid.New(),
 			Name:     "engine",
@@ -55,7 +55,16 @@ var _ = Describe("Migration", func() {
 			Key:  old.Key,
 			Name: "engine",
 			Messages: []v1.Message{
-				{Key: old.Messages[0].Key, Name: "status", Payload: pld},
+				{
+					Key:  old.Messages[0].Key,
+					Name: "status",
+					Payload: v1.Payload{
+						Variant: v1.BinaryPayload{
+							Length: new(uint16(2)),
+							Fields: fields,
+						},
+					},
+				},
 			},
 		}))
 	})
@@ -87,9 +96,27 @@ var _ = Describe("MigrateMessage", func() {
 			}},
 		}
 		Expect(MustSucceed(v1.MigrateMessage(ctx, old))).To(Equal(v1.Message{
-			Key:     old.Key,
-			Name:    "status",
-			Payload: old.Payload,
+			Key:  old.Key,
+			Name: "status",
+			Payload: v1.Payload{Variant: v1.TextPayload{
+				Delimiter: ",",
+				Fields:    []v1.TextField{},
+			}},
+		}))
+	})
+})
+
+var _ = Describe("MigrateJSONMatch", func() {
+	It("Should keep the pointer and the value of a rule", func(ctx SpecContext) {
+		old := v0.JSONMatch{Variant: v0.StringJSONMatch{
+			JSONBaseMatch: v0.JSONBaseMatch{Pointer: "/type"},
+			Value:         "status",
+		}}
+		Expect(MustSucceed(v1.MigrateJSONMatch(ctx, old))).To(Equal(v1.JSONMatch{
+			Variant: v1.StringJSONMatch{
+				JSONBaseMatch: v1.JSONBaseMatch{Pointer: "/type"},
+				Value:         "status",
+			},
 		}))
 	})
 })

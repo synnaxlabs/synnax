@@ -92,4 +92,21 @@ describe("Color.Swatch", () => {
     fireEvent.click(screen.getByLabelText("Auto"));
     expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
   });
+
+  it("should offer no Auto for a required value", async () => {
+    const named = await createInPalette();
+    const onChange = vi.fn();
+    const c = render(
+      <Color.Swatch value={{ type: "named", key: named.key }} onChange={onChange} />,
+      { wrapper },
+    );
+    await openPicker(c);
+    expect(screen.queryByLabelText("Auto")).toBeNull();
+    fireEvent.click(screen.getByText("Custom"));
+    fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });
+    expect(onChange).toHaveBeenCalledWith({
+      type: "fixed",
+      value: xcolor.construct("#0000ff"),
+    });
+  });
 });

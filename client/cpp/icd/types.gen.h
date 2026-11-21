@@ -320,13 +320,30 @@ struct BooleanJSONMatch : public JSONBaseMatch {
     from_proto(const ::service::icd::pb::JSONMatchBooleanPayload &pb);
 };
 
+/// @brief PresentJSONMatch matches a document that holds a value other than null at the
+/// pointer.
+struct PresentJSONMatch : public JSONBaseMatch {
+    std::string type = "present";
+
+    static PresentJSONMatch parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::JSONMatchPresentPayload;
+    [[nodiscard]] std::
+        pair<::service::icd::pb::JSONMatchPresentPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<PresentJSONMatch, x::errors::Error>
+    from_proto(const ::service::icd::pb::JSONMatchPresentPayload &pb);
+};
+
 /// @brief JSONMatch selects the JSON documents that belong to a message.
 using JSONMatch = std::variant<
     FloatJSONMatch,
     IntegerJSONMatch,
     UnsignedJSONMatch,
     StringJSONMatch,
-    BooleanJSONMatch>;
+    BooleanJSONMatch,
+    PresentJSONMatch>;
 
 JSONMatch parse_json_match(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const JSONMatch &value);

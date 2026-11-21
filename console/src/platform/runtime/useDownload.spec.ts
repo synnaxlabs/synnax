@@ -33,7 +33,6 @@ import {
   fakeSaveFileHandle,
   installSaveFilePicker,
   MOCK_OBJECT_URL,
-  removeSaveFilePicker,
   renderHookWithConsole,
 } from "@/testutil";
 
@@ -67,7 +66,6 @@ describe("Runtime.useDownload", () => {
     saveMock.mockReset();
     writeFileMock.mockReset();
     writeFileMock.mockResolvedValue(undefined);
-    removeSaveFilePicker();
     downloads = captureBrowserDownloads();
   });
   afterEach(() => {

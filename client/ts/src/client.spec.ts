@@ -346,7 +346,7 @@ describe("denied change stream", () => {
     // the reads the user is allowed to make still work
     const created = await root.labels.create({
       name: "denied-stream",
-      color: "#000000",
+      color: { type: "fixed", value: "#000000" },
     });
     await expect(restricted.labels.retrieve(created.key)).resolves.toMatchObject({
       key: created.key,
