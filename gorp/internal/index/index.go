@@ -261,16 +261,20 @@ type overlay[S Scope, D changes] struct {
 	// scope is the scope that staged d, or the zero S when no scope has staged since
 	// the last one ended.
 	scope S
-	d     D
+	// d is made on the first load, so an index that no scope stages to costs nothing.
+	d    D
+	made bool
+	// create returns empty changes.
+	create func() D
 	// flush applies the changes of a committed scope to committed state.
 	flush func(D)
 	// end is finish, bound once so that registering it allocates nothing.
 	end func(committed bool)
 }
 
-// init gives o the empty changes d, and flush to apply them.
-func (o *overlay[S, D]) init(d D, flush func(D)) {
-	o.d, o.flush, o.end = d, flush, o.finish
+// init gives o create to make its changes, and flush to apply them.
+func (o *overlay[S, D]) init(create func() D, flush func(D)) {
+	o.create, o.flush = create, flush
 }
 
 // load returns the changes of scope. The first load of a scope registers a cleanup on
@@ -282,6 +286,9 @@ func (o *overlay[S, D]) load(scope S) D {
 	if o.scope != scope {
 		if !isNone(o.scope) {
 			panic("[index] - a scope staged changes while another was open")
+		}
+		if !o.made {
+			o.d, o.end, o.made = o.create(), o.finish, true
 		}
 		o.scope = scope
 		scope.OnCleanup(o.end)
