@@ -20,8 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -37,6 +38,7 @@ var _ = Describe("Calculator", Ordered, func() {
 	var (
 		db         *gorp.DB
 		channelSvc *channel.Service
+		creator    calctestutil.Creator
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -51,18 +53,20 @@ var _ = Describe("Calculator", Ordered, func() {
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
+		creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	})
 
 	open := func(
 		ctx context.Context,
 		indexes, bases *[]channel.Channel,
-		calc *channel.Channel,
+		calc calctestutil.Calculation,
 		cfgs ...calculator.Config,
-	) *calculator.Calculator {
+	) (*calculator.Calculator, channel.Channel) {
 		GinkgoHelper()
 		if indexes != nil {
 			// Specs share one index between calculators, and a name holds one channel.
@@ -87,17 +91,15 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, calc)
-		})).To(Succeed())
+		out := MustSucceed(creator.Create(ctx, calc))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
-			Channel:        *calc,
+			Channel:        out,
 		}))
 		return MustOpen(calculator.Open(
 			ctx,
 			append([]calculator.Config{{Module: mod}}, cfgs...)...,
-		))
+		)), out
 	}
 
 	Describe("Loop budget", func() {
@@ -107,16 +109,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, _ := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
-				Virtual:  true,
 				Expression: fmt.Sprintf(
 					"for {}\nreturn %s * 2",
 					base[0].Name,
 				),
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
 			Expect(c.Next(ctx, fr, frame.Frame{})).Error().
 				To(MatchError(fmt.Sprintf(
@@ -132,16 +132,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
-				Virtual:  true,
 				Expression: fmt.Sprintf(
 					"n := 0\nfor n < 1000 {\nn = n + 1\n}\nreturn %s + n",
 					base[0].Name,
 				),
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
 			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
@@ -156,13 +154,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", base[0].Name),
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			d := telem.NewSeriesV[int64](10, 20, 30)
 			d.Alignment = telem.NewAlignment(100, 50)
 			fr := frame.NewUnary(base[0].Key(), d)
@@ -186,13 +182,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, nil, &bases, &calc)
+			})
 			d1 := telem.NewSeriesV[int64](1, 2)
 			d1.Alignment = telem.NewAlignment(10, 5)
 			d2 := telem.NewSeriesV[int64](3, 4)
@@ -214,13 +208,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 5", base[0].Name),
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(15, 2)
 			fr1 := frame.NewUnary(base[0].Key(), d1)
@@ -257,18 +249,16 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &bases, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
-				Virtual:  true,
 				Expression: fmt.Sprintf(
 					"return %s + %s + %s",
 					bases[0].Name,
 					bases[1].Name,
 					bases[2].Name,
 				),
-			}
-			c := open(ctx, nil, &bases, &calc)
+			})
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(10, 3)
 			d2 := telem.NewSeriesV[int64](2)
@@ -300,13 +290,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, nil, &bases, &calc)
+			})
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -339,18 +327,16 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &bases, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Int32T,
-				Virtual:  true,
 				Expression: fmt.Sprintf(
 					"return %s * %s + %s",
 					bases[0].Name,
 					bases[1].Name,
 					bases[2].Name,
 				),
-			}
-			c := open(ctx, nil, &bases, &calc)
+			})
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
 				[]telem.Series{
@@ -376,13 +362,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:     UniqueChannelName(),
 				DataType: telem.Float64T,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / 2", bases[0].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(10, 5)
 			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
@@ -416,18 +400,16 @@ var _ = Describe("Calculator", Ordered, func() {
 					{Name: UniqueChannelName(), DataType: telem.Int64T},
 					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
 				}
-				calc := channel.Channel{
+				stepped := 10 * telem.SecondTS
+				c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
-					Virtual:  true,
 					Expression: fmt.Sprintf(
 						"return %s + %s",
 						bases[0].Name,
 						bases[1].Name,
 					),
-				}
-				stepped := 10 * telem.SecondTS
-				c := open(ctx, &indexes, &bases, &calc, calculator.Config{
+				}, calculator.Config{
 					Now: func() telem.TimeStamp { return stepped },
 				})
 				var stamps []telem.TimeStamp
@@ -471,13 +453,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Int64T,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
 			idxData.Alignment = telem.NewAlignment(5, 2)
 			tempData := telem.NewSeriesV[int64](15, 25, 35)
@@ -512,13 +492,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
 			idxData.Alignment = telem.NewAlignment(5, 0)
 			aData := telem.NewSeriesV[int64](15, 25, 35)
@@ -556,13 +534,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(10)
 			idxData.Alignment = telem.NewAlignment(5, 0)
 			aData := telem.NewSeriesV[int64](15)
@@ -585,13 +561,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 				{Name: UniqueChannelName(), DataType: telem.Int64T},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			next := func(
 				domain uint32,
 				stamp telem.TimeStamp,
@@ -651,13 +625,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float32T,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idx1Data := telem.NewSeriesSecondsTSV(1, 2)
 			idx1Data.Alignment = telem.NewAlignment(3, 1)
 			voltageData := telem.NewSeriesV[float32](2.0, 4.0)
@@ -702,13 +674,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(5, 10)
 			idxData.Alignment = telem.NewAlignment(8, 4)
 			persistedData := telem.NewSeriesV[int64](100, 200)
@@ -744,13 +714,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:  true,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, nil, &bases, &calc)
+			})
 			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -777,13 +745,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 3", bases[0].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
 			dataOnly.Alignment = telem.NewAlignment(5, 2)
 			fr1 := frame.NewUnary(bases[0].Key(), dataOnly)
@@ -815,13 +781,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(3, 1)
 			fr1 := frame.NewUnary(indexes[0].Key(), idxData)
@@ -859,13 +823,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float64T,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idx.Alignment = telem.NewAlignment(5, 1)
 			fr1 := frame.NewUnary(indexes[0].Key(), idx)
@@ -918,13 +880,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float64T,
 				},
 			}
-			calc := channel.Channel{
+			c, calc := open(ctx, &indexes, &bases, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
-			}
-			c := open(ctx, &indexes, &bases, &calc)
+			})
 
 			// Writer 1 sends idx1 + ch1 — not enough inputs to compute yet
 			idx1 := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -965,10 +925,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:     UniqueChannelName(),
 			DataType: telem.Int64T,
 		}}
-		calc := channel.Channel{
+		c, calc := open(ctx, &idx, &base, calctestutil.Calculation{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{
@@ -976,8 +935,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					Duration: 6 * telem.Second,
 				},
 			},
-		}
-		c := open(ctx, &idx, &base, &calc)
+		})
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
 		d.Alignment = telem.NewAlignment(1, 0)
@@ -1031,18 +989,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
 				})).To(Succeed())
-				calc := channel.Channel{
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: "return " + base[0].Name,
 					Operations: []channel.Operation{
 						{Type: "max", ResetChannel: reset.Key()},
 					},
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				}))
 				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
@@ -1063,16 +1017,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, &idx, &base, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: "return " + base[0].Name,
 				Operations: []channel.Operation{
 					{Type: "derivative"},
 				},
-			}
-			c := open(ctx, &idx, &base, &calc)
+			})
 			d := telem.NewSeriesV[int64](10, 20, 40)
 			i := telem.NewSeriesSecondsTSV(1, 2, 4)
 			d.Alignment = telem.NewAlignment(1, 0)
@@ -1116,10 +1068,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:     UniqueChannelName(),
 			DataType: telem.Int64T,
 		}}
-		calc := channel.Channel{
+		c, calc := open(ctx, &idx, &base, calctestutil.Calculation{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
-			Virtual:    true,
 			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{
@@ -1131,8 +1082,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					Duration: 6 * telem.Second,
 				},
 			},
-		}
-		c := open(ctx, &idx, &base, &calc)
+		})
 
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -1168,20 +1118,16 @@ var _ = Describe("Calculator", Ordered, func() {
 				b2 := []channel.Channel{
 					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
 				}
-				c1 := channel.Channel{
+				calc1, _ := open(ctx, &idx, &b1, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
-				}
-				c2 := channel.Channel{
+				})
+				calc2, _ := open(ctx, nil, &b2, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
-				}
-				calc1 := open(ctx, &idx, &b1, &c1)
-				calc2 := open(ctx, nil, &b2, &c2)
+				})
 				g := calculator.Group{calc1, calc2}
 				keys := g.ReadFrom()
 				Expect(keys).To(HaveLen(3))
@@ -1205,20 +1151,16 @@ var _ = Describe("Calculator", Ordered, func() {
 				b2 := []channel.Channel{
 					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
 				}
-				c1 := channel.Channel{
+				calc1, c1 := open(ctx, &idx, &b1, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
-				}
-				c2 := channel.Channel{
+				})
+				calc2, c2 := open(ctx, nil, &b2, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
-				}
-				calc1 := open(ctx, &idx, &b1, &c1)
-				calc2 := open(ctx, nil, &b2, &c2)
+				})
 				g := calculator.Group{calc1, calc2}
 				d1 := telem.NewSeriesV[int64](10, 20)
 				d2 := telem.NewSeriesV[int64](5, 10)
@@ -1255,13 +1197,13 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				calc = channel.Channel{
+				var c *calculator.Calculator
+				c, calc = open(ctx, nil, &base, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
-					Virtual:    true,
 					Expression: "return 100 / " + base[0].Name,
-				}
-				g = calculator.Group{open(ctx, nil, &base, &calc)}
+				})
+				g = calculator.Group{c}
 				step = 0
 				saved = true
 			})
@@ -1341,13 +1283,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			It(
 				"Should keep the frame of earlier calculators when one fails",
 				func(ctx SpecContext) {
-					doubled := channel.Channel{
+					c, doubled := open(ctx, nil, nil, calctestutil.Calculation{
 						Name:       UniqueChannelName(),
 						DataType:   telem.Int64T,
-						Virtual:    true,
 						Expression: fmt.Sprintf("return %s * 2", base[0].Name),
-					}
-					g = append(g, open(ctx, nil, nil, &doubled))
+					})
+					g = append(g, c)
 					output, changed := g.Next(
 						ctx,
 						frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](0)),
@@ -1369,20 +1310,16 @@ var _ = Describe("Calculator", Ordered, func() {
 			b2 := []channel.Channel{
 				{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
 			}
-			c1 := channel.Channel{
+			calc1, _ := open(ctx, &idx, &b1, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: "return " + b1[0].Name,
-			}
-			c2 := channel.Channel{
+			})
+			calc2, _ := open(ctx, &idx, &b2, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: "return " + b2[0].Name,
-			}
-			calc1 := open(ctx, &idx, &b1, &c1)
-			calc2 := open(ctx, &idx, &b2, &c2)
+			})
 			g := calculator.Group{calc1, calc2}
 			Expect(g.Close()).To(Succeed())
 		})
@@ -1393,20 +1330,16 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			c1 := channel.Channel{
+			calc1, c1 := open(ctx, nil, &b1, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 1", b1[0].Name),
-			}
-			c2 := channel.Channel{
+			})
+			calc2, c2 := open(ctx, nil, nil, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", c1.Name),
-			}
-			calc1 := open(ctx, nil, &b1, &c1)
-			calc2 := open(ctx, nil, nil, &c2)
+			})
 			g := calculator.Group{calc1, calc2}
 			for i := range 10 {
 				d1 := telem.NewSeriesV[int64](10, 20)
@@ -1434,13 +1367,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Int64T,
-				Virtual:    true,
 				Expression: "return 100 / " + base[0].Name,
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](0))
 			Expect(c.Next(ctx, fr, frame.NewUnary(
 				base[0].Key(),
@@ -1465,25 +1396,27 @@ var _ = Describe("Calculator", Ordered, func() {
 		openWithInferredType := func(
 			ctx context.Context,
 			bases *[]channel.Channel,
-			calc *channel.Channel,
-		) *calculator.Calculator {
+			calc calctestutil.Calculation,
+		) (*calculator.Calculator, channel.Channel) {
 			GinkgoHelper()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
-					Analyze(ctx, *calc),
+					Analyze(ctx, channel.Channel{
+						Name:       calc.Name,
+						Virtual:    true,
+						Expression: calc.Expression,
+					}),
 			)
 			calc.DataType = res.ChanDataType
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calc)
-			})).To(Succeed())
+			out := MustSucceed(creator.Create(ctx, calc))
 			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
-				Channel:        *calc,
+				Channel:        out,
 			}))
-			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
+			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod})), out
 		}
 
 		Specify(
@@ -1494,12 +1427,10 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}}
-				calc := channel.Channel{
+				c, calc := openWithInferredType(ctx, &base, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
-					Virtual:    true,
 					Expression: "return 2.0 * " + base[0].Name,
-				}
-				c := openWithInferredType(ctx, &base, &calc)
+				})
 				Expect(calc.DataType).To(Equal(telem.Float32T))
 				fr := frame.NewUnary(
 					base[0].Key(),
@@ -1521,12 +1452,10 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}}
-				calc := channel.Channel{
+				c, calc := openWithInferredType(ctx, &base, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
-					Virtual:    true,
 					Expression: "return 1000 - " + base[0].Name,
-				}
-				c := openWithInferredType(ctx, &base, &calc)
+				})
 				Expect(calc.DataType).To(Equal(telem.Float32T))
 				fr := frame.NewUnary(
 					base[0].Key(),
@@ -1548,12 +1477,10 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}}
-				calc := channel.Channel{
+				c, calc := openWithInferredType(ctx, &base, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
-					Virtual:    true,
 					Expression: "return 1000.0 / " + base[0].Name,
-				}
-				c := openWithInferredType(ctx, &base, &calc)
+				})
 				Expect(calc.DataType).To(Equal(telem.Float32T))
 				fr := frame.NewUnary(
 					base[0].Key(),
@@ -1575,18 +1502,14 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Float32T,
 					Virtual:  true,
 				}}
-				calc := channel.Channel{
-					Name:       UniqueChannelName(),
-					DataType:   telem.Float32T,
-					Virtual:    true,
-					Expression: "return 2.0 * " + base[0].Name,
-				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
 				})).To(Succeed())
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Expression: "return 2.0 * " + base[0].Name,
+				}))
 				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,

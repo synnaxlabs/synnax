@@ -141,7 +141,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 	// A lone name bound to a reactive variable is itself reactive; one bound to a
 	// value variable is a computed copy and registers below.
-	if n := parser.ExpressionNameParts(expr); n.Head != "" {
+	if n := parser.ExpressionName(expr); n.Head != "" {
 		ref, rerr := ctx.Scope.ResolveName(ctx, n)
 		if rerr != nil {
 			return
@@ -198,7 +198,7 @@ func rhsBindsChannel[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (bound, bare bool) {
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return false, false
 	}
@@ -264,7 +264,7 @@ func synthReadsChannel[T antlr.ParserRuleContext](
 		return true
 	}
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		n := parser.PrimaryNameParts(pe)
+		n := parser.PrimaryName(pe)
 		if ref, err := synth.ResolveName(ctx, n); err == nil &&
 			ref.IsReactive() {
 			return true
@@ -279,7 +279,7 @@ func rhsReadsVariable[T antlr.ParserRuleContext](
 	expr parser.IExpressionContext,
 ) bool {
 	for _, pe := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
-		n := parser.PrimaryNameParts(pe)
+		n := parser.PrimaryName(pe)
 		sym, err := ctx.Scope.ResolveName(ctx, n)
 		if err != nil {
 			continue
@@ -521,7 +521,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 // getChannelSymbol checks if an expression is a simple identifier referencing
 // a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
-	n := parser.ExpressionNameParts(ctx.AST)
+	n := parser.ExpressionName(ctx.AST)
 	if n.Head == "" {
 		return nil
 	}
@@ -544,7 +544,7 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expr parser.IExpressionContext,
 ) *int {
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return nil
 	}
