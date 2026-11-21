@@ -122,7 +122,7 @@ describe("spans", () => {
       expect(empty?.lower).toEqual(empty?.upper);
     });
 
-    it("should give a rolling window only the newest time that fixed windows leave", () => {
+    it("should give a rolling window only the time after the fixed windows", () => {
       const s = spans(
         [trace("live", 0, 100, { edge: "rolling" }), trace("fixed", 40, 60)],
         "time",
