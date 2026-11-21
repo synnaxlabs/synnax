@@ -12,6 +12,7 @@ package api
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/control"
@@ -29,6 +30,7 @@ func NewErrorCodec() *errors.Codec {
 		validate.ErrorProvider(),
 		control.ErrorProvider(),
 		arc.ErrorProvider(),
+		impact.ErrorProvider(),
 		auth.ErrorProvider(),
 		license.ErrorProvider(),
 	)
