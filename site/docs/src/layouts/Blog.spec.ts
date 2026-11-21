@@ -9,9 +9,10 @@
 
 // @vitest-environment node
 
-import { type Element, type Root } from "hast";
+import { stubImageSize } from "@synnaxlabs/site-common/testutil/image";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import Blog from "@/layouts/Blog.astro";
 import { createContainer } from "@/testutil/container";
@@ -37,6 +38,11 @@ const RELEASES: Release[] = [
 
 const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));
 
+// The Desktop band reads the size of a CDN image.
+beforeEach(() => {
+  stubImageSize(3840, 2400);
+});
+
 const renderPost = async (
   path: string,
   fetch: typeof globalThis.fetch = listing,
@@ -48,7 +54,11 @@ const renderPost = async (
     request: new Request(new URL(path, "https://docs.synnaxlabs.com")),
     props: {
       headings: [],
-      frontmatter: { title: "A post", description: "A post.", published: "2024-10-15" },
+      frontmatter: {
+        title: "A post",
+        description: "A post.",
+        published: new Date("2024-10-15"),
+      },
     },
   });
   return elements(fromHtml(html, { fragment: true }));
@@ -68,6 +78,14 @@ describe("Blog", () => {
       expect(await segmentHrefs(path)).toEqual(["/blog", "/blog/a-post"]);
     },
   );
+
+  it("should show the day the post was published", async () => {
+    const time = (await renderPost("/blog/a-post")).find(
+      ({ tagName }) => tagName === "time",
+    );
+    expect(time?.properties.dateTime).toBe("2024-10-15");
+    expect(time == null ? null : text(time)).toBe("Oct 15, 2024");
+  });
 
   it("should end with a Desktop download that reports the blog as its location", async () => {
     const tracked = (await renderPost("/blog/a-post")).filter(

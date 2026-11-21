@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@/array";
-import { type Delete, type ID, type Insert } from "@/crdt/types.gen";
+import type { Delete, ID, Insert } from "@/crdt/types.gen";
 import { map } from "@/map";
-import { type location } from "@/spatial";
+import type { location } from "@/spatial";
 
 const ROOT_ID: ID = { replica: 0, counter: 0 };
 

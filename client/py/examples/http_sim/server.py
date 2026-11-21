@@ -20,6 +20,7 @@ from typing import override
 
 from flask import Flask, Response, jsonify, request
 
+import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import http
 
@@ -450,7 +451,7 @@ class HTTPSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> http.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> http.Device:
         return http.Device(
             host=f"{HTTPSim.host}:{HTTPSim.port}",
             secure=False,
@@ -480,7 +481,7 @@ class HTTPSlowSim(HTTPSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> http.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> http.Device:
         return http.Device(
             host=f"{HTTPSlowSim.host}:{HTTPSlowSim.port}",
             secure=False,

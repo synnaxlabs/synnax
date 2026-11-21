@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import {
   channel,
   control,
@@ -21,7 +21,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { array, color, type CrudeSeries, type destructor, errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -97,8 +97,8 @@ export class Controller
   static readonly TYPE = "Controller";
   static readonly METHODS = controllerMethodsZ;
 
-  schema = controllerStateZ;
-  methods = controllerMethodsZ;
+  override schema = controllerStateZ;
+  override methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
   private readonly openWriter: OpenWriter;
@@ -116,7 +116,7 @@ export class Controller
     this.openWriter = openWriter;
   }
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.instrumentation = alamos.useInstrumentation(ctx);
     i.addStatus = status.useAdder(ctx);
@@ -132,7 +132,7 @@ export class Controller
     return this.internal.client;
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.release();
   }
 
@@ -371,7 +371,7 @@ export class SetChannelValue
 
   invalidate(): void {}
 
-  cleanup(): void {
+  override cleanup(): void {
     this.controller.deleteTelem(this);
   }
 
@@ -423,7 +423,7 @@ export class AcquireChannelControl
     this.runAsync = runAsync;
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.controller.deleteTelem(this);
   }
 
@@ -549,7 +549,7 @@ export class AuthoritySource
     );
   }
 
-  cleanup(): void {
+  override cleanup(): void {
     this.controller.deleteTelem(this);
     this.stopListening();
     this.retrieve.close();

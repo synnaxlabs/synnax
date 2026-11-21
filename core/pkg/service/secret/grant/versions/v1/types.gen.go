@@ -12,6 +12,7 @@
 package v1
 
 import (
+	certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/grant/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
@@ -32,6 +33,8 @@ type Grant struct {
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Secrets are the secrets the subject may read.
 	Secrets []secret.Key `json:"secrets" msgpack:"secrets"`
+	// Certificates are the file certificates whose key files the subject may read.
+	Certificates []certificate.Key `json:"certificates" msgpack:"certificates"`
 	// Command is the command the subject runs with the secrets. Its task is on the
 	// subject rack, and answers on the key of the command that carries the grant.
 	Command task.Command `json:"command" msgpack:"command"`

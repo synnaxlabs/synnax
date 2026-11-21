@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
+import type { channel, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useResize } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
 import { type ReactElement, type RefCallback, useState } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Staleness } from "@/vis/staleness";
 import { Value as BaseValue } from "@/vis/value";
@@ -106,6 +107,7 @@ export const Symbol = ({
     inlineSize,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
@@ -136,7 +138,7 @@ export const Symbol = ({
         onSend={set}
         value={value}
         units={units}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
         orientation={orientation}
         disabled={disabled}
         size={size}

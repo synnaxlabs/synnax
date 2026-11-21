@@ -39,11 +39,7 @@ import {
   streamChannelStringValue,
   streamChannelValue,
 } from "@/telem/aether/remote";
-import {
-  type NumberSource,
-  type StringSource,
-  type ValueProps,
-} from "@/telem/aether/telem";
+import type { NumberSource, StringSource, ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
 import { line } from "@/vis/line/aether";
 

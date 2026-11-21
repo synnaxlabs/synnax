@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createServer, type Server } from "node:http";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 
 import { sleep } from "@synnaxlabs/x";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

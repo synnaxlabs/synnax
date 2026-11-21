@@ -10,15 +10,8 @@
 package secret_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/json/v2"
-	"encoding/pem"
-	"math/big"
-	"time"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -87,23 +82,13 @@ func retrieveSecret(ctx SpecContext, key secret.Key) secret.Secret {
 // certificate uses.
 func createCertificate(ctx SpecContext) certificate.Certificate {
 	GinkgoHelper()
-	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "plant"},
-		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
-	}
-	der := MustSucceed(
-		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
-	)
-	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
+	certPEM, keyPEM := certtestutil.NewPair()
 	c := certificate.Certificate{Variant: certificate.StoredCertificate{
 		Base: certificate.Base{Name: "Plant"},
-		Pem:  string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+		Pem:  certPEM,
 	}}
-	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Certificate.NewWriter(tx).Set(ctx, &c, privateKey)
+		return svc.Certificate.NewWriter(tx).Set(ctx, &c, []byte(keyPEM))
 	})).To(Succeed())
 	return c
 }
@@ -111,9 +96,12 @@ func createCertificate(ctx SpecContext) certificate.Certificate {
 var _ = Describe("ServiceConfig", func() {
 	full := func() apisecret.ServiceConfig {
 		return apisecret.ServiceConfig{
-			Secret: &secret.Service{},
-			RBAC:   &rbac.Service{},
-			Task:   &task.Service{},
+			Secret:      &secret.Service{},
+			RBAC:        &rbac.Service{},
+			Task:        &task.Service{},
+			Rack:        &rack.Service{},
+			Certificate: &certificate.Service{},
+			DB:          &gorp.DB{},
 		}
 	}
 	DescribeTable("Should fail when a service is missing",
@@ -128,6 +116,12 @@ var _ = Describe("ServiceConfig", func() {
 			"rbac: must be non-nil"),
 		Entry("task", func(c *apisecret.ServiceConfig) { c.Task = nil },
 			"task: must be non-nil"),
+		Entry("rack", func(c *apisecret.ServiceConfig) { c.Rack = nil },
+			"rack: must be non-nil"),
+		Entry("certificate", func(c *apisecret.ServiceConfig) { c.Certificate = nil },
+			"certificate: must be non-nil"),
+		Entry("db", func(c *apisecret.ServiceConfig) { c.DB = nil },
+			"db: must be non-nil"),
 	)
 	It("Should take the other config's services when set", func() {
 		cfg := full()
@@ -136,6 +130,9 @@ var _ = Describe("ServiceConfig", func() {
 		Expect(merged.Secret).To(BeIdenticalTo(cfg.Secret))
 		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 		Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
+		Expect(merged.Rack).To(BeIdenticalTo(cfg.Rack))
+		Expect(merged.Certificate).To(BeIdenticalTo(cfg.Certificate))
+		Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 	})
 })
 
@@ -651,7 +648,38 @@ var _ = Describe("Service", func() {
 				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
 				secretType,
+				certificateType,
 			)
+		}
+		createFileCertificate := func(ctx SpecContext, r rack.Key) certificate.Key {
+			GinkgoHelper()
+			c := certificate.Certificate{Variant: certificate.FileCertificate{
+				Base:            certificate.Base{Name: "Client"},
+				CertificatePath: "/pki/client.pem",
+				PrivateKeyFile:  new("client.key"),
+				Rack:            r,
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+			})).To(Succeed())
+			return c.Base().Key
+		}
+		grantCertificates := func(
+			ctx SpecContext,
+			keys ...certificate.Key,
+		) (grant.Key, error) {
+			GinkgoHelper()
+			u := createUser(ctx)
+			allowGrants(ctx, u)
+			res, err := createGrant(
+				SubjectCtx(ctx, u.ResourceID()),
+				apisecret.GrantCreateRequest{
+					Subject:      rk.ResourceID(),
+					Certificates: keys,
+					Command:      cmd,
+				},
+			)
+			return res.Grant, err
 		}
 		grantReq := func(keys ...secret.Key) apisecret.GrantCreateRequest {
 			return apisecret.GrantCreateRequest{
@@ -677,10 +705,77 @@ var _ = Describe("Service", func() {
 					apisecret.ResolveRequest{Grant: g, Task: t.Key},
 				))
 				Expect(res.Command).To(Equal(cmd))
+				Expect(res.Secrets).To(Equal([]secret.Key{a.Base().Key, b.Base().Key}))
 				Expect(res.Values).To(ConsistOf(
 					apisecret.Value{Key: a.Base().Key, Value: "first"},
 					apisecret.Value{Key: b.Base().Key, Value: "second"},
 				))
+			},
+		)
+		It("Should return the file certificates that a grant names, with no values",
+			func(ctx SpecContext) {
+				c := createFileCertificate(ctx, rk)
+				g := MustSucceed(grantCertificates(ctx, c))
+				res := MustSucceed(resolve(SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{Grant: g, Task: t.Key},
+				))
+				Expect(res.Certificates).To(Equal([]certificate.Key{c}))
+				Expect(res.Secrets).To(BeEmpty())
+				Expect(res.Values).To(BeEmpty())
+			},
+		)
+		It("Should refuse a grant of a file certificate of another rack",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				c := createFileCertificate(ctx, other.Key)
+				Expect(grantCertificates(ctx, c)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"certificate \"Client\" is a file of rack %d, not of %s",
+						other.Key,
+						rk.ResourceID(),
+					))),
+				))
+			},
+		)
+		It("Should refuse a grant that names a stored certificate", func(
+			ctx SpecContext,
+		) {
+			c := createCertificate(ctx)
+			Expect(grantCertificates(ctx, c.Base().Key)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"certificate \"Plant\" is stored: name its private key in secrets",
+				)),
+			))
+		})
+		It("Should return not found for a grant of a missing certificate", func(
+			ctx SpecContext,
+		) {
+			Expect(grantCertificates(ctx, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should deny a grant of a certificate the user cannot retrieve",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				allow(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionCreate},
+					deviceType,
+				)
+				c := createFileCertificate(ctx, rk)
+				Expect(createGrant(
+					SubjectCtx(ctx, u.ResourceID()),
+					apisecret.GrantCreateRequest{
+						Subject:      rk.ResourceID(),
+						Certificates: []certificate.Key{c},
+						Command:      cmd,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It("Should let the rack resolve a grant only once", func(ctx SpecContext) {
@@ -801,13 +896,157 @@ var _ = Describe("Service", func() {
 				))
 			},
 		)
-		It("Should deny resolve without a grant", func(ctx SpecContext) {
-			Expect(resolve(SubjectCtx(ctx, rk.ResourceID()),
-				apisecret.ResolveRequest{Task: t.Key},
-			)).Error().To(SatisfyAll(
-				MatchError(access.ErrDenied),
-				MatchError(ContainSubstring("has ended or does not exist")),
-			))
+		DescribeTable("Should refuse a wrong mix of grant, task, and secrets",
+			func(ctx SpecContext, req apisecret.ResolveRequest, msg string) {
+				Expect(resolve(SubjectCtx(ctx, rk.ResourceID()), req)).Error().
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError(ContainSubstring(msg)),
+					))
+			},
+			Entry("a grant without a task",
+				apisecret.ResolveRequest{Grant: uuid.New()},
+				"task: required with a grant",
+			),
+			Entry("a grant with secrets",
+				apisecret.ResolveRequest{
+					Grant:   uuid.New(),
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"secrets: must be empty with a grant",
+			),
+			Entry("no grant and no secrets",
+				apisecret.ResolveRequest{},
+				"secrets: required without a grant",
+			),
+			Entry("a task without a grant",
+				apisecret.ResolveRequest{
+					Task:    uuid.New(),
+					Secrets: []secret.Key{uuid.New()},
+				},
+				"task: must be empty without a grant",
+			),
+		)
+	})
+
+	Describe("Resolve without a grant", func() {
+		var routingKey secret.Secret
+		BeforeEach(func(ctx SpecContext) {
+			routingKey = createSecret(ctx, "Routing key", "rk")
+			t := task.Task{
+				Type: pagerduty.AlertTaskType,
+				Rack: svc.Rack.EmbeddedKey,
+				Name: "Alerts",
+				Config: msgpack.EncodedJSON{
+					"routing_key": routingKey.Base().Key.String(),
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
 		})
+		It("Should return the value of a secret that a task on the rack uses",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				res := MustSucceed(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				))
+				Expect(res.Command).To(Equal(task.Command{}))
+				Expect(res.Values).To(Equal([]apisecret.Value{
+					{Key: routingKey.Base().Key, Value: "rk"},
+				}))
+			},
+		)
+		It("Should deny a secret that only a task on another rack uses",
+			func(ctx SpecContext) {
+				other := rack.Rack{Name: "Other"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Expect(resolve(
+					SubjectCtx(ctx, other.Key.ResourceID()),
+					apisecret.ResolveRequest{
+						Secrets: []secret.Key{routingKey.Base().Key},
+					},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"no device or task on "+other.Key.ResourceID().String()+
+							" uses secret "+routingKey.Base().Key.String(),
+					)),
+				))
+			},
+		)
+		Describe("Through a certificate", func() {
+			var (
+				cert certificate.Certificate
+				key  secret.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				cert = createCertificate(ctx)
+				stored, ok := cert.Variant.(certificate.StoredCertificate)
+				Expect(ok).To(BeTrue())
+				key = *stored.PrivateKey
+			})
+			It("Should return the private key of a certificate a device uses",
+				func(ctx SpecContext) {
+					rk := svc.Rack.EmbeddedKey
+					dev := device.Device{
+						Key:      uuid.New().String(),
+						Rack:     rk,
+						Location: "opc.tcp://plc:4840",
+						Make:     "opc",
+						Model:    "OPC UA",
+						Name:     "PLC",
+						Properties: msgpack.EncodedJSON{"connection": map[string]any{
+							"client_certificate": cert.Base().Key.String(),
+						}},
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Device.NewWriter(tx).Create(ctx, &dev)
+					})).To(Succeed())
+					res := MustSucceed(resolve(
+						SubjectCtx(ctx, rk.ResourceID()),
+						apisecret.ResolveRequest{Secrets: []secret.Key{key}},
+					))
+					Expect(res.Values).To(HaveLen(1))
+					Expect(res.Values[0].Key).To(Equal(key))
+				},
+			)
+			It("Should deny the private key of a certificate that nothing uses",
+				func(ctx SpecContext) {
+					rk := svc.Rack.EmbeddedKey
+					Expect(resolve(
+						SubjectCtx(ctx, rk.ResourceID()),
+						apisecret.ResolveRequest{Secrets: []secret.Key{key}},
+					)).Error().To(SatisfyAll(
+						MatchError(access.ErrDenied),
+						MatchError(ContainSubstring("uses secret "+key.String())),
+					))
+				},
+			)
+		})
+		It("Should deny a secret that nothing uses, with the used one",
+			func(ctx SpecContext) {
+				rk := svc.Rack.EmbeddedKey
+				unused := createSecret(ctx, "Unused", "u")
+				Expect(resolve(
+					SubjectCtx(ctx, rk.ResourceID()),
+					apisecret.ResolveRequest{Secrets: []secret.Key{
+						routingKey.Base().Key,
+						unused.Base().Key,
+					}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"uses secret "+unused.Base().Key.String(),
+					)),
+				))
+			},
+		)
 	})
 })

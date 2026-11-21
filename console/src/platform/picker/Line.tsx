@@ -10,7 +10,7 @@
 import "@/platform/picker/Line.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 

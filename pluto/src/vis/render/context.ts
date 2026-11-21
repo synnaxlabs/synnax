@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
+import type { Instrumentation } from "@synnaxlabs/alamos";
 import {
   box,
   color,
@@ -19,7 +19,7 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type aether } from "@/aether/aether";
+import type { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
 import { status } from "@/status/aether";

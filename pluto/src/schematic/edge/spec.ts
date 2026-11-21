@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type FC } from "react";
-import { type z } from "zod";
+import type { schematic } from "@synnaxlabs/client";
+import type { FC } from "react";
+import type { z } from "zod";
 
-import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
-import { type Diagram } from "@/vis/diagram";
+import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
+import type { Diagram } from "@/vis/diagram";
 
 export interface EdgeProps extends Diagram.EdgeProps {
   onChange: (p: Partial<schematic.EdgeConfig>) => void;

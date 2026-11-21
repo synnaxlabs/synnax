@@ -45,7 +45,7 @@
       "project": ["src/**/*.ts!"]
     },
     "console": {
-      "entry": ["src/flags.ts!"],
+      "entry": ["src/flags/flags.ts!"],
       "project": ["src/**/*.{ts,tsx}!"],
       "ignoreIssues": {
         "src/app/nav/{bar,drawer}/{Bottom,Left,Top}.tsx": ["exports"],
@@ -78,6 +78,7 @@
         "src/**/*.astro!",
         "src/**/*.tsx!",
         "src/**/*.ts!",
+        "src/docs/**/*.mdx!",
         "src/releases/*.mdx!"
       ],
       "project": ["src/**/*.{ts,tsx,astro,mdx}!"]

@@ -12,7 +12,7 @@ import { box, color, TimeSpan, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telemTest } from "@/telem/aether/testutil";
-import { type ProviderOptions } from "@/testutil/providers";
+import type { ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
 import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";

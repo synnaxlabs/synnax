@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, ACTIONS, replayURL, type Visit } from "@/server/analytics";
-import { type License, type Organization, type Referral } from "@/server/db/schema";
-import { type Account } from "@/server/directory";
-import { type Denial } from "@/server/license/deny";
-import { type Fact } from "@/server/mail";
+import type { License, Organization, Referral } from "@/server/db/schema";
+import type { Account } from "@/server/directory";
+import type { Denial } from "@/server/license/deny";
+import type { Fact } from "@/server/mail";
 import { DAY_MS, dayOf, MONTH } from "@/server/usage";
-import { type Arrival, type Summary } from "@/server/user";
+import type { Arrival, Summary } from "@/server/user";
 import { userPath } from "@/shell";
 
 export interface Link {

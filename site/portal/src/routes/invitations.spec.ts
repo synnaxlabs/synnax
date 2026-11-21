@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as acceptRoute } from "@/pages/api/invitations/[key]/accept";

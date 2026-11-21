@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type SatteriAstroData } from "@astrojs/markdown-satteri";
-import { type MarkdownHeading } from "astro";
-import {
-  type HastNode,
-  type HastPluginDefinition,
-  type HastVisitorContext,
-} from "satteri";
+import type { SatteriAstroData } from "@astrojs/markdown-satteri";
+import type { MarkdownHeading } from "astro";
+import type { HastNode, HastPluginDefinition, HastVisitorContext } from "satteri";
 
 /** Returns the headings that the page outline lists. */
 export const outlined = (headings: MarkdownHeading[]): MarkdownHeading[] =>

@@ -11,12 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Progress } from "@synnaxlabs/lyra/progress";
-import {
-  type DetailedHTMLProps,
-  type ImgHTMLAttributes,
-  type ReactElement,
-  type VideoHTMLAttributes,
-} from "react";
+import type { DetailedHTMLProps, ReactElement, VideoHTMLAttributes } from "react";
 
 import { CDN } from "@/components/media/cdn";
 import { DARK } from "@/components/media/video";
@@ -128,48 +123,5 @@ export const Video = ({
         </Button.Button>
       </Flex.Box>
     </div>
-  );
-};
-
-export interface ImageProps
-  extends
-    MediaProps,
-    Omit<
-      DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
-      "id"
-    > {
-  extension?: "png" | "jpg" | "jpeg" | "webp" | "svg";
-  /** Describes what the image shows. Use an empty string only for decoration. */
-  alt: string;
-}
-
-/**
- * Renders a docs image that follows the reader's color scheme. The script in
- * `@/components/media/lightbox` expands it.
- */
-export const Image = ({
-  id,
-  themed = true,
-  extension = "png",
-  loading = "lazy",
-  decoding = "async",
-  className,
-  ...rest
-}: ImageProps): ReactElement => {
-  const img = (
-    <img
-      src={CDN.url(id, extension, themed ? "light" : undefined)}
-      loading={loading}
-      decoding={decoding}
-      className={className == null ? "docs-image" : `docs-image ${className}`}
-      {...rest}
-    />
-  );
-  if (!themed) return img;
-  return (
-    <picture className="docs-picture">
-      <source srcSet={CDN.url(id, extension, "dark")} media={DARK} />
-      {img}
-    </picture>
   );
 };

@@ -8,14 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { narrow } from "@/narrow";
-import {
-  type Guard,
-  type Insert,
-  type Move,
-  type Remove,
-  type Set,
-} from "@/patch/types.gen";
-import { type record } from "@/record";
+import type { Guard, Insert, Move, Remove, Set } from "@/patch/types.gen";
+import type { record } from "@/record";
 
 /** A path action, tagged the way a document's action union tags its variants. */
 export type Action =

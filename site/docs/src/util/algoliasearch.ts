@@ -16,6 +16,7 @@ import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
+import { toPosix } from "./filePath.ts";
 import { listReleaseNotes, NOTES_PAGE, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
 import { indexName, parse } from "./version.ts";
 
@@ -49,13 +50,14 @@ const read = (dir: string, filename: string, href: string, title?: string) => {
   };
 };
 
-const PAGES_DIR = "./src/pages";
+const DOCS_DIR = "./src/docs";
 const pages = [
   ...fs
-    .readdirSync(PAGES_DIR, { recursive: true, encoding: "utf8" })
+    .readdirSync(DOCS_DIR, { recursive: true, encoding: "utf8" })
+    .map(toPosix)
     .filter((f) => f.endsWith("mdx"))
     .map((f) =>
-      read(PAGES_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
+      read(DOCS_DIR, f, `/${f.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`),
     ),
   // Each version's notes render only inside /releases, under the version's anchor.
   ...listReleaseNotes().map(({ name, version, anchor }) =>

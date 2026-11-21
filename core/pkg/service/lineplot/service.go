@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -56,6 +57,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Color *color.Service
+	// Ranger holds the ranges whose own colors a writer gives to range references with
+	// no color.
+	//
+	// [REQUIRED]
+	Ranger *ranger.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -67,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Color = override.Nil(c.Color, other.Color)
+	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	return c
 }
 
@@ -76,6 +83,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("imex", c.ImEx)
 	v.NotNil("color", c.Color)
+	v.NotNil("ranger", c.Ranger)
 	return v.Error()
 }
 
@@ -166,6 +174,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 		color:      s.cfg.Color,
+		ranger:     s.cfg.Ranger,
 	}
 }
 

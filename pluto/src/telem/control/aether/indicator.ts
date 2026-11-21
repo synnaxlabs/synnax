@@ -32,11 +32,11 @@ interface InternalState {
 
 export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState> {
   static readonly TYPE = "Indicator";
-  schema = indicatorStateZ;
+  override schema = indicatorStateZ;
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { statusSource, colorSource } = this.state;
     i.statusSource = telem.useSource(ctx, statusSource, i.statusSource);
@@ -51,7 +51,7 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     this.stopListeningColor = i.colorSource?.onChange(this.updateState.bind(this));
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.statusSource.cleanup?.();
     this.internal.colorSource?.cleanup?.();
   }

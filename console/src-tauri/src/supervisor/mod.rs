@@ -22,13 +22,14 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
+use tokio::time::Instant;
 
 /// The line that asks the Core to stop.
 const STOP_LINE: &[u8] = b"stop\n";
@@ -1346,7 +1347,9 @@ while true; do sleep 1; done
         sup.stop().await;
     }
 
-    #[tokio::test]
+    // On the paused clock, a stalled runner cannot stretch a run past the healthy
+    // uptime.
+    #[tokio::test(start_paused = true)]
     async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
         let calls = Arc::new(AtomicUsize::new(0));
         let probe: probe::Probe = Arc::new(move |_| {
@@ -1357,8 +1360,16 @@ while true; do sleep 1; done
         f.cfg.stop_timeout = Duration::from_millis(600);
         f.cfg.restart.healthy_uptime = Duration::from_millis(500);
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
-        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
-        assert_eq!(f.runs(), 3);
+        // Paused time skips each timer at once, so a real timeout would expire while
+        // the Core is killed. A fourth start ends the wait instead.
+        let mut rx = sup.subscribe();
+        let status = rx
+            .wait_for(|s| matches!(s, Status::Failed { .. }) || sup.history().starts > 3)
+            .await
+            .unwrap()
+            .clone();
+        assert!(matches!(status, Status::Failed { .. }), "{status:?}");
+        assert_eq!(sup.history().starts, 3);
     }
 
     #[tokio::test]

@@ -9,8 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Visit } from "@/server/analytics";
-import { type Organization } from "@/server/db/schema";
+import type { Visit } from "@/server/analytics";
+import type { Organization } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import {
   active,
