@@ -68,6 +68,7 @@ authorityBlock
 authorityEntry
     : INTEGER_LITERAL
     | IDENTIFIER INTEGER_LITERAL
+    | CHANNEL_NAME INTEGER_LITERAL
     ;
 
 // =============================================================================

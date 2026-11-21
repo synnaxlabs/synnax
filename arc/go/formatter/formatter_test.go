@@ -868,6 +868,11 @@ var _ = Describe("Formatter", func() {
 			"authority (\n    valve 100\n)\n",
 		),
 		Entry(
+			"authority with a quoted channel entry",
+			"authority (200 'valve-cmd' 100)",
+			"authority (\n    200\n    'valve-cmd' 100\n)\n",
+		),
+		Entry(
 			"authority before sequence",
 			"authority 200\nsequence main{stage init{}}",
 			"authority 200\nsequence main {\n    stage init {}\n}\n",

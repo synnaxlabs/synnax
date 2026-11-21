@@ -54,7 +54,8 @@ func (n Node) CreateChannels(
 	if err != nil {
 		return nil, err
 	}
-	if err = n.Channel.Create(ctx, allocated); err != nil {
+	stored := channel.ToStorage(allocated)
+	if err = n.Storage.TS.CreateChannel(ctx, stored...); err != nil {
 		return nil, err
 	}
 	return allocated, nil
