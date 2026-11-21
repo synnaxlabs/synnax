@@ -134,7 +134,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 					"and its expression cannot be empty",
 			)
 		}
-		result, err := w.analyzer.Analyze(ctx, next)
+		result, err := w.analyzer.analyze(ctx, next)
 		if err != nil {
 			return nil, err
 		}
@@ -227,7 +227,7 @@ func (w Writer) CreateMany(
 		if !ch.IsCalculated() {
 			continue
 		}
-		result, err := w.analyzer.Analyze(ctx, ch)
+		result, err := w.analyzer.analyze(ctx, ch)
 		if err != nil {
 			return err
 		}

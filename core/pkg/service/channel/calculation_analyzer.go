@@ -110,8 +110,8 @@ type CalculationAnalysisResult struct {
 	Unresolved []string
 }
 
-// Analyze runs AnalyzeExpression on the expression and operations of ch.
-func (a *CalculationAnalyzer) Analyze(
+// analyze runs AnalyzeExpression on the expression and operations of ch.
+func (a *CalculationAnalyzer) analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
