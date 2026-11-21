@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -38,6 +39,8 @@ func ChannelOperations(ops []Operation) []channel.Operation {
 			typ, w = channel.OperationTypeAvg, v.Window
 		case DerivativeOperation:
 			typ = channel.OperationTypeDerivative
+		default:
+			panic(fmt.Sprintf("operation of unknown type %T", op.Variant))
 		}
 		out[i] = channel.Operation{Type: typ, Duration: w.Duration}
 		if w.Reset != nil {
@@ -256,7 +259,9 @@ func (w Writer) applyLegacy(
 	if err != nil {
 		return nil, err
 	}
-	if err = w.Apply(
+	// The reads that Apply adds belong to the calculation, which the old API does not
+	// show.
+	if _, err = w.Apply(
 		ctx,
 		c.Key,
 		NewSetAction(SetPayload{Path: []string{"expression"}, Value: doc.Expression}),

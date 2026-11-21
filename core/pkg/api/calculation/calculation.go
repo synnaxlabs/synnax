@@ -249,26 +249,34 @@ func (s *Service) attachStatuses(
 // is echoed on the broadcast so the sender recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[calculation.Key, calculation.Action]
 
+// DispatchResponse holds the actions that the Core adds to a dispatch, such as a set of
+// the reads that a new expression changed.
+type DispatchResponse = actions.DispatchResponse[calculation.Action]
+
 // Dispatch applies the actions to the calculation atomically. Subscribers to the
 // calculation action signals receive them after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	if err := s.internal.NewWriter(tx).
+) (DispatchResponse, error) {
+	computed, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...); err != nil {
-		return struct{}{}, err
+		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
 	}
 	var c calculation.Calculation
-	if err := s.internal.NewRetrieve().
+	if err = s.internal.NewRetrieve().
 		Where(calculation.MatchKeys(req.Key)).
 		Entry(&c).
 		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
+		return DispatchResponse{}, err
 	}
-	return struct{}{}, s.enforceInputs(ctx, tx, c.Output)
+	if err = s.enforceInputs(ctx, tx, c.Output); err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: computed}, nil
 }
 
 // enforceInputs fails when the subject of ctx cannot read a channel that the

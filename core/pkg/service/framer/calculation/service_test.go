@@ -234,7 +234,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			By("Editing the expression of the calculation")
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return calcSvc.NewWriter(tx).Apply(
+				_, err := calcSvc.NewWriter(tx).Apply(
 					ctx,
 					record.Key,
 					calcsvc.NewSetAction(calcsvc.SetPayload{
@@ -242,6 +242,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Value: fmt.Sprintf("return %s * 3", base.Name),
 					}),
 				)
+				return err
 			})).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(

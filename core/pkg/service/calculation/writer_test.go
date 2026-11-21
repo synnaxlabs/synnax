@@ -164,12 +164,13 @@ var _ = Describe("Writer", func() {
 			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
 			Expect(create(ctx, &c)).To(Succeed())
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
 					calculation.SetPayload{
 						Path:  []string{"expression"},
 						Value: "return 4",
 					},
 				))
+				return err
 			})).To(Succeed())
 			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
 		})
@@ -184,12 +185,13 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(create(ctx, &c)).To(Succeed())
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
 					calculation.SetPayload{
 						Path:  []string{"expression"},
 						Value: "return second * 2",
 					},
 				))
+				return err
 			})).To(Succeed())
 			Expect(retrieve(ctx, out.Key())[0].Reads).
 				To(Equal([]channel.Key{second.Key()}))
@@ -202,9 +204,10 @@ var _ = Describe("Writer", func() {
 			c := calculation.Calculation{Output: out.Key(), Expression: "return 2"}
 			Expect(create(ctx, &c)).To(Succeed())
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+				_, err := svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
 					calculation.SetPayload{Path: []string{"expression"}, Value: ""},
 				))
+				return err
 			})).To(MatchError(validate.ErrValidation))
 			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
 		})
@@ -273,9 +276,10 @@ var _ = Describe("Writer", func() {
 	Describe("Compile", func() {
 		apply := func(ctx SpecContext, key calculation.Key, path string, value any) error {
 			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Apply(ctx, key, calculation.NewSetAction(
+				_, err := svc.NewWriter(tx).Apply(ctx, key, calculation.NewSetAction(
 					calculation.SetPayload{Path: []string{path}, Value: value},
 				))
+				return err
 			})
 		}
 

@@ -122,10 +122,9 @@ var _ = Describe("StageCalculations", func() {
 				v2.Migration,
 			},
 		})).To(Succeed())
-		blob, closer, err := db.Get(
+		blob, closer := MustSucceed2(db.Get(
 			[]byte(v2.CalculationKVPrefix + stored[0].Key().String()),
-		)
-		Expect(err).ToNot(HaveOccurred())
+		))
 		Expect(closer.Close()).To(Succeed())
 		var staged v2.StagedCalculation
 		Expect(json.Unmarshal(blob, &staged)).To(Succeed())
@@ -133,7 +132,7 @@ var _ = Describe("StageCalculations", func() {
 			Expression: "return pressure * 2",
 			Operations: ops,
 		}))
-		_, _, err = db.Get([]byte(v2.CalculationKVPrefix + stored[1].Key().String()))
-		Expect(err).To(MatchError(query.ErrNotFound))
+		Expect(db.Get([]byte(v2.CalculationKVPrefix + stored[1].Key().String()))).
+			Error().To(MatchError(query.ErrNotFound))
 	})
 })

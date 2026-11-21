@@ -64,7 +64,8 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to no cap.
 	Limit LimitChecker
-	// Status publishes error/clear statuses for calculated channels.
+	// Status writes the statuses of channels, such as the warning for a renamed holder
+	// of a built-in name.
 	//
 	// [REQUIRED]
 	Status *status.Service
@@ -106,7 +107,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the top-level channel service. It owns the channel metadata table,
 // retrieval, search integration, and the create/delete/rename orchestration. It takes
 // keys from the distribution-layer allocator and creates, renames, and deletes the
-// storage channels. It also infers DataTypes for calculated channels on write.
+// storage channels.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
@@ -240,7 +241,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 }
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
-// numeric key, for analyzing and compiling Arc expressions such as calculated channels.
+// numeric key, for analyzing and compiling Arc expressions such as calculations.
 // The resolver looks up channels in snap and sees only the channels that every filter
 // matches.
 func (s *Service) NewArcSymbolResolver(

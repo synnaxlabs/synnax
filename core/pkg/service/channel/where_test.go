@@ -115,8 +115,9 @@ var _ = Describe("Where", Ordered, func() {
 		lo.FilterMap(
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
-				// The channel API gives virtual the meaning these cases hold, in which
-				// the output of a calculation is not virtual, so its specs run them.
+				// These cases hold the channel API's meaning of virtual, in which the
+				// output of a calculation is not virtual. The service counts every
+				// virtual channel.
 				return Entry(c.Name, c), !usesVirtual(c.Where)
 			},
 		),

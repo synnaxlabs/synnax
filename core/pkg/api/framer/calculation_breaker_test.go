@@ -51,7 +51,7 @@ var _ = Describe("Calculation breaker", func() {
 			}))
 			c := MustSucceed(creator.CalculationOf(ctx, output.Key()))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Calculation.NewWriter(tx).Apply(
+				_, err := svc.Calculation.NewWriter(tx).Apply(
 					ctx,
 					c.Key,
 					calculation.NewSetAction(calculation.SetPayload{
@@ -59,6 +59,7 @@ var _ = Describe("Calculation breaker", func() {
 						Value: fmt.Sprintf("return %s * 2", hidden.Name),
 					}),
 				)
+				return err
 			})).To(Succeed())
 			u := createUserGranted(
 				ctx,

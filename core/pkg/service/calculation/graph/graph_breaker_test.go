@@ -99,7 +99,7 @@ var _ = Describe("Graph breaker", func() {
 			expectStatus(ctx, calc.Key())
 			c := MustSucceed(creator.CalculationOf(ctx, calc.Key()))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return creator.Calculation.NewWriter(tx).Apply(
+				_, err := creator.Calculation.NewWriter(tx).Apply(
 					ctx,
 					c.Key,
 					calculation.NewSetAction(calculation.SetPayload{
@@ -107,6 +107,7 @@ var _ = Describe("Graph breaker", func() {
 						Value: "return brk_api_fix_other + 1",
 					}),
 				)
+				return err
 			})).To(Succeed())
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		},

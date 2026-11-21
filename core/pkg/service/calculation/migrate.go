@@ -14,16 +14,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -77,19 +74,12 @@ func (s *Service) Migration(
 			for _, ch := range channels {
 				byKey[ch.Key()] = ch
 			}
-			analyzer := s.newAnalyzer(tx)
 			owners := make([]resource.ID, len(staged))
 			var warnings []Status
 			for i, st := range staged {
 				owners[i] = channel.ResourceID(st.output)
 				output := byKey[st.output]
-				c, dropped, err := migratedCalculation(
-					ctx,
-					analyzer,
-					output,
-					st,
-					issuedAtOpen,
-				)
+				c, dropped, err := migratedCalculation(st, issuedAtOpen)
 				if err != nil {
 					return err
 				}
@@ -179,13 +169,9 @@ func scanStaged(tx gorp.Tx) (out []staged, err error) {
 	return out, iter.Error()
 }
 
-// migratedCalculation returns the calculation that st stages for output, and whether
-// it dropped an operation of no type. An expression that does not analyze still names
-// the reads that resolve, so only an ended ctx fails the analysis.
+// migratedCalculation returns the calculation that st stages, and whether it dropped
+// an operation of no type. Its reads stay empty until the graph's start compile.
 func migratedCalculation(
-	ctx context.Context,
-	analyzer *channel.CalculationAnalyzer,
-	output channel.Channel,
 	st staged,
 	issuedAtOpen func(channel.Key) bool,
 ) (Calculation, bool, error) {
@@ -194,20 +180,10 @@ func migratedCalculation(
 	if err != nil {
 		return Calculation{}, false, err
 	}
-	result, err := analyzer.AnalyzeExpression(
-		ctx,
-		output,
-		st.Expression,
-		compiler.HasDerivative(ops),
-	)
-	if err != nil && ctx.Err() != nil {
-		return Calculation{}, false, ctx.Err()
-	}
 	return Calculation{
 		Key:        migratedKey(st.output),
 		Output:     st.output,
 		Expression: st.Expression,
 		Operations: ops,
-		Reads:      slices.Sorted(slices.Values(lo.Uniq(result.Deps))),
 	}, dropped, nil
 }
