@@ -172,6 +172,29 @@ var _ = Describe("Segment", func() {
 				)
 
 				It(
+					"Should give the pending length and checksum without committing them",
+					func() {
+						w := create(cfg)
+						Expect(w.Write(pattern(20))).To(Succeed())
+						length, tail := w.Commit()
+						Expect(w.Write(pattern(30))).To(Succeed())
+						pending, pendingTail := w.Pending()
+						Expect(pending).To(Equal(uint32(50)))
+						w.PutBack()
+						back, backTail := w.Pending()
+						Expect(
+							[]uint32{back, backTail},
+						).To(Equal([]uint32{length, tail}),
+							"a put back returns to the last commit")
+						Expect(w.Write(pattern(30))).To(Succeed())
+						again, againTail := w.Commit()
+						Expect([]uint32{again, againTail}).
+							To(Equal([]uint32{pending, pendingTail}))
+						Expect(h.Close()).To(Succeed())
+					},
+				)
+
+				It(
 					"Should put the length and checksum back to the last commit",
 					func() {
 						w := create(cfg)
