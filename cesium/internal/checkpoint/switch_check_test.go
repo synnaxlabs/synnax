@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,8 +40,9 @@ func owners(
 		Limits: state.Limits{Segments: 1, Alignments: 1},
 	}))).To(Succeed())
 	var (
-		l  *log.Log
-		cp *checkpoint.Checkpointer
+		l     *log.Log
+		cp    *checkpoint.Checkpointer
+		ready = make(chan uint64, 64)
 	)
 	st := MustSucceed(state.Open(state.Config{
 		Versions: set.New[uint16](1),
@@ -50,10 +52,15 @@ func owners(
 		OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
 	}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
 	cp = MustSucceed(checkpoint.New(checkpoint.Config{
-		FS:       fs,
-		DB:       db,
-		LogSize:  logSize,
-		Prepared: func(next uint64, err error) { l.Prepared(next, err) },
+		FS:      fs,
+		DB:      db,
+		LogSize: logSize,
+		Prepared: func(next uint64, err error) {
+			l.Prepared(next, err)
+			if err == nil {
+				ready <- next
+			}
+		},
 		Executor: exec,
 	}))
 	l = MustSucceed(log.Start(log.Config{
@@ -71,13 +78,18 @@ func owners(
 		Generation: 1,
 		Sequence:   1,
 	}))
-	go func() { _ = st.Run(ctx) }()
-	go func() { _ = l.Run(ctx) }()
-	go func() { _ = cp.Run(ctx) }()
-	// The log switches only once the file of the next log exists.
-	Eventually(func() bool { return MustSucceed(fs.Exists(log.Name(2))) }).
-		WithTimeout(10 * time.Second).
-		Should(BeTrue())
+	// The owners stop, and the spec waits for them, before the leak check.
+	ctx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	for _, run := range []func(context.Context) error{st.Run, l.Run, cp.Run} {
+		wg.Go(func() { _ = run(ctx) })
+	}
+	DeferCleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+	// The log switches only once the next log is prepared.
+	Eventually(ready).WithTimeout(10 * time.Second).Should(Receive(Equal(uint64(2))))
 	return l, st
 }
 
