@@ -24,6 +24,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
+	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -167,6 +168,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// OPC UA SERVER
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
+
+	// ETHERCAT MASTER
+	t.EtherCATMasterRetrieve = noop.UnaryServer[
+		ethercatmaster.RetrieveRequest,
+		ethercatmaster.RetrieveResponse,
+	]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

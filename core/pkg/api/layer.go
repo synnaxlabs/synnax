@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
+	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -276,7 +277,8 @@ type Transport struct {
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 
 	// OPC UA SERVER
-	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
+	OPCUAServerRetrieve    freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
+	EtherCATMasterRetrieve freighter.UnaryServer[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -360,31 +362,32 @@ type Layer struct {
 	// Password creates, sets, renames, and lists passwords.
 	Password *password.Service
 	// OIDC links, lists, and unlinks OpenID Connect provider accounts.
-	OIDC        *oidc.Service
-	Schematic   *schematic.Service
-	Symbol      *symbol.Service
-	View        *view.Service
-	Secret      *secret.Service
-	Certificate *certificate.Service
-	Table       *table.Service
-	Panel       *panel.Service
-	Label       *label.Service
-	Color       *color.Service
-	Enumeration *enumeration.Service
-	Rack        *rack.Service
-	Task        *task.Service
-	Device      *device.Service
-	NIDevice    *nidevice.Service
-	NIChassis   *nichassis.Service
-	OPCUAServer *server.Service
-	Policy      *policy.Service
-	Role        *role.Service
-	Arc         *arc.Service
-	Status      *status.Service
-	ImEx        *imex.Service
-	Batch       *batch.Service
-	binder      *bind.Service
-	config      config.LayerConfig
+	OIDC           *oidc.Service
+	Schematic      *schematic.Service
+	Symbol         *symbol.Service
+	View           *view.Service
+	Secret         *secret.Service
+	Certificate    *certificate.Service
+	Table          *table.Service
+	Panel          *panel.Service
+	Label          *label.Service
+	Color          *color.Service
+	Enumeration    *enumeration.Service
+	Rack           *rack.Service
+	Task           *task.Service
+	Device         *device.Service
+	NIDevice       *nidevice.Service
+	NIChassis      *nichassis.Service
+	OPCUAServer    *server.Service
+	EtherCATMaster *ethercatmaster.Service
+	Policy         *policy.Service
+	Role           *role.Service
+	Arc            *arc.Service
+	Status         *status.Service
+	ImEx           *imex.Service
+	Batch          *batch.Service
+	binder         *bind.Service
+	config         config.LayerConfig
 }
 
 // Errors returns the codec that encodes the errors the API sends to clients.
@@ -1172,6 +1175,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.EtherCATMaster, err = ethercatmaster.NewService(ethercatmaster.ServiceConfig{
+		Master: cfg.Service.EtherCAT.Masters,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}

@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "client/cpp/ethercat/master/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -63,6 +65,76 @@ inline x::json::json Master::to_json() const {
         j["slaves"] = arr;
     }
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .interface = parser.field<std::optional<::x::filter::String>>("interface"),
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
+            "rack"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->interface.has_value()) j["interface"] = this->interface->to_json();
+    if (this->rack.has_value()) j["rack"] = this->rack->to_json();
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .after = parser.field<std::optional<Cursor>>("after"),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .include_status = parser.field<bool>("include_status", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->after.has_value()) j["after"] = this->after->to_json();
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["include_status"] = this->include_status;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .masters = parser.field<std::vector<Master>>("masters", std::vector<Master>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["masters"] = x::json::to_array(this->masters);
     return j;
 }
 
