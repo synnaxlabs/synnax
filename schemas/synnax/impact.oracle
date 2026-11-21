@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/group"
 import "schemas/synnax/resource"
 
 @go output "core/pkg/service/impact"
@@ -20,8 +21,18 @@ Change union on type {
 
         @doc value "deletes channels."
     }
+    delete_folders {
+        keys group.Key[] {
+            @doc value """
+                are the keys of the folders to delete. A folder inside one of them must
+                be named too.
+            """
+        }
 
-    @doc value "is a change to channels that a plan covers."
+        @doc value "deletes folders."
+    }
+
+    @doc value "is a change to channels or folders that a plan covers."
 }
 
 Effect enum {
