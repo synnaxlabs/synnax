@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from review import Target, Unrestorable, render, restore
+from review import Outcome, Target, Unrestorable, render, restore
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -65,6 +65,7 @@ class FakeGH:
                 "app": {"slug": "sedosaur"},
                 "external_id": KEY,
                 "started_at": "2026-11-18T05:00:00Z",
+                "status": "completed",
                 "conclusion": "success",
             }
         ]
@@ -111,7 +112,7 @@ def gh() -> FakeGH:
     return FakeGH()
 
 
-def run(gh: FakeGH) -> bool:
+def run(gh: FakeGH) -> Outcome:
     return restore(TARGET, gh, key=KEY, writer=gh.writer)
 
 
@@ -119,7 +120,7 @@ class TestRestore:
     """Tests putting the bot's last summary back in the pull request body."""
 
     def test_should_put_back_the_summary_the_bot_wrote_last(self, gh: FakeGH) -> None:
-        assert run(gh)
+        assert run(gh) == Outcome.RESTORED
         assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     def test_should_leave_the_rest_of_the_body_the_same(self, gh: FakeGH) -> None:
@@ -134,18 +135,23 @@ class TestRestore:
 
     def test_should_write_nothing_when_the_body_holds_it(self, gh: FakeGH) -> None:
         gh.body = f"{TEXT}\n\n{block(HEAD, 5)}"
-        assert not run(gh)
+        assert run(gh) == Outcome.PRESENT
         assert gh.written() is None
 
-    def test_should_fail_when_the_head_has_no_review(self, gh: FakeGH) -> None:
+    def test_should_write_nothing_when_the_head_has_no_review(self, gh: FakeGH) -> None:
         gh.runs = []
-        with pytest.raises(Unrestorable, match=f"no finished review of {HEAD}"):
-            run(gh)
+        assert run(gh) == Outcome.PENDING
+        assert gh.written() is None
+
+    def test_should_write_nothing_while_the_review_runs(self, gh: FakeGH) -> None:
+        gh.runs[0]["status"] = "in_progress"
+        gh.runs[0]["conclusion"] = None
+        assert run(gh) == Outcome.PENDING
         assert gh.written() is None
 
     def test_should_fail_when_the_review_of_the_head_failed(self, gh: FakeGH) -> None:
         gh.runs[0]["conclusion"] = "failure"
-        with pytest.raises(Unrestorable, match="no finished review"):
+        with pytest.raises(Unrestorable, match=f"review of {HEAD} failed"):
             run(gh)
 
     def test_should_fail_when_the_bot_wrote_no_summary(self, gh: FakeGH) -> None:
@@ -192,7 +198,16 @@ class TestMain:
         assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     @pytest.mark.usefixtures("env")
-    def test_should_exit_with_an_error_without_a_review(self, gh: FakeGH) -> None:
+    def test_should_succeed_without_a_finished_review(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         gh.runs = []
-        with pytest.raises(SystemExit, match="::error::Sedosaur has no finished"):
+        main(["restore"])
+        assert capsys.readouterr().out == f"{Outcome.PENDING.value}\n"
+        assert gh.written() is None
+
+    @pytest.mark.usefixtures("env")
+    def test_should_exit_with_an_error_after_a_failed_review(self, gh: FakeGH) -> None:
+        gh.runs[0]["conclusion"] = "failure"
+        with pytest.raises(SystemExit, match=f"::error::Sedosaur's review of {HEAD}"):
             main(["restore"])

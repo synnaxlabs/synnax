@@ -11,6 +11,7 @@
 copy of the body dropped or changed it."""
 
 import json
+from enum import Enum
 
 from review import render
 from review.post import GH, Target, newest, summaries, write
@@ -22,33 +23,44 @@ class Unrestorable(Exception):
     """The summary cannot go back in the body."""
 
 
-def restore(t: Target, gh: GH, *, key: str, writer: GH) -> bool:
+class Outcome(Enum):
+    """What a restore did."""
+
+    RESTORED = "Restored the summary."
+    PRESENT = "The body holds the summary."
+    PENDING = "No review of the head has finished. That review writes the summary."
+
+
+def restore(t: Target, gh: GH, *, key: str, writer: GH) -> Outcome:
     """Writes the summary that the bot wrote last back in the pull request body, and
-    keeps the rest of the body. Returns False when the body holds it already.
+    keeps the rest of the body. Writes nothing when the body holds it already, or when
+    the head has no finished review yet: that review writes the summary.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     :param writer: Runs `gh` for the write of the body.
-    :raises Unrestorable: The bot has no successful review of the head or never wrote a
+    :raises Unrestorable: The bot's review of the head failed or the bot never wrote a
         summary, or the head or the body changed during the restore.
     """
     before = _body(t, gh)
     run = newest(t, gh, t.head, key)
-    if run is None or run["conclusion"] != "success":
+    if run is None or run["status"] != "completed":
+        return Outcome.PENDING
+    if run["conclusion"] != "success":
         raise Unrestorable(
-            f"Sedosaur has no finished review of {t.head}. Dispatch Review - Sedosaur "
-            "to get one."
+            f"Sedosaur's review of {t.head} failed. Dispatch Review - Sedosaur to get "
+            "another."
         )
     block = next(iter(summaries(t, gh)), None)
     if block is None:
         raise Unrestorable(f"Sedosaur never wrote a summary in the body of #{t.pr}.")
     restored = render.splice(before, block)
     if restored == before:
-        return False
+        return Outcome.PRESENT
     # A review that posts during the reads writes a newer summary.
     if _body(t, gh) != before:
         raise Unrestorable(CHANGED)
     write(writer, "PATCH", f"repos/{t.repo}/pulls/{t.pr}", {"body": restored})
-    return True
+    return Outcome.RESTORED
 
 
 def _body(t: Target, gh: GH) -> str:
