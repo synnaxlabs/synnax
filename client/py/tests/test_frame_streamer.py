@@ -8,16 +8,22 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import logging
 import time
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import BaseModel
 
 import synnax as sy
-from freighter import Unreachable
+from freighter import Middleware, Stream, Unreachable
+from synnax.channel.retrieve import Retriever
+from synnax.framer.adapter import ReadFrameAdapter
 from tests.channel import assert_eventually_channels_are_found
 from tests.proxy import Proxy
+from x.codec import Codec
 
 # Seconds to wait for a written sample to come back through the streamer.
 READ_TIMEOUT = 5
@@ -623,3 +629,75 @@ class TestAsyncStreamerClose:
             await s.read()
         await asyncio.sleep(0.1)
         await s.close()
+
+
+class _FakeStream[S: BaseModel]:
+    """Replays responses as the Core sends them."""
+
+    def __init__(self, res_t: type[S], responses: list[dict[str, Any]]) -> None:
+        self._res_t = res_t
+        self._responses = responses
+
+    def send(self, request: BaseModel) -> None:
+        pass
+
+    def receive(self, *, timeout: float | None = None) -> S:
+        if len(self._responses) == 0:
+            raise TimeoutError
+        return self._res_t.model_validate(self._responses.pop(0))
+
+    def received(self) -> bool:
+        return False
+
+    def close_send(self) -> None:
+        pass
+
+
+class _FakeStreamClient:
+    def __init__(self, responses: list[dict[str, Any]]) -> None:
+        self._responses = responses
+
+    def use(self, *middleware: Middleware) -> None:
+        pass
+
+    def with_codec(self, codec: Codec) -> "_FakeStreamClient":
+        return self
+
+    def stream[Q: BaseModel, R: BaseModel](
+        self, target: str, req_t: type[Q], res_t: type[R]
+    ) -> Stream[Q, R]:
+        return _FakeStream(res_t, self._responses)
+
+
+class _FakeUnaryClient:
+    def use(self, *middleware: Middleware) -> None:
+        pass
+
+    def send[Q: BaseModel, R: BaseModel](
+        self, target: str, req: Q, res_t: type[R]
+    ) -> R:
+        raise NotImplementedError
+
+
+@pytest.mark.framer
+@pytest.mark.streamer
+class TestStreamerMissed:
+    def test_missed_marker(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Should warn and call on_missed for a missed marker, then keep reading."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        missed = 0
+
+        def on_missed() -> None:
+            nonlocal missed
+            missed += 1
+
+        s = sy.Streamer(
+            client=_FakeStreamClient([empty, {**empty, "missed": True}, empty]),
+            adapter=ReadFrameAdapter(Retriever(client=_FakeUnaryClient())),
+            on_missed=on_missed,
+        )
+        with caplog.at_level(logging.WARNING):
+            assert s.read(timeout=1) is not None
+        assert missed == 1
+        assert "fell behind" in caplog.text
+        assert s.read(timeout=0) is None
