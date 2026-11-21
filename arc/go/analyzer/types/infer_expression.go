@@ -334,12 +334,13 @@ func inferPrimaryType(
 	ctx context.Context[parser.IPrimaryExpressionContext],
 ) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		headSym, err := ctx.Scope.Resolve(ctx, head)
+		var buf [2]string
+		parts := parser.AppendQualifiedNameParts(buf[:0], qid)
+		headSym, err := ctx.Scope.Resolve(ctx, parts[0])
 		if err != nil {
 			return types.Type{}
 		}
-		resolved, err := headSym.Resolve(ctx, tail)
+		resolved, err := headSym.Resolve(ctx, parts[1])
 		if err != nil {
 			return types.Type{}
 		}

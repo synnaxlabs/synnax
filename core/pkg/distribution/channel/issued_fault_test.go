@@ -51,7 +51,6 @@ var _ = Describe("Issued after a failed counter write", func() {
 			return MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 				HostKey: host,
 				KV:      failingSetKV{ReadWriter: store.KV, failing: failing},
-				TS:      store.TS,
 			}))
 		}
 		ch := channel.Channel{
