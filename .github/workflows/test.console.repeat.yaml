@@ -27,10 +27,12 @@ on:
         type: string
         default: ""
       project:
-        description: The Vitest browser project, such as webkit or chromium
+        description:
+          The Vitest browser projects, such as webkit, desktop-webkit, or *webkit for
+          both
         required: false
         type: string
-        default: webkit
+        default: "*webkit"
       repeats:
         description: How many more times Vitest runs each test after the first
         required: false
@@ -41,7 +43,30 @@ permissions:
   contents: read
 
 jobs:
+  # Runs before the Core image build, so a bad dispatch fails at once. Every browser
+  # spec, run 20 more times, outlasts the job.
+  check:
+    name: Check the selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the selection
+        env:
+          FILTER: ${{ inputs.filter }}
+          SPECS: ${{ inputs.specs }}
+        run: |
+          blank() { [[ -n $1 && -z ${1//[[:space:]]/} ]]; }
+          if blank "$SPECS" || blank "$FILTER"; then
+            echo "::error::specs and filter must not be only whitespace."
+            exit 1
+          fi
+          if [[ -z $SPECS && -z $FILTER ]]; then
+            echo "::error::Set specs, filter, or both."
+            exit 1
+          fi
+
   core-image:
+    needs: check
     permissions:
       contents: read
       packages: write
@@ -63,13 +88,6 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      # Every browser spec, run 20 more times, outlasts the job.
-      - name: Check the selection
-        if: inputs.specs == '' && inputs.filter == ''
-        run: |
-          echo "::error::Set specs, filter, or both."
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
