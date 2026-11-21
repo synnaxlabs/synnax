@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"os"
 	"path"
@@ -31,9 +32,7 @@ func files(fs xfs.FS, dir string) map[string][]byte {
 	for _, info := range MustSucceed(fs.List(dir)) {
 		name := path.Join(dir, info.Name())
 		if info.IsDir() {
-			for k, v := range files(fs, name) {
-				out[k] = v
-			}
+			maps.Copy(out, files(fs, name))
 			continue
 		}
 		f := MustSucceed(fs.Open(name, os.O_RDONLY))
