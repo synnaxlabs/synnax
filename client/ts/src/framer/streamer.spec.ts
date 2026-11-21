@@ -1671,7 +1671,7 @@ describe("update against a local server", () => {
     reply(ws, { type: "data", payload: { frame: { keys: [], series: [] }, ...extra } });
 
   // Calls onAckRequest for each update that asks for an ack.
-  const open = async (onAckRequest: (ws: WebSocket) => void) => {
+  const open = async (onAckRequest: (ws: WebSocket) => void, onMissed?: () => void) => {
     const { port } = server.address() as AddressInfo;
     const ws = new WebSocketClient({
       endpoint: new url.URL({ host: "127.0.0.1", port }),
@@ -1684,7 +1684,10 @@ describe("update against a local server", () => {
           onAckRequest(sock);
       }),
     );
-    return await framer.openStreamer(retrieveChannels, ws, { channels: [1] });
+    return await framer.openStreamer(retrieveChannels, ws, {
+      channels: [1],
+      onMissed,
+    });
   };
 
   beforeEach(async () => {
@@ -1720,6 +1723,18 @@ describe("update against a local server", () => {
       StreamClosed,
     );
     await expect(reading).rejects.toThrow(StreamClosed);
+  });
+
+  it("should call onMissed for a missed marker and keep reading", async () => {
+    const onMissed = vi.fn();
+    const streamer = await open(() => {}, onMissed);
+    const ws = await connected;
+    replyData(ws, { missed: true });
+    replyData(ws);
+    const frame = await streamer.read();
+    expect(onMissed).toHaveBeenCalledTimes(1);
+    expect(frame.keys).toEqual([]);
+    streamer.close();
   });
 
   it("should reject an update sent after close", async () => {

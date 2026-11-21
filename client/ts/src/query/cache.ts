@@ -133,6 +133,10 @@ export class Cache {
   private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
+  private reconciling: Promise<void> | null = null;
+  // Set when an epoch bumps during a reconcile, whose fetches may predate the change
+  // that the bump reports.
+  private reconcileQueued = false;
   private unmaintained = false;
   /** Whether the change stream is live, so tables may drop records. */
   private _live = false;
@@ -336,6 +340,10 @@ export class Cache {
         onReopen: () => {
           if (this.streamer === streamer) this.goLive();
         },
+        // The Core dropped changes, but the stream stays open.
+        onMissed: () => {
+          if (this.streamer === streamer) this.bumpEpoch();
+        },
         onDead: (error) => {
           if (this.streamer !== streamer) return;
           this.unmaintained = true;
@@ -359,7 +367,8 @@ export class Cache {
 
   /**
    * The connection epoch: 0 before streaming starts, incremented each time the stream
-   * goes live. Changes may have been missed between epochs.
+   * goes live and every time the Core drops changes for the stream. Changes may have
+   * been missed between epochs.
    */
   get epoch(): number {
     return this.epochCount;
@@ -394,8 +403,8 @@ export class Cache {
 
   /**
    * Re-checks every cached entry against the cluster: refreshes entries that
-   * still exist and tombstones entries that vanished. Runs each time the stream goes
-   * live for tables that declare a fetch.
+   * still exist and tombstones entries that vanished. Runs at every epoch bump for
+   * tables that declare a fetch.
    */
   private async reconcile(): Promise<void> {
     await Promise.all(
@@ -448,12 +457,32 @@ export class Cache {
   private goLive(): void {
     this.clearPendingDeletes();
     this._live = true;
+    this.bumpEpoch();
+    this.trim();
+  }
+
+  private bumpEpoch(): void {
     this.epochCount++;
     this.epochObserver.notify(this.epochCount);
-    this.reconcile().catch((exc: unknown) =>
-      this.onError(new Error("failed to reconcile caches", { cause: exc })),
-    );
-    this.trim();
+    this.scheduleReconcile();
+  }
+
+  // Runs one reconcile at a time. A bump during a reconcile runs one more after it.
+  private scheduleReconcile(): void {
+    if (this.reconciling != null) {
+      this.reconcileQueued = true;
+      return;
+    }
+    this.reconciling = this.reconcile()
+      .catch((exc: unknown) =>
+        this.onError(new Error("failed to reconcile caches", { cause: exc })),
+      )
+      .finally(() => {
+        this.reconciling = null;
+        if (!this.reconcileQueued) return;
+        this.reconcileQueued = false;
+        this.scheduleReconcile();
+      });
   }
 
   /**
