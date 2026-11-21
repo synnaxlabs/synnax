@@ -814,6 +814,14 @@ class TestMultiSeries:
         assert s[5] == 6
         assert s[-1] == 6
 
+    @pytest.mark.parametrize("index", [6, -7, -12])
+    def test_index_out_of_bounds(self, index: int) -> None:
+        """Should raise an IndexError for an index outside the MultiSeries"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
+        with pytest.raises(IndexError):
+            telem.MultiSeries([s1, s2])[index]
+
     def test_conversion_to_list_string(self) -> None:
         """Should correctly convert the telem.MultiSeries to a list of strings"""
         s1 = telem.Series(["hello", "world"], data_type=telem.DataType.STRING)

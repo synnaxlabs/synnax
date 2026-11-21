@@ -24,6 +24,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
@@ -64,6 +65,8 @@ private:
     types::Kind kind;
     Op op;
     int64_t sample_count = 0;
+    /// @brief the running sum of an average, cleared when the count restarts.
+    double sum = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
     size_t input_idx;
@@ -206,8 +209,7 @@ private:
     template<typename T>
     void reduce(const runtime::state::Series &input_data) {
         const auto n = static_cast<int64_t>(input_data->size());
-        auto &output = this->state.output(0);
-        const bool fresh = output->empty();
+        const bool fresh = this->sample_count == 0;
         switch (this->op) {
             case Op::Avg:
                 this->reduce_avg<T>(input_data, n, fresh);
@@ -224,22 +226,13 @@ private:
 
     template<typename T>
     void reduce_avg(const runtime::state::Series &input_data, int64_t n, bool fresh) {
-        double new_sum = 0;
+        if (fresh) this->sum = 0;
         for (int64_t i = 0; i < n; i++)
-            new_sum += static_cast<double>(input_data->at<T>(i));
-        auto &output = this->state.output(0);
-        if (fresh) {
-            *output = x::telem::Series(
-                static_cast<T>(new_sum / static_cast<double>(n))
-            );
-        } else {
-            auto prev_avg = static_cast<double>(output->at<T>(0));
-            auto total = static_cast<double>(this->sample_count + n);
-            auto result = (prev_avg * static_cast<double>(this->sample_count) +
-                           new_sum) /
-                          total;
-            *output = x::telem::Series(static_cast<T>(result));
-        }
+            this->sum += static_cast<double>(input_data->at<T>(i));
+        const auto total = this->sample_count + n;
+        *this->state.output(0) = x::telem::Series(
+            static_cast<T>(this->sum / static_cast<double>(total))
+        );
     }
 
     template<typename T>
@@ -408,39 +401,44 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &lhs = this->state.input(this->lhs_idx);
         const auto &rhs = this->state.input(this->rhs_idx);
+        x::errors::Error err;
         switch (this->kind) {
             case types::Kind::F64:
-                this->compute<double>(lhs, rhs);
+                err = this->compute<double>(lhs, rhs);
                 break;
             case types::Kind::F32:
-                this->compute<float>(lhs, rhs);
+                err = this->compute<float>(lhs, rhs);
                 break;
             case types::Kind::I64:
-                this->compute<int64_t>(lhs, rhs);
+                err = this->compute<int64_t>(lhs, rhs);
                 break;
             case types::Kind::I32:
-                this->compute<int32_t>(lhs, rhs);
+                err = this->compute<int32_t>(lhs, rhs);
                 break;
             case types::Kind::I16:
-                this->compute<int16_t>(lhs, rhs);
+                err = this->compute<int16_t>(lhs, rhs);
                 break;
             case types::Kind::I8:
-                this->compute<int8_t>(lhs, rhs);
+                err = this->compute<int8_t>(lhs, rhs);
                 break;
             case types::Kind::U64:
-                this->compute<uint64_t>(lhs, rhs);
+                err = this->compute<uint64_t>(lhs, rhs);
                 break;
             case types::Kind::U32:
-                this->compute<uint32_t>(lhs, rhs);
+                err = this->compute<uint32_t>(lhs, rhs);
                 break;
             case types::Kind::U16:
-                this->compute<uint16_t>(lhs, rhs);
+                err = this->compute<uint16_t>(lhs, rhs);
                 break;
             case types::Kind::U8:
-                this->compute<uint8_t>(lhs, rhs);
+                err = this->compute<uint8_t>(lhs, rhs);
                 break;
             default:
                 break;
+        }
+        if (err) {
+            ctx.report_error(err);
+            return x::errors::NIL;
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
@@ -471,7 +469,16 @@ public:
 
 private:
     template<typename T>
-    void compute(const runtime::state::Series &lhs, const runtime::state::Series &rhs) {
+    x::errors::Error
+    compute(const runtime::state::Series &lhs, const runtime::state::Series &rhs) {
+        if constexpr (std::is_integral_v<T>)
+            if (this->op == Op::Divide || this->op == Op::Mod)
+                for (size_t i = 0; i < rhs->size(); i++)
+                    if (rhs->at<T>(static_cast<int>(i)) == 0)
+                        return x::errors::Error(
+                            runtime::errors::DIVIDE_BY_ZERO,
+                            "The node divided an integer by zero."
+                        );
         const auto n = std::max(lhs->size(), rhs->size());
         auto &output = this->state.output(0);
         output->resize(n);
@@ -490,7 +497,7 @@ private:
                     result = a * b;
                     break;
                 case Op::Divide:
-                    result = a / b;
+                    result = div_impl(a, b);
                     break;
                 case Op::Mod:
                     result = mod_impl(a, b);
@@ -498,6 +505,17 @@ private:
             }
             output->set(static_cast<int>(i), result);
         }
+        return x::errors::NIL;
+    }
+
+    /// @brief divides a by b. A signed integer divided by -1 wraps, so the minimum
+    /// value divided by -1 is itself instead of a hardware trap.
+    template<typename T>
+    static T div_impl(T a, T b) {
+        if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+            if (b == -1)
+                return static_cast<T>(-static_cast<std::make_unsigned_t<T>>(a));
+        return a / b;
     }
 
     template<typename T>
@@ -506,6 +524,8 @@ private:
             return static_cast<T>(
                 std::fmod(static_cast<double>(a), static_cast<double>(b))
             );
+        else if constexpr (std::is_signed_v<T>)
+            return b == -1 ? T{0} : static_cast<T>(a % b);
         else
             return a % b;
     }
