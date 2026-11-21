@@ -204,9 +204,9 @@ type changes interface {
 	reset()
 }
 
-// overlay holds the changes that the writing scope has staged against an index. The
-// DB lets one transaction write at a time, and ends it before the next writes, so one
-// set of changes serves every scope.
+// overlay holds the changes that the writing scope has staged against an index. The DB
+// lets one transaction write at a time, and ends it before the next writes, so one set
+// of changes serves every scope.
 type overlay[S Scope, D changes] struct {
 	// mu guards scope, and d against the reads of committing.
 	mu sync.RWMutex

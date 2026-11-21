@@ -99,10 +99,9 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 }
 
 // stageFresh adds key to the fresh keys of d when key holds nothing in committed state
-// or in d. It returns false when key holds something, or before the bulk load
-// finishes.
+// or in d. It returns false when key holds something, or before the bulk load finishes.
 func (m *Multi[S, K, V]) stageFresh(d *delta[K, V], key K) bool {
-	if _, staged := d.state[key]; staged || !m.holdsNothing(key) {
+	if _, staged := d.state[key]; staged || !m.absent(key) {
 		return false
 	}
 	if d.fresh == nil {
@@ -112,8 +111,8 @@ func (m *Multi[S, K, V]) stageFresh(d *delta[K, V], key K) bool {
 	return true
 }
 
-// stageGone adds key to the gone keys of d when key is in none and d does not stage
-// it. It returns false otherwise, or before the bulk load finishes.
+// stageGone adds key to the gone keys of d when key is in none and d does not stage it.
+// It returns false otherwise, or before the bulk load finishes.
 func (m *Multi[S, K, V]) stageGone(d *delta[K, V], key K) bool {
 	if _, staged := d.state[key]; staged || !m.inNone(key) {
 		return false
@@ -125,9 +124,9 @@ func (m *Multi[S, K, V]) stageGone(d *delta[K, V], key K) bool {
 	return true
 }
 
-// holdsNothing reports whether key holds no value and is not in none in committed
-// state. It is false before the bulk load finishes, and after the load fails.
-func (m *Multi[S, K, V]) holdsNothing(key K) bool {
+// absent reports whether committed state has no entry for key, in reverse or in none.
+// It is false before the bulk load finishes, and after the load fails.
+func (m *Multi[S, K, V]) absent(key K) bool {
 	if !m.loaded() {
 		return false
 	}
@@ -137,8 +136,8 @@ func (m *Multi[S, K, V]) holdsNothing(key K) bool {
 	return m.population.err == nil && !held && !m.none.Contains(key)
 }
 
-// inNone reports whether key is in none in committed state. It is false before the
-// bulk load finishes, and after the load fails.
+// inNone reports whether key is in none in committed state. It is false before the bulk
+// load finishes, and after the load fails.
 func (m *Multi[S, K, V]) inNone(key K) bool {
 	if !m.loaded() {
 		return false
