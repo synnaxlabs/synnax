@@ -24,7 +24,7 @@ import {
   SCAN_TYPE,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {
@@ -89,11 +89,15 @@ export const createVariableNode = (dataType: string = ""): ScannedNode => {
   };
 };
 
-/** Creates a running rack with an OPC UA scan task, and a device on that rack. */
+/**
+ * Creates a rack that reports as running until the test ends, with an OPC UA scan task
+ * and a device on that rack.
+ */
 export const createScannedDevice = async (
   client: Synnax,
 ): Promise<{ scan: task.Task; device: Device }> => {
   const rack = await createRunningRack(client, "opc");
+  await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("opcua_scan"),
     type: SCAN_TYPE,
