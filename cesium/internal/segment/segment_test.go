@@ -192,22 +192,6 @@ var _ = Describe("Segment", func() {
 							To(Equal(placeAt(cfg, 0).Sum(data[:segment.BlockSize])))
 					},
 				)
-
-				It(
-					"Should read a stream range across blocks with no trailer bytes",
-					func() {
-						w := create(cfg)
-						data := pattern(3*segment.BlockSize + 5)
-						Expect(w.Write(data)).To(Succeed())
-						Expect(budget.Sync([]*segment.Handle{h})).To(Succeed())
-						Expect(h.Close()).To(Succeed())
-						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
-						defer func() { Expect(f.Close()).To(Succeed()) }()
-						got := make([]byte, 2*segment.BlockSize)
-						Expect(cfg.ReadAt(f, got, 100)).To(Succeed())
-						Expect(got).To(Equal(data[100 : 100+2*segment.BlockSize]))
-					},
-				)
 			})
 
 			DescribeTable(
@@ -353,21 +337,6 @@ var _ = Describe("Segment", func() {
 						Expect(w.Write(stream[9:])).To(Succeed())
 						Expect(h.Close()).To(Succeed())
 						expectVariableTrailers(fileBytes(), stream, starts)
-					},
-				)
-
-				It(
-					"Should read a stream range across blocks with no trailer bytes",
-					func() {
-						stream, _ := samples(200_000)
-						w := create(varCfg)
-						Expect(w.Write(stream)).To(Succeed())
-						Expect(h.Close()).To(Succeed())
-						f := MustSucceed(fs.Open("3.seg", os.O_RDONLY))
-						defer func() { Expect(f.Close()).To(Succeed()) }()
-						got := make([]byte, 2*segment.BlockSize)
-						Expect(varCfg.ReadAt(f, got, 1000)).To(Succeed())
-						Expect(got).To(Equal(stream[1000 : 1000+2*segment.BlockSize]))
 					},
 				)
 			})

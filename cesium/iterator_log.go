@@ -31,7 +31,7 @@ var _ domain.Source = logSource{}
 
 // OpenCursor implements domain.Source.
 func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds}
+	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds, rd: segment.NewReader()}
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it.
@@ -59,6 +59,9 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on
 	// the old layout.
 	cur logRange
+	// rd checks the blocks that the readers of the cursor read. The readers share it,
+	// so they are not safe for concurrent use.
+	rd *segment.Reader
 }
 
 var _ domain.Cursor = (*logCursor)(nil)
@@ -153,8 +156,15 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Cursor.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
+	cfg := c.e.segmentConfig(r.seg)
+	cfg.Key = uint32(c.key)
 	return &logReader{
-		cfg:    c.e.segmentConfig(r.seg),
+		rd: c.rd,
+		seg: segment.Committed{
+			Config:  cfg,
+			Length:  int64(r.seg.Length),
+			TailCRC: r.seg.TailCRC,
+		},
 		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
@@ -167,9 +177,11 @@ func (c *logCursor) Close() error {
 	return nil
 }
 
-// logReader reads the bytes of one pointer from its segment file.
+// logReader reads the bytes of one pointer from its segment file, and checks each block
+// that it reads.
 type logReader struct {
-	cfg    segment.Config
+	rd     *segment.Reader
+	seg    segment.Committed
 	h      *segment.Handle
 	offset int64
 	size   int64
@@ -178,13 +190,14 @@ type logReader struct {
 var _ domain.RangeReader = (*logReader)(nil)
 
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
-// bytes before it with io.EOF.
+// bytes before it with io.EOF. A block that fails its check on two reads returns an
+// error that wraps place.ErrCorrupt.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 	if off >= r.size {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.h, p[:n], r.offset+off); err != nil {
+	if err := r.rd.Read(r.h, r.seg, p[:n], r.offset+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
