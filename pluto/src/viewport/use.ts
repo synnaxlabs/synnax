@@ -290,8 +290,10 @@ export const use = ({
       return setStateRef(box.DECIMAL);
     }
 
-    if (mode === "select" && stage === "start" && selectBound != null) {
-      const x = constructScale(stateRef.current, canvas).x.pos(cursor.x);
+    // A drag that starts as another mode can end as a select, so the bound loads at
+    // the first select event, from where the drag started.
+    if (mode === "select" && dragBoundRef.current == null && selectBound != null) {
+      const x = constructScale(stateRef.current, canvas).x.pos(box_.one.x);
       const drag: DragBound = { bound: null, loaded: selectBound(x) };
       void drag.loaded.then((b) => (drag.bound = b));
       dragBoundRef.current = drag;

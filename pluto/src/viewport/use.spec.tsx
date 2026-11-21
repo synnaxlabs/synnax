@@ -513,6 +513,37 @@ describe("viewport/use", () => {
       expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.2);
     });
 
+    it("should bound a drag that ends as a select from where it started", async () => {
+      const { h, starts, settle } = bounded();
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 50, y: 40 });
+      fireEvent.keyDown(document.body, { code: ALT });
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(lastEvent(h.onChange).mode).toEqual("select");
+      expect(box.right(b)).toBeCloseTo(0.6);
+    });
+
+    it("should not keep the bound of a select drag that a cancel ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      fireEvent.keyUp(document.body, { code: "Escape" });
+      release(h.canvas, { x: 80, y: 80 });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
     it("should not bound a zoom", () => {
       const { h, starts } = bounded();
       drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 });

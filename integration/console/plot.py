@@ -386,14 +386,9 @@ class Plot(ConsolePage):
         """Assert the plot shows no breaks toggle."""
         expect(self.get_breaks_toggle()).to_have_count(0, timeout=timeout)
 
-    def expect_menu_option(
-        self, option: str, *, offered: bool = True, timeout: int = 5000
-    ) -> None:
-        """Open the plot menu and assert whether it offers an option.
-
-        The menu opens over the left quarter of the plot, clear of the seam between
-        two ranges of equal length.
-        """
+    def _open_menu(self) -> None:
+        """Open the plot menu over the left quarter of the plot, clear of the seam
+        between two ranges of equal length."""
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
         box = self.pane_locator.bounding_box()
@@ -403,11 +398,22 @@ class Plot(ConsolePage):
             button="right",
             position={"x": box["width"] * 0.25, "y": box["height"] * 0.6},
         )
+        self.page.get_by_role("menu").first.wait_for(state="visible", timeout=5000)
+
+    def expect_menu_option(
+        self, option: str, *, offered: bool = True, timeout: int = 5000
+    ) -> None:
+        """Open the plot menu and assert whether it offers an option."""
+        self._open_menu()
         menu = self.page.get_by_role("menu").first
-        menu.wait_for(state="visible", timeout=5000)
         items = menu.get_by_role("menuitem").filter(has_text=option)
         expect(items).to_have_count(1 if offered else 0, timeout=timeout)
         self.layout.ctx_menu.close()
+
+    def select_menu_option(self, option: str) -> None:
+        """Open the plot menu and click an option."""
+        self._open_menu()
+        self.layout.ctx_menu.click_option(option)
 
     def get_range_strip(self) -> Locator:
         """Return the strip above the plot that shows the plot's ranges."""

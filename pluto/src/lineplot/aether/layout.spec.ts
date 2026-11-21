@@ -453,7 +453,7 @@ describe("shownSpans", () => {
     expect(shown[1].end).toEqual(later.end);
   });
 
-  it("should end a running window at the end it is given", () => {
+  it("should leave the span of a running window open", () => {
     const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
     const shown = shownSpans([window(0, 1), running], new TimeStamp(101 * HOUR));
     expect(shown).toHaveLength(2);

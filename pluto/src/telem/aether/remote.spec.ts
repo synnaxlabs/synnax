@@ -684,6 +684,23 @@ describe("remote", () => {
       await expect.poll(last, POLL).toBe(newest(core, key).at(-1));
     });
 
+    it("should read the value bounds of a static window across its view", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      await settle(y);
+      const lower = ns(START);
+      const upper = ns(HOME.end) + ns(new TimeStamp(TimeSpan.minutes(1)));
+      y.value({ extremesKept: true, bounds: { lower, upper } });
+      const kept = subscribe.mock.calls
+        .map(([request]) => request.limit)
+        .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+      expect(kept).toEqual([
+        expect.objectContaining({ view: new TimeRange(BigInt(lower), BigInt(upper)) }),
+      ]);
+    });
+
     it("should bound a static index by its home view", async () => {
       const core = createCore();
       const x = create(connect(core), {

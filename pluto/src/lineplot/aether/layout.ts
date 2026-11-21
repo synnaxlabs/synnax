@@ -286,8 +286,10 @@ export const collapse = (
 /**
  * @returns the spans of time that a plot of windows shows with its gaps collapsed and
  * every break closed, in time order. Each span holds one or more windows and the
- * margins and time between them.
- * @param end - where a window with no end stops showing, such as the newest sample.
+ * margins and time between them. The outer edges are the exact edges of the windows,
+ * so the last span stays open when a window has no end.
+ * @param end - where a window with no end stops for laying out the gaps, such as the
+ * newest sample.
  */
 export const shownSpans = (windows: TimeRange[], end: TimeStamp): TimeRange[] => {
   const traces = windows.map((w): line.DataBounds => {
