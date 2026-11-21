@@ -26,6 +26,7 @@ import {
   TimeSpan,
   TimeStamp,
   type Window,
+  xy,
 } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -151,8 +152,75 @@ describe("line", () => {
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
-      const read = { bounds: { lower: 100, upper: 300 } };
+      const read = { bounds: { lower: 100, upper: 300 }, span: bounds.INFINITE };
       values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("span", () => {
+      // The x values 0 to 2 fill the region from left to right.
+      const x = scale.Scale.scale<number>(0, 2).scale(0, 1);
+      const spanned = (span: bounds.Bounds): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(x),
+        span,
+      });
+
+      it("should pass its span to its sources", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        const span = { lower: -Infinity, upper: 1 };
+        m.line.render(spanned(span));
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
+      });
+
+      it("should clip its draw to its span", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned({ lower: -Infinity, upper: 1 }));
+        expect(m.recorder.scissorCalls).toEqual([
+          {
+            region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+            overScan: xy.ZERO,
+            canvases: ["gl"],
+          },
+        ]);
+        expect(m.draws().length).toBeGreaterThan(0);
+      });
+
+      it("should not clip a line that spans every value", () => {
+        const m = mount([X1], [Y1]);
+        m.line.render(spanned(bounds.INFINITE));
+        expect(m.recorder.scissorCalls).toEqual([]);
+      });
+
+      it("should draw nothing but read its span when its span holds no time", () => {
+        const m = mount([X1], [Y1]);
+        const value = vi.spyOn(m.xSource, "value");
+        const span = { lower: 1, upper: 1 };
+        m.line.render(spanned(span));
+        expect(m.draws()).toEqual([]);
+        expect(value.mock.calls[0][0]?.span).toEqual(span);
+        expect(m.line.loading).toBe(false);
+      });
+
+      it("should find no drawn point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.6).value.x).toBeNaN();
+      });
+
+      it("should find the nearest drawn point inside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: -Infinity, upper: 1.5 });
+        m.line.render(props);
+        expect(m.line.findDrawnByXValue(props, 1.4).value.x).toBe(1);
+      });
+
+      it("should find no point for a target outside its span", () => {
+        const m = mount([X1], [Y1]);
+        const props = spanned({ lower: 0.5, upper: Infinity });
+        expect(m.line.findByXValue(props, 0.2).value.x).toBeNaN();
+      });
     });
 
     describe("zoom settle", () => {
@@ -693,6 +761,40 @@ describe("line", () => {
         const m = mount([X1], [Y1], { zero });
         m.line.render(PROPS);
         expect(m.line.findDrawnByXValue(PROPS, 1).value).toEqual({ x: 1, y: 30 });
+      });
+
+      describe("span", () => {
+        // The axis values -1 to 1 fill the region, and the span ends at axis value 0.
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(-1, 1).scale(0, 1),
+          ),
+          span: { lower: -Infinity, upper: 0 },
+        };
+
+        it("should read and clip its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          const value = vi.spyOn(m.xSource, "value");
+          m.line.render(props);
+          expect(value.mock.calls[0][0]?.span).toEqual({ lower: -Infinity, upper: 1 });
+          expect(m.recorder.scissorCalls).toEqual([
+            {
+              region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+              overScan: xy.ZERO,
+              canvases: ["gl"],
+            },
+          ]);
+        });
+
+        it("should find points only inside its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          m.line.render(props);
+          expect(m.line.findByXValue(props, -1).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findByXValue(props, 0.6).value.x).toBeNaN();
+          expect(m.line.findDrawnByXValue(props, -0.6).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findDrawnByXValue(props, 0.6).value.x).toBeNaN();
+        });
       });
     });
 
