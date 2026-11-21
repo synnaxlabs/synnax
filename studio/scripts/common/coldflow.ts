@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type resource, TimeRange, TimeSpan } from "@synnaxlabs/client";
-import { type Locator } from "playwright";
+import {
+  panel,
+  type ranger,
+  type resource,
+  type Synnax,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/client";
+import type { Locator } from "playwright";
 
 import { capture, type fixtures } from "@/index";
 
@@ -85,6 +93,43 @@ export const startColdflow = async (
       color: "#F5C400",
       timeRange: new TimeRange(flowing, flowing.add(TimeSpan.seconds(30))),
     },
+  ]);
+};
+
+/** changes returns the times at which a valve on the stand changes state during tr. */
+const changes = async (
+  client: Synnax,
+  tr: TimeRange,
+  valve: string,
+): Promise<TimeStamp[]> => {
+  const times = Array.from(await client.read(tr, "daq_time"));
+  const states = Array.from(await client.read(tr, `${valve}_state`));
+  return states.flatMap((s, i) =>
+    i > 0 && s !== states[i - 1] ? [new TimeStamp(times[i] as bigint)] : [],
+  );
+};
+
+/**
+ * createPhases saves the Pressurization, Flow, and Safing phases of a coldflow test
+ * as its child ranges, from the valve states the stand recorded.
+ */
+export const createPhases = async (
+  client: Synnax,
+  test: ranger.Range,
+): Promise<ranger.Range[]> => {
+  const tr = test.timeRange;
+  const [closed] = await changes(client, tr, "ox_vent");
+  const [opened, shut] = await changes(client, tr, "ox_mpv");
+  const phase = (name: string, color: string, start: TimeStamp, end: TimeStamp) => ({
+    name,
+    color,
+    timeRange: new TimeRange(start, end),
+    parent: test.key,
+  });
+  return await client.ranges.create([
+    phase("Pressurization", "#3774D0", closed, opened),
+    phase("Flow", "#F5C400", opened, shut),
+    phase("Safing", "#10B061", shut, tr.end),
   ]);
 };
 

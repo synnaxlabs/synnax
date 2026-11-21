@@ -10,7 +10,7 @@
 import { type CameraTrack, simulate } from "@/director/camera";
 import { type CursorTrack, synthesize } from "@/director/cursor";
 import { plan, type Segment } from "@/director/zoom";
-import { type Timeline } from "@/timeline";
+import type { Timeline } from "@/timeline";
 
 /** Tracks is the director's output: everything the compositor needs per frame. */
 export interface Tracks {

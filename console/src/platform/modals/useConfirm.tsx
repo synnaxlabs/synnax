@@ -9,10 +9,10 @@
 
 import "@/platform/modals/useConfirm.css";
 
-import { type status } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
@@ -23,7 +23,7 @@ import { type PropsWithChildren, useId, useState } from "react";
 import { CSS } from "@/platform/css";
 import { createPrompt } from "@/platform/modals/factory";
 import { Triggers } from "@/platform/triggers";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 
 interface ButtonProps {
   variant?: status.Variant;

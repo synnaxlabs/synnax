@@ -66,6 +66,8 @@ export interface ProviderProps {
   timeRange: TimeRange;
   /** The newest sample, when the x axis ends at it. */
   newest?: TimeStamp;
+  /** The current time. Defaults to the system clock. */
+  now?: TimeStamp;
 }
 
 /**
@@ -105,9 +107,9 @@ const MAX_DELAY = 2 ** 31 - 1;
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   static readonly stateZ = providerStateZ;
-  schema = providerStateZ;
+  override schema = providerStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
@@ -123,7 +125,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.internal.retrieve.close();
     clearTimeout(this.internal.timer);
   }
@@ -140,7 +142,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    const { dataToDecimalScale, region, viewport, timeRange, newest } = props;
+    const {
+      dataToDecimalScale,
+      region,
+      viewport,
+      timeRange,
+      newest,
+      now = TimeStamp.now(),
+    } = props;
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null)
@@ -149,7 +158,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         limit: FETCH_LIMIT,
       });
     const { draw } = i;
-    const now = TimeStamp.now();
     const fetched = i.retrieve.value ?? [];
     const start = timeRange.start.valueOf();
     const end = timeRange.end.valueOf();

@@ -9,7 +9,7 @@
 
 import { LETTER as V0610 } from "@/letters/0-61-0";
 import { LETTER as V0620 } from "@/letters/0-62-0";
-import { type Letter } from "@/server/letter";
+import type { Letter } from "@/server/letter";
 
 /** LETTERS holds the release notes letter of each release, newest first. */
 export const LETTERS: Letter[] = [V0620, V0610];

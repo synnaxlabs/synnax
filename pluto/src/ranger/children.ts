@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import type { query, ranger, Synnax as Client } from "@synnaxlabs/client";
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";

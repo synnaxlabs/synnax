@@ -13,7 +13,7 @@ import { GET as audienceRoute } from "@/pages/api/cron/audience";
 import { GET as digestRoute } from "@/pages/api/cron/digest";
 import { GET } from "@/pages/api/cron/expiry";
 import { GET as sessionsRoute } from "@/pages/api/cron/sessions";
-import { type Session, type Visit } from "@/server/analytics";
+import type { Session, Visit } from "@/server/analytics";
 import { event, type License, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE } from "@/server/directory";

@@ -332,6 +332,19 @@ describe("Input", () => {
         expect(c.getByText("units")).toBeTruthy();
       });
 
+      it("should hold block content in the start and end content", () => {
+        const c = render(
+          <Input.Text
+            value=""
+            onChange={vi.fn()}
+            startContent={<div>swatch</div>}
+            endContent={<div>warning</div>}
+          />,
+        );
+        expect(c.getByText("swatch").parentElement?.tagName).toBe("DIV");
+        expect(c.getByText("warning").parentElement?.tagName).toBe("DIV");
+      });
+
       it("should focus the input when the end content is pressed", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} endContent="units" />);
         fireEvent.mouseDown(c.getByText("units"));
@@ -384,6 +397,17 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.keyDown(input, { key: "Escape" });
         expect(onKeyDown).toHaveBeenCalled();
+      });
+
+      it("should stop Escape at an input outside a modal", () => {
+        const onKeyDown = vi.fn();
+        render(
+          <div onKeyDown={onKeyDown}>
+            <Input.Text value="" onChange={vi.fn()} />
+          </div>,
+        );
+        fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+        expect(onKeyDown).not.toHaveBeenCalled();
       });
     });
 

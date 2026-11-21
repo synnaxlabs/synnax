@@ -10,7 +10,7 @@
 import { channel, group, resource, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
@@ -28,17 +28,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { type Session } from "@/session";
+import type { Session } from "@/session";
 import {
   CaptureStatuses,
   type ConsolePreloadedState,

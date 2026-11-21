@@ -9,7 +9,7 @@
 
 import "@/feature/range/toolbar/Card.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import type { ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Store } from "@synnaxlabs/lyra/store";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   type color,
@@ -21,8 +21,8 @@ import {
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { type framer } from "@/framer";
-import { type label } from "@/label";
+import type { framer } from "@/framer";
+import type { label } from "@/label";
 import { query } from "@/query";
 import { createOf, encode, parentOf, reduceAll } from "@/ranger/actions";
 import {
@@ -34,7 +34,7 @@ import {
 } from "@/ranger/actions.gen";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
-import { type Name, type Params } from "@/ranger/payload";
+import type { Name, Params } from "@/ranger/payload";
 import {
   type Key,
   keyZ,
@@ -55,7 +55,7 @@ import {
   shortcutZ,
 } from "@/ranger/where.gen";
 import { Writer } from "@/ranger/writer";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const ACTION_CHANNEL_NAME = "sy_range_action_set";
@@ -417,8 +417,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached range and sends them to the Core. Paths and values
-   * take the camelCase form of the cached range. Returns false without side effects
-   * when the range is not cached.
+   * take the camelCase form of the cached range.
+   * @throws {NotCachedError} if the range is not cached, before any change.
    * @throws {Error} if the range cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached range drops the actions.
    */
@@ -426,7 +426,10 @@ export class Client extends query.Retriever<
     return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }
@@ -443,11 +446,11 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async retrieve(params: Key | Name | OneParams): Promise<Range>;
-  async retrieve(
+  override async retrieve(params: Key | Name | OneParams): Promise<Range>;
+  override async retrieve(
     params: Name[] | CrudeTimeRange | query.RequestInput<typeof retrieveMultiParamsZ>,
   ): Promise<Range[]>;
-  async retrieve(
+  override async retrieve(
     params:
       | Key
       | Name

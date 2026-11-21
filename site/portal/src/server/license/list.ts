@@ -25,7 +25,7 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { type Reader } from "@/server/db/db";
+import type { Reader } from "@/server/db/db";
 import {
   type Activation,
   activation,

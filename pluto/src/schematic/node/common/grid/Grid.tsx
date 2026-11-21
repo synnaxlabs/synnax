@@ -21,7 +21,7 @@ import {
   type ControlPosition,
   NodeResizeControl,
   ResizeControlVariant,
-  useStore,
+  useNodesStore,
 } from "@xyflow/react";
 import {
   Children,
@@ -289,7 +289,7 @@ export const Grid: FC<GridProps> = ({
     reflowPane(nodeKey);
   }, [editable, nodeKey]);
   // Non-draggable symbols are grouped; their rotate and resize affordances hide too.
-  const locked = useStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
+  const locked = useNodesStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
   const resizeOverlayStyle: CSSProperties = { cursor: resizeCursor ?? undefined };
   const { items, body } = splitChildren(children);

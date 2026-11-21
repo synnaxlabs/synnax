@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
@@ -35,6 +36,7 @@ export const Symbol = ({
     stalenessColor,
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const badged = Staleness.useBadged();
   const source = Telem.numberSource(channel);
@@ -57,7 +59,7 @@ export const Symbol = ({
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         inlineSize={inlineSize}
         size={size}
         staleColor={

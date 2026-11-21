@@ -7,15 +7,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Answers a reply on the thread of a Sedosaur finding, or a comment that dismisses a
-# finding outside the diff, as the sedosaur GitHub App. An `@sedosaur dismiss` from
-# someone with write access to the repository dismisses the finding, and later reviews
-# of the pull request do not report it. A rebuttal from such a person or an agent goes
-# to Sedosaur on a review runner: Claude Code checks its evidence against the head, then
-# Sedosaur withdraws the finding until its file changes, or replies why it holds. Any
-# other reply gets the usage. When no finding of the head's review is left, a new check
-# run scores the head 5/5. The scripts and the policy come from the default branch,
-# never from the pull request.
+# Answers a reply on the thread of a Sedosaur finding, as the sedosaur GitHub App, or
+# dismisses the finding that a dispatch names by its title. A finding outside the diff
+# has no thread, so only a dispatch can dismiss it. An `@sedosaur dismiss` reply from
+# someone with write access to the repository, or a dispatch, dismisses the finding, and
+# later reviews of the pull request do not report it. A rebuttal from such a person or
+# an agent goes to Sedosaur on a review runner: Claude Code checks its evidence against
+# the head, then Sedosaur withdraws the finding until its file changes, or replies why
+# it holds. Any other reply gets the usage. When no finding of the head's review is
+# left, a new check run scores the head 5/5. The scripts and the policy come from the
+# default branch, never from the pull request.
 
 name: Dismiss - Sedosaur
 run-name: ${{ inputs.pr }}
@@ -28,9 +29,17 @@ on:
         type: number
         required: true
       comment:
-        description: "Reply on the thread of the finding, or comment that dismisses it"
+        description: "Reply on the thread of the finding"
         type: string
-        required: true
+        required: false
+      finding:
+        description: "Title of the finding to dismiss, with path:<file> if two share it"
+        type: string
+        required: false
+      reason:
+        description: "Why the finding does not apply, with a finding"
+        type: string
+        required: false
 
 permissions: {}
 
@@ -39,9 +48,75 @@ env:
   PYTHONPATH: ${{ github.workspace }}/scripts
 
 # Each job has its own group, so a dismissal does not wait behind a judgment. A job that
-# waits is canceled when another one queues. The next one answers its work.
+# waits is canceled when another one queues. The next one answers its work. A dispatch
+# that names a title records it outside the group, so the next one finds the record.
 jobs:
+  record:
+    if: inputs.finding != ''
+    name: Record the dismissal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: read
+    steps:
+      - &read
+        name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
+
+      - &checkout
+        name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
+
+      - &app
+        name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          # resolveReviewThread needs contents: write, not only pull-requests: write.
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Record the dismissal
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          COMMENT: ${{ inputs.comment }}
+          FINDING: ${{ inputs.finding }}
+          REASON: ${{ inputs.reason }}
+          ACTOR: ${{ github.triggering_actor }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          if [ -n "$COMMENT" ]; then
+            echo "::error::Give a comment or a finding, not both."
+            exit 1
+          fi
+          python3 -m review dismiss-title
+
   dismiss:
+    needs: record
+    if: ${{ !failure() && !cancelled() }}
     name: Answer the reply
     concurrency:
       group: dismiss-sedosaur-${{ inputs.pr }}
@@ -55,36 +130,11 @@ jobs:
       key: ${{ steps.pr.outputs.key }}
       bot: ${{ steps.app.outputs.app-slug }}
       judge: ${{ steps.answer.outputs.judge }}
+    timeout-minutes: 10
     steps:
-      - name: Read the pull request
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr }}
-        run: |
-          set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
-            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
-          ' >> "$GITHUB_OUTPUT"
-
-      - name: Check out the scripts
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            scripts/agent
-
-      - name: Mint the GitHub App token
-        id: app
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
-          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
-          permission-checks: write
-          # resolveReviewThread needs contents: write, not only pull-requests: write.
-          permission-contents: write
-          permission-pull-requests: write
+      - *read
+      - *checkout
+      - *app
 
       - name: Answer the reply
         id: answer
@@ -108,7 +158,9 @@ jobs:
   # a review. The App token that posts is minted after it exits.
   judge:
     needs: dismiss
-    if: needs.dismiss.outputs.judge == 'true'
+    # A thread reply skips the record job, and a skipped job up the chain fails the
+    # implicit success() check.
+    if: ${{ !failure() && !cancelled() && needs.dismiss.outputs.judge == 'true' }}
     name: Judge the rebuttals
     concurrency:
       group: judge-sedosaur-${{ inputs.pr }}
@@ -216,7 +268,7 @@ jobs:
 
   relay-failure:
     name: Relay the failure
-    needs: [dismiss, judge]
+    needs: [record, dismiss, judge]
     if: always() && contains(needs.*.result, 'failure')
     permissions:
       actions: write

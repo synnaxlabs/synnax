@@ -12,10 +12,10 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
-import { type Machine } from "@/server/license/desktop";
+import type { License } from "@/server/db/schema";
+import type { Machine } from "@/server/license/desktop";
 import { statusOf } from "@/server/license/status";
 import { LogOutDialog } from "@/ui/devices/LogOutDialog";
 import { type Clock, machineName } from "@/ui/format";

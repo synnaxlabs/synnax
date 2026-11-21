@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 	"uuid"
@@ -38,6 +40,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
+	kafkav1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
@@ -56,10 +62,12 @@ import (
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
@@ -68,6 +76,7 @@ import (
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	taskv3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	taskv4 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/confluence"
@@ -81,6 +90,32 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// markTaskChain marks the task migrations up to lastApplied as applied, as a Core of
+// that release leaves the store.
+func markTaskChain(ctx context.Context, db *gorp.DB, lastApplied string) {
+	GinkgoHelper()
+	chain := lo.Map(
+		taskversions.NewMigrations(taskversions.MigrationsConfig{}),
+		func(m gorp.Migration, _ int) string { return m.Key() },
+	)
+	Expect(chain).To(ContainElement(lastApplied))
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:        db,
+		Namespace: "Task",
+		Migrations: lo.Map(
+			chain[:slices.Index(chain, lastApplied)+1],
+			func(key string, _ int) gorp.Migration {
+				return migrate.New(
+					key,
+					func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+						return nil
+					},
+				)
+			},
+		),
+	})).To(Succeed())
+}
 
 var _ = Describe("Layer", func() {
 	It("Should report the expiry of the Core's CA and listener certificates",
@@ -330,26 +365,7 @@ var _ = Describe("Layer", func() {
 		) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			chain := lo.Map(
-				taskversions.NewMigrations(taskversions.MigrationsConfig{}),
-				func(m gorp.Migration, _ int) string { return m.Key() },
-			)
-			Expect(chain).To(ContainElement(lastApplied))
-			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:        db,
-				Namespace: "Task",
-				Migrations: lo.Map(
-					chain[:slices.Index(chain, lastApplied)+1],
-					func(key string, _ int) gorp.Migration {
-						return migrate.New(
-							key,
-							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
-								return nil
-							},
-						)
-					},
-				),
-			})).To(Succeed())
+			markTaskChain(ctx, db, lastApplied)
 			store := func(name string, snapshot bool) uuid.UUID {
 				GinkgoHelper()
 				key := uuid.New()
@@ -373,6 +389,13 @@ var _ = Describe("Layer", func() {
 				To(Equal(map[secret.Key][]byte{key: []byte("rk")}))
 			data := MustSucceed(layer.PagerDuty.Alert.Read(ctx, db, live))
 			Expect(data).To(HaveKeyWithValue("routing_key", key.String()))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(live)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.PagerDuty.Alert.Hash(ctx, db, live))))
 			for _, k := range []uuid.UUID{live, snapshot} {
 				Expect(db.Get(pagerdutyv2.PlainRoutingKeyKVKey(k))).Error().
 					To(MatchError(query.ErrNotFound))
@@ -419,6 +442,121 @@ var _ = Describe("Layer", func() {
 				}
 				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
 			},
+		),
+	)
+
+	// The snapshot gets no ICD, because the task chain deletes it and its config before
+	// the ICD step runs.
+	DescribeTable(
+		"Should move the records of a stored Kafka read config into an ICD",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			storeTask func(context.Context, *gorp.DB, uuid.UUID, string, bool) error,
+			snapshotStored bool,
+		) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			markTaskChain(ctx, db, lastApplied)
+			store := func(name string, snapshot bool) uuid.UUID {
+				GinkgoHelper()
+				key := uuid.New()
+				Expect(storeTask(ctx, db, key, name, snapshot)).To(Succeed())
+				Expect(gorp.WrapWriter[uuid.UUID, kafkav0.ReadConfig](db).Set(
+					ctx,
+					kafkav0.ReadConfig{
+						Key:   key,
+						Topic: "plant",
+						Records: []kafkav0.ReadRecord{{
+							Key:       "r1",
+							RecordKey: "pump",
+							Fields: []kafkav0.ReadField{{
+								Key:      "level",
+								Name:     "level",
+								Pointer:  "/level",
+								DataType: telem.Float64T,
+							}},
+						}},
+					},
+				)).To(Succeed())
+				return key
+			}
+			live := store("Live", false)
+			var snapshot uuid.UUID
+			if snapshotStored {
+				snapshot = store("Snapshot", true)
+			}
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			var icds []icd.ICD
+			Expect(layer.ICD.NewRetrieve().Entries(&icds).Exec(ctx, db)).To(Succeed())
+			Expect(icds).To(HaveLen(1))
+			Expect(icds[0].Name).To(Equal("Live"))
+			var cfg kafka.ReadConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, kafka.ReadConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, kafka.ReadConfig](live)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Inline).To(BeNil())
+			Expect(cfg.Topics).To(HaveLen(1))
+			Expect(cfg.Topics[0].Name).To(Equal("plant"))
+			Expect(cfg.Topics[0].Records).To(HaveLen(1))
+			Expect(cfg.Topics[0].Records[0].ICD).To(Equal(icds[0].Key))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(live)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.Kafka.Read.Hash(ctx, db, live))))
+			if snapshotStored {
+				Expect(gorp.NewRetrieve[uuid.UUID, kafka.ReadConfig]().
+					Where(gorp.MatchKeys[uuid.UUID, kafka.ReadConfig](snapshot)).
+					Exists(ctx, db)).To(BeFalse())
+			}
+			for _, k := range []uuid.UUID{live, snapshot} {
+				Expect(db.Get(kafkav1.StagedRecordsKVKey(k))).Error().
+					To(MatchError(query.ErrNotFound))
+			}
+		},
+		Entry(
+			"from Core v0.61, which stored task v3 and snapshots",
+			"v61_task_range",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				snapshot bool,
+			) error {
+				t := taskv3.Task{
+					Key:      key,
+					Name:     name,
+					Type:     kafka.ReadTaskType,
+					Snapshot: snapshot,
+				}
+				if snapshot {
+					t.Range = new(uuid.New())
+				}
+				return gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(ctx, t)
+			},
+			true,
+		),
+		Entry(
+			"from Core v0.62, which stored task v4",
+			"v62_task_drop_snapshot",
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				name string,
+				_ bool,
+			) error {
+				return gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+					ctx,
+					taskv4.Task{Key: key, Name: name, Type: kafka.ReadTaskType},
+				)
+			},
+			false,
 		),
 	)
 
@@ -889,6 +1027,70 @@ var _ = Describe("Group moves", Ordered, func() {
 })
 
 var _ = Describe("LayerConfig", func() {
+	It("Should read a file secret of the Core's rack from its secrets folder", func(
+		ctx SpecContext,
+	) {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "token"), []byte("t"), 0o600)).
+			To(Succeed())
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(
+			ctx,
+			node,
+			service.LayerConfig{SecretsDir: dir},
+		))
+		// The Core's rack runs the integrations of the Core, such as Sift.
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration(sift.Make)).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		s := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "Token"},
+			FileName: "token",
+			Rack:     coreRack.Key,
+		}}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Secret.NewWriter(tx).Set(ctx, &s, nil)
+		})).To(Succeed())
+		key := s.Base().Key
+		Expect(layer.Secret.Reveal(ctx, node.DB, key)).
+			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
+	})
+
+	It("Should give the Core's rack a file browser task", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration("file")).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		var browser task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.And(
+				task.MatchRacks(coreRack.Key),
+				task.MatchTypes("file_browser"),
+			)).
+			Entry(&browser).
+			Exec(ctx, node.DB)).To(Succeed())
+		Expect(browser.Name).To(Equal("File Browser"))
+		Expect(browser.Internal).To(BeTrue())
+	})
+
+	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(svctestutil.OpenLayer(
+			ctx,
+			testutil.NewNode(ctx),
+			service.LayerConfig{SecretsDir: dir},
+		)).Error().To(SatisfyAll(
+			MatchError(os.ErrNotExist),
+			MatchError(HavePrefix("secrets folder: ")),
+			MatchError(ContainSubstring(dir)),
+		))
+	})
+
 	It("Should require a secrets key", func() {
 		cfg := service.LayerConfig{
 			Distribution: &distribution.Layer{},
@@ -898,4 +1100,42 @@ var _ = Describe("LayerConfig", func() {
 		}
 		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
 	})
+
+	It("Should reject an unknown auth method", func() {
+		cfg := service.LayerConfig{
+			AuthMethods: []auth.Method{auth.MethodPassword, "carrier_pigeon"},
+		}
+		Expect(cfg.Validate()).To(MatchError(And(
+			ContainSubstring("auth_methods"),
+			ContainSubstring("carrier_pigeon"),
+		)))
+	})
+})
+
+var _ = Describe("Auth methods", func() {
+	DescribeTable(
+		"Should accept only the listed methods",
+		func(ctx SpecContext, listed, accepted []auth.Method) {
+			node := testutil.NewNode(ctx)
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+				AuthMethods: listed,
+			}))
+			Expect(layer.Auth.Methods()).To(Equal(accepted))
+		},
+		Entry(
+			"password only",
+			[]auth.Method{auth.MethodPassword},
+			[]auth.Method{auth.MethodPassword},
+		),
+		Entry(
+			"API key only",
+			[]auth.Method{auth.MethodAPIKey},
+			[]auth.Method{auth.MethodAPIKey},
+		),
+		Entry(
+			"every method for an empty list",
+			[]auth.Method{},
+			[]auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+		),
+	)
 })

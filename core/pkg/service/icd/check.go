@@ -104,6 +104,9 @@ func pathOf(parent []string, segments ...string) []string {
 }
 
 func (c *checker) checkMessage(path []string, m Message) {
+	if m.CycleTime != nil && *m.CycleTime <= 0 {
+		c.addf(pathOf(path, "cycle_time"), "cycle time must be positive")
+	}
 	path = pathOf(path, "payload")
 	var (
 		bases = m.Payload.FieldBases()

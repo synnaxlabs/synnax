@@ -11,6 +11,7 @@ import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, within } from "@testing-library/react";
+import { beforeAll } from "vitest";
 
 import {
   MAKE,
@@ -98,3 +99,13 @@ export const openAddData = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
   return within(await screen.findByRole("dialog"));
 };
+
+/**
+ * Loads the module of the lazy read form before the specs of a file run. On a loaded
+ * machine the load can use most of the timeout of the first spec that renders the form.
+ * Call it once, at the top of a spec file.
+ */
+export const preloadReadForm = (): void =>
+  beforeAll(async () => {
+    await import("@/feature/mqtt/task/Read");
+  });

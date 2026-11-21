@@ -9,7 +9,7 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { type IncomingMessage } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { createServer, type Server } from "node:https";
 import { type AddressInfo, createServer as createTCPServer } from "node:net";
 import { tmpdir } from "node:os";

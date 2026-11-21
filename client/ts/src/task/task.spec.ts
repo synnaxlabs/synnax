@@ -7,20 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, type timer, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import {
+  DisconnectedError,
+  MultipleFoundError,
+  NotCachedError,
+  NotFoundError,
+  type Synnax,
+  ValidationError,
+} from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
-import { type secret } from "@/secret";
-import { type status } from "@/status";
+import type { secret } from "@/secret";
+import type { status } from "@/status";
 import { task } from "@/task";
 import {
+  createProxiedTestClient,
   createTestClient,
   createTestClientWithPolicy,
   expectLive,
@@ -48,6 +56,44 @@ const OTHER_ROUTING_KEY = await createRoutingKey();
 
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
+
+interface ManualTimer extends timer.Timer {
+  span: TimeSpan;
+  /** Expires the timer, unless it was cancelled. */
+  expire: () => void;
+}
+
+/** Starts timers that expire only when a spec expires them. */
+const createManualTimer = () => {
+  const timers: ManualTimer[] = [];
+  const pending: Array<() => void> = [];
+  const start: timer.Start = (span) => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    let cancelled = false;
+    timers.push({
+      span: new TimeSpan(span),
+      expired: promise,
+      cancel: () => {
+        cancelled = true;
+      },
+      expire: () => {
+        if (!cancelled) resolve();
+      },
+    });
+    pending.splice(0).forEach((notify) => notify());
+    return timers[timers.length - 1];
+  };
+  /** Resolves with the timer started at the index, once it starts. */
+  const started = async (index: number): Promise<ManualTimer> => {
+    while (timers.length <= index) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      pending.push(resolve);
+      await promise;
+    }
+    return timers[index];
+  };
+  return { start, started };
+};
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
@@ -626,7 +672,7 @@ describe("Task", async () => {
       ]);
     });
 
-    it("should return false without a send when the task is not cached", async () => {
+    it("should throw without a send when the task is not cached", async () => {
       const t = await testRack.createTask({
         name: `dispatch-uncached-${id.create()}`,
         config: { routingKey: ROUTING_KEY },
@@ -634,9 +680,9 @@ describe("Task", async () => {
       });
       const fresh = createTestClient();
       const send = spyOnSend(fresh);
-      expect(await fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY))).toBe(
-        false,
-      );
+      await expect(
+        fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY)),
+      ).rejects.toThrow(NotCachedError);
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -1161,8 +1207,8 @@ describe("Task", async () => {
   };
 
   describe("executeCommandSync", () => {
-    // The wait opens its streamer before it sends the command, so once the command
-    // lands, the wait sees every status written after it.
+    // The wait reads statuses before it sends the command, so once the command lands,
+    // the wait sees every status written after it.
     const readCommand = async (
       streamer: framer.Streamer,
       key: task.Key,
@@ -1347,35 +1393,19 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        timer: timers.start,
       });
-      let settled = false;
-      const markSettled = (): void => {
-        settled = true;
-      };
-      wait.then(markSettled, markSettled);
       const cmd = await readCommand(streamer, t.key);
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
       await setReply(t, cmd, "loading", "Starting task");
-      await expect
-        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-        .toBe("Starting task");
-      // The wait gets the reply at about the time the store does. Steps shorter than
-      // the 1 minute acknowledgment limit cover the gap.
-      await vi.waitFor(async () => {
-        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
-        expect(settled).toBe(true);
-      });
+      const final = await timers.started(1);
+      expect(final.span).toEqual(TimeSpan.minutes(2));
+      final.expire();
       await expect(wait).rejects.toThrow(
-        new Error(`Command to ${t.name} timed out after 2min`),
+        new Error(`Command to ${t.name} timed out after ${final.span.toString()}`),
       );
     });
 
@@ -1387,35 +1417,193 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
+      const timers = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
+        timer: timers.start,
       });
       const cmd = await readCommand(streamer, t.key);
-      const realSetTimeout = globalThis.setTimeout;
-      // Lets the wait read a reply that the store already holds.
-      const settle = async (): Promise<void> =>
-        await new Promise((resolve) => realSetTimeout(resolve, 200));
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldClearNativeTimers: true,
-      });
-      onTestFinished(() => {
-        vi.useRealTimers();
-      });
-      const loading = async (message: string): Promise<void> => {
-        await setReply(t, cmd, "loading", message);
-        await expect
-          .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
-          .toBe(message);
-        await settle();
-      };
-      await loading("Starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
-      await loading("Still starting task");
-      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+      await setReply(t, cmd, "loading", "Starting task");
+      const first = await timers.started(1);
+      await setReply(t, cmd, "loading", "Still starting task");
+      await timers.started(2);
+      first.expire();
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+    });
+
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
+      await c.racks.create({
+        name: `running-${id.create()}`,
+        status: {
+          variant: "success",
+          message: "Driver running",
+          details: { running: true },
+        },
+      });
+
+    describe.each([
+      { replies: "the change stream", cache: true, streamers: 0 },
+      { replies: "a streamer of its own", cache: false, streamers: 1 },
+    ])("with the replies on $replies", ({ cache, streamers }) => {
+      const sender = createTestClient({ cache });
+
+      beforeAll(async () => {
+        await sender.connect();
+        if (cache) await waitForStreamLive(sender.connection);
+      });
+
+      const createWait = async (timeout: TimeSpan = TimeSpan.minutes(1)) => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `replies-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const openStreamer = vi.spyOn(sender, "openStreamer");
+        onTestFinished(() => openStreamer.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        return { rack: r, task: t, commands, openStreamer, wait };
+      };
+
+      it("should return the reply of the task", async () => {
+        const { task: t, commands, openStreamer, wait } = await createWait();
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(openStreamer).toHaveBeenCalledTimes(streamers);
+      });
+
+      it("should end the wait with the error of a Driver that goes down", async () => {
+        const { rack: r, task: t, commands, wait } = await createWait();
+        const ended = expect(wait).rejects.toMatchObject({
+          message: "Driver not running",
+          description: "The Core has not heard from the Driver.",
+        });
+        await readCommand(commands, t.key);
+        await setDriverNotRunning(r.key);
+        await ended;
+      });
+
+      it("should start the timeout once the command write ends", async () => {
+        const r = await createRunningRack(sender);
+        const t = await r.createTask({
+          name: `slow-write-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const commands = await writer.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => commands.close());
+        const timeout = TimeSpan.milliseconds(300);
+        const openWriter = sender.openWriter.bind(sender);
+        const slow = vi
+          .spyOn(sender, "openWriter")
+          .mockImplementationOnce(async (cfg) => {
+            await sleep.sleep(timeout.mult(2));
+            return await openWriter(cfg);
+          });
+        onTestFinished(() => slow.mockRestore());
+        const wait = t.executeCommandSync({ type: "scan", timeout });
+        const cmd = await readCommand(commands, t.key);
+        await setReply(t, cmd, "success", "Scan complete");
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+        expect(slow).toHaveBeenCalledOnce();
+      });
+
+      it("should time out when no reply arrives", async () => {
+        const { task: t, wait } = await createWait(TimeSpan.milliseconds(200));
+        await expect(wait).rejects.toThrow(
+          new Error(`Command to ${t.name} timed out after 200ms`),
+        );
+      });
+    });
+
+    it("should end a wait on the change stream with a rack outage written before the command", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `outage-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      // Sent before the wait reads statuses, and stored before the command is sent.
+      const down = setDriverNotRunning(r.key);
+      const openWriter = sender.openWriter.bind(sender);
+      const hold = vi
+        .spyOn(sender, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          await down;
+          return await openWriter(cfg);
+        });
+      onTestFinished(() => hold.mockRestore());
+      await expect(
+        t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) }),
+      ).rejects.toMatchObject({
+        message: "Driver not running",
+        description: "The Core has not heard from the Driver.",
+      });
+      expect(hold).toHaveBeenCalledOnce();
+    });
+
+    it("should not take a stand-in status of the client as the reply", async () => {
+      const sender = createTestClient();
+      await sender.connect();
+      await waitForStreamLive(sender.connection);
+      const r = await createRunningRack(sender);
+      const t = await r.createTask({
+        name: `stand-in-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await setDriverNotRunning(r.key);
+      // A start to a task on a down Driver gets a stand-in warning that names it.
+      await expect
+        .poll(() => sender.statuses.ownedBy(rack.resourceID(r.key))?.message)
+        .toBe("Driver not running");
+      await expect(
+        t.executeCommandSync({ type: "start", timeout: TimeSpan.milliseconds(300) }),
+      ).rejects.toThrow(new Error(`Command to ${t.name} timed out after 300ms`));
+    });
+
+    it("should end a wait on the change stream once the stream drops", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient();
+      await proxied.connect();
+      await waitForStreamLive(proxied.connection);
+      const r = await createRunningRack(proxied);
+      const t = await r.createTask({
+        name: `severed-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      // A sever during the command write fails the write first, so it severs after it.
+      const written = Promise.withResolvers<void>();
+      const openWriter = proxied.openWriter.bind(proxied);
+      const watch = vi
+        .spyOn(proxied, "openWriter")
+        .mockImplementationOnce(async (cfg) => {
+          const w = await openWriter(cfg);
+          const close = w.close.bind(w);
+          vi.spyOn(w, "close").mockImplementationOnce(async () => {
+            await close();
+            written.resolve();
+          });
+          return w;
+        });
+      onTestFinished(() => watch.mockRestore());
+      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
+      const ended = expect(wait).rejects.toThrow(
+        new DisconnectedError("The connection to the Core dropped."),
+      );
+      await written.promise;
+      await proxy.sever();
+      await ended;
     });
   });
 
@@ -1647,6 +1835,25 @@ describe("Task", async () => {
       await expect
         .poll(() => client.statuses.store.get(key)?.message)
         .toBe("Driver not running");
+    });
+
+    it("keeps a stand-in through a fetch of its task", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `fetched-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackAliveAfterEcho(dying.key);
+      await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await setRackStatus(dying.key, "warning", "Driver not running");
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Driver not running");
+      await client.tasks.retrieve({ rack: dying.key });
+      expect(client.statuses.store.get(key)?.message).toBe("Driver not running");
     });
 
     it("stands the rack's problem in once its Driver goes down during a wait", async () => {

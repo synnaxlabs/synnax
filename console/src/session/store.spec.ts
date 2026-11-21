@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Haul } from "@synnaxlabs/lyra/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { deep } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -280,7 +280,11 @@ describe("createStore", () => {
     store.dispatch(Session.Project.select("6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d"));
     await waitForPersisted(db, (p) => p.project != null, "Core swap has not settled");
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    await waitForPersisted(db, (p) => p.nav != null, "project state not persisted");
+    await waitForPersisted(
+      db,
+      (p) => p.nav?.windows[MAIN_WINDOW]?.bottom.visible === true,
+      "project state not persisted",
+    );
   };
 
   const clusterKeys = async (clusterKey: string): Promise<string[]> =>

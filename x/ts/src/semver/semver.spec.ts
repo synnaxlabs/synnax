@@ -110,9 +110,11 @@ describe("semver", () => {
         "1.0.0-rc.beta",
         "1.0.0",
       ];
-      for (let i = 0; i < versions.length - 1; i++) {
-        expect(semver.compare(versions[i], versions[i + 1])).toBe(-1);
-        expect(semver.compare(versions[i + 1], versions[i])).toBe(1);
+      for (const [i, b] of versions.entries()) {
+        const a = versions[i - 1];
+        if (a == null) continue;
+        expect(semver.compare(a, b)).toBe(-1);
+        expect(semver.compare(b, a)).toBe(1);
       }
     });
 

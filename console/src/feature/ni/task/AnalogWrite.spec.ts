@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -115,6 +115,22 @@ describe("AnalogWrite", () => {
     fireEvent.click(screen.getByText("Triangle"));
     await waitFor(() => expect(isSelectButtonSelected("Triangle")).toBe(true));
     expect(isSelectButtonSelected("Sine")).toBe(false);
+  });
+
+  it("should create a function generator at 1 Hz", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
+    fireEvent.click(await findChannelListItem("0"));
+    const input = await screen.findByLabelText<HTMLInputElement>("Frequency");
+    expect(input.value).toBe("1");
+  });
+
+  it("should name the frequency field when the frequency is not positive", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
+    fireEvent.click(await findChannelListItem("0"));
+    const input = await screen.findByLabelText<HTMLInputElement>("Frequency");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(await screen.findByText("Frequency must be greater than 0 Hz")).toBeTruthy();
   });
 
   it("should swap the channel to the newly selected type", async () => {
@@ -425,6 +441,30 @@ describe("AnalogWrite ports", () => {
     });
     await renderAnalogWrite(
       createConfig([createChannel(type, 0, { minVal: 0, maxVal })], dev.key),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Maximum value").getAttribute("aria-invalid")).toBe(
+        "true",
+      ),
+    );
+  });
+
+  it("should mark a scaled voltage channel that maps past every range", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const customScale: NI.Task.Scale = {
+      type: "linear",
+      slope: 2,
+      yIntercept: 0,
+      preScaledUnits: "Volts",
+      scaledUnits: "psi",
+    };
+    await renderAnalogWrite(
+      createConfig(
+        [createChannel("ao_voltage", 0, { minVal: 0, maxVal: 30, customScale })],
+        dev.key,
+      ),
     );
     await waitFor(() =>
       expect(screen.getByLabelText("Maximum value").getAttribute("aria-invalid")).toBe(

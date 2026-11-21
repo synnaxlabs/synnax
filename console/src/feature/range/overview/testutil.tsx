@@ -9,11 +9,11 @@
 
 import { panel, type project, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
-import { type Flux } from "@synnaxlabs/pluto";
+import type { Status } from "@synnaxlabs/lyra/status";
+import type { Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { assert } from "vitest";
 
 import { Range } from "@/feature/range";
@@ -49,10 +49,16 @@ export interface RenderOverviewResult {
   statuses: () => Status.NotificationSpec[];
 }
 
+export interface RenderOverviewOptions {
+  /** The width of the pane that holds the overview, as CSS. */
+  width?: string;
+}
+
 /** Renders the overview of the range in a tab, as the client `as` sees it. */
 export const renderOverview = async (
   rangeKey: ranger.Key,
   as: Client = client,
+  { width }: RenderOverviewOptions = {},
 ): Promise<RenderOverviewResult> => {
   const { panelKey, tabKey } = await createResourceTab(
     client,
@@ -72,9 +78,11 @@ export const renderOverview = async (
   let statuses: Status.NotificationSpec[] = [];
   await renderSuspended(
     <>
-      <Guard FallbackComponent={Deleted}>
-        <Content />
-      </Guard>
+      <div style={{ width }}>
+        <Guard FallbackComponent={Deleted}>
+          <Content />
+        </Guard>
+      </div>
       <Modals.Stack />
       <CaptureStatuses onStatuses={(next) => (statuses = next)} />
     </>,

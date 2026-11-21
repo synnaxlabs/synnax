@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Color } from "@/color";
@@ -58,6 +58,25 @@ describe("Input", () => {
     expect(textOf(c).placeholder).toEqual("Mixed");
     const swatch = c.container.querySelector(`.${CSS.B("color-swatch")}`);
     expect(swatch?.className).toContain(CSS.M("mixed"));
+  });
+
+  it("should show the name of the named color that the value follows", () => {
+    const c = renderInput({
+      value: RED,
+      library: {
+        palettes: [
+          {
+            key: "p",
+            name: "Alarms",
+            colors: [{ key: "fault", name: "Fault", light: RED }],
+          },
+        ],
+        named: "fault",
+        onNamedChange: vi.fn(),
+      },
+    });
+    expect(textOf(c).value).toEqual("");
+    expect(textOf(c).placeholder).toEqual("Fault");
   });
 
   it("should apply a typed hex while mixed", () => {

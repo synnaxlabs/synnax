@@ -27,7 +27,7 @@ import {
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { isChange, type Table, type TableEvent } from "@/query/table";
-import { type Data, type FetchOptions, type Params } from "@/query/types";
+import type { Data, FetchOptions, Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
 

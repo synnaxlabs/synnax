@@ -11,32 +11,32 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 
 // Key is a unique identifier for a secret.
-type Key = v0.Key
+type Key = v1.Key
 
 // Source is where the value of a secret or certificate lives.
-type Source = v0.Source
+type Source = v1.Source
 
 const (
-	SourceStored Source = v0.SourceStored
-	SourceFile   Source = v0.SourceFile
+	SourceStored Source = v1.SourceStored
+	SourceFile   Source = v1.SourceFile
 )
 
 // Base carries the fields shared by every secret.
-type Base = v0.Base
+type Base = v1.Base
 
 // Secret is a hidden value that a device or task uses to connect, such as a password, a
 // token, an API key, or a private key. Only the program that connects reads it.
-type Secret = v0.Secret
+type Secret = v1.Secret
 
 // SecretVariant is implemented by every Secret variant.
-type SecretVariant = v0.SecretVariant
+type SecretVariant = v1.SecretVariant
 
 // StoredSecret is a secret whose value the Core stores.
-type StoredSecret = v0.StoredSecret
+type StoredSecret = v1.StoredSecret
 
 // FileSecret is a secret whose value is a file in the secrets folder that an admin sets
 // on the rack that uses it.
-type FileSecret = v0.FileSecret
+type FileSecret = v1.FileSecret

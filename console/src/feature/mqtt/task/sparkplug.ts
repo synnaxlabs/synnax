@@ -9,7 +9,7 @@
 
 import { channel, mqtt } from "@synnaxlabs/client";
 
-import { type SparkplugDataType, type SparkplugTagID } from "@/feature/mqtt/task/types";
+import type { SparkplugDataType, SparkplugTagID } from "@/feature/mqtt/task/types";
 
 const NAMESPACE = "spBv1.0";
 

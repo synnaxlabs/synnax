@@ -24,7 +24,7 @@ import {
   type StartupCommands,
 } from "@/feature/ethercat/device/esi";
 import { sameAddress, visibleFields } from "@/feature/ethercat/device/settings";
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import type { SlaveDevice } from "@/feature/ethercat/device/types";
 import { Runtime } from "@/platform/runtime";
 
 const DATA_TYPES = [

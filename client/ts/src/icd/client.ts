@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, binary, caseconv, errors, strings, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -225,8 +225,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
 
   /**
    * Applies actions to the cached ICD and sends them to the Core. Paths and values take
-   * the camelCase form of the cached ICD. Returns false without side effects when the
-   * ICD is not cached.
+   * the camelCase form of the cached ICD.
+   * @throws {NotCachedError} if the ICD is not cached, before any change.
    * @throws {Error} if the ICD cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached ICD drops the actions.
    */
@@ -234,7 +234,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }

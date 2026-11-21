@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Triggers } from "@/triggers";

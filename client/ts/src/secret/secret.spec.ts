@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { id, Series, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { framer } from "@/framer";
-import { NotFoundError, PathError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { secret } from "@/secret";
@@ -117,23 +117,64 @@ describe("Secret", () => {
 
     it("should create a file secret", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "File secret" });
       const s = await client.secrets.set({
         name: "Client key",
         source: "file",
         fileName: "client.key",
+        rack: r.key,
       });
       expect(s).toMatchObject({
         name: "Client key",
         source: "file",
         fileName: "client.key",
+        rack: r.key,
+      });
+    });
+
+    it("should refuse to change the rack of a file secret that a device uses", async () => {
+      const client = createTestClient();
+      const [first, second] = await Promise.all([
+        client.racks.create({ name: "First" }),
+        client.racks.create({ name: "Second" }),
+      ]);
+      const s = await client.secrets.set({
+        name: "Moved key",
+        source: "file",
+        fileName: "sift.key",
+        rack: first.key,
+      });
+      const dev = await client.devices.create({
+        key: id.create(),
+        rack: first.key,
+        location: "sift",
+        make: "sift",
+        model: "sift",
+        name: "Moved key device",
+        properties: { uri: "localhost:1", apiKey: s.key },
+      });
+      const set = client.secrets.set({
+        key: s.key,
+        name: s.name,
+        source: "file",
+        fileName: "sift.key",
+        rack: second.key,
+      });
+      await expect(set).rejects.toThrow(
+        `cannot change the rack of secret Moved key because device ${dev.name} uses ` +
+          "it as its properties.api_key",
+      );
+      expect(await createTestClient().secrets.retrieve(s.key)).toMatchObject({
+        rack: first.key,
       });
     });
 
     it("should create multiple secrets", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Multiple secrets" });
       const secrets = await client.secrets.set([
         { name: "Token", source: "stored", value: "abc" },
-        { name: "Key file", source: "file", fileName: "key.pem" },
+        { name: "Key file", source: "file", fileName: "key.pem", rack: r.key },
       ]);
       expect(secrets).toHaveLength(2);
       expect(secrets[0]).toMatchObject({ name: "Token", source: "stored" });
@@ -181,6 +222,45 @@ describe("Secret", () => {
       const keys = created.map((s) => s.key);
       const retrieved = await createTestClient().secrets.retrieve(keys);
       expect(retrieved.map((s) => s.name).sort()).toEqual(["Multi 1", "Multi 2"]);
+    });
+
+    it("should retrieve the file secrets of a rack", async () => {
+      const client = createTestClient();
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Filtered" }),
+        client.racks.create({ name: "Other" }),
+      ]);
+      const [kept] = await client.secrets.set([
+        { name: "On rack", source: "file", fileName: "a", rack: r.key },
+        { name: "On other rack", source: "file", fileName: "b", rack: other.key },
+        { name: "Stored", source: "stored", value: "c" },
+      ]);
+      expect(await createTestClient().secrets.retrieve({ racks: [r.key] })).toEqual([
+        kept,
+      ]);
+    });
+
+    it("should add a file secret of a watched rack to the watch", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Watched" }),
+        client.racks.create({ name: "Unwatched" }),
+      ]);
+      const list = client.secrets.watch({ racks: [r.key] });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        const [added] = await client.secrets.set([
+          { name: "Watched", source: "file", fileName: "a", rack: r.key },
+          { name: "Unwatched", source: "file", fileName: "b", rack: other.key },
+        ]);
+        await vi.waitFor(() =>
+          expect(expectLive(list.getCached()).records).toEqual([added]),
+        );
+      } finally {
+        off();
+      }
     });
 
     it("should leave out a key that no secret has in a filter", async () => {
@@ -729,9 +809,10 @@ describe("Secret", () => {
   describe("delete", () => {
     it("should delete secrets", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Delete" });
       const secrets = await client.secrets.set([
         { name: "Delete 1", source: "stored", value: "a" },
-        { name: "Delete 2", source: "file", fileName: "b" },
+        { name: "Delete 2", source: "file", fileName: "b", rack: r.key },
       ]);
       const keys = secrets.map((s) => s.key);
       await client.secrets.delete(keys);
@@ -768,6 +849,19 @@ describe("Secret", () => {
   });
 
   describe("grant", () => {
+    const createScanTask = async (
+      client: ReturnType<typeof createTestClient>,
+      rackKey: rack.Key,
+    ): Promise<task.Key> =>
+      (
+        await client.tasks.create({
+          name: "Grant scanner",
+          type: "sift_scan",
+          rack: rackKey,
+          config: { rate: 1 },
+        })
+      ).key;
+
     it("should return the key of a new grant", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Grant rack" });
@@ -776,11 +870,49 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      const params = { subject: rack.resourceID(r.key), secrets: [s.key] };
+      const params: secret.GrantParams = {
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: await createScanTask(client, r.key),
+          type: "test_connection",
+          args: { connection: { uri: "sift.example.com" } },
+        },
+      };
       const first = await client.secrets.grant(params);
       const second = await client.secrets.grant(params);
       expect(first).toHaveLength(36);
       expect(second).not.toEqual(first);
+    });
+
+    it("should store command args in snake case, as a task reads them", async () => {
+      const client = createTestClient();
+      const [r] = await client.racks.retrieve({ embedded: true, integrations: "sift" });
+      const scan = await client.tasks.retrieve({
+        type: "sift_scan",
+        rack: r.key,
+        one: true,
+      });
+      const s = await client.secrets.set({
+        name: "Sift API key",
+        source: "stored",
+        value: "abc",
+      });
+      const grant = await client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: scan.key,
+          type: "test_connection",
+          args: { connection: { uri: "127.0.0.1:1", apiKey: s.key } },
+        },
+      });
+      const state = await scan.executeCommandSync({
+        type: "test_connection",
+        timeout: TimeSpan.seconds(10),
+        args: { grant },
+      });
+      expect(state.message).toBe("Failed to reach Sift");
     });
 
     it("should throw a NotFoundError for a missing secret", async () => {
@@ -790,9 +922,71 @@ describe("Secret", () => {
       const grant = client.secrets.grant({
         subject: rack.resourceID(r.key),
         secrets: [key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
       });
       await expect(grant).rejects.toThrow(NotFoundError);
       await expect(grant).rejects.toThrow(`Secrets with keys [${key}] not found`);
+    });
+
+    it("should throw a PathError for a task on another rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const other = await client.racks.create({ name: "Other rack" });
+      const s = await client.secrets.set({
+        name: "Grant",
+        source: "stored",
+        value: "abc",
+      });
+      const grant = client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: await createScanTask(client, other.key),
+          type: "test_connection",
+        },
+      });
+      await expect(grant).rejects.toThrow(PathError);
+      await expect(grant).rejects.toThrow(`is not on rack:${r.key}`);
+    });
+
+    it("should grant a file certificate of the subject rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const c = await client.certificates.set({
+        name: "Grant certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: r.key,
+      });
+      const grant = await client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      expect(grant).toHaveLength(36);
+    });
+
+    it("should throw a ValidationError for a file certificate of another rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const other = await client.racks.create({ name: "Other rack" });
+      const c = await client.certificates.set({
+        name: "Other certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: other.key,
+      });
+      const grant = client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      await expect(grant).rejects.toThrow(ValidationError);
+      await expect(grant).rejects.toThrow(
+        `certificate "Other certificate" is a file of rack ${other.key}, not of rack:${r.key}`,
+      );
     });
   });
 

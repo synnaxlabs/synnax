@@ -9,17 +9,24 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
-import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
+import {
+  type NodesStore,
+  useEqualSelector,
+  useNodesStore,
+  useReactFlow,
+  useViewportStore,
+} from "@xyflow/react";
 import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
-import { type Base } from "@/schematic/edge/common/base";
+import type { Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
-import { type Path as EdgePath } from "@/schematic/edge/common/path";
+import type { Path as EdgePath } from "@/schematic/edge/common/path";
 import {
   type Config,
   createConfigZ,
@@ -33,7 +40,7 @@ import {
   segmentsToPoints,
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
-import { type Edge, type Spec } from "@/schematic/edge/spec";
+import type { Edge, Spec } from "@/schematic/edge/spec";
 import { internalNodeBox, selectZoom } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
@@ -51,9 +58,11 @@ export interface PathProps extends Omit<
 }
 
 const useNodeBox = (key: string): box.Box =>
-  useStore(
-    ({ nodeLookup }: ReactFlowState) => internalNodeBox(nodeLookup.get(key) ?? null),
-    box.equals,
+  useNodesStore(
+    useEqualSelector(
+      ({ nodeLookup }: NodesStore) => internalNodeBox(nodeLookup.get(key) ?? null),
+      box.equals,
+    ),
   );
 
 const create = (Path: FC<PathProps>): Edge => {
@@ -67,8 +76,9 @@ const create = (Path: FC<PathProps>): Edge => {
     config: { segments: middleSegments, strokeColor, strokeWidth },
     onChange,
   }): ReactElement | null => {
+    const resolve = Color.useResolve();
     const flow = useReactFlow();
-    const zoom = useStore(selectZoom);
+    const zoom = useViewportStore(selectZoom);
     const crossings = Jumps.useCrossings(edgeKey);
     const sourceBox = useNodeBox(sourceNode);
     const targetBox = useNodeBox(targetNode);
@@ -135,7 +145,7 @@ const create = (Path: FC<PathProps>): Edge => {
         <Path
           points={points}
           crossings={crossings}
-          color={strokeColor}
+          color={resolve(strokeColor)}
           strokeWidth={strokeWidth}
         />
         {selected &&

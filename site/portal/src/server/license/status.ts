@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type License } from "@/server/db/schema";
+import type { License } from "@/server/db/schema";
 
 export type Status = "active" | "expiring" | "expired" | "revoked";
 
