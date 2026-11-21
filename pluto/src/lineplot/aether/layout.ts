@@ -270,13 +270,12 @@ export const collapse = (
 };
 
 // margined returns the window of a trace with a margin on each side. A window that ends
-// at the newest sample gets no margin after it, as no samples exist there. A growing
-// window keeps its start, so the floor keeps its margin from moving.
-const margined = ({ bounds: b, edge }: line.DataBounds): bounds.Bounds => {
-  if (edge == null) return { lower: b.lower - margin(b), upper: b.upper + margin(b) };
-  const leading = edge === "growing" ? MARGIN_FLOOR : margin(b);
-  return { lower: b.lower - leading, upper: b.upper };
-};
+// at the newest sample gets no margin after it, as no samples exist there. The margin
+// before a window grows with it, so a range that ends keeps its layout.
+const margined = ({ bounds: b, edge }: line.DataBounds): bounds.Bounds => ({
+  lower: b.lower - margin(b),
+  upper: edge == null ? b.upper + margin(b) : b.upper,
+});
 
 /**
  * @returns the span of each trace that has one, in axis values. On a relative axis each

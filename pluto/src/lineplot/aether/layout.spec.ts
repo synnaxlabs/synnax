@@ -222,9 +222,15 @@ describe("spans", () => {
       expect(s.get("1")).toEqual(s.get("2"));
     });
 
-    it("should leave the end of a growing window open, past a fixed margin", () => {
+    it("should leave the end of a growing window open", () => {
       const s = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
-      expect(s.get("1")).toEqual({ lower: -SECOND, upper: Infinity });
+      expect(s.get("1")).toEqual({ lower: -3 * SECOND, upper: Infinity });
+    });
+
+    it("should keep the margin before a growing window when it ends", () => {
+      const growing = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
+      const ended = spans([trace("1", 0, MINUTE)], "relative");
+      expect(growing.get("1")?.lower).toEqual(ended.get("1")?.lower);
     });
   });
 
@@ -271,12 +277,21 @@ describe("collapse", () => {
     expect(s[1].upper).toBeCloseTo(112.1 * MIN);
   });
 
-  it("should give a growing window the floor before it and no margin after", () => {
+  it("should give a growing window a margin before it and none after", () => {
     const s = collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
       0,
     );
-    expect(s[1]).toEqual({ lower: 100 * MIN - SECOND, upper: 110 * MIN });
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should keep the margin before a growing window when it ends", () => {
+    const at = (edge?: "growing") =>
+      collapse(
+        [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge })],
+        0,
+      );
+    expect(at("growing")[1].lower).toEqual(at()[1].lower);
   });
 
   it("should give a rolling window a margin from its span before it", () => {
