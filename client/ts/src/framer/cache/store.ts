@@ -293,6 +293,11 @@ export class Store {
     );
   }
 
+  /** @returns the recorded channels whose samples the Core stores. */
+  storedChannels(): channel.Key[] {
+    return Array.from(this.leaseholders.keys());
+  }
+
   /** @returns true when the channel is calculated. */
   isCalculated(ch: channel.Key): boolean {
     return this.calculated.has(ch);

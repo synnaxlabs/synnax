@@ -73,6 +73,11 @@ export interface StreamerParams {
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop?: (error: Error) => void;
+  /**
+   * Called when the Core drops changes because the stream fell behind. The stream
+   * stays open, and the dropped changes never arrive.
+   */
+  onMissed?: () => void;
   /** Receives each failed reconnect attempt. Defaults to console.warn. */
   onRetry?: (error: Error) => void;
   /**
@@ -111,6 +116,7 @@ export const createStreamer = ({
   onReopen,
   onLive,
   onDrop,
+  onMissed,
   onRetry,
   onDead,
 }: StreamerParams): Streamer => {
@@ -137,7 +143,7 @@ export const createStreamer = ({
     const channels = Array.from(listenersForChannels.keys());
     const h = new HardenedStreamer(
       openStreamer,
-      { channels },
+      { channels, onMissed },
       {
         breaker: breakerConfig,
         // onLive first: onReopen's reconcile fetches must not hit a stale liveness
