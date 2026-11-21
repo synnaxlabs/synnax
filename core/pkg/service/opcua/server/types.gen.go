@@ -12,9 +12,15 @@
 package server
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key uniquely identifies an OPC UA server.
@@ -64,6 +70,205 @@ type Status = versions.Status
 
 // Server is an OPC UA server that a rack's Driver connects to.
 type Server = versions.Server
+
+// Identity holds the server fields that the connect form and the scanner's certificate
+// pin own.
+type Identity struct {
+	// Rack is the key of the rack whose Driver connects to the server.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the server.
+	Name string `json:"name" msgpack:"name"`
+	// Connection holds the settings that the Driver connects with.
+	Connection Connection `json:"connection" msgpack:"connection"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *Identity) SetDefaults() {
+	i.Connection.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i Identity) Validate() error {
+	v := validate.New("Identity")
+	v.NonZero("rack", i.Rack)
+	v.NotEmptyString("name", i.Name)
+	v.Exec(func() error { return validate.PathedError(i.Connection.Validate(), "connection") })
+	return v.Error()
+}
+
+// Configuration holds the server fields that the task forms own.
+type Configuration struct {
+	// ReadIndexes are the index channels of the channels that read tasks write to.
+	ReadIndexes []channel.Key `json:"read_indexes" msgpack:"read_indexes"`
+	// ReadChannels maps a node ID to the channel that holds the node's samples.
+	ReadChannels map[string]channel.Key `json:"read_channels" msgpack:"read_channels"`
+	// ReadFields bind members of structure values to channels.
+	ReadFields []ReadField `json:"read_fields" msgpack:"read_fields"`
+	// WriteChannels maps a node ID to the channel that commands the node.
+	WriteChannels map[string]channel.Key `json:"write_channels" msgpack:"write_channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	for i := range c.ReadFields {
+		v.Exec(func() error { return validate.PathedError(c.ReadFields[i].Validate(), "read_fields", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// UpdateType is the "group" value that selects a variant of Update.
+type UpdateType string
+
+const (
+	// IdentityUpdateType writes the rack, name, and connection of the server.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType replaces the channel maps of the server. A client sends
+	// the whole group, because a field it leaves out is cleared.
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the rack, name, and connection of the server.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IdentityUpdate) SetDefaults() {
+	i.Identity.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate replaces the channel maps of the server. A client sends the whole
+// group, because a field it leaves out is cleared.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a server.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
+		v.IdentityUpdate.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IdentityUpdate
+	case ConfigurationUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConfigurationUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Group returns the group of the active variant, or an empty group when there is none.
+func (u Update) Group() UpdateType {
+	switch u.Variant.(type) {
+	case IdentityUpdate:
+		return IdentityUpdateType
+	case ConfigurationUpdate:
+		return ConfigurationUpdateType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
 
 // Where is a filter that selects OPC UA servers.
 type Where struct {

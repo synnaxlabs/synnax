@@ -176,6 +176,41 @@ class Cursor(BaseModel):
     key: Key
 
 
+class Identity(BaseModel):
+    """Holds the server fields that the connect form and the scanner's certificate pin
+    own.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        connection: Holds the settings that the Driver connects with.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    connection: Connection
+
+
+class Configuration(BaseModel):
+    """Holds the server fields that the task forms own.
+
+    Attributes:
+        read_indexes: Are the index channels of the channels that read tasks write to.
+        read_channels: Maps a node ID to the channel that holds the node's samples.
+        read_fields: Bind members of structure values to channels.
+        write_channels: Maps a node ID to the channel that commands the node.
+    """
+
+    read_indexes: list[channel_.Key] = Field(default_factory=list)
+    read_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
+        Field(default_factory=dict)
+    )
+    read_fields: list[ReadField] = Field(default_factory=list)
+    write_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
+        Field(default_factory=dict)
+    )
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -197,6 +232,27 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+
+
+class IdentityUpdate(Identity):
+    """Writes the rack, name, and connection of the server."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the channel maps of the server. A client sends the whole group, because
+    a field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a server.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class Server(BaseModel):
