@@ -72,7 +72,7 @@ export const numberOptionsOf = (field: icd.JSONField, kind: Kind): NumberOptions
     : optionsOf({ enumValues: [] }, undefined, kind);
 
 /**
- * @returns the default of field as a binary field of kind, which carries over as the
+ * @returns the default of field as a binary field of kind. It carries over as the
  * default of a JSON field does in numberOptionsOf.
  */
 export const binaryOptionsOf = (field: icd.BinaryField, kind: Kind): NumberOptions =>
