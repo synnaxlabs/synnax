@@ -31,6 +31,7 @@ import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
+import { measure } from "@/lineplot/measure/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
@@ -335,8 +336,9 @@ describe("LinePlot breaks", () => {
     teardowns.length = 0;
   });
 
-  // mountBreaks mounts a plot of two lines a day apart, so x1 has one closed break.
-  const mountBreaks = () => {
+  // mount mounts a plot of two minutes a day apart, whose gap collapses into a break
+  // at the middle of the plot.
+  const mount = () => {
     const recorder = new canvasTest.Recorder();
     (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
     const stack = buildStack({
@@ -346,6 +348,8 @@ describe("LinePlot breaks", () => {
         [XAxis.TYPE]: XAxis,
         [YAxis.TYPE]: YAxis,
         [line.Line.TYPE]: line.Line,
+        [tooltip.Tooltip.TYPE]: tooltip.Tooltip,
+        [measure.Measure.TYPE]: measure.Measure,
       },
       render: recorder,
     });
@@ -353,7 +357,7 @@ describe("LinePlot breaks", () => {
     const gl = [...stack.basePath, "gl"];
     stack.driver.update(gl, lineTest.Host.TYPE, {});
     const base = [...gl, "plot"];
-    const setPlot = (openBreaks: number[]): void =>
+    const setOpenBreaks = (openBreaks: number[]): void =>
       stack.driver.update(base, LinePlot.TYPE, {
         container: box.construct(0, 0, 1000, 500),
         viewport: box.DECIMAL,
@@ -361,7 +365,7 @@ describe("LinePlot breaks", () => {
         gapsCollapsed: true,
         openBreaks,
       });
-    setPlot([]);
+    setOpenBreaks([]);
     stack.driver.update([...base, "x1"], XAxis.TYPE, {
       location: "bottom",
       type: "time",
@@ -379,11 +383,22 @@ describe("LinePlot breaks", () => {
     );
     const plot = stack.driver.find<LinePlot>(base);
     renderPlot(recorder);
-    return { plot, recorder, setPlot };
+    const texts = (): string[] =>
+      recorder.upper2d.calls
+        .filter((c) => c.op === "fillText")
+        .map((c) => String(c.args[0]));
+    const lines = (): number =>
+      recorder.upper2d.calls.filter((c) => c.op === "lineTo").length;
+    const update = (key: string, type: string, state: Record<string, unknown>) => {
+      recorder.upper2d.calls.length = 0;
+      stack.driver.update([...base, key], type, state);
+      renderPlot(recorder);
+    };
+    return { plot, recorder, setOpenBreaks, texts, lines, update };
   };
 
   it("should count the open and closed breaks of its first x axis", () => {
-    const { plot, recorder, setPlot } = mountBreaks();
+    const { plot, recorder, setOpenBreaks } = mount();
     expect(plot.state.breaks).toEqual({ open: 0, closed: 1 });
     const change = plot.getBreakChange({
       action: { variant: "all", open: true },
@@ -391,18 +406,115 @@ describe("LinePlot breaks", () => {
       held: [],
       selection: box.ZERO,
     });
-    setPlot(change?.openBreaks ?? []);
+    setOpenBreaks(change?.openBreaks ?? []);
     renderPlot(recorder);
     expect(plot.state.breaks).toEqual({ open: 1, closed: 0 });
   });
 
+  it("should give the seams of its first x axis across the home view", () => {
+    const { plot } = mount();
+    const seams = plot.getSeams();
+    expect(seams).toHaveLength(1);
+    expect(seams[0]).toBeCloseTo(0.5, 2);
+  });
+
+  it("should list the time that a break hides under the tooltip", () => {
+    const { texts, update } = mount();
+    update("tooltip", tooltip.Tooltip.TYPE, { position: { x: 500, y: 250 } });
+    expect(texts()).toContain("Hidden");
+    update("tooltip", tooltip.Tooltip.TYPE, { position: { x: 250, y: 250 } });
+    expect(texts()).not.toContain("Hidden");
+  });
+
+  it("should not join two measured points across a closed break", () => {
+    const { lines, update } = mount();
+    const measureAt = (two: number): number => {
+      update("measure", measure.Measure.TYPE, {
+        one: { x: 100, y: 250 },
+        two: { x: two, y: 250 },
+        hover: null,
+      });
+      return lines();
+    };
+    expect(measureAt(900)).toEqual(measureAt(400) - 1);
+  });
+
+  it("should join two measured points of an x axis after the first", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [measure.Measure.TYPE]: measure.Measure,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      gapsCollapsed: true,
+    });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    const axis = (axisKey: string, yAxisKey: string) => {
+      stack.driver.update([...base, axisKey], XAxis.TYPE, {
+        axisKey,
+        location: axisKey === "x1" ? "bottom" : "top",
+        type: "time",
+        autoBoundPadding: 0,
+      });
+      stack.driver.update([...base, axisKey, yAxisKey], YAxis.TYPE, {
+        location: "left",
+      });
+    };
+    // x1 collapses the day between its two lines. The flat line of x2 spans that day,
+    // so the measure finds its points at the middle of the plot.
+    axis("x1", "y1");
+    [0, day].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + minute]),
+        y: seriesSpec([0, 2]),
+        color: "#ff0000",
+      }),
+    );
+    axis("x2", "y2");
+    const end = day + minute;
+    stack.driver.update([...base, "x2", "y2", "l"], line.Line.TYPE, {
+      x: seriesSpec([0, end]),
+      y: seriesSpec([1, 1]),
+      color: "#0000ff",
+    });
+    renderPlot(recorder);
+    recorder.upper2d.calls.length = 0;
+    stack.driver.update([...base, "measure"], measure.Measure.TYPE, {
+      one: { x: 1, y: 250 },
+      two: { x: 999, y: 250 },
+      hover: null,
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("ΔX");
+    expect(texts.filter((t) => t.endsWith(" //"))).toEqual([]);
+  });
+
   it("should count no breaks while the x source of x1 fails", () => {
-    const { plot, recorder, setPlot } = mountBreaks();
+    const { plot, recorder, setOpenBreaks } = mount();
     const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
       throw new Error("x source failed");
     });
     teardowns.push(() => failed.mockRestore());
-    setPlot([]);
+    setOpenBreaks([]);
     renderPlot(recorder);
     expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });

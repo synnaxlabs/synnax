@@ -10,6 +10,7 @@
 import { lineplot as lineplotClient } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
+  bounds,
   box,
   color,
   id,
@@ -733,6 +734,7 @@ describe("LinePlot", () => {
         plot,
         getBreakChange,
         onViewportChange,
+        onBreaksChange,
         onOpenBreaksChange,
         sync,
         view,
@@ -1043,6 +1045,39 @@ describe("LinePlot", () => {
           open: false,
         }),
       );
+    });
+
+    describe("select bound", () => {
+      it("should bound a select drag by the seams on each side of its start", async () => {
+        vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockReturnValue([0.3, 0.6]);
+        const { result } = await renderFrame();
+        const bound = result.current.selectBound;
+        expect(await bound(0.45)).toEqual({ lower: 0.3, upper: 0.6 });
+        expect(await bound(0.3)).toEqual({ lower: 0.3, upper: 0.6 });
+        expect(await bound(0.1)).toEqual({ lower: -Infinity, upper: 0.3 });
+        expect(await bound(0.9)).toEqual({ lower: 0.6, upper: Infinity });
+      });
+
+      it("should not bound a select drag when no break is closed", async () => {
+        const getSeams = vi.spyOn(lineplot.LinePlot.prototype, "getSeams");
+        const { result, plot, onBreaksChange } = await renderFrame();
+        const counts = { open: 1, closed: 0 };
+        act(() => plot.setState((p) => ({ ...p, breaks: counts })));
+        await waitFor(() => expect(onBreaksChange).toHaveBeenLastCalledWith(counts));
+        expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
+        expect(getSeams).not.toHaveBeenCalled();
+      });
+
+      it("should not bound a select drag when the seams fail to load", async () => {
+        vi.spyOn(lineplot.LinePlot.prototype, "getSeams").mockImplementation(() => {
+          throw new Error("no seams");
+        });
+        const { result } = await renderFrame();
+        expect(await result.current.selectBound(0.45)).toEqual({
+          lower: -Infinity,
+          upper: Infinity,
+        });
+      });
     });
   });
 });

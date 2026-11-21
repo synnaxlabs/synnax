@@ -139,6 +139,11 @@ export class Layout {
     this.positionLowers = this.positions.map((b) => b.lower);
   }
 
+  /** @returns whether the layout gives the line of key a span. */
+  hasSpan(key: string): boolean {
+    return this.spans.has(key);
+  }
+
   /**
    * @returns the span of values that the line of key reads and draws. A line with no
    * span spans every value.
@@ -175,6 +180,20 @@ export class Layout {
       distance = d;
     });
     return found;
+  }
+
+  /** The decimal positions across the home view where segments meet, in order. */
+  get seams(): number[] {
+    return this.positions.slice(1).map((p) => p.lower);
+  }
+
+  /** @returns true when a closed gap lies between the values a and b. */
+  closedBetween(a: number, b: number): boolean {
+    const lower = Math.min(a, b);
+    const upper = Math.max(a, b);
+    return this.gaps.some(
+      (g) => !g.open && g.bounds.lower >= lower && g.bounds.upper <= upper,
+    );
   }
 
   /** @returns the decimal position across the viewport of the mark of a gap. */

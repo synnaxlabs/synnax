@@ -9,7 +9,7 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, location, xy } from "@synnaxlabs/x";
+import { type bounds, box, location, xy } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement, RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
@@ -434,6 +434,137 @@ describe("viewport/use", () => {
         cursor: xy.ZERO,
       });
       expect(readViewport(h)).toEqual(box.DECIMAL);
+    });
+  });
+
+  describe("bounded select", () => {
+    const BOUND = { lower: 0.3, upper: 0.6 };
+    // Bounds each select drag to BOUND, and resolves only when settle is called.
+    const bounded = () => {
+      const starts: number[] = [];
+      let resolve = (): void => {};
+      const h = setup({
+        selectBound: async (x) => {
+          starts.push(x);
+          await new Promise<void>((r) => (resolve = r));
+          return BOUND;
+        },
+      });
+      const settle = async () => {
+        await act(async () => resolve());
+      };
+      return { h, starts, settle };
+    };
+
+    it("should report the x where a select drag starts", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+    });
+
+    it("should commit a select drag only once its bound arrives", async () => {
+      const { h, settle } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(h.onChange).not.toHaveBeenCalled();
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0.4);
+      expect(box.right(b)).toBeCloseTo(0.6);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(60);
+    });
+
+    it("should end a select drag exactly at its bound", async () => {
+      // Rounds up past the bound to six places.
+      const upper = 0.6000006;
+      const h = setup({ selectBound: async () => ({ lower: 0, upper }) });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBe(upper);
+    });
+
+    it("should stop the mask at the bound during the drag", async () => {
+      const { h, settle } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 50, y: 20 });
+      await settle();
+      move({ x: 5, y: 80 });
+      expect(box.left(h.result.current.maskBox)).toBeCloseTo(30);
+      expect(box.right(h.result.current.maskBox)).toBeCloseTo(50);
+      release(h.canvas, { x: 5, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+    });
+
+    it("should commit each select drag with its own bound", async () => {
+      const resolvers: Array<(b: bounds.Bounds) => void> = [];
+      const h = setup({
+        selectBound: async () => await new Promise((r) => resolvers.push(r)),
+      });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 10, y: 20 });
+      await act(async () => resolvers[1]({ lower: 0, upper: 0.2 }));
+      await act(async () => resolvers[0](BOUND));
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.6);
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.2);
+    });
+
+    it("should bound a drag that ends as a select from where it started", async () => {
+      const { h, starts, settle } = bounded();
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 50, y: 40 });
+      fireEvent.keyDown(document.body, { code: ALT });
+      move({ x: 80, y: 80 });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(1);
+      expect(starts[0]).toBeCloseTo(0.4);
+      await settle();
+      const b = lastEvent(h.onChange).box;
+      expect(lastEvent(h.onChange).mode).toEqual("select");
+      expect(box.right(b)).toBeCloseTo(0.6);
+    });
+
+    it("should not keep the bound of a select drag that a cancel ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      fireEvent.keyUp(document.body, { code: "Escape" });
+      release(h.canvas, { x: 80, y: 80 });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
+    it("should not keep the bound of a select drag that a zoom reset ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 60, y: 60 });
+      fireEvent.keyDown(document.body, { code: CONTROL });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: CONTROL });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
+    it("should not bound a zoom", () => {
+      const { h, starts } = bounded();
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 });
+      expect(starts).toHaveLength(0);
+      expect(box.right(lastEvent(h.onChange).box)).toBeCloseTo(0.8);
     });
   });
 
