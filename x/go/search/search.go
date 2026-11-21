@@ -49,14 +49,16 @@ type Index[K comparable] struct {
 	ids     map[K]uint32
 	entries []entry[K]
 	free    []uint32
+	// secondary counts the secondary tokens of each entry that holds any. It stays nil
+	// for an index with no secondary text.
+	secondary map[uint32]uint32
 }
 
 // entry holds one term for each unique token of its key: the primary tokens in sorted
-// order, then the secondary tokens in sorted order. primary counts the primary tokens.
+// order, then the secondary tokens in sorted order.
 type entry[K comparable] struct {
-	key     K
-	terms   []term
-	primary uint32
+	key   K
+	terms []term
 }
 
 // term places an entry in a token node. pos is the index of the entry's posting in
@@ -73,6 +75,10 @@ type scratch struct {
 	matches []match
 	fuzzy   []uint32
 	ranked  []uint64
+	// weighted is true when the index holds secondary text, so a match reads the flag
+	// of
+	// each posting.
+	weighted bool
 }
 
 // match is how one entry matches a search. word is one plus the index of the last
@@ -102,9 +108,9 @@ func (idx *Index[K]) Set(key K, text ...string) { idx.SetText(key, text, nil) }
 // counts as primary.
 func (idx *Index[K]) SetText(key K, primary, secondary []string) {
 	tokens := sortedTokens(primary)
-	extra := sortedTokens(secondary)
-	if len(extra) > 0 {
-		extra = slices.DeleteFunc(extra, func(tok string) bool {
+	var extra []string
+	if len(secondary) > 0 {
+		extra = slices.DeleteFunc(sortedTokens(secondary), func(tok string) bool {
 			_, found := slices.BinarySearch(tokens, tok)
 			return found
 		})
@@ -121,10 +127,15 @@ func (idx *Index[K]) SetText(key K, primary, secondary []string) {
 		id = idx.alloc(key)
 	}
 	e := &idx.entries[id]
-	e.primary = uint32(len(tokens))
 	e.terms = slices.Grow(e.terms, len(tokens)+len(extra))
 	idx.link(id, tokens, 0)
-	idx.link(id, extra, secondaryBit)
+	if len(extra) > 0 {
+		if idx.secondary == nil {
+			idx.secondary = make(map[uint32]uint32)
+		}
+		idx.secondary[id] = uint32(len(extra))
+		idx.link(id, extra, secondaryBit)
+	}
 }
 
 // sortedTokens returns the unique tokens of texts in sorted order.
@@ -192,6 +203,7 @@ func (idx *Index[K]) Search(q Query[K]) Result[K] {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 	s := idx.scratch()
+	s.weighted = idx.secondary != nil
 	if n := len(idx.entries) - len(s.slots); n > 0 {
 		s.slots = append(s.slots, make([]uint32, n)...)
 	}
@@ -251,7 +263,11 @@ func (idx *Index[K]) kept(id uint32, except func(K) bool) bool {
 // rank packs the rank of an entry in its high 32 bits and its id in its low 32 bits,
 // so the packed values sort by rank, then by id.
 func (idx *Index[K]) rank(id uint32, score int32) uint64 {
-	return uint64(newRank(score, int(idx.entries[id].primary)))<<32 | uint64(id)
+	tokens := len(idx.entries[id].terms)
+	if idx.secondary != nil {
+		tokens -= int(idx.secondary[id])
+	}
+	return uint64(newRank(score, tokens))<<32 | uint64(id)
 }
 
 // match adds the entries that match word, the word at index w-1 of the query. It adds
@@ -286,14 +302,21 @@ func (s *scratch) addTree(t *trie, n, w uint32) {
 }
 
 func (s *scratch) add(t *trie, n uint32, weight int32, w uint32) {
+	if s.weighted {
+		s.addWeighted(t.node(n).postings, weight, w)
+		return
+	}
 	for _, p := range t.node(n).postings {
-		slot := s.slots[p.id]
-		if slot == 0 {
-			s.matches = append(s.matches, match{id: p.id})
-			slot = uint32(len(s.matches))
-			s.slots[p.id] = slot
+		if m := s.matchOf(p.id); m.word != w {
+			m.score, m.matched, m.word = m.score+weight, m.matched+1, w
 		}
-		if m := &s.matches[slot-1]; m.word != w {
+	}
+}
+
+// addWeighted adds postings as add does, scoring a secondary posting one class lower.
+func (s *scratch) addWeighted(postings []posting, weight int32, w uint32) {
+	for _, p := range postings {
+		if m := s.matchOf(p.id); m.word != w {
 			score := weight
 			if p.slot&secondaryBit != 0 {
 				score /= secondaryFactor
@@ -303,15 +326,31 @@ func (s *scratch) add(t *trie, n uint32, weight int32, w uint32) {
 	}
 }
 
+// matchOf returns the match of the entry at id, adding one when it has none.
+func (s *scratch) matchOf(id uint32) *match {
+	slot := s.slots[id]
+	if slot == 0 {
+		s.matches = append(s.matches, match{id: id})
+		slot = uint32(len(s.matches))
+		s.slots[id] = slot
+	}
+	return &s.matches[slot-1]
+}
+
 // holds reports whether the entry at id holds exactly the primary tokens and the
 // secondary tokens extra, each sorted and unique.
 func (idx *Index[K]) holds(id uint32, tokens, extra []string) bool {
-	e := &idx.entries[id]
-	if int(e.primary) != len(tokens) || len(e.terms) != len(tokens)+len(extra) {
+	terms := idx.entries[id].terms
+	if int(idx.secondary[id]) != len(extra) || len(terms) != len(tokens)+len(extra) {
 		return false
 	}
-	for i, tok := range slices.Concat(tokens, extra) {
-		if idx.trie.find(root, tok) != e.terms[i].node {
+	for i, tok := range tokens {
+		if idx.trie.find(root, tok) != terms[i].node {
+			return false
+		}
+	}
+	for i, tok := range extra {
+		if idx.trie.find(root, tok) != terms[len(tokens)+i].node {
 			return false
 		}
 	}
@@ -348,4 +387,7 @@ func (idx *Index[K]) unlink(id uint32) {
 		}
 	}
 	e.terms = e.terms[:0]
+	if idx.secondary != nil {
+		delete(idx.secondary, id)
+	}
 }
