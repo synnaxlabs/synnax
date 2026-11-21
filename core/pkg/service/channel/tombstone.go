@@ -137,60 +137,56 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 }
 
 // takeLists drops the rewires of each new channel of channels, one with no local key:
-// only a heal or a delete writes a list. Once the service heals, a new channel that
-// takes the path of a tombstone takes its list. takeLists returns the keys of those
-// tombstones, by the position of their channel.
+// only a heal or a delete writes a list. Each then takes a list through takeList.
+// takeLists returns the dead keys of the tombstones whose lists they take, by the
+// position of their channel.
 func (w Writer) takeLists(
 	ctx context.Context,
 	channels []Channel,
 ) (map[int]Key, error) {
-	var dead map[int]Key
-	healing := w.svc.healing.Load()
+	var deadAt map[int]Key
 	for i := range channels {
 		c := &channels[i]
 		if c.LocalKey != 0 {
 			continue
 		}
 		c.Rewires = nil
-		if !healing {
-			continue
-		}
-		t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
+		dead, ok, err := w.takeList(ctx, c)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			continue
 		}
-		c.Rewires = t.Rewires
-		if dead == nil {
-			dead = make(map[int]Key)
+		if deadAt == nil {
+			deadAt = make(map[int]Key)
 		}
-		dead[i] = t.Key
+		deadAt[i] = dead
 	}
-	return dead, nil
+	return deadAt, nil
 }
 
-// takeList gives c, which moves to a new path, the list of the tombstone at that path
-// once the service heals, and maps the dead key of that tombstone to c in to.
-func (w Writer) takeList(
-	ctx context.Context,
-	c *Channel,
-	to map[Key]Key,
-) (map[Key]Key, error) {
+// takeList gives c the list of the tombstone at its path once the service heals. It
+// returns the dead key of that tombstone, and false when it takes no list.
+func (w Writer) takeList(ctx context.Context, c *Channel) (Key, bool, error) {
 	if !w.svc.healing.Load() {
-		return to, nil
+		return 0, false, nil
 	}
 	t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
 	if err != nil || !ok {
-		return to, err
+		return 0, false, err
 	}
 	c.Rewires = t.Rewires
+	return t.Key, true, nil
+}
+
+// healed maps dead to live in to, which it makes when nil, and returns to.
+func healed(to map[Key]Key, dead, live Key) map[Key]Key {
 	if to == nil {
 		to = make(map[Key]Key, 1)
 	}
-	to[t.Key] = c.Key()
-	return to, nil
+	to[dead] = live
+	return to
 }
 
 // Heal makes each later create, rename, or move that takes the path of a tombstone
@@ -232,27 +228,19 @@ func (s *Service) Heal(ctx context.Context) error {
 // heal gives each of channels, which are written, that holds the path of a tombstone
 // the list of that tombstone, and then heals the links of those tombstones.
 func (w Writer) heal(ctx context.Context, channels ...Channel) error {
-	var to map[Key]Key
+	to := make(map[Key]Key, len(channels))
 	for _, c := range channels {
-		t, ok, err := w.tombstoneOf(ctx, c.Name, c.Group)
+		dead, ok, err := w.takeList(ctx, &c)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			continue
 		}
-		if !slices.Equal(c.Rewires, t.Rewires) {
-			healed := c
-			healed.Rewires = t.Rewires
-			err = w.svc.table.NewCreate().Entry(&healed).Exec(ctx, w.tx)
-			if err != nil {
-				return err
-			}
+		if err = w.svc.table.NewCreate().Entry(&c).Exec(ctx, w.tx); err != nil {
+			return err
 		}
-		if to == nil {
-			to = make(map[Key]Key, len(channels))
-		}
-		to[t.Key] = c.Key()
+		to[dead] = c.Key()
 	}
 	return w.healLinks(ctx, to)
 }

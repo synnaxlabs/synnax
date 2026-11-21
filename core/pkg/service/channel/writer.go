@@ -129,21 +129,13 @@ func (w Writer) apply(
 	if err = w.inferDataType(ctx, prev, &next); err != nil {
 		return nil, nil, err
 	}
-	renamed := next.Name != prev.Name
-	if renamed {
-		if err = w.checkRename(prev, next.Name); err != nil {
-			return nil, nil, err
-		}
-	}
-	if renamed || !sameGroup(prev.Group, next.Group) {
-		if to, err = w.takeList(ctx, &next, to); err != nil {
-			return nil, nil, err
-		}
+	if to, err = w.takePath(ctx, prev, &next, to); err != nil {
+		return nil, nil, err
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, nil, nameTaken(err, 0)
 	}
-	if renamed {
+	if next.Name != prev.Name {
 		w.queueRenames(Keys{key}, []string{next.Name})
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
@@ -183,21 +175,46 @@ func (w Writer) inferDataType(ctx context.Context, prev Channel, next *Channel) 
 	return nil
 }
 
-// checkRename returns an error wrapping validate.ErrValidation when name is not a valid
-// channel name, or when c is built in.
-func (w Writer) checkRename(c Channel, name string) error {
-	if *w.svc.cfg.ValidateNames {
-		if err := validateNameSyntax([]string{name}); err != nil {
-			return err
+// takePath checks the rename of prev to next. When next takes a new path, it takes a
+// list through takeList, and takePath maps the dead key to next in to. It returns to.
+func (w Writer) takePath(
+	ctx context.Context,
+	prev Channel,
+	next *Channel,
+	to map[Key]Key,
+) (map[Key]Key, error) {
+	if next.Name != prev.Name {
+		if err := w.checkNames([]string{next.Name}); err != nil {
+			return to, err
 		}
+		if err := w.checkRenamable(prev, false); err != nil {
+			return to, err
+		}
+	} else if sameGroup(prev.Group, next.Group) {
+		return to, nil
 	}
-	if w.svc.IsBuiltIn(c.Key()) {
-		return builtInRename(c)
+	dead, ok, err := w.takeList(ctx, next)
+	if ok {
+		to = healed(to, dead, next.Key())
 	}
-	return nil
+	return to, err
 }
 
-func builtInRename(c Channel) error {
+// checkNames returns an error wrapping validate.ErrValidation when the service checks
+// names and a name of names is not a valid channel name.
+func (w Writer) checkNames(names []string) error {
+	if !*w.svc.cfg.ValidateNames {
+		return nil
+	}
+	return validateNameSyntax(names)
+}
+
+// checkRenamable returns an error wrapping validate.ErrValidation when c is built in,
+// unless allowInternal.
+func (w Writer) checkRenamable(c Channel, allowInternal bool) error {
+	if allowInternal || !w.svc.IsBuiltIn(c.Key()) {
+		return nil
+	}
 	return errors.Wrapf(
 		validate.ErrValidation,
 		"can't rename built-in channel %q",
@@ -1037,10 +1054,8 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	if *w.svc.cfg.ValidateNames {
-		if err := validateNameSyntax(names); err != nil {
-			return nil, err
-		}
+	if err := w.checkNames(names); err != nil {
+		return nil, err
 	}
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
@@ -1050,15 +1065,17 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
-				return Channel{}, builtInRename(c)
+			if err := w.checkRenamable(c, allowInternal); err != nil {
+				return Channel{}, err
 			}
 			c.Name = renameMap[c.Key()]
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
-			var err error
-			to, err = w.takeList(ctx, &c, to)
+			dead, ok, err := w.takeList(ctx, &c)
+			if ok {
+				to = healed(to, dead, c.Key())
+			}
 			return c, err
 		}).
 		Exec(ctx, w.tx); err != nil {
