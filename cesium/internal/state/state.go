@@ -57,6 +57,23 @@ type Channel struct {
 	// Oldest and Newest are the identities of the oldest and newest part that hold
 	// records of the key, or 0 when no part does.
 	Oldest, Newest uint64
+	// Kills are the kills of segments of the key that no head holds as dead marks yet.
+	Kills []Kill
+}
+
+// Kill marks the record of a segment of a key dead in each part of its generation or
+// older. A Kill with All set marks every record of the key.
+type Kill struct {
+	Key        uint32
+	All        bool
+	Segment    uint64
+	Generation uint64
+}
+
+// Range names the oldest and newest part that hold records of a key.
+type Range struct {
+	Key            uint32
+	Oldest, Newest uint64
 }
 
 // Limits are the values below which the database gives out identities and numbers.
@@ -78,4 +95,6 @@ type Snapshot struct {
 	Channels []*Channel
 	// Intents are the keys of the live delete intents, in rising order.
 	Intents []uint32
+	// Kills are the kills that no head holds as dead marks yet.
+	Kills []Kill
 }

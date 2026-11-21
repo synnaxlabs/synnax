@@ -44,6 +44,11 @@ type core struct {
 	// reader pins it.
 	dead []Dead
 	keys set.Set[uint32]
+	// generation is the generation of the log of the records that the core applies, or
+	// of the head before it for replayed records. It stamps each kill.
+	generation uint64
+	// dropped holds the kills of the keys that a Drop took out of the state.
+	dropped []Kill
 }
 
 func newCore(versions set.Set[uint16]) *core {
@@ -272,6 +277,10 @@ func (c *core) drop(key uint32) error {
 		}
 	}
 	if ch, ok := c.channels[key]; ok {
+		c.dropped = append(
+			c.dropped,
+			Kill{Key: key, All: true, Generation: c.generation},
+		)
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
 		}

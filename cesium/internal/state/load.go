@@ -33,6 +33,7 @@ func (c *core) load(s *Snapshot) error {
 	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits
 	for _, ch := range s.Channels {
 		cs := c.channel(ch.Key)
+		cs.oldest, cs.newest = ch.Oldest, ch.Newest
 		for _, seg := range ch.Segments {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
@@ -165,5 +166,9 @@ func (c *core) snapshot() *Snapshot {
 	if len(s.Intents) == 0 {
 		s.Intents = nil
 	}
+	for _, k := range keys {
+		s.Kills = append(s.Kills, c.channels[k].kills...)
+	}
+	s.Kills = append(s.Kills, c.dropped...)
 	return s
 }

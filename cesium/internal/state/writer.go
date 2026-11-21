@@ -619,6 +619,7 @@ func (r *switchRequest) run(s *State) {
 	}
 	sortSeals(seals)
 	snap := s.core.snapshot()
+	s.core.generation = r.generation
 	if len(seals) > 0 {
 		var e log.Entry
 		for i := range seals {

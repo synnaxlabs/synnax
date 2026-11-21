@@ -108,6 +108,44 @@ func (x *Index) Merge(s *state.Snapshot) {
 	}
 }
 
+// Ranges returns the part range of each key that records of the parts of x hold, and
+// that are not dead, in rising order of key.
+func (x *Index) Ranges() []state.Range {
+	at := map[uint32]int{}
+	var ranges []state.Range
+	for _, p := range x.parts {
+		for i, key := range p.keys {
+			if p.dead(i) {
+				continue
+			}
+			if j, ok := at[key]; ok {
+				ranges[j].Newest = p.ID
+				continue
+			}
+			at[key] = len(ranges)
+			ranges = append(ranges, state.Range{Key: key, Oldest: p.ID, Newest: p.ID})
+		}
+	}
+	slices.SortFunc(ranges, func(a, b state.Range) int {
+		return cmp.Compare(a.Key, b.Key)
+	})
+	return ranges
+}
+
+// fold marks each record of p dead that a kill of the generation of p or later names.
+func (p *indexed) fold(kills map[uint32][]state.Kill) {
+	if len(kills) == 0 {
+		return
+	}
+	for i, key := range p.keys {
+		for _, k := range kills[key] {
+			if k.Generation >= p.Generation && (k.All || k.Segment == p.segs[i].ID) {
+				p.kill(i)
+			}
+		}
+	}
+}
+
 // Tags returns the tags of the records of the parts of x that are not dead.
 func (x *Index) Tags() []state.Tag {
 	var tags []state.Tag

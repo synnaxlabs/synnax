@@ -167,7 +167,7 @@ var _ = Describe("Part cache", func() {
 		func() {
 			switchTo(2, withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30)))
 			flip(fs, partFile, checkpoint.BodyStart+10)
-			c.Head(3, withSealed(sealed(1, 10)))
+			c.Head(3, killed(withSealed(sealed(1, 10)), 2, 2, 3))
 			Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
 			Expect(c.Err()).To(And(
 				MatchError(place.ErrCorrupt),

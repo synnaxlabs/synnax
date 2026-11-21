@@ -43,10 +43,10 @@ var _ = Describe("Part tags", func() {
 	}
 
 	It("Should tag only the segment that matches its part among two of a key", func() {
-		Expect(s.Parted([]state.Tag{
+		Expect(s.Parted(1, []state.Tag{
 			{Part: 7, Segment: of(5, 0)},
 			{Part: 7, Segment: of(5, 1)},
-		})).To(Succeed())
+		}, nil)).To(Succeed())
 		Expect(of(5, 0).Part).To(Equal(uint64(7)))
 		Expect(of(5, 1).Part).To(BeZero())
 	})
@@ -54,23 +54,25 @@ var _ = Describe("Part tags", func() {
 	It("Should leave an open segment", func() {
 		open := of(5, 1)
 		Expect(open.Sealed).To(BeFalse())
-		Expect(s.Parted([]state.Tag{{Part: 7, Segment: open}})).To(Succeed())
+		Expect(s.Parted(1, []state.Tag{{Part: 7, Segment: open}}, nil)).To(Succeed())
 		Expect(of(5, 1).Part).To(BeZero())
 	})
 
 	It("Should skip a tag whose segment left the state", func() {
 		gone := of(5, 0)
 		gone.ID = 99
-		Expect(s.Parted([]state.Tag{
+		Expect(s.Parted(1, []state.Tag{
 			{Part: 7, Segment: gone},
 			{Part: 8, Segment: segment()},
-		})).To(Succeed())
+		}, nil)).To(Succeed())
 		Expect(of(5, 0).Part).To(BeZero())
 		Expect(segment().Part).To(Equal(uint64(8)))
 	})
 
 	It("Should keep the tag of a segment that a tombstone does not cut", func() {
-		Expect(s.Parted([]state.Tag{{Part: 7, Segment: of(5, 0)}})).To(Succeed())
+		Expect(
+			s.Parted(1, []state.Tag{{Part: 7, Segment: of(5, 0)}}, nil),
+		).To(Succeed())
 		Expect(s.Durable(11, []log.Record{
 			&log.Tombstone{Key: 5, Start: 35, End: 60},
 		})).To(Succeed())
@@ -79,20 +81,24 @@ var _ = Describe("Part tags", func() {
 	})
 
 	It("Should tag a sealed segment whose record its part holds", func() {
-		Expect(s.Parted([]state.Tag{{Part: 7, Segment: segment()}})).To(Succeed())
+		Expect(
+			s.Parted(1, []state.Tag{{Part: 7, Segment: segment()}}, nil),
+		).To(Succeed())
 		Expect(segment().Part).To(Equal(uint64(7)))
 	})
 
 	It("Should leave a segment whose record differs from its part's", func() {
 		other := segment()
 		other.TailCRC++
-		Expect(s.Parted([]state.Tag{{Part: 7, Segment: other}})).To(Succeed())
+		Expect(s.Parted(1, []state.Tag{{Part: 7, Segment: other}}, nil)).To(Succeed())
 		Expect(segment().Part).To(BeZero())
 	})
 
 	It("Should clear the tag of a segment that a tombstone cuts, so a reader takes "+
 		"its own pointers", func() {
-		Expect(s.Parted([]state.Tag{{Part: 7, Segment: segment()}})).To(Succeed())
+		Expect(
+			s.Parted(1, []state.Tag{{Part: 7, Segment: segment()}}, nil),
+		).To(Succeed())
 		Expect(segment().Part).To(Equal(uint64(7)))
 		Expect(s.Durable(11, []log.Record{&log.Tombstone{
 			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),

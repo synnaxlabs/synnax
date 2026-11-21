@@ -126,11 +126,12 @@ func openEngine(o *options) (*engine, error) {
 		e.stored.Add(ch.Key)
 	}
 	if e.state, err = state.Open(state.Config{
-		Versions: set.New[uint16](segmentVersion),
-		Version:  segmentVersion,
-		Append:   e.append,
-		Executor: e.exec,
-		OnHead:   e.onHead,
+		Versions:   set.New[uint16](segmentVersion),
+		Version:    segmentVersion,
+		Append:     e.append,
+		Executor:   e.exec,
+		OnHead:     e.onHead,
+		Generation: r.head.Generation,
 	}, snapshot); err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	if r.parts != nil {
-		e.parted(r.head.Parts, r.parts.Tags())
+		e.parted(r.head.Generation, r.head.Parts, r.parts.Tags(), r.parts.Ranges())
 	}
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
@@ -241,7 +242,12 @@ func (e *engine) recover(r *recovery) (err error) {
 
 // parted keeps the parts of a new head for readers, and hands the tags of its switch
 // to the state.
-func (e *engine) parted(parts []checkpoint.Part, tags []state.Tag) {
+func (e *engine) parted(
+	generation uint64,
+	parts []checkpoint.Part,
+	tags []state.Tag,
+	ranges []state.Range,
+) {
 	live := make(map[uint64]checkpoint.Part, len(parts))
 	for _, p := range parts {
 		live[p.ID] = p
@@ -249,7 +255,7 @@ func (e *engine) parted(parts []checkpoint.Part, tags []state.Tag) {
 	e.parts.Lock()
 	e.parts.older, e.parts.live = e.parts.live, live
 	e.parts.Unlock()
-	if err := e.state.Parted(tags); err != nil {
+	if err := e.state.Parted(generation, tags, ranges); err != nil {
 		e.ins.L.Error("state refused the tags of a switch", zap.Error(err))
 	}
 }

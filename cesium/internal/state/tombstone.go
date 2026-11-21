@@ -122,9 +122,16 @@ func (c *core) tombstone(t *log.Tombstone) error {
 		before := s.vis.Pointers
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
-		// A part holds the record before the cut.
+		// A part may hold the record of a sealed segment before the cut.
 		if !slices.Equal(before, s.vis.Pointers) {
 			s.vis.Part = 0
+			if s.dur.sealed {
+				ch.kills = append(ch.kills, Kill{
+					Key:        t.Key,
+					Segment:    s.vis.ID,
+					Generation: c.generation,
+				})
+			}
 		}
 		c.bury(s)
 	}

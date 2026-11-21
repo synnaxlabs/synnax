@@ -40,6 +40,8 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
+	// Generation is the generation of the head that Open loads.
+	Generation uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -108,6 +110,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 	if err := s.core.load(head); err != nil {
 		return nil, err
 	}
+	s.core.generation = cfg.Generation
 	s.step = s.run
 	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
@@ -290,9 +293,13 @@ type Tag struct {
 	Segment Segment
 }
 
-type partedRequest struct{ tags []Tag }
+type partedRequest struct {
+	generation uint64
+	tags       []Tag
+	ranges     []Range
+}
 
-// fail drops the tags: a segment with no tag reads its own pointers.
+// fail drops the request: the state failed, and later calls return its error.
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
@@ -305,6 +312,25 @@ func (r *partedRequest) run(s *State) {
 		seg.vis.Part = t.Part
 		changed.Add(seg.key)
 	}
+	folded := func(k Kill) bool { return k.Generation < r.generation }
+	s.core.dropped = slices.DeleteFunc(s.core.dropped, folded)
+	ranges := make(map[uint32]Range, len(r.ranges))
+	for _, rg := range r.ranges {
+		ranges[rg.Key] = rg
+	}
+	for key, ch := range s.core.channels {
+		rg := ranges[key]
+		if ch.oldest != rg.Oldest || ch.newest != rg.Newest {
+			ch.oldest, ch.newest = rg.Oldest, rg.Newest
+			changed.Add(key)
+		}
+		if slices.ContainsFunc(ch.kills, folded) {
+			// A published Channel holds the old slice, so the kills left go to a new
+			// one.
+			ch.kills = slices.DeleteFunc(slices.Clone(ch.kills), folded)
+			changed.Add(key)
+		}
+	}
 	for key := range changed {
 		s.core.channels[key].publish()
 	}
@@ -316,11 +342,13 @@ func sameRecord(a, b Segment) bool {
 		slices.Equal(a.Pointers, b.Pointers)
 }
 
-// Parted queues the tags of the records that a switch wrote to parts. The owner tags
-// each sealed segment whose record is still the one that its part holds, and leaves
-// the rest. It does not wait for the owner.
-func (s *State) Parted(tags []Tag) error {
-	return s.enqueue(&partedRequest{tags: tags})
+// Parted queues what the head of generation holds once it commits: the tags of the
+// records that its switch wrote to parts, and the part range of each key that parts
+// hold. The owner tags each sealed segment whose record is still the one that its part
+// holds, gives each key its range or none, and drops the kills from before generation,
+// which the head holds as dead marks. It does not wait for the owner.
+func (s *State) Parted(generation uint64, tags []Tag, ranges []Range) error {
+	return s.enqueue(&partedRequest{generation: generation, tags: tags, ranges: ranges})
 }
 
 // Durable queues the records of the durable entry of sequence, which the log owner
