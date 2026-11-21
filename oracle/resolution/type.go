@@ -590,6 +590,12 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 // typed by a type parameter with a default takes the default. It returns false when typ
 // is neither a struct nor a union.
 func RecordFields(typ Type, table *Table) ([]Field, bool) {
+	return recordFields(typ, nil, table)
+}
+
+// recordFields returns the fields of typ instantiated with args. A type parameter with
+// no argument takes its default.
+func recordFields(typ Type, args []TypeRef, table *Table) ([]Field, bool) {
 	var fields []Field
 	switch form := typ.Form.(type) {
 	case StructForm:
@@ -607,14 +613,9 @@ func RecordFields(typ Type, table *Table) ([]Field, bool) {
 	default:
 		return nil, false
 	}
-	defaults := make(map[string]TypeRef)
-	for _, p := range TypeParams(typ.Form) {
-		if p.Default != nil {
-			defaults[p.Name] = *p.Default
-		}
-	}
+	typeArgs := TypeArgMap(TypeParams(typ.Form), args)
 	for i := range fields {
-		fields[i].Type = SubstituteTypeRef(fields[i].Type, defaults)
+		fields[i].Type = SubstituteTypeRef(fields[i].Type, typeArgs)
 	}
 	return fields, true
 }
