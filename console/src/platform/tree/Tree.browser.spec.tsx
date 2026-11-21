@@ -139,6 +139,8 @@ const createWrapper = async (items: Tree.Items = GROUP_ITEMS, as: Client = clien
   return Wrapper;
 };
 
+const PERMISSIONS_LOADING = "loading permissions";
+
 // The Console mounts every tree below a permissions boundary, so a row reads its grants
 // on its first render.
 const renderTree = async (
@@ -148,7 +150,7 @@ const renderTree = async (
   listRoot?: Tree.TreeProps["listRoot"],
 ) =>
   await renderSuspended(
-    <Access.PermissionsBoundary loading={null}>
+    <Access.PermissionsBoundary loading={PERMISSIONS_LOADING}>
       <Tree.Tree root={root} listRoot={listRoot} />
     </Access.PermissionsBoundary>,
     { wrapper: await createWrapper(items, as) },
@@ -170,6 +172,7 @@ const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
     const { container } = await renderTree(null);
+    await waitFor(() => expect(screen.queryByText(PERMISSIONS_LOADING)).toBeNull());
     // The test wrapper draws only its window box.
     expect(container.firstElementChild?.innerHTML).toBe("");
   });
