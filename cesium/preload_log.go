@@ -17,8 +17,9 @@ import (
 )
 
 // withPreloads runs step with the preload of each key of keys over [first, last],
-// appended to pre[:0], and loads them again while step returns state.ErrStale. It
-// returns the preloads of the last run, so the caller may reuse their slice.
+// appended to pre[:0], and loads them again while step returns state.ErrStale. keys are
+// in rising order. It returns the preloads of the last run, so the caller may reuse
+// their slice.
 func (e *engine) withPreloads(
 	pre []state.Preload,
 	keys []ChannelKey,
