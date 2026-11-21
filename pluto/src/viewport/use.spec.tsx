@@ -439,7 +439,7 @@ describe("viewport/use", () => {
 
   describe("bounded select", () => {
     const BOUND = { lower: 0.3, upper: 0.6 };
-    // Bounds each select drag to BOUND, and resolves only when release is called.
+    // Bounds each select drag to BOUND, and resolves only when settle is called.
     const bounded = () => {
       const starts: number[] = [];
       let resolve = (): void => {};
