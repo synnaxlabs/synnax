@@ -403,13 +403,12 @@ export class MultiplexedStreamer {
     });
   }
 
-  // Outdates the cached samples of the streamed channels that the Core stores, since
-  // frames the Core dropped can hold history changes that outdate them. The samples of
-  // other channels cannot be read again, so they stay.
+  // Outdates the cached samples of every channel that the Core stores, streamed or not,
+  // since frames the Core dropped can hold history changes for any of them. The samples
+  // of other channels cannot be read again, so they stay.
   private outdateStored(): void {
     const { joins, store, onWait } = this.props;
-    for (const key of this.sentKeys)
-      if (store.stored(key)) onWait(joins.invalidate(key));
+    for (const key of store.storedChannels()) onWait(joins.invalidate(key));
   }
 
   // Drops every cached block once a stream opens after a drop, since the drop can miss

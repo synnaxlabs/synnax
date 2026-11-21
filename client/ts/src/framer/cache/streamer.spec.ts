@@ -812,11 +812,15 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
-    it("should outdate stored channels once per interval on missed markers", async () => {
+    it("should outdate every stored channel once per interval on missed markers", async () => {
       const hooks: StreamHooks[] = [];
       const cache = createCache();
       cache.store.setChannel(
         new channel.Channel({ key: 1, name: "stored", dataType: "float32" }).payload,
+      );
+      cache.store.setChannel(
+        new channel.Channel({ key: 3, name: "unstreamed", dataType: "float32" })
+          .payload,
       );
       cache.store.setChannel(
         new channel.Channel({
@@ -839,12 +843,12 @@ describe("MultiplexedStreamer", () => {
       hooks[0].onMissed();
       hooks[0].onMissed();
       await vi.advanceTimersByTimeAsync(10);
-      expect(invalidate.mock.calls).toEqual([[1]]);
+      expect(invalidate.mock.calls).toEqual([[1], [3]]);
       hooks[0].onMissed();
       await vi.advanceTimersByTimeAsync(500);
-      expect(invalidate.mock.calls).toEqual([[1]]);
+      expect(invalidate.mock.calls).toEqual([[1], [3]]);
       await vi.advanceTimersByTimeAsync(600);
-      expect(invalidate.mock.calls).toEqual([[1], [1]]);
+      expect(invalidate.mock.calls).toEqual([[1], [3], [1], [3]]);
       expect(drops).toBe(0);
       expect(sub.status(1).variant).toEqual("success");
       sub.close();
