@@ -87,7 +87,7 @@ var _ = Describe("Reader", func() {
 			)
 			BeforeEach(func() {
 				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
-				rd = segment.NewReader()
+				rd = segment.NewReader(nil)
 			})
 
 			// write writes stream to a new segment of c and returns its committed part.

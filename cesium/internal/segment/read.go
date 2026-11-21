@@ -27,11 +27,18 @@ type Committed struct {
 	TailCRC uint32
 }
 
-// Reader reads checked stream bytes of segments. It keeps the last block that it
-// checked on its own until Reset, so a later read inside that block reads no bytes
-// again. It is not safe for concurrent use.
+// Reader reads checked stream bytes of segments. It holds the last block that it read
+// for part of a block until Reset, so a later read inside that block reads no bytes
+// again. With a cache, it takes such a block from the cache when the cache holds it,
+// and adds each full block that it checks. It is not safe for concurrent use.
 type Reader struct {
+	cache *Cache
+	// buf is what the next read from the disk fills, or nil until the reader needs one.
+	buf []byte
+	// block holds the checked bytes that held names: buf, or the bytes of cached.
 	block []byte
+	// cached is the block of the cache that the reader holds, or nil.
+	cached *block
 	// held names the checked bytes of block: their segment, the stream offset of the
 	// block, and their size. size is zero when block holds none.
 	held struct {
@@ -40,10 +47,9 @@ type Reader struct {
 	}
 }
 
-// NewReader returns a reader.
-func NewReader() *Reader {
-	return &Reader{block: make([]byte, BlockSize+VariableTrailer)}
-}
+// NewReader returns a reader that shares the blocks of cache, or that reads each block
+// from the disk when cache is nil.
+func NewReader(cache *Cache) *Reader { return &Reader{cache: cache} }
 
 // Read reads len(p) stream bytes from stream offset off of the committed segment s in
 // r, and checks every block that it reads: a full block against its trailer, and the
@@ -93,16 +99,54 @@ func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
 		return nil
 	}
 	rd.held.size = 0
-	if err := rd.checked(r, s, start, rd.block[:size]); err != nil {
+	if err := rd.fill(r, s, start, size); err != nil {
 		return err
 	}
 	rd.held.db, rd.held.id, rd.held.start, rd.held.size = s.DB, s.ID, start, size
 	return nil
 }
 
-// Reset drops the block that rd holds, so the next read of it reads and checks it
-// again. A caller resets a reader before it reads for another caller.
-func (rd *Reader) Reset() { rd.held.size = 0 }
+// fill makes the block of rd the checked size bytes at stream offset start of s: from
+// the cache for a full block that it holds, or from r.
+func (rd *Reader) fill(r io.ReaderAt, s Committed, start, size int64) error {
+	shared, k := size > BlockSize && rd.cache != nil, blockKey{id: s.ID, start: start}
+	if !shared {
+		rd.release()
+	} else if b, ok := rd.cache.get(k, rd.cached); ok {
+		rd.cached, rd.block = b, b.data
+		return nil
+	} else {
+		rd.cached = nil
+	}
+	if rd.buf == nil {
+		rd.buf = make([]byte, BlockSize+VariableTrailer)
+	}
+	if err := rd.checked(r, s, start, rd.buf[:size]); err != nil {
+		return err
+	}
+	rd.block = rd.buf
+	if shared {
+		rd.cached, rd.buf = rd.cache.put(k, rd.buf)
+		rd.block = rd.cached.data
+	}
+	return nil
+}
+
+// Reset drops the block that rd holds, so the next read of it reads it from the cache
+// or checks it again. A caller resets a reader when it is done with it, which lets the
+// cache drop the block.
+func (rd *Reader) Reset() {
+	rd.release()
+	rd.held.size = 0
+}
+
+// release drops the hold of rd on its cached block.
+func (rd *Reader) release() {
+	if rd.cached != nil {
+		rd.cache.release(rd.cached)
+		rd.cached = nil
+	}
+}
 
 // holds reports whether rd holds the size checked bytes at stream offset start of s.
 // Blocks only grow, so a longer checked tail holds a shorter one.
