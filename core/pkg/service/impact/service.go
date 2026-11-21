@@ -118,7 +118,8 @@ func (s *Service) Apply(
 	case DeleteGroupsChange:
 		return Plan{}, s.deleteGroups(ctx, tx, v.Keys, opts)
 	}
-	return Plan{}, errors.Newf("[impact] - unknown change %T", c.Variant)
+	// Formatting the variant would make every change escape to the heap.
+	return Plan{}, errors.New("[impact] - unknown change")
 }
 
 // deleteGroups deletes the groups with keys. Its plan has no entries, so every pick

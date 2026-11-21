@@ -115,6 +115,6 @@ var _ = Describe("Delete groups", Ordered, func() {
 
 	It("Should fail on a change of no known variant", func(ctx SpecContext) {
 		Expect(layer.Impact.Apply(ctx, db, impact.Change{}, impact.ApplyOptions{})).
-			Error().To(MatchError("[impact] - unknown change <nil>"))
+			Error().To(MatchError("[impact] - unknown change"))
 	})
 })
