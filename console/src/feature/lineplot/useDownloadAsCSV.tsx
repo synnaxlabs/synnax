@@ -100,7 +100,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
       const resolved = windows.map((w) => resolveWindow(w, end));
       const timeRanges = FLAGS.breaks
-        ? LinePlot.shownSpans(resolved)
+        ? LinePlot.shownSpans(resolved, end)
         : [TimeRange.merge(...resolved)];
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { bounds, box, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import type { TickType } from "@/vis/axis/ticks";
 import type { line } from "@/vis/line/aether";
@@ -277,17 +277,31 @@ export const collapse = (
  * @returns the spans of time that a plot of windows shows with its gaps collapsed and
  * every break closed, in time order. Each span holds one or more windows and the
  * margins and time between them.
+ * @param end - where a window with no end stops showing, such as the newest sample.
  */
-export const shownSpans = (windows: TimeRange[]): TimeRange[] => {
-  const traces = windows.map((w) => ({ bounds: w.numericBounds, loading: false }));
+export const shownSpans = (windows: TimeRange[], end: TimeStamp): TimeRange[] => {
+  const traces = windows.map((w): line.DataBounds => {
+    if (!w.end.equals(TimeStamp.MAX))
+      return { bounds: w.numericBounds, loading: false };
+    const upper = TimeStamp.max(w.start, end);
+    return {
+      bounds: new TimeRange(w.start, upper).numericBounds,
+      loading: false,
+      edge: "growing",
+    };
+  });
   const shown = collapse(traces, 0);
   if (shown.length === 0) return [];
   // A number cannot hold a timestamp to the nanosecond, so the outer edges come from
   // the windows.
-  const { start, end } = TimeRange.merge(...windows);
+  const merged = TimeRange.merge(...windows);
   const last = shown.length - 1;
   return shown.map(
-    (b, i) => new TimeRange(i === 0 ? start : b.lower, i === last ? end : b.upper),
+    (b, i) =>
+      new TimeRange(
+        i === 0 ? merged.start : b.lower,
+        i === last ? merged.end : b.upper,
+      ),
   );
 };
 
