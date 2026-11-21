@@ -91,14 +91,16 @@ var _ = Describe("Legacy breaker d", func() {
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			c := calculation.Calculation{
 				Expression: "return wide * 2",
-				Operations: calculation.FromChannelOperations([]channel.Operation{{
-					Type:         channel.OperationTypeMax,
-					ResetChannel: channelKey(ctx, channels, node, "level"),
-				}}),
+				Operations: MustSucceed(
+					calculation.FromChannelOperations([]channel.Operation{{
+						Type:         channel.OperationTypeMax,
+						ResetChannel: channelKey(ctx, channels, node, "level"),
+					}}),
+				),
 			}
 			_, err := svc.NewWriter(tx).CreateOutput(ctx, &c, "doubled", nil)
 			return err
-		})).ToNot(Succeed())
+		})).To(MatchError(ContainSubstring("reset")))
 		Expect(exists(ctx, channel.MatchNames("doubled", "doubled_time"))).
 			To(BeFalse())
 	})
@@ -120,17 +122,20 @@ var _ = Describe("Legacy breaker d", func() {
 		ctx SpecContext,
 	) {
 		createInput(ctx, "wide", telem.Int64T)
-		chs := []channel.Channel{{
-			Name:       "doubled",
-			DataType:   telem.Int64T,
-			Virtual:    true,
+		requested := []calculation.Requested{{
+			Channel: channel.Channel{
+				Name:     "doubled",
+				DataType: telem.Int64T,
+				Virtual:  true,
+			},
 			Expression: "return wide * 2",
 			Operations: []channel.Operation{{Type: "sum", Duration: telem.Second}},
 		}}
 		var err error
 		Expect(func() {
 			err = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).CreateChannels(ctx, &chs, false)
+				_, err := svc.NewWriter(tx).CreateChannels(ctx, requested, false)
+				return err
 			})
 		}).ToNot(Panic())
 		Expect(err).To(MatchError(validate.ErrValidation))

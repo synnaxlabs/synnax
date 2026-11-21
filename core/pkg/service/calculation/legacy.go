@@ -115,18 +115,45 @@ func (w Writer) CreateChannels(
 			channels[i] = s
 			continue
 		}
-		c := Calculation{
-			Expression: r.Expression,
-			Operations: FromChannelOperations(r.Operations),
-		}
-		created, err := w.CreateOutput(ctx, &c, r.Channel.Name, r.Channel.Group)
+		created, err := w.createRequested(ctx, r)
 		if err != nil {
 			return nil, validate.PathedError(err, strconv.Itoa(i))
 		}
 		channels[i] = created[0]
 		indexes = append(indexes, created[1:]...)
 	}
-	return append(channels, indexes...), nil
+	return slices.Concat(channels, indexes), nil
+}
+
+// createRequested creates the calculation of r and its output, as CreateOutput does.
+func (w Writer) createRequested(
+	ctx context.Context,
+	r Requested,
+) ([]channel.Channel, error) {
+	if err := w.checkKeyFree(ctx, r.Channel); err != nil {
+		return nil, err
+	}
+	ops, err := FromChannelOperations(r.Operations)
+	if err != nil {
+		return nil, validate.PathedError(err, "operations")
+	}
+	c := Calculation{Expression: r.Expression, Operations: ops}
+	return w.CreateOutput(ctx, &c, r.Channel.Name, r.Channel.Group)
+}
+
+// checkKeyFree returns an error wrapping validate.ErrValidation when ch names the key
+// of a stored channel, which the old channel API refuses to create again.
+func (w Writer) checkKeyFree(ctx context.Context, ch channel.Channel) error {
+	if ch.LocalKey == 0 {
+		return nil
+	}
+	exists, err := w.channels.NewRetrieve().
+		Where(channel.MatchKeys(ch.Key())).
+		Exists(ctx, w.tx)
+	if err != nil || !exists {
+		return err
+	}
+	return errors.Wrapf(validate.ErrValidation, "channel %s already exists", ch.Key())
 }
 
 // found returns the stored channel that has the name or key of ch.
@@ -158,9 +185,9 @@ type legacyDocument struct {
 // ApplyChannel applies actions of the old channel API to the channel with key. An
 // action on the expression or the operations edits the calculation that writes the
 // channel, and every other action edits the channel. It returns the actions the Core
-// computed, such as a set of a data type that the new expression changed. It returns
-// an error wrapping validate.ErrValidation for an edit of the expression or the
-// operations of a channel that no calculation writes.
+// computed, such as a set of a data type that the new expression changed. It returns an
+// error wrapping validate.ErrValidation for an edit of the expression or the operations
+// of a channel that no calculation writes.
 func (w Writer) ApplyChannel(
 	ctx context.Context,
 	key channel.Key,
@@ -168,7 +195,7 @@ func (w Writer) ApplyChannel(
 ) ([]channel.Action, error) {
 	var calcActs, chanActs []channel.Action
 	for _, a := range acts {
-		if path := actionPath(a); len(path) > 0 && legacyFields.Contains(path[0]) {
+		if editsCalculation(a) {
 			calcActs = append(calcActs, a)
 		} else {
 			chanActs = append(chanActs, a)
@@ -221,6 +248,10 @@ func (w Writer) applyLegacy(
 			return nil, err
 		}
 	}
+	ops, err := FromChannelOperations(doc.Operations)
+	if err != nil {
+		return nil, validate.PathedError(err, "operations")
+	}
 	before, err := w.outputOf(ctx, key)
 	if err != nil {
 		return nil, err
@@ -229,10 +260,7 @@ func (w Writer) applyLegacy(
 		ctx,
 		c.Key,
 		NewSetAction(SetPayload{Path: []string{"expression"}, Value: doc.Expression}),
-		NewSetAction(SetPayload{
-			Path:  []string{"operations"},
-			Value: FromChannelOperations(doc.Operations),
-		}),
+		NewSetAction(SetPayload{Path: []string{"operations"}, Value: ops}),
 	); err != nil {
 		return nil, err
 	}
@@ -260,6 +288,17 @@ func (w Writer) outputOf(
 		Entry(&ch).
 		Exec(ctx, w.tx)
 	return ch, err
+}
+
+// EditsCalculation reports whether an action of acts edits the expression or the
+// operations of a channel, which ApplyChannel sends to the calculation of the channel.
+func EditsCalculation(acts ...channel.Action) bool {
+	return slices.ContainsFunc(acts, editsCalculation)
+}
+
+func editsCalculation(a channel.Action) bool {
+	path := actionPath(a)
+	return len(path) > 0 && legacyFields.Contains(path[0])
 }
 
 // actionPath returns the path that a path action of the old channel API edits.

@@ -11,16 +11,22 @@ package calculation
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // FromChannelOperations returns the calculation form of the operations of a channel. A
-// none operation has no calculation form, and a reset channel of 0 is absent. It panics
-// on an operation whose type is not valid.
-func FromChannelOperations(ops []channel.Operation) []Operation {
+// none operation has no calculation form, and a reset channel of 0 is absent. It
+// returns an error wrapping validate.ErrValidation, at the position of the operation,
+// for an operation whose type is not valid.
+func FromChannelOperations(ops []channel.Operation) ([]Operation, error) {
 	out := make([]Operation, 0, len(ops))
-	for _, op := range ops {
+	for i, op := range ops {
+		if err := op.Validate(); err != nil {
+			return nil, validate.PathedError(err, strconv.Itoa(i))
+		}
 		w := Window{Duration: op.Duration}
 		if op.ResetChannel != 0 {
 			w.Reset = new(op.ResetChannel)
@@ -42,5 +48,5 @@ func FromChannelOperations(ops []channel.Operation) []Operation {
 		}
 		out = append(out, Operation{Variant: variant})
 	}
-	return out
+	return out, nil
 }

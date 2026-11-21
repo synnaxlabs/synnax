@@ -275,7 +275,8 @@ var _ = Describe("Calculation records upgrade", func() {
 		Expect(byOutput).To(HaveKey(doubled.Key()))
 		Expect(byOutput).To(HaveKey(windowed.Key()))
 		Expect(byOutput).ToNot(HaveKey(plain.Key()))
-		Expect(byOutput[doubled.Key()].Expression).To(Equal("return 2"))
+		Expect(byOutput[doubled.Key()].Expression).To(Equal("return plain * 2"))
+		Expect(byOutput[doubled.Key()].Reads).To(Equal([]channel.Key{plain.Key()}))
 		Expect(byOutput[doubled.Key()].Operations).To(BeEmpty())
 		Expect(byOutput[windowed.Key()].Operations).To(Equal([]calculation.Operation{
 			{Variant: calculation.AvgOperation{
@@ -386,7 +387,7 @@ func createV062Store(
 	}
 	*plain = virtual(0)
 	*doubled = virtual(1)
-	doubled.Expression = "return 2"
+	doubled.Expression = "return plain * 2"
 	*windowed = virtual(2)
 	windowed.Expression = "return 3"
 	windowed.Operations = []channelv1.Operation{

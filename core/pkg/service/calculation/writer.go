@@ -16,6 +16,7 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -65,7 +66,7 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 	if err != nil {
 		return err
 	}
-	if err = w.compile(ctx, output, *c); err != nil {
+	if err = w.compile(ctx, output, c); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(c).Exec(ctx, w.tx); err != nil {
@@ -195,7 +196,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.compile(ctx, output, next); err != nil {
+	if err = w.compile(ctx, output, &next); err != nil {
 		return err
 	}
 	if err = w.table.NewUpdate().
@@ -203,6 +204,12 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		Change(func(gorp.Context, Calculation) Calculation { return next }).
 		Exec(ctx, w.tx); err != nil {
 		return err
+	}
+	if !slices.Equal(next.Reads, c.Reads) {
+		acts = append(acts, NewSetAction(SetPayload{
+			Path:  []string{"reads"},
+			Value: next.Reads,
+		}))
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
@@ -212,11 +219,12 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 // error when the expression does not compile, and an error wrapping
 // validate.ErrValidation when the primary of c is not a channel the expression reads or
 // the calculations the expression reads lead back to output. It sets the data type of
-// output to the type of the expression.
+// output to the type of the expression, and the reads of c to the channels the
+// expression reads.
 func (w Writer) compile(
 	ctx context.Context,
 	output channel.Channel,
-	c Calculation,
+	c *Calculation,
 ) error {
 	analyzer := w.newAnalyzer()
 	result, err := analyzer.AnalyzeExpression(
@@ -246,17 +254,20 @@ func (w Writer) compile(
 		}
 		output.DataType = result.ChanDataType
 	}
-	return validate.PathedError(compiler.Check(ctx, w.tx, compiler.Config{
+	if err = validate.PathedError(compiler.Check(ctx, w.tx, compiler.Config{
 		ChannelService: w.channels,
 		Channel:        output,
-		Calculation:    c,
-	}), "operations")
+		Calculation:    *c,
+	}), "operations"); err != nil {
+		return err
+	}
+	c.Reads = slices.Sorted(slices.Values(lo.Uniq(result.Deps)))
+	return nil
 }
 
 // checkCycle returns an error wrapping validate.ErrValidation, which names the path,
-// when
-// a calculation among the channels with keys deps reads output, directly or through
-// other calculations.
+// when a calculation among the channels with keys deps reads output, directly or
+// through other calculations.
 func (w Writer) checkCycle(
 	ctx context.Context,
 	analyzer *channel.CalculationAnalyzer,

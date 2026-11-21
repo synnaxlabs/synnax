@@ -14,13 +14,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -70,20 +73,25 @@ func (s *Service) Migration(
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			names := make(map[channel.Key]string, len(channels))
+			byKey := make(map[channel.Key]channel.Channel, len(channels))
 			for _, ch := range channels {
-				names[ch.Key()] = ch.Name
+				byKey[ch.Key()] = ch
 			}
+			analyzer := s.newAnalyzer(tx)
 			owners := make([]resource.ID, len(staged))
 			var warnings []Status
 			for i, st := range staged {
 				owners[i] = channel.ResourceID(st.output)
-				ops, dropped := storedOperations(st.Operations, issuedAtOpen)
-				c := Calculation{
-					Key:        migratedKey(st.output),
-					Output:     st.output,
-					Expression: st.Expression,
-					Operations: FromChannelOperations(ops),
+				output := byKey[st.output]
+				c, dropped, err := migratedCalculation(
+					ctx,
+					analyzer,
+					output,
+					st,
+					issuedAtOpen,
+				)
+				if err != nil {
+					return err
 				}
 				if err = s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
 					return err
@@ -92,7 +100,7 @@ func (s *Service) Migration(
 					return err
 				}
 				if dropped {
-					warnings = append(warnings, droppedStatus(names[st.output]))
+					warnings = append(warnings, droppedStatus(output.Name))
 				}
 			}
 			w := statuses.NewWriter(tx)
@@ -169,4 +177,37 @@ func scanStaged(tx gorp.Tx) (out []staged, err error) {
 		out = append(out, st)
 	}
 	return out, iter.Error()
+}
+
+// migratedCalculation returns the calculation that st stages for output, and whether
+// it dropped an operation of no type. An expression that does not analyze still names
+// the reads that resolve, so only an ended ctx fails the analysis.
+func migratedCalculation(
+	ctx context.Context,
+	analyzer *channel.CalculationAnalyzer,
+	output channel.Channel,
+	st staged,
+	issuedAtOpen func(channel.Key) bool,
+) (Calculation, bool, error) {
+	kept, dropped := storedOperations(st.Operations, issuedAtOpen)
+	ops, err := FromChannelOperations(kept)
+	if err != nil {
+		return Calculation{}, false, err
+	}
+	result, err := analyzer.AnalyzeExpression(
+		ctx,
+		output,
+		st.Expression,
+		compiler.HasDerivative(ops),
+	)
+	if err != nil && ctx.Err() != nil {
+		return Calculation{}, false, ctx.Err()
+	}
+	return Calculation{
+		Key:        migratedKey(st.output),
+		Output:     st.output,
+		Expression: st.Expression,
+		Operations: ops,
+		Reads:      slices.Sorted(slices.Values(lo.Uniq(result.Deps))),
+	}, dropped, nil
 }

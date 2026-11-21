@@ -136,11 +136,16 @@ var _ = Describe("Service", func() {
 				access.AllActions,
 				resource.ID{Type: resource.TypeCalculation},
 			)
+			// A calculation's record uses each channel it reads, so a save needs
+			// retrieve on the channel as well as on its data.
 			grantOn(
 				ctx,
 				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
-				framer.ResourceIDs(channel.Keys{public.Key()})...,
+				append(
+					framer.ResourceIDs(channel.Keys{public.Key()}),
+					channel.ResourceID(public.Key()),
+				)...,
 			)
 		})
 		It(

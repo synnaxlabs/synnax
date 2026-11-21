@@ -81,8 +81,7 @@ var _ = Describe("Calculation access checks", func() {
 		out, read := createVirtual(ctx), createVirtual(ctx)
 		createAsCore(ctx, calculation.Calculation{
 			Output:     out.Key(),
-			Expression: "return 2",
-			Reads:      []channel.Key{read.Key()},
+			Expression: "return " + read.Name,
 		})
 		grant(ctx, retrieves, u.ResourceID(), anyCalculation)
 		grant(ctx, retrieves, u.ResourceID(), channel.ResourceID(out.Key()))

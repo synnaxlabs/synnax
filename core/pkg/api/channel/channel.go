@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -197,10 +198,18 @@ func (s *Service) Create(
 			Operations: ch.Operations,
 		}
 		if ch.Expression != "" {
+			ops, err := calculation.FromChannelOperations(ch.Operations)
+			if err != nil {
+				return CreateResponse{}, validate.PathedError(
+					err,
+					strconv.Itoa(i),
+					"operations",
+				)
+			}
 			unsaved = append(unsaved, calculation.Unsaved{
 				Output:     translated[i],
 				Expression: ch.Expression,
-				Operations: calculation.FromChannelOperations(ch.Operations),
+				Operations: ops,
 			})
 		} else if ch.Key.LocalKey() != 0 {
 			outputs = append(outputs, translated[i].Key())

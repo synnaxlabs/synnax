@@ -10,6 +10,8 @@
 package calculation_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -89,6 +91,24 @@ var _ = Describe("Writer", func() {
 			Expect(retrieve(ctx, out.Key())).To(ConsistOf(c))
 		})
 
+		It(
+			"Should store the channels that the expression reads",
+			func(ctx SpecContext) {
+				a, b := createVirtual(ctx, "a"), createVirtual(ctx, "b")
+				out := createVirtual(ctx, "sum")
+				c := calculation.Calculation{
+					Output:     out.Key(),
+					Expression: "return b + a + b",
+					Reads:      []channel.Key{out.Key()},
+				}
+				Expect(create(ctx, &c)).To(Succeed())
+				want := []channel.Key{a.Key(), b.Key()}
+				slices.Sort(want)
+				Expect(c.Reads).To(Equal(want))
+				Expect(retrieve(ctx, out.Key())[0].Reads).To(Equal(want))
+			},
+		)
+
 		It("Should fail on an output that stores its samples", func(ctx SpecContext) {
 			index := createChannel(ctx, channel.Channel{
 				Name:     "time",
@@ -152,6 +172,27 @@ var _ = Describe("Writer", func() {
 				))
 			})).To(Succeed())
 			Expect(retrieve(ctx, out.Key())[0].Expression).To(Equal("return 4"))
+		})
+
+		It("Should store the reads of a new expression", func(ctx SpecContext) {
+			createVirtual(ctx, "first")
+			second := createVirtual(ctx, "second")
+			out := createVirtual(ctx, "doubled")
+			c := calculation.Calculation{
+				Output:     out.Key(),
+				Expression: "return first * 2",
+			}
+			Expect(create(ctx, &c)).To(Succeed())
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Apply(ctx, c.Key, calculation.NewSetAction(
+					calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: "return second * 2",
+					},
+				))
+			})).To(Succeed())
+			Expect(retrieve(ctx, out.Key())[0].Reads).
+				To(Equal([]channel.Key{second.Key()}))
 		})
 
 		It("Should keep a calculation whose new expression is empty", func(

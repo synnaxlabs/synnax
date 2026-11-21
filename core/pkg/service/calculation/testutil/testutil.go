@@ -63,9 +63,13 @@ func (c Creator) CreateMany(
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		w := c.Calculation.NewWriter(tx)
 		for i, calc := range calcs {
+			ops, err := calculation.FromChannelOperations(calc.Operations)
+			if err != nil {
+				return err
+			}
 			record := calculation.Calculation{
 				Expression: calc.Expression,
-				Operations: calculation.FromChannelOperations(calc.Operations),
+				Operations: ops,
 			}
 			created, err := w.CreateOutput(ctx, &record, calc.Name, nil)
 			if err != nil {
