@@ -11,6 +11,9 @@ package cesium_test
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"runtime"
+	"sync/atomic"
 	"testing"
 
 	"github.com/synnaxlabs/cesium"
@@ -113,9 +116,8 @@ func layout(pointerLog bool) []cesium.Option {
 	return nil
 }
 
-// writeBenchData writes n timestamps one millisecond apart to the index keys[0], and n
-// -
-// late zeros to each data key of keys from the stamp at late, and returns the stamps.
+// writeBenchData writes n timestamps one millisecond apart to the index keys[0], and
+// n-late zeros to each data key of keys from the stamp at late, and returns the stamps.
 // On the pointer log, where each frame holds its clock, one writer writes them.
 func writeBenchData(
 	b *testing.B,
@@ -202,8 +204,8 @@ func writeBenchStamps(
 // the index.
 func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
 
-// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where
-// each read checks its blocks.
+// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where each
+// read checks its blocks.
 func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
 
 func readSamples(b *testing.B, pointerLog bool) {
@@ -338,4 +340,53 @@ func streamSpan(
 		b.Fatal(err)
 	}
 	return read
+}
+
+// BenchmarkPointReadsPointerLog reads one sample of a data channel at a random stamp,
+// which looks the stamp up in its clock. The block cache holds a clock of 1M stamps,
+// and a clock of 10M stamps (80 MB) passes its budget. With goroutines=16, the reads
+// run in parallel.
+func BenchmarkPointReadsPointerLog(b *testing.B) {
+	for _, n := range []int{1_000_000, 10_000_000} {
+		for _, goroutines := range []int{1, 16} {
+			name := fmt.Sprintf("stamps=%d/goroutines=%d", n, goroutines)
+			b.Run(name, func(b *testing.B) { pointReads(b, n, goroutines) })
+		}
+	}
+}
+
+func pointReads(b *testing.B, n, goroutines int) {
+	b.Helper()
+	db := openBenchDB(b, true, layout(true)...)
+	keys := []cesium.ChannelKey{1, 2}
+	createBenchChannels(b, db, keys)
+	stamps := writeBenchData(b, db, keys, n, 0, true)
+	read := func(r *rand.Rand) {
+		s := stamps[r.IntN(n)]
+		fr, err := db.Read(b.Context(), telem.TimeRange{Start: s, End: s + 1}, keys[1])
+		if err != nil {
+			b.Error(err)
+			return
+		}
+		if read := fr.Get(keys[1]).Len(); read != 1 {
+			b.Errorf("read %d samples at %d, want 1", read, s)
+		}
+	}
+	b.ReportAllocs()
+	if goroutines == 1 {
+		r := rand.New(rand.NewPCG(1, 2))
+		for b.Loop() {
+			read(r)
+		}
+		return
+	}
+	procs := runtime.GOMAXPROCS(0)
+	b.SetParallelism((goroutines + procs - 1) / procs)
+	var seed atomic.Uint64
+	b.RunParallel(func(pb *testing.PB) {
+		r := rand.New(rand.NewPCG(seed.Add(1), 2))
+		for pb.Next() {
+			read(r)
+		}
+	})
 }

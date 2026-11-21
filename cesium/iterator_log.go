@@ -219,6 +219,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
+	r.rd.Reset()
 	r.e.readers.Put(r.rd)
 	return r.h.Close()
 }

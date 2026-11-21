@@ -37,6 +37,8 @@ const (
 	handleLimit = 1024
 	// syncWidth is the most segment and directory syncs that run at once.
 	syncWidth = 32
+	// blockCacheSize is the budget of the cache of checked blocks that readers share.
+	blockCacheSize = 64 << 20
 )
 
 // engine is the pointer log layout of a DB: the state owner, the log owner, the
@@ -50,8 +52,9 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
-	// readers pools the segment readers of iterators, each of which holds a block.
+	// readers pools the segment readers of iterators, which share the blocks of blocks.
 	readers sync.Pool
+	blocks  *segment.Cache
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -105,7 +108,8 @@ func openEngine(o *options) (*engine, error) {
 		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
-	e.readers.New = func() any { return segment.NewReader() }
+	e.blocks = segment.NewCache(blockCacheSize)
+	e.readers.New = func() any { return segment.NewReader(e.blocks) }
 	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
@@ -428,14 +432,13 @@ func (e *engine) cut(name string, size int64) error {
 	return errors.Join(f.Truncate(size), f.Close())
 }
 
-// reader returns a segment reader from the pool, with no block held from an earlier
-// read.
+// reader returns a segment reader from the pool. A reader goes back to the pool reset,
+// with no block held.
 func (e *engine) reader() *segment.Reader {
 	rd, ok := e.readers.Get().(*segment.Reader)
 	if !ok {
 		panic("cesium: the segment reader pool holds another type")
 	}
-	rd.Reset()
 	return rd
 }
 
