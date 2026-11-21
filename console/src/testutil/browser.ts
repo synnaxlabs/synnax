@@ -9,6 +9,7 @@
 
 import "zod/compile";
 import "@synnaxlabs/lyra/dist/base.css";
+import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { setupBrowser } from "@synnaxlabs/lyra/styletest";
