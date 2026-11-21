@@ -7,13 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, calculation, channel, DataType, query } from "@synnaxlabs/client";
+import {
+  actions,
+  calculation,
+  channel,
+  DataType,
+  NotFoundError,
+  query,
+} from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
-import { useIsOutput } from "@/calculation/queries";
+import { Calculation } from "@/calculation";
 import {
   PLURAL_RESOURCE_NAME,
   RESOURCE_NAME,
@@ -135,7 +142,7 @@ export interface Kind {
 /** @returns the kind of the channel, or undefined until the channel loads. */
 export const useKind = (query: RetrieveQuery): Kind | undefined => {
   const flags = useResultFlags(query).data;
-  const calculated = useIsOutput(query.key);
+  const calculated = Calculation.useIsOutput(query.key);
   if (flags == null) return undefined;
   return {
     icon: resolveIcon(flags, calculated),
@@ -252,15 +259,23 @@ const toCalculationOperations = (op?: channel.Operation): calculation.Operation[
   return [{ type: op.type, duration: new TimeSpan(op.duration), reset }];
 };
 
-const toCalculatedFormValues = (
-  ch: channel.Channel,
-  calc?: calculation.Calculation,
-) => ({
-  ...channelToFormValues(ch),
+// The values of the calculated form that the channel holds.
+const toChannelFormValues = (ch: channel.Channel) => {
+  const { expression: _, operations: __, ...values } = channelToFormValues(ch);
+  return values;
+};
+
+// The values of the calculated form that the calculation holds.
+const toCalculationFormValues = (calc?: calculation.Calculation) => ({
   expression: calc?.expression ?? "",
   operations: [toFormOperation(calc?.operations[0])],
   calculation: calc?.key,
 });
+
+const toCalculatedFormValues = (
+  ch: channel.Channel,
+  calc?: calculation.Calculation,
+) => ({ ...toChannelFormValues(ch), ...toCalculationFormValues(calc) });
 
 const retrieveCalculatedFormValues = async ({
   query: { key },
@@ -274,32 +289,29 @@ const retrieveCalculatedFormValues = async ({
 };
 
 // A change to the channel or to its calculation from elsewhere reloads the form. Each
-// change carries one source, so the form keeps the last state of the other, starting
-// from the values it loaded with.
+// change carries the values of one record, so the form keeps the last values of the
+// other, starting from the values it loaded with.
 const calculatedFormMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof calculatedFormSchema
 >["mountListeners"] = ({ client, query: { key }, reset, value }) => {
   let latest = value();
-  const reload = (next: typeof latest) => {
-    latest = next;
-    reset(next);
+  const reload = (next: Partial<typeof latest>) => {
+    latest = { ...latest, ...next };
+    reset(latest);
   };
-  return [
+  const destructors = [
     client.channels.watch({ key }).onChange((result) => {
-      if (query.isLive(result)) reload({ ...latest, ...channelToFormValues(result) });
-    }),
-    client.calculations.watch({ output: key }).onChange((window) => {
-      const calc = window?.records[0];
-      if (calc == null) return;
-      reload({
-        ...latest,
-        expression: calc.expression,
-        operations: [toFormOperation(calc.operations[0])],
-        calculation: calc.key,
-      });
+      if (query.isLive(result)) reload(toChannelFormValues(result));
     }),
   ];
+  if (latest.calculation != null)
+    destructors.push(
+      client.calculations.watch({ key: latest.calculation }).onChange((result) => {
+        if (query.isLive(result)) reload(toCalculationFormValues(result));
+      }),
+    );
+  return destructors;
 };
 
 const updateCalculatedForm = async ({
@@ -328,7 +340,10 @@ const updateCalculatedForm = async ({
     edits.push(calculation.set({ path: ["expression"], value: values.expression }));
   if (!deep.equal(toCalculationOperations(stored?.operations[0]), operations))
     edits.push(calculation.set({ path: ["operations"], value: operations }));
-  if (edits.length > 0) await client.calculations.dispatch(values.calculation, edits);
+  if (edits.length === 0) return;
+  // The form watches its calculation, so the cache drops it only on a delete.
+  if (!(await client.calculations.dispatch(values.calculation, edits)))
+    throw new NotFoundError("Calculation was deleted");
 };
 
 export const useCalculatedForm = Flux.createForm<
