@@ -21,6 +21,7 @@ import { afterEach, describe, expect, it, onTestFailed, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
+import { stubHub } from "@/platform/license/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
@@ -53,9 +54,10 @@ const createReportingClient = (): Client => {
   });
   const reads: Read[] = [];
   const requests: Read[] = [];
-  // Each request, the login included, goes out through fetch.
+  // Each request, the login included, goes out through fetch. A plain stub, not a spy,
+  // so it wraps the hub stub instead of replacing it.
   const fetch = globalThis.fetch.bind(globalThis);
-  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : String(input);
     const request: Read = { target: new URL(url).pathname, start: performance.now() };
     requests.push(request);
@@ -111,7 +113,10 @@ interface RenderOptions {
 const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   client: Client;
   store: TestStore;
+  hub: ReturnType<typeof stubHub>;
 }> => {
+  // A linked machine renews its license on mount, and no spec may reach the hub.
+  const hub = stubHub(async () => Response.json({ error: "Unknown" }, { status: 401 }));
   const client = createReportingClient();
   const { wrapper, store } = await createStatusConsoleWrapper({
     client,
@@ -128,11 +133,14 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
     </>,
     { wrapper },
   );
-  return { client, store };
+  return { client, store, hub };
 };
 
 describe("Account.Guard", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("should render children while the Core is not refused for a license", async () => {
     await renderGuard();
@@ -163,7 +171,7 @@ describe("Account.Guard", () => {
   });
 
   it("should say the login lapsed on a machine that was linked", async () => {
-    await renderGuard({
+    const { hub } = await renderGuard({
       status: UNLICENSED_STATUS,
       account: {
         ...Session.Account.ZERO_SLICE_STATE,
@@ -172,6 +180,11 @@ describe("Account.Guard", () => {
     });
     expect(screen.getByText("Your login has lapsed")).toBeTruthy();
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();
+    await waitFor(() => expect(hub).toHaveBeenCalledOnce());
+    const [url, init] = hub.mock.calls[0];
+    expect(url).toBe(License.RENEW_URL);
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer shh");
+    expect(screen.getByText("Your login has lapsed")).toBeTruthy();
   });
 
   it("should open the usage data settings on a machine that was linked", async () => {
@@ -196,9 +209,7 @@ describe("Account.Guard", () => {
   it("should open the hub with the state it minted", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { client, store } = await renderGuard({ status: UNLICENSED_STATUS });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
     expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
@@ -215,9 +226,7 @@ describe("Account.Guard", () => {
     // A new state would make the first page's login link fail to finish.
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { store } = await renderGuard({ status: UNLICENSED_STATUS });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
     fireEvent.click(findButton("Open the page again"));
     await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
@@ -234,9 +243,7 @@ describe("Account.Guard", () => {
       status: UNLICENSED_STATUS,
       account: { ...Session.Account.ZERO_SLICE_STATE, pending: "minted" },
     });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
     expect(url.searchParams.get("state")).toBe("minted");
