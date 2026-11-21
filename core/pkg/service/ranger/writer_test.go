@@ -542,16 +542,12 @@ var _ = Describe("Writer broadcasts", func() {
 			Expect(res.Color).To(Equal(fixed("#ff0000")))
 			frames := framesOf(rec, r.Key)
 			Expect(frames).To(HaveLen(1))
-			Expect(frames[0].Actions).To(Equal([]ranger.Action{
-				ranger.NewSetAction(ranger.SetPayload{
-					Path:  []string{"labels"},
-					Value: r.Labels,
-				}),
-				ranger.NewSetAction(ranger.SetPayload{
-					Path:  []string{"color"},
-					Value: fixed("#ff0000"),
-				}),
-			}))
+			Expect(frames[0].Actions).To(HaveLen(2))
+			Expect(frames[0].Actions[0].Create.Range.Color).To(Equal(fixed("#ff0000")))
+			Expect(frames[0].Actions[1]).To(Equal(ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"labels"},
+				Value: r.Labels,
+			})))
 		},
 	)
 
