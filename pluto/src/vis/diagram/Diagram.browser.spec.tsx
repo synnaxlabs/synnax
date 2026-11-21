@@ -16,7 +16,8 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useReactFlow } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -233,30 +234,43 @@ describe("Diagram", () => {
   });
 
   describe("zoom reset", () => {
-    // A Control-click acts only when the cursor is inside the diagram's box, so the
-    // cursor waits for the box to have a size.
-    const holdControl = async (): Promise<void> => {
-      const root = (): DOMRect =>
-        document.querySelector(".react-flow")?.getBoundingClientRect() ?? new DOMRect();
-      await waitFor(() => expect(root().width * root().height).toBeGreaterThan(0));
-      const { left, top } = root();
+    // Moves the view away from the fit, so a reset has something to change.
+    const Pan = (): ReactElement => {
+      const { setViewport } = useReactFlow();
+      return (
+        <button onClick={() => void setViewport({ x: 40, y: 40, zoom: 0.5 })}>
+          Pan
+        </button>
+      );
+    };
+
+    // The diagram fits its view once React Flow measures the nodes. The spec waits for
+    // that fit, then pans away from it and holds Control over the canvas.
+    const panAndHoldControl = async (): Promise<
+      ReturnType<typeof vi.fn<(viewport: Diagram.Viewport) => void>>
+    > => {
+      const { onViewportChange } = await renderDiagram(<Pan />);
+      await waitFor(() => expect(onViewportChange).toHaveBeenCalled());
+      onViewportChange.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Pan" }));
+      await waitFor(() => expect(onViewportChange).toHaveBeenCalled());
+      const { left, top } = pane().getBoundingClientRect();
       fireEvent.mouseMove(window, { clientX: left + 10, clientY: top + 10 });
       fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+      onViewportChange.mockClear();
+      return onViewportChange;
     };
 
     it("resets the view on a Control-click of the canvas", async () => {
-      const { onViewportChange } = await renderDiagram();
-      await holdControl();
-      onViewportChange.mockClear();
+      const onViewportChange = await panAndHoldControl();
       fireEvent.mouseDown(pane(), { button: 0 });
-      expect(onViewportChange).toHaveBeenCalled();
+      await waitFor(() => expect(onViewportChange).toHaveBeenCalled());
     });
 
     it("leaves the view alone on a Control-click of a node", async () => {
-      const { onViewportChange } = await renderDiagram();
-      await holdControl();
-      onViewportChange.mockClear();
+      const onViewportChange = await panAndHoldControl();
       fireEvent.mouseDown(handle("a"), { button: 0 });
+      await act(async () => {});
       expect(onViewportChange).not.toHaveBeenCalled();
     });
   });
