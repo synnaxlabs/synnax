@@ -113,9 +113,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
-			DB:              cfg.DB,
-			References:      analogReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
+			DB:         cfg.DB,
+			References: analogReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogReadMigration,
+				v3.AnalogReadRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
 			LegacyVersion:   legacy.LastVersion,
@@ -136,9 +139,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.AnalogWrite, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogWriteConfig]{
-			DB:              cfg.DB,
-			References:      analogWriteConfigReferences(),
-			Migrations:      []gorp.Migration{v3.AnalogWriteMigration},
+			DB:         cfg.DB,
+			References: analogWriteConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.AnalogWriteMigration,
+				v3.AnalogWriteRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
 			LegacyVersion:   legacy.LastVersion,
@@ -154,9 +160,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.CounterRead, err = config.OpenService(
 		ctx, config.ServiceConfig[CounterReadConfig]{
-			DB:              cfg.DB,
-			References:      counterReadConfigReferences(),
-			Migrations:      []gorp.Migration{v3.CounterReadMigration},
+			DB:         cfg.DB,
+			References: counterReadConfigReferences(),
+			Migrations: []gorp.Migration{
+				v3.CounterReadMigration,
+				v3.CounterReadRangeMigration,
+			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
 			LegacyVersion:   legacy.LastVersion,

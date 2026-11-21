@@ -341,6 +341,36 @@ var _ = Describe("Service", func() {
 				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2}),
 		)
 
+		DescribeTable("Should order the range of a legacy channel before checking it",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				ch map[string]any,
+				wantMin, wantMax float64,
+			) {
+				out := MustSucceed(store().Normalize(ctx, db, 0, msgpack.EncodedJSON{
+					"channels": []any{ch},
+				}))
+				MustSucceed(store().Prepare(ctx, db, uuid.New(), "", out))
+				Expect(channel(out)).To(SatisfyAll(
+					HaveKeyWithValue("min_val", BeNumerically("==", wantMin)),
+					HaveKeyWithValue("max_val", BeNumerically("==", wantMax)),
+				))
+			},
+			Entry("swapping a reversed analog input",
+				func() config.Store { return svc.AnalogRead },
+				map[string]any{"type": "ai_voltage", "minVal": 5, "maxVal": -5},
+				-5.0, 5.0),
+			Entry("giving an equal analog output the default of its type",
+				func() config.Store { return svc.AnalogWrite },
+				map[string]any{"type": "ao_voltage", "minVal": 1, "maxVal": 1},
+				0.0, 1.0),
+			Entry("giving an equal counter input the default of its type",
+				func() config.Store { return svc.CounterRead },
+				map[string]any{"type": "ci_frequency", "minVal": 50, "maxVal": 50},
+				2.0, 100.0),
+		)
+
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {
 			Expect(
 				svc.DigitalWrite.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
