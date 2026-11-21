@@ -66,7 +66,14 @@ export const isGranted = ({ client, query }: IsGrantedParams): boolean => {
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
-const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
+/**
+ * Returns the Flux result of a permission query, which tells a grant that is still
+ * loading apart from a denial.
+ */
+export const { useResult: useResultGranted } = Flux.createRetrieve<
+  PermissionsQuery,
+  boolean
+>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   // A read that never lands reads as a denial, so a moment of dead connection would
   // lock the subject out of surfaces it can in fact reach.
