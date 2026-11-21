@@ -111,6 +111,8 @@ export const synnaxParamsZ = z.object({
   onRetry: z
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
     .optional(),
+  /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
+  clock: z.function({ input: z.tuple([]), output: z.instanceof(TimeStamp) }).optional(),
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
@@ -355,6 +357,7 @@ export default class Synnax extends framer.Client {
       onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onStreamRetry: parsedParams.onRetry,
       onError: parsedParams.onInternalError,
+      clock: parsedParams.clock,
     });
     this.cache = cache;
     this.conn = new connection.Client({

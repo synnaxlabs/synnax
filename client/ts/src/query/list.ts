@@ -209,12 +209,14 @@ export class Lists<
   private readonly detachEpoch?: destructor.Destructor;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
+  private readonly clock: () => TimeStamp;
   private sweepTimer?: ReturnType<typeof setTimeout>;
 
   constructor(config: ListsConfig<Q, D, K, V, C, O>, hooks: SpaceHooks = {}) {
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.clock = hooks.clock ?? (() => TimeStamp.now());
     this.release = config.table.hold({
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
@@ -622,7 +624,7 @@ export class Lists<
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
       if (this.grace.isZero) return this.teardown(entry);
-      entry.idleSince = TimeStamp.now();
+      entry.idleSince = this.clock();
       this.armSweep();
     };
   }
@@ -718,7 +720,7 @@ export class Lists<
 
   private sweep(): void {
     let idle = false;
-    const now = TimeStamp.now();
+    const now = this.clock();
     this.entries.forEach((entry) => {
       if (entry.idleSince == null) return;
       if (entry.handlers.size > 0) {
