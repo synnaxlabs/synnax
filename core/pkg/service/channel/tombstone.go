@@ -178,8 +178,10 @@ func (w Writer) heal(ctx context.Context, channels ...Channel) error {
 			continue
 		}
 		if !slices.Equal(c.Rewires, t.Rewires) {
-			c.Rewires = t.Rewires
-			if err = w.svc.table.NewCreate().Entry(&c).Exec(ctx, w.tx); err != nil {
+			healed := c
+			healed.Rewires = t.Rewires
+			err = w.svc.table.NewCreate().Entry(&healed).Exec(ctx, w.tx)
+			if err != nil {
 				return err
 			}
 		}
