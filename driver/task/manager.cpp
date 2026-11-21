@@ -128,7 +128,7 @@ void Manager::discard(const synnax::task::Key &key, const bool even_if_processin
     if (removed) this->statuses->drop(key);
 }
 
-x::errors::Error Manager::sync_tasks() {
+x::errors::Error Manager::sync_tasks(const bool known_kept) {
     auto [tasks, tasks_err] = this->rack.tasks.retrieve(
         synnax::task::Where{},
         synnax::task::RetrieveOptions{.include_status = true}
@@ -152,8 +152,14 @@ x::errors::Error Manager::sync_tasks() {
             this->op_queue.push_back(Op{Op::Type::REMOVE, key, {}, {}});
         }
         for (const auto &task: tasks) {
-            VLOG(1) << "queuing configure for task " << task;
+            const bool known = this->entries.contains(task.key);
             const auto entry = this->entry_for(task.key);
+            if (known && known_kept) {
+                std::lock_guard entry_lock{entry->mu};
+                entry->row = task;
+                continue;
+            }
+            VLOG(1) << "queuing configure for task " << task;
             {
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = task;
@@ -171,7 +177,7 @@ x::errors::Error Manager::sync_tasks() {
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    if (const auto err = this->sync_tasks()) return err;
+    if (const auto err = this->sync_tasks(false)) return err;
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -267,7 +273,7 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
                             "behind. Configuring the tasks again.";
             // A failed sync ends the run, and the next run syncs again.
-            if (sync_err = this->sync_tasks(); sync_err) break;
+            if (sync_err = this->sync_tasks(true); sync_err) break;
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};

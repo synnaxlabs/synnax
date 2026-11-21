@@ -494,9 +494,17 @@ TEST(TestCommonWriteTask, MissedCommandsWarningHolds) {
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
     ASSERT_TRUE(write_task->start("start_cmd", cancel));
-    ASSERT_EVENTUALLY_GE(
-        streamer_factory->streamer_opens.load(std::memory_order_acquire),
-        1
+    // The start answer comes after the streamer opens, so a miss must follow it.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return std::ranges::any_of(statuses, [](const auto &st) {
+                return st.message == "Started task";
+            });
+        },
+        true,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
     );
     streamer_factory->config.on_missed();
     const auto last = [&] {
@@ -612,7 +620,18 @@ TEST(TestCommonWriteTask, WriteErrorAfterMissClearsOnACleanWrite) {
         streamer_factory
     );
     ASSERT_TRUE(write_task.start("start", cancel));
-    ASSERT_EVENTUALLY_GE(streamer_factory->opens.load(), 1);
+    // The start answer comes after the streamer opens, so a miss must follow it.
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return std::ranges::any_of(statuses, [](const auto &st) {
+                return st.message == "Started task";
+            });
+        },
+        true,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
     {
         std::lock_guard lock(streamer_factory->mu);
         streamer_factory->config.on_missed();
