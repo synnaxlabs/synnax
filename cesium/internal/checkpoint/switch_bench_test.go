@@ -52,7 +52,7 @@ func switchState(keys int) *state.Snapshot {
 	return s
 }
 
-// BenchmarkSwitch measures one switch of the checkpointer at a steady state: the diff
+// BenchmarkSwitch measures one switch of the checkpointer at a steady state: the match
 // against the parts of the last head, the head, and Clean, which reads and checks the
 // older head because its log exists, as at every switch of a running database. The
 // first switch, which writes the parts of a state past the part size, runs before the
