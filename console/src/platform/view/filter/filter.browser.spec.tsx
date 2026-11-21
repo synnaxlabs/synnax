@@ -21,7 +21,7 @@ import { Label } from "@/platform/label";
 import { Status } from "@/platform/status";
 import { View } from "@/platform/view";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
-import { createTestClientWithGrants, renderSuspended } from "@/testutil";
+import { createTestClientWithGrants, getIconButton, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -212,11 +212,15 @@ describe("View.Filter", () => {
         panel.TYPE_RESOURCE_ID,
       ],
       update: [panel.TYPE_RESOURCE_ID],
+      create: [view.TYPE_RESOURCE_ID],
     });
     await renderFixture({ variant: { in: ["error"] } }, reader);
     // A static view saves nothing, so a reader may change its filter.
     await screen.findByRole("button", { name: "Remove Variants filter" });
     expect(screen.getByRole("button", { name: "Filter" })).toBeTruthy();
+    // The frame drops a tab click until the panel update grant lands. The create button
+    // reads the same policies, so its presence shows that grant landed.
+    await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(await screen.findByRole("tab", { name: saved.name }));
     await waitFor(() =>
       expect(
