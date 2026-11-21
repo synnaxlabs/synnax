@@ -92,7 +92,7 @@ def comment(f: Finding, *, blob: str, located: bool = False) -> str:
 
 
 def outside(findings: list[Finding], *, blob: str) -> str:
-    """Renders the comment that lists findings on lines outside the diff."""
+    """Renders the comment that lists findings on files outside the diff."""
     lines = [OUTSIDE, "", "<h3>Comments Outside Diff</h3>", ""]
     if not findings:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
