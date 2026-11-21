@@ -209,6 +209,7 @@ class Task:
         *,
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
+        final_timeout: CrudeTimeSpan | None = None,
     ) -> Status:
         """Executes a command on the task and waits for the final status that the
         driver sends for it. A loading status acknowledges the command, and the wait
@@ -218,13 +219,21 @@ class Task:
         :param args: The arguments to pass to the command.
         :param timeout: How long to wait for the driver to acknowledge the command.
         Once it does, each loading status restarts the wait for the next status, which
-        lasts two minutes or the timeout, whichever is longer.
+        lasts final_timeout.
+        :param final_timeout: How long each wait for the next status lasts once the
+        driver acknowledges the command. Defaults to two minutes or the timeout,
+        whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the command or send
         its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
         while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
+        final_span = (
+            max(span, _FINAL_STATUS_TIMEOUT)
+            if final_timeout is None
+            else TimeSpan.from_seconds(final_timeout)
+        )
         rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
@@ -261,9 +270,8 @@ class Task:
                             return status
                         # A loading status shows the Driver still works on the
                         # command, so the wait starts again.
-                        if not acknowledged:
-                            acknowledged = True
-                            span = max(span, _FINAL_STATUS_TIMEOUT)
+                        acknowledged = True
+                        span = final_span
                         timer = Timer()
 
 

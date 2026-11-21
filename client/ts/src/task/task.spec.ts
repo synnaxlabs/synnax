@@ -1385,10 +1385,16 @@ describe("Task", async () => {
       const gap = TimeSpan.seconds(1);
       await setReply(t, cmd, "loading", "Starting task");
       await sleep.sleep(gap);
+      // The reply arrives after this, so a restarted wait ends a full finalTimeout
+      // later however slow the Core is. A wait that did not restart ends a gap earlier.
+      const restarted = TimeStamp.now();
       await setReply(t, cmd, "loading", "Still starting task");
-      await sleep.sleep(gap);
-      await setReply(t, cmd, "success", "Started task");
-      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+      await expect(wait).rejects.toThrow(
+        new Error(`Command to ${t.name} timed out after ${finalTimeout.toString()}`),
+      );
+      expect(TimeStamp.since(restarted).milliseconds).toBeGreaterThan(
+        finalTimeout.sub(gap.div(2)).milliseconds,
+      );
     });
 
     // The change stream can deliver a status written before the wait began, so each

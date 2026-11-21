@@ -65,6 +65,37 @@ def _reply_to_next_command(
         )
 
 
+@pytest.fixture(scope="module")
+def silent_rack(client: sy.Synnax) -> sy.Rack:
+    """A rack that no Driver serves, whose outage the Core has already reported. The
+    outage comes 5 to 10 seconds after the create, and it ends any command wait it
+    lands in."""
+    r = client.racks.create(name=random_name())
+    owner = sy.rack.resource_id(r.key)
+    [created] = client.statuses.retrieve(owners=[owner])
+
+    def outage_reported() -> None:
+        [current] = client.statuses.retrieve(owners=[owner])
+        assert current.time != created.time
+
+    assert_eventually(outage_reported, timeout=15)
+    return r
+
+
+def _set_reply(
+    client: sy.Synnax, cmd: sy.task.Command, variant: sy.status.Variant
+) -> None:
+    """Writes the status a Driver sends in reply to the command."""
+    client.statuses.set(
+        sy.task.Status(
+            variant=variant,
+            message="Starting task",
+            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+            owner=sy.task.resource_id(cmd.task),
+        )
+    )
+
+
 @pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax) -> None:
@@ -498,14 +529,13 @@ class TestTaskClient:
         t.join()
 
     def test_execute_command_sync_ends_when_no_final_status_follows_a_loading_reply(
-        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
+        self, client: sy.Synnax, silent_rack: sy.Rack
     ) -> None:
         """A Driver that restarts after a loading reply never sends the final status,
         so the wait ends at its limit."""
-        monkeypatch.setattr(
-            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        tsk = client.tasks.create(
+            name="test", type="pagerduty_alert", rack=silent_rack.key
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -513,35 +543,30 @@ class TestTaskClient:
                 f = s.read(timeout=5)
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
-                client.statuses.set(
-                    sy.task.Status(
-                        variant=sy.status.VARIANT_LOADING,
-                        message="Starting task",
-                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
-                        owner=sy.task.resource_id(cmd.task),
-                    )
-                )
+                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
         ev.wait()
+        timeout = 30 * sy.TimeSpan.SECOND
         timer = sy.Timer()
         with pytest.raises(TimeoutError) as err:
-            tsk.execute_command_sync("start", timeout=0.5)
+            tsk.execute_command_sync("start", timeout=timeout, final_timeout=0.5)
         assert str(err.value) == "timed out waiting for driver to finish start command"
-        assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
+        assert timer.elapsed() < timeout
         t.join()
 
-    def test_execute_command_sync_waits_while_loading_statuses_arrive(
-        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
+    def test_execute_command_sync_restarts_the_wait_on_each_loading_reply(
+        self, client: sy.Synnax, silent_rack: sy.Rack
     ) -> None:
-        """Each loading status restarts the wait, so a command whose loading statuses
-        span more than the limit still gets its final status."""
-        monkeypatch.setattr(
-            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        """Each loading reply restarts the wait for the final status."""
+        tsk = client.tasks.create(
+            name="test", type="pagerduty_alert", rack=silent_rack.key
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        final_timeout = 1500 * sy.TimeSpan.MILLISECOND
+        gap = sy.TimeSpan.SECOND
+        restarted: list[sy.TimeStamp] = []
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -549,25 +574,22 @@ class TestTaskClient:
                 f = s.read(timeout=5)
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
-                replies = [sy.status.VARIANT_LOADING] * 4 + [sy.status.VARIANT_SUCCESS]
-                for variant in replies:
-                    client.statuses.set(
-                        sy.task.Status(
-                            variant=variant,
-                            message="Starting task",
-                            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
-                            owner=sy.task.resource_id(cmd.task),
-                        )
-                    )
-                    sy.sleep(0.6)
+                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                sy.sleep(gap)
+                # The reply arrives after this, so a restarted wait ends a full
+                # final_timeout later however slow the Core is. A wait that did not
+                # restart ends a gap earlier.
+                restarted.append(sy.TimeStamp.now())
+                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
         ev.wait()
-        status = tsk.execute_command_sync("start", timeout=0.5)
-        assert status.variant == sy.status.VARIANT_SUCCESS
+        with pytest.raises(TimeoutError):
+            tsk.execute_command_sync("start", timeout=5, final_timeout=final_timeout)
         t.join()
+        assert sy.TimeStamp.since(restarted[0]) > final_timeout - gap / 2
 
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax
