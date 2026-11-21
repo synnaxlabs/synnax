@@ -64,8 +64,8 @@ func (c *Cache[K, V]) Put(k K, v V, size int) bool {
 }
 
 // Evict takes out and returns the least recently used value for which held is false,
-// while c holds more than its budget. It never takes out the most recently used
-// value. A nil held holds no value.
+// while c holds more than its budget. It never takes out the most recently used value.
+// A nil held holds no value.
 func (c *Cache[K, V]) Evict(held func(V) bool) (V, bool) {
 	var zero V
 	if c.size <= c.budget {
