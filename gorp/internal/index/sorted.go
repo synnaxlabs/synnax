@@ -73,7 +73,7 @@ func NewSorted[S Scope, K comparable, V cmp.Ordered](
 		reverse:     make(map[K]V),
 		compareKeys: compareKeys,
 	}
-	s.overlay.init(newDelta[K, V], s.flush)
+	s.overlay.init(newDelta[K, V](), s.flush)
 	return s
 }
 

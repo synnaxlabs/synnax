@@ -254,6 +254,9 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, snap Snapshot) error {
 // committed index state with any per-tx staged mutations. No-op when the filter has no
 // resolver.
 func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error {
+	if err := checkOpen(snap); err != nil {
+		return err
+	}
 	if r.filter.resolve == nil {
 		return nil
 	}

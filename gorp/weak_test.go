@@ -240,6 +240,21 @@ var _ = Describe("Weak reference", func() {
 		})
 	})
 
+	Describe("Dependents through an ended transaction", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It(
+			"Should refuse them even when nothing holds the table",
+			func(ctx SpecContext) {
+				createChannel(ctx, 1)
+				tx := db.OpenTx()
+				Expect(tx.Close()).To(Succeed())
+				Expect(channels.Dependents(ctx, tx, 1)).Error().
+					To(MatchError("[gorp] - the transaction has ended"))
+			},
+		)
+	})
+
 	Describe("Write", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 

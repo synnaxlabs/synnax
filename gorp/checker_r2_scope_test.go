@@ -69,7 +69,7 @@ var _ = Describe("Checker r2 scope: stages from more than one scope", func() {
 	)
 
 	It(
-		"Should let a later transaction write after a write past a failed commit",
+		"Should refuse a write past a failed commit and let later ones write",
 		func(ctx SpecContext) {
 			tx := db.OpenTx()
 			Expect(items.NewCreate().Entry(&r2Item{Key: 1, Name: "a"}).Exec(ctx, tx)).
@@ -77,7 +77,7 @@ var _ = Describe("Checker r2 scope: stages from more than one scope", func() {
 			gorp.BeforeCommit(tx, func(context.Context) error { return errR2 })
 			Expect(tx.Commit(ctx)).To(MatchError(errR2))
 			Expect(items.NewCreate().Entry(&r2Item{Key: 2, Name: "b"}).Exec(ctx, tx)).
-				To(Succeed())
+				To(MatchError(txEnded))
 			Expect(tx.Close()).To(Succeed())
 			Expect(func() {
 				Expect(

@@ -30,9 +30,8 @@ type scope struct {
 	committing bool
 }
 
-func (s *scope) OnCleanup(fn func(committed bool)) bool {
+func (s *scope) OnCleanup(fn func(committed bool)) {
 	s.cleanups = append(s.cleanups, fn)
-	return true
 }
 
 func (s *scope) Committing() bool { return s.committing }
