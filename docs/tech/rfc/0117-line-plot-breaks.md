@@ -119,6 +119,10 @@ of the layout with the bounds. The Console's selection menu maps the selection t
 the layout, in place of its own affine map
 (`console/src/feature/lineplot/LinePlot.tsx:99-101`).
 
+Only x1 collapses its gaps and takes break clicks. An x2 axis lays out in true time with
+one segment. The x axes share one viewport, so a break change can map the view through
+one layout only.
+
 ### 4.2 Spans
 
 The layout gives each trace a span. A trace reads and draws only its span.
