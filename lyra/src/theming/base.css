@@ -104,6 +104,7 @@ th,
     border: none;
     overflow: visible;
     color: inherit;
+    background-color: transparent;
 }
 
 @keyframes fade-in-zoom {
