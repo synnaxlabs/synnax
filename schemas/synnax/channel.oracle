@@ -73,7 +73,7 @@ OperationType enum {
     @doc value """
         is the type of aggregation operation to apply to channel data over time.
     """
-    @go output "core/pkg/service/channel"
+    @go output "core/pkg/api/channel"
     @pb
 }
 
@@ -96,13 +96,12 @@ Operation struct {
         """
     }
 
-    @doc value  """
+    @doc value """
         defines an aggregation operation applied to channel data. Operations calculate
         min, max, average, or derivative values over a time duration or triggered by a
         reset channel.
     """
-    @go marshal
-    @go output  "core/pkg/service/channel"
+    @go output "core/pkg/api/channel"
     @pb
 }
 

@@ -494,8 +494,8 @@ func (s *Service) translateForward(
 		translated[i].Expression = c.Expression
 		translated[i].Operations = channelOperations(c.Operations)
 		if len(translated[i].Operations) == 0 {
-			translated[i].Operations = []channel.Operation{
-				{Type: channel.OperationTypeNone},
+			translated[i].Operations = []Operation{
+				{Type: OperationTypeNone},
 			}
 		}
 	}

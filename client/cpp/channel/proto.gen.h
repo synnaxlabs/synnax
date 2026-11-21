@@ -29,16 +29,15 @@
 
 namespace synnax::channel {
 
-inline std::pair<::service::channel::pb::OperationType, x::errors::Error>
+inline std::pair<::api::channel::pb::OperationType, x::errors::Error>
 operation_type_to_pb(const std::string &cpp) {
-    static const std::unordered_map<std::string, ::service::channel::pb::OperationType>
+    static const std::unordered_map<std::string, ::api::channel::pb::OperationType>
         kMap = {
-            {OPERATION_TYPE_MIN, ::service::channel::pb::OPERATION_TYPE_MIN},
-            {OPERATION_TYPE_MAX, ::service::channel::pb::OPERATION_TYPE_MAX},
-            {OPERATION_TYPE_AVG, ::service::channel::pb::OPERATION_TYPE_AVG},
-            {OPERATION_TYPE_NONE, ::service::channel::pb::OPERATION_TYPE_NONE},
-            {OPERATION_TYPE_DERIVATIVE,
-             ::service::channel::pb::OPERATION_TYPE_DERIVATIVE},
+            {OPERATION_TYPE_MIN, ::api::channel::pb::OPERATION_TYPE_MIN},
+            {OPERATION_TYPE_MAX, ::api::channel::pb::OPERATION_TYPE_MAX},
+            {OPERATION_TYPE_AVG, ::api::channel::pb::OPERATION_TYPE_AVG},
+            {OPERATION_TYPE_NONE, ::api::channel::pb::OPERATION_TYPE_NONE},
+            {OPERATION_TYPE_DERIVATIVE, ::api::channel::pb::OPERATION_TYPE_DERIVATIVE},
     };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -47,17 +46,17 @@ operation_type_to_pb(const std::string &cpp) {
 }
 
 inline std::pair<std::string, x::errors::Error>
-operation_type_from_pb(::service::channel::pb::OperationType pb) {
+operation_type_from_pb(::api::channel::pb::OperationType pb) {
     switch (pb) {
-        case ::service::channel::pb::OPERATION_TYPE_MIN:
+        case ::api::channel::pb::OPERATION_TYPE_MIN:
             return {OPERATION_TYPE_MIN, x::errors::NIL};
-        case ::service::channel::pb::OPERATION_TYPE_MAX:
+        case ::api::channel::pb::OPERATION_TYPE_MAX:
             return {OPERATION_TYPE_MAX, x::errors::NIL};
-        case ::service::channel::pb::OPERATION_TYPE_AVG:
+        case ::api::channel::pb::OPERATION_TYPE_AVG:
             return {OPERATION_TYPE_AVG, x::errors::NIL};
-        case ::service::channel::pb::OPERATION_TYPE_NONE:
+        case ::api::channel::pb::OPERATION_TYPE_NONE:
             return {OPERATION_TYPE_NONE, x::errors::NIL};
-        case ::service::channel::pb::OPERATION_TYPE_DERIVATIVE:
+        case ::api::channel::pb::OPERATION_TYPE_DERIVATIVE:
             return {OPERATION_TYPE_DERIVATIVE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized OperationType protobuf value")};
@@ -175,9 +174,9 @@ telem_data_type_set_from_proto(const ::service::channel::pb::TelemDataTypeSet &p
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::channel::pb::Operation, x::errors::Error>
+inline std::pair<::api::channel::pb::Operation, x::errors::Error>
 Operation::to_proto() const {
-    ::service::channel::pb::Operation pb;
+    ::api::channel::pb::Operation pb;
     {
         auto [v, err] = operation_type_to_pb(this->type);
         if (err) return {{}, err};
@@ -189,7 +188,7 @@ Operation::to_proto() const {
 }
 
 inline std::pair<Operation, x::errors::Error>
-Operation::from_proto(const ::service::channel::pb::Operation &pb) {
+Operation::from_proto(const ::api::channel::pb::Operation &pb) {
     Operation cpp;
     {
         auto [v, err] = operation_type_from_pb(pb.type());

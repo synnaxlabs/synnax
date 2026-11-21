@@ -19,74 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
-	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
-
-// OperationToPB converts Operation to Operation.
-func OperationToPB(r channel.Operation) (*Operation, error) {
-	typeVal, err := OperationTypeToPB(r.Type)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Operation{
-		ResetChannel: uint32(r.ResetChannel),
-		Duration:     int64(r.Duration),
-		Type:         typeVal,
-	}
-	return pb, nil
-}
-
-// OperationFromPB converts Operation to Operation.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
-func OperationFromPB(pb *Operation) (channel.Operation, error) {
-	var r channel.Operation
-	if pb == nil {
-		return r, nil
-	}
-	defaults.Prefill(&r)
-	var err error
-	r.Type, err = OperationTypeFromPB(pb.Type)
-	if err != nil {
-		return channel.Operation{}, err
-	}
-	r.ResetChannel = channel.Key(pb.ResetChannel)
-	r.Duration = telem.TimeSpan(pb.Duration)
-	defaults.FillGroups(&r)
-	return r, nil
-}
-
-// OperationsToPB converts a slice of Operation to Operation.
-func OperationsToPB(rs []channel.Operation) ([]*Operation, error) {
-	result := make([]*Operation, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = OperationToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// OperationsFromPB converts a slice of Operation to Operation.
-func OperationsFromPB(pbs []*Operation) ([]channel.Operation, error) {
-	result := make([]channel.Operation, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = OperationFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
 
 // ChannelToPB converts Channel to Channel.
 func ChannelToPB(r channel.Channel) (*Channel, error) {
@@ -527,40 +464,4 @@ func WheresFromPB(pbs []*Where) ([]channel.Where, error) {
 		}
 	}
 	return result, nil
-}
-
-// OperationTypeToPB converts channel.OperationType to OperationType.
-func OperationTypeToPB(v channel.OperationType) (OperationType, error) {
-	switch v {
-	case channel.OperationTypeMin:
-		return OperationType_OPERATION_TYPE_MIN, nil
-	case channel.OperationTypeMax:
-		return OperationType_OPERATION_TYPE_MAX, nil
-	case channel.OperationTypeAvg:
-		return OperationType_OPERATION_TYPE_AVG, nil
-	case channel.OperationTypeNone:
-		return OperationType_OPERATION_TYPE_NONE, nil
-	case channel.OperationTypeDerivative:
-		return OperationType_OPERATION_TYPE_DERIVATIVE, nil
-	default:
-		return 0, errors.Newf("unrecognized channel.OperationType value: %v", v)
-	}
-}
-
-// OperationTypeFromPB converts OperationType to channel.OperationType.
-func OperationTypeFromPB(v OperationType) (channel.OperationType, error) {
-	switch v {
-	case OperationType_OPERATION_TYPE_MIN:
-		return channel.OperationTypeMin, nil
-	case OperationType_OPERATION_TYPE_MAX:
-		return channel.OperationTypeMax, nil
-	case OperationType_OPERATION_TYPE_AVG:
-		return channel.OperationTypeAvg, nil
-	case OperationType_OPERATION_TYPE_NONE:
-		return channel.OperationTypeNone, nil
-	case OperationType_OPERATION_TYPE_DERIVATIVE:
-		return channel.OperationTypeDerivative, nil
-	default:
-		return channel.OperationType(""), errors.Newf("unrecognized OperationType value: %v", v)
-	}
 }

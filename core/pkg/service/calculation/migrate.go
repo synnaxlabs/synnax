@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	channelv2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -103,7 +104,7 @@ func (s *Service) Migration(
 // none operation and an operation with no type, and clears each reset channel that the
 // Core never issued. It reports whether it dropped an operation with no type.
 func migratedOperations(
-	ops []channelv2.Operation,
+	ops []channelv1.Operation,
 	issuedAtOpen func(channel.Key) bool,
 ) ([]Operation, bool) {
 	var (
@@ -117,15 +118,15 @@ func migratedOperations(
 		}
 		var variant OperationVariant
 		switch op.Type {
-		case channelv2.OperationTypeMin:
+		case channelv1.OperationTypeMin:
 			variant = MinOperation{Window: w}
-		case channelv2.OperationTypeMax:
+		case channelv1.OperationTypeMax:
 			variant = MaxOperation{Window: w}
-		case channelv2.OperationTypeAvg:
+		case channelv1.OperationTypeAvg:
 			variant = AvgOperation{Window: w}
-		case channelv2.OperationTypeDerivative:
+		case channelv1.OperationTypeDerivative:
 			variant = DerivativeOperation{}
-		case channelv2.OperationTypeNone:
+		case channelv1.OperationTypeNone:
 			continue
 		default:
 			dropped = true

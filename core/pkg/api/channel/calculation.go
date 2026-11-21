@@ -28,7 +28,7 @@ import (
 // form, and a reset channel of 0 is absent. It returns an error wrapping
 // validate.ErrValidation, at the position of the operation, for an operation whose type
 // is not valid.
-func calculationOperations(ops []channel.Operation) ([]calculation.Operation, error) {
+func calculationOperations(ops []Operation) ([]calculation.Operation, error) {
 	out := make([]calculation.Operation, 0, len(ops))
 	for i, op := range ops {
 		if err := op.Validate(); err != nil {
@@ -40,15 +40,15 @@ func calculationOperations(ops []channel.Operation) ([]calculation.Operation, er
 		}
 		var variant calculation.OperationVariant
 		switch op.Type {
-		case channel.OperationTypeMin:
+		case OperationTypeMin:
 			variant = calculation.MinOperation{Window: w}
-		case channel.OperationTypeMax:
+		case OperationTypeMax:
 			variant = calculation.MaxOperation{Window: w}
-		case channel.OperationTypeAvg:
+		case OperationTypeAvg:
 			variant = calculation.AvgOperation{Window: w}
-		case channel.OperationTypeDerivative:
+		case OperationTypeDerivative:
 			variant = calculation.DerivativeOperation{}
-		case channel.OperationTypeNone:
+		case OperationTypeNone:
 			continue
 		default:
 			panic(fmt.Sprintf("operation of unknown type %q", op.Type))
@@ -59,26 +59,26 @@ func calculationOperations(ops []channel.Operation) ([]calculation.Operation, er
 }
 
 // channelOperations returns the old API form of ops.
-func channelOperations(ops []calculation.Operation) []channel.Operation {
-	out := make([]channel.Operation, len(ops))
+func channelOperations(ops []calculation.Operation) []Operation {
+	out := make([]Operation, len(ops))
 	for i, op := range ops {
 		var (
-			typ channel.OperationType
+			typ OperationType
 			w   calculation.Window
 		)
 		switch v := op.Variant.(type) {
 		case calculation.MinOperation:
-			typ, w = channel.OperationTypeMin, v.Window
+			typ, w = OperationTypeMin, v.Window
 		case calculation.MaxOperation:
-			typ, w = channel.OperationTypeMax, v.Window
+			typ, w = OperationTypeMax, v.Window
 		case calculation.AvgOperation:
-			typ, w = channel.OperationTypeAvg, v.Window
+			typ, w = OperationTypeAvg, v.Window
 		case calculation.DerivativeOperation:
-			typ = channel.OperationTypeDerivative
+			typ = OperationTypeDerivative
 		default:
 			panic(fmt.Sprintf("operation of unknown type %T", op.Variant))
 		}
-		out[i] = channel.Operation{Type: typ, Duration: w.Duration}
+		out[i] = Operation{Type: typ, Duration: w.Duration}
 		if w.Reset != nil {
 			out[i].ResetChannel = *w.Reset
 		}
@@ -103,15 +103,14 @@ func (s *Service) createChannels(
 ) ([]channel.Channel, error) {
 	var (
 		stored  = slices.Clone(channels)
-		plain   []channel.Channel
 		plainAt []int
 		opts    []channel.CreateOption
 		byName  = map[string]channel.Channel{}
 		byKey   = map[channel.Key]channel.Channel{}
 	)
-	for i, ch := range channels {
+	for i := range channels {
 		if !slices.Contains(unsavedAt, i) {
-			plain, plainAt = append(plain, ch), append(plainAt, i)
+			plainAt = append(plainAt, i)
 		}
 	}
 	if retrieveIfExists {
@@ -124,17 +123,8 @@ func (s *Service) createChannels(
 			byName[ch.Name], byKey[ch.Key()] = ch, ch
 		}
 	}
-	if len(plain) > 0 {
-		w := s.internal.NewWriter(tx)
-		if err := w.CreateMany(ctx, &plain, opts...); err != nil {
-			if b, ok := errors.AsType[channel.BatchError](err); ok {
-				return nil, validate.PathedError(b.Err, strconv.Itoa(plainAt[b.At]))
-			}
-			return nil, err
-		}
-		for j, i := range plainAt {
-			stored[i] = plain[j]
-		}
+	if err := s.createPlain(ctx, tx, stored, plainAt, opts); err != nil {
+		return nil, err
 	}
 	var (
 		w       = s.calculations.NewWriter(tx)
@@ -158,6 +148,31 @@ func (s *Service) createChannels(
 		indexes = append(indexes, created[1:]...)
 	}
 	return slices.Concat(stored, indexes), nil
+}
+
+// createPlain creates the channels at plainAt of channels, which no calculation
+// writes, and puts each created channel back at its position.
+func (s *Service) createPlain(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []channel.Channel,
+	plainAt []int,
+	opts []channel.CreateOption,
+) error {
+	plain := make([]channel.Channel, len(plainAt))
+	for j, i := range plainAt {
+		plain[j] = channels[i]
+	}
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &plain, opts...); err != nil {
+		if b, ok := errors.AsType[channel.BatchError](err); ok {
+			return validate.PathedError(b.Err, strconv.Itoa(plainAt[b.At]))
+		}
+		return err
+	}
+	for j, i := range plainAt {
+		channels[i] = plain[j]
+	}
+	return nil
 }
 
 // storedChannels returns the stored channels that have the name or key of a channel in
@@ -235,8 +250,8 @@ var calculationFields = set.New("expression", "operations")
 // calculationDocument is the part of a calculated channel that the old channel API
 // edits on its calculation.
 type calculationDocument struct {
-	Expression string              `json:"expression"`
-	Operations []channel.Operation `json:"operations"`
+	Expression string      `json:"expression"`
+	Operations []Operation `json:"operations"`
 }
 
 // applyChannel applies acts to the channel with key in tx. An action on the expression

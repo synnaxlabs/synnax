@@ -18,30 +18,6 @@ import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/channel/pb";
 
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-enum OperationType {
-  OPERATION_TYPE_MIN = 0;
-  OPERATION_TYPE_MAX = 1;
-  OPERATION_TYPE_AVG = 2;
-  OPERATION_TYPE_NONE = 3;
-  OPERATION_TYPE_DERIVATIVE = 4;
-}
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-message Operation {
-  // type is the aggregation operation type: min, max, avg, derivative, or none.
-  OperationType type = 1;
-  // reset_channel is the key of a channel that resets the aggregation when it receives
-  // a sample. If 0, no reset channel is used.
-  uint32 reset_channel = 2;
-  // duration is the interval at which the aggregation resets. If 0, the aggregation is
-  // not reset on a timer.
-  int64 duration = 3;
-}
-
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.

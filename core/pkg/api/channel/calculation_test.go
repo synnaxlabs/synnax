@@ -64,7 +64,7 @@ var _ = Describe("Calculation records", func() {
 			Exec(ctx, db)).To(Succeed())
 		return out
 	}
-	calculated := func(input channel.Channel, ops ...channel.Operation) apichannel.Channel {
+	calculated := func(input channel.Channel, ops ...apichannel.Operation) apichannel.Channel {
 		return apichannel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
@@ -136,13 +136,13 @@ var _ = Describe("Calculation records", func() {
 		ch := create(ctx, apichannel.CreateRequest{Channels: []apichannel.Channel{
 			calculated(
 				input,
-				channel.Operation{
-					Type:     channel.OperationTypeAvg,
+				apichannel.Operation{
+					Type:     apichannel.OperationTypeAvg,
 					Duration: telem.Second,
 				},
-				channel.Operation{Type: channel.OperationTypeNone},
-				channel.Operation{
-					Type:         channel.OperationTypeMax,
+				apichannel.Operation{Type: apichannel.OperationTypeNone},
+				apichannel.Operation{
+					Type:         apichannel.OperationTypeMax,
 					ResetChannel: reset.Key(),
 				},
 			),
@@ -215,9 +215,9 @@ var _ = Describe("Calculation records", func() {
 			Key: ch.Key,
 			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
 				Path: []string{"operations"},
-				Value: []channel.Operation{
-					{Type: channel.OperationTypeMax, Duration: telem.Second},
-					{Type: channel.OperationTypeDerivative},
+				Value: []apichannel.Operation{
+					{Type: apichannel.OperationTypeMax, Duration: telem.Second},
+					{Type: apichannel.OperationTypeDerivative},
 				},
 			})},
 		})).Error().To(Succeed())

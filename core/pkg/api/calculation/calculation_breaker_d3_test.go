@@ -10,6 +10,7 @@
 package calculation_test
 
 import (
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,7 +86,7 @@ var _ = Describe("Calculation breaker d3", func() {
 		// The echo holds the sent actions and the ones the Core added, which the
 		// response returns.
 		Expect(res.Actions).ToNot(BeEmpty())
-		Expect(echo.Actions).To(Equal(append(sent, res.Actions...)))
+		Expect(echo.Actions).To(Equal(slices.Concat(sent, res.Actions)))
 	})
 
 	It("Should name the field of a made output whose name is taken", func(

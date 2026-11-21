@@ -24,6 +24,56 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// OperationType is the type of aggregation operation to apply to channel data over
+// time.
+type OperationType string
+
+const (
+	// OperationTypeMin keeps the lowest sample since the last reset.
+	OperationTypeMin OperationType = "min"
+	// OperationTypeMax keeps the highest sample since the last reset.
+	OperationTypeMax OperationType = "max"
+	// OperationTypeAvg keeps the mean of the samples since the last reset.
+	OperationTypeAvg OperationType = "avg"
+	// OperationTypeNone applies no aggregation.
+	OperationTypeNone OperationType = "none"
+	// OperationTypeDerivative computes the rate of change of the samples.
+	OperationTypeDerivative OperationType = "derivative"
+)
+
+// IsValid reports whether o is one of the defined OperationType
+// values.
+func (o OperationType) IsValid() bool {
+	switch o {
+	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:
+		return true
+	default:
+		return false
+	}
+}
+
+// Operation defines an aggregation operation applied to channel data. Operations
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
+type Operation struct {
+	// Type is the aggregation operation type: min, max, avg, derivative, or none.
+	Type OperationType `json:"type" msgpack:"type"`
+	// ResetChannel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
+	ResetChannel servicechannel.Key `json:"reset_channel" msgpack:"reset_channel"`
+	// Duration is the interval at which the aggregation resets. If 0, the aggregation
+	// is not reset on a timer.
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Operation) Validate() error {
+	v := validate.New("Operation")
+	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
+	return v.Error()
+}
+
 // Status is channel-specific status information.
 type Status = status.Status[struct{}]
 
@@ -58,7 +108,7 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg, derivative)
 	// applied to channel data over time or triggered by a reset channel.
-	Operations []servicechannel.Operation `json:"operations" msgpack:"operations"`
+	Operations []Operation `json:"operations" msgpack:"operations"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
