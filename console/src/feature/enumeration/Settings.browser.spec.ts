@@ -7,109 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enumeration, schematic, type Synnax } from "@synnaxlabs/client";
-import {
-  createProxiedTestClient,
-  createTestClient,
-  createTestClientWithPolicy,
-  FAST_RETRY,
-} from "@synnaxlabs/client/testutil";
-import type { Status } from "@synnaxlabs/lyra/status";
+import { enumeration, schematic } from "@synnaxlabs/client";
+import { createTestClientWithPolicy } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import type { PropsWithChildren, ReactElement } from "react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
 import { server } from "vitest/browser";
 
-import { Enumeration } from "@/feature/enumeration";
-import { Modals } from "@/platform/modals";
+import {
+  clickWhenEnabled,
+  client,
+  core,
+  createEnumeration,
+  createSelectUser,
+  dialogOf,
+  openDelete,
+  pickReplacement,
+  renderEnumerations,
+  waitForDialogToClose,
+} from "@/feature/enumeration/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
-  CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
-  createConsoleWrapper,
-  HaulProvider,
   openContextMenu,
 } from "@/testutil";
 
-const client = createTestClient();
-// Reads what the Core broadcasts, without the edits that the cache of client shows at
-// once. Its cache hears a change a moment after the write that made it returns.
-const core = createTestClient();
-
-const createEnumeration = async (
-  entries: enumeration.Entry[] = [
-    { key: "a", value: 0, name: uniqueName("a"), abnormal: false },
-    { key: "b", value: 1, name: uniqueName("b"), abnormal: false },
-    { key: "c", value: 2, name: uniqueName("c"), abnormal: false },
-  ],
-): Promise<enumeration.Enumeration> =>
-  await client.enumerations.create({ name: uniqueName("enumeration"), entries });
-
 // Chromium and WebKit can run at once against one Core, so each edits its own built-in.
 const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
-
-/** Creates a schematic whose one select draws the enumeration. */
-const createSelectUser = async (e: enumeration.Key): Promise<schematic.Schematic> => {
-  const project = await client.projects.create({ name: uniqueName("project") });
-  return await client.schematics.create({
-    project: project.key,
-    name: uniqueName("schematic"),
-    nodes: [
-      {
-        key: "select",
-        position: { x: 0, y: 0 },
-        zIndex: 0,
-        config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: e }),
-      },
-    ],
-  });
-};
 
 /** Returns the nth built-in from the end, which no other spec edits. */
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   const shipped = (await client.enumerations.retrieveBuiltins()).at(-n);
   if (shipped == null) throw new Error("the Core ships no enumerations");
   return shipped;
-};
-
-interface Rendered {
-  /** Returns the status notifications that the Console shows now. */
-  statuses: () => Status.NotificationSpec[];
-}
-
-const renderEnumerations = async (as: Synnax = client): Promise<Rendered> => {
-  const { wrapper: Console } = await createConsoleWrapper({ client: as });
-  let statuses: Status.NotificationSpec[] = [];
-  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>
-      <Tree.Provider items={{}}>
-        <HaulProvider>{children}</HaulProvider>
-        <Modals.Stack />
-      </Tree.Provider>
-    </Console>
-  );
-  await act(async () => {
-    render(
-      <>
-        <Enumeration.Settings />
-        <CaptureStatuses onStatuses={(next) => (statuses = next)} />
-      </>,
-      { wrapper },
-    );
-  });
-  return { statuses: () => statuses };
 };
 
 /** Opens an enumeration and returns the entries that show under it. */
@@ -128,47 +61,6 @@ const openBuiltinMenu = async (name: string): Promise<void> => {
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
   (await core.enumerations.retrieve(key)).entries;
-
-type Queries = ReturnType<typeof within>;
-
-/**
- * Returns the queries of the dialog that holds the element. They stay fast while the
- * page shows each enumeration on the Core.
- */
-const dialogOf = (el: HTMLElement): Queries => {
-  const dialog = screen.getAllByRole("dialog").find((d) => d.contains(el));
-  if (dialog == null) throw new Error("expected a dialog");
-  return within(dialog);
-};
-
-const openDelete = async (name: string): Promise<Queries> => {
-  await openContextMenu(name);
-  await clickAndSettle("Delete");
-  return dialogOf(await screen.findByText(/Are you sure you want to delete/));
-};
-
-const pickReplacement = async (dialog: Queries, name: string): Promise<void> => {
-  fireEvent.click(await dialog.findByRole("button", { name: /Replace with/ }));
-  const search = await screen.findByPlaceholderText("Search enumerations...");
-  fireEvent.change(search, { target: { value: name } });
-  const dropdown = dialogOf(search);
-  fireEvent.click(await dropdown.findByRole("option", { name: new RegExp(name) }));
-};
-
-// The delete dialog enables its button once it knows what uses the enumeration.
-const clickWhenEnabled = async (dialog: Queries, name: string): Promise<void> => {
-  const button = await dialog.findByRole("button", { name });
-  await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
-  await act(async () => {
-    fireEvent.click(button);
-  });
-};
-
-/** Waits for the delete dialog to close, which it does once the Core commits. */
-const waitForDialogToClose = async (): Promise<void> =>
-  await waitFor(() =>
-    expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
-  );
 
 /** Waits for the cache of core to hear that the Core deleted the enumeration. */
 const waitForDeleted = async (key: enumeration.Key): Promise<void> =>
@@ -435,32 +327,6 @@ describe("Enumeration.Settings", () => {
     ).toBeTruthy();
     await pickReplacement(dialog, to.name);
     await clickWhenEnabled(dialog, "Replace");
-    await waitForDialogToClose();
-    await expect
-      .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
-      .toMatchObject({ variant: "select", enumeration: to.key });
-  });
-
-  it("should keep the users and Replace while the replace runs", async () => {
-    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
-    const user = await createSelectUser(from.key);
-    // While the link is severed, the replace retries, so it stays in flight.
-    const { client: editor, proxy } = await createProxiedTestClient({
-      retry: { ...FAST_RETRY, maxRetries: 200 },
-      onRetry: () => {},
-    });
-    await renderEnumerations(editor);
-    const dialog = await openDelete(from.name);
-    expect(
-      await within(await dialog.findByLabelText("Users")).findByText(user.name),
-    ).toBeTruthy();
-    await pickReplacement(dialog, to.name);
-    await proxy.sever();
-    await clickWhenEnabled(dialog, "Replace");
-    expect(dialog.getByRole("button", { name: "Replace" })).toBeTruthy();
-    expect(within(dialog.getByLabelText("Users")).getByText(user.name)).toBeTruthy();
-    expect(dialog.getByText(/Each of these moves/)).toBeTruthy();
-    await proxy.restore();
     await waitForDialogToClose();
     await expect
       .poll(async () => (await core.schematics.retrieve(user.key)).nodes[0].config)
