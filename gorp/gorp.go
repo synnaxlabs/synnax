@@ -415,8 +415,7 @@ var _ Tx = (*tx)(nil)
 func (t *tx) txIdentity() *txState { return &t.state }
 
 // ErrTxEnded is the error of a read, a write, or a commit through a transaction that
-// has
-// ended: its Commit returned, or its Close ran.
+// has ended: its Commit returned, or its Close ran.
 var ErrTxEnded = errors.New("[gorp] - the transaction has ended")
 
 // checkOpen returns ErrTxEnded when snap is a transaction that has ended.
@@ -465,8 +464,8 @@ func (t *tx) Delete(ctx context.Context, key []byte) error {
 // lock releases before the sync, once the writes are visible to reads. Hooks registered
 // via state.OnCleanup run before the release, with committed=true once the writes are
 // visible and committed=false otherwise. Then the readers of DB.Observe run. The
-// release comes before them, because a reader can open a transaction. Commit fails
-// with ErrTxEnded once the transaction ends.
+// release comes before them, because a reader can open a transaction. Commit fails with
+// ErrTxEnded once the transaction ends.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	if t.state.ended.Load() {
 		return ErrTxEnded
