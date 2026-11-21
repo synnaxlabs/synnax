@@ -32,7 +32,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -79,6 +81,9 @@ var (
 	author user.User
 	// channelSvc holds the channels and tombstones of channel folders.
 	channelSvc *channel.Service
+	// projectSvc and schematicSvc hold the schematics that hold channels.
+	projectSvc   *project.Service
+	schematicSvc *schematic.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -110,17 +115,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			rbacSvc.Builtin.OwnerKey,
 		),
 	)
-	symbolSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-		DB:    db,
-		Group: groupSvc,
-		ImEx:  imex.NewService(),
-	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}))
+	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{DB: db}))
+	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
+		ImEx:  imex.NewService(),
+	}))
+	symbolSvc = schematicSvc.Symbol
 	impactSvc := MustSucceed(impact.OpenService(impact.ServiceConfig{
 		Channel:  channelSvc,
 		Group:    groupSvc,
