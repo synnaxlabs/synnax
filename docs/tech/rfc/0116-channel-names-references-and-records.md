@@ -558,10 +558,9 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 Compatibility is owed to `core/v0.62.0`. Every stored channel, folder, Arc text, and
 calculation migrates forward. `APIChannel` keeps `internal`, `expression`, `operations`,
 and `status` for one minor, and its `virtual` filter leaves calculation outputs out for
-that minor. Four breaks go in the release notes: a start with the old flag fails, a
-digit-only string no longer means a key, a lookup that acts on a duplicate name fails
-where it picked one, and after that minor the `virtual` filter counts every virtual
-channel.
+that minor. Three breaks go in the release notes: a start with the old flag fails, a
+digit-only string no longer means a key, and a lookup that acts on a duplicate name
+fails where it picked one.
 
 ### 4.10 Amendments to prior RFCs
 
