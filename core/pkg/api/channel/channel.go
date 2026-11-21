@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -231,25 +232,35 @@ func (s *Service) Create(
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	created, err := s.translateForward(ctx, tx, stored)
+	calcs, err := s.calculations.Outputs(ctx, tx, channel.KeysFromChannels(stored)...)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	created, err := s.translateForward(
+		stored,
+		calcs,
+		func(ids []resource.ID) (bool, error) {
+			err := enforcer.Enforce(ctx, access.Request{
+				Subject: auth.GetSubject(ctx),
+				Action:  access.ActionRetrieve,
+				Objects: ids,
+			})
+			if errors.Is(err, access.ErrDenied) {
+				return false, nil
+			}
+			return err == nil, err
+		},
+	)
 	return CreateResponse{Channels: created}, err
 }
 
 // statusOwners returns the owner of the status of each of channels: the calculation
 // that writes it, or the channel itself.
-func (s *Service) statusOwners(
-	ctx context.Context,
-	snap gorp.Snapshot,
+func statusOwners(
 	channels []channel.Channel,
-) ([]resource.ID, error) {
-	calcs, err := s.calculations.Outputs(
-		ctx,
-		snap,
-		channel.KeysFromChannels(channels)...,
-	)
-	if err != nil {
-		return nil, err
-	}
+	calcs map[channel.Key]calculation.Calculation,
+) []resource.ID {
 	owners := make([]resource.ID, len(channels))
 	for i, ch := range channels {
 		owners[i] = channel.ResourceID(ch.Key())
@@ -257,7 +268,7 @@ func (s *Service) statusOwners(
 			owners[i] = calculation.ResourceID(c.Key)
 		}
 	}
-	return owners, nil
+	return owners
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -283,21 +294,39 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	translated, err := s.translateForward(ctx, snap, resChannels)
+	calcs, err := s.calculations.Outputs(
+		ctx,
+		snap,
+		channel.KeysFromChannels(resChannels)...,
+	)
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	translated, err := s.translateForward(
+		resChannels,
+		calcs,
+		func(ids []resource.ID) (bool, error) {
+			return !slices.ContainsFunc(ids, func(id resource.ID) bool {
+				return !snap.Allowed(id)
+			}), nil
+		},
+	)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Channels: translated}
 	if req.IncludeStatus {
-		owners, err := s.statusOwners(ctx, snap, resChannels)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
+		owners := statusOwners(resChannels, calcs)
 		statuses, err := s.status.Join[struct{}](ctx, snap, owners)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
 		for i, st := range statuses {
+			// A v0.62 client knows no calculation owner, so the old API names the
+			// channel.
+			if st != nil {
+				st.Owner = new(channel.ResourceID(resChannels[i].Key()))
+			}
 			res.Channels[i].Status = st
 		}
 	}
@@ -409,12 +438,17 @@ func hasVirtual(w channel.Where) bool {
 // withOldVirtual returns w with the meaning of virtual that the old channel API keeps:
 // a calculation's output is not virtual. outputs are the outputs of every calculation.
 func withOldVirtual(w channel.Where, outputs []channel.Key) channel.Where {
-	w.And = lo.Map(w.And, func(c channel.Where, _ int) channel.Where {
-		return withOldVirtual(c, outputs)
-	})
-	w.Or = lo.Map(w.Or, func(c channel.Where, _ int) channel.Where {
-		return withOldVirtual(c, outputs)
-	})
+	// An empty Or matches nothing, so a nil child list stays nil.
+	if w.And != nil {
+		w.And = lo.Map(w.And, func(c channel.Where, _ int) channel.Where {
+			return withOldVirtual(c, outputs)
+		})
+	}
+	if w.Or != nil {
+		w.Or = lo.Map(w.Or, func(c channel.Where, _ int) channel.Where {
+			return withOldVirtual(c, outputs)
+		})
+	}
 	if w.Not != nil {
 		not := withOldVirtual(*w.Not, outputs)
 		w.Not = &not
@@ -423,12 +457,16 @@ func withOldVirtual(w channel.Where, outputs []channel.Key) channel.Where {
 		return w
 	}
 	output := channel.Where{Key: &filter.Set[channel.Key]{In: outputs}}
-	if *w.Virtual {
-		return channel.Where{And: []channel.Where{w, {Not: &output}}}
-	}
+	virtual := channel.Where{And: []channel.Where{
+		{Virtual: new(true)},
+		{Not: &output},
+	}}
 	rest := w
 	rest.Virtual = nil
-	return channel.Where{Or: []channel.Where{w, {And: []channel.Where{rest, output}}}}
+	if *w.Virtual {
+		return channel.Where{And: []channel.Where{rest, virtual}}
+	}
+	return channel.Where{And: []channel.Where{rest, {Not: &virtual}}}
 }
 
 // namesByName reports whether the top level of where names channels by exact name.
@@ -438,26 +476,39 @@ func namesByName(where *channel.Where) bool {
 		(where.Name.Eq != nil || len(where.Name.In) > 0)
 }
 
-// translateForward returns the API form of channels, with the expression and operations
-// of each one that a calculation writes.
+// translateForward returns the old API form of channels, with the expression and
+// operations of the calculation in calcs that writes each one. A calculation that
+// readable denies, given the record and every channel it links, shows an empty
+// expression and no operations. A calculation with no operations shows one none
+// operation, as v0.62 did.
 func (s *Service) translateForward(
-	ctx context.Context,
-	snap gorp.Snapshot,
 	channels []channel.Channel,
+	calcs map[channel.Key]calculation.Calculation,
+	readable func(ids []resource.ID) (bool, error),
 ) ([]Channel, error) {
-	calcs, err := s.calculations.Outputs(
-		ctx,
-		snap,
-		channel.KeysFromChannels(channels)...,
-	)
-	if err != nil {
-		return nil, err
-	}
 	translated := translateChannelsForward(channels, s.internal.IsBuiltIn)
 	for i := range translated {
-		if c, ok := calcs[translated[i].Key]; ok {
-			translated[i].Expression = c.Expression
-			translated[i].Operations = calculation.ChannelOperations(c.Operations)
+		c, ok := calcs[translated[i].Key]
+		if !ok {
+			continue
+		}
+		ids := append(
+			[]resource.ID{calculation.ResourceID(c.Key)},
+			s.calculations.Channels(c)...,
+		)
+		visible, err := readable(ids)
+		if err != nil {
+			return nil, err
+		}
+		if !visible {
+			continue
+		}
+		translated[i].Expression = c.Expression
+		translated[i].Operations = calculation.ChannelOperations(c.Operations)
+		if len(translated[i].Operations) == 0 {
+			translated[i].Operations = []channel.Operation{
+				{Type: channel.OperationTypeNone},
+			}
 		}
 	}
 	return translated, nil
@@ -589,6 +640,9 @@ func (s *Service) Dispatch(
 		ApplyChannel(ctx, req.Key, req.Actions...)
 	if err != nil {
 		return DispatchResponse{}, err
+	}
+	if !calculation.EditsCalculation(req.Actions...) {
+		return DispatchResponse{Actions: computed}, nil
 	}
 	inputs, err := s.calculations.Inputs(ctx, tx, channel.Keys{req.Key}, nil)
 	if err != nil {
