@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll, onTestFinished, vi } from "vitest";
+import { afterAll, expect, onTestFinished, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 import { testCoreAddress } from "@/testutil/address";
@@ -50,11 +50,23 @@ afterAll(async () => {
 });
 
 /**
- * Creates a client connected to the local test cluster. The client is closed
- * automatically once every test in the current spec file has finished, so callers do
- * not need to close it themselves.
+ * Creates a client connected to the local test cluster. A client made inside a test or
+ * its hooks closes when that test finishes, and any other closes once every test in the
+ * spec file has finished, so callers do not need to close it themselves.
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
+  // An open client keeps its change stream, so later tests would pay for its frames.
+  if (expect.getState().currentTestName == null) return createFileTestClient(params);
+  const client = new Synnax({ ...testClientParams(), ...params });
+  onTestFinished(async () => await client.close());
+  return client;
+};
+
+/**
+ * Creates a client connected to the local test cluster that stays open until every test
+ * in the current spec file has finished, for a client that a spec reuses across tests.
+ */
+export const createFileTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   const client = new Synnax({ ...testClientParams(), ...params });
   openClients.push(client);
   return client;
