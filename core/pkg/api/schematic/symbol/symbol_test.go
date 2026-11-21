@@ -425,9 +425,10 @@ var _ = Describe("DeleteGroup", func() {
 		Expect(exists(ctx, sym.Key)).To(BeTrue())
 	})
 	It(
-		"Should refuse a group that holds another group before any access check",
+		"Should refuse a group that holds another group and keep its symbols",
 		func(ctx SpecContext) {
 			g := createGroup(ctx, "ungranted-with-nested")
+			sym := createSymbol(ctx, g, "Kept")
 			nested := group.Group{Name: "Nested", Parent: new(g.ResourceID())}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return groupSvc.NewWriter(tx).Create(ctx, &nested)
@@ -436,6 +437,7 @@ var _ = Describe("DeleteGroup", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("not empty")),
 			))
+			Expect(exists(ctx, sym.Key)).To(BeTrue())
 		},
 	)
 })

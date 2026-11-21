@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 )
 
@@ -20,6 +21,7 @@ var _ = Describe("ServiceConfig", func() {
 	full := func() apisymbol.ServiceConfig {
 		return apisymbol.ServiceConfig{
 			Symbol: &symbol.Service{},
+			Impact: &impact.Service{},
 		}
 	}
 
@@ -40,6 +42,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apisymbol.ServiceConfig) { c.Symbol = nil },
 				"symbol: must be non-nil",
 			),
+			Entry(
+				"impact",
+				func(c *apisymbol.ServiceConfig) { c.Impact = nil },
+				"impact: must be non-nil",
+			),
 		)
 	})
 
@@ -48,12 +55,14 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apisymbol.ServiceConfig{}.Override(cfg)
 			Expect(merged.Symbol).To(BeIdenticalTo(cfg.Symbol))
+			Expect(merged.Impact).To(BeIdenticalTo(cfg.Impact))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apisymbol.ServiceConfig{})
 			Expect(merged.Symbol).To(BeIdenticalTo(cfg.Symbol))
+			Expect(merged.Impact).To(BeIdenticalTo(cfg.Impact))
 		})
 	})
 })
