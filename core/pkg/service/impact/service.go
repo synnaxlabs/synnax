@@ -117,27 +117,38 @@ func (s *Service) Apply(
 	case DeleteChannelsChange:
 		return s.deleteChannels(ctx, tx, v.Keys, opts)
 	case DeleteGroupsChange:
-		return Plan{}, s.deleteGroups(ctx, tx, v.Keys, opts)
+		return s.deleteGroups(ctx, tx, v.Keys, opts)
 	}
 	// Formatting the variant would make every change escape to the heap.
 	return Plan{}, errors.New("[impact] - unknown change")
 }
 
 // deleteGroups deletes the groups with keys and the tombstones in them first. Its plan
-// has no entries, so every pick fails.
+// lists the channel of each tombstone as a cascade entry, which takes no pick.
 func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys []group.Key,
 	opts ApplyOptions,
-) error {
+) (Plan, error) {
 	if err := pickWithoutEntry(opts.Picks, nil); err != nil {
-		return err
+		return Plan{}, err
 	}
-	if err := s.cfg.Channel.NewWriter(tx).DeleteTombstones(ctx, keys...); err != nil {
-		return err
+	dead, err := s.cfg.Channel.NewWriter(tx).DeleteTombstones(ctx, keys...)
+	if err != nil {
+		return Plan{}, err
 	}
-	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
+	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
+		return Plan{}, err
+	}
+	var p Plan
+	for _, k := range dead {
+		p.Entries = append(p.Entries, Entry{
+			Record: channel.ResourceID(k),
+			Effect: EffectCascade,
+		})
+	}
+	return p, nil
 }
 
 // pickWithoutEntry returns a validation error that names the smallest pick of picks
