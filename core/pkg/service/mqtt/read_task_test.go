@@ -397,7 +397,7 @@ var _ = Describe("Read task", func() {
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
 				"invalid UTF-8"),
 			Entry("text that is not base64 into a bytes channel", telem.BytesT,
-				`{"v":"a*b="}`, "field v: illegal base64 data at input byte 1"),
+				`{"v":"a*b="}`, "field v: not canonical base64"),
 		)
 
 		It("Should reject a timestamp that is not after the last one written",

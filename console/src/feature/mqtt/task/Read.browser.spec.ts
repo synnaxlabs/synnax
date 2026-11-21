@@ -20,16 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import {
-  createBroker,
-  openAddData,
-  openScanner,
-  preloadForms,
-} from "@/feature/mqtt/testutil";
+import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   clickFailedDeploy,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
@@ -37,7 +33,7 @@ import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(MQTT.Task.FORMS);
 
 const TOPIC = "plant/oven";
 
@@ -552,11 +548,11 @@ describe("MQTT read form", () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const time = icd.jsonFieldZ.parse({
       ...createTimeField(),
-      default: at,
+      default: { type: "constant", value: at },
     });
     const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
     await selectField("time");
-    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /2023/ })).toBeTruthy();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
     const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
@@ -564,7 +560,10 @@ describe("MQTT read form", () => {
         "default",
       ),
     );
-    expect(screen.queryByRole("checkbox", { name: "Optional" })).toBeNull();
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", { name: "Optional" }).checked,
+    ).toBe(false);
+    expect(screen.queryByRole("button", { name: /2023/ })).toBeNull();
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
@@ -804,7 +803,7 @@ describe("MQTT read form", () => {
       pointer: "/started",
       type: "timestamp",
       timeFormat: "unix_ms",
-      default: TimeStamp.milliseconds(1_700_000_000_000),
+      default: { type: "constant", value: TimeStamp.milliseconds(1_700_000_000_000) },
     });
     const time = createTimeField();
     const { draft } = await renderRead({ fields: [started, time] });

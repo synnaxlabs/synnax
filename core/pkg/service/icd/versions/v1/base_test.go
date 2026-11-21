@@ -20,7 +20,11 @@ import (
 var _ = Describe("Base", func() {
 	Describe("Payload", func() {
 		binary := v1.Payload{Variant: v1.BinaryPayload{Fields: []v1.BinaryField{
-			{Name: "rpm"},
+			{Variant: v1.UnsignedBinaryField{BinaryBaseField: v1.BinaryBaseField{
+				BaseField: v1.BaseField{Name: "rpm"},
+				BitLength: 8,
+			}}},
+			{},
 		}}}
 		text := v1.Payload{Variant: v1.TextPayload{Fields: []v1.TextField{
 			{Variant: v1.TaggedTextField{BaseField: v1.BaseField{Name: "temp"}}},
@@ -36,7 +40,7 @@ var _ = Describe("Base", func() {
 		rename := func(b *v1.BaseField) { b.Name += "!" }
 
 		It("Should return the base of every field", func() {
-			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}}))
+			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}, {}}))
 			Expect(text.FieldBases()).To(Equal([]v1.BaseField{{Name: "temp"}, {}}))
 			Expect(
 				jsonPayload.FieldBases(),
@@ -44,11 +48,14 @@ var _ = Describe("Base", func() {
 			Expect(v1.Payload{}.FieldBases()).To(BeNil())
 		})
 
-		It("Should update the base of every field without touching the source", func() {
+		It("Should keep the bits and skip a binary field with no kind", func() {
 			updated := binary
 			updated.UpdateFieldBases(rename)
-			Expect(updated.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm!"}}))
-			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}}))
+			Expect(updated.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm!"}, {}}))
+			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}, {}}))
+			payload, ok := updated.Variant.(v1.BinaryPayload)
+			Expect(ok).To(BeTrue())
+			Expect(payload.Fields[0].Base().BitLength).To(Equal(uint8(8)))
 		})
 
 		It("Should skip a text field with no encoding", func() {

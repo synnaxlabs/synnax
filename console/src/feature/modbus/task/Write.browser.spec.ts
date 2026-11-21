@@ -14,13 +14,14 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
-import { createModbusDevice, preloadForms } from "@/feature/modbus/testutil";
+import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -29,7 +30,7 @@ import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testut
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(Modbus.Task.FORMS);
 
 // The channels of the task, while no menu is open.
 const getItems = () => screen.queryAllByRole("option");

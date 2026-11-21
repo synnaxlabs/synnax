@@ -104,8 +104,11 @@ const NameEntry = ({
 };
 
 interface CreateViewProps {
-  /** The palette that the new color starts in. */
-  palette: group.Key;
+  /**
+   * The palette that the new color starts in. Defaults to the first palette that the
+   * user can add to.
+   */
+  palette?: group.Key;
 }
 
 /**
@@ -122,7 +125,8 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
   );
   const updatable = Access.useUpdatable(all.map(({ key }) => group.resourceID(key)));
   const palettes = all.filter(({ key }) => updatable.some((id) => id.key === key));
-  const [palette, setPalette] = useState(initialPalette);
+  const [picked, setPicked] = useState(initialPalette);
+  const palette = picked ?? palettes[0]?.key ?? NO_PALETTE;
   const methods = Form.use<typeof createFormSchema>({
     schema: createFormSchema,
     values: {
@@ -162,7 +166,7 @@ const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement 
             resourceName="palette"
             searchHidden
             value={palette}
-            onChange={setPalette}
+            onChange={setPicked}
             triggerProps={{ size: "small" }}
             grow
             footer={
@@ -237,6 +241,22 @@ export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
   if (palette.key === color.SERIES_PALETTE) return null;
   return palette.key === NO_PALETTE ? <Add /> : <PaletteAdd palette={palette.key} />;
+};
+
+/**
+ * Ends the Custom tab of a color picker. It opens a view that creates a named color
+ * from the custom color.
+ */
+export const SaveToLibrary = (): ReactElement => {
+  const { open } = Dialog.useViews();
+  return (
+    <Button.CreateListItem
+      size="small"
+      onClick={(e) => open("New color", <CreateView />, e.currentTarget)}
+    >
+      Save to library
+    </Button.CreateListItem>
+  );
 };
 
 /**
