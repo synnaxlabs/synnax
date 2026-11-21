@@ -131,7 +131,7 @@ func setOf(path string, value any) calculation.Action {
 // calculations in one transaction, and an edit that changes neither. Each iteration
 // alternates between two values.
 func BenchmarkApply(b *testing.B) {
-	avg := calculation.AvgOperation{Window: calculation.Window{Duration: telem.Second}}
+	avg := calculation.AvgOperation{Duration: telem.Second}
 	edits := map[string][2]calculation.Action{
 		"expression": {
 			setOf("expression", "return bench_input * 3"),
