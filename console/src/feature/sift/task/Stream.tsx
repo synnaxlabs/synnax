@@ -19,7 +19,7 @@ import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Calculation, Channel, Status as PStatus } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useState } from "react";
 
 import { Asset } from "@/feature/sift/asset";
 import {
@@ -75,7 +75,8 @@ const Progress = () => {
 
 const Form: FC = () => {
   // The query keeps calculated channels, which the Core does not store.
-  const stored = Calculation.useNonOutputFilter();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const stored = Calculation.useNonOutputFilter({ open: pickerOpen });
   return (
     <PForm.Sections className={CSS.B("sift-stream")}>
       <PForm.Section title="Data">
@@ -88,6 +89,8 @@ const Form: FC = () => {
               query={CHANNEL_QUERY}
               filter={stored.filter}
               status={stored.status}
+              visible={pickerOpen}
+              onVisibleChange={setPickerOpen}
               triggerProps={CHANNEL_TRIGGER_PROPS}
               full="x"
             />

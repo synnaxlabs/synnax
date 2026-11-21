@@ -10,7 +10,6 @@
 import {
   calculation,
   type channel,
-  isConnectionError,
   status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -115,61 +114,79 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
 
 type Outputs = calculation.Client["outputs"];
 
-const LOOKUP_FAILED = "Failed to find calculated channels";
+const LOOKUP_FAILED = "Failed to load channels";
+
+const LOOKUP_FAILED_REASON =
+  "Synnax could not check which channels a calculation writes.";
 
 const LOOKING_UP = status.create({
   variant: "loading",
   message: "Finding calculated channels",
 });
 
+// Reports a failed lookup, and returns whether it did.
+type Report = (failure: status.Status) => boolean;
+
 interface Lookups {
   /**
-   * Looks up whether a calculation writes the channel, unless a lookup of it runs. A
-   * tick shares one request.
+   * Records that the filter read the channel, and looks it up when it has no answer.
+   * The reads of a tick form one pass over the list, and its lookups one request.
    */
-  lookUp: (outputs: Outputs, report: Status.ErrorHandler, key: channel.Key) => void;
+  read: (outputs: Outputs, report: Report, key: channel.Key, answered: boolean) => void;
   subscribe: (onChange: () => void) => destructor.Destructor;
-  /** Loading while a lookup runs, else the failure of the last one, if it failed. */
+  /**
+   * Loading while a lookup runs, else the failure of the last one. Undefined when the
+   * last pass read no channel without an answer.
+   */
   status: () => status.Status | undefined;
 }
 
-// Resolves to the rejection of the promise, or to null when it fulfills.
-const rejectionOf = async (promise: Promise<unknown>): Promise<unknown> =>
-  await promise.then(
-    () => null,
-    (cause: unknown) => cause,
-  );
+const failureOf = (error: unknown): status.Status => {
+  const failure = status.fromException(error, LOOKUP_FAILED);
+  return { ...failure, description: `${LOOKUP_FAILED_REASON} ${failure.description}` };
+};
 
-// The filter looks up while the list renders, so each change lands after the render.
+// The filter reads while the list renders, so each change lands after the render.
 const createLookups = (): Lookups => {
   const queued = new Set<channel.Key>();
   const looking = new Set<channel.Key>();
   const listeners = new Set<() => void>();
   let running = 0;
   let failure: status.Status | undefined;
+  // A failure episode, which a lookup that answers ends, is reported once.
+  let reported = false;
+  let pass: Set<channel.Key> | undefined;
+  let unanswered = new Set<channel.Key>();
   const notify = () => listeners.forEach((onChange) => onChange());
-  const run = async (outputs: Outputs, report: Status.ErrorHandler) => {
+  const run = async (outputs: Outputs, report: Report) => {
     const keys = [...queued];
     queued.clear();
     running++;
     notify();
-    const fetch = async () => await outputs.retrieve(keys);
-    let error = await rejectionOf(fetch());
-    if (isConnectionError(error))
-      error = await rejectionOf(
-        Flux.retryUnreachableFetch("calculation outputs", fetch),
-      );
-    failure = undefined;
-    if (error != null) {
-      report(error, LOOKUP_FAILED);
-      failure = status.fromException(error, LOOKUP_FAILED);
+    try {
+      await outputs.retrieve(keys);
+      reported = false;
+    } catch (e) {
+      failure = failureOf(e);
+      if (!reported) reported = report(failure);
     }
     keys.forEach((key) => looking.delete(key));
     running--;
     notify();
   };
+  const endPass = () => {
+    unanswered = pass ?? new Set();
+    pass = undefined;
+    notify();
+  };
   return {
-    lookUp: (outputs, report, key) => {
+    read: (outputs, report, key, answered) => {
+      if (pass == null) {
+        pass = new Set();
+        queueMicrotask(endPass);
+      }
+      if (answered) return;
+      pass.add(key);
       if (looking.has(key)) return;
       looking.add(key);
       if (queued.size === 0) queueMicrotask(() => void run(outputs, report));
@@ -179,7 +196,10 @@ const createLookups = (): Lookups => {
       listeners.add(onChange);
       return () => listeners.delete(onChange);
     },
-    status: () => (running > 0 ? LOOKING_UP : failure),
+    status: () => {
+      if (unanswered.size === 0) return undefined;
+      return running > 0 ? LOOKING_UP : (failure ?? LOOKING_UP);
+    },
   };
 };
 
@@ -189,15 +209,12 @@ const createNonOutputFilter =
   (
     outputs: Outputs | undefined,
     _version: number,
-    lookUp: (key: channel.Key) => void,
+    read: (key: channel.Key, answered: boolean) => void,
   ) =>
   (ch: channel.Channel): boolean => {
     const output = outputs?.get(ch.key);
-    if (output == null) {
-      lookUp(ch.key);
-      return false;
-    }
-    return output.calculation == null;
+    read(ch.key, output != null);
+    return output != null && output.calculation == null;
   };
 
 /** The return value of {@link useNonOutputFilter}. */
@@ -205,36 +222,51 @@ export interface NonOutputFilter {
   /**
    * Keeps the channels that no calculation writes. It looks up each channel it has no
    * answer for, and leaves the channel out until the answer loads. Each new answer
-   * gives a new filter, so a list that holds it filters again.
+   * gives a new filter, so a list that holds it filters again, and a channel still
+   * without an answer joins the next lookup.
    */
   filter: (ch: channel.Channel) => boolean;
   /**
-   * Loading while a lookup runs, and the failure of the last lookup if it failed. A
-   * picker shows it in place of the list's status, so a channel left out unanswered
-   * never reads as no match. Undefined once every lookup answered.
+   * Loading while a lookup runs, and the failure of the last lookup if it failed,
+   * while the list holds a channel without an answer. A picker shows it in place of
+   * the list's status. Undefined once every channel the list holds has an answer.
    */
   status?: status.Status;
 }
 
+/** Arguments for {@link useNonOutputFilter}. */
+export interface UseNonOutputFilterArgs {
+  /**
+   * Whether the list of the picker that uses the filter is open. A failed lookup is
+   * reported only while it is, once until a lookup answers.
+   */
+  open: boolean;
+}
+
 /**
  * @returns a filter that keeps the channels that no calculation writes, and the status
- * of its lookups. A lookup the Core is unreachable for repeats before it fails, and a
- * failure goes to the status handler.
+ * of its lookups.
  */
-export const useNonOutputFilter = (): NonOutputFilter => {
+export const useNonOutputFilter = ({
+  open,
+}: UseNonOutputFilterArgs): NonOutputFilter => {
   const outputs = Synnax.use()?.calculations.outputs;
-  const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const [lookups] = useState(createLookups);
   const version = useSyncExternalStore(
     (onChange) => outputs?.subscribe(() => onChange()) ?? (() => {}),
     () => outputs?.version() ?? 0,
   );
   const lookupStatus = useSyncExternalStore(lookups.subscribe, lookups.status);
-  const lookUp = (key: channel.Key) => {
-    if (outputs != null) lookups.lookUp(outputs, handleError, key);
+  const report: Report = (failure) => {
+    if (open) addStatus(failure);
+    return open;
+  };
+  const read = (key: channel.Key, answered: boolean) => {
+    if (outputs != null) lookups.read(outputs, report, key, answered);
   };
   return {
-    filter: createNonOutputFilter(outputs, version, lookUp),
+    filter: createNonOutputFilter(outputs, version, read),
     status: lookupStatus,
   };
 };

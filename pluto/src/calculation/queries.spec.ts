@@ -13,7 +13,6 @@ import {
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
-import { Unreachable } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -84,10 +83,10 @@ describe("queries", () => {
         virtual: true,
       });
 
-    const renderFilter = () =>
+    const renderFilter = (open = true) =>
       renderHook(
         () => ({
-          stored: Calculation.useNonOutputFilter(),
+          stored: Calculation.useNonOutputFilter({ open }),
           reported: Status.useNotifications().statuses,
         }),
         { wrapper },
@@ -125,7 +124,47 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.stored.status).toBeUndefined());
     });
 
-    it("should report a failed lookup and show it until a lookup answers", async () => {
+    it("should report a failure once while open, until a later lookup answers", async () => {
+      const first = await createPlain();
+      const second = await createPlain();
+      let rejected = 0;
+      const failing = rejectRequests(
+        client,
+        (target) => target === LOOKUP && ++rejected > 0,
+        new Error("calculations unavailable"),
+      );
+      onTestFinished(() => failing.mockRestore());
+      const { result } = renderFilter();
+      result.current.stored.filter(first);
+      await waitFor(() => expect(result.current.stored.status?.variant).toBe("error"));
+      expect(result.current.stored.status?.message).toEqual("Failed to load channels");
+      expect(result.current.stored.status?.description).toContain(
+        "Synnax could not check which channels a calculation writes.",
+      );
+      expect(result.current.stored.status?.description).toContain(
+        "calculations unavailable",
+      );
+      // A second failure in the same episode is not reported again.
+      result.current.stored.filter(second);
+      await waitFor(() => expect(rejected).toBe(2));
+      await waitFor(() => expect(result.current.stored.status?.variant).toBe("error"));
+      expect(
+        result.current.reported.map(({ message, count }) => ({ message, count })),
+      ).toEqual([{ message: "Failed to load channels", count: 1 }]);
+      failing.mockRestore();
+      // The channels without an answer join the next lookup, which clears the failure.
+      const { release } = holdResponses(client, LOOKUP);
+      result.current.stored.filter(first);
+      result.current.stored.filter(second);
+      await waitFor(() =>
+        expect(result.current.stored.status?.variant).toBe("loading"),
+      );
+      release();
+      await waitFor(() => expect(result.current.stored.filter(first)).toBe(true));
+      await waitFor(() => expect(result.current.stored.status).toBeUndefined());
+    });
+
+    it("should report no failure while closed, and still show it", async () => {
       const plain = await createPlain();
       const failing = rejectRequests(
         client,
@@ -133,44 +172,9 @@ describe("queries", () => {
         new Error("calculations unavailable"),
       );
       onTestFinished(() => failing.mockRestore());
-      const { result } = renderFilter();
+      const { result } = renderFilter(false);
       result.current.stored.filter(plain);
       await waitFor(() => expect(result.current.stored.status?.variant).toBe("error"));
-      expect(result.current.stored.status?.message).toEqual(
-        "Failed to find calculated channels",
-      );
-      expect(result.current.stored.status?.description).toContain(
-        "calculations unavailable",
-      );
-      expect(result.current.reported.map(({ message }) => message)).toEqual([
-        "Failed to find calculated channels",
-      ]);
-      failing.mockRestore();
-      expect(result.current.stored.filter(plain)).toBe(false);
-      await waitFor(() => expect(result.current.stored.filter(plain)).toBe(true));
-      await waitFor(() => expect(result.current.stored.status).toBeUndefined());
-    });
-
-    it("should repeat a lookup the Core is unreachable for, and only after its wait", async () => {
-      const plain = await createPlain();
-      const sentAt: TimeStamp[] = [];
-      const refusing = rejectRequests(
-        client,
-        (target) => {
-          if (target !== LOOKUP) return false;
-          sentAt.push(TimeStamp.now());
-          return sentAt.length === 1;
-        },
-        new Unreachable(),
-      );
-      onTestFinished(() => refusing.mockRestore());
-      const { result } = renderFilter();
-      result.current.stored.filter(plain);
-      // Each poll runs the filter, but only the retry asks again, after Flux's 250 ms.
-      await waitFor(() => expect(result.current.stored.filter(plain)).toBe(true));
-      expect(sentAt).toHaveLength(2);
-      expect(sentAt[1].span(sentAt[0]).milliseconds).toBeGreaterThanOrEqual(250);
-      await waitFor(() => expect(result.current.stored.status).toBeUndefined());
       expect(result.current.reported).toEqual([]);
     });
   });
