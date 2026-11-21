@@ -267,21 +267,28 @@ func (t *Table[K, E]) detach(
 	return t.onRewrite(ctx, tx, e)
 }
 
-// delete deletes the entries with keys and applies the OnDelete of every reference
-// that points at them, from planned when it is not nil.
+// delete deletes entries and applies the OnDelete of every reference that points at
+// them, from planned when it is not nil. Before it changes anything, it calls held,
+// when not nil, with each entry that a Weak reference holds and those holders.
 func (t *Table[K, E]) delete(
 	ctx context.Context,
 	tx Tx,
-	keys []K,
+	entries []E,
 	planned *DeleteEffects,
+	held HeldFunc[K, E],
 ) error {
+	keys := make([]K, len(entries))
+	for i, e := range entries {
+		keys[i] = e.GorpKey()
+	}
 	if t.registered {
 		var (
 			plan *deletePlan
 			err  error
 		)
+		weak := held != nil
 		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
-			plan, err = t.db.registry.planned(tx, t.name, *planned)
+			plan, err = t.db.registry.planned(tx, t.name, *planned, weak)
 		} else {
 			formatted := make([]string, len(keys))
 			for i, k := range keys {
@@ -293,10 +300,20 @@ func (t *Table[K, E]) delete(
 				t.name,
 				formatted,
 				t.db.MaxDeleteSize,
+				weak,
 			)
 		}
 		if err != nil {
 			return err
+		}
+		if len(plan.weak) > 0 {
+			for _, e := range entries {
+				if deps := plan.weak[FormatKey(e.GorpKey())]; len(deps) > 0 {
+					if err = held(ctx, tx, e, deps); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
 			return err
