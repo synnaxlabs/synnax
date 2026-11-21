@@ -64,6 +64,11 @@ export const linePlotMethodsZ = {
    */
   getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
   /**
+   * Returns, for each x axis, the decimal positions across the home view of a span of
+   * values. It is the inverse of getXBounds.
+   */
+  getXPositions: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
+  /**
    * Returns the open breaks of x1 after a break action, and the boxes of the request
    * mapped so each holds the same values, or null when the action changes nothing. It
    * sets nothing: the caller sets the open breaks and the boxes.
@@ -241,6 +246,19 @@ export class LinePlot
         a.state.axisKey ?? a.key,
         a.layout(axisProps(i, this.state)).reverseHomeSpan(positions),
       ]),
+    );
+  }
+
+  getXPositions(values: bounds.Bounds): AxesBounds {
+    return Object.fromEntries(
+      this.axes.map((a, i) => {
+        const layout = a.layout(axisProps(i, this.state));
+        const positions = {
+          lower: layout.home(values.lower),
+          upper: layout.home(values.upper),
+        };
+        return [a.state.axisKey ?? a.key, positions];
+      }),
     );
   }
 
