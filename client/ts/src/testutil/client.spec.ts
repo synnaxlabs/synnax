@@ -87,9 +87,11 @@ describe("holdRequests", () => {
 });
 
 describe("createRequestHold", () => {
-  it("should hold a matching request until released and send the others", async () => {
+  it("should hold a matching request from engage to release and send the others", async () => {
     const hold = createRequestHold((target) => target.endsWith("/channel/retrieve"));
     const client = createTestClient({ middleware: [hold.middleware] });
+    await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
+    hold.engage();
     let settled = false;
     const retrieving = client.channels
       .retrieve(["no-such-channel"])

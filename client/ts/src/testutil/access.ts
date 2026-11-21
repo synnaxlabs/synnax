@@ -86,8 +86,11 @@ export const createTestClientWithPolicy = async (
     array.toArray(pol).map((p) => ({ ...p, role: r.key })),
   );
   const u = await createUser(client, r.key);
-  return await connectAs(u.username, u.key, onInternalError, (p) =>
-    createTestClient({ ...params, ...p }),
+  return await connectAs(
+    u.username,
+    u.key,
+    onInternalError ?? params?.onInternalError,
+    (p) => createTestClient({ ...params, ...p }),
   );
 };
 
