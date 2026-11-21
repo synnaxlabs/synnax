@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
@@ -4770,8 +4771,8 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
         end.wait_for((10 * x::telem::SECOND).chrono()),
         std::future_status::ready
     );
-    // The run ends with the failed read.
-    ASSERT_TRUE(static_cast<bool>(end.get()));
+    // The run ends with the failed read of control state.
+    ASSERT_TRUE(synnax::errors::is_unreachable(end.get()));
     ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
     pipe->resume();
