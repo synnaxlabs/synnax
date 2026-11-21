@@ -474,9 +474,11 @@ const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
     onTestFailed(() => {
       const now = performance.now();
       const report = recorded.map((s) => formatStep(s, now)).join("; ");
-      // The console check fails a test on console output, so the report writes to
-      // stderr directly.
-      process.stderr.write(`task form steps of "${test.name}": ${report}\n`);
+      const line = `task form steps of "${test.name}": ${report}`;
+      // The console check fails a test on console output, so under Node the report
+      // writes to stderr. A browser spec has no process, and its test already failed.
+      if (typeof process === "undefined") console.error(line);
+      else process.stderr.write(`${line}\n`);
     });
     steps = recorded;
   }
