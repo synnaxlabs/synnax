@@ -88,16 +88,19 @@ export const newestSample = (b: line.DataBounds[]): number | undefined => {
   return edges.length === 0 ? undefined : Math.max(...edges);
 };
 
-// Bounds with an edge end at the newest sample of their line. Each moves to end at the
-// newest of them, so a line whose samples stopped does not stretch the axis.
-const align = (b: line.DataBounds[]): bounds.Bounds[] => {
-  const finite = b.filter((d) => bounds.isFinite(d.bounds));
-  const newest = newestSample(finite);
-  if (newest == null) return finite.map((d) => d.bounds);
-  return finite.map(({ bounds: { lower, upper }, edge }) => {
-    if (edge === "rolling") return { lower: lower + newest - upper, upper: newest };
-    if (edge === "growing") return { lower, upper: newest };
-    return { lower, upper };
+/**
+ * @returns b with each finite bound that has an edge moved to end at the newest sample
+ * of them all, so a line whose samples stopped does not stretch the axis.
+ */
+export const align = <B extends line.DataBounds>(b: B[]): B[] => {
+  const newest = newestSample(b);
+  if (newest == null) return b;
+  return b.map((d) => {
+    const { lower, upper } = d.bounds;
+    if (!bounds.isFinite(d.bounds) || d.edge == null) return d;
+    if (d.edge === "rolling")
+      return { ...d, bounds: { lower: lower + newest - upper, upper: newest } };
+    return { ...d, bounds: { lower, upper: newest } };
   });
 };
 
@@ -106,7 +109,11 @@ const autoBounds = (
   padding: number = 0.1,
   type: TickType,
 ): bounds.Bounds => {
-  const m = bounds.union(align(b));
+  const m = bounds.union(
+    align(b)
+      .filter((d) => bounds.isFinite(d.bounds))
+      .map((d) => d.bounds),
+  );
   if (!bounds.isFinite(m)) return emptyBounds(type);
   const { lower, upper } = m;
   if (upper === lower) return { lower: lower - 1, upper: upper + 1 };

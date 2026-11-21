@@ -211,9 +211,9 @@ const createTelemetry = (
 };
 
 // Line draws a stored line as one trace per range the plot shows. On an absolute x axis
-// the traces are styled alike, and only the first has a legend entry, under the stored
-// line's key. On a relative axis each trace takes its range's color and has its own
-// legend entry under the range.
+// the traces are styled alike and split the time between them, and only the first has
+// a legend entry, under the stored line's key. On a relative axis each trace takes its
+// range's color and has its own legend entry under the range.
 const Line = ({
   pKey,
   lineKey,
@@ -233,6 +233,7 @@ const Line = ({
             line={line}
             window={range.window}
             aetherKey={i === 0 ? line.key : `${line.key}/${i}`}
+            group={line.key}
             legend={i === 0}
             legendGroup={line.yAxis.toUpperCase()}
             visible={visible}
@@ -287,6 +288,7 @@ interface TraceProps {
   legendGroup: string;
   visible: boolean;
   zero?: TimeStamp;
+  group?: string;
   tooltipGroup?: string;
   tooltipLabel?: string;
   color?: color.Color;
@@ -302,6 +304,7 @@ const Trace = ({
   legendGroup,
   visible,
   zero,
+  group,
   tooltipGroup,
   tooltipLabel,
   color: traceColor,
@@ -330,6 +333,7 @@ const Trace = ({
       color={traceColor ?? line.color}
       strokeWidth={raised ? strokeWidth * 2 : strokeWidth}
       zero={zero}
+      group={group}
       tooltipGroup={tooltipGroup}
       tooltipLabel={tooltipLabel}
       opacity={opacity}

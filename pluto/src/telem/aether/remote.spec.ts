@@ -684,6 +684,23 @@ describe("remote", () => {
       await expect.poll(last, POLL).toBe(newest(core, key).at(-1));
     });
 
+    it("should read the value bounds of a static window across its view", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const subscribe = vi.spyOn(client.feed, "subscribe");
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
+      await settle(y);
+      const lower = ns(START);
+      const upper = ns(HOME.end) + ns(new TimeStamp(TimeSpan.minutes(1)));
+      y.value({ extremesKept: true, bounds: { lower, upper } });
+      const kept = subscribe.mock.calls
+        .map(([request]) => request.limit)
+        .filter((limit) => limit.variant === "points" && limit.extremesKept === true);
+      expect(kept).toEqual([
+        expect.objectContaining({ view: new TimeRange(BigInt(lower), BigInt(upper)) }),
+      ]);
+    });
+
     it("should bound a static index by its home view", async () => {
       const core = createCore();
       const x = create(connect(core), {
@@ -754,6 +771,30 @@ describe("remote", () => {
             view: new TimeRange(BigInt(lower), BigInt(upper)),
           }),
         ]);
+      });
+
+      it("should draw only the tiles inside the span it is passed", async () => {
+        const core = createCore();
+        const client = connect(core);
+        const subscribe = vi.spyOn(client.feed, "subscribe");
+        const y = create(client, { channel: core.data[0].key, window: OPEN });
+        const lower = ns(FROM);
+        const upper = lower + ns(new TimeStamp(TimeSpan.minutes(1)));
+        await expect
+          .poll(() => {
+            y.value({
+              bounds: { lower, upper },
+              points: 100,
+              span: { lower, upper: Infinity },
+            });
+            return subscribe.mock.calls.length;
+          }, POLL)
+          .toBeGreaterThan(0);
+        expect(subscribe.mock.calls[0][0].limit).toEqual(
+          expect.objectContaining({
+            bound: new TimeRange(BigInt(lower), TimeStamp.MAX),
+          }),
+        );
       });
 
       it("should have no bounds for a range that has not started", async () => {
