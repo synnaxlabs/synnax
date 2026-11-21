@@ -95,21 +95,7 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 			r.worksf(r.faulted(), "close: %v", err)
 		}
 	}
-	r.counter.mu.Lock()
-	events := r.counter.events
-	r.counter.mu.Unlock()
-	if r.pending == nil || r.pending.event != events {
-		r.pending = r.snapshot(events)
-	}
-	r.check(r.pending, r.attempts)
-	if r.armed.Load() && r.needsReadFault() {
-		r.check(r.forcedRead(events), r.attempts)
-	}
-	r.counter.mu.Lock()
-	r.mu.Lock()
-	r.result.SyncErrors, r.result.FullDisk = r.counter.syncErrors, r.counter.fullDisk
-	r.mu.Unlock()
-	r.counter.mu.Unlock()
+	r.finish()
 	if r.err != nil {
 		return r.result, errors.Wrap(r.err, "crash: harness")
 	}
@@ -187,6 +173,27 @@ func (r *run) work(engine Engine) {
 	if b := checkLive(r.attempts, records); b != nil {
 		r.fail(b, 0, nil)
 	}
+}
+
+// finish checks the image of the last state of the workload, with one forced read fault
+// when the profile has read faults and no recovery got one, and counts the faults of
+// the workload.
+func (r *run) finish() {
+	r.counter.mu.Lock()
+	events := r.counter.events
+	r.counter.mu.Unlock()
+	if r.pending == nil || r.pending.event != events {
+		r.pending = r.snapshot(events)
+	}
+	r.check(r.pending, r.attempts)
+	if r.armed.Load() && r.needsReadFault() {
+		r.check(r.forcedRead(events), r.attempts)
+	}
+	r.counter.mu.Lock()
+	defer r.counter.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.result.SyncErrors, r.result.FullDisk = r.counter.syncErrors, r.counter.fullDisk
 }
 
 // fill fills the disk of the workload when the plan fills it after commit id.
