@@ -78,13 +78,12 @@ export const createTestClientWithHeldGrants = async (
   client: Client,
   grants: Grants = {},
 ): Promise<HeldGrants> => {
-  let created = false;
-  const hold = createRequestHold(
-    (target) => created && target.endsWith("/access/policy/retrieve"),
+  const hold = createRequestHold((target) =>
+    target.endsWith("/access/policy/retrieve"),
   );
   const held = await createTestClientWithGrants(client, grants, {
     middleware: [hold.middleware],
   });
-  created = true;
+  hold.engage();
   return { client: held, release: hold.release };
 };
