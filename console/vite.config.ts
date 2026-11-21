@@ -249,6 +249,10 @@ export default defineConfig({
         ["d1", ["src/zzdiag/setup/css.ts"]],
         ["d2", ["src/zzdiag/setup/noTrace.ts"]],
         ["d3", ["src/zzdiag/setup/noCss.ts"]],
+        ["d4", ["src/zzdiag/setup/lyra.ts"]],
+        ["d5", ["src/zzdiag/setup/styletest.ts"]],
+        ["d6", ["src/zzdiag/setup/rtl.ts"]],
+        ["d7", ["src/testutil/browser.ts"]],
       ].map(([n, files]) =>
         browserProject({
           name: n as string,
