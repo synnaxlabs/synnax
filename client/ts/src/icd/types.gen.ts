@@ -309,13 +309,13 @@ export const TEXT_FIELD_SCHEMAS: {
   tagged: taggedTextFieldZ,
 };
 
-/** ReadMessage reads the documents of one ICD message. */
+/** ReadMessage reads one message of an ICD. */
 export const readMessageZ = z.object({
   /** message is the key of the ICD message to read. */
   message: messageKeyZ,
   /**
    * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples on arrival.
+   * task stamps samples on arrival, or with the timestamp of the Kafka record.
    */
   index: fieldKeyZ.optional(),
   /** bindings are the fields the task reads. A field with no binding is not read. */
@@ -505,6 +505,11 @@ export const messageZ = z.object({
   name: z.string().min(1),
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
+  /**
+   * cycleTime is the send cycle that the protocol states for the message. When absent
+   * the protocol states none.
+   */
+  cycleTime: telem.timeSpanZ.optional(),
 });
 export interface Message extends z.infer<typeof messageZ> {}
 

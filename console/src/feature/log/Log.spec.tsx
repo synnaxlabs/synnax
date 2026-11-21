@@ -24,7 +24,7 @@ const stateZ = z.looseObject({});
 // The real worker needs a canvas. The log renders its empty content without one.
 class WorkerStub extends aether.Leaf<typeof stateZ> {
   static readonly TYPE = "log";
-  schema = stateZ;
+  override schema = stateZ;
 }
 
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };

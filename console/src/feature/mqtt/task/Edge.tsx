@@ -23,7 +23,7 @@ import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
+import { SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
   fromSparkplugDataType,
@@ -34,7 +34,6 @@ import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
   deployEdgeConfigZ,
   EDGE_SCHEMAS,
-  EDGE_TYPE,
   type EdgeSchemas,
   type EdgeTag,
 } from "@/feature/mqtt/task/types";
@@ -42,7 +41,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Empty } from "@/platform/empty";
-import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<EdgeSchemas>>();
@@ -232,15 +230,6 @@ const Form = PlatformDevice.wrapTaskForm({
   Content,
 });
 
-const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
-  deviceKey,
-  config,
-}) => {
-  const cfg = EDGE_SCHEMAS.config.parse(config ?? {});
-  if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Sparkplug edge node", type: EDGE_TYPE, config: cfg };
-};
-
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   const before = deep.copy(dev.properties);
@@ -278,15 +267,3 @@ export const Edge = Task.wrapForm({
   type: "mqtt_sparkplug_edge",
   onConfigure,
 });
-
-export const useCreateEdge = Task.createUseCreate({
-  getInitialValues,
-  deviceMake: MAKE,
-});
-
-export const EdgeSelectable: Selector.Selectable = {
-  type: EDGE_TYPE,
-  title: "Sparkplug edge node",
-  icon: <Icon.Logo.MQTT />,
-  useOnSelect: useCreateEdge,
-};

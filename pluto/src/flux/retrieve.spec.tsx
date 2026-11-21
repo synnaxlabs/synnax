@@ -17,7 +17,7 @@ import {
 import {
   createSeverableProxy,
   createTestClient,
-  TEST_CLIENT_PARAMS,
+  testClientParams,
 } from "@synnaxlabs/client/testutil";
 import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -66,7 +66,7 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
     ...status.REGISTRY,
   });
   const connParams = {
-    ...TEST_CLIENT_PARAMS,
+    ...testClientParams(),
     // The proxy listens on this machine, even when the Core runs on another.
     host: "localhost",
     port,
@@ -837,7 +837,7 @@ describe("use", () => {
     };
 
     it("resolves once a retry reaches the Core", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderUnreachable("retry-reached", 2);
         expect(utils.queryByText("waiting")).toBeTruthy();
@@ -854,7 +854,7 @@ describe("use", () => {
     });
 
     it("settles the failure once the attempts run out", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderUnreachable("retry-exhausted", 10);
 
@@ -961,7 +961,7 @@ describe("use", () => {
     });
 
     it("rejects with the not-found error after the wait expires, without refetching", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         const { utils, retrieve } = await renderNotFound("nf-timeout");
         expect(utils.queryByText("waiting")).toBeTruthy();
@@ -1013,7 +1013,7 @@ describe("use", () => {
         );
       };
       let utils!: ReturnType<typeof render>;
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
         await act(async () => {
           utils = render(
@@ -1048,7 +1048,7 @@ describe("use", () => {
     });
 
     it("stays on the settled not-found when the boundary resets without invalidating", async () => {
-      vi.useFakeTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       let utils!: ReturnType<typeof render>;
       let retrieve!: ReturnType<typeof vi.fn>;
       try {

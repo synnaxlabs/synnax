@@ -9,7 +9,7 @@
 
 import { and, desc, eq, inArray, lt, type SQL } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import type { Store } from "@/server/db/db";
 import {
   activation,
   type Event,

@@ -89,8 +89,8 @@ type browsedTopic struct {
 	Fields []browsedField `json:"fields"`
 	// Index is the pointer of the field in Fields that indexes the messages heard.
 	// Absent when no field can.
-	Index    *string `json:"index,omitzero"`
-	Retained bool    `json:"retained"`
+	Index    string `json:"index,omitempty"`
+	Retained bool   `json:"retained"`
 }
 
 type browseResult struct {

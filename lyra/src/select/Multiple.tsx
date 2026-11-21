@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type record, strings } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
-import { type List } from "@/list";
+import type { List } from "@/list";
 import { Body, type BodyProps } from "@/select/Body";
 import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";

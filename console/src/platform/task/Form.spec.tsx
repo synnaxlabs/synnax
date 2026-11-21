@@ -13,11 +13,11 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { type Status } from "@synnaxlabs/lyra/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { type FC } from "react";
+import type { FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ import { Task } from "@/platform/task";
 import {
   awaitCommand,
   clickDeploy,
+  clickRedeploy,
   commitFieldInput,
   createTaskStatus,
   renderTaskFormTab,
@@ -54,6 +55,9 @@ const DeviceProbe: FC = () => (
   <div>{`device:${PForm.useFieldValue(path.config.device)}`}</div>
 );
 DeviceProbe.displayName = "DeviceProbe";
+
+const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
+DeviceField.displayName = "DeviceField";
 
 interface MakeRendererParams {
   showControls?: boolean;
@@ -98,13 +102,21 @@ const findNameInput = (): HTMLInputElement => {
   return input;
 };
 
+// Unique keys, since the Core keeps the devices of an earlier run.
+const DEVICES = {
+  dev: uniqueName("dev"),
+  valid: uniqueName("valid"),
+  filled: uniqueName("filled"),
+  remote: uniqueName("remote"),
+};
+
 describe("wrapForm", () => {
   // The Core refuses a config that names a device it does not hold.
   beforeAll(async () => {
     const client = createTestClient();
     const rack = await client.racks.create({ name: uniqueName("rack") });
     await client.devices.create(
-      ["dev", "valid", "filled", "remote"].map((key) => ({
+      Object.values(DEVICES).map((key) => ({
         key,
         name: key,
         rack: rack.key,
@@ -221,7 +233,7 @@ describe("wrapForm", () => {
       const { status, onChange } = PForm.useField(path.config.device);
       return (
         <button
-          onClick={() => onChange("dev")}
+          onClick={() => onChange(DEVICES.dev)}
         >{`device-status:${status.message}`}</button>
       );
     };
@@ -291,8 +303,6 @@ describe("wrapForm", () => {
     });
 
     it("should leave an error to the field that shows it", async () => {
-      const DeviceField: FC = () => <PForm.Field path={path.config.device} />;
-      DeviceField.displayName = "DeviceField";
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const statuses: Status.NotificationSpec[] = [];
@@ -330,7 +340,7 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({
         ...INITIAL_VALUES,
-        config: { device: "dev", channels: [{ key: "ch1", disabled: false }] },
+        config: { device: DEVICES.dev, channels: [{ key: "ch1", disabled: false }] },
         rack: 0,
       });
       const Renderer = createRenderer({
@@ -489,7 +499,9 @@ describe("wrapForm", () => {
         return (
           <>
             <button onClick={() => set<unknown>(path.config.device, 5)}>invalid</button>
-            <button onClick={() => set(path.config.device, "valid")}>valid</button>
+            <button onClick={() => set(path.config.device, DEVICES.valid)}>
+              valid
+            </button>
           </>
         );
       };
@@ -513,7 +525,7 @@ describe("wrapForm", () => {
       await act(async () => fireEvent.click(screen.getByText("valid")));
       await clickDeploy(container);
       await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
-      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
+      expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: DEVICES.valid });
     });
 
     it("should keep a deploy error after an edit to another field", async () => {
@@ -691,7 +703,10 @@ describe("wrapForm", () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const Renderer = createRenderer({
-        onConfigure: async (_client, config) => [{ ...config, device: "filled" }, 0],
+        onConfigure: async (_client, config) => [
+          { ...config, device: DEVICES.filled },
+          0,
+        ],
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       try {
@@ -702,7 +717,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "filled" });
+        expect(updated.config).toMatchObject({ device: DEVICES.filled });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
@@ -720,10 +735,10 @@ describe("wrapForm", () => {
           expect(
             await other.tasks.dispatch(
               draft.key,
-              task.set({ path: ["config", "device"], value: "remote" }),
+              task.set({ path: ["config", "device"], value: DEVICES.remote }),
             ),
           ).toBe(true);
-          await screen.findByText("device:remote");
+          await screen.findByText(`device:${DEVICES.remote}`);
           return [config, 0];
         },
       });
@@ -736,7 +751,7 @@ describe("wrapForm", () => {
         await clickDeploy(container);
         const cmd = await awaitCommand(streamer, draft.key);
         const updated = await createTestClient().tasks.retrieve({ key: draft.key });
-        expect(updated.config).toMatchObject({ device: "remote" });
+        expect(updated.config).toMatchObject({ device: DEVICES.remote });
         expect(cmd.configHash).toBe(updated.configHash);
       } finally {
         streamer.close();
@@ -917,6 +932,90 @@ describe("wrapForm", () => {
       } finally {
         streamer.close();
       }
+    });
+  });
+
+  describe("deploy failure", () => {
+    const failing = createRenderer({
+      onConfigure: async () => {
+        throw new Error("The device has no port 7");
+      },
+    });
+
+    it("should show a failed start in the footer until the task status changes", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const { container } = await renderTaskFormTab(failing, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await screen.findByText("Failed to start task");
+      expect(screen.getByText("The device has no port 7")).toBeTruthy();
+      await reportTaskRunning(client, draft);
+      await screen.findByText("Running smoothly");
+      expect(screen.queryByText("Failed to start task")).toBeNull();
+    });
+
+    it("should say that a failed redeploy leaves the last deployed config running", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const statuses: Status.NotificationSpec[] = [];
+      await renderTaskFormTab(failing, {
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => {
+          statuses.length = 0;
+          statuses.push(...next);
+        },
+      });
+      await reportTaskRunning(client, draft, "stale");
+      await clickRedeploy();
+      await screen.findByText("Failed to deploy changes");
+      expect(
+        screen.getByText(
+          "The task still runs its last deployed config. The device has no port 7",
+        ),
+      ).toBeTruthy();
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          name: "New Test Task",
+          message: "Failed to deploy changes",
+          description: "The device has no port 7",
+        }),
+      );
+    });
+
+    it("should clear a failed deploy from the footer on the next deploy", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      let offline = false;
+      const Renderer = createRenderer({
+        Form: DeviceField,
+        deployConfigZ: schemas.config.check(({ value, issues }) => {
+          if (!offline) return;
+          issues.push({
+            code: "custom",
+            message: "Device is offline",
+            path: ["device"],
+            input: value,
+          });
+        }),
+        onConfigure: async () => {
+          throw new Error("The device has no port 7");
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await screen.findByText("Failed to start task");
+      offline = true;
+      await clickDeploy(container);
+      await screen.findByText("Device is offline");
+      await act(async () => {});
+      expect(screen.queryByText("Failed to start task")).toBeNull();
     });
   });
 });

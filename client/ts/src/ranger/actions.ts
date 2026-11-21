@@ -16,7 +16,7 @@ import {
   TimeStamp,
   zod,
 } from "@synnaxlabs/x";
-import { type Draft } from "immer";
+import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";

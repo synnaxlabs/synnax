@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license as client } from "@synnaxlabs/client";
+import type { license as client } from "@synnaxlabs/client";
 
-import { type Edition, type License } from "@/server/db/schema";
+import type { Edition, License } from "@/server/db/schema";
 
 export const CLAIMS_VERSION = 1;
 export const FINGERPRINT_SCHEME = 1;

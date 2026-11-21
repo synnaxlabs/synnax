@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type group } from "@/group";
+import type { group } from "@/group";
 import { project } from "@/project";
 
 const P2 = "22222222-2222-4222-8222-222222222222";

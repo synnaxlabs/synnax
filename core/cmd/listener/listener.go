@@ -169,22 +169,30 @@ func (cs Configs) Loopback() bool {
 	return true
 }
 
-// Resolve resolves each listener config into a server.Listener, backing every secure
-// listener with a TLS config from its certificate source. fc supplies the node-wide
-// filesystem and CA authority. It fails when the advertised listener serves a
-// certificate that does not cover the advertised host, or that chains to no Core trust
-// anchor when hasDriver is set. A Tailscale advertised listener is never probed, since
-// tailscaled guarantees the certificate covers its FQDN.
+// Listener is a resolved listener: the server.Listener that the Core binds, and the
+// source of the certificate that it presents.
+type Listener struct {
+	server.Listener
+	// Source is nil in insecure mode.
+	Source cert.Source
+}
+
+// Resolve resolves each listener config into a Listener, backing every secure listener
+// with a TLS config from its certificate source. fc supplies the node-wide filesystem
+// and CA authority. It fails when the advertised listener serves a certificate that
+// does not cover the advertised host, or that chains to no Core trust anchor when
+// hasDriver is set. A Tailscale advertised listener is never probed, since tailscaled
+// guarantees the certificate covers its FQDN.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
 	hasDriver bool,
-) ([]server.Listener, error) {
-	out := make([]server.Listener, len(cs))
+) ([]Listener, error) {
+	out := make([]Listener, len(cs))
 	if insecure {
 		for i, c := range cs {
-			out[i] = server.Listener{Address: c.Address, Loopback: c.Loopback}
+			out[i] = Listener{Address: c.Address, Loopback: c.Loopback}
 		}
 		return out, nil
 	}
@@ -221,10 +229,11 @@ func (cs Configs) Resolve(
 				}
 			}
 		}
-		out[i] = server.Listener{
+		out[i] = Listener{
 			Address:  c.Address,
 			TLS:      p.TLSConfigFor(src),
 			Loopback: c.Loopback,
+			Source:   src,
 		}
 	}
 	return out, nil

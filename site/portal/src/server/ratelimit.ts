@@ -9,7 +9,7 @@
 
 import { and, count, eq, gt, inArray } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import type { Store } from "@/server/db/db";
 import { event } from "@/server/db/schema";
 import { tooMany } from "@/server/errors";
 

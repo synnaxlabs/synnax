@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { framer } from "@/framer";
 import { UnsupportedError } from "@/index";
-import { createTestClient, secondsLinspace, TEST_CORE_ADDRESS } from "@/testutil";
+import { createTestClient, secondsLinspace, testCoreAddress } from "@/testutil";
 import { Transport } from "@/transport";
 
 const client = createTestClient();
@@ -21,7 +21,7 @@ const client = createTestClient();
 describe("Client", () => {
   describe("openFeed", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
-      const transport = new Transport({ url: new url.URL(TEST_CORE_ADDRESS) });
+      const transport = new Transport({ url: new url.URL(testCoreAddress()) });
       const retries: Error[] = [];
       const unreachable = new framer.Client({
         stream: transport.stream,

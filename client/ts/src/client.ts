@@ -12,6 +12,7 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  disposable,
   observe,
   sleep,
   TimeSpan,
@@ -221,6 +222,11 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
  * @property connection - The connection state machine.
  */
 export default class Synnax extends framer.Client {
+  declare [Symbol.asyncDispose]: () => Promise<void>;
+  static {
+    disposable.implementAsync(this);
+  }
+
   readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;

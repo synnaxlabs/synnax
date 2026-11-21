@@ -10,7 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:https";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,7 +30,7 @@ import {
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 import {
   DisconnectedError,
   InvalidCredentialsError,
@@ -400,6 +400,14 @@ describe("close", () => {
     await client.close();
     expect(performance.now() - start).toBeLessThan(5000);
   }, 10_000);
+
+  it("should close the client at the end of an await using block", async () => {
+    const client = createTestClient();
+    {
+      await using _ = client;
+    }
+    expect(client.connection.status.variant).toEqual("disabled");
+  });
 
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();

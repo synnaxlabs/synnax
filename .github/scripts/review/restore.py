@@ -35,7 +35,7 @@ def restore(t: Target, gh: GH, *, key: str, writer: GH) -> bool:
     run = newest(t, gh, t.head, key)
     if run is None or run["conclusion"] != "success":
         raise Unrestorable(
-            f"Sedosaur has no finished review of {t.head}. Comment `@sedosaur review` "
+            f"Sedosaur has no finished review of {t.head}. Dispatch Review - Sedosaur "
             "to get one."
         )
     block = next(iter(summaries(t, gh)), None)

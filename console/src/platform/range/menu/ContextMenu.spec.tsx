@@ -13,18 +13,26 @@ import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
+import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
+import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
-import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
+import {
+  createPlannedTestRange,
+  createTestRange,
+  createTestRangeName,
+} from "@/platform/range/testutil";
 import {
   createConsoleWrapper,
   createTestClientWithGrants,
   openSubmenu,
   renderSuspended,
+  resolveFocusedTab,
+  selectTestProject,
+  type TestStore,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -33,8 +41,8 @@ const client = createTestClient();
 const renderMenu = async (
   ranges: ranger.Range[],
   { as = client, analytics }: { as?: Client; analytics?: Analytics.Sink } = {},
-): Promise<void> => {
-  const { wrapper: base } = await createConsoleWrapper({ client: as });
+): Promise<TestStore> => {
+  const { wrapper: base, store } = await createConsoleWrapper({ client: as });
   const wrapper = analytics == null ? base : wrapWithSink(base, analytics);
   await renderSuspended(
     <>
@@ -44,6 +52,7 @@ const renderMenu = async (
     { wrapper },
   );
   await screen.findByRole("menuitem", { name: "Labels" });
+  return store;
 };
 
 const searchIn = (dialog: HTMLElement, placeholder: string, term: string): void => {
@@ -68,7 +77,7 @@ const createSiblings = async (): Promise<{
   const ranges = await Promise.all(
     [0, 30].map(
       async (offset) =>
-        await client.ranges.create({
+        await createTestRange(client, {
           name: uniqueName("moved"),
           timeRange: new TimeRange(
             start.add(TimeSpan.seconds(offset)),
@@ -98,7 +107,7 @@ describe("Range.ContextMenu", () => {
 
   describe("labels", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
-      const lbl = await client.labels.create({
+      const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
         color: "#000000",
       });
@@ -126,7 +135,7 @@ describe("Range.ContextMenu", () => {
       const rng = await createTestRange(client, { name: uniqueName("create") });
       await renderMenu([rng]);
       const labels = await openSubmenu("Labels");
-      const name = uniqueName("created");
+      const name = createTestLabelName(client, "created");
       searchIn(labels, "Search labels...", name);
       fireEvent.click(await within(labels).findByText(`Create label "${name}"`));
       expect(screen.queryByRole("menu")).toBeNull();
@@ -150,7 +159,7 @@ describe("Range.ContextMenu", () => {
       ];
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Labels")).getByText("New label"));
-      const name = uniqueName("created");
+      const name = createTestLabelName(client, "created");
       fireEvent.change(await screen.findByPlaceholderText("Label name"), {
         target: { value: name },
       });
@@ -215,8 +224,7 @@ describe("Range.ContextMenu", () => {
     });
 
     it("should list the other ranges when the nested ranges fill a page", async () => {
-      // The ranges start after every other range, so they lead the newest-first list,
-      // and the spec deletes them.
+      // Far in the future, so the nested ranges sort above `other` and fill a page.
       const start = TimeStamp.now().add(TimeSpan.days(36500));
       const at = (offset: number) => {
         const from = start.add(TimeSpan.microseconds(offset));
@@ -230,20 +238,12 @@ describe("Range.ContextMenu", () => {
         name: uniqueName("self"),
         ...at(0),
       });
-      const nested = await client.ranges.create(
+      await client.ranges.create(
         Array.from({ length: 60 }, (_, i) => ({
           name: uniqueName("nested"),
           parent: self.key,
           ...at(i + 1),
         })),
-      );
-      onTestFinished(
-        async () =>
-          await client.ranges.delete([
-            other.key,
-            self.key,
-            ...nested.map((r) => r.key),
-          ]),
       );
       await renderMenu([self]);
       const parent = await openSubmenu("Parent");
@@ -317,7 +317,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -332,13 +332,10 @@ describe("Range.ContextMenu", () => {
       const {
         ranges: [started],
       } = await createSiblings();
-      const planned = await client.ranges.create({
-        name: uniqueName("planned"),
-        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
-      });
+      const planned = await createPlannedTestRange(client, uniqueName("planned"));
       await renderMenu([started, planned]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -352,7 +349,7 @@ describe("Range.ContextMenu", () => {
       const loose = await createTestRange(client, { name: uniqueName("loose") });
       await renderMenu([nested, loose]);
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       const created = await findCreated(name);
@@ -368,7 +365,7 @@ describe("Range.ContextMenu", () => {
         analytics,
       });
       const parent = await openSubmenu("Parent");
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       searchIn(parent, "Search ranges...", name);
       fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
       await waitFor(() =>
@@ -389,7 +386,7 @@ describe("Range.ContextMenu", () => {
       const { top, ranges } = await createSiblings();
       await renderMenu(ranges);
       fireEvent.click(within(await openSubmenu("Parent")).getByText("New range"));
-      const name = uniqueName("group");
+      const name = createTestRangeName(client, "group");
       fireEvent.change(await screen.findByPlaceholderText("Range name"), {
         target: { value: name },
       });
@@ -438,6 +435,33 @@ describe("Range.ContextMenu", () => {
           const { color: stored } = await client.ranges.retrieve(r.key);
           expect(stored == null ? null : color.hex(stored)).toBe(hex);
         }
+      });
+    });
+  });
+
+  describe("compare", () => {
+    it("should not offer Compare for one range", async () => {
+      await renderMenu([await createTestRange(client)]);
+      await screen.findByRole("menuitem", { name: "Plot" });
+      expect(screen.queryByRole("menuitem", { name: "Compare" })).toBeNull();
+    });
+
+    it("should open a relative plot of the ranges on Compare", async () => {
+      const a = await createTestRange(client, { name: uniqueName("compared") });
+      const b = await createTestRange(client, { name: uniqueName("compared") });
+      const store = await renderMenu([a, b]);
+      await selectTestProject(store, client);
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Compare" }));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      await waitFor(async () => {
+        const plot = await client.lineplots.retrieve(tab.resource.key);
+        expect(plot.name).toEqual(`Compare ${a.name} and ${b.name}`);
+        expect(plot.axes.x1.timeMode).toEqual("relative");
+        expect(plot.ranges).toEqual([
+          expect.objectContaining({ variant: "key", key: a.key }),
+          expect.objectContaining({ variant: "key", key: b.key }),
+        ]);
       });
     });
   });

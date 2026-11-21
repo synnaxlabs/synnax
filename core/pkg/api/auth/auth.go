@@ -200,11 +200,14 @@ type ChangePasswordRequest struct {
 
 // PrepareChangePassword checks the credentials of req and hashes its new password. It
 // returns [auth.ErrInvalidCredentials] when the credentials match no password, and a
-// validation error when the new password is empty.
+// validation error when the password method is off or the new password is empty.
 func (s *Service) PrepareChangePassword(
 	ctx context.Context,
 	req ChangePasswordRequest,
 ) (password.Hash, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return password.Hash{}, err
+	}
 	return s.password.HashProven(
 		ctx,
 		auth.PasswordProof{Credentials: req.Credentials},
@@ -231,4 +234,15 @@ func (s *Service) ChangePassword(
 
 func proofOf(creds Credentials) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{Credentials: creds}}
+}
+
+// MethodsResponse lists the login methods the Core accepts.
+type MethodsResponse struct {
+	// Methods are the accepted login methods, sorted.
+	Methods []auth.Method `json:"methods" msgpack:"methods"`
+}
+
+// Methods returns the login methods the Core accepts. It needs no session.
+func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
+	return MethodsResponse{Methods: s.auth.Methods()}, nil
 }

@@ -24,9 +24,9 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
 import {
   choose,
@@ -40,12 +40,12 @@ import {
   tileRange,
   tileSpan,
 } from "@/framer/cache/grid";
-import { type Joins } from "@/framer/cache/join";
-import { type Joiner } from "@/framer/cache/joiner";
+import type { Joins } from "@/framer/cache/join";
+import type { Joiner } from "@/framer/cache/joiner";
 import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
 import { calculated, type Floor, type Store } from "@/framer/cache/store";
-import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
+import type { Demand, MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
   tileKey,
@@ -53,9 +53,9 @@ import {
   tileRequestKey,
   type TileSpec,
 } from "@/framer/cache/tile";
-import { type Frame } from "@/framer/frame";
+import type { Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
-import { type PointsLimit, type Snapshot } from "@/framer/subscription";
+import type { PointsLimit, Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
 
 export interface PointsProps {

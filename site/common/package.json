@@ -5,7 +5,11 @@
   "exports": {
     "./Analytics.astro": "./src/Analytics.astro",
     "./analytics": "./src/analytics.ts",
+    "./cdn": "./src/cdn.ts",
+    "./CdnPicture.astro": "./src/CdnPicture.astro",
     "./consent": "./src/consent.ts",
+    "./contact": "./src/contact.ts",
+    "./csp": "./src/csp.ts",
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./Head.astro": "./src/Head.astro",
@@ -18,7 +22,8 @@
     "./shiki": "./src/shiki.ts",
     "./sitemap": "./src/sitemap.ts",
     "./integrations/*": "./src/integrations/*",
-    "./routes/consent": "./src/routes/consent.ts"
+    "./routes/consent": "./src/routes/consent.ts",
+    "./testutil/image": "./src/testutil/image.ts"
   },
   "scripts": {
     "check-types": "astro check",
@@ -33,6 +38,7 @@
     "@astrojs/react": "catalog:",
     "@synnaxlabs/arc": "catalog:",
     "@synnaxlabs/lyra": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "astro": "catalog:",
     "astro-seo": "catalog:",
     "shiki": "catalog:"
@@ -51,6 +57,7 @@
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "typescript": "catalog:ts6",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

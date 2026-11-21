@@ -238,11 +238,13 @@ var (
 	}), "|")
 	aliasRef = regexp.MustCompile(`\b(` + names + `)\b`)
 	// aliasDecl matches the whole declaration of an alias in Go, TypeScript, Python,
-	// and C++, including the lines a generic declaration spans.
+	// and C++, including the lines a generic declaration spans and the Python TypeVars
+	// that a generic alias declares.
 	aliasDecl = regexp.MustCompile(`(?m)^\s*(` + strings.Join([]string{
 		`type (` + names + `)(\[[^\]]*\])? = .*$`,
 		`export (const|type) (` + names + `|` + schemas + `)\b[^;]*;`,
 		`(` + names + `): TypeAlias = .*$`,
+		`\w+ = TypeVar\(.*$`,
 		`(template <[^>]*>\s*)?using (` + names + `) = [^;]*;`,
 	}, "|") + `)`)
 	// qualifiedName matches a reference to a base or test type through its package.
@@ -302,7 +304,10 @@ func normalizeLines(path, content string) []string {
 		}
 		if from, imported, ok := strings.Cut(line, " import "); ok &&
 			strings.HasPrefix(from, "from ") {
-			names := strings.Split(imported, ", ")
+			names := slices.DeleteFunc(
+				strings.Split(imported, ", "),
+				func(name string) bool { return name == "TypeVar" },
+			)
 			slices.Sort(names)
 			line = from + " import " + strings.Join(names, ", ")
 		}

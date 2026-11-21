@@ -108,14 +108,15 @@ var _ = Describe("Service", func() {
 
 	Describe("Normalize", func() {
 		DescribeTable(
-			"Should import a config at versions 1 and 2 and reject a later version",
+			"Should import a config at versions 1 to 3 and reject a later version",
 			func(ctx SpecContext, store func(*mqtt.Service) config.Store) {
 				s := store(svc)
-				Expect(s.Version()).To(BeEquivalentTo(2))
+				Expect(s.Version()).To(BeEquivalentTo(3))
 				MustSucceed(s.Normalize(ctx, db, 1, msgpack.EncodedJSON{}))
 				MustSucceed(s.Normalize(ctx, db, 2, msgpack.EncodedJSON{}))
-				newer := " version 3 is newer than this Core supports (latest: 2)"
-				Expect(s.Normalize(ctx, db, 3, msgpack.EncodedJSON{})).Error().
+				MustSucceed(s.Normalize(ctx, db, 3, msgpack.EncodedJSON{}))
+				newer := " version 4 is newer than this Core supports (latest: 3)"
+				Expect(s.Normalize(ctx, db, 4, msgpack.EncodedJSON{})).Error().
 					To(MatchError(ContainSubstring(s.Type() + newer)))
 			},
 			Entry("read", func(s *mqtt.Service) config.Store { return s.Read }),
@@ -123,6 +124,69 @@ var _ = Describe("Service", func() {
 			Entry("scan", func(s *mqtt.Service) config.Store { return s.Scan }),
 			Entry("edge", func(s *mqtt.Service) config.Store { return s.Edge }),
 		)
+
+		It("Should import a v2 read config as the same config at v3", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.CreateDevice(ctx, "broker-1")).To(Succeed())
+			m := jsonMessage(
+				"Status", nil, jsonField("temp", "/temp", icd.FloatJSONField{}),
+			)
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icds.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			plain := icdEntry("plant/status", ic, readMessage(m, map[string]any{
+				"field": fieldKey(m, 0), "data_type": "float32",
+			}))
+			plain["qos"] = "exactly_once"
+			plain["retained_ignored"] = true
+			cfg := msgpack.EncodedJSON{"device": "broker-1", "entries": []any{
+				plain,
+				map[string]any{
+					"key":       "tag",
+					"type":      "sparkplug",
+					"disabled":  true,
+					"group":     "plant",
+					"edge_node": "line1",
+					"tag":       "temp",
+					"data_type": "int32",
+				},
+			}}
+			v3 := MustSucceed(svc.Read.Normalize(ctx, db, 3, cfg))
+			Expect(v3["entries"]).To(HaveLen(2))
+			Expect(svc.Read.Normalize(ctx, db, 2, cfg)).To(Equal(v3))
+		})
+
+		It("Should import a v2 write config as the same config at v3", func(
+			ctx SpecContext,
+		) {
+			Expect(tasks.CreateDevice(ctx, "broker-1")).To(Succeed())
+			cfg := msgpack.EncodedJSON{
+				"device": "broker-1",
+				"targets": []any{map[string]any{
+					"key":      "target-1",
+					"type":     "plain",
+					"topic":    "plant/valve",
+					"qos":      "exactly_once",
+					"retained": true,
+					"channel": map[string]any{
+						"pointer":   "/open",
+						"json_type": "boolean",
+					},
+					"fields": []any{map[string]any{
+						"key":       "unit",
+						"type":      "static",
+						"pointer":   "/unit",
+						"json_type": "string",
+						"value":     "psi",
+					}},
+				}},
+			}
+			v3 := MustSucceed(svc.Write.Normalize(ctx, db, 3, cfg))
+			Expect(v3["targets"]).To(HaveLen(1))
+			Expect(svc.Write.Normalize(ctx, db, 2, cfg)).To(Equal(v3))
+		})
 	})
 
 	Describe("Write", func() {

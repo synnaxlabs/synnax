@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { secret, type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
@@ -21,14 +21,20 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
+import {
+  createFileRack,
+  createListing,
+  serveListings,
+} from "@/platform/file-browser/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { findOption } from "@/platform/picker/testutil";
 import { Secret } from "@/platform/secret";
-import { createSecret } from "@/platform/secret/testutil";
+import { createFileSecret, createSecret } from "@/platform/secret/testutil";
 import { Validity } from "@/platform/secret/validity";
 import {
   awaitGranted,
@@ -38,6 +44,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const SECRETS_DIR = "/etc/synnax/secrets";
 
 const created: secret.Key[] = [];
 
@@ -53,15 +61,19 @@ const path = deep.path<z.infer<typeof schema>>();
 interface FixtureProps {
   value: string;
   defaultName: string;
+  rack: rack.Key;
   onChange: (key: string) => void;
   mode?: Form.Mode;
+  allowNone?: boolean;
 }
 
 const Fixture = ({
   value,
   defaultName,
+  rack,
   onChange,
   mode,
+  allowNone,
 }: FixtureProps): ReactElement => {
   const form = Form.use({
     schema,
@@ -71,7 +83,12 @@ const Fixture = ({
   });
   return (
     <Form.Form<typeof schema> {...form}>
-      <Secret.Field path={path.secret} defaultName={defaultName} />
+      <Secret.Field
+        path={path.secret}
+        defaultName={defaultName}
+        rack={rack}
+        allowNone={allowNone}
+      />
     </Form.Form>
   );
 };
@@ -80,41 +97,43 @@ Fixture.displayName = "Fixture";
 interface RenderedField {
   defaultName: string;
   onChange: Mock<(key: string) => void>;
+  /** Renders the field again with another rack, as when the device's rack changes. */
+  setRack: (rack: rack.Key) => void;
+}
+
+interface RenderOptions {
+  as?: Client;
+  mode?: Form.Mode;
+  rack?: rack.Key;
+  allowNone?: boolean;
 }
 
 const renderField = async (
   value: string = "",
-  as: Client = client,
-  mode?: Form.Mode,
+  { as = client, mode, rack = 0, allowNone }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+  const content = (fieldRack: rack.Key): ReactElement => (
     <>
       <Fixture
         value={value}
         defaultName={defaultName}
+        rack={fieldRack}
         onChange={onChange}
         mode={mode}
+        allowNone={allowNone}
       />
       <Modals.Stack />
-    </>,
-    { wrapper },
+    </>
   );
-  return { defaultName, onChange };
+  const { rerender } = render(content(rack), { wrapper });
+  return { defaultName, onChange, setRack: (next) => rerender(content(next)) };
 };
 
 const open = async (shown: string): Promise<void> => {
   fireEvent.click(await findDialogTriggerByText(shown));
-};
-
-// The list pages, so a search finds a secret however many the Core holds.
-const findOption = async (s: secret.Secret): Promise<HTMLElement> => {
-  fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
-    target: { value: s.name },
-  });
-  return await screen.findByRole("option", { name: new RegExp(s.name) });
 };
 
 const openCreate = async (shown: string): Promise<void> => {
@@ -127,12 +146,12 @@ describe("Secret.Field", () => {
     const s = await createSecret(client, created);
     await renderField();
     await open("Select a secret");
-    const option = await findOption(s);
+    const option = await findOption("secret", s.name);
     within(option).getByText(Validity.describeSecret(s));
   });
 
   it("shows no prompt to pick a secret in preview", async () => {
-    await renderField("", client, "preview");
+    await renderField("", { mode: "preview" });
     await screen.findByText("None");
     expect(screen.queryByText("Select a secret")).toBeNull();
   });
@@ -153,19 +172,80 @@ describe("Secret.Field", () => {
 
   it("shows that the secret is unavailable to a user who cannot retrieve it", async () => {
     const s = await createSecret(client, created);
-    await renderField(s.key, await createTestClientWithGrants(client));
+    await renderField(s.key, { as: await createTestClientWithGrants(client) });
     await findDialogTriggerByText("Unavailable secret");
     expect(screen.queryByText(s.name)).toBeNull();
   });
 
-  it("sets the value to the key of the picked secret", async () => {
+  it("sets the value to the key of the picked secret and shows only its name", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField();
     await open("Select a secret");
-    fireEvent.click(await findOption(s));
+    fireEvent.click(await findOption("secret", s.name));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
-    within(trigger).getByText(Validity.describeSecret(s));
+    expect(trigger.textContent).toBe(s.name);
+  });
+
+  it("shows No secret for no secret when it allows none", async () => {
+    await renderField("", { allowNone: true });
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+    expect(screen.queryByText("Select a secret")).toBeNull();
+    expect(screen.queryByLabelText("Clear selection")).toBeNull();
+  });
+
+  it("clears the picked secret from its trigger when it allows none", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField("", { allowNone: true });
+    await open("No secret");
+    fireEvent.click(await findOption("secret", s.name));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
+    fireEvent.click(await screen.findByLabelText(`Clear ${s.name}`));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("clears the secret with the No secret option during a search", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField(s.key, { allowNone: true });
+    await open(s.name);
+    await findOption("secret", s.name);
+    fireEvent.click(screen.getByRole("option", { name: "No secret" }));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    expect(await findDialogTriggerByText("No secret")).toBeTruthy();
+  });
+
+  it("marks No secret under the create option while it holds no secret", async () => {
+    await renderField("", { allowNone: true });
+    await open("No secret");
+    const create = await screen.findByRole("option", { name: "New secret" });
+    const none = screen.getByRole("option", { name: "No secret" });
+    expect(none.getAttribute("aria-selected")).toBe("true");
+    expect(
+      create.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers no No secret option when it does not allow none", async () => {
+    await renderField();
+    await open("Select a secret");
+    await screen.findByRole("option", { name: "New secret" });
+    expect(screen.queryByRole("option", { name: "No secret" })).toBeNull();
+  });
+
+  it("clears the secret on Delete when it allows none", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField(s.key, { allowNone: true });
+    fireEvent.keyDown(await findDialogTriggerByText(s.name), { key: "Delete" });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+  });
+
+  it("offers no clear when it does not allow none", async () => {
+    const s = await createSecret(client, created);
+    await renderField(s.key);
+    fireEvent.keyDown(await findDialogTriggerByText(s.name), { key: "Delete" });
+    expect(screen.queryByLabelText(`Clear ${s.name}`)).toBeNull();
+    expect(await findDialogTriggerByText(s.name)).toBeTruthy();
   });
 
   it("opens the create dialog with the default name and focuses the value", async () => {
@@ -178,15 +258,49 @@ describe("Secret.Field", () => {
     );
   });
 
+  it("marks the value as required and requires it before it saves", async () => {
+    const { onChange } = await renderField();
+    await openCreate("Select a secret");
+    await screen.findByLabelText("Value *");
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("Value is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("opens the create dialog named after the search", async () => {
+    await renderField();
+    await open("Select a secret");
+    const name = uniqueName("searched");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: name },
+    });
+    fireEvent.click(
+      await screen.findByRole("option", { name: `Create secret "${name}"` }),
+    );
+    expect(await screen.findByLabelText("Secret name")).toHaveProperty("value", name);
+  });
+
+  it("hides the create option for a secret name in another case", async () => {
+    const s = await createSecret(client, created);
+    await renderField();
+    await open("Select a secret");
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: `${s.name}x` },
+    });
+    await screen.findByRole("option", { name: `Create secret "${s.name}x"` });
+    await findOption("secret", s.name, s.name.toUpperCase());
+    expect(screen.queryByRole("option", { name: /^Create secret/ })).toBeNull();
+  });
+
   it("offers no new secret to a user who cannot create secrets", async () => {
     const s = await createSecret(client, created);
     const reader = await createTestClientWithGrants(client, {
       retrieve: [secret.TYPE_RESOURCE_ID],
     });
     await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
-    await renderField("", reader);
+    await renderField("", { as: reader });
     await open("Select a secret");
-    await findOption(s);
+    await findOption("secret", s.name);
     expect(screen.queryByText("New secret")).toBeNull();
   });
 
@@ -234,5 +348,101 @@ describe("Secret.Field", () => {
     await act(async () => {});
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(s.name);
+  });
+
+  it("shows a held file secret of another rack as an error under the field", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const s = await createFileSecret(client, created, own.key);
+    const { setRack } = await renderField(s.key, { rack: own.key });
+    const trigger = await findDialogTriggerByText(s.name);
+    expect(screen.queryByText("File on another Driver")).toBeNull();
+    setRack(other.key);
+    const shown = await screen.findByText("File on another Driver");
+    expect(shown.classList).toContain("lyra--status-error");
+    expect(trigger.contains(shown)).toBe(false);
+  });
+
+  it("offers no file to a field with no rack", async () => {
+    await renderField();
+    await openCreate("Select a secret");
+    await screen.findByLabelText("Secret name");
+    expect(screen.queryByText("File on Driver")).toBeNull();
+  });
+
+  it("creates a file secret from the secrets folder of the rack", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [
+          { name: "certs", path: `${SECRETS_DIR}/certs`, kind: "directory" },
+          {
+            name: "opcua-password",
+            path: `${SECRETS_DIR}/opcua-password`,
+            kind: "file",
+          },
+        ],
+      }),
+    ]);
+    const { defaultName, onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate("Select a secret");
+    fireEvent.click(await screen.findByText("File on Driver"));
+    await open("Select a file");
+    fireEvent.click(await screen.findByRole("option", { name: "opcua-password" }));
+    expect(screen.queryByRole("option", { name: "certs" })).toBeNull();
+    fireEvent.click(findButton("Create"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
+    expect(await client.secrets.retrieve(key)).toEqual(
+      expect.objectContaining({
+        name: defaultName,
+        source: "file",
+        fileName: "opcua-password",
+      }),
+    );
+  });
+
+  it("marks the file as required and requires it for a file secret", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    const { onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate("Select a secret");
+    fireEvent.click(await screen.findByText("File on Driver"));
+    expect((await screen.findByText("File")).textContent).toBe("File *");
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("File is required");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it("lists stored secrets and the file secrets of its rack, not of another", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const prefix = uniqueName("rack secret");
+    const onRack = await createFileSecret(client, created, own.key, `${prefix} own`);
+    const offRack = await createFileSecret(
+      client,
+      created,
+      other.key,
+      `${prefix} other`,
+    );
+    const stored = await createSecret(client, created);
+    await renderField("", { rack: own.key });
+    await open("Select a secret");
+    await findOption("secret", stored.name);
+    fireEvent.change(screen.getByPlaceholderText("Search secrets..."), {
+      target: { value: prefix },
+    });
+    await screen.findByRole("option", { name: new RegExp(onRack.name) });
+    expect(screen.queryByRole("option", { name: new RegExp(offRack.name) })).toBeNull();
   });
 });

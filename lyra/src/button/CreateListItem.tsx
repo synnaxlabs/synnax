@@ -9,7 +9,7 @@
 
 import "@/button/CreateListItem.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
 import { CSS } from "@/css";

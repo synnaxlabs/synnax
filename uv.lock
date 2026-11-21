@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13, <4"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -46,7 +46,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-dev = [
+uptrace = [
     { name = "uptrace" },
 ]
 
@@ -64,9 +64,9 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = ">=1.45.2,<2" },
     { name = "opentelemetry-sdk", specifier = ">=1.45.2,<2" },
     { name = "pydantic", specifier = ">=2.14.4,<3" },
-    { name = "uptrace", marker = "extra == 'dev'", specifier = ">=1.45.0,<2" },
+    { name = "uptrace", marker = "extra == 'uptrace'", specifier = ">=1.45.0,<2" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["uptrace"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2787,9 +2787,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-timeout" },
-    { name = "python-dateutil" },
     { name = "ruff" },
-    { name = "types-python-dateutil" },
 ]
 
 [package.metadata]
@@ -2807,9 +2805,7 @@ dev = [
     { name = "pytest", specifier = ">=9.2.0,<10" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "pytest-timeout", specifier = ">=2.4.0,<3" },
-    { name = "python-dateutil", specifier = ">=4.0.0,<5" },
     { name = "ruff", specifier = ">=0.17.6,<1" },
-    { name = "types-python-dateutil", specifier = ">=2.9.0.20261116,<3" },
 ]
 
 [[package]]
@@ -2859,15 +2855,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b7/12/a7f5c8e6529275da78de98283e407f4ad70612189c8b2c50076595824bde/types_pyserial-3.5.0.20261104.tar.gz", hash = "sha256:8276342a827facb25bd91976f2b2db576b74b3c32777464a5aa8ba6a7b91959f", size = 21336, upload-time = "2026-11-04T08:14:17.383Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/08/16c3bd0453593e058d5e2abedea51cd913db0d0ac9754476d26d58461a2a/types_pyserial-3.5.0.20261104-py3-none-any.whl", hash = "sha256:b31c0b53cd57784db8434fc623a019e4d69b8e88a87796f09fc885d59799b593", size = 25372, upload-time = "2026-11-04T08:14:16.167Z" },
-]
-
-[[package]]
-name = "types-python-dateutil"
-version = "2.9.0.20261116"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/ba/a19d28610031ac9608586077f71a21add4c80639cf01e5920d5f9bc207c9/types_python_dateutil-2.9.0.20261116.tar.gz", hash = "sha256:4213748a3f699431a83edf71969de9caa79d0846a5e8785c8a49072ff1968613", size = 17879, upload-time = "2026-11-16T08:43:02.721Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/fc/5644ed0d6ad3712e17d30762c32ccbf6014230c46c58eb324f1d3f6ecebf/types_python_dateutil-2.9.0.20261116-py3-none-any.whl", hash = "sha256:62e7c65849170a4847539573153d34f4007777dd62651ec8849ec8f08e8922a2", size = 18513, upload-time = "2026-11-16T08:43:01.246Z" },
 ]
 
 [[package]]

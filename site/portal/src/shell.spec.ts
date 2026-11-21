@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import type { Organization } from "@/server/db/schema";
 import { pick } from "@/server/organization";
 import { HOME, landing, scoped, tabs } from "@/shell";
 

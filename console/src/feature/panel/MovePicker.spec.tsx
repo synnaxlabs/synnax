@@ -19,14 +19,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { type TestStore } from "@/testutil";
+import type { TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -70,7 +70,7 @@ const createHarness = async (): Promise<Harness> => {
   const source = await createPanel(projectKey, [tab]);
   const destination = await createPanel(projectKey, [createTab()], {
     icon: "valve",
-    color: "#dc136c",
+    color: { type: "fixed", value: "#dc136c" },
   });
   const other = await createPanel(projectKey, [createTab()]);
   const { wrapper, store } = await createPanelWrapper({ client, project: projectKey });

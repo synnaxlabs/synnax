@@ -9,13 +9,13 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { type Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import type { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 
 export interface SymbolParams<V extends schematic.NodeConfigType> {
   /// variant is the unique discriminant identifying the symbol in the registry.
