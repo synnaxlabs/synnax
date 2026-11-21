@@ -241,10 +241,16 @@ no value at the pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
+A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
+timestamp default is now, the time of each read or write, or a constant time. In Python,
+the class is `NowTimestampDefault` or `ConstantTimestampDefault`. In TypeScript, `type`
+is `"now"` or `"constant"`. A UUID default is random, a new UUID for each message, or a
+constant UUID. In Python, the class is `RandomUUIDDefault` or `ConstantUUIDDefault`. In
+TypeScript, `type` is `"random"` or `"constant"`.
+
 To set a default in the Console, open the **Options** of the field, select **Optional**,
-and set the **Default**. A timestamp default is **Now**, the time of each read or write,
-or a **Constant** time. A UUID default is **Random**, a new UUID for each message, or a
-**Constant** UUID.
+and set the **Default**. A timestamp default is **Now** or **Constant**, and a UUID
+default is **Random** or **Constant**.
 
 ### Enum values
 
@@ -397,7 +403,9 @@ A **Field value** identifier has these properties. In Python, the class is
 
 ### Binary field properties
 
-In Python, a binary field is a `BinaryField`.
+A binary field is a float, signed integer, or unsigned integer field. In Python, the
+class is `FloatBinaryField`, `IntegerBinaryField`, or `UnsignedBinaryField`. In
+TypeScript, `kind` is `"float"`, `"integer"`, or `"unsigned"`.
 
 <Field.List>
 
@@ -429,7 +437,7 @@ In Python, a binary field is a `BinaryField`.
   **Little endian** (`little_endian`) or **Big endian** (`big_endian`).
 </Field.Item>
 
-<Field.Item id="binary-type" label="Type" field="kind" type="string" default="unsigned">
+<Field.Item id="binary-type" label="Type" field="kind" type="string" required>
   The type of the raw bits: **Unsigned integer** (`unsigned`), **Signed integer**
   (`integer`), or **Float** (`float`).
 </Field.Item>

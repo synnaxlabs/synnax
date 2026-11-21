@@ -118,6 +118,16 @@ const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
   return message;
 };
 
+/** Reads the ICD through a new client, so the result is what the Core stored. */
+const retrieveStoredMessage = async (key: icd.Key): Promise<icd.Message> => {
+  const core = createTestClient();
+  try {
+    return (await core.icds.retrieve({ key })).messages[0];
+  } finally {
+    await core.close();
+  }
+};
+
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
   const { payload } = await retrieveMessage(key);
   if (payload.format !== "json") throw new Error("expected a JSON message");
@@ -528,7 +538,7 @@ describe("ICD editor", () => {
     fireEvent.click(await screen.findByText("Float"));
     fireEvent.click(await screen.findByText("Unsigned integer"));
     await waitFor(async () => {
-      const [field] = (await retrieveMessage(ic.key)).payload.fields;
+      const [field] = (await retrieveStoredMessage(ic.key)).payload.fields;
       expect(field).toMatchObject({ name: "Gain", kind: "unsigned" });
       expect(field).not.toHaveProperty("default");
     });

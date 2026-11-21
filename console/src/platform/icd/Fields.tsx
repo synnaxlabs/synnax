@@ -385,7 +385,7 @@ const fieldsFromRows = (
   );
 
 /** A change to one of these picks a new union member, so it replaces the field. */
-const DISCRIMINATORS = ["encoding", "type"] as const;
+const DISCRIMINATORS = ["encoding", "type", "kind"] as const;
 
 /**
  * Writes each changed property of a field as its own edit, so another client's edit to
