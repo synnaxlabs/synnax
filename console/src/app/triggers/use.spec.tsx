@@ -325,6 +325,27 @@ describe("app/triggers", () => {
       await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
     });
 
+    it("should close the window with no tab focused while the grant loads", async () => {
+      mocks.engine = "tauri";
+      const pan = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [viewTab()],
+      });
+      const editor = await createTestClientWithGrants(client, {
+        retrieve: [panel.TYPE_RESOURCE_ID],
+        update: [panel.TYPE_RESOURCE_ID],
+      });
+      holdGrants(editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      expect(canEditPanel()).toBeUndefined();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(false);
+    });
+
     it("should close the window for a user who may not edit the panel", async () => {
       mocks.engine = "tauri";
       const tab = viewTab();
