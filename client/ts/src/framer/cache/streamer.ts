@@ -26,7 +26,7 @@ import { UnexpectedError } from "@/errors";
 import type { Joins } from "@/framer/cache/join";
 import type { Store } from "@/framer/cache/store";
 import { isDefinitive } from "@/framer/retry";
-import type { Streamer, StreamerConfig } from "@/framer/streamer";
+import type { Streamer } from "@/framer/streamer";
 import { status } from "@/status";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
@@ -35,6 +35,8 @@ export interface StreamHooks {
   onReopen: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop: (error: Error) => void;
+  /** Called when the Core drops frames for the stream. The stream stays open. */
+  onMissed: () => void;
   /** Aborts when the streamer closes while this stream is current. A stream still
    * opening or retrying must stop. */
   signal: AbortSignal;
@@ -42,7 +44,10 @@ export interface StreamHooks {
 
 /** Opens the underlying frame stream, hardened against connection loss. */
 export interface HardenedOpener {
-  (config: StreamerConfig, hooks: StreamHooks): Promise<Streamer>;
+  (
+    config: { channels: channel.Key[]; throttleRate: number },
+    hooks: StreamHooks,
+  ): Promise<Streamer>;
 }
 
 /**
@@ -105,6 +110,10 @@ export interface MultiplexedStreamerProps {
 // Limits stream updates to one per interval while demand keeps changing.
 const RECONCILE_INTERVAL = TimeSpan.milliseconds(100);
 
+// Limits the reads that misses start to one round per interval while the Core keeps
+// dropping frames.
+const MISSED_INTERVAL = TimeSpan.seconds(1);
+
 const THROTTLE_RATE = Rate.hz(60).valueOf();
 
 const LOADING: status.Crude = { variant: "loading", message: "subscribing" };
@@ -137,6 +146,9 @@ export class MultiplexedStreamer {
   private readonly scheduleReconcile = scheduler.throttle(() => {
     void this.reconcile();
   }, RECONCILE_INTERVAL);
+  private readonly scheduleOutdate = scheduler.throttle(() => {
+    this.outdateStored();
+  }, MISSED_INTERVAL);
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
   private streamer: Streamer | null = null;
@@ -280,6 +292,7 @@ export class MultiplexedStreamer {
     this.ackWaiters.forEach((w) => w.reject(closed));
     this.ackWaiters.clear();
     this.scheduleReconcile.cancel();
+    this.scheduleOutdate.cancel();
     this.removalTimers.forEach(clearTimeout);
     this.removalTimers.clear();
     this.connMu.closed = true;
@@ -390,6 +403,14 @@ export class MultiplexedStreamer {
     });
   }
 
+  // Outdates the cached samples of every channel that the Core stores, streamed or not,
+  // since frames the Core dropped can hold history changes for any of them. The samples
+  // of other channels cannot be read again, so they stay.
+  private outdateStored(): void {
+    const { joins, store, onWait } = this.props;
+    for (const key of store.storedChannels()) onWait(joins.invalidate(key));
+  }
+
   // Drops every cached block once a stream opens after a drop, since the drop can miss
   // history changes that outdate them.
   private refresh(): void {
@@ -444,6 +465,7 @@ export class MultiplexedStreamer {
                 this.drop();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
+              onMissed: () => this.scheduleOutdate(),
             },
           );
           this.streamer = streamer;

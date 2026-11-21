@@ -123,6 +123,7 @@ export class Uses<K extends record.Key, R extends Used<K>, Q extends Params & Re
     cache.onEpoch((epoch) => {
       if (epoch > 1) onChange();
     });
+    cache.onMissed(onChange);
     const base = trigger(
       store,
       (event, q: Q | Single<K>) => (q.includeUses === true ? [event.key] : null),
