@@ -354,8 +354,10 @@ A binary refuses to open on a format version it does not know.
 
 A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` has no
 allocate call, and a written file gives each log sync no size change. Commit records
-stop 1 MiB before the end, so a delete can be logged on a full disk. The file header is
-64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
+stop 1 MiB before the end, so a delete can be logged on a full disk. A smaller log, set
+by an option, must be at least 4 MiB, so that three quarters of it lies before the
+commit limit and every switch starts before commits stop; `Open` refuses a smaller size.
+The file header is 64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                      |
 | ------ | ---- | -------- | ------------------------------------------------------------ |
