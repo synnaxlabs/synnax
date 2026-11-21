@@ -140,6 +140,8 @@ export class Channel {
    * only when a retrieve asks for them.
    */
   readonly uses?: Use[];
+  /** Free text that says what the channel holds. */
+  readonly description: string;
 
   constructor({
     dataType,
@@ -157,6 +159,7 @@ export class Channel {
     concurrency = control.Concurrency.exclusive,
     group: groupKey,
     uses,
+    description = "",
   }: New & { frameClient?: framer.Client; uses?: Use[] }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -173,6 +176,7 @@ export class Channel {
     this.concurrency = concurrency;
     this.group = groupKey;
     this.uses = uses;
+    this.description = description;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -207,6 +211,7 @@ export class Channel {
         concurrency: this.concurrency,
         group: this.group,
         uses: this.uses,
+        description: this.description,
       },
       { label: "channel payload" },
     );

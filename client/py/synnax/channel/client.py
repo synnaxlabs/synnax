@@ -79,6 +79,7 @@ class Channel(Payload):
         group: group_.Key | None = None,
         uses: list[Use] | None = None,
         path: str | None = None,
+        description: str = "",
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -109,6 +110,8 @@ class Channel(Payload):
             retrieve asks for them.
         :param path: The names of the channel's folders from the top, then its name,
             joined by '.', set only when a retrieve asks for it.
+        :param description: Free text that says what the channel holds, at most 1,024
+            characters.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -134,6 +137,7 @@ class Channel(Payload):
             group=group,
             uses=uses,
             path=path,
+            description=description,
         )
         self._cached_frame_client = _frame_client
         self._client = _client

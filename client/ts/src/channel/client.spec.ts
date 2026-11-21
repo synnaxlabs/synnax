@@ -33,6 +33,7 @@ const RENAMED: channel.Payload = {
   expression: "",
   operations: [],
   concurrency: control.Concurrency.exclusive,
+  description: "",
 };
 const OTHER: channel.Payload = { ...RENAMED, key: 2, name: "other" };
 const SENTINEL: channel.Payload = { ...RENAMED, key: 3, name: "sentinel" };
