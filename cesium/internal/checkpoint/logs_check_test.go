@@ -131,7 +131,7 @@ var _ = Describe("Check: logs while heads fail", func() {
 		ran := make(chan error, 1)
 		go func() { ran <- c.Run(context.Background()) }()
 		DeferCleanup(func() {
-			_ = c.Close()
+			Expect(c.Close()).To(Succeed())
 			Eventually(ran).Should(Receive(BeNil()))
 		})
 		// The log asks for log 2 at its start. At each switch it asks for the log after
