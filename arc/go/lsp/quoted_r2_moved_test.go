@@ -88,7 +88,9 @@ var _ = Describe("Quoted channel positions in UTF-16", func() {
 		prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 			TextDocumentPositionParams: position(1, 10),
 		}))
-		Expect(prepared).To(Equal(&want))
+		Expect(prepared).To(Equal(
+			&protocol.PrepareRenamePlaceholder{Range: want, Placeholder: "\U0001F525"},
+		))
 		result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 			TextDocumentPositionParams: position(1, 10),
 			NewName:                    "fire",
