@@ -39,10 +39,17 @@ interface Read {
 }
 
 /**
- * Times each license read of the client, so a failed test reports whether the Log in
- * click reached its read and how long the read took.
+ * Creates a client that times each license read and request retry, so a failed test
+ * reports whether the Log in click reached its read, how long the read took, and
+ * whether the transport retried.
  */
-const reportLicenseReads = (client: Client): void => {
+const createReportingClient = (): Client => {
+  const begun = performance.now();
+  const retries: string[] = [];
+  const client = createTestClient({
+    onRetry: (error) =>
+      retries.push(`at ${Math.round(performance.now() - begun)} ms: ${error.message}`),
+  });
   const reads: Read[] = [];
   const retrieve = client.license.retrieve.bind(client.license);
   vi.spyOn(client.license, "retrieve").mockImplementation(async () => {
@@ -60,7 +67,6 @@ const reportLicenseReads = (client: Client): void => {
     );
     return await result;
   });
-  const begun = performance.now();
   onTestFailed(() => {
     const now = performance.now();
     const report =
@@ -77,7 +83,9 @@ const reportLicenseReads = (client: Client): void => {
             .join("; ");
     // A browser spec has no process to write to stderr through.
     console.error(`license reads: ${report}`);
+    console.error(`retries: ${retries.length === 0 ? "none" : retries.join("; ")}`);
   });
+  return client;
 };
 
 interface RenderOptions {
@@ -89,8 +97,7 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   client: Client;
   store: TestStore;
 }> => {
-  const client = createTestClient();
-  reportLicenseReads(client);
+  const client = createReportingClient();
   const { wrapper, store } = await createStatusConsoleWrapper({
     client,
     status,
