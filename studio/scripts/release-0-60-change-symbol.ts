@@ -15,6 +15,7 @@ import { isolateTab, mosaicTab } from "./common/panels";
 
 const NAME = "Pressurant Feed";
 const PURPLE = "#b300ff";
+const FIXED_PURPLE = { type: "fixed", value: PURPLE } as const;
 const VALVE = "booster-iso";
 
 type Config = NonNullable<schematic.New["nodes"]>[number]["config"];
@@ -35,7 +36,7 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     variant: "tank",
     label: label(""),
     dimensions: { width: 200, height: 340 },
-    strokeColor: PURPLE,
+    strokeColor: FIXED_PURPLE,
     levelHidden: true,
   };
   const value = (text: string, ch: string, units: string, inlineSize = 90): Config => ({
@@ -43,7 +44,7 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     label: label(text),
     channel: key(ch),
     units,
-    strokeColor: PURPLE,
+    strokeColor: FIXED_PURPLE,
     level: "h4",
     inlineSize,
   });
@@ -82,7 +83,11 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     [
       "ox-tank",
       { x: 1270, y: 274.5 },
-      { variant: "off_page_reference", label: label("OX Tank"), fillColor: PURPLE },
+      {
+        variant: "off_page_reference",
+        label: label("OX Tank"),
+        fillColor: FIXED_PURPLE,
+      },
     ],
   ];
   const pipes: Array<[string, string, string, string]> = [
@@ -99,7 +104,7 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
       key: `${source}-${target}`,
       source: { node: source, param: sp },
       target: { node: target, param: tp },
-      config: { variant: "pipe", strokeColor: PURPLE, segments: [] },
+      config: { variant: "pipe", strokeColor: FIXED_PURPLE, segments: [] },
     })),
   };
 };

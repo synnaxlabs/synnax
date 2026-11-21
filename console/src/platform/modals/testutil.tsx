@@ -26,6 +26,8 @@ import { Provider } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
+import { Portal } from "@/platform/portal";
+import { createTestPortal } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -34,6 +36,8 @@ import {
   createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
+
+const PORTAL = createTestPortal().client;
 
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
@@ -46,9 +50,11 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
   const Base = createSynnaxWrapper({ client: null, connectionStatus });
   const InnerWrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
     <Base>
-      <Provider store={store}>
-        <Session.Modals.Context>{children}</Session.Modals.Context>
-      </Provider>
+      <Portal.Provider client={PORTAL}>
+        <Provider store={store}>
+          <Session.Modals.Context>{children}</Session.Modals.Context>
+        </Provider>
+      </Portal.Provider>
     </Base>
   );
   InnerWrapper.displayName = "Wrapper";
@@ -57,8 +63,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 
 /**
  * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
- * wrapper (with a null client, since modals never touch the Core), a Redux Provider
- * backing the error Boundary, and the per-window modal store Provider.
+ * wrapper (with a null client, since modals never touch the Core), a portal that cannot
+ * be reached, a Redux Provider backing the error Boundary, and the per-window modal
+ * store Provider.
  */
 export const Wrapper = createWrapper();
 

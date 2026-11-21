@@ -14,8 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -26,7 +27,7 @@ var _ = Describe("Actions", func() {
 		base = label.Label{
 			Key:   uuid.New(),
 			Name:  "Nominal",
-			Color: MustSucceed(color.Parse("#00ff00")),
+			Color: fixed("#00ff00"),
 		}
 	})
 	set := func(path []string, value any) label.Action {
@@ -45,18 +46,18 @@ var _ = Describe("Actions", func() {
 		),
 		Entry(
 			"a value the color cannot hold",
-			set([]string{"color"}, "not a color"),
+			set([]string{"color"}, map[string]any{"type": "fixed", "value": "nope"}),
 			"[color]: decoding value",
 		),
 		Entry(
-			"a legacy object color",
-			set([]string{"color"}, map[string]any{"r": 255, "g": 0, "b": 0, "a": 0.5}),
-			"color is not a hex string",
+			"a bare hex color",
+			set([]string{"color"}, "#ff0000"),
+			"[color]: decoding value",
 		),
 		Entry(
-			"a path into the color",
-			set([]string{"color", "a"}, 128),
-			"[color]: the value takes only a whole set",
+			"a change of the color type in place",
+			set([]string{"color", "type"}, "named"),
+			"[color]: decoding value",
 		),
 		Entry(
 			"an insert into a list the label does not declare",
@@ -100,8 +101,11 @@ var _ = Describe("Actions", func() {
 			}))
 		})
 		It("Should set the color", func() {
-			res := MustSucceed(label.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(MustSucceed(color.Parse("#ff0000"))))
+			res := MustSucceed(label.Reduce(base, set(
+				[]string{"color"},
+				map[string]any{"type": "fixed", "value": "#ff0000"},
+			)))
+			Expect(res.Color).To(Equal(fixed("#ff0000")))
 			Expect(res.Name).To(Equal(base.Name))
 		})
 	})
@@ -118,3 +122,8 @@ var _ = Describe("Actions", func() {
 		})
 	})
 })
+
+func fixed(hex string) color.Ref {
+	GinkgoHelper()
+	return color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
+}

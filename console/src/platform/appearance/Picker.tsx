@@ -22,6 +22,8 @@ import { CSS } from "@/platform/css";
 export interface PickerProps {
   icon?: string;
   color?: color.Crude;
+  /** Named colors that the custom swatch offers. */
+  library?: Color.Library;
   /** The icon drawn while the icon is absent. */
   fallback: Icon.FC;
   onIconChange: (next?: string) => void;
@@ -35,6 +37,7 @@ export interface PickerProps {
 export const Picker = ({
   icon,
   color,
+  library,
   fallback,
   onIconChange,
   onColorChange,
@@ -63,6 +66,7 @@ export const Picker = ({
           value={color}
           fallback={colors.gray.l10}
           onChange={onColorChange}
+          library={library}
           onlyChangeOnBlur
           size="tiny"
         />

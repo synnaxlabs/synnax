@@ -36,6 +36,9 @@ var _ = Describe("Grants", func() {
 		key      secret.Key
 		cmd      task.Command
 	)
+	granted := func(subject resource.ID, keys ...secret.Key) grant.Grant {
+		return grant.Grant{Subject: subject, Command: cmd, Secrets: keys}
+	}
 	BeforeEach(func(ctx SpecContext) {
 		e = newStore(ctx)
 		e.folder = fstest.MapFS{
@@ -61,7 +64,7 @@ var _ = Describe("Grants", func() {
 	Describe("Grant", func() {
 		It("Should store the subject, the command, and the secrets",
 			func(ctx SpecContext) {
-				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, key))
+				g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, key)))
 				Expect(storedGrants(ctx, e)).To(ConsistOf(SatisfyAll(
 					HaveField("Key", g),
 					HaveField("Subject", rk),
@@ -71,23 +74,26 @@ var _ = Describe("Grants", func() {
 			},
 		)
 		It("Should return not found for a missing secret", func(ctx SpecContext) {
-			Expect(e.svc.Grant(ctx, e.db, rk, cmd, key, uuid.New())).Error().
+			Expect(e.svc.Grant(ctx, e.db, granted(rk, key, uuid.New()))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(storedGrants(ctx, e)).To(BeEmpty())
 		})
 		It("Should store a file secret of the subject rack", func(ctx SpecContext) {
 			s := e.createFile(ctx, "Client key", "k.pem", otherRack)
-			MustSucceed(e.svc.Grant(ctx, e.db, rk2, cmd, s.Base().Key))
+			MustSucceed(e.svc.Grant(ctx, e.db, granted(rk2, s.Base().Key)))
 			Expect(storedGrants(ctx, e)).To(ConsistOf(
 				HaveField("Secrets", []secret.Key{s.Base().Key}),
 			))
 		})
 		It("Should refuse a file secret of another rack", func(ctx SpecContext) {
 			s := e.createFile(ctx, "Client key", "k.pem", otherRack)
-			Expect(e.svc.Grant(ctx, e.db, rk, cmd, s.Base().Key)).Error().To(MatchError(
-				`secret "Client key" is a file of rack 2, not of ` + rk.String() +
-					": validation error",
-			))
+			Expect(
+				e.svc.Grant(ctx, e.db, granted(rk, s.Base().Key)),
+			).Error().
+				To(MatchError(
+					`secret "Client key" is a file of rack 2, not of ` + rk.String() +
+						": validation error",
+				))
 			Expect(storedGrants(ctx, e)).To(BeEmpty())
 		})
 		It("Should reject a grant for a subject that is not a rack",
@@ -96,7 +102,7 @@ var _ = Describe("Grants", func() {
 					Type: resource.TypeUser,
 					Key:  uuid.New().String(),
 				}
-				Expect(e.svc.Grant(ctx, e.db, user, cmd, key)).Error().
+				Expect(e.svc.Grant(ctx, e.db, granted(user, key))).Error().
 					To(SatisfyAll(
 						BeAssignableToTypeOf(validate.PathError{}),
 						MatchError("subject: "+user.String()+" is not a rack"),
@@ -108,7 +114,7 @@ var _ = Describe("Grants", func() {
 	Describe("Resolve", func() {
 		It("Should return the stored command and the values once",
 			func(ctx SpecContext) {
-				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, key))
+				g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, key)))
 				spent, values := MustSucceed2(e.svc.Resolve(ctx, rk, cmd.Task, g))
 				Expect(spent.Command).To(Equal(cmd))
 				Expect(spent.Secrets).To(Equal([]secret.Key{key}))
@@ -128,14 +134,14 @@ var _ = Describe("Grants", func() {
 			))
 		})
 		It("Should deny a grant for another rack", func(ctx SpecContext) {
-			g := MustSucceed(e.svc.Grant(ctx, e.db, rk2, cmd, key))
+			g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk2, key)))
 			Expect(e.svc.Resolve(ctx, rk, cmd.Task, g)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring("grant is not for rack:1")),
 			))
 		})
 		It("Should deny and spend a grant for another task", func(ctx SpecContext) {
-			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, key))
+			g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, key)))
 			other := uuid.New()
 			Expect(e.svc.Resolve(ctx, rk, other, g)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
@@ -145,7 +151,7 @@ var _ = Describe("Grants", func() {
 		})
 		It("Should return not found for a secret deleted after the grant",
 			func(ctx SpecContext) {
-				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, key))
+				g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, key)))
 				Expect(gorp.NewDelete[secret.Key, secret.Secret]().
 					Where(gorp.MatchKeys[secret.Key, secret.Secret](key)).
 					Exec(ctx, e.db)).To(Succeed())
@@ -156,7 +162,7 @@ var _ = Describe("Grants", func() {
 		It("Should read a file secret of the Core's rack from its secrets folder",
 			func(ctx SpecContext) {
 				s := e.createFile(ctx, "Client key", "k.pem", coreRack)
-				g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, s.Base().Key))
+				g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, s.Base().Key)))
 				_, values := MustSucceed2(e.svc.Resolve(ctx, rk, cmd.Task, g))
 				Expect(values).To(Equal(
 					map[secret.Key][]byte{s.Base().Key: []byte("client key")},
@@ -167,7 +173,7 @@ var _ = Describe("Grants", func() {
 			ctx SpecContext,
 		) {
 			s := e.createFile(ctx, "Client key", "k.pem", otherRack)
-			g := MustSucceed(e.svc.Grant(ctx, e.db, rk2, cmd, key, s.Base().Key))
+			g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk2, key, s.Base().Key)))
 			spent, values := MustSucceed2(e.svc.Resolve(ctx, rk2, cmd.Task, g))
 			Expect(spent.Secrets).To(Equal([]secret.Key{key, s.Base().Key}))
 			Expect(values).To(Equal(map[secret.Key][]byte{key: []byte("hunter2")}))
@@ -179,7 +185,7 @@ var _ = Describe("Grants", func() {
 			Expect(gorp.NewCreate[secret.Key, secret.Secret]().
 				Entry(&moved).
 				Exec(ctx, e.db)).To(Succeed())
-			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, cmd, other.Base().Key))
+			g := MustSucceed(e.svc.Grant(ctx, e.db, granted(rk, other.Base().Key)))
 			Expect(e.svc.Resolve(ctx, rk, cmd.Task, g)).Error().
 				To(MatchError(ContainSubstring(`decrypt secret "Token"`)))
 		})

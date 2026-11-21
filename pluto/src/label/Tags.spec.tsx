@@ -9,8 +9,8 @@
 
 import { label } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
+import { color, id } from "@synnaxlabs/x";
+import { render, waitFor } from "@testing-library/react";
 import { type FC, Profiler, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -28,9 +28,29 @@ describe("Tags", () => {
 
   const createLabels = async () =>
     await client.labels.create([
-      { name: `first-${id.create()}`, color: "#FF0000" },
-      { name: `second-${id.create()}`, color: "#00FF00" },
+      { name: `first-${id.create()}`, color: { type: "fixed", value: "#FF0000" } },
+      { name: `second-${id.create()}`, color: { type: "fixed", value: "#00FF00" } },
     ]);
+
+  it("should color a tag with the named color of its label", async () => {
+    const named = await client.colors.create({
+      name: `tag-${id.create()}`,
+      light: "#123456",
+    });
+    const lbl = await client.labels.create({
+      name: `named-${id.create()}`,
+      color: { type: "named", key: named.key },
+    });
+    const { container, findByText } = render(<Label.Tags keys={[lbl.key]} />, {
+      wrapper,
+    });
+    await findByText(lbl.name);
+    await waitFor(() =>
+      expect(container.querySelector("svg")?.getAttribute("color")).toEqual(
+        color.cssString("#123456"),
+      ),
+    );
+  });
 
   it("should show the name of each label and follow a rename", async () => {
     const [first, second] = await createLabels();

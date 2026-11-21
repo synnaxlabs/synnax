@@ -348,14 +348,15 @@ export class State<Z extends z.ZodType> implements observe.Observable<void> {
   }
 
   reset(initialValues?: z.infer<Z>) {
-    if (deep.equal(this.values, initialValues ?? this.initialValues)) return;
     if (initialValues != null) this.initialValues = deep.copy(initialValues);
-    const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
     this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
-    this.write(() => this.store.set("", nextValues));
+    if (!deep.equal(this.values, this.initialValues)) {
+      const nextValues = deep.copy(this.initialValues);
+      this.write(() => this.store.set("", nextValues));
+    }
     // No field is touched, so only the checks have issues to show.
     this.processValidation(false, undefined);
   }

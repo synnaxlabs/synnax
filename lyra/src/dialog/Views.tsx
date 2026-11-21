@@ -1,0 +1,186 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/dialog/Views.css";
+
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+
+import { Button } from "@/button";
+import { context } from "@/context";
+import { CSS } from "@/css";
+import { Flex } from "@/flex";
+import { Icon } from "@/icon";
+import { Text } from "@/text";
+
+export interface ViewsContextValue {
+  /**
+   * Shows the content in place of the children, under a Back button and the title, at
+   * the width of the children. Back returns to the children as they were, with the
+   * focus on the element that opened the view. A click passes its target as the opener,
+   * since a click in WebKit focuses no button.
+   */
+  open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
+  /**
+   * Returns to the children, as Back does. A given callback runs once the children
+   * show, in place of the return of the focus to the opener. From a view that no longer
+   * shows, such as one that Back closed or that unmounted, it closes nothing, and the
+   * callback runs at once.
+   */
+  back: (then?: () => void) => void;
+}
+
+const [ViewsContext, useViewsContext] = context.create<ViewsContextValue>({
+  displayName: "Dialog.ViewsContext",
+  providerName: "Dialog.Views",
+});
+
+/**
+ * @returns the views around the caller.
+ * @throws {Error} outside a `Dialog.Views`.
+ */
+export const useViews = (): ViewsContextValue => useViewsContext("Dialog.useViews");
+
+interface View {
+  title: string;
+  content: ReactNode;
+  /** The width of the children when the view opened. */
+  width: number;
+}
+
+export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap"> {
+  /** Called with true when a view opens, and with false on Back. */
+  onViewingChange?: (viewing: boolean) => void;
+}
+
+/**
+ * A box that can show a view in place of its children, such as an editor for one of its
+ * items. The children stay mounted under the view, so their state and scroll stay.
+ */
+export const Views = ({
+  className,
+  style,
+  children,
+  onViewingChange,
+  ...rest
+}: ViewsProps): ReactElement => {
+  const [view, setView] = useState<View | null>(null);
+  const titleID = useId();
+  const root = useRef<HTMLDivElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const after = useRef<(() => void) | undefined>(undefined);
+  // A ref, so that a callback from a view that closed sees that it no longer shows.
+  const shown = useRef<View | null>(null);
+  useEffect(
+    () => () => {
+      shown.current = null;
+    },
+    [],
+  );
+  useEffect(() => {
+    if (view != null) return;
+    const then = after.current;
+    after.current = undefined;
+    if (then != null) {
+      opener.current = null;
+      then();
+      return;
+    }
+    if (opener.current == null) return;
+    if (opener.current.isConnected) opener.current.focus();
+    else root.current?.focus();
+    opener.current = null;
+  }, [view]);
+  const open = (title: string, content: ReactNode, clicked?: HTMLElement): void => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
+    // A click in WebKit leaves the focus on the body or on a focusable box around the
+    // button.
+    else if (clicked != null && active.contains(clicked)) opener.current = clicked;
+    else opener.current = active;
+    // offsetWidth ignores the scale of the dialog's entrance animation.
+    const width = root.current?.offsetWidth ?? 0;
+    const next = { title, content, width };
+    shown.current = next;
+    setView(next);
+    onViewingChange?.(true);
+  };
+  const close = (from: View | null, then?: () => void): void => {
+    if (from == null || from !== shown.current) return then?.();
+    shown.current = null;
+    after.current = then;
+    setView(null);
+    onViewingChange?.(false);
+  };
+  const back = (then?: () => void): void => close(shown.current, then);
+  const viewStyle: CSS.VarProperties | undefined =
+    view == null ? undefined : { "--pluto-dialog-views-width": `${view.width}px` };
+  return (
+    <ViewsContext value={{ open, back }}>
+      <Flex.Box
+        y
+        gap={0}
+        ref={root}
+        tabIndex={-1}
+        className={CSS.cls(
+          CSS.B("dialog-views"),
+          view != null && CSS.BM("dialog-views", "viewing"),
+          className,
+        )}
+        style={{ ...style, ...viewStyle }}
+        {...rest}
+      >
+        {view != null && (
+          <>
+            <Flex.Box
+              x
+              align="center"
+              gap="small"
+              className={CSS.BE("dialog-views", "header")}
+            >
+              <Button.Button
+                variant="text"
+                size="small"
+                square
+                textColor={9}
+                onClick={() => close(view)}
+                autoFocus
+                tooltip="Back"
+                aria-label="Back"
+              >
+                <Icon.Arrow.Left />
+              </Button.Button>
+              <Text.Text id={titleID} level="small" weight={500} overflow="fade">
+                {view.title}
+              </Text.Text>
+            </Flex.Box>
+            <Flex.Box
+              y
+              gap="medium"
+              role="group"
+              aria-labelledby={titleID}
+              className={CSS.BE("dialog-views", "view")}
+            >
+              <ViewsContext value={{ open, back: (then) => close(view, then) }}>
+                {view.content}
+              </ViewsContext>
+            </Flex.Box>
+          </>
+        )}
+        {children}
+      </Flex.Box>
+    </ViewsContext>
+  );
+};

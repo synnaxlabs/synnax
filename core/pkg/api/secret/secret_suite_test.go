@@ -61,11 +61,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc := MustSucceed(apisecret.NewService(apisecret.ServiceConfig{
-		Secret: svc.Secret,
-		RBAC:   svc.RBAC,
-		Task:   svc.Task,
-		Rack:   svc.Rack,
-		DB:     node.DB,
+		Secret:      svc.Secret,
+		RBAC:        svc.RBAC,
+		Task:        svc.Task,
+		Rack:        svc.Rack,
+		Certificate: svc.Certificate,
+		DB:          node.DB,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   node.DB,

@@ -47,7 +47,7 @@ std::string settings_key(const Config &cfg) {
                       field(std::to_string(cfg.session_timeout_ms)) +
                       field(std::to_string(cfg.client_timeout_ms));
     if (!cfg.secured()) return key;
-    return key + field(cfg.client_cert) + field(cfg.client_private_key) +
+    return key + field(cfg.client_certificate_item.to_string()) +
            field(cfg.certificate_validation_disabled ? "unvalidated" : "validated");
 }
 

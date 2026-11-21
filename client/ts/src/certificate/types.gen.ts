@@ -55,6 +55,11 @@ export const baseZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the certificate. */
   name: z.string().min(1, "name is required"),
+  /**
+   * uses are the resources that use the certificate and that the caller can read,
+   * filled only when a retrieve request asks for them.
+   */
+  uses: zod.nullToUndefined(resource.idZ.array()),
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
@@ -165,6 +170,8 @@ export const retrieveRequestZ = z.strictObject({
   after: cursorZ.optional(),
   /** limit is the most certificates to return. */
   limit: z.uint32().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

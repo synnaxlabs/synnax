@@ -14,7 +14,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
-import { useFrequent } from "@/color/Provider";
+import { useFrequent, usePresets } from "@/color/Provider";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
@@ -36,8 +36,8 @@ export interface SwatchesProps extends Input.Control<
 }
 
 /**
- * One-click swatches for the theme colors and the visualization palette, then the
- * user's frequent colors from the nearest {@link Provider}.
+ * One-click swatches for the theme colors and the presets of the nearest
+ * {@link Provider}, then the user's frequent colors from it. A color shows once.
  */
 export const Swatches = ({
   value,
@@ -46,14 +46,17 @@ export const Swatches = ({
   children,
 }: SwatchesProps): ReactElement => {
   const { colors } = Theming.use();
-  const frequent = useFrequent();
-  const presets = [
+  const provided = usePresets();
+  const offered = [
     colors.primary.z,
     colors.secondary.z,
     colors.warning.z,
     colors.error.z,
-    ...colors.visualization.palettes.default,
+    ...provided,
   ];
+  const byHex = new Map(offered.map((c) => [color.hex(c), c]));
+  const presets = [...byHex.values()];
+  const frequent = useFrequent().filter((c) => !byHex.has(color.hex(c)));
   return (
     <Flex.Box y gap="medium" className={CSS.B("color-swatches")}>
       <div className={CSS.BE("color-swatches", "grid")}>
