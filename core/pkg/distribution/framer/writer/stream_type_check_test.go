@@ -47,10 +47,10 @@ var _ = Describe("Stream only type check", func() {
 				Mode:           writer.ModeStreamOnly,
 				Sync:           new(true),
 			}))
-			w.Write(frame.NewMulti(keys, []telem.Series{
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[float32](1, 2, 3),
 				telem.NewSeriesV[float32](1, 2, 3),
-			}))
+			}))).To(BeFalse())
 			Expect(w.Close()).To(MatchError(validate.ErrValidation))
 		},
 	)

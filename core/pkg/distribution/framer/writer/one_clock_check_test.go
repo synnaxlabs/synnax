@@ -67,13 +67,16 @@ var _ = Describe("One clock check", func() {
 	open := func(ctx SpecContext, cfg storageConfig) *storageWriter {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cfg))
-		DeferCleanup(func() { _ = w.Close() })
+		// A writer that a spec fails closes with its validation error.
+		DeferCleanup(func() {
+			Expect(w.Close()).To(Or(Succeed(), MatchError(validate.ErrValidation)))
+		})
 		return w
 	}
 	openFramer := func(ctx SpecContext, cfg writer.Config) *writer.Writer {
 		GinkgoHelper()
 		w := MustSucceed(db.svc.Open(ctx, cfg))
-		DeferCleanup(func() { _ = w.Close() })
+		DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 		return w
 	}
 
@@ -88,8 +91,7 @@ var _ = Describe("One clock check", func() {
 		Expect(w.Write(frame.NewFromStorage(fr(secs(10, 11, 12, 13), 1, 2, 3, 4)))).
 			To(BeTrue())
 		<-db.writes.Outlet()
-		end, authorized, err := w.Commit()
-		Expect(err).ToNot(HaveOccurred())
+		end, authorized := MustSucceed2(w.Commit())
 		Expect(authorized).To(BeTrue())
 		Expect(end).To(Equal(13*telem.SecondTS + 1))
 	})
@@ -216,15 +218,11 @@ var _ = Describe("One clock check", func() {
 			MustSucceed(p.Write(ctx, fr(secs(10, 11, 12), 1, 2, 3)))
 			MustSucceed(p.Commit(ctx))
 			Expect(p.Close()).To(Succeed())
-			s, err := db.OpenWriter(ctx, storageConfig{
+			Expect(db.OpenWriter(ctx, storageConfig{
 				Channels: keys,
 				Start:    11 * telem.SecondTS,
 				Mode:     writer.ModeStreamOnly,
-			})
-			if err == nil {
-				_ = s.Close()
-			}
-			Expect(err).To(MatchError(ContainSubstring(
+			})).Error().To(MatchError(ContainSubstring(
 				"cannot open writer because there is already data in the writer's " +
 					"time range",
 			)))

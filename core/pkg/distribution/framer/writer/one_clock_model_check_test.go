@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func writerConfig(
@@ -71,7 +72,10 @@ var _ = Describe("One clock model check", func() {
 	open := func(ctx SpecContext, cfg storageConfig) *storageWriter {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cfg))
-		DeferCleanup(func() { _ = w.Close() })
+		// A writer that a spec fails closes with its validation error.
+		DeferCleanup(func() {
+			Expect(w.Close()).To(Or(Succeed(), MatchError(validate.ErrValidation)))
+		})
 		return w
 	}
 	ts := func(s ...int64) telem.Series {
@@ -130,7 +134,7 @@ var _ = Describe("One clock model check", func() {
 		"Should commit one clock when the other is refused at commit",
 		func(ctx SpecContext) {
 			s := MustSucceed(db.svc.Open(ctx, writerConfig(all, 100, "s")))
-			DeferCleanup(func() { _ = s.Close() })
+			DeferCleanup(func() { Expect(s.Close()).To(Succeed()) })
 			Expect(s.Write(frameOf(both(
 				[]int64{10, 11}, []int64{10, 11, 12}, []int64{1, 2}, []int64{5, 6, 7},
 			)))).To(BeTrue())
@@ -141,8 +145,7 @@ var _ = Describe("One clock model check", func() {
 				Start:          10 * telem.SecondTS,
 				Authorities:    []control.Authority{200},
 			})
-			end, authorized, err := s.Commit()
-			Expect(err).ToNot(HaveOccurred())
+			end, authorized := MustSucceed2(s.Commit())
 			Expect(authorized).To(BeFalse())
 			Expect(end).To(BeZero())
 			Expect(read(ctx, d1).Len()).To(BeZero())
@@ -160,14 +163,13 @@ var _ = Describe("One clock model check", func() {
 				Authorities:    []control.Authority{200},
 			})
 			s := MustSucceed(db.svc.Open(ctx, writerConfig(all, 100, "s")))
-			DeferCleanup(func() { _ = s.Close() })
+			DeferCleanup(func() { Expect(s.Close()).To(Succeed()) })
 			Expect(s.Write(frameOf(both(
 				[]int64{10, 11}, []int64{10, 11, 12}, []int64{1, 2}, []int64{5, 6, 7},
 			)))).To(BeFalse())
 			res := <-db.writes.Outlet()
 			Expect(res.Frame.ToStorage().KeysSlice()).To(ConsistOf(i2, d2))
-			end, authorized, err := s.Commit()
-			Expect(err).ToNot(HaveOccurred())
+			end, authorized := MustSucceed2(s.Commit())
 			Expect(authorized).To(BeFalse())
 			Expect(end).To(Equal(12*telem.SecondTS + 1))
 			Expect(read(ctx, d2).Len()).To(Equal(int64(3)))
@@ -176,10 +178,9 @@ var _ = Describe("One clock model check", func() {
 
 	It("Should end the session on the error of one clock", func(ctx SpecContext) {
 		s := open(ctx, storageConfig{Channels: all, Start: 10 * telem.SecondTS})
-		_, err := s.Write(ctx, both(
+		Expect(s.Write(ctx, both(
 			[]int64{10, 11}, []int64{12, 11}, []int64{1, 2}, []int64{5, 6},
-		))
-		Expect(err).To(MatchError(ContainSubstring("index out of order")))
+		))).Error().To(MatchError(ContainSubstring("index out of order")))
 		Expect(read(ctx, d1).Len()).To(BeZero())
 		Expect(read(ctx, d2).Len()).To(BeZero())
 	})
@@ -203,7 +204,7 @@ var _ = Describe("One clock model check", func() {
 
 	It("Should hand off one clock while the other clock writes", func(ctx SpecContext) {
 		s := MustSucceed(db.svc.Open(ctx, writerConfig(all, 100, "s")))
-		DeferCleanup(func() { _ = s.Close() })
+		DeferCleanup(func() { Expect(s.Close()).To(Succeed()) })
 		write := func(a1, a2, v1, v2 []int64) bool {
 			GinkgoHelper()
 			ok := MustSucceed(s.Write(frameOf(both(a1, a2, v1, v2))))
@@ -211,8 +212,7 @@ var _ = Describe("One clock model check", func() {
 			return ok
 		}
 		Expect(write([]int64{10}, []int64{10}, []int64{1}, []int64{1})).To(BeTrue())
-		end, authorized, err := s.Commit()
-		Expect(err).ToNot(HaveOccurred())
+		end, authorized := MustSucceed2(s.Commit())
 		Expect(authorized).To(BeTrue())
 		Expect(end).To(Equal(10*telem.SecondTS + 1))
 		h := open(ctx, storageConfig{
@@ -228,14 +228,12 @@ var _ = Describe("One clock model check", func() {
 			})),
 		)
 		Expect(MustSucceed(h.Commit(ctx))).To(Equal(12*telem.SecondTS + 1))
-		end, authorized, err = s.Commit()
-		Expect(err).ToNot(HaveOccurred())
+		end, authorized = MustSucceed2(s.Commit())
 		Expect(authorized).To(BeFalse())
 		Expect(end).To(Equal(11*telem.SecondTS + 1))
 		Expect(h.Close()).To(Succeed())
 		Expect(write([]int64{13}, []int64{13}, []int64{3}, []int64{3})).To(BeTrue())
-		end, authorized, err = s.Commit()
-		Expect(err).ToNot(HaveOccurred())
+		end, authorized = MustSucceed2(s.Commit())
 		Expect(authorized).To(BeTrue())
 		Expect(end).To(Equal(13*telem.SecondTS + 1))
 		Expect(read(ctx, d1).Len()).To(Equal(int64(3)))
@@ -262,11 +260,10 @@ var _ = Describe("One clock model check", func() {
 			)
 			MustSucceed(h.Commit(ctx))
 			Expect(h.Close()).To(Succeed())
-			_, err := db.OpenWriter(
+			Expect(db.OpenWriter(
 				ctx,
 				storageConfig{Channels: all, Start: 11 * telem.SecondTS},
-			)
-			Expect(err).To(HaveOccurred())
+			)).Error().To(MatchError(validate.ErrValidation))
 			fill := open(ctx, storageConfig{
 				Channels: []cesium.ChannelKey{i1, d1},
 				Start:    11 * telem.SecondTS,
