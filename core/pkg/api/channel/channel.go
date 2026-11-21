@@ -670,6 +670,27 @@ type DispatchResponse = actions.DispatchResponse[channel.Action]
 
 // Dispatch applies the action sequence to the target channel atomically. Subscribers to
 // the channel action channel receive the sequence after the transaction commits.
+// editedInputs returns the inputs of the calculation that writes the channel with key,
+// which an edit compiled in tx, so its stored reads are current.
+func (s *Service) editedInputs(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+) (channel.Keys, error) {
+	calcs, err := s.calculations.Outputs(ctx, tx, key)
+	if err != nil {
+		return nil, err
+	}
+	c := calcs[key]
+	return s.calculations.Inputs(ctx, tx, nil, []calculation.Unsaved{{
+		Output:     channel.Channel{Leaseholder: key.Lease(), LocalKey: key.LocalKey()},
+		Expression: c.Expression,
+		Operations: c.Operations,
+		Compiled:   true,
+		Reads:      c.Reads,
+	}})
+}
+
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -682,7 +703,7 @@ func (s *Service) Dispatch(
 	if !slices.ContainsFunc(req.Actions, editsCalculation) {
 		return DispatchResponse{Actions: computed}, nil
 	}
-	inputs, err := s.calculations.Inputs(ctx, tx, channel.Keys{req.Key}, nil)
+	inputs, err := s.editedInputs(ctx, tx, req.Key)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
