@@ -49,11 +49,14 @@ type edge struct {
 }
 
 // posting places one entry in the postings of a token. slot is the index of the
-// matching term in that entry.
+// matching term in that entry, with secondaryBit set when the token is secondary.
 type posting struct {
 	id   uint32
 	slot uint32
 }
+
+// secondaryBit marks the slot of a posting whose token is in secondary text only.
+const secondaryBit = 1 << 31
 
 func newTrie() trie {
 	t := trie{}

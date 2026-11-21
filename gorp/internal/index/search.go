@@ -27,16 +27,20 @@ type Search[S Scope, K comparable] struct {
 	overlay    overlay[S, *texts[K]]
 }
 
-// texts is the text that one scope has staged for each key. A nil text marks a deleted
-// key.
+// Text is the text of one key: its primary text, and the secondary text that ranks
+// below it.
+type Text struct{ Primary, Secondary []string }
+
+// texts is the text that one scope has staged for each key. A nil Primary marks a
+// deleted key.
 type texts[K comparable] struct {
 	// keys holds each staged key once, in the order it was first staged, so equal
 	// matches rank in the same order on every search.
 	keys []K
-	text map[K][]string
+	text map[K]Text
 }
 
-func (t *texts[K]) set(key K, text []string) {
+func (t *texts[K]) set(key K, text Text) {
 	if _, ok := t.text[key]; !ok {
 		t.keys = append(t.keys, key)
 	}
@@ -56,7 +60,7 @@ func (t *texts[K]) reset() {
 // NewSearch returns an empty Search that waits for its bulk load.
 func NewSearch[S Scope, K comparable]() *Search[S, K] {
 	s := &Search[S, K]{population: newPopulation(), committed: search.New[K]()}
-	s.overlay.create = func() *texts[K] { return &texts[K]{text: make(map[K][]string)} }
+	s.overlay.create = func() *texts[K] { return &texts[K]{text: make(map[K]Text)} }
 	s.overlay.flush = s.flush
 	return s
 }
@@ -64,9 +68,9 @@ func NewSearch[S Scope, K comparable]() *Search[S, K] {
 // Populate starts the bulk load and locks the index until it finishes. insert adds the
 // committed text of a key. finish ends the load and must be called exactly once; a
 // non-nil err makes the index invalid, and every later read returns err.
-func (s *Search[S, K]) Populate() (insert func(K, []string), finish func(err error)) {
+func (s *Search[S, K]) Populate() (insert func(K, Text), finish func(err error)) {
 	s.mu.Lock()
-	return func(key K, text []string) { s.committed.Set(key, text...) },
+	return func(key K, text Text) { s.committed.SetText(key, text.Primary, text.Secondary) },
 		func(err error) {
 			s.population.finish(err)
 			s.mu.Unlock()
@@ -80,10 +84,10 @@ func (s *Search[S, K]) Wait(ctx context.Context) error {
 }
 
 // Set replaces the committed text of key.
-func (s *Search[S, K]) Set(key K, text []string) {
+func (s *Search[S, K]) Set(key K, text Text) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.committed.Set(key, text...)
+	s.committed.SetText(key, text.Primary, text.Secondary)
 }
 
 // Delete removes key from committed state.
@@ -95,13 +99,13 @@ func (s *Search[S, K]) Delete(key K) {
 
 // Stage replaces the text of key in the changes of scope. The change applies to
 // committed state when scope commits.
-func (s *Search[S, K]) Stage(scope S, key K, text []string) {
+func (s *Search[S, K]) Stage(scope S, key K, text Text) {
 	if isNone(scope) {
 		s.Set(key, text)
 		return
 	}
-	if text == nil {
-		text = []string{}
+	if text.Primary == nil {
+		text.Primary = []string{}
 	}
 	s.overlay.load(scope).set(key, text)
 }
@@ -113,7 +117,7 @@ func (s *Search[S, K]) StageDelete(scope S, key K) {
 		s.Delete(key)
 		return
 	}
-	s.overlay.load(scope).set(key, nil)
+	s.overlay.load(scope).set(key, Text{})
 }
 
 // Get returns the keys that match q, closest match first, with the changes of scope
@@ -131,8 +135,8 @@ func (s *Search[S, K]) Get(scope S, q search.Query[K]) (search.Result[K], error)
 	}
 	pending := search.New[K]()
 	for _, key := range staged.keys {
-		if text := staged.text[key]; text != nil {
-			pending.Set(key, text...)
+		if text := staged.text[key]; text.Primary != nil {
+			pending.SetText(key, text.Primary, text.Secondary)
 		}
 	}
 	committed := s.committed.Search(search.Query[K]{
@@ -151,10 +155,10 @@ func (s *Search[S, K]) flush(staged *texts[K]) {
 	defer s.mu.Unlock()
 	for _, key := range staged.keys {
 		text := staged.text[key]
-		if text == nil {
+		if text.Primary == nil {
 			s.committed.Delete(key)
 			continue
 		}
-		s.committed.Set(key, text...)
+		s.committed.SetText(key, text.Primary, text.Secondary)
 	}
 }

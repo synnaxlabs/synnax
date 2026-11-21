@@ -25,9 +25,10 @@ import (
 type SearchIndex[K Key, E Entry[K]] struct {
 	// name is the human-readable index name, used in diagnostics.
 	name string
-	// text reads the indexed text from an entry.
-	text  func(e *E) []string
-	store *index.Search[*txState, K]
+	// text reads the indexed text from an entry, and secondary the text that ranks
+	// below it, or is nil.
+	text, secondary func(e *E) []string
+	store           *index.Search[*txState, K]
 }
 
 // NewSearchIndex constructs a SearchIndex over the text that text returns for each
@@ -45,23 +46,45 @@ func NewSearchIndex[K Key, E Entry[K]](
 	}
 }
 
+// NewWeightedSearchIndex constructs a SearchIndex as NewSearchIndex does, over the
+// text that text returns and the secondary text that secondary returns for each entry.
+// A match in secondary text ranks below the same match in text, and ties between
+// matches break on the words of text alone.
+func NewWeightedSearchIndex[K Key, E Entry[K]](
+	name string,
+	text, secondary func(e *E) []string,
+) *SearchIndex[K, E] {
+	s := NewSearchIndex[K, E](name, text)
+	s.secondary = secondary
+	return s
+}
+
+// textOf returns the indexed text of entry.
+func (s *SearchIndex[K, E]) textOf(entry *E) index.Text {
+	t := index.Text{Primary: s.text(entry)}
+	if s.secondary != nil {
+		t.Secondary = s.secondary(entry)
+	}
+	return t
+}
+
 // Name implements Index.
 func (s *SearchIndex[K, E]) Name() string { return s.name }
 
 func (s *SearchIndex[K, E]) populate() (func(E), func(error)) {
 	insert, finish := s.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), s.text(&entry)) },
+	return func(entry E) { insert(entry.GorpKey(), s.textOf(&entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 
 func (s *SearchIndex[K, E]) set(entry E) {
-	s.store.Set(entry.GorpKey(), s.text(&entry))
+	s.store.Set(entry.GorpKey(), s.textOf(&entry))
 }
 
 func (s *SearchIndex[K, E]) delete(key K) { s.store.Delete(key) }
 
 func (s *SearchIndex[K, E]) stageSet(tx Tx, entry E) {
-	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.text(&entry))
+	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.textOf(&entry))
 }
 
 func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
@@ -116,7 +139,8 @@ func (s *SearchIndex[K, E]) scan(
 	}
 	idx := search.New[K]()
 	for e := range entries {
-		idx.Set(e.GorpKey(), s.text(&e)...)
+		t := s.textOf(&e)
+		idx.SetText(e.GorpKey(), t.Primary, t.Secondary)
 	}
 	if err = closer.Close(); err != nil {
 		return search.Result[K]{}, err

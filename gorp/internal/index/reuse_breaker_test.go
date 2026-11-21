@@ -325,14 +325,14 @@ var _ = Describe("Reuse breaker", func() {
 		It("Should show a reusing scope none of the text of an aborted one", func() {
 			sr := index.NewSearch[*scope, int]()
 			insert, finish := sr.Populate()
-			insert(1, []string{"alpha"})
+			insert(1, index.Text{Primary: []string{"alpha"}})
 			finish(nil)
 			a := &scope{}
-			sr.Stage(a, 2, []string{"bravo"})
+			sr.Stage(a, 2, index.Text{Primary: []string{"bravo"}})
 			sr.StageDelete(a, 1)
 			a.end(false)
 			b := &scope{}
-			sr.Stage(b, 3, []string{"charlie"})
+			sr.Stage(b, 3, index.Text{Primary: []string{"charlie"}})
 			res := MustSucceed(sr.Get(b, search.Query[int]{Term: "bravo"}))
 			Expect(res.Keys).To(BeEmpty())
 			res = MustSucceed(sr.Get(b, search.Query[int]{Term: "alpha"}))
