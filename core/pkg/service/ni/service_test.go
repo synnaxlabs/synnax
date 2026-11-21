@@ -432,6 +432,14 @@ var _ = Describe("Service", func() {
 				func() config.Store { return svc.AnalogRead }, v3.Version,
 				map[string]any{"type": "ai_voltage", "min_val": 5, "max_val": -5},
 				-5.0, 5.0),
+			Entry("giving an equal v3 analog output the default of its type",
+				func() config.Store { return svc.AnalogWrite }, v3.Version,
+				map[string]any{"type": "ao_voltage", "min_val": 3, "max_val": 3},
+				0.0, 1.0),
+			Entry("swapping a reversed v3 counter input",
+				func() config.Store { return svc.CounterRead }, v3.Version,
+				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2},
+				2.0, 100.0),
 		)
 
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {

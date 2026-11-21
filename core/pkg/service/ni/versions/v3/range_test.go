@@ -95,3 +95,31 @@ var _ = Describe("CounterReadRangeMigration", func() {
 		},
 	)
 })
+
+var _ = Describe("OrderAIRanges", func() {
+	It("Should return the indices of the channels it changes", func() {
+		channels := []v3.AIChannel{
+			{Variant: v3.AIVoltageChannel{MinVal: 0, MaxVal: 1}},
+			{Variant: v3.AIVoltageChannel{MinVal: 1, MaxVal: 0}},
+			{Variant: v3.AITempBuiltinChannel{}},
+		}
+		Expect(v3.OrderAIRanges(channels)).To(Equal([]int{1}))
+		Expect(channels[1].Variant).To(Equal(v3.AIVoltageChannel{MinVal: 0, MaxVal: 1}))
+	})
+})
+
+var _ = Describe("OrderAORanges", func() {
+	It("Should give an equal range the default of the channel type", func() {
+		channels := []v3.AOChannel{{Variant: v3.AOCurrentChannel{MinVal: 2, MaxVal: 2}}}
+		Expect(v3.OrderAORanges(channels)).To(Equal([]int{0}))
+		Expect(channels[0].Variant).To(Equal(v3.AOCurrentChannel{MinVal: 0, MaxVal: 1}))
+	})
+})
+
+var _ = Describe("OrderCIRanges", func() {
+	It("Should leave a channel without a range unchanged", func() {
+		channels := []v3.CIChannel{{Variant: v3.CIEdgeCountChannel{InitialCount: 3}}}
+		Expect(v3.OrderCIRanges(channels)).To(BeEmpty())
+		Expect(channels[0].Variant).To(Equal(v3.CIEdgeCountChannel{InitialCount: 3}))
+	})
+})
