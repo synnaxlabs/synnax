@@ -27,7 +27,6 @@ import {
   box,
   type color,
   location,
-  scale,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -169,13 +168,12 @@ const CompareMenuItems = ({
     }, "Failed to set T0");
   const handleZoom = () =>
     handleError(async () => {
-      const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null) return;
-      const s = scale.Scale.scale<number>(bounds.x1).scale(1);
-      linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(Number(shown.start.valueOf() - zero.valueOf())),
-        upper: s.pos(Number(shown.end.valueOf() - zero.valueOf())),
+      const positions = await linePlotRef.current?.getXPositions({
+        lower: Number(shown.start.valueOf() - zero.valueOf()),
+        upper: Number(shown.end.valueOf() - zero.valueOf()),
       });
+      if (positions == null) return;
+      linePlotRef.current?.toggleZoom(range.key, positions.x1);
     }, "Failed to zoom to range");
   return (
     <>

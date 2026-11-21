@@ -48,6 +48,11 @@ export const linePlotMethodsZ = {
    * home view holds.
    */
   getXBounds: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
+  /**
+   * Returns, for each x axis, the decimal positions across the home view of a span of
+   * values. It is the inverse of getXBounds.
+   */
+  getXPositions: z.function({ input: z.tuple([numericBoundsZ]), output: axesBoundsZ }),
 };
 
 interface InternalState {
@@ -177,6 +182,19 @@ export class LinePlot
         a.state.axisKey ?? a.key,
         a.layout(this.state).reverseHomeSpan(positions),
       ]),
+    );
+  }
+
+  getXPositions(values: bounds.Bounds): AxesBounds {
+    return Object.fromEntries(
+      this.axes.map((a) => {
+        const layout = a.layout(this.state);
+        const positions = {
+          lower: layout.home(values.lower),
+          upper: layout.home(values.upper),
+        };
+        return [a.state.axisKey ?? a.key, positions];
+      }),
     );
   }
 
