@@ -1728,6 +1728,7 @@ describe("intercept", () => {
         bases.set(key, value);
         return show(value);
       },
+      keys: () => bases.keys(),
     };
     return { bases, interceptor };
   };
