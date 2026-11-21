@@ -50,10 +50,12 @@ func openCrashEngine(
 	opts ...func() cesium.Option,
 ) func(context.Context, xfs.FS) (crash.Engine, error) {
 	return func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
-		options := []cesium.Option{
+		options := make([]cesium.Option, 0, 2+len(opts))
+		options = append(
+			options,
 			cesium.WithFS(fs),
 			cesium.WithInstrumentation(PanicLogger()),
-		}
+		)
 		for _, opt := range opts {
 			options = append(options, opt())
 		}
