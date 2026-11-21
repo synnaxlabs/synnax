@@ -18,9 +18,120 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// PasswordCreateRequest gives a user its first password.
+type PasswordCreateRequest struct {
+	// Subject is the user to give the password. Empty means the caller.
+	Subject resource.ID `json:"subject" msgpack:"subject"`
+	// Credentials is the username and password to create for the user.
+	Credentials
+}
+
+// passwordSubject returns the user that req names, or the caller, in canonical form.
+func passwordSubject(
+	ctx context.Context,
+	req PasswordCreateRequest,
+) (resource.ID, error) {
+	subject := lo.Ternary(req.Subject.IsZero(), GetSubject(ctx), req.Subject)
+	if subject.Type != resource.TypeUser {
+		return resource.ID{}, errors.Wrapf(
+			validate.ErrValidation,
+			"a %s has no password",
+			subject.Type,
+		)
+	}
+	key, err := user.KeyFromResourceID(subject)
+	if err != nil {
+		return resource.ID{}, err
+	}
+	return user.ResourceID(key), nil
+}
+
+// PrepareCreatePassword hashes the password that CreatePassword stores. It returns a
+// validation error when the password method is off or the subject is not a user, and
+// an error wrapping access.ErrDenied when the caller cannot create and update another
+// user.
+func (s *Service) PrepareCreatePassword(
+	ctx context.Context,
+	req PasswordCreateRequest,
+) (password.Hash, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return password.Hash{}, err
+	}
+	subject, err := passwordSubject(ctx, req)
+	if err != nil {
+		return password.Hash{}, err
+	}
+	if caller := GetSubject(ctx); subject != caller {
+		// A first password logs its holder in as the user, so it needs update, as
+		// setting one does, and the binder checks create when the password is stored.
+		// Each hash is slow, so a denied caller costs none.
+		if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			enforcer := s.access.NewEnforcer(snap)
+			for _, action := range []access.Action{
+				access.ActionCreate,
+				access.ActionUpdate,
+			} {
+				if err := enforcer.Enforce(ctx, access.Request{
+					Subject: caller,
+					Action:  action,
+					Objects: []resource.ID{subject},
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return password.Hash{}, err
+		}
+	}
+	return s.password.Hash(req.Password)
+}
+
+// CreatePassword gives the caller, or another user, its first password. It returns
+// [auth.ErrRepeatedUsername] when another user holds the username, a validation error
+// when the user already has a password, and an error wrapping query.ErrNotFound when
+// the user does not exist.
+func (s *Service) CreatePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordCreateRequest,
+	hash password.Hash,
+) (struct{}, error) {
+	subject, err := passwordSubject(ctx, req)
+	if err != nil {
+		return struct{}{}, err
+	}
+	key, err := user.KeyFromResourceID(subject)
+	if err != nil {
+		return struct{}{}, err
+	}
+	exists, err := s.user.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if !exists {
+		return struct{}{}, errors.Wrapf(query.ErrNotFound, "%s", subject)
+	}
+	if exists, err = s.password.NewRetrieve().
+		Where(password.MatchSubjects(subject)).
+		Exists(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if exists {
+		return struct{}{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s already has a password",
+			subject,
+		)
+	}
+	return struct{}{}, s.password.NewWriter(tx).Set(ctx, subject, req.Username, hash)
+}
 
 // PasswordSetRequest sets a user's password.
 type PasswordSetRequest struct {
