@@ -47,6 +47,16 @@ var _ = Describe("Factory", func() {
 				Status:  statusSvc,
 			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
+
+		It("Should reject a config without an ICD service", func() {
+			Expect(kafka.NewFactory(kafka.FactoryConfig{
+				DB:      db,
+				Device:  deviceSvc,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
+		})
 	})
 
 	It("Should be named after the device make", func() {
@@ -109,11 +119,9 @@ var _ = Describe("Factory", func() {
 		GinkgoHelper()
 		_, data := createIndexed(ctx, telem.Float64T)
 		return kafka.ReadConfig{
-			AutoStart:   autoStart,
-			Device:      dev,
-			Topic:       uniqueTopic(),
-			StartOffset: kafka.StartOffsetEarliest,
-			Records: []kafka.ReadRecord{{
+			AutoStart: autoStart,
+			Device:    dev,
+			Topics: oneTopic(uniqueTopic(), lift(ctx, kafka.InlineRecord{
 				Key: "r",
 				Fields: []kafka.ReadField{{
 					Key:      "v",
@@ -121,7 +129,8 @@ var _ = Describe("Factory", func() {
 					Pointer:  "/v",
 					DataType: telem.Float64T,
 				}},
-			}},
+			})),
+			StartOffset: kafka.StartOffsetEarliest,
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
@@ -360,7 +369,7 @@ var _ = Describe("Factory", func() {
 					expectSuccess(
 						testConnection(ctx, kafka.Properties{
 							Brokers:       brokers,
-							TLS:           true,
+							Secure:        true,
 							CaCertificate: caPEM,
 						}),
 					)
@@ -372,7 +381,7 @@ var _ = Describe("Factory", func() {
 					expectFailure(
 						testConnection(
 							ctx,
-							kafka.Properties{Brokers: brokers, TLS: true},
+							kafka.Properties{Brokers: brokers, Secure: true},
 						),
 						"Certificate not trusted",
 					)
@@ -390,7 +399,7 @@ var _ = Describe("Factory", func() {
 				"Should fail the TLS stage of a broker without TLS",
 				func(ctx SpecContext) {
 					props := clusterProperties()
-					props.TLS = true
+					props.Secure = true
 					expectFailure(
 						testConnection(ctx, props),
 						"TLS handshake failed",
@@ -401,7 +410,7 @@ var _ = Describe("Factory", func() {
 			It("Should reject a CA certificate that is not PEM", func(ctx SpecContext) {
 				expectInvalid(testConnection(ctx, kafka.Properties{
 					Brokers:       brokers,
-					TLS:           true,
+					Secure:        true,
 					CaCertificate: "not a certificate",
 				}), "PEM-encoded certificate")
 			})

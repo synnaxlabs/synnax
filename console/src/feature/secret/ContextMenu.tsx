@@ -14,7 +14,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Certificate, Secret } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";

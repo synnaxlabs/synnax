@@ -13,12 +13,13 @@ package v14
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -26,6 +27,138 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (e Edge) EncodeOrc(w *orc.Writer) error {
+	w.String(e.Key)
+	if err := e.Source.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Target.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := e.Config.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (e *Edge) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if e.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = e.Source.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Target.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = e.Config.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ec EdgeConfig) EncodeOrc(w *orc.Writer) error {
+	switch v := ec.Variant.(type) {
+	case PipeEdgeConfig:
+		w.String("pipe")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case ElectricEdgeConfig:
+		w.String("electric")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case SecondaryEdgeConfig:
+		w.String("secondary")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case JacketedEdgeConfig:
+		w.String("jacketed")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case HydraulicEdgeConfig:
+		w.String("hydraulic")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case PneumaticEdgeConfig:
+		w.String("pneumatic")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	case DataEdgeConfig:
+		w.String("data")
+		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("EdgeConfig: nil or unknown variant %T", ec.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ec *EdgeConfig) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "pipe":
+		var v PipeEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "electric":
+		var v ElectricEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "secondary":
+		var v SecondaryEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "jacketed":
+		var v JacketedEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "hydraulic":
+		var v HydraulicEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "pneumatic":
+		var v PneumaticEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	case "data":
+		var v DataEdgeConfig
+		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
+			return err
+		}
+		ec.Variant = v
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %q", tag)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (nv Node) EncodeOrc(w *orc.Writer) error {
@@ -1292,7 +1425,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1305,7 +1438,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1381,7 +1514,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1406,7 +1539,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1419,7 +1552,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1460,7 +1593,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1528,7 +1661,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1592,7 +1725,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1605,7 +1738,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1621,7 +1754,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1649,7 +1782,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1686,7 +1819,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1699,7 +1832,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1755,7 +1888,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1863,7 +1996,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1911,7 +2044,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1974,7 +2107,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -1987,7 +2120,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2047,7 +2180,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2098,7 +2231,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2111,7 +2244,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2124,7 +2257,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2538,7 +2671,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2551,7 +2684,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2607,7 +2740,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv xcolor.Color
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2626,7 +2759,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2639,7 +2772,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2652,7 +2785,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2688,7 +2821,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2701,7 +2834,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv color.Color
+				var hv servicecolor.Ref
 				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
@@ -2814,6 +2947,196 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(sic.Channel))
+	w.Uint16(uint16(sic.RollingAverage))
+	if sic.Precision != nil {
+		w.Bool(true)
+		w.Uint8(uint8(*sic.Precision))
+	} else {
+		w.Bool(false)
+	}
+	w.String(string(sic.Notation))
+	w.Int64(int64(sic.StalenessTimeout))
+	if sic.StalenessColor != nil {
+		w.Bool(true)
+		if err := sic.StalenessColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Float64(float64(sic.Bounds.Lower))
+	w.Float64(float64(sic.Bounds.Upper))
+	if sic.LevelColor != nil {
+		w.Bool(true)
+		if err := sic.LevelColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if sic.AxisColor != nil {
+		w.Bool(true)
+		if err := sic.AxisColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if sic.TextColor != nil {
+		w.Bool(true)
+		if err := sic.TextColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.String(sic.Units)
+	w.Bool(sic.LevelHidden)
+	w.Bool(sic.CaretHidden)
+	w.Bool(sic.ScaleHidden)
+	w.String(string(sic.Side))
+	w.String(string(sic.CaretSide))
+	w.String(string(sic.Level))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		sic.Channel = channel.Key(rawV)
+	}
+	if sic.RollingAverage, err = r.Uint16(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
+				return err
+			}
+			sic.Precision = &hv
+		}
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sic.Notation = notation.Notation(rawV)
+	}
+	{
+		rawV, err := r.Int64()
+		if err != nil {
+			return err
+		}
+		sic.StalenessTimeout = telem.TimeSpan(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv xcolor.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sic.StalenessColor = &hv
+		}
+	}
+	if sic.Bounds.Lower, err = r.Float64(); err != nil {
+		return err
+	}
+	if sic.Bounds.Upper, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv servicecolor.Ref
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sic.LevelColor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv servicecolor.Ref
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sic.AxisColor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv servicecolor.Ref
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sic.TextColor = &hv
+		}
+	}
+	if sic.Units, err = r.String(); err != nil {
+		return err
+	}
+	if sic.LevelHidden, err = r.Bool(); err != nil {
+		return err
+	}
+	if sic.CaretHidden, err = r.Bool(); err != nil {
+		return err
+	}
+	if sic.ScaleHidden, err = r.Bool(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sic.Side = spatial.OuterLocation(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sic.CaretSide = spatial.OuterLocation(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sic.Level = text.Level(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -2920,6 +3243,69 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 			}
 			s.Project = &hv
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sec SegmentedEdgeConfig) EncodeOrc(w *orc.Writer) error {
+	if sec.StrokeColor != nil {
+		w.Bool(true)
+		if err := sec.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(sec.Segments != nil)
+	if sec.Segments != nil {
+		w.Uint32(uint32(len(sec.Segments)))
+		for i := range sec.Segments {
+			if err := sec.Segments[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Uint8(uint8(sec.StrokeWidth))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sec *SegmentedEdgeConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv servicecolor.Ref
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			sec.StrokeColor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			sec.Segments = make([]Segment, n)
+			for i := range sec.Segments {
+				if err = sec.Segments[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if sec.StrokeWidth, err = r.Uint8(); err != nil {
+		return err
 	}
 	return nil
 }

@@ -10,7 +10,7 @@
 import { Input } from "@synnaxlabs/lyra/input";
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { color, TimeSpan } from "@synnaxlabs/x";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Switch } from "@/schematic/node/general/switch/Primitive";

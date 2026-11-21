@@ -720,6 +720,22 @@ class TestMultiSeries:
         s = telem.MultiSeries([s1, s2])
         assert len(s) == 6
 
+    def test_construction_from_tuple(self) -> None:
+        """Should accept a tuple and keep the series in order"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
+        s = telem.MultiSeries((s1, s2))
+        assert s.series == (s1, s2)
+
+    def test_series_snapshot(self) -> None:
+        """Should not change when the source list changes after construction"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        source = [s1]
+        s = telem.MultiSeries(source)
+        source.append(telem.Series([4, 5, 6], data_type=telem.DataType.INT8))
+        assert s.series == (s1,)
+        assert len(s) == 3
+
     def test_construction_mismatched_data_types(self) -> None:
         """Should throw a ValueError"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
@@ -797,6 +813,14 @@ class TestMultiSeries:
         assert s[2] == 3
         assert s[5] == 6
         assert s[-1] == 6
+
+    @pytest.mark.parametrize("index", [6, -7, -12])
+    def test_index_out_of_bounds(self, index: int) -> None:
+        """Should raise an IndexError for an index outside the MultiSeries"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
+        s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
+        with pytest.raises(IndexError):
+            telem.MultiSeries([s1, s2])[index]
 
     def test_conversion_to_list_string(self) -> None:
         """Should correctly convert the telem.MultiSeries to a list of strings"""

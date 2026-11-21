@@ -10,14 +10,15 @@
 package icd
 
 import (
+	"encoding/json/jsontext"
 	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"uuid"
 
+	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -30,49 +31,68 @@ const (
 	maxBitLength     = 64
 )
 
-// Check returns every problem in the ICD: the rules its schema declares and the rules
-// that span messages and fields, such as unique names, references between fields, and
-// the limits of each bus. Problems do not stop a save. Messages and fields with no key
+// Check returns every problem in the ICD as an error at the path of the bad value: the
+// rules its schema declares and the rules that span messages and fields, such as unique
+// names, references between fields, and the limits of each bus. Each error wraps
+// validate.ErrValidation. Problems do not stop a save. Messages and fields with no key
 // do not count as duplicates, as a save assigns their keys.
-func Check(ic ICD) validate.Problems {
-	c := checker{Problems: validate.Problems{}}
+func Check(ic ICD) []validate.PathError {
+	c := checker{problems: []validate.PathError{}}
 	c.addSchema(ic.Validate())
 	keys := make(set.Set[MessageKey], len(ic.Messages))
 	names := make(set.Set[string], len(ic.Messages))
 	for i, m := range ic.Messages {
 		path := []string{"messages", strconv.Itoa(i)}
 		if m.Key != uuid.Nil() && keys.Contains(m.Key) {
-			c.Addf(pathOf(path, "key"), "duplicate message key %s", m.Key)
+			c.addf(pathOf(path, "key"), "duplicate message key %s", m.Key)
 		}
 		keys.Add(m.Key)
 		if m.Name != "" && names.Contains(m.Name) {
-			c.Addf(pathOf(path, "name"), "duplicate message name %q", m.Name)
+			c.addf(pathOf(path, "name"), "duplicate message name %q", m.Name)
 		}
 		names.Add(m.Name)
 		c.checkMessage(path, m)
 	}
-	return c.Problems
+	return c.problems
 }
 
-type checker struct{ validate.Problems }
+type checker struct{ problems []validate.PathError }
+
+func (c *checker) addf(path []string, format string, args ...any) {
+	c.problems = append(c.problems, validate.PathError{
+		Path: slices.Clone(path),
+		Err:  validate.Errorf(format, args...),
+	})
+}
 
 // addSchema adds each problem that err holds as a sentence that names its field, such
-// as "bit length must be less than or equal to 64".
+// as "bit length must be less than or equal to 64". err may join several errors, and an
+// error that is not a validate.PathError is a problem with the whole ICD.
 func (c *checker) addSchema(err error) {
-	var schema validate.Problems
-	schema.AddError(err)
-	for _, p := range schema {
-		field := p.Path[strings.LastIndexByte(p.Path, '.')+1:]
-		field = strings.ReplaceAll(field, "_", " ")
-		switch {
-		case p.Message == "required":
-			p.Message = field + " is required"
-		case strings.HasPrefix(p.Message, "must "):
-			p.Message = field + " " + p.Message
-		default:
-			p.Message = field + " is not valid"
+	if err == nil {
+		return
+	}
+	if members := errors.UnwrapMulti(err); members != nil {
+		for _, m := range members {
+			c.addSchema(m)
 		}
-		c.Problems = append(c.Problems, p)
+		return
+	}
+	p, ok := errors.AsType[validate.PathError](err)
+	if !ok {
+		p = validate.PathError{Err: err}
+	}
+	var field string
+	if len(p.Path) > 0 {
+		field = strings.ReplaceAll(p.Path[len(p.Path)-1], "_", " ")
+	}
+	switch message := p.Err.Error(); {
+	case message == "required":
+		c.addf(p.Path, "%s is required", field)
+	case strings.HasPrefix(message, "must "):
+		c.addf(p.Path, "%s %s", field, message)
+	default:
+		c.addf(p.Path, "%s is not valid", field)
 	}
 }
 
@@ -84,6 +104,9 @@ func pathOf(parent []string, segments ...string) []string {
 }
 
 func (c *checker) checkMessage(path []string, m Message) {
+	if m.CycleTime != nil && *m.CycleTime <= 0 {
+		c.addf(pathOf(path, "cycle_time"), "cycle time must be positive")
+	}
 	path = pathOf(path, "payload")
 	var (
 		bases = m.Payload.FieldBases()
@@ -96,11 +119,15 @@ func (c *checker) checkMessage(path []string, m Message) {
 	case BinaryPayload:
 		binary := make(map[FieldKey]BinaryField, len(p.Fields))
 		for i, f := range p.Fields {
+			if f.Variant == nil {
+				untyped.Add(i)
+				continue
+			}
 			c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
-			binary[f.Key] = f
+			binary[f.Base().Key] = f
 		}
 		for i, f := range p.Fields {
-			if f.Multiplexor != nil {
+			if f.Variant != nil && f.Base().Multiplexor != nil {
 				c.checkMultiplexor(pathOf(path, "fields", strconv.Itoa(i)), f, binary)
 			}
 		}
@@ -114,8 +141,12 @@ func (c *checker) checkMessage(path []string, m Message) {
 				untyped.Add(i)
 			case TaggedTextField:
 				if v.Tag == "" {
-					c.Addf(pathOf(fieldPath, "tag"), "tag is required")
+					c.addf(pathOf(fieldPath, "tag"), "tag is required")
 				}
+			}
+			if d := f.Base().Default; d != nil &&
+				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+				c.addf(pathOf(fieldPath, "default"), "default must be finite")
 			}
 		}
 	case JSONPayload:
@@ -134,11 +165,11 @@ func (c *checker) checkMessage(path []string, m Message) {
 		}
 		p := pathOf(path, "fields", strconv.Itoa(i))
 		if b.Key != uuid.Nil() && keys.Contains(b.Key) {
-			c.Addf(pathOf(p, "key"), "duplicate field key %s", b.Key)
+			c.addf(pathOf(p, "key"), "duplicate field key %s", b.Key)
 		}
 		keys.Add(b.Key)
 		if b.Name != "" && names.Contains(b.Name) {
-			c.Addf(pathOf(p, "name"), "duplicate field name %q", b.Name)
+			c.addf(pathOf(p, "name"), "duplicate field name %q", b.Name)
 		}
 		names.Add(b.Name)
 		if unscaled.Contains(i) {
@@ -172,15 +203,32 @@ func (c *checker) checkJSONFields(
 			unscaled.Add(i)
 		}
 		c.checkEnumLabels(fieldPath, f)
+		switch v := f.Variant.(type) {
+		case FloatJSONField:
+			if d := v.Default; d != nil &&
+				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+				c.addf(pathOf(fieldPath, "default"), "default must be finite")
+			}
+		case BytesJSONField:
+			if v.Default != nil {
+				if _, err := xjson.DecodeBase64(*v.Default); err != nil {
+					c.addf(pathOf(fieldPath, "default"), "default must be base64")
+				}
+			}
+		case JSONJSONField:
+			if v.Default != nil && !jsontext.Value(*v.Default).IsValid() {
+				c.addf(pathOf(fieldPath, "default"), "default must be valid JSON")
+			}
+		}
 		b := f.Base()
 		pointer, err := xjson.ParsePointer(b.Pointer)
 		if err != nil {
-			c.Addf(pathOf(fieldPath, "pointer"), "invalid JSON Pointer %q", b.Pointer)
+			c.addf(pathOf(fieldPath, "pointer"), "invalid JSON Pointer %q", b.Pointer)
 			continue
 		}
 		for _, r := range reads {
 			if msg, ok := nested(pointer, r.pointer); ok {
-				c.Addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
+				c.addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
 				break
 			}
 		}
@@ -218,11 +266,11 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 	for i, label := range labels {
 		labelPath := pathOf(path, "enum_values", strconv.Itoa(i), "label")
 		if label == "" {
-			c.Addf(labelPath, "enum label is required")
+			c.addf(labelPath, "enum label is required")
 			continue
 		}
 		if seen.Contains(label) {
-			c.Addf(labelPath, "duplicate enum label %q", label)
+			c.addf(labelPath, "duplicate enum label %q", label)
 		}
 		seen.Add(label)
 	}
@@ -230,12 +278,16 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 
 func (c *checker) checkMatch(path []string, m JSONMatch) {
 	pointer := m.Base().Pointer
-	if _, err := xjson.ParsePointer(pointer); err != nil {
-		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
+	parsed, err := xjson.ParsePointer(pointer)
+	if err != nil {
+		c.addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
+	} else if _, ok := m.Variant.(PresentJSONMatch); ok && len(parsed) == 0 {
+		// The root holds a value in every document.
+		c.addf(pathOf(path, "pointer"), "pointer must not be empty")
 	}
 	if f, ok := m.Variant.(FloatJSONMatch); ok &&
 		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
-		c.Addf(pathOf(path, "value"), "value must be finite")
+		c.addf(pathOf(path, "value"), "value must be finite")
 	}
 }
 
@@ -256,71 +308,72 @@ func nested(a, b xjson.Pointer) (string, bool) {
 // checkUnscaled finds the scaling set on a field that holds no number.
 func (c *checker) checkUnscaled(path []string, b BaseField) {
 	if b.Scale != 1 {
-		c.Addf(pathOf(path, "scale"), "only a number field can scale")
+		c.addf(pathOf(path, "scale"), "only a number field can scale")
 	}
 	if b.Offset != 0 {
-		c.Addf(pathOf(path, "offset"), "only a number field can have an offset")
+		c.addf(pathOf(path, "offset"), "only a number field can have an offset")
 	}
 	if b.Min != nil {
-		c.Addf(pathOf(path, "min"), "only a number field can have a min")
+		c.addf(pathOf(path, "min"), "only a number field can have a min")
 	}
 	if b.Max != nil {
-		c.Addf(pathOf(path, "max"), "only a number field can have a max")
+		c.addf(pathOf(path, "max"), "only a number field can have a max")
 	}
 }
 
 func (c *checker) checkScaling(path []string, b BaseField) {
 	if math.IsNaN(b.Scale) || math.IsInf(b.Scale, 0) || b.Scale == 0 {
-		c.Addf(pathOf(path, "scale"), "scale must be finite and non-zero")
+		c.addf(pathOf(path, "scale"), "scale must be finite and non-zero")
 	}
 	if math.IsNaN(b.Offset) || math.IsInf(b.Offset, 0) {
-		c.Addf(pathOf(path, "offset"), "offset must be finite")
+		c.addf(pathOf(path, "offset"), "offset must be finite")
 	}
 	finite := func(name string, v *float64) bool {
 		if v != nil && (math.IsNaN(*v) || math.IsInf(*v, 0)) {
-			c.Addf(pathOf(path, name), "%s must be finite", name)
+			c.addf(pathOf(path, name), "%s must be finite", name)
 			return false
 		}
 		return v != nil
 	}
 	if minOK, maxOK := finite("min", b.Min), finite("max", b.Max); minOK && maxOK &&
 		*b.Min > *b.Max {
-		c.Addf(pathOf(path, "max"), "max must be greater than or equal to min")
+		c.addf(pathOf(path, "max"), "max must be greater than or equal to min")
 	}
 }
 
 func (c *checker) checkMultiplexor(
 	path []string,
-	b BinaryField,
+	f BinaryField,
 	binary map[FieldKey]BinaryField,
 ) {
-	mux, ok := binary[*b.Multiplexor]
+	base := f.Base()
+	mux, ok := binary[*base.Multiplexor]
 	switch {
-	case *b.Multiplexor == b.Key:
-		c.Addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
+	case *base.Multiplexor == base.Key:
+		c.addf(pathOf(path, "multiplexor"), "a field cannot multiplex itself")
 	case !ok:
-		c.Addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
+		c.addf(pathOf(path, "multiplexor"), "the multiplexor is not in this message")
 	case !integral(mux):
-		c.Addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
-	case inCycle(b.Key, binary):
-		c.Addf(pathOf(path, "multiplexor"), "multiplexors form a cycle")
+		c.addf(pathOf(path, "multiplexor"), "a multiplexor must be an integer field")
+	case inCycle(base.Key, binary):
+		c.addf(pathOf(path, "multiplexor"), "multiplexors form a cycle")
 	}
-	if len(b.MultiplexValues) == 0 {
-		c.Addf(
+	if len(base.MultiplexValues) == 0 {
+		c.addf(
 			pathOf(path, "multiplex_values"),
 			"at least one value is required when the field has a multiplexor",
 		)
 	}
-	if !ok || !integral(mux) || !validBitLength(mux.BitLength) {
+	if !ok || !integral(mux) || !validBitLength(mux.Base().BitLength) {
 		return
 	}
-	for i, v := range b.MultiplexValues {
-		if !fits(v, mux) {
-			c.Addf(
+	for i, v := range base.MultiplexValues {
+		if !fits(int64(v), mux) {
+			c.addf(
 				pathOf(path, "multiplex_values", strconv.Itoa(i)),
 				"value %d does not fit the multiplexor %q",
 				v,
-				mux.Name,
+				mux.Base().Name,
 			)
 		}
 	}
@@ -332,10 +385,10 @@ func inCycle(key FieldKey, binary map[FieldKey]BinaryField) bool {
 	cur := key
 	for range binary {
 		f, ok := binary[cur]
-		if !ok || f.Multiplexor == nil {
+		if !ok || f.Base().Multiplexor == nil {
 			return false
 		}
-		if cur = *f.Multiplexor; cur == key {
+		if cur = *f.Base().Multiplexor; cur == key {
 			return true
 		}
 	}
@@ -358,7 +411,7 @@ func (c *checker) checkIdentifier(
 			limit = maxExtendedCANID
 		}
 		if id.ID > limit {
-			c.Addf(
+			c.addf(
 				pathOf(idPath, "id"),
 				"id 0x%X exceeds the maximum 0x%X",
 				id.ID,
@@ -366,13 +419,13 @@ func (c *checker) checkIdentifier(
 			)
 		}
 		if id.BitrateSwitched && !id.Fd {
-			c.Addf(
+			c.addf(
 				pathOf(idPath, "bitrate_switched"),
 				"only a CAN FD frame can switch bitrates",
 			)
 		}
 		if maxLength := canLength(id); p.Length != nil && *p.Length > maxLength {
-			c.Addf(
+			c.addf(
 				pathOf(path, "length"),
 				"length %d exceeds the %d bytes a CAN frame carries",
 				*p.Length,
@@ -383,39 +436,32 @@ func (c *checker) checkIdentifier(
 		f, ok := binary[id.Field]
 		switch {
 		case !ok:
-			c.Addf(
+			c.addf(
 				pathOf(idPath, "field"),
 				"the identifier field is not in this message",
 			)
 		case !integral(f):
-			c.Addf(pathOf(idPath, "field"), "the identifier must be an integer field")
-		case validBitLength(f.BitLength) && !fits(id.Value, f):
-			c.Addf(
+			c.addf(pathOf(idPath, "field"), "the identifier must be an integer field")
+		case validBitLength(f.Base().BitLength) && !fits(int64(id.Value), f):
+			c.addf(
 				pathOf(idPath, "value"),
 				"value %d does not fit the field %q",
 				id.Value,
-				f.Name,
+				f.Base().Name,
 			)
 		}
 	}
 }
 
 func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField) {
-	if f.Kind != payload.KindFloat && !integral(f) {
-		c.Addf(
-			pathOf(path, "kind"),
-			"a binary field must be a float, an integer, or an unsigned integer",
-		)
-	}
-	if !validBitLength(f.BitLength) {
+	base := f.Base()
+	if !validBitLength(base.BitLength) {
 		return
 	}
-	if f.Kind == payload.KindFloat && f.BitLength != 32 && f.BitLength != 64 {
-		c.Addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
-	}
+	c.checkBinaryDefault(path, f)
 	if p.Length != nil {
-		if lastByte(f) >= int(*p.Length) {
-			c.Addf(
+		if lastByte(base) >= int(*p.Length) {
+			c.addf(
 				pathOf(path, "start_bit"),
 				"field extends past the %d-byte payload",
 				*p.Length,
@@ -427,12 +473,43 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 		return
 	}
 	if id, ok := p.Identifier.Variant.(CanIdentifier); ok &&
-		lastByte(f) >= int(canLength(id)) {
-		c.Addf(
+		lastByte(base) >= int(canLength(id)) {
+		c.addf(
 			pathOf(path, "start_bit"),
 			"field extends past the %d bytes a CAN frame carries",
 			canLength(id),
 		)
+	}
+}
+
+// checkBinaryDefault adds a problem when f is a float of the wrong width, or when the
+// bits of f cannot hold its default.
+func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
+	n := f.Base().BitLength
+	defaultPath := pathOf(path, "default")
+	switch v := f.Variant.(type) {
+	case FloatBinaryField:
+		if n != 32 && n != 64 {
+			c.addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
+		}
+		if v.Default == nil {
+			return
+		}
+		d := float64(*v.Default)
+		switch {
+		case math.IsNaN(d) || math.IsInf(d, 0):
+			c.addf(defaultPath, "default must be finite")
+		case n == 32 && math.Abs(d) > math.MaxFloat32:
+			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
+		}
+	case IntegerBinaryField:
+		if v.Default != nil && !fits(int64(*v.Default), f) {
+			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
+		}
+	case UnsignedBinaryField:
+		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
+			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
+		}
 	}
 }
 
@@ -445,8 +522,12 @@ func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
 	found := make([]int, len(fields))
 	bits := make([][]int, len(fields))
 	groups := make(map[muxValue][]int)
-	for j, f := range fields {
+	for j, field := range fields {
 		found[j] = noField
+		if field.Variant == nil {
+			continue
+		}
+		f := field.Base()
 		if !validBitLength(f.BitLength) {
 			continue
 		}
@@ -488,10 +569,10 @@ func (c *checker) checkOverlaps(path []string, fields []BinaryField) {
 	}
 	for j, i := range found {
 		if i != noField {
-			c.Addf(
+			c.addf(
 				pathOf(path, strconv.Itoa(j), "start_bit"),
 				"field overlaps the bits of field %q",
-				fields[i].Name,
+				fields[i].Base().Name,
 			)
 		}
 	}
@@ -539,7 +620,7 @@ func (r readers) release(bits []int) {
 
 // coveredBits returns the payload bits the field reads, each numbered 8*byte + bit,
 // where bit 0 is the least significant bit of its byte.
-func coveredBits(f BinaryField) []int {
+func coveredBits(f BinaryBaseField) []int {
 	start, length := int(f.StartBit), int(f.BitLength)
 	bits := make([]int, 0, length)
 	if f.ByteOrder != ByteOrderBigEndian {
@@ -567,25 +648,27 @@ func canLength(id CanIdentifier) uint16 {
 
 // integral reports whether the binary field f holds an integer.
 func integral(f BinaryField) bool {
-	return f.Kind == payload.KindInteger || f.Kind == payload.KindUnsigned
+	switch f.Variant.(type) {
+	case IntegerBinaryField, UnsignedBinaryField:
+		return true
+	default:
+		return false
+	}
 }
 
-// fits reports whether the integer field f can hold v.
-func fits(v int32, f BinaryField) bool {
-	n := int64(f.BitLength)
-	if f.Kind == payload.KindUnsigned {
-		return v >= 0 && (n >= 31 || int64(v) < int64(1)<<n)
+// fits reports whether the integer field f, of a valid bit length, can hold v.
+func fits(v int64, f BinaryField) bool {
+	n := f.Base().BitLength
+	if _, ok := f.Variant.(UnsignedBinaryField); ok {
+		return v >= 0 && (n == 64 || v < int64(1)<<n)
 	}
-	if n >= 32 {
-		return true
-	}
-	return int64(v) >= -(int64(1)<<(n-1)) && int64(v) < int64(1)<<(n-1)
+	return n == 64 || (v >= -(int64(1)<<(n-1)) && v < int64(1)<<(n-1))
 }
 
 // lastByte returns the index of the last payload byte a binary field touches. A
 // little-endian start bit is the field's least significant bit; a big-endian start bit
 // is its most significant bit, and the field continues toward higher byte indices.
-func lastByte(f BinaryField) int {
+func lastByte(f BinaryBaseField) int {
 	start, length := int(f.StartBit), int(f.BitLength)
 	if f.ByteOrder == ByteOrderBigEndian {
 		msb := 8*(start/8) + 7 - start%8

@@ -9,12 +9,12 @@
 
 import "@/lineplot/range/Provider.css";
 
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -31,6 +31,7 @@ export interface MenuProps extends range.SelectedState {
 
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
+  /** Called with whether the strip shows ranges, and with false when it unmounts. */
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
   menu?: Component.RenderProp<MenuProps>;
 }
@@ -44,6 +45,8 @@ export const Provider = ({
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { toggleZoom, zoomedKey } = useContext("Range.Provider");
+  const reported = useRef(false);
+  const onHasAnnotationsChangeRef = useSyncedRef(onHasAnnotationsChange);
   const [, { hovered, height }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
@@ -57,9 +60,17 @@ export const Provider = ({
       count: 0,
       height: 0,
     },
-    onAetherChange: ({ count }: range.ProviderState) =>
-      onHasAnnotationsChange?.(count > 0),
+    onAetherChange: ({ count }: range.ProviderState) => {
+      reported.current = count > 0;
+      onHasAnnotationsChange?.(count > 0);
+    },
   });
+  useEffect(
+    () => () => {
+      if (reported.current) onHasAnnotationsChangeRef.current?.(false);
+    },
+    [onHasAnnotationsChangeRef],
+  );
   useEffect(() => {
     setState((s) => ({ ...s, visible }));
   }, [visible, setState]);

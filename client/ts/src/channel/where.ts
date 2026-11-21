@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { isCalculated } from "@/channel/payload";
-import { type Lines } from "@/channel/where.gen";
+import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
 /** The typed lines of a channel Where. */

@@ -10,10 +10,10 @@
 import { resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Flux } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { Flux } from "@synnaxlabs/pluto";
+import type { record } from "@synnaxlabs/x";
 
-import { type ContextMenuProps } from "@/platform/tree/types";
+import type { ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameParams<K extends record.Key> {
   useUpdate: Flux.UseUpdate<record.KeyedNamed<K>>;

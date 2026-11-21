@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type color as clientColor,
-  type enumeration,
-  type schematic,
-} from "@synnaxlabs/client";
+import type { color as clientColor, enumeration, schematic } from "@synnaxlabs/client";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { color } from "@synnaxlabs/x";
 

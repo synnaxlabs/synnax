@@ -93,6 +93,10 @@ describe("deepEqual", () => {
       expect(deep.equal(new Date(5), new Date(6))).toBe(false);
     });
 
+    it("should return true for two invalid dates", () => {
+      expect(deep.equal(new Date(NaN), new Date(NaN))).toBe(true);
+    });
+
     it("should compare nested dates by time", () => {
       expect(deep.equal({ at: new Date(5) }, { at: new Date(6) })).toBe(false);
       expect(deep.equal({ at: new Date(5) }, { at: new Date(5) })).toBe(true);

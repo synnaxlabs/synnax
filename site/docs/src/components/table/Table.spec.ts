@@ -10,7 +10,7 @@
 // @vitest-environment node
 
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { type Element, type Root } from "hast";
+import type { Element, Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { beforeAll, describe, expect, it } from "vitest";
 

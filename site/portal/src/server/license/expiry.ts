@@ -10,7 +10,7 @@
 import { errors } from "@synnaxlabs/x";
 import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
-import { type Query, type Store } from "@/server/db/db";
+import type { Query, Store } from "@/server/db/db";
 import {
   type Event,
   event,
@@ -19,7 +19,7 @@ import {
   organization,
 } from "@/server/db/schema";
 import { expiring } from "@/server/license/notice";
-import { type Mailer } from "@/server/mail";
+import type { Mailer } from "@/server/mail";
 
 /** NOTICE_DAYS are the days before expiry that get a warning, most urgent last. */
 export const NOTICE_DAYS = [30, 7, 1] as const;

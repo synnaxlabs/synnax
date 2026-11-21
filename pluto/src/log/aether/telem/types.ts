@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type TimeRange, type TimeStamp } from "@synnaxlabs/client";
+import type { channel, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { type Source, sourceSpecZ } from "@/telem/aether/telem";

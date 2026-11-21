@@ -32,14 +32,7 @@ import {
 } from "@/director/constants";
 import { minimumJerk } from "@/director/cursor";
 import { fitAmount } from "@/director/zoom";
-import {
-  type CursorKind,
-  type Event,
-  type Meta,
-  type Point,
-  type Rect,
-  type Timeline,
-} from "@/timeline";
+import type { CursorKind, Event, Meta, Point, Rect, Timeline } from "@/timeline";
 
 export interface CaptureOptions {
   /** URL of the Console web build. */

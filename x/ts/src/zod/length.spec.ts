@@ -30,7 +30,7 @@ describe("length", () => {
       ["emoji", "😀😀😀"],
     ])("should reject %s below the minimum", (_, value) => {
       const result = schema.safeParse(value);
-      expect(result.error?.issues[0].message).toEqual(
+      expect(result.error?.issues[0]?.message).toEqual(
         "must be at least 4 characters long",
       );
     });
@@ -54,7 +54,7 @@ describe("length", () => {
       ["a family emoji, which is five code points", "👨‍👩‍👧"],
     ])("should reject %s above the maximum", (_, value) => {
       const result = schema.safeParse(value);
-      expect(result.error?.issues[0].message).toEqual(
+      expect(result.error?.issues[0]?.message).toEqual(
         "must be at most 4 characters long",
       );
     });

@@ -9,7 +9,7 @@
 
 import { computed, renderThemed } from "@synnaxlabs/lyra/styletest";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Light } from "@/schematic/node/general/light/Primitive";

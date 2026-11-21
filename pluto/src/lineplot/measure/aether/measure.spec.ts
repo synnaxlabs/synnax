@@ -15,7 +15,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { measure } from "@/lineplot/measure/aether";
 import { renderAether } from "@/testutil/renderAether";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -25,9 +25,9 @@ const MEASURE_KEY = "measure";
 class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   static readonly TYPE = "measure-test-requestor";
   static readonly stateZ = z.object({});
-  schema = Requestor.stateZ;
+  override schema = Requestor.stateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     render.control(ctx, () => {});
   }
 }
@@ -46,31 +46,44 @@ const texts = (recorder: canvasTest.Recorder): string[] =>
     .filter((c) => c.op === "fillText")
     .map((c) => String(c.args[0]));
 
-describe("Measure", () => {
-  it("should report a negative slope when the second point is left of the first", () => {
-    const recorder = canvasTest.record();
-    const h = renderAether(Requestor, {
-      state: {},
-      theming: { theme: theme.themeZ.parse(theme.SYNNAX_DARK), fontURLs: [] },
-      render: recorder,
-      registry: { [measure.Measure.TYPE]: measure.Measure },
-      children: {
-        [MEASURE_KEY]: {
-          type: measure.Measure.TYPE,
-          state: { one: { x: 300, y: 150 }, two: { x: 100, y: 50 }, hover: null },
+const mount = (relative: boolean) => {
+  const recorder = canvasTest.record();
+  const h = renderAether(Requestor, {
+    state: {},
+    theming: { theme: theme.themeZ.parse(theme.SYNNAX_DARK), fontURLs: [] },
+    render: recorder,
+    registry: { [measure.Measure.TYPE]: measure.Measure },
+    children: {
+      [MEASURE_KEY]: {
+        type: measure.Measure.TYPE,
+        state: {
+          one: { x: 300, y: 150 },
+          two: { x: 100, y: 50 },
+          hover: null,
+          relative,
         },
       },
-    });
-    const one = point(
-      { x: 0.75, y: 0.75 },
-      { x: Number(TimeSpan.seconds(10).valueOf()), y: 0 },
-    );
-    const two = point({ x: 0.25, y: 0.25 }, { x: 0, y: 10 });
-    h.child<measure.Measure>(MEASURE_KEY).render({
-      findByXDecimal: (x) => [x > 0.5 ? one : two],
-      findByXValue: (x) => [x > 0 ? one : two],
-      region: REGION,
-    });
-    expect(texts(recorder)).toContain("-1");
+    },
+  });
+  const one = point(
+    { x: 0.75, y: 0.75 },
+    { x: Number(TimeSpan.seconds(10).valueOf()), y: 0 },
+  );
+  const two = point({ x: 0.25, y: 0.25 }, { x: 0, y: 10 });
+  h.child<measure.Measure>(MEASURE_KEY).render({
+    findByXDecimal: (x) => [x > 0.5 ? one : two],
+    findByXValue: (x) => [x > 0 ? one : two],
+    region: REGION,
+  });
+  return texts(recorder);
+};
+
+describe("Measure", () => {
+  it("should report a negative slope when the second point is left of the first", () => {
+    expect(mount(false)).toContain("-1");
+  });
+
+  it("should label a point with its time from zero on a relative axis", () => {
+    expect(mount(true)).toContain("T+10.000 s");
   });
 });

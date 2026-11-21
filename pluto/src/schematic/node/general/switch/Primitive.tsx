@@ -11,13 +11,13 @@ import "@/schematic/node/general/switch/switch.css";
 
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { location } from "@synnaxlabs/x";
-import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
+import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Toggle } from "@/schematic/node/common/toggle";
+import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
 
 const SPEC = Custom.createBuiltIn({ svg, handles: [] });

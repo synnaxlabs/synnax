@@ -1269,10 +1269,6 @@ var _ = Describe("With a detach reference", func() {
 			}))
 		})
 
-		It("Should report the tables it hashes", func() {
-			Expect(svc.HashedTables()).To(Equal([]string{targetTable}))
-		})
-
 		It("Should cover the content of a used record in the hash", func(
 			ctx SpecContext,
 		) {

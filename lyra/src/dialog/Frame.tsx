@@ -19,7 +19,7 @@ import {
   useState,
 } from "react";
 
-import { type Component } from "@/component";
+import type { Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { BACKGROUND_CLASS, inTopModal } from "@/dialog/Background";
@@ -395,6 +395,15 @@ export const Frame = ({
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
+
+  // A closed dialog drops its placement, so it opens again hidden until it is placed.
+  // An update that changes nothing can still render the dialog, so none is queued.
+  const hasPlacement = Object.keys(style).length > 0;
+  useEffect(() => {
+    if (visible) return;
+    prevBox.current = undefined;
+    if (hasPlacement) setState((prev) => ({ ...prev, style: {} }));
+  }, [visible, hasPlacement]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);

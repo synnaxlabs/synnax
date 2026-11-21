@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 import { schematic } from "@/schematic";
 import { createTestClient, expectLive } from "@/testutil";
 

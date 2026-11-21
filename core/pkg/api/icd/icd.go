@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -28,6 +29,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
+	// Errors encodes the problems that a check finds.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 var (
@@ -39,6 +44,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ICD = override.Nil(c.ICD, other.ICD)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -46,12 +52,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.icd")
 	v.NotNil("icd", c.ICD)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
 // Service is the API for interface control documents.
 type Service struct {
 	internal *icd.Service
+	errors   *errors.Codec
 }
 
 // NewService creates the ICD API service.
@@ -60,7 +68,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.ICD}, nil
+	return &Service{internal: cfg.ICD, errors: cfg.Errors}, nil
 }
 
 type (
@@ -142,7 +150,8 @@ type CheckRequest struct {
 }
 
 type CheckResponse struct {
-	Problems validate.Problems `json:"problems" msgpack:"problems"`
+	// Problems holds each problem as an encoded validate.PathError.
+	Problems []errors.Payload `json:"problems" msgpack:"problems"`
 }
 
 // Check returns every problem in an ICD without storing it. The subject needs retrieve
@@ -155,7 +164,12 @@ func (s *Service) Check(
 	if err := snap.Enforce(req.ICD.ResourceID()); err != nil {
 		return CheckResponse{}, err
 	}
-	return CheckResponse{Problems: icd.Check(req.ICD)}, nil
+	problems := icd.Check(req.ICD)
+	res := CheckResponse{Problems: make([]errors.Payload, len(problems))}
+	for i, p := range problems {
+		res.Problems[i] = s.errors.Encode(p, false)
+	}
+	return res, nil
 }
 
 type ImportRequest struct {
