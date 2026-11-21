@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { connection, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  connection,
+  isConnectionError,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -180,12 +184,12 @@ describe("Account.Guard", () => {
       </Synnax.TestProvider>
     );
     // A browser reports the closed port as unreachable, which the test client retries
-    // for 8 s. This client gives up at once, and its streams to the closed port are
-    // expected to fail.
+    // for 8 s, so this client gives up at once.
+    const internal: Error[] = [];
     const unreachable = createTestClient({
       port: 1,
       retry: { maxRetries: 0 },
-      onInternalError: () => {},
+      onInternalError: (e) => internal.push(e),
     });
     const { rerender } = render(ui(unreachable), { wrapper });
     fireEvent.click(findButton("Log in"));
@@ -196,6 +200,8 @@ describe("Account.Guard", () => {
     rerender(ui(createTestClient()));
     fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalledOnce());
+    expect(internal).not.toHaveLength(0);
+    expect(internal.every((e) => isConnectionError(e.cause))).toBe(true);
   });
 
   it("should ask to try again while the machine is offline", async () => {
