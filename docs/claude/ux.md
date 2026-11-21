@@ -904,8 +904,8 @@ says why in a sentence, then gives the raw error.
   while one is open. Reset zoom closes all breaks. The Session stores the open breaks
   with the view, so a reload shows the same times.
 - A toggle in the plot controls hides and shows the breaks. Hidden breaks show the plot
-  in true time. The toggle resets the zoom, and it shows while the plot has breaks or
-  hides them. The Session stores whether the breaks hide.
+  in true time. The toggle resets the zoom, and it shows while the plot has a break,
+  shown or hidden. The Session stores whether the breaks hide.
 - Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
   show". Over a segment, it lists only the lines of that segment.
 - A measure across a closed break keeps the true ΔX and ΔY and marks ΔX with `//`. It

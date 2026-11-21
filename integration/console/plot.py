@@ -365,7 +365,7 @@ class Plot(ConsolePage):
     def get_breaks_toggle(self) -> Locator:
         """Return the button that hides and shows the breaks between ranges.
 
-        The button only exists while the plot has breaks or hides them.
+        The button only exists while the plot has a break, shown or hidden.
         """
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")

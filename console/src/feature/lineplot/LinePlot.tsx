@@ -326,7 +326,9 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
-      {!breaksHidden && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
+      {FLAGS.breaks && !breaksHidden && (
+        <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />
+      )}
       {compare != null && (
         <CompareMenuItems
           menuKey={menuKeys[0] ?? ""}
