@@ -250,6 +250,54 @@ var _ = Describe("Multi", func() {
 		})
 	})
 
+	Describe("A key in none that a scope deletes", func() {
+		BeforeEach(func() { m.Set(7, nil) })
+
+		It("Should hold none only outside its scope until the scope commits", func() {
+			m.StageDelete(txn, 7)
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+			Expect(m.Current(txn, 7, nil)).To(BeFalse())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+		})
+
+		It("Should stay in none when the scope does not commit", func() {
+			m.StageDelete(txn, 7)
+			txn.end(false)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold none when the scope stages it with no value later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, nil)
+			Expect(m.Holding(txn, false)).To(ConsistOf(7))
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold the values that the scope stages for it later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, []string{"g"})
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Get(nil, "g")).To(ConsistOf(7))
+		})
+
+		It("Should be deleted with no allocation", func() {
+			txn.cleanups = make([]func(bool), 0, 1)
+			del := func() {
+				m.StageDelete(txn, 7)
+				for _, fn := range txn.cleanups {
+					fn(false)
+				}
+				txn.cleanups = txn.cleanups[:0]
+			}
+			del()
+			Expect(testing.AllocsPerRun(100, del)).To(BeZero())
+		})
+	})
+
 	Describe("HeldValues", func() {
 		all := func(int) bool { return true }
 

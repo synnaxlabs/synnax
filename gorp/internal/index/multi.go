@@ -31,11 +31,12 @@ type Multi[S Scope, K, V comparable] struct {
 	// none holds the keys that hold no value.
 	none set.Set[K]
 	// fresh holds the keys that a transaction staged with no value and that held
-	// nothing before, so that such a key needs no delta. Transactions write one at a
-	// time, so one list serves them all.
+	// nothing before, and gone the keys in none that it deleted, so that such a key
+	// needs no delta. Transactions write one at a time, so one list serves them all.
 	fresh struct {
 		scope      S
 		keys       set.Set[K]
+		gone       set.Set[K]
 		registered bool
 	}
 	// endFresh is finishFresh, bound once so that registering it allocates nothing.
@@ -97,6 +98,7 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 		m.Set(key, values)
 		return
 	}
+	m.unstageGone(scope, key)
 	if len(values) == 0 && m.stageFresh(scope, key) {
 		return
 	}
@@ -126,15 +128,61 @@ func (m *Multi[S, K, V]) stageFresh(scope S, key K) bool {
 	if _, held := m.reverse[key]; held {
 		return false
 	}
-	if !m.fresh.registered {
-		m.fresh.scope, m.fresh.registered = scope, true
-		scope.OnCleanup(m.endFresh)
-	}
+	m.registerFresh(scope)
 	if m.fresh.keys == nil {
 		m.fresh.keys = make(set.Set[K])
 	}
 	m.fresh.keys.Add(key)
 	return true
+}
+
+// registerFresh runs finishFresh when scope ends. Call it with mu held.
+func (m *Multi[S, K, V]) registerFresh(scope S) {
+	if !m.fresh.registered {
+		m.fresh.scope, m.fresh.registered = scope, true
+		scope.OnCleanup(m.endFresh)
+	}
+}
+
+// stageGone adds key to gone when key is in none and the changes of scope do not hold
+// it. It returns false otherwise, or before the bulk load finishes.
+func (m *Multi[S, K, V]) stageGone(scope S, key K) bool {
+	select {
+	case <-m.population.done:
+	default:
+		return false
+	}
+	if d, ok := m.overlay.get(scope); ok {
+		if _, staged := d.state[key]; staged {
+			return false
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.population.err != nil || !m.none.Contains(key) {
+		return false
+	}
+	m.registerFresh(scope)
+	if m.fresh.gone == nil {
+		m.fresh.gone = make(set.Set[K])
+	}
+	m.fresh.gone.Add(key)
+	return true
+}
+
+// unstageGone removes key from gone for scope. Only the goroutine of the writing
+// transaction changes gone, so it reads gone unlocked.
+func (m *Multi[S, K, V]) unstageGone(scope S, key K) {
+	if m.goneOf(scope, key) {
+		m.mu.Lock()
+		m.fresh.gone.Remove(key)
+		m.mu.Unlock()
+	}
+}
+
+// goneOf reports whether key is in gone for scope.
+func (m *Multi[S, K, V]) goneOf(scope S, key K) bool {
+	return m.fresh.registered && m.fresh.scope == scope && m.fresh.gone.Contains(key)
 }
 
 // unstageFresh removes key from fresh for scope and reports whether fresh held it. Only
@@ -156,14 +204,23 @@ func (m *Multi[S, K, V]) finishFresh(committed bool) {
 	defer m.mu.Unlock()
 	if committed {
 		maps.Copy(m.none, m.fresh.keys)
+		for k := range m.fresh.gone {
+			m.none.Remove(k)
+		}
 	}
-	if len(m.fresh.keys) > freshRetained {
-		m.fresh.keys = nil
-	} else {
-		clear(m.fresh.keys)
-	}
+	m.fresh.keys = retain(m.fresh.keys)
+	m.fresh.gone = retain(m.fresh.gone)
 	var none S
 	m.fresh.scope, m.fresh.registered = none, false
+}
+
+// retain empties keys, and drops it when it grew past freshRetained.
+func retain[K comparable](keys set.Set[K]) set.Set[K] {
+	if len(keys) > freshRetained {
+		return nil
+	}
+	clear(keys)
+	return keys
 }
 
 // freshOf reports whether key is in fresh for scope. Call it with mu held.
@@ -193,6 +250,9 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 	if prev, ok := m.reverse[key]; ok {
 		return slices.Equal(prev, values)
 	}
+	if m.goneOf(scope, key) {
+		return false
+	}
 	return len(values) == 0 && (m.none.Contains(key) || m.freshOf(scope, key))
 }
 
@@ -203,8 +263,10 @@ func (m *Multi[S, K, V]) StageDelete(scope S, key K) {
 		m.Delete(key)
 		return
 	}
-	// A key in fresh holds nothing in committed state, so its delete changes nothing.
-	if m.unstageFresh(scope, key) {
+	// A key in fresh holds nothing in committed state, so its delete changes nothing,
+	// and
+	// the delete of a key in none needs no delta.
+	if m.unstageFresh(scope, key) || m.stageGone(scope, key) {
 		return
 	}
 	m.overlay.load(scope).delete(key)
@@ -293,6 +355,9 @@ func (m *Multi[S, K, V]) Holding(scope S, holding bool) ([]K, error) {
 		maps.Copy(keys, m.none)
 		if m.fresh.registered && m.fresh.scope == scope {
 			maps.Copy(keys, m.fresh.keys)
+			for k := range m.fresh.gone {
+				keys.Remove(k)
+			}
 		}
 	}
 	if d, ok := m.overlay.get(scope); ok {
