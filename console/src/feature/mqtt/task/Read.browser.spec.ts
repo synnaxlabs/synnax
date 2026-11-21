@@ -556,7 +556,7 @@ describe("MQTT read form", () => {
     });
     const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
     await selectField("time");
-    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /2023/ })).toBeTruthy();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
     const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
@@ -564,7 +564,10 @@ describe("MQTT read form", () => {
         "default",
       ),
     );
-    expect(screen.queryByRole("checkbox", { name: "Optional" })).toBeNull();
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", { name: "Optional" }).checked,
+    ).toBe(false);
+    expect(screen.queryByRole("button", { name: /2023/ })).toBeNull();
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
