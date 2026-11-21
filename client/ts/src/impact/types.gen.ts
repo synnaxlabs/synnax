@@ -13,6 +13,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const EFFECTS = ["restrict", "cascade", "detach"] as const;
@@ -44,18 +45,33 @@ export const deleteChannelsChangeZ = z.object({
 });
 export interface DeleteChannelsChange extends z.infer<typeof deleteChannelsChangeZ> {}
 
-export const CHANGE_TYPES = ["delete_channels"] as const;
+/** DeleteGroupsChange deletes groups. */
+export const deleteGroupsChangeZ = z.object({
+  type: z.literal("delete_groups"),
+  /**
+   * keys are the keys of the groups to delete. A group inside one of them must be named
+   * too.
+   */
+  keys: group.keyZ.array().default(() => []),
+});
+export interface DeleteGroupsChange extends z.infer<typeof deleteGroupsChangeZ> {}
+
+export const CHANGE_TYPES = ["delete_channels", "delete_groups"] as const;
 export const changeTypeZ = z.enum(CHANGE_TYPES);
 export type ChangeType = z.infer<typeof changeTypeZ>;
 
-/** Change is a change to channels that a plan covers. */
-export const changeZ = z.discriminatedUnion("type", [deleteChannelsChangeZ]);
-export type Change = DeleteChannelsChange;
+/** Change is a change to channels or groups that a plan covers. */
+export const changeZ = z.discriminatedUnion("type", [
+  deleteChannelsChangeZ,
+  deleteGroupsChangeZ,
+]);
+export type Change = DeleteChannelsChange | DeleteGroupsChange;
 
 export const CHANGE_SCHEMAS: {
   [K in ChangeType]: z.ZodType<Extract<Change, { type: K }>>;
 } = {
   delete_channels: deleteChannelsChangeZ,
+  delete_groups: deleteGroupsChangeZ,
 };
 
 /** Plan is every record that a change touches, with the picks for each. */
