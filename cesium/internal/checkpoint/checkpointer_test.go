@@ -231,7 +231,7 @@ var _ = Describe("Checkpointer", func() {
 						Expect(st.Durable(seq, records)).To(Succeed())
 					},
 					OnRefused: func(records []log.Record, err error) {
-						_ = st.Refused(records, err)
+						Expect(st.Refused(records, err)).To(Succeed())
 					},
 					Prepare: cp.Prepare,
 					Switched: func(g uint64) {

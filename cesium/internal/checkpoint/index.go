@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/set"
 )
 
 // defaultPartSize is the size of the sealed segment records in a head at which a switch
@@ -105,6 +106,15 @@ func (x *Index) Merge(s *state.Snapshot) {
 			return cmp.Compare(a.ID, b.ID)
 		})
 	}
+}
+
+// ids returns the identities of the parts of x.
+func (x *Index) ids() set.Set[uint64] {
+	ids := set.New[uint64]()
+	for _, p := range x.parts {
+		ids.Add(p.ID)
+	}
+	return ids
 }
 
 func (p *indexed) dead(i int) bool {

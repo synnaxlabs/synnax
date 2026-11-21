@@ -54,5 +54,6 @@ func writePart(
 	channels []*state.Channel,
 ) (Part, error) {
 	b, p := encodePart(db, id, generation, channels)
-	return p, writeFile(fs, partName(id), b)
+	_, err := writeFile(fs, partName(id), b)
+	return p, err
 }

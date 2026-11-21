@@ -30,23 +30,28 @@ import (
 // the header sector. That last sync is the commit point. On an error, Write removes the
 // file with no further sync of it, and syncs the root.
 func Write(fs xfs.FS, generation uint64, b []byte) error {
-	return writeFile(fs, Name(generation), b)
+	_, err := writeFile(fs, Name(generation), b)
+	return err
 }
 
 // writeFile writes the checkpoint file b to name in the root fs, as Write does a head.
-func writeFile(fs xfs.FS, name string, b []byte) error {
+// On an error, it returns true when no file of the attempt is left: the create failed,
+// or the remove and the sync of the root after it succeeded.
+func writeFile(fs xfs.FS, name string, b []byte) (gone bool, err error) {
 	f, err := fs.Open(name, os.O_CREATE|os.O_EXCL|os.O_RDWR)
 	if err != nil {
-		return err
+		return true, err
 	}
-	err = errors.Join(write(fs, f, b), f.Close())
-	if err == nil {
-		return nil
+	if err = errors.Join(write(fs, f, b), f.Close()); err == nil {
+		return false, nil
 	}
 	if rmErr := fs.Remove(name); rmErr != nil {
-		return errors.Join(err, rmErr)
+		return false, errors.Join(err, rmErr)
 	}
-	return errors.Join(err, fs.SyncDir(""))
+	if syncErr := fs.SyncDir(""); syncErr != nil {
+		return false, errors.Join(err, syncErr)
+	}
+	return true, err
 }
 
 func write(fs xfs.FS, f xfs.File, b []byte) error {
