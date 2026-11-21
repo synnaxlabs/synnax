@@ -285,6 +285,9 @@ func (s *Service) applyCalculation(
 	); err != nil {
 		return nil, err
 	}
+	if edits := recordEdits(acts, doc.Expression, ops); len(edits) > 0 {
+		s.internal.NewWriter(tx).WithDispatchKey(dispatchKey).Announce(key, edits...)
+	}
 	after, err := s.channelOf(ctx, tx, key)
 	if err != nil || after.DataType == before.DataType {
 		return nil, err
@@ -294,6 +297,39 @@ func (s *Service) applyCalculation(
 		Value: after.DataType,
 	})
 	return &set, nil
+}
+
+// recordEdits returns a channel set action for each of the expression and the
+// operations that acts edit, with the value that the calculation holds after them, so a
+// client that reads them from the channel sees what a retrieve returns.
+func recordEdits(
+	acts []channel.Action,
+	expression string,
+	ops []calculation.Operation,
+) []channel.Action {
+	var setsExpression, setsOperations bool
+	for _, a := range acts {
+		switch actionPath(a)[0] {
+		case "expression":
+			setsExpression = true
+		case "operations":
+			setsOperations = true
+		}
+	}
+	var edits []channel.Action
+	if setsExpression {
+		edits = append(edits, channel.NewSetAction(channel.SetPayload{
+			Path:  []string{"expression"},
+			Value: expression,
+		}))
+	}
+	if setsOperations {
+		edits = append(edits, channel.NewSetAction(channel.SetPayload{
+			Path:  []string{"operations"},
+			Value: calculation.ToChannelOperations(ops),
+		}))
+	}
+	return edits
 }
 
 func (s *Service) channelOf(
