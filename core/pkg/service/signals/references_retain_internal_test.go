@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package signals_test
+package signals
+
+// The buffers of a reference feed have no exported reader, so this spec is internal.
 
 import (
+	"context"
 	"runtime"
 	"strconv"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 )
 
 // heapAfterGC returns the bytes of live heap objects after a collection.
@@ -52,30 +54,26 @@ func commitOf(n int, prefix string) gorp.Commit {
 	return gorp.Commit{Seq: 1, Changes: changes}
 }
 
-var _ = Describe("Reference feed memory", func() {
-	It("Should not hold the memory of a bulk commit once small commits follow", func() {
-		feed := signals.NewReferenceFeedAppend(func(t gorp.Target) resource.ID {
-			return resource.ID{Type: resource.Type(t.Table), Key: t.Key}
-		})
-		appendCommit := func(c gorp.Commit) framer.Frame {
-			fr, _ := feed(c)
-			return fr
-		}
-		Expect(appendCommit(commitOf(1, "warm")).Empty()).To(BeFalse())
-		before := heapAfterGC()
-		Expect(appendCommit(commitOf(500_000, "bulk")).Empty()).To(BeFalse())
-		for range 10 {
-			Expect(appendCommit(commitOf(1, "small")).Empty()).To(BeFalse())
-		}
-		after := heapAfterGC()
-		held := int64(after) - int64(before)
-		GinkgoWriter.Printf("held after the bulk commit: %d bytes\n", held)
-		runtime.KeepAlive(feed)
-		feed = nil
-		GinkgoWriter.Printf(
-			"held once the feed is dropped: %d bytes\n",
-			int64(heapAfterGC())-int64(before),
+var _ = ginkgo.Describe("Reference feed buffers", func() {
+	ginkgo.It("Should free the buffers of a bulk commit after small commits", func() {
+		f := newReferenceFeed(resourceOf)
+		disconnect := ReferenceChanges{feed: f}.OnChange(
+			func(context.Context, []ReferenceChange) {},
 		)
-		Expect(held).To(BeNumerically("<", 8<<20))
+		defer disconnect()
+		gomega.Expect(f.append(commitOf(1, "warm"), framer.Frame{}).Empty()).
+			To(gomega.BeFalse())
+		before := heapAfterGC()
+		gomega.Expect(f.append(commitOf(500_000, "bulk"), framer.Frame{}).Empty()).
+			To(gomega.BeFalse())
+		for range 10 {
+			gomega.Expect(f.append(commitOf(1, "small"), framer.Frame{}).Empty()).
+				To(gomega.BeFalse())
+		}
+		gomega.Expect(cap(f.targets)).To(gomega.BeNumerically("<=", referenceRetained))
+		gomega.Expect(cap(f.links)).To(gomega.BeNumerically("<=", referenceRetained))
+		held := int64(heapAfterGC()) - int64(before)
+		gomega.Expect(held).To(gomega.BeNumerically("<", 8<<20))
+		runtime.KeepAlive(f)
 	})
 })
