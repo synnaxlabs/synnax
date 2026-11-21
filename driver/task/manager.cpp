@@ -75,13 +75,19 @@ x::errors::Error Manager::open_streamer() {
     // monitor, and stop() all contend on mu.
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::framer::StreamerConfig{
-            .channels = {
-                this->channels.task_set.key,
-                this->channels.task_delete.key,
-                this->channels.task_cmd.key,
-                this->channels.control_state.key,
-                this->channels.rack_set.key,
-            }
+            .channels =
+                {
+                    this->channels.task_set.key,
+                    this->channels.task_delete.key,
+                    this->channels.task_cmd.key,
+                    this->channels.control_state.key,
+                    this->channels.rack_set.key,
+                },
+            .on_missed = [] {
+                LOG(WARNING) << "the Core dropped task changes because the "
+                                "Driver fell behind. Restart the Driver to "
+                                "configure its tasks again.";
+            },
         }
     );
     if (open_err) return open_err;

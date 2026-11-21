@@ -268,6 +268,16 @@ class WriteTask final : public driver::task::Task {
             this->show_held();
         }
 
+        void missed() override {
+            std::lock_guard lock(this->logged_mu);
+            this->show_locked({
+                .message = "Missed commands",
+                .description = "The task fell behind, so the Core dropped commands "
+                               "sent to it. Check the state of the outputs, and send "
+                               "the commands again.",
+            });
+        }
+
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
