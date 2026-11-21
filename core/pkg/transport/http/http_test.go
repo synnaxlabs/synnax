@@ -43,6 +43,7 @@ import (
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -510,7 +511,9 @@ var _ = Describe("HTTP", func() {
 			cookie := loginWithCookie("localhost:9090")
 			headers := withCookie("localhost:9090", cookie)
 			headers[fiber.HeaderAccept] = "text/csv"
-			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{})
+			res := post("/api/v1/frame/read", headers, apiframer.ReadRequest{
+				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
+			})
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
 		})

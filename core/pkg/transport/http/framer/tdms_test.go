@@ -623,6 +623,49 @@ var _ = Describe("TDMS", func() {
 			}))
 		})
 
+		It("Should write the samples of each time range in time order", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float64T, telem.Int32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+				channels,
+				telem.NewSeriesV[float64](1, 2, 3, 4, 5, 6, 7, 8),
+				telem.NewSeriesV[int32](1, 2, 3, 4, 5, 6, 7, 8),
+			)
+			res := read(ctx, index, channels...)
+			res.TimeRanges = splitRanges
+			segments := parseTDMS(MustSucceed(framer.NewTDMSEncoder(ctx).Encode(res)))
+			Expect(segments[0].toc).To(Equal(tdmsTocHeader))
+			for _, seg := range segments[1:] {
+				Expect(seg.toc).To(Equal(tdmsTocData))
+			}
+			stamps := []telem.TimeStamp{
+				telem.SecondTS,
+				telem.SecondTS * 2,
+				telem.SecondTS * 6,
+				telem.SecondTS * 7,
+			}
+			Expect(decodeTDMSTimeStamps(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, index.Name),
+			))).To(Equal(stamps))
+			Expect(decodeFloat64s(tdmsChannelData(
+				segments,
+				tdmsPath(index.Name, channels[0].Name),
+			))).To(Equal([]float64{1, 2, 6, 7}))
+			Expect(decodeTDMSTimeStamps(tdmsChannelData(
+				segments,
+				tdmsPath(channels[1].Name, index.Name),
+			))).To(Equal(stamps))
+			Expect(tdmsChannelData(
+				segments,
+				tdmsPath(channels[1].Name, channels[1].Name),
+			).data).To(Equal(telem.NewSeriesV[int32](1, 2, 6, 7).Data))
+		})
+
 		It("Should write the timestamp of each sample of a channel in its own group",
 			func(ctx SpecContext) {
 				index, channels := createIndexed(
