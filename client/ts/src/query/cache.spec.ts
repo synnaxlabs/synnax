@@ -629,6 +629,59 @@ describe("Cache", () => {
     });
   });
 
+  describe("missed changes", () => {
+    // Opens one MockStreamer and keeps the onMissed hook the cache handed it.
+    const missingOpener = () => {
+      const state: { opens: number; onMissed?: () => void } = { opens: 0 };
+      const opener: framer.StreamOpener = async (config) => {
+        state.opens++;
+        if (typeof config === "object" && "onMissed" in config)
+          state.onMissed = config.onMissed;
+        return new MockStreamer();
+      };
+      return { state, opener };
+    };
+
+    it("reconciles without reopening the stream", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      let name = "first";
+      const fetch = vi.fn(async (keys: string[]) => keys.map((key) => ({ key, name })));
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      name = "fresh";
+      state.onMissed?.();
+      expect(cache.epoch).toBe(2);
+      await expect.poll(() => table.get("k")).toEqual({ key: "k", name: "fresh" });
+      expect(state.opens).toBe(1);
+      expect(cache.live).toBe(true);
+      await cache.close();
+    });
+
+    it("runs one more reconcile for misses during a reconcile", async () => {
+      const { state, opener } = missingOpener();
+      const cache = makeEngine(opener);
+      const gate = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        await gate.promise;
+        return keys.map((key) => ({ key, name: "fresh" }));
+      });
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set("k", { key: "k", name: "stale" });
+      await cache.ensureStreaming();
+      state.onMissed?.();
+      state.onMissed?.();
+      state.onMissed?.();
+      expect(cache.epoch).toBe(4);
+      gate.resolve();
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(fetch).toHaveBeenCalledTimes(2);
+      await cache.close();
+    });
+  });
+
   describe("denied change stream", () => {
     /** An opener the cluster refuses until `allow` flips. */
     const deniedOpener = () => {
