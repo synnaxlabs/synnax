@@ -287,12 +287,14 @@ describe("Panel.Selector", () => {
     await screen.findByText(alpha.name);
     await screen.findByText(bravo.name);
     expect(pillNames()).toEqual([alpha.name, bravo.name]);
-    const [first] = screen.getAllByRole("tab");
-    // Every element shares one faked 100-wide rect, so a cursor past the common
-    // center of the pills resolves to the slot after the last one.
+    const [first, last] = screen.getAllByRole("tab");
+    const end = last.getBoundingClientRect();
     act(() => {
-      fireEvent.dragStart(first);
-      fireDragEvent(screen.getByRole("tablist"), "drop", { x: 200, y: 16 });
+      fireEvent.dragStart(first, { dataTransfer: new DataTransfer() });
+      fireDragEvent(screen.getByRole("tablist"), "drop", {
+        x: end.right + 1,
+        y: end.top + end.height / 2,
+      });
     });
     await waitFor(() => expect(pillNames()).toEqual([bravo.name, alpha.name]));
     expect(Session.Panel.selectOrder(store.getState())).toEqual([bravo.key, alpha.key]);
@@ -347,7 +349,9 @@ describe("Panel.Selector", () => {
 
     const startDrag = async (): Promise<void> => {
       await act(async () => {
-        fireEvent.dragStart(screen.getByText(DRAG_HANDLE));
+        fireEvent.dragStart(screen.getByText(DRAG_HANDLE), {
+          dataTransfer: new DataTransfer(),
+        });
       });
     };
 
@@ -445,7 +449,9 @@ describe("Panel.Selector", () => {
       );
       await act(async () => {
         fireDrop(leaf);
-        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE));
+        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE), {
+          dataTransfer: new DataTransfer(),
+        });
       });
       await waitFor(async () => {
         const dstDoc = await client.panels.retrieve(destination.key);
@@ -463,7 +469,9 @@ describe("Panel.Selector", () => {
         expect(Session.Panel.selectSelected(store.getState())).toEqual(destination.key),
       );
       await act(async () => {
-        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE));
+        fireEvent.dragEnd(screen.getByText(DRAG_HANDLE), {
+          dataTransfer: new DataTransfer(),
+        });
       });
       await waitFor(() =>
         expect(Session.Panel.selectSelected(store.getState())).toEqual(source.key),
