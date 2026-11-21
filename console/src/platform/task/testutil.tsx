@@ -520,11 +520,16 @@ export const renderTaskFormTab = async (
   );
   // A lazy form loads its module after the first render. waitFor runs outside act,
   // since act holds React's retry until its callback returns.
-  await waitFor(() => {
-    if (loaded) return;
-    // A boundary that caught an error in place of the form holds the cause.
-    throw new Error("The task form did not load", { cause: loadError });
-  });
+  // A cold module load under coverage can outlast the default wait, so the wait ends
+  // only short of the test timeout.
+  await waitFor(
+    () => {
+      if (loaded) return;
+      // A boundary that caught an error in place of the form holds the cause.
+      throw new Error("The task form did not load", { cause: loadError });
+    },
+    { timeout: 10_000 },
+  );
   return { ...result, ...created, store, tabKey: tab.key };
 };
 
