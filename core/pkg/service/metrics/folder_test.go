@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -147,11 +148,10 @@ var _ = Describe("Stored records", func() {
 	warning := func(ctx SpecContext) []status.Status[any] {
 		GinkgoHelper()
 		var sts []status.Status[any]
-		Expect(statuses.NewRetrieve[any]().
-			Where(status.MatchKeys[any]("sy_node_1_metrics")).
-			Entries(&sts).
-			Exec(ctx, db)).To(Succeed())
-		return sts
+		Expect(statuses.NewRetrieve[any]().Entries(&sts).Exec(ctx, db)).To(Succeed())
+		return lo.Filter(sts, func(st status.Status[any], _ int) bool {
+			return st.Key == "sy_node_1_metrics"
+		})
 	}
 	reopen := func(ctx SpecContext) {
 		GinkgoHelper()
