@@ -11,10 +11,7 @@
 
 package group
 
-import (
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/resource"
 
 // memberRule says which groups can hold a record of one type.
 type memberRule struct {
@@ -23,14 +20,14 @@ type memberRule struct {
 	// pinned is true when the top parent of the group must be the record's holder, or
 	// none when the record has no holder.
 	pinned bool
-	// namespace is true when the names of the records and the groups in one group are
+	// namespaced is true when the names of the records and the groups in one group are
 	// unique.
-	namespace bool
+	namespaced bool
 }
 
 // memberRules holds the rule of each type that can sit in a group.
 var memberRules = map[resource.Type]memberRule{
-	resource.TypeChannel:         {scope: resource.TypeChannel, namespace: true},
+	resource.TypeChannel:         {scope: resource.TypeChannel, namespaced: true},
 	resource.TypeColor:           {scope: resource.TypeColor},
 	resource.TypeDevice:          {scope: resource.TypeDevice, pinned: true},
 	resource.TypeLineplot:        {scope: resource.TypeProject},
@@ -41,12 +38,4 @@ var memberRules = map[resource.Type]memberRule{
 	resource.TypeSchematic:       {scope: resource.TypeProject},
 	resource.TypeSchematicSymbol: {scope: resource.TypeSchematicSymbol},
 	resource.TypeTable:           {scope: resource.TypeProject},
-}
-
-// siblingIndexes returns the index of the names of the groups of each scope whose names
-// are unique among siblings.
-func siblingIndexes() []gorp.Index[Key, Group] {
-	return []gorp.Index[Key, Group]{
-		newSiblingIndex(resource.TypeChannel),
-	}
 }

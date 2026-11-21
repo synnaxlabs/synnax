@@ -45,7 +45,7 @@ func (t *texts[K]) set(key K, text []string) {
 
 func (t *texts[K]) isEmpty() bool { return len(t.keys) == 0 }
 
-func (t *texts[K]) size() int { return len(t.keys) }
+func (t *texts[K]) footprint() int { return cap(t.keys) }
 
 func (t *texts[K]) reset() {
 	clear(t.keys)

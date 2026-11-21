@@ -82,7 +82,7 @@ func NewUniqueIndex[K Key, E Entry[K], V comparable](
 		name:  name,
 		space: space,
 		value: value,
-		store: index.NewLookup[*txState, K, V](),
+		store: index.NewDistinctLookup[*txState, K, V](),
 	}
 }
 

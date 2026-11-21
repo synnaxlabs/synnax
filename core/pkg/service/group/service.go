@@ -111,12 +111,15 @@ func (s *Service) BuiltinDeleteMigration() gorp.Migration {
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
-// such group exists.
+// such group exists. A name of a namespaced scope matches in any normal form.
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
 	name string,
 	scope resource.Type,
 ) (Group, error) {
+	if isNamespaced(scope) {
+		name = validate.NormalizeName(name)
+	}
 	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.NewRetrieve().

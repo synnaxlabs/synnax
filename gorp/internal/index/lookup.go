@@ -27,6 +27,12 @@ type Lookup[S Scope, K, V comparable] struct {
 	forward    map[V]keyList[K]
 	reverse    map[K]V
 	overlay    overlay[S, *delta[K, V]]
+	// distinct is true when each value has about one holder, so the load sizes forward
+	// for one value per key.
+	distinct bool
+	// loaded holds the mappings of the bulk load until it finishes. A map that grows
+	// rehashes what it holds, so the load builds the maps once at their final size.
+	loaded []mapping[K, V]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
@@ -40,14 +46,47 @@ func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 	return l
 }
 
+// NewDistinctLookup returns an empty Lookup for values that each have about one holder,
+// such as the values of a unique index. It waits for its bulk load.
+func NewDistinctLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
+	l := NewLookup[S, K, V]()
+	l.distinct = true
+	return l
+}
+
 // Populate starts the bulk load and locks the index until it finishes. insert adds a
 // committed mapping. finish ends the load and must be called exactly once; a non-nil
 // err makes the index invalid, and every later read returns err.
 func (l *Lookup[S, K, V]) Populate() (insert func(K, V), finish func(err error)) {
 	l.mu.Lock()
-	return l.put, func(err error) {
+	return l.insert, func(err error) {
+		if err == nil && len(l.loaded) > 0 {
+			l.load()
+		}
+		l.loaded = nil
 		l.population.finish(err)
 		l.mu.Unlock()
+	}
+}
+
+func (l *Lookup[S, K, V]) insert(key K, value V) {
+	l.loaded = append(l.loaded, mapping[K, V]{key: key, value: value})
+}
+
+// mapping is one key and its value in a bulk load.
+type mapping[K, V comparable] struct {
+	key   K
+	value V
+}
+
+// load maps each key of the bulk load to its value. The index holds nothing before.
+func (l *Lookup[S, K, V]) load() {
+	l.reverse = make(map[K]V, len(l.loaded))
+	if l.distinct {
+		l.forward = make(map[V]keyList[K], len(l.loaded))
+	}
+	for _, m := range l.loaded {
+		l.put(m.key, m.value)
 	}
 }
 
