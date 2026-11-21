@@ -241,15 +241,7 @@ describe("LinePlot", () => {
     // returns a function that renders the plot again with more props.
     const renderTraces = async (
       props: Partial<LinePlot.LinePlotProps> = {},
-      {
-        relative = true,
-        labels = ["pressure"],
-        actions = [],
-      }: {
-        relative?: boolean;
-        labels?: string[];
-        actions?: lineplotClient.Action[];
-      } = {},
+      { relative = true, labels = ["pressure"] } = {},
     ): Promise<(next: Partial<LinePlot.LinePlotProps>) => void> => {
       const index = await client.channels.create({
         name: id.create(),
@@ -274,7 +266,6 @@ describe("LinePlot", () => {
             key,
             actions: [
               lineplotClient.setAxisTimeMode({ key: "x1", timeMode: "relative" }),
-              ...actions,
             ],
           });
         });
@@ -318,35 +309,6 @@ describe("LinePlot", () => {
       expect(trace("line").state.zero).toBeUndefined();
       expect(await screen.findByText("pressure")).toBeDefined();
       expect(screen.queryByText("Range 1")).toBeNull();
-    });
-
-    it("should give a relative x axis auto bounds while relative is disabled", async () => {
-      const update = await renderTraces(
-        {},
-        {
-          actions: [
-            lineplotClient.setAxisBounds({
-              key: "x1",
-              bounds: { lower: 0, upper: Number(TimeSpan.seconds(60)) },
-              manualBounds: { lower: true, upper: true },
-            }),
-          ],
-        },
-      );
-      const x1 = (): lineplot.XAxis => {
-        const found = components().find(
-          (c): c is lineplot.XAxis => c instanceof lineplot.XAxis,
-        );
-        if (found == null) throw new Error("no x axis");
-        return found;
-      };
-      await waitFor(() =>
-        expect(x1().state.manualBounds).toEqual({ lower: true, upper: true }),
-      );
-      update({ relativeDisabled: true });
-      await waitFor(() =>
-        expect(x1().state.manualBounds).toEqual({ lower: false, upper: false }),
-      );
     });
 
     it("should name a range that has no label by its key", async () => {

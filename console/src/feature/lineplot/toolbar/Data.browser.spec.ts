@@ -143,6 +143,17 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.queryByText("Relative")).toBeNull();
     });
 
+    it("keeps offering relative time while the x axis is in relative time", async () => {
+      await renderLinePlot(Toolbar, {
+        linePlot: {
+          ranges: [rolling(FIVE_MIN)],
+          axes: { x1: { key: "x1", type: "time", timeMode: "relative" } },
+        },
+      });
+      await screen.findByText("Ranges");
+      expect(screen.getByText("Relative")).toBeDefined();
+    });
+
     it("does not offer relative time on an x axis that does not show time", async () => {
       await renderLinePlot(Toolbar, {
         linePlot: { axes: { x1: { key: "x1", type: "linear" } } },

@@ -529,11 +529,6 @@ const YAxis = ({
   );
 };
 
-const AUTO_BOUNDS: Pick<lineplot.Axis, "bounds" | "manualBounds"> = {
-  bounds: { lower: 0, upper: 0 },
-  manualBounds: { lower: false, upper: false },
-};
-
 interface XAxisProps extends AxisChildrenProps {
   axisKey: lineplot.XAxisKey;
   rangeProviderProps?: Range.ProviderProps;
@@ -563,8 +558,6 @@ const XAxis = ({
   const axis = useXAxis({ key, axisKey });
   const { key: _, timeMode: __, ...axisConfig } = axis;
   const relative = !relativeDisabled && isRelative(axis);
-  // Bounds set in relative time mean nothing on an axis drawn in absolute time.
-  const bounds = isRelative(axis) && !relative ? AUTO_BOUNDS : undefined;
   const yAxes = useYAxisKeys({ key });
   const handleLabelChange = (label: string) =>
     dispatch({
@@ -574,7 +567,6 @@ const XAxis = ({
   return (
     <BaseXAxis
       {...axisConfig}
-      {...bounds}
       {...dropProps}
       type={relative ? "relative" : axisConfig.type}
       location={AXIS_LOCATIONS[axisKey]}
@@ -665,7 +657,7 @@ export interface LinePlotProps extends FrameProps {
   legendFooter?: BaseLegendProps["footer"];
   /** Called with the line under the pointer on a relative x axis, or null. */
   onHoveredChange?: (hovered: Hovered | null) => void;
-  /** Draws a relative x axis as absolute, with auto bounds. */
+  /** Draws a relative x axis as absolute. */
   relativeDisabled?: boolean;
 }
 

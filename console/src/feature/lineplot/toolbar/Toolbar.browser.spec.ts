@@ -67,10 +67,6 @@ const FIXED: lineplot.New["ranges"] = [
   },
 ];
 
-const ROLLING: lineplot.New["ranges"] = [
-  { variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) },
-];
-
 describe("lineplot/toolbar/Toolbar", () => {
   it("switches tabs and records the active tab in the session store", async () => {
     const { key, store } = await renderToolbar();
@@ -105,15 +101,6 @@ describe("lineplot/toolbar/Toolbar", () => {
     expect(getIconButtons(result.container, "csv")).toHaveLength(1);
     fireEvent.click(screen.getByText("Relative"));
     await waitFor(() => expect(getIconButtons(result.container, "csv")).toEqual([]));
-  });
-
-  it("draws a relative plot with only rolling windows in absolute time", async () => {
-    const { result } = await renderToolbar({
-      ranges: ROLLING,
-      axes: { x1: { key: "x1", type: "time", timeMode: "relative" } },
-    });
-    await screen.findByText("Data");
-    expect(getIconButtons(result.container, "csv")).toHaveLength(1);
   });
 
   describe("download CSV", () => {
