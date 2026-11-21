@@ -80,7 +80,7 @@ func writeParted(
 	writers, samples int,
 ) []int64 {
 	GinkgoHelper()
-	var values []int64
+	values := make([]int64, 0, writers*samples)
 	for w := range writers {
 		stamps := make([]telem.TimeStamp, samples)
 		vals := make([]int64, samples)
@@ -169,7 +169,7 @@ var _ = Describe("Reads through parts", func() {
 			To(MatchError(place.ErrCorrupt))
 		flipByte(fs, part, checkpoint.BodyStart+40)
 		frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-		var got []int64
+		got := make([]int64, 0, len(values))
 		for _, s := range frame.Get(data).Series {
 			got = append(got, s.Unmarshal[int64]()...)
 		}

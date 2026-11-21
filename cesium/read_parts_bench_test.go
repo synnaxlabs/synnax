@@ -35,6 +35,7 @@ func BenchmarkReadParts(b *testing.B) {
 }
 
 func benchmarkReadParts(b *testing.B, parted bool) {
+	b.Helper()
 	const stretches, samples = 100, 100
 	ctx, fs := b.Context(), xfs.NewMem()
 	size := 0
