@@ -70,17 +70,26 @@ class LinePlotBreaks(ConsoleCase):
         plot = self.console.pages.create(Plot, f"Line Plot Breaks {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("y1", self.data_name)
-        # A new plot shows a rolling window, and the test plots only the two ranges.
+        # On a stopped channel, the rolling window ends at the newest sample, which
+        # would keep a break after the test removes a range.
         plot.remove_range(NEW_PLOT_RANGE)
         plot.add_ranges([r.name for r in self.ranges])
 
+        self.test_breaks_shown(plot)
         self.test_open_and_close_all_breaks(plot)
         self.test_open_breaks_after_reload(plot)
+        self.test_hide_and_show_breaks(plot)
+        self.test_no_toggle_for_one_range(plot)
+
+    def test_breaks_shown(self, plot: Plot) -> None:
+        """Test that two ranges far apart show a break and the toggle."""
+        self.log("Testing breaks between ranges far apart")
+        plot.expect_breaks_shown()
+        plot.expect_menu_option("Open all breaks")
 
     def test_open_and_close_all_breaks(self, plot: Plot) -> None:
         """Test that the plot menu opens and closes every break."""
         self.log("Testing open and close all breaks")
-        plot.expect_menu_option("Open all breaks")
         plot.expect_menu_option("Close all breaks", offered=False)
 
         plot.select_menu_option("Open all breaks")
@@ -103,3 +112,20 @@ class LinePlotBreaks(ConsoleCase):
 
         plot.select_menu_option("Close all breaks")
         plot.expect_menu_option("Open all breaks")
+
+    def test_hide_and_show_breaks(self, plot: Plot) -> None:
+        """Test that the toggle hides the breaks and shows them again."""
+        self.log("Testing hide and show breaks")
+        plot.toggle_breaks()
+        plot.expect_breaks_shown(shown=False)
+        plot.expect_menu_option("Open all breaks", offered=False)
+
+        plot.toggle_breaks()
+        plot.expect_breaks_shown()
+        plot.expect_menu_option("Open all breaks")
+
+    def test_no_toggle_for_one_range(self, plot: Plot) -> None:
+        """Test that a plot of one range shows no breaks toggle."""
+        self.log("Testing no breaks toggle for one range")
+        plot.remove_range(self.ranges[1].name)
+        plot.expect_no_breaks_toggle()

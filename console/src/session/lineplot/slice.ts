@@ -55,7 +55,10 @@ const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
 // The open breaks are the lower bounds of their gaps. The viewport and the selection
 // hold the times of the layout with them open.
-const breaksZ = z.object({ open: z.array(z.number()).default([]) });
+const breaksZ = z.object({
+  hidden: z.boolean().default(false),
+  open: z.array(z.number()).default([]),
+});
 
 const hiddenZ = z.object({
   lines: z.array(z.string()),
@@ -160,6 +163,10 @@ export interface SetRangeAnnotationsVisiblePayload extends KeyedPayload {
   visible: boolean;
 }
 
+export interface SetBreaksHiddenPayload extends KeyedPayload {
+  hidden: boolean;
+}
+
 export interface SetHiddenPayload extends KeyedPayload {
   hidden: Hidden;
   solo: Solo | null;
@@ -172,6 +179,18 @@ export interface RemovePayload {
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
 const initializeDocument = Window.createDocumentInitializer(stateZ);
 
+// resetView moves the plot to its home view with every break closed. It bumps the
+// render trigger, so a mounted plot applies the view.
+const resetView = (state: State, viewport: Partial<ViewportState> = {}): void => {
+  state.viewport = {
+    ...deep.copy(ZERO_STATE.viewport),
+    ...viewport,
+    renderTrigger: state.viewport.renderTrigger + 1,
+  };
+  state.selection = deep.copy(ZERO_STATE.selection);
+  state.breaks.open = [];
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -180,13 +199,7 @@ export const { actions, reducer } = createSlice({
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
       (state, { payload }) => {
         const { key: _key, ...rest } = payload;
-        state.viewport = {
-          ...deep.copy(ZERO_STATE.viewport),
-          ...rest,
-          renderTrigger: state.viewport.renderTrigger + 1,
-        };
-        state.selection = deep.copy(ZERO_STATE.selection);
-        state.breaks.open = [];
+        resetView(state, rest);
       },
     ),
     storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
@@ -253,6 +266,13 @@ export const { actions, reducer } = createSlice({
     >((state, { payload: { visible } }) => {
       state.annotations.visible = visible;
     }),
+    setBreaksHidden: withSelectedState<SetBreaksHiddenPayload, SliceState>(
+      (state, { payload: { hidden } }) => {
+        state.breaks.hidden = hidden;
+        // The breaks change the home view, so the zoom resets to show the whole plot.
+        resetView(state);
+      },
+    ),
     setHidden: withSelectedState<SetHiddenPayload, SliceState>(
       (state, { payload: { hidden, solo } }) => {
         state.hiddenLines = hidden.lines;
@@ -282,6 +302,7 @@ export const {
   setSelectedRule,
   setMeasureMode,
   setRangeAnnotationsVisible,
+  setBreaksHidden,
   setHidden,
   remove,
 } = actions;
@@ -315,6 +336,7 @@ export const MIDDLEWARE = [
     setSelectedRule,
     setMeasureMode,
     setRangeAnnotationsVisible,
+    setBreaksHidden,
     setHidden,
   ]),
 ];

@@ -80,8 +80,8 @@ export interface AxisRenderProps {
   container: box.Box;
   canvases: render.CanvasVariant[];
   hold: boolean;
-  /** Set when the gaps between the windows of a time axis collapse into breaks. */
-  gapsCollapsed: boolean;
+  /** Set when a time axis shows its gaps at their true width, with no breaks. */
+  breaksHidden: boolean;
   /** The lower bounds of the gaps that show their values in place of a break. */
   openBreaks: number[];
 }
@@ -133,7 +133,7 @@ interface InternalState {
   base: axis.Axis;
   // A hold keeps a snapshot of the segments, so the plot draws in the same place while
   // the data changes.
-  segmentSnapshot?: bounds.Bounds[];
+  segmentSnapshot?: { segments: bounds.Bounds[]; collapsed: boolean };
   updateBounds?: (bounds: bounds.Bounds) => void;
 }
 
@@ -212,35 +212,29 @@ export abstract class BaseAxis<
     collapsed: boolean,
   ): [bounds.Bounds[], Error | null] {
     const { internal: i } = this;
-    if (hold && i.segmentSnapshot != null) return [i.segmentSnapshot, null];
-    const { manualBounds, bounds: manual, autoBoundPadding, type } = this.state;
+    // A snapshot cut with its gaps collapsed means nothing with them shown.
+    const snapshot = i.segmentSnapshot;
+    if (hold && snapshot?.collapsed === collapsed) return [snapshot.segments, null];
+    const { manualBounds, bounds: manual, type } = this.state;
     const autoLower = !manualBounds.lower || manual == null;
     const autoUpper = !manualBounds.upper || manual == null;
     if (!collapsed && !autoLower && !autoUpper) {
-      i.segmentSnapshot = [manual];
+      i.segmentSnapshot = { segments: [manual], collapsed };
       return [[manual], null];
     }
-    let auto: bounds.Bounds[];
+    let clipped: bounds.Bounds[];
     let err: Error | null = null;
     let loading = false;
     try {
       const dataBounds = fetchDataBounds();
       loading = dataBounds.some((b) => b.loading);
-      auto = collapsed
-        ? collapse(align(dataBounds), autoBoundPadding ?? 0)
-        : [autoBounds(dataBounds, autoBoundPadding, type)];
-      if (auto.length === 0) auto = [emptyBounds(type)];
+      clipped = this.segments(dataBounds, collapsed);
     } catch (err_) {
-      auto = [emptyBounds(type)];
+      clipped = this.clipToManual([emptyBounds(type)]);
       err = err_ as Error;
     }
-    const clipped = clip(
-      auto,
-      autoLower ? undefined : manual?.lower,
-      autoUpper ? undefined : manual?.upper,
-    );
     // A hold keeps segments of loaded data, never of data still loading.
-    if (!loading) i.segmentSnapshot = clipped;
+    if (!loading) i.segmentSnapshot = { segments: clipped, collapsed };
     const outer = { lower: clipped[0].lower, upper: clipped[clipped.length - 1].upper };
     if (
       manual == null ||
@@ -249,6 +243,30 @@ export abstract class BaseAxis<
     )
       i.updateBounds?.(outer);
     return [clipped, err];
+  }
+
+  /**
+   * @returns the segments of dataBounds on the axis, clipped to its manual bounds. It
+   * keeps no snapshot for a hold and moves no stored bounds.
+   */
+  protected segments(
+    dataBounds: line.DataBounds[],
+    collapsed: boolean,
+  ): bounds.Bounds[] {
+    const { autoBoundPadding, type } = this.state;
+    const auto = collapsed
+      ? collapse(align(dataBounds), autoBoundPadding ?? 0)
+      : [autoBounds(dataBounds, autoBoundPadding, type)];
+    return this.clipToManual(auto.length === 0 ? [emptyBounds(type)] : auto);
+  }
+
+  private clipToManual(segments: bounds.Bounds[]): bounds.Bounds[] {
+    const { manualBounds, bounds: manual } = this.state;
+    return clip(
+      segments,
+      manualBounds.lower ? manual?.lower : undefined,
+      manualBounds.upper ? manual?.upper : undefined,
+    );
   }
 }
 

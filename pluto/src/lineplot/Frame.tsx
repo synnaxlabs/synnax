@@ -184,13 +184,15 @@ const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
 /** The open breaks after a break change, and the view and the selection it leaves. */
 export type OpenBreaksChange = Omit<lineplot.BreaksChange, "held">;
 
+const NO_BREAKS: lineplot.BreakCounts = { open: 0, closed: 0 };
+
 export interface FrameProps
   extends
     PropsWithChildren,
     Partial<
       Pick<
         z.input<typeof lineplot.linePlotStateZ>,
-        "clearOverScan" | "hold" | "visible" | "gapsCollapsed"
+        "clearOverScan" | "hold" | "visible" | "breaksHidden"
       >
     >,
     Omit<HTMLDivProps, "ref">,
@@ -208,7 +210,10 @@ export interface FrameProps
   onZoomedChange?: (key: string | null) => void;
   /** Called with each change of the view and the selection by the viewport. */
   onViewportChange?: Viewport.UseHandler;
-  /** Called when the number of open or of closed breaks of x1 changes. */
+  /**
+   * Called when the number of open or of closed breaks of x1 changes. It counts them
+   * while they are hidden too.
+   */
   onBreaksChange?: (breaks: lineplot.BreakCounts) => void;
   /** The open breaks of x1 when the plot mounts, as the lower bounds of their gaps. */
   initialOpenBreaks?: number[];
@@ -225,7 +230,7 @@ export const Frame = ({
   hold = false,
   onHold,
   visible,
-  gapsCollapsed = false,
+  breaksHidden = false,
   loadingMessage,
   ref,
   viewportRef,
@@ -239,7 +244,7 @@ export const Frame = ({
   const [lines, setLines] = useState<LineState>([]);
   const [viewportElement, setViewportElement] = useState<HTMLElement | null>(null);
 
-  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible, gapsCollapsed });
+  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible, breaksHidden });
 
   const [{ path }, state, setState, methods] = Aether.use({
     aetherKey,
@@ -307,7 +312,8 @@ export const Frame = ({
 
   const handleError = Status.useErrorHandler();
   const handleAsyncError = Status.useAsyncErrorHandler();
-  const breaksRef = useSyncedRef(breaks);
+  // Hidden breaks count for onBreaksChange only, as a click or a drag cannot meet them.
+  const shownBreaksRef = useSyncedRef(breaksHidden ? NO_BREAKS : breaks);
   const openBreaksRef = useSyncedRef(openBreaks);
   // The selection the plot last reported, so a break change can map it.
   const selectionRef = useRef<box.Box>(box.ZERO);
@@ -376,7 +382,8 @@ export const Frame = ({
     return true;
   };
 
-  const breaksShown = () => breaksRef.current.open + breaksRef.current.closed > 0;
+  const breaksShown = () =>
+    shownBreaksRef.current.open + shownBreaksRef.current.closed > 0;
 
   const toggleBreak: ContextValue["toggleBreak"] = (clientX, source) => {
     if (!breaksShown()) return;
@@ -403,7 +410,7 @@ export const Frame = ({
 
   // selectBound reports a failed read of the seams and leaves the drag unbounded.
   const selectBound = async (x: number): Promise<bounds.Bounds> => {
-    if (breaksRef.current.closed === 0) return bounds.INFINITE;
+    if (shownBreaksRef.current.closed === 0) return bounds.INFINITE;
     let seams: number[] = [];
     await handleAsyncError(async () => {
       seams = await methods.getSeams();
