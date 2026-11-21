@@ -519,11 +519,17 @@ var _ = Describe("Writer", func() {
 			telem.NewSeriesV[float32](1, 2),
 			telem.NewSeriesV[int64](3, 4),
 		}))).To(BeTrue())
-		Eventually(out.Outlet()).Should(Receive(&res))
+		// The stored and the virtual channels stream in separate frames.
+		var streamed frame.Frame
+		for !streamed.HasData() || len(streamed.Get(virtualCh.Key()).Series) == 0 ||
+			len(streamed.Get(idxCh.Key()).Series) == 0 {
+			Eventually(out.Outlet()).Should(Receive(&res))
+			streamed = streamed.Extend(res.Frame)
+		}
 		clock := uint32(idxCh.Key())
-		Expect(res.Frame.Get(idxCh.Key()).Series[0].Clock).To(Equal(clock))
-		Expect(res.Frame.Get(dataCh.Key()).Series[0].Clock).To(Equal(clock))
-		Expect(res.Frame.Get(virtualCh.Key()).Series[0].Clock).To(BeZero())
+		Expect(streamed.Get(idxCh.Key()).Series[0].Clock).To(Equal(clock))
+		Expect(streamed.Get(dataCh.Key()).Series[0].Clock).To(Equal(clock))
+		Expect(streamed.Get(virtualCh.Key()).Series[0].Clock).To(BeZero())
 	})
 
 	Describe("Free Channel Writes", func() {
