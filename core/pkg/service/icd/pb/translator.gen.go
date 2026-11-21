@@ -341,6 +341,10 @@ func MessageToPB(r icd.Message) (*Message, error) {
 		Key:     r.Key.String(),
 		Payload: payloadVal,
 	}
+	if r.CycleTime != nil {
+		v := int64(*r.CycleTime)
+		pb.CycleTime = &v
+	}
 	return pb, nil
 }
 
@@ -366,6 +370,10 @@ func MessageFromPB(pb *Message) (icd.Message, error) {
 		}
 	}
 	r.Name = pb.Name
+	if pb.CycleTime != nil {
+		v := telem.TimeSpan(*pb.CycleTime)
+		r.CycleTime = &v
+	}
 	defaults.FillGroups(&r)
 	return r, nil
 }

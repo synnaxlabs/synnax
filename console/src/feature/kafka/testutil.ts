@@ -12,6 +12,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { MAKE, type Properties } from "@/feature/kafka/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateKafkaDeviceOptions {
   configured?: boolean;
@@ -35,3 +36,10 @@ export const createKafkaDevice = async (
       ...properties,
     },
   });
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/kafka/task/Read"),
+    async () => await import("@/feature/kafka/task/Write"),
+  );

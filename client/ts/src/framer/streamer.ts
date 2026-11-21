@@ -22,7 +22,7 @@ import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame, frameZ, seriesFromPayload } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({
@@ -254,7 +254,8 @@ class BaseStreamer implements Streamer {
         ack.resolve();
         continue;
       }
-      return this.adapter.adapt(new Frame(res.frame));
+      const { keys, series } = res.frame;
+      return this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload)));
     }
   }
 
