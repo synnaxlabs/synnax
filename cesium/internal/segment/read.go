@@ -28,9 +28,8 @@ type Committed struct {
 }
 
 // Reader reads checked stream bytes of segments. It keeps the last block that it
-// checked on its own, so a later read inside that block reads no bytes again. It is not
-// safe for
-// concurrent use.
+// checked on its own until Reset, so a later read inside that block reads no bytes
+// again. It is not safe for concurrent use.
 type Reader struct {
 	block []byte
 	// held names the checked bytes of block: their segment, the stream offset of the
@@ -84,9 +83,6 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 	return nil
 }
 
-// checked reads the block at stream offset start into b, which holds the block and its
-// trailer, or the unfinished last block, and checks it. It reads once more when the
-// first read fails.
 // hold makes rd hold the checked block of s from stream offset start to end.
 func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
 	size := end - start
@@ -115,6 +111,9 @@ func (rd *Reader) holds(s Committed, start, size int64) bool {
 	return h.size >= size && h.db == s.DB && h.id == s.ID && h.start == start
 }
 
+// checked reads the block at stream offset start into b, which holds the block and its
+// trailer, or the unfinished last block, and checks it. It reads once more when the
+// first read fails.
 func (rd *Reader) checked(r io.ReaderAt, s Committed, start int64, b []byte) error {
 	err := rd.readBlock(r, s, start, b)
 	if err == nil {
