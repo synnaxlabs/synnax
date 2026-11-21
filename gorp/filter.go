@@ -136,6 +136,33 @@ func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K
 	}
 }
 
+// MatchKeysChecked returns a Filter like MatchKeysFunc, whose f also returns a check
+// that the entry of each key must pass, or nil for none. The check runs on the entry
+// that the query decodes, so it drops a key whose entry a commit in flight changed with
+// no second read.
+func MatchKeysChecked[K Key, E Entry[K]](
+	f func(ctx Context) ([]K, func(e *E) bool, error),
+) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			keys, check, err := f(newContext(ctx, snap))
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			if len(keys) > 1 {
+				keys = lo.Uniq(keys)
+			}
+			res := resolved[K, E]{keys: keyset.Hashed(keys)}
+			if check != nil {
+				res.eval = func(_ Context, e *E, _, _ []byte) (bool, error) {
+					return check(e), nil
+				}
+			}
+			return res, nil
+		},
+	}
+}
+
 // And returns a filter that matches when ALL children match. Each child's keys, raw,
 // and eval constraints are composed independently: keys are intersected, raw runs as a
 // short-circuit AND pre-screen, and eval runs as an AND-composed post-decode predicate.

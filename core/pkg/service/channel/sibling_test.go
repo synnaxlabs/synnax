@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -140,5 +142,42 @@ var _ = Describe("Sibling names", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
+	})
+})
+
+var _ = Describe("Sibling names under concurrent creates", func() {
+	It("Should fail one of two concurrent creates of one name in one folder", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		cfg, groupSvc := serviceConfig(ctx, node, node.DB)
+		svc := MustOpen(channel.OpenService(ctx, cfg))
+		dir := group.Group{Name: "stand", Scope: resource.TypeChannel}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &dir)
+		})).To(Succeed())
+		var (
+			wg   sync.WaitGroup
+			errs = make([]error, 2)
+		)
+		for i := range errs {
+			wg.Go(func() {
+				ch := channel.Channel{
+					Name:     "pt",
+					DataType: telem.Float32T,
+					Virtual:  true,
+					Group:    &dir.Key,
+				}
+				errs[i] = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})
+			})
+		}
+		wg.Wait()
+		Expect(errs).To(ContainElement(MatchError(ContainSubstring("already exists"))))
+		Expect(errs).To(ContainElement(BeNil()))
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchNames("pt")).
+			Count(ctx, node.DB)).To(Equal(1))
 	})
 })

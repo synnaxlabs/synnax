@@ -139,6 +139,17 @@ var _ = Describe("UniqueIndex", func() {
 			openItems(ctx)
 		})
 
+		It("Should skip the checks of a create that the caller checked", func(
+			ctx SpecContext,
+		) {
+			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				dup := uniqueItem{Key: 2, Name: "pt"}
+				return items.NewCreate().UniqueChecked().Entry(&dup).Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(items.NewRetrieve().Count(ctx, db)).To(Equal(2))
+		})
+
 		It("Should refuse a second entry with the same value", func(ctx SpecContext) {
 			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
 			expectClash(
@@ -366,6 +377,23 @@ var _ = Describe("UniqueIndex", func() {
 				itemIndex.Holder(ctx, db, uniqueSibling{Name: "pt"}),
 			)
 			Expect(found).To(BeFalse())
+		})
+
+		It("Should return the key of a holder in the index's own table only", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				createFolder(ctx, db, uniqueFolder{Key: "b", Name: "b"}),
+			).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 3, Folder: "b", Name: "pt"})).
+				To(Succeed())
+			key, held := MustSucceed2(
+				itemIndex.Key(ctx, db, uniqueSibling{Parent: "b", Name: "pt"}),
+			)
+			Expect(held).To(BeTrue())
+			Expect(key).To(Equal(uint32(3)))
+			_, held = MustSucceed2(itemIndex.Key(ctx, db, uniqueSibling{Name: "b"}))
+			Expect(held).To(BeFalse())
 		})
 
 		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
