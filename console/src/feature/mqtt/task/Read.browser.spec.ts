@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
@@ -291,6 +291,11 @@ const createTimeChannel = async () =>
   });
 
 describe("MQTT read form", () => {
+  // The form loads lazily. Loading it here keeps its import out of the first test.
+  beforeAll(async () => {
+    await import("@/feature/mqtt/task/Read");
+  });
+
   it("should create a format named after the task and add later picks to it", async () => {
     const TOPICS = [
       {
