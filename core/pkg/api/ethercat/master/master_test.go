@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/slave"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -345,6 +346,62 @@ var _ = Describe("Service", func() {
 			Expect(got.Interface).To(Equal(m.Interface))
 		})
 
+		It("Should write the identity and keep the configuration", func(
+			ctx SpecContext,
+		) {
+			m := newMaster()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { deleteMaster(ctx, m.Key) })
+			grantWrites(ctx, m.Rack)
+			order := []uuid.UUID{uuid.New(), uuid.New()}
+			Expect(update(testutil.AuthedCtx(ctx, u), apimaster.UpdateRequest{
+				Key: m.Key,
+				Update: master.Update{Variant: master.IdentityUpdate{
+					Identity: master.Identity{
+						Rack:      m.Rack,
+						Interface: "igh:0",
+						Slaves:    order,
+					},
+				}},
+			})).Error().ToNot(HaveOccurred())
+			got := retrieveMaster(ctx, m.Key)
+			Expect(got.Interface).To(Equal("igh:0"))
+			Expect(got.Slaves).To(Equal(order))
+			Expect(got.Name).To(Equal(m.Name))
+		})
+
+		It("Should not move a master to a rack the subject cannot update", func(
+			ctx SpecContext,
+		) {
+			m := newMaster()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { deleteMaster(ctx, m.Key) })
+			other := rack.Rack{Name: "Other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			grantWrites(ctx, m.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), apimaster.UpdateRequest{
+				Key: m.Key,
+				Update: master.Update{Variant: master.IdentityUpdate{
+					Identity: master.Identity{Rack: other.Key, Interface: m.Interface},
+				}},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveMaster(ctx, m.Key).Rack).To(Equal(m.Rack))
+			grant(ctx, u, []access.Action{access.ActionUpdate}, other.Key.ResourceID())
+			Expect(update(testutil.AuthedCtx(ctx, u), apimaster.UpdateRequest{
+				Key: m.Key,
+				Update: master.Update{Variant: master.IdentityUpdate{
+					Identity: master.Identity{Rack: other.Key, Interface: m.Interface},
+				}},
+			})).Error().ToNot(HaveOccurred())
+			Expect(retrieveMaster(ctx, m.Key).Rack).To(Equal(other.Key))
+		})
+
 		It("Should reject an update with no field group", func(ctx SpecContext) {
 			m := createMaster(ctx)
 			grantWrites(ctx, m.Rack)
@@ -381,6 +438,40 @@ var _ = Describe("Service", func() {
 			)).Error().ToNot(HaveOccurred())
 			Expect(svc.EtherCAT.Masters.NewRetrieve().
 				Where(master.MatchKeys(m.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should need delete access on the slaves it takes", func(ctx SpecContext) {
+			m := newMaster()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			s := slave.Slave{
+				Key:         uuid.New(),
+				Rack:        m.Rack,
+				Name:        "EL3102",
+				VendorID:    2,
+				ProductCode: 0x0C1E3052,
+				Master:      m.Key,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return gorp.NewCreate[slave.Key, slave.Slave]().Entry(&s).Exec(ctx, tx)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { deleteMaster(ctx, m.Key) })
+			grantWrites(ctx, m.Rack)
+			req := apimaster.DeleteRequest{Keys: []master.Key{m.Key}}
+			Expect(del(testutil.AuthedCtx(ctx, u), req)).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveMaster(ctx, m.Key).Key).To(Equal(m.Key))
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionDelete},
+				resource.ID{Type: resource.TypeEthercatSlave},
+			)
+			Expect(del(testutil.AuthedCtx(ctx, u), req)).Error().ToNot(HaveOccurred())
+			Expect(svc.EtherCAT.Slaves.NewRetrieve().
+				Where(slave.MatchKeys(s.Key)).
 				Exists(ctx, db)).To(BeFalse())
 		})
 

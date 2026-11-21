@@ -13,11 +13,13 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates, updates, and deletes EtherCAT masters in the transaction given to
@@ -52,14 +54,24 @@ func (w Writer) setStatus(ctx context.Context, m Master) error {
 	return w.status.Set(ctx, &s)
 }
 
+func validateMaster(m Master) error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	if len(lo.Uniq(m.Slaves)) != len(m.Slaves) {
+		return errors.Wrapf(validate.ErrValidation, "slaves: must not repeat a key")
+	}
+	return nil
+}
+
 // Create stores m and writes an unknown status when it has none. An existing status
 // takes the name and rack of m. A master with a nil key gets a new one. It returns a
-// validation error when m is invalid or its rack does not exist.
+// validation error when m is invalid, repeats a slave key, or its rack does not exist.
 func (w Writer) Create(ctx context.Context, m *Master) error {
 	if m.Key == uuid.Nil() {
 		m.Key = uuid.New()
 	}
-	if err := m.Validate(); err != nil {
+	if err := validateMaster(*m); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Entry(m).Exec(ctx, w.tx); err != nil {
@@ -71,7 +83,8 @@ func (w Writer) Create(ctx context.Context, m *Master) error {
 // Update applies change to the master stored under key, inside the transaction, and
 // stores the result. A rename or rack move updates the status, or writes it as unknown
 // when it is missing. It returns an error wrapping query.ErrNotFound when no master is
-// stored under key and a validation error when the result is invalid.
+// stored under key and a validation error when the result is invalid or repeats a
+// slave key.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,
@@ -87,7 +100,7 @@ func (w Writer) Update(
 				return Master{}, err
 			}
 			updated.Key = key
-			if err = updated.Validate(); err != nil {
+			if err = validateMaster(updated); err != nil {
 				return Master{}, err
 			}
 			next = updated
