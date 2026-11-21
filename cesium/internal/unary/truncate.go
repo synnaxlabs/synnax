@@ -189,14 +189,14 @@ type cut struct {
 }
 
 func (db *DB) findCuts(ctx context.Context) (cuts []cut, err error) {
-	iter := db.domain.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+	iter := db.domain.OpenCursor(domain.IterRange(telem.TimeRangeMax))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for ok := iter.SeekFirst(ctx); ok; ok = iter.Next() {
 		var (
 			c     cut
 			found bool
 		)
-		if c, found, err = db.findCut(ctx, iter); err != nil {
+		if c, found, err = db.findCut(ctx, &iter); err != nil {
 			return nil, errors.Wrapf(err, "domain %v", iter.TimeRange())
 		}
 		if found {
@@ -206,7 +206,7 @@ func (db *DB) findCuts(ctx context.Context) (cuts []cut, err error) {
 	return cuts, nil
 }
 
-func (db *DB) findCut(ctx context.Context, iter *domain.Iterator) (cut, bool, error) {
+func (db *DB) findCut(ctx context.Context, iter *domain.Cursor) (cut, bool, error) {
 	tr := iter.TimeRange()
 	end, covered, err := db.index().Coverage(ctx, tr)
 	if err != nil {
