@@ -14,7 +14,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { createKafkaDevice, preloadForms } from "@/feature/kafka/testutil";
+import { createKafkaDevice } from "@/feature/kafka/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
@@ -26,8 +26,6 @@ import {
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
   const rendered = await renderTaskFormTab(

@@ -34,7 +34,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { createKafkaDevice, preloadForms } from "@/feature/kafka/testutil";
+import { createKafkaDevice } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
@@ -49,8 +49,6 @@ import {
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 const TOPIC = "oven";
 

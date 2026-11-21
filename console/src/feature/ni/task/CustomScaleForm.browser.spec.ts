@@ -42,7 +42,7 @@ import { id } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
-import { preloadForms, renderNITaskForm } from "@/feature/ni/task/testutil";
+import { renderNITaskForm } from "@/feature/ni/task/testutil";
 import { commitFieldInput, selectFromDropdown } from "@/platform/task/testutil";
 import {
   fakePickedFile,
@@ -55,8 +55,6 @@ import {
 const openMock = vi.mocked(open);
 
 const client = createTestClient();
-
-preloadForms();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {

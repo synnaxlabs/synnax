@@ -19,7 +19,6 @@ import {
   createAnalogWriteChannel,
   createDigitalWriteChannel,
   createLabJackDevice,
-  preloadForms,
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
@@ -34,8 +33,6 @@ import {
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 const typeTriggers = (): HTMLElement[] =>
   screen.getAllByRole("button", { name: /^Channel type/ });

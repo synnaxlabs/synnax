@@ -18,7 +18,6 @@ import { NI } from "@/feature/ni";
 import {
   createHardware,
   createNIDevice,
-  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -30,8 +29,6 @@ import {
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 interface CreateChannelOverrides extends Partial<NI.Task.DIChannel> {}
 

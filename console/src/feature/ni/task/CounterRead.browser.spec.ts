@@ -19,7 +19,6 @@ import {
   awaitStatusDescription,
   createHardware,
   createNIDevice,
-  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -32,8 +31,6 @@ import {
 import { findDialogTriggerByText, getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 type CreateChannelOverrides = Partial<NI.Task.CIChannel>;
 

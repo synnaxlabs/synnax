@@ -40,7 +40,6 @@ import {
   createSlaveDevice,
   createUnresolvedReadChannel,
   createWarningStatus,
-  preloadForms,
   STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
@@ -64,8 +63,6 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 let testRack: rack.Rack;
 

@@ -15,7 +15,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, preloadForms } from "@/feature/mqtt/testutil";
+import { createBroker } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
@@ -32,8 +32,6 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {

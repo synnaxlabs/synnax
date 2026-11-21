@@ -15,7 +15,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
-import { createModbusDevice, preloadForms } from "@/feature/modbus/testutil";
+import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -34,8 +34,6 @@ import {
 import { findIconButton, getIconButton } from "@/testutil";
 
 const client = createTestClient();
-
-preloadForms();
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
