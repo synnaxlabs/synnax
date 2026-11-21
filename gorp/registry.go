@@ -368,18 +368,23 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
-	// weak holds, by text key, the Weak holders of each requested entry when the
-	// delete asks for them. It is nil until the first such holder.
+	// heldWanted is true when the delete asks for the Weak holders of its entries.
+	heldWanted bool
+	// weak holds, by text key, the Weak holders of each entry of table when heldWanted
+	// is true. It is nil until the first such holder.
 	weak map[string][]Dependent
 }
 
-// holdWeakly records that dep holds the requested entry with the text key k through a
-// Weak reference.
-func (p *deletePlan) holdWeakly(k string, dep Dependent) {
+// holdWeakly records that dep holds t through a Weak reference, when the delete asks
+// for Weak holders and t is in table.
+func (p *deletePlan) holdWeakly(t Target, dep Dependent) {
+	if !p.heldWanted || t.Table != p.table {
+		return
+	}
 	if p.weak == nil {
 		p.weak = make(map[string][]Dependent)
 	}
-	p.weak[k] = append(p.weak[k], dep)
+	p.weak[t.Key] = append(p.weak[t.Key], dep)
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
@@ -441,7 +446,7 @@ func (r *registry) plan(
 	weak bool,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
-	w.weak = weak
+	w.plan.heldWanted = weak
 	if err := r.walk(ctx, tx, w); err != nil {
 		return nil, err
 	}
@@ -498,17 +503,16 @@ func (r *registry) planned(
 		}
 	}
 	p := &deletePlan{
-		table:    table,
-		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
-		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
+		table:      table,
+		cascades:   make(map[string]set.Set[string], len(effects.Cascades)),
+		detaches:   make(map[Target][]detachOp, len(effects.Detaches)),
+		heldWanted: weak,
 	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
 	}
 	for _, e := range effects.Weak {
-		if weak && e.Target.Table == table {
-			p.holdWeakly(e.Target.Key, e.Dependent)
-		}
+		p.holdWeakly(e.Target, e.Dependent)
 	}
 	for _, e := range effects.Detaches {
 		if deletedIn(tx, e.Holder) {
@@ -560,8 +564,6 @@ type planWalk struct {
 	// effects holds, by OnDelete, the effect of the walk on each entry it meets, for
 	// PlanDelete. It is nil for a delete.
 	effects *[Weak + 1][]DeleteEffect
-	// weak is true when the plan records the Weak holders of the requested entries.
-	weak bool
 }
 
 // record adds the effect of the delete of target on dep, which holds it through ref,
@@ -662,9 +664,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		}
 	case Weak:
 		w.record(ref, dep, target)
-		if w.weak && w.plan.isRequested(target) {
-			w.plan.holdWeakly(target.Key, newDeleteEffect(ref, dep, target).Dependent)
-		}
+		w.plan.holdWeakly(target, newDeleteEffect(ref, dep, target).Dependent)
 		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {
