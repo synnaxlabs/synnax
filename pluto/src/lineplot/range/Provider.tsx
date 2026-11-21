@@ -44,7 +44,7 @@ export const Provider = ({
   ...rest
 }: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const { toggleZoom, zoomedKey } = useContext("Range.Provider");
+  const { toggleZoom, toggleBreak, zoomedKey } = useContext("Range.Provider");
   const [, { hovered, height }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
@@ -107,8 +107,10 @@ export const Provider = ({
           hovered != null && CSS.M("hovered"),
           menuProps.className,
         )}
-        onClick={() => {
+        onClick={(e) => {
+          // A break band runs through the strip, so a click on it opens the break.
           if (hovered != null) toggleZoom(hovered.key, hovered.viewport);
+          else toggleBreak(e.clientX, "plot");
         }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
