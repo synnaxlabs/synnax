@@ -1,0 +1,198 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/ethercat"
+import "schemas/synnax/ethercat_master"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/ethercat/slave"
+@go output  "core/pkg/service/ethercat/slave"
+@py output  "client/py/synnax/ethercat/slave"
+@ts output  "client/ts/src/ethercat/slave"
+
+Key = uuid {
+    @doc value "uniquely identifies an EtherCAT slave."
+}
+
+StatusDetails struct {
+    rack  rack.Key {
+        @doc value "is the key of the rack the slave belongs to."
+    }
+    slave Key      {
+        @doc value "is the key of the slave."
+    }
+
+    @doc value "identifies the slave and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a slave."
+}
+
+PDOEntry struct {
+    name       string         {
+        @doc value "is the name of the entry, such as Input."
+    }
+    pdo_name   string = "" {
+        @doc value "is the name of the PDO that holds the entry, such as Channel 1."
+    }
+    pdo_index  uint16 = 0 {
+        @doc value "is the index of the PDO that holds the entry, such as 0x1A00."
+    }
+    index      uint16         {
+        @doc value "is the CoE object dictionary index of the entry."
+    }
+    sub_index  uint8          {
+        @doc value "is the CoE object dictionary sub-index of the entry."
+    }
+    bit_length uint8          {
+        @doc value "is the size of the entry in bits."
+    }
+    data_type  telem.DataType {
+        @doc value "is the data type of the entry."
+        @ts type   "string"
+    }
+
+    @doc value  "is a PDO entry that a scan found on a slave."
+    @go marshal
+}
+
+PDOs struct {
+    inputs  PDOEntry[] = [] {
+        @doc value "are the entries that the slave sends."
+    }
+    outputs PDOEntry[] = [] {
+        @doc value "are the entries that the slave receives."
+    }
+
+    @doc value  "holds the PDO entries of a slave."
+    @go marshal
+}
+
+ReadBinding struct {
+    index      uint16      {
+        @doc value "is the CoE object dictionary index of the input entry."
+    }
+    sub_index  uint8       {
+        @doc value "is the CoE object dictionary sub-index of the input entry."
+    }
+    scaled     bool = false {
+        @doc value "is whether the channel holds the scaled samples of the entry."
+    }
+    calibrated bool = false {
+        @doc value "is whether the channel holds the calibrated samples of the entry."
+    }
+    channel    channel.Key {
+        @doc value "is the channel that holds the samples of the entry."
+    }
+
+    @doc value  "is the channel that a slave maps for one input entry."
+    @go marshal
+}
+
+WriteBinding struct {
+    index     uint16      {
+        @doc value "is the CoE object dictionary index of the output entry."
+    }
+    sub_index uint8       {
+        @doc value "is the CoE object dictionary sub-index of the output entry."
+    }
+    command   channel.Key = 0 {
+        @doc value "is the channel that commands the entry. 0 is no channel."
+    }
+    state     channel.Key = 0 {
+        @doc value "is the channel that holds the state of the entry. 0 is no channel."
+    }
+
+    @doc value  "is the pair of channels that a slave maps for one output entry."
+    @go marshal
+}
+
+Slave struct {
+    key                Key = create {
+        @doc value "uniquely identifies the slave."
+        @key
+    }
+    rack               rack.Key                    {
+        @doc value     "is the key of the rack the slave is connected to."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name               string                      {
+        @doc value         "is a human-readable name for the slave."
+        @filter
+        @search
+        @validate required
+    }
+    serial             uint32 = 0 {
+        @doc value    """
+            is the serial number of the slave. 0 when the slave reports none.
+        """
+        @filter
+        @index lookup
+    }
+    vendor_id          uint32                      {
+        @doc value "is the EtherCAT vendor ID of the slave."
+        @filter
+    }
+    product_code       uint32                      {
+        @doc value "is the product code of the slave."
+        @filter
+    }
+    revision           uint32 = 0 {
+        @doc value "is the revision number of the slave."
+    }
+    master             ethercat_master.Key         {
+        @doc value     "is the master on whose bus the slave sits."
+        @ref kind      place
+        @ref on_delete cascade
+    }
+    pdos               PDOs = {} {
+        @doc value "are the PDO entries that the scan found on the slave."
+    }
+    identifier         string = "" {
+        @doc value """
+            is the prefix of the slave's channel names. The slave is unconfigured while
+            it is empty.
+        """
+    }
+    disabled           bool = false {
+        @doc value "is whether the Driver leaves the slave out of the tasks it runs."
+    }
+    startup_parameters ethercat.StartupParameter[] = [] {
+        @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
+    }
+    read_index         channel.Key = 0 {
+        @doc value "is the index channel of the channels that the slave reads into."
+    }
+    write_state_index  channel.Key = 0 {
+        @doc value "is the index channel of the state channels of the slave's outputs."
+    }
+    read_bindings      ReadBinding[] = [] {
+        @doc value "are the channels of the input entries."
+    }
+    write_bindings     WriteBinding[] = [] {
+        @doc value "are the channels of the output entries."
+    }
+    status             Status?                     {
+        @doc value  "is the current operational status of the slave."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is an EtherCAT slave: one module on the bus of a master."
+    @go marshal
+    @go migrate
+    @resource type "ethercat_slave"
+    @retrieve
+}

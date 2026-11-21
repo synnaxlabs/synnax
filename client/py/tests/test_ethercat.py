@@ -862,3 +862,38 @@ class TestEtherCATMasterResource:
         """Should name the master by its key under the ethercat_master type."""
         assert sy.ethercat.master.resource_id(self.KEY).type == "ethercat_master"
         assert sy.ethercat.master.resource_id(self.KEY).key == str(self.KEY)
+
+
+@pytest.mark.ethercat
+class TestEtherCATSlaveResource:
+    """Tests for the typed EtherCAT slave resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    SLAVE: ClassVar[dict[str, object]] = {
+        "rack": 1,
+        "name": "EL3102",
+        "vendor_id": 2,
+        "product_code": 0x0C1E3052,
+        "master": "33333333-3333-4333-8333-333333333333",
+    }
+
+    def test_parses_an_unconfigured_slave(self) -> None:
+        """Should parse a slave with no identifier, PDOs, or bindings by default."""
+        slave = sy.ethercat.slave.Slave.model_validate(self.SLAVE)
+        assert slave.serial == 0
+        assert slave.identifier == ""
+        assert not slave.disabled
+        assert slave.pdos.inputs == []
+        assert slave.read_bindings == []
+
+    @pytest.mark.parametrize("missing", ["master", "vendor_id", "name"])
+    def test_requires_a_field(self, missing: str) -> None:
+        """Should reject a slave without a master, a vendor ID, or a name."""
+        data = {k: v for k, v in self.SLAVE.items() if k != missing}
+        with pytest.raises(ValidationError):
+            sy.ethercat.slave.Slave.model_validate(data)
+
+    def test_resource_id(self) -> None:
+        """Should name the slave by its key under the ethercat_slave type."""
+        assert sy.ethercat.slave.resource_id(self.KEY).type == "ethercat_slave"
+        assert sy.ethercat.slave.resource_id(self.KEY).key == str(self.KEY)

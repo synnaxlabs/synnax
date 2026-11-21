@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.ethercat import master
+from synnax.ethercat import master, slave
 from synnax.ethercat.types import (
     MAKE,
     MODEL,
@@ -55,4 +55,5 @@ __all__ = [
     "WriteTask",
     "find_entry",
     "master",
+    "slave",
 ]
