@@ -171,6 +171,9 @@ const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
   mode === "zoom" ||
   (mode === "zoomReset" && stage === "start");
 
+/** The open breaks after a break change, and the view and the selection it leaves. */
+export type OpenBreaksChange = Omit<lineplot.BreaksChange, "held">;
+
 export interface FrameProps
   extends
     PropsWithChildren,
@@ -193,13 +196,14 @@ export interface FrameProps
   viewportRef?: RefObject<Viewport.UseRefValue | null>;
   /** Called with the key that toggleZoom zoomed to, or null when the plot zooms out. */
   onZoomedChange?: (key: string | null) => void;
-  /**
-   * Called with each change of the view and the selection by the viewport, and with
-   * each selection that a break change maps through time.
-   */
+  /** Called with each change of the view and the selection by the viewport. */
   onViewportChange?: Viewport.UseHandler;
   /** Called when the number of open or of closed breaks of x1 changes. */
   onBreaksChange?: (breaks: lineplot.BreakCounts) => void;
+  /** The open breaks of x1 when the plot mounts, as the lower bounds of their gaps. */
+  initialOpenBreaks?: number[];
+  /** Called after each change of the open breaks. */
+  onOpenBreaksChange?: (change: OpenBreaksChange) => void;
 }
 
 export const Frame = ({
@@ -218,6 +222,8 @@ export const Frame = ({
   onZoomedChange,
   onViewportChange,
   onBreaksChange,
+  initialOpenBreaks = [],
+  onOpenBreaksChange,
   ...rest
 }: FrameProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
@@ -233,6 +239,7 @@ export const Frame = ({
       container: box.ZERO,
       viewport: box.DECIMAL,
       grid: {},
+      openBreaks: initialOpenBreaks,
       ...memoProps,
     },
     methods: lineplot.linePlotMethodsZ,
@@ -339,15 +346,8 @@ export const Frame = ({
     if (zoomHistory.current === history)
       zoomHistory.current = history.map((v, i) => ({ ...v, viewport: change.held[i] }));
     // A selection made during the await holds its own times.
-    if (selectionRef.current === selection && !box.areaIsZero(selection)) {
+    if (selectionRef.current === selection && !box.areaIsZero(selection))
       selectionRef.current = change.selection;
-      onViewportChange?.({
-        box: change.selection,
-        mode: "select",
-        cursor: xy.ZERO,
-        stage: "end",
-      });
-    }
     if (moveView) {
       viewportRef?.current?.sync(change.viewport, selectionRef.current);
       applyViewport({
@@ -357,6 +357,11 @@ export const Frame = ({
         stage: "end",
       });
     }
+    onOpenBreaksChange?.({
+      openBreaks: change.openBreaks,
+      viewport: appliedRef.current,
+      selection: selectionRef.current,
+    });
     return true;
   };
 

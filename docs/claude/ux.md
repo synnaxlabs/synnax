@@ -877,7 +877,8 @@ says why in a sentence, then gives the raw error.
 - An open or a close keeps the times at the edges of the view in view. The zoom history
   and the selection keep their times too.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
-  while one is open. Reset zoom closes all breaks. Open breaks are window state.
+  while one is open. Reset zoom closes all breaks. The Session stores the open breaks
+  with the view, so a reload shows the same times.
 
 ### Plot range select
 
