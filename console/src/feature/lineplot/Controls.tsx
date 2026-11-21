@@ -16,11 +16,34 @@ import { LinePlot, Viewport } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
 export const HOLD_TRIGGER: Triggers.Trigger = ["H"];
+
+const BreaksToggle = (): ReactElement => {
+  const key = LinePlot.useKey();
+  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
+  const dispatch = Session.useDispatch();
+  // The breaks change the home view, so the zoom resets to show the whole plot.
+  const handleChange = (shown: boolean): void => {
+    dispatch(Session.LinePlot.setBreaksHidden({ key, hidden: !shown }));
+    dispatch(Session.LinePlot.setViewport({ key }));
+  };
+  return (
+    <Button.Toggle
+      value={!breaksHidden}
+      onChange={handleChange}
+      size="small"
+      tooltip={`${breaksHidden ? "Show" : "Hide"} breaks`}
+      tooltipLocation={location.BOTTOM_LEFT}
+    >
+      <Icon.SplitX />
+    </Button.Toggle>
+  );
+};
 
 export interface ControlsProps {
   hasAnnotations: boolean;
@@ -34,7 +57,6 @@ export const Controls = ({
   const key = LinePlot.useKey();
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const annotationsVisible = Session.LinePlot.useSelectAnnotationsVisible();
-  const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
   const mode = Session.LinePlot.useSelectViewportMode();
   const measureMode = Session.LinePlot.useSelectMeasureMode();
   const dispatch = Session.useDispatch();
@@ -57,12 +79,6 @@ export const Controls = ({
 
   const handleAnnotationsVisibilityChange = (visible: boolean): void => {
     dispatch(Session.LinePlot.setRangeAnnotationsVisible({ key, visible }));
-  };
-
-  // The breaks change the home view, so the zoom resets to show the whole plot.
-  const handleBreaksShownChange = (shown: boolean): void => {
-    dispatch(Session.LinePlot.setBreaksHidden({ key, hidden: !shown }));
-    dispatch(Session.LinePlot.setViewport({ key }));
   };
 
   const handleToggleMeasure = (): void => {
@@ -121,17 +137,7 @@ export const Controls = ({
             <Icon.Range />
           </Button.Toggle>
         )}
-        {hasBreaks && (
-          <Button.Toggle
-            value={!breaksHidden}
-            onChange={handleBreaksShownChange}
-            size="small"
-            tooltip={`${breaksHidden ? "Show" : "Hide"} breaks`}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.SplitX />
-          </Button.Toggle>
-        )}
+        {FLAGS.breaks && hasBreaks && <BreaksToggle />}
         <Button.Toggle
           value={clickMode != null}
           tooltip={`${clickMode != null ? "Close" : "Open"} measure tool`}

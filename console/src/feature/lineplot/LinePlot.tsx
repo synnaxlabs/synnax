@@ -331,9 +331,7 @@ const Internal = (): ReactElement => {
         >
           <Controls
             hasAnnotations={hasAnnotations}
-            hasBreaks={
-              FLAGS.breaks && (breaksHidden || breaks.open + breaks.closed > 0)
-            }
+            hasBreaks={storedBreaksHidden || breaks.open + breaks.closed > 0}
           />
         </Base.LinePlot>
       </Menu.ContextMenu>
