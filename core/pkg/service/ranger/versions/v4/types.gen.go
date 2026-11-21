@@ -12,9 +12,12 @@
 package v4
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
 	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
-	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -24,37 +27,7 @@ type Key = v3.Key
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
-type Range struct {
-	// Key is the unique identifier for this range.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the range.
-	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the temporal extent of the range, defining its start and end
-	// timestamps.
-	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	// Color is an optional display color for visual identification of the range in user
-	// interfaces, a named color or a fixed color.
-	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
-	// Labels are the keys of the labels attached to the range.
-	Labels []label.Key `json:"labels" msgpack:"labels"`
-	// Parent is the key of the range this range is nested in. Empty for a top-level
-	// range.
-	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
-	// HasChildren is true when a range is nested in the range, derived on read and not
-	// persisted.
-	HasChildren bool `json:"has_children" msgpack:"has_children"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Range) Validate() error {
-	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
-	if r.Color != nil {
-		v.Exec(func() error { return validate.PathedError(r.Color.Validate(), "color") })
-	}
-	return v.Error()
-}
+type Range = v3.Range
 
 // Stage is where a range stands against the current time.
 type Stage = v3.Stage
@@ -71,25 +44,151 @@ const (
 // Where is a filter that selects ranges.
 type Where = v3.Where
 
-// Ref is the range a visualization shows: a range saved in the Core, or an inline
-// window.
-type Ref = v3.Ref
-
-// RefVariant is implemented by every Ref variant.
-type RefVariant = v3.RefVariant
-
 // RefType is the "variant" value that selects a variant of Ref.
-type RefType = v3.RefType
+type RefType string
 
 const (
 	// KeyRefType is a range saved in the Core.
-	KeyRefType RefType = v3.KeyRefType
+	KeyRefType RefType = "key"
 	// WindowRefType is a window carried inline: rolling or fixed.
-	WindowRefType RefType = v3.WindowRefType
+	WindowRefType RefType = "window"
 )
 
+// RefVariant is implemented by every Ref variant.
+type RefVariant interface {
+	isRefVariant()
+}
+
 // KeyRef is a range saved in the Core.
-type KeyRef = v3.KeyRef
+type KeyRef struct {
+	// Key is the key of a range saved in the Core.
+	Key Key `json:"key" msgpack:"key"`
+	// T0 is the zero of the range on a relative time axis. Null is the range start.
+	T0 *telem.TimeStamp `json:"t0,omitzero" msgpack:"t0,omitempty"`
+	// Color is the color that a relative time axis draws the range in. A line plot
+	// write with no color gets the range's own color when it is clearly apart from the
+	// other colors of the plot, else a series color.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
+}
+
+func (KeyRef) isRefVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (k KeyRef) Validate() error {
+	v := validate.New("KeyRef")
+	if k.Color != nil {
+		v.Exec(func() error { return validate.PathedError(k.Color.Validate(), "color") })
+	}
+	return v.Error()
+}
 
 // WindowRef is a window carried inline: rolling or fixed.
-type WindowRef = v3.WindowRef
+type WindowRef struct {
+	// Window is the window the reference resolves to.
+	Window telem.Window `json:"window" msgpack:"window"`
+	// Color is the color that a relative time axis draws the window in. A line plot
+	// write with no color gets a series color.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
+}
+
+func (WindowRef) isRefVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WindowRef) Validate() error {
+	v := validate.New("WindowRef")
+	v.Exec(func() error { return validate.PathedError(w.Window.Validate(), "window") })
+	if w.Color != nil {
+		v.Exec(func() error { return validate.PathedError(w.Color.Validate(), "color") })
+	}
+	return v.Error()
+}
+
+// Ref is the range a visualization shows: a range saved in the Core, or an inline
+// window.
+type Ref struct {
+	Variant RefVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u Ref) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case KeyRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"variant"`
+			KeyRef
+		}{Type: KeyRefType, KeyRef: v})
+	case WindowRef:
+		return json.MarshalEncode(enc, struct {
+			Type RefType `json:"variant"`
+			WindowRef
+		}{Type: WindowRefType, WindowRef: v})
+	default:
+		return errors.Newf("Ref: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type RefType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case KeyRefType:
+		var v struct {
+			Type RefType `json:"variant"`
+			KeyRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.KeyRef
+	case WindowRefType:
+		var v struct {
+			Type RefType `json:"variant"`
+			WindowRef
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.WindowRef
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case KeyRef:
+		v.Exec(variant.Validate)
+	case WindowRef:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}

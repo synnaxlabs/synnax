@@ -12,23 +12,18 @@ package v4
 import (
 	"context"
 
-	"github.com/synnaxlabs/gorp/migrate"
-	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v3"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateRange lifts a v3 range to v4, which stores its color as a reference. A color
-// becomes a fixed color, and an absent color stays absent.
-func MigrateRange(ctx context.Context, old v3.Range) (Range, error) {
-	r, err := autoMigrateRange(ctx, old)
-	if err != nil {
-		return Range{}, err
+// MigrateRef copies a v1 reference. A key reference starts with no custom T0, and no
+// reference has a color until a line plot write gives it one.
+func MigrateRef(_ context.Context, old v1.Ref) (Ref, error) {
+	switch v := old.Variant.(type) {
+	case v1.KeyRef:
+		return Ref{Variant: KeyRef{Key: v.Key}}, nil
+	case v1.WindowRef:
+		return Ref{Variant: WindowRef{Window: v.Window}}, nil
 	}
-	if old.Color != nil {
-		r.Color = &color.Ref{Variant: color.FixedRef{Value: *old.Color}}
-	}
-	return r, nil
+	return Ref{}, errors.Newf("unknown range reference variant %T", old.Variant)
 }
-
-// Migration lifts stored ranges from v3 to v4.
-var Migration = migrate.NewEntry("v63_color_ref", MigrateRange)
