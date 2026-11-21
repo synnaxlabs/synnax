@@ -171,6 +171,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 
 	// ETHERCAT MASTER
+	t.EtherCATMasterCreate = noop.UnaryServer[
+		ethercatmaster.CreateRequest,
+		ethercatmaster.CreateResponse,
+	]{}
+	t.EtherCATMasterUpdate = noop.UnaryServer[ethercatmaster.UpdateRequest, struct{}]{}
+	t.EtherCATMasterDelete = noop.UnaryServer[ethercatmaster.DeleteRequest, struct{}]{}
 	t.EtherCATMasterRetrieve = noop.UnaryServer[
 		ethercatmaster.RetrieveRequest,
 		ethercatmaster.RetrieveResponse,

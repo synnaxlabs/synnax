@@ -32,6 +32,7 @@ import (
 var _ = Describe("Service", func() {
 	var (
 		svc     *master.Service
+		stat    *status.Service
 		rackSvc *rack.Service
 		tx      gorp.Tx
 		rackKey rack.Key
@@ -39,7 +40,7 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
@@ -48,7 +49,10 @@ var _ = Describe("Service", func() {
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
-		svc = MustOpen(master.OpenService(ctx, master.ServiceConfig{DB: db}))
+		svc = MustOpen(master.OpenService(ctx, master.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		tx = DeferClose(db.OpenTx())
 	})
 
@@ -71,9 +75,16 @@ var _ = Describe("Service", func() {
 				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
+		It("Should reject a config missing the status service", func(ctx SpecContext) {
+			Expect(master.OpenService(ctx, master.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("status: must be non-nil")))
+		})
+
 		It("Should let a later config override an earlier one", func() {
-			cfg := master.ServiceConfig{}.Override(master.ServiceConfig{DB: db})
+			cfg := master.ServiceConfig{DB: db}.
+				Override(master.ServiceConfig{Status: stat})
 			Expect(cfg.DB).To(BeIdenticalTo(db))
+			Expect(cfg.Status).To(BeIdenticalTo(stat))
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})

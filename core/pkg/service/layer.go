@@ -967,6 +967,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("ethercat"),
 		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
+		Status:          l.Status,
 		Signals:         l.Signals,
 	}); !ok(err, l.EtherCAT) {
 		return nil, err

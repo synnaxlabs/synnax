@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,6 +66,35 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
+type (
+	// CreateRequest carries the masters to create or replace.
+	CreateRequest struct {
+		// Masters are the masters to store. A nil key mints a new one.
+		Masters []master.Master `json:"masters" msgpack:"masters"`
+	}
+	// CreateResponse carries the created masters with their keys.
+	CreateResponse struct {
+		// Masters are the stored masters, without their statuses.
+		Masters []master.Master `json:"masters" msgpack:"masters"`
+	}
+)
+
+// Create stores the given masters.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Master.NewWriter(tx)
+	for i := range req.Masters {
+		req.Masters[i].Status = nil
+		if err := w.Create(ctx, &req.Masters[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the masters that the top level of Where
@@ -104,4 +134,37 @@ func (s *Service) Retrieve(
 		res.Masters[i].Status = st
 	}
 	return res, nil
+}
+
+// UpdateRequest names a master and the one field group to write to it.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update master.Update `json:"update" msgpack:"update"`
+	// Key selects the master to update.
+	Key master.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes one field group to a master and keeps the other as stored. It returns
+// a validation error when the request carries no group.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Master.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the masters to delete.
+type DeleteRequest struct {
+	// Keys selects the masters to delete.
+	Keys []master.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given masters with their slaves and statuses.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Master.NewWriter(tx).Delete(ctx, req.Keys...)
 }

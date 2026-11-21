@@ -654,9 +654,21 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// ETHERCAT MASTER
+		EtherCATMasterCreate: unary[ethercatmaster.CreateRequest, ethercatmaster.CreateResponse](
+			router,
+			"/api/v1/ethercat/master/create",
+		),
 		EtherCATMasterRetrieve: unary[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse](
 			router,
 			"/api/v1/ethercat/master/retrieve",
+		),
+		EtherCATMasterUpdate: unary[ethercatmaster.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ethercat/master/update",
+		),
+		EtherCATMasterDelete: unary[ethercatmaster.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ethercat/master/delete",
 		),
 
 		// ETHERCAT SLAVE

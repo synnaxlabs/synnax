@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/master"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -30,7 +31,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var masterType = resource.ID{Type: resource.TypeEthercatMaster}
+var (
+	masterType = resource.ID{Type: resource.TypeEthercatMaster}
+	statusType = resource.ID{Type: resource.TypeStatus}
+	allWrites  = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var (
@@ -51,6 +60,27 @@ var _ = Describe("Service", func() {
 			override(&m)
 		}
 		return m
+	}
+	// grantWrites lets u write any master, its status, and the rack it sits on.
+	grantWrites := func(ctx SpecContext, r rack.Key) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, masterType, statusType)
+		grant(ctx, u, []access.Action{access.ActionUpdate}, r.ResourceID())
+	}
+	retrieveMaster := func(ctx SpecContext, key master.Key) master.Master {
+		GinkgoHelper()
+		var m master.Master
+		Expect(svc.EtherCAT.Masters.NewRetrieve().
+			Where(master.MatchKeys(key)).
+			Entry(&m).
+			Exec(ctx, db)).To(Succeed())
+		return m
+	}
+	deleteMaster := func(ctx SpecContext, key master.Key) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.EtherCAT.Masters.NewWriter(tx).Delete(ctx, key)
+		})).To(Succeed())
 	}
 	grantRetrieve := func(ctx SpecContext) {
 		GinkgoHelper()
@@ -96,6 +126,52 @@ var _ = Describe("Service", func() {
 			Expect(apimaster.NewService(base, apimaster.ServiceConfig{
 				Status: svc.Status,
 			})).ToNot(BeNil())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			m := newMaster()
+			m.Key = uuid.Nil()
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.CreateRequest{Masters: []master.Master{m}},
+			))
+			Expect(res.Masters[0].Key).ToNot(Equal(uuid.Nil()))
+			deleteMaster(ctx, res.Masters[0].Key)
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			m := newMaster(func(m *master.Master) {
+				m.Status = &master.Status{Message: "Connected"}
+			})
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.CreateRequest{Masters: []master.Master{m}},
+			))
+			Expect(res.Masters[0].Status).To(BeNil())
+			deleteMaster(ctx, m.Key)
+		})
+
+		It("Should reject the request when create is not granted", func(
+			ctx SpecContext,
+		) {
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.CreateRequest{Masters: []master.Master{newMaster()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should not create a master without update access on its rack", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, masterType, statusType)
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.CreateRequest{Masters: []master.Master{newMaster()}},
+			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
@@ -245,6 +321,78 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Masters).To(BeEmpty())
+		})
+	})
+
+	Describe("Update", func() {
+		It("Should write the configuration and keep the identity", func(
+			ctx SpecContext,
+		) {
+			m := newMaster()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) { deleteMaster(ctx, m.Key) })
+			grantWrites(ctx, m.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), apimaster.UpdateRequest{
+				Key: m.Key,
+				Update: master.Update{Variant: master.ConfigurationUpdate{
+					Configuration: master.Configuration{Name: "Renamed"},
+				}},
+			})).Error().ToNot(HaveOccurred())
+			got := retrieveMaster(ctx, m.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Interface).To(Equal(m.Interface))
+		})
+
+		It("Should reject an update with no field group", func(ctx SpecContext) {
+			m := createMaster(ctx)
+			grantWrites(ctx, m.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.UpdateRequest{Key: m.Key},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			m := createMaster(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), apimaster.UpdateRequest{
+				Key: m.Key,
+				Update: master.Update{Variant: master.ConfigurationUpdate{
+					Configuration: master.Configuration{Name: "Renamed"},
+				}},
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveMaster(ctx, m.Key).Name).To(Equal(m.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the master when delete is granted", func(ctx SpecContext) {
+			m := newMaster()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.EtherCAT.Masters.NewWriter(tx).Create(ctx, &m)
+			})).To(Succeed())
+			grantWrites(ctx, m.Rack)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.DeleteRequest{Keys: []master.Key{m.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(svc.EtherCAT.Masters.NewRetrieve().
+				Where(master.MatchKeys(m.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			m := createMaster(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apimaster.DeleteRequest{Keys: []master.Key{m.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveMaster(ctx, m.Key).Key).To(Equal(m.Key))
 		})
 	})
 })
