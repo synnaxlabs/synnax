@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -160,14 +159,8 @@ func (w Writer) tombstoneAt(
 	name string,
 	g *group.Key,
 ) (Key, bool, error) {
-	probe := Tombstone{Name: name, Group: g}
-	err := w.svc.tombstones.paths.Check(ctx, w.tx, &probe)
-	var clash gorp.UniqueError
-	if !errors.As(err, &clash) {
-		return 0, false, err
-	}
-	k, err := ParseKey(clash.Holder.Key)
-	return k, err == nil, err
+	p, _ := tombstonePath(Tombstone{Name: name, Group: g})
+	return w.svc.tombstones.paths.Holder(ctx, w.tx, p)
 }
 
 // DeleteTombstones deletes the tombstones in the groups with keys and returns the keys

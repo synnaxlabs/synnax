@@ -153,6 +153,20 @@ func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
 	return nil
 }
 
+// Holder returns the key of the entry of the table of u that holds v in tx, and false
+// when none does. It waits for u to populate.
+func (u *UniqueIndex[K, E, V]) Holder(
+	ctx context.Context,
+	tx Tx,
+	v V,
+) (K, bool, error) {
+	if err := u.store.Wait(ctx); err != nil {
+		var none K
+		return none, false, err
+	}
+	return u.store.Holder(tx.txIdentity(), v, nil)
+}
+
 // clash returns err, or else the UniqueError for holder and v.
 func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
 	if err != nil {

@@ -161,6 +161,28 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
 		})
 
+		It("Should return the holder of a value", func(ctx SpecContext) {
+			openDB()
+			index := newItemIndex()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:      db,
+				Name:    "item",
+				Indexes: []gorp.Index[uint32, uniqueItem]{index},
+			}))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				Expect(createItem(ctx, tx, uniqueItem{Key: 1, Name: "pt"})).
+					To(Succeed())
+				k, found, err := index.Holder(ctx, tx, uniqueSibling{Name: "pt"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeTrue())
+				Expect(k).To(Equal(uint32(1)))
+				_, found, err = index.Holder(ctx, tx, uniqueSibling{Name: "ox"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeFalse())
+				return nil
+			})).To(Succeed())
+		})
+
 		It("Should see a value staged in the same transaction", func(ctx SpecContext) {
 			err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				if err := createItem(
