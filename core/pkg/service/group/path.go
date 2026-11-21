@@ -15,20 +15,18 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/validate"
 )
-
-// PathSeparator joins the names on a path.
-const PathSeparator = "."
 
 // Path is the chain of groups from the top down to a group.
 type Path []Group
 
-// String returns the names of the groups on p joined by PathSeparator.
+// String returns the names of the groups on p joined by validate.PathSeparator.
 func (p Path) String() string {
 	var b strings.Builder
 	for i, g := range p {
 		if i > 0 {
-			b.WriteString(PathSeparator)
+			b.WriteByte(validate.PathSeparator)
 		}
 		b.WriteString(g.Name)
 	}

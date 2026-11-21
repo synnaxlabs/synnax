@@ -279,23 +279,26 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should read a typed line of an operator type as a bare line", func() {
-			resp := MustGenerate(thing+`
+		It(
+			"Should pass every value of an in to one call of a typed operator line",
+			func() {
+				resp := MustGenerate(thing+`
 				Where filter Thing {
 					builtIn filter.Bool
 					owners  filter.Set<uuid> { @go match MatchHolders }
 				}
 			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.go").
-				ToBeValidGoSource().
-				ToContain(
-					`return nil, validate.PathedError(filter.ErrNoOperator, "builtIn")`,
-					"fs = append(fs, MatchBuiltIn(*l.Eq))",
-					"in[i] = MatchHolders(v)",
-					"fs = append(fs, Or(in...))",
-				).
-				ToNotContain("MatchBuiltIn(*l)", "MatchHolders(l.In...)")
-		})
+				ExpectContent(resp, "where.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`return nil, validate.PathedError(filter.ErrNoOperator, "builtIn")`,
+						"fs = append(fs, MatchBuiltIn(*l.Eq))",
+						"fs = append(fs, MatchHolders(*l.Eq))",
+						"fs = append(fs, MatchHolders(l.In...))",
+					).
+					ToNotContain("MatchBuiltIn(*l)", "in[i] = MatchHolders(v)", "Or(in...)")
+			},
+		)
 
 		DescribeTable(
 			"Should reject a typed line of an operator a hand matcher cannot read",
