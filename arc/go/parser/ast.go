@@ -419,6 +419,15 @@ func (n Name) String() string {
 	return n.Head + "." + n.Tail
 }
 
+// Text returns the name as source text: a quoted channel name in quotes, and any other
+// name as String does.
+func (n Name) Text() string {
+	if n.Quoted {
+		return QuoteChannelName(n.Head)
+	}
+	return n.String()
+}
+
 // decodeChannelName returns the path that the text of a quoted channel name token
 // holds, with its escapes decoded, in NFC.
 func decodeChannelName(text string) string {

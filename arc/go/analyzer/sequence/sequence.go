@@ -31,13 +31,13 @@ func RejectReactiveAssignment(
 	d *diagnostics.Diagnostics,
 	assign parser.IAssignmentContext,
 ) {
-	name := parser.AssignmentName(assign).String()
+	n := parser.AssignmentName(assign)
 	d.Add(
 		codes.AssignmentTarget.Atf(
 			assign,
 			"use '<value> -> %s' to write to '%s'",
-			name,
-			name,
+			n.Text(),
+			n.String(),
 		),
 	)
 }

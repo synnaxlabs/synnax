@@ -1256,7 +1256,8 @@ func sortedReads(reads map[uint32]string) []read {
 }
 
 // readSymbol returns the channel or variable of r. A channel can share its name with a
-// variable or a function, so the key decides.
+// variable or a function, so the key decides. A read through a local of a called
+// function names the local, so its channel is found by its key.
 func readSymbol[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	r read,
@@ -1266,7 +1267,14 @@ func readSymbol[T antlr.ParserRuleContext](
 		channelKey(sym) == r.key {
 		return sym, nil
 	}
-	return ctx.Scope.Resolve(ctx, r.name)
+	sym, err := ctx.Scope.Resolve(ctx, r.name)
+	if err == nil && channelKey(sym) == r.key {
+		return sym, nil
+	}
+	if ch, chErr := ctx.Scope.ResolveChannelKey(ctx, r.key); chErr == nil {
+		return ch, nil
+	}
+	return sym, err
 }
 
 func channelKey(sym *symbol.Symbol) uint32 {
