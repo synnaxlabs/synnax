@@ -135,13 +135,25 @@ func (s *Service) resolve(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys []channel.Key,
-	picks map[string]Choice,
+	named map[string]Choice,
 ) (Plan, planned, []resource.ID, error) {
+	picks := make(map[resource.ID]Choice, len(named))
+	for text, pick := range named {
+		id, err := resource.ParseID(text)
+		if err != nil {
+			return Plan{}, planned{}, nil, errors.Wrapf(
+				validate.ErrValidation,
+				"no entry is %s",
+				text,
+			)
+		}
+		picks[id] = pick
+	}
 	var (
 		p       planned
 		err     error
 		earlier []Entry
-		seen    = set.New[string]()
+		seen    = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
 		records []resource.ID
 	)
@@ -154,7 +166,7 @@ func (s *Service) resolve(
 			return Plan{}, planned{}, nil, err
 		}
 		for _, e := range p.Entries {
-			seen.Add(e.Record.String())
+			seen.Add(e.Record)
 		}
 		for _, r := range picked {
 			if !deleted.Contains(r) {
@@ -177,18 +189,21 @@ func (s *Service) resolve(
 			)
 		}
 	}
-	applied := Plan{Entries: slices.Clone(p.Entries), Kept: p.Kept}
-	last := set.New[string]()
-	for _, e := range p.Entries {
-		last.Add(e.Record.String())
-	}
-	for _, e := range earlier {
-		if id := e.Record.String(); !last.Contains(id) {
-			last.Add(id)
-			applied.Entries = append(applied.Entries, e)
+	applied := Plan{Entries: p.Entries, Kept: p.Kept}
+	if len(earlier) > 0 {
+		last := set.New[resource.ID]()
+		for _, e := range p.Entries {
+			last.Add(e.Record)
 		}
+		applied.Entries = slices.Clone(p.Entries)
+		for _, e := range earlier {
+			if !last.Contains(e.Record) {
+				last.Add(e.Record)
+				applied.Entries = append(applied.Entries, e)
+			}
+		}
+		slices.SortFunc(applied.Entries, compareEntries)
 	}
-	slices.SortFunc(applied.Entries, compareEntries)
 	return applied, p, records, nil
 }
 
@@ -197,22 +212,21 @@ func (s *Service) resolve(
 // cancel.
 func choose(
 	p planned,
-	picks map[string]Choice,
+	picks map[resource.ID]Choice,
 ) ([]channel.Key, []resource.ID, error) {
 	var (
 		channels []channel.Key
 		records  []resource.ID
 	)
 	for _, e := range p.Entries {
-		id := e.Record.String()
-		pick, err := pickOf(e, id, picks)
+		pick, err := pickOf(e, picks)
 		if err != nil {
 			return nil, nil, err
 		}
 		switch {
 		case pick == "":
 		case pick == ChoiceCancel:
-			return nil, nil, p.cancels[id]
+			return nil, nil, p.cancels[e.Record]
 		case e.Record.Type != resource.TypeChannel:
 			records = append(records, e.Record)
 		default:
@@ -226,10 +240,10 @@ func choose(
 	return channels, records, nil
 }
 
-// pickOf returns the pick that picks holds for e, whose record has the text form id, or
-// its default, or nothing when e allows no pick.
-func pickOf(e Entry, id string, picks map[string]Choice) (Choice, error) {
-	pick, ok := picks[id]
+// pickOf returns the pick that picks holds for e, or its default, or nothing when e
+// allows no pick.
+func pickOf(e Entry, picks map[resource.ID]Choice) (Choice, error) {
+	pick, ok := picks[e.Record]
 	if !ok {
 		if e.Default == nil {
 			return "", nil
@@ -239,7 +253,12 @@ func pickOf(e Entry, id string, picks map[string]Choice) (Choice, error) {
 	if slices.Contains(e.Choices, pick) {
 		return pick, nil
 	}
-	return "", errors.Wrapf(validate.ErrValidation, "entry %s cannot take %s", id, pick)
+	return "", errors.Wrapf(
+		validate.ErrValidation,
+		"entry %s cannot take %s",
+		e.Record,
+		pick,
+	)
 }
 
 // deletedKeys returns the keys of the channels that c deletes.
