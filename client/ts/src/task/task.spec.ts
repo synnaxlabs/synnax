@@ -1345,6 +1345,18 @@ describe("Task", async () => {
       },
     );
 
+    // The change stream can deliver a status written before the wait began, so each
+    // rack starts with the status of a running Driver.
+    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
+      await c.racks.create({
+        name: `running-${id.create()}`,
+        status: {
+          variant: "success",
+          message: "Driver running",
+          details: { running: true },
+        },
+      });
+
     const setReply = async (
       t: task.Task,
       cmd: task.Command,
@@ -1362,14 +1374,15 @@ describe("Task", async () => {
           running: variant === "success",
           cmd: cmd.key,
           configHash: "",
-          rack: testRack.key,
+          rack: t.rack,
           data: {},
         },
       });
     };
 
     it("should wait past the timeout for the final status after a loading reply", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `slow-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
@@ -1386,7 +1399,8 @@ describe("Task", async () => {
     });
 
     it("should give up two minutes after a loading reply with no final status", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `lost-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
@@ -1410,7 +1424,8 @@ describe("Task", async () => {
     });
 
     it("should restart the wait for the final status on each loading reply", async () => {
-      const t = await testRack.createTask({
+      const r = await createRunningRack(client);
+      const t = await r.createTask({
         name: `long-start-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
@@ -1432,18 +1447,6 @@ describe("Task", async () => {
       await setReply(t, cmd, "success", "Started task");
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
-
-    // The change stream can deliver a status written before the wait began, so each
-    // rack starts with the status of a running Driver.
-    const createRunningRack = async (c: Synnax): Promise<rack.Rack> =>
-      await c.racks.create({
-        name: `running-${id.create()}`,
-        status: {
-          variant: "success",
-          message: "Driver running",
-          details: { running: true },
-        },
-      });
 
     describe.each([
       { replies: "the change stream", cache: true, streamers: 0 },
