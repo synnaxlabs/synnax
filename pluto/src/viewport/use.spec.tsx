@@ -820,10 +820,18 @@ describe("viewport/use", () => {
       expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
     });
 
-    it("should keep the mask when a new initial box holds the same view", () => {
+    it("should clear the mask when a new initial box holds the same view", () => {
       const h = setup({ initial: INITIAL });
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
       h.rerender({ initial: box.copy(INITIAL) });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
+
+    it("should keep the mask when a render keeps the initial box", () => {
+      const h = setup({ initial: INITIAL });
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      h.rerender({ initial: INITIAL });
       expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
     });
 

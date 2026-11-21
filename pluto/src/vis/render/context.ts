@@ -486,13 +486,19 @@ export class Context {
     };
   }
 
+  // applyGLScissor rounds each edge to a device pixel, so two boxes that meet share
+  // an edge. GL truncates each argument, which leaves a gap between them.
   private applyGLScissor(region: box.Box): void {
     this.gl.enable(this.gl.SCISSOR_TEST);
+    const px = (v: number): number => Math.round(v * this.dpr);
+    const height = box.height(this.region);
+    const left = px(box.left(region));
+    const bottom = px(height - box.bottom(region));
     this.gl.scissor(
-      box.left(region) * this.dpr,
-      (box.height(this.region) - box.bottom(region)) * this.dpr,
-      box.width(region) * this.dpr,
-      box.height(region) * this.dpr,
+      left,
+      bottom,
+      px(box.right(region)) - left,
+      px(height - box.top(region)) - bottom,
     );
   }
 
