@@ -14,8 +14,8 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -31,7 +31,7 @@ type ServiceConfig struct {
 	// TS is the storage-layer time-series database to delete data from.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -72,5 +72,5 @@ func (s *Service) DeleteTimeRange(
 	stored := lo.Reject(keys, func(k channel.Key, _ int) bool {
 		return k.Free()
 	})
-	return s.cfg.TS.DeleteTimeRange(ctx, stored.Storage(), tr)
+	return s.cfg.TS.DeleteTimeRange(ctx, stored.Uint32(), tr)
 }

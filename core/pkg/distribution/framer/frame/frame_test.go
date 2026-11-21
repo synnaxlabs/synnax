@@ -12,10 +12,10 @@ package frame_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -54,7 +54,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 			sf := f.ToStorage()
-			Expect(sf.KeysSlice()).To(Equal([]ts.ChannelKey{1, 2}))
+			Expect(sf.KeysSlice()).To(Equal([]cesium.ChannelKey{1, 2}))
 			Expect(sf.SeriesSlice()).To(Equal(f.SeriesSlice()))
 		})
 	})
@@ -254,7 +254,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("NewFromStorage", func() {
 		It("Should create a new frame from its storage later representation", func() {
-			storageFrame := telem.UnaryFrame[ts.ChannelKey](
+			storageFrame := telem.UnaryFrame[cesium.ChannelKey](
 				1,
 				telem.NewSeriesV[float32](1, 2, 3, 4),
 			)
