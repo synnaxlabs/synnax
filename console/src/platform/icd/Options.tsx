@@ -16,7 +16,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, type TimeStamp } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -45,15 +45,35 @@ const ZERO_DEFAULTS: {
 const isMappable = (field: icd.JSONField): field is Mappable =>
   field.type in ZERO_DEFAULTS;
 
+/** A JSON field with a default that the Console shows but cannot set. */
+type Fixed =
+  icd.TimestampJSONField | icd.UuidJSONField | icd.JSONJSONField | icd.BytesJSONField;
+
+const FIXED: Record<Fixed["type"], true> = {
+  timestamp: true,
+  uuid: true,
+  json: true,
+  bytes: true,
+};
+
 /** A JSON field with a default that the Console shows. */
-type Defaulted = Mappable | icd.TimestampJSONField;
+type Defaulted = Mappable | Fixed;
 
 /**
- * @returns whether the Console shows the default of the field. A timestamp field shows
- * one only when it has one, which the Console can remove but not set.
+ * @returns whether the Console shows the default of the field. A timestamp, UUID, JSON,
+ * or bytes field shows one only when it has one, which the Console can remove but not
+ * set.
  */
 export const showsDefault = (field: icd.JSONField): field is Defaulted =>
-  isMappable(field) || (field.type === "timestamp" && field.default != null);
+  isMappable(field) || (field.type in FIXED && field.default != null);
+
+const formatTimestampDefault = (
+  value: icd.TimestampDefault,
+  format: "dateTime" | "preciseDate",
+): string => (value.type === "now" ? "Now" : value.value.toString(format, "local"));
+
+const formatUUIDDefault = (value: icd.UUIDDefault): string =>
+  value.type === "random" ? "Random" : value.value;
 
 const formatDefault = (field: Defaulted): string | null => {
   if (field.default == null) return null;
@@ -63,7 +83,9 @@ const formatDefault = (field: Defaulted): string | null => {
     case "boolean":
       return field.default ? "True" : "False";
     case "timestamp":
-      return field.default.toString("dateTime", "local");
+      return formatTimestampDefault(field.default, "dateTime");
+    case "uuid":
+      return formatUUIDDefault(field.default);
     default:
       return String(field.default);
   }
@@ -137,14 +159,35 @@ const Default = ({ path, type }: DefaultProps): ReactElement => {
       );
     case "timestamp":
       return (
-        <Form.Field<TimeStamp>
+        <Form.Field<icd.TimestampDefault>
           path={deep.present(deep.variant(path, "type", type).default)}
           label="Default"
           padHelpText={false}
         >
           {({ value }) => (
-            <Text.Text>{value.toString("preciseDate", "local")}</Text.Text>
+            <Text.Text>{formatTimestampDefault(value, "preciseDate")}</Text.Text>
           )}
+        </Form.Field>
+      );
+    case "uuid":
+      return (
+        <Form.Field<icd.UUIDDefault>
+          path={deep.present(deep.variant(path, "type", type).default)}
+          label="Default"
+          padHelpText={false}
+        >
+          {({ value }) => <Text.Text>{formatUUIDDefault(value)}</Text.Text>}
+        </Form.Field>
+      );
+    case "json":
+    case "bytes":
+      return (
+        <Form.Field<string>
+          path={deep.present(deep.variant(path, "type", type).default)}
+          label="Default"
+          padHelpText={false}
+        >
+          {({ value }) => <Text.Text>{value}</Text.Text>}
         </Form.Field>
       );
   }

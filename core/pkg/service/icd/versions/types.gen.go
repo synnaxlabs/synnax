@@ -55,10 +55,39 @@ type FieldIdentifier = v1.FieldIdentifier
 // BaseField carries the parts every message field shares.
 type BaseField = v1.BaseField
 
-// BinaryField is a field read from a bit range of a binary payload.
+// BinaryField is a field read from a bit range of a binary payload. With no default, a
+// write needs a channel.
 type BinaryField = v1.BinaryField
 
-// TextField is a field read from a text line.
+// BinaryFieldVariant is implemented by every BinaryField variant.
+type BinaryFieldVariant = v1.BinaryFieldVariant
+
+// BinaryFieldType is the "kind" value that selects a variant of BinaryField.
+type BinaryFieldType = v1.BinaryFieldType
+
+const (
+	// FloatBinaryFieldType is a field whose raw bits are an IEEE 754 float of 32 or 64
+	// bits.
+	FloatBinaryFieldType BinaryFieldType = v1.FloatBinaryFieldType
+	// IntegerBinaryFieldType is a field whose raw bits are a two's complement integer.
+	IntegerBinaryFieldType BinaryFieldType = v1.IntegerBinaryFieldType
+	// UnsignedBinaryFieldType is a field whose raw bits are an unsigned integer.
+	UnsignedBinaryFieldType BinaryFieldType = v1.UnsignedBinaryFieldType
+)
+
+// FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64 bits.
+type FloatBinaryField = v1.FloatBinaryField
+
+// IntegerBinaryField is a field whose raw bits are a two's complement integer.
+type IntegerBinaryField = v1.IntegerBinaryField
+
+// UnsignedBinaryField is a field whose raw bits are an unsigned integer.
+type UnsignedBinaryField = v1.UnsignedBinaryField
+
+// TextBaseField carries the parts every text field shares.
+type TextBaseField = v1.TextBaseField
+
+// TextField is a field read from a text line. With no default, a write needs a channel.
 type TextField = v1.TextField
 
 // TextFieldVariant is implemented by every TextField variant.
@@ -80,10 +109,55 @@ type DelimitedTextField = v1.DelimitedTextField
 // TaggedTextField is a field read from the text that follows a tag.
 type TaggedTextField = v1.TaggedTextField
 
+// TimestampDefault is the default of a timestamp field.
+type TimestampDefault = v1.TimestampDefault
+
+// TimestampDefaultVariant is implemented by every TimestampDefault variant.
+type TimestampDefaultVariant = v1.TimestampDefaultVariant
+
+// TimestampDefaultType is the "type" value that selects a variant of TimestampDefault.
+type TimestampDefaultType = v1.TimestampDefaultType
+
+const (
+	// ConstantTimestampDefaultType is one fixed timestamp.
+	ConstantTimestampDefaultType TimestampDefaultType = v1.ConstantTimestampDefaultType
+	// NowTimestampDefaultType is the time of each read or write.
+	NowTimestampDefaultType TimestampDefaultType = v1.NowTimestampDefaultType
+)
+
+// ConstantTimestampDefault is one fixed timestamp.
+type ConstantTimestampDefault = v1.ConstantTimestampDefault
+
+// NowTimestampDefault is the time of each read or write.
+type NowTimestampDefault = v1.NowTimestampDefault
+
+// UUIDDefault is the default of a UUID field.
+type UUIDDefault = v1.UUIDDefault
+
+// UUIDDefaultVariant is implemented by every UUIDDefault variant.
+type UUIDDefaultVariant = v1.UUIDDefaultVariant
+
+// UUIDDefaultType is the "type" value that selects a variant of UUIDDefault.
+type UUIDDefaultType = v1.UUIDDefaultType
+
+const (
+	// ConstantUUIDDefaultType is one fixed UUID.
+	ConstantUUIDDefaultType UUIDDefaultType = v1.ConstantUUIDDefaultType
+	// RandomUUIDDefaultType is a new random UUID for each read or write.
+	RandomUUIDDefaultType UUIDDefaultType = v1.RandomUUIDDefaultType
+)
+
+// ConstantUUIDDefault is one fixed UUID.
+type ConstantUUIDDefault = v1.ConstantUUIDDefault
+
+// RandomUUIDDefault is a new random UUID for each read or write.
+type RandomUUIDDefault = v1.RandomUUIDDefault
+
 // JSONBaseField carries the parts every JSON field shares.
 type JSONBaseField = v1.JSONBaseField
 
-// JSONField is a field read from a JSON document.
+// JSONField is a field read from a JSON document. With no default, a read needs its
+// value and a write needs a channel.
 type JSONField = v1.JSONField
 
 // JSONFieldVariant is implemented by every JSONField variant.
@@ -190,3 +264,6 @@ type ReadBinding = v1.ReadBinding
 
 // ReadMessage reads one message of an ICD.
 type ReadMessage = v1.ReadMessage
+
+// BinaryBaseField carries the parts every binary field shares.
+type BinaryBaseField = v1.BinaryBaseField

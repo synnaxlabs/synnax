@@ -130,9 +130,11 @@ class JSON {
         x::telem::Series scratch{x::telem::FLOAT64_T, 1};
         /// @brief sample converts a JSON value to a sample of the channel's data type.
         x::json::Decoder sample;
-        /// @brief fallback is the sample used when a document has no value, or nothing
-        /// when the field requires one.
-        std::optional<x::telem::SampleValue> fallback;
+        /// @brief fallback holds the one sample used when a document has no value, or
+        /// nothing when the field requires one.
+        std::optional<x::telem::Series> fallback;
+        /// @brief generate, when set, appends a new sample in place of fallback.
+        void (*generate)(x::telem::Series &dst) = nullptr;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
