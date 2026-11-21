@@ -530,7 +530,25 @@ describe("LinePlot", () => {
       const { result, sync } = renderFrame();
       act(() => result.current.toggleZoom("outer", OUTER));
       act(() => result.current.toggleZoom("outer", OUTER));
-      expect(sync.mock.calls).toEqual([[OUTER_VIEW], [box.DECIMAL]]);
+      expect(sync.mock.calls).toEqual([
+        [OUTER_VIEW, box.ZERO],
+        [box.DECIMAL, box.ZERO],
+      ]);
+    });
+
+    it("should keep the mask over the selection in each view it sets", () => {
+      const { result, sync } = renderFrame();
+      const selection = box.construct({ x: 0.3, y: 0 }, { x: 0.4, y: 1 });
+      act(() =>
+        result.current.setViewport({
+          box: selection,
+          mode: "select",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      act(() => result.current.toggleZoom("outer", OUTER));
+      expect(sync).toHaveBeenCalledWith(OUTER_VIEW, selection);
     });
 
     it("should return one level per call for nested zooms", () => {
@@ -700,7 +718,7 @@ describe("LinePlot", () => {
     it("should move the view to the times it showed", async () => {
       const { result, sync, view } = await renderFrame();
       act(() => result.current.toggleBreak(120, "axis"));
-      await waitFor(() => expect(sync).toHaveBeenCalledWith(CHANGE.viewport));
+      await waitFor(() => expect(sync).toHaveBeenCalledWith(CHANGE.viewport, box.ZERO));
       expect(view()).toEqual(CHANGE.viewport);
     });
 
@@ -718,6 +736,29 @@ describe("LinePlot", () => {
       act(() => result.current.setViewport(select(SELECTION)));
       act(() => result.current.toggleBreak(120, "axis"));
       await waitFor(() => expect(selected()).toEqual(MOVED));
+    });
+
+    it("should mask the selection at the times it held", async () => {
+      const { result, sync } = await renderFrame();
+      act(() => result.current.setViewport(select(SELECTION)));
+      act(() => result.current.toggleBreak(120, "axis"));
+      await waitFor(() => expect(sync).toHaveBeenCalledWith(CHANGE.viewport, MOVED));
+    });
+
+    it("should map no selection after the view moves", async () => {
+      const { result, getBreakChange } = await renderFrame();
+      act(() => result.current.setViewport(select(SELECTION)));
+      act(() =>
+        result.current.setViewport({
+          box: decimal(0.1, 0.6),
+          mode: "pan",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      act(() => result.current.toggleBreak(120, "axis"));
+      await waitFor(() => expect(getBreakChange).toHaveBeenCalled());
+      expect(getBreakChange.mock.calls[0][0].selection).toEqual(box.ZERO);
     });
 
     it("should keep a selection made while a break change loads", async () => {
