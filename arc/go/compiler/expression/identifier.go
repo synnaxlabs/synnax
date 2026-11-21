@@ -23,19 +23,15 @@ import (
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	head, tail string,
+	parts []string,
 ) (types.Type, error) {
-	name := head
-	if tail != "" {
-		name = head + "." + tail
-	}
+	name := strings.Join(parts, ".")
 	scope := liftedInput(ctx.Scope, name)
 	if scope == nil {
 		var err error
 		if scope, err = ctx.Scope.ResolveMember(
 			ctx,
-			head,
-			tail,
+			parts,
 			symbol.IncludeInternal,
 		); err != nil {
 			return types.Type{}, err
