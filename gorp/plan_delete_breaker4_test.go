@@ -110,7 +110,7 @@ var _ = Describe("Planned delete breaker 4", func() {
 					},
 				}),
 			},
-			OnDetach: func(ctx context.Context, tx gorp.Tx, t b2Task) error {
+			OnRewrite: func(ctx context.Context, tx gorp.Tx, t b2Task) error {
 				if onDetach == nil {
 					return nil
 				}
@@ -449,7 +449,7 @@ var _ = Describe("Planned delete breaker 4", func() {
 	}
 
 	Describe("Findings", func() {
-		It("Should fail like a fresh walk when the OnDetach of one planned holder "+
+		It("Should fail like a fresh walk when the OnRewrite of one planned holder "+
 			"deletes another planned holder", func(ctx SpecContext) {
 			create(
 				ctx,
