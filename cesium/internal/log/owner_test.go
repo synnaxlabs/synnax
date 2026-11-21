@@ -401,7 +401,9 @@ var _ = Describe("Log", func() {
 						To(MatchError(ContainSubstring("disk fault")))
 					Expect(hook.get()).To(BeEmpty())
 					Expect(l.Close()).To(MatchError(ContainSubstring("disk fault")))
-					Eventually(ran).Should(Receive(BeNil()))
+					Eventually(
+						ran,
+					).Should(Receive(MatchError(ContainSubstring("disk fault"))))
 				},
 			)
 
@@ -588,7 +590,7 @@ var _ = Describe("Log", func() {
 					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
 						To(MatchError(fault))
 					Expect(l.Close()).To(MatchError(fault))
-					Eventually(ran).Should(Receive(BeNil()))
+					Eventually(ran).Should(Receive(MatchError(fault)))
 				},
 				Entry("sync", func(err error) { fs.FailSync(err) }),
 				Entry("write", func(err error) { fs.FailWrite(err) }),

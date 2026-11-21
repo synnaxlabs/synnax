@@ -332,9 +332,11 @@ func (l *Log) signal() {
 }
 
 // Run asks for the file of the next log, then runs one step of the owner on the
-// executor of the log each time entries are queued, until Close or until ctx is done.
-// At Close, it writes the queued entries and a clean mark, and returns nil. When ctx is
-// done first, it fails the log and the queued entries, and returns the error of ctx.
+// executor of the log each time entries are queued, until Close, until ctx is done, or
+// until a step fails the log. At Close, it writes the queued entries and a clean mark,
+// and returns nil. When ctx is done first, it fails the log and the queued entries, and
+// returns the error of ctx. After a failed write or sync, it returns the failure of the
+// log, whose queued and later entries fail with it.
 func (l *Log) Run(ctx context.Context) error {
 	defer close(l.exit)
 	l.cfg.Prepare(l.gen + 1)
@@ -346,7 +348,11 @@ func (l *Log) Run(ctx context.Context) error {
 		case <-l.wake:
 		}
 		l.cfg.Executor(l.step)
-		if <-l.stepped {
+		closing := <-l.stepped
+		if err := l.failure(); err != nil {
+			return err
+		}
+		if closing {
 			return nil
 		}
 	}
