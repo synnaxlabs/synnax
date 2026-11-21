@@ -435,6 +435,24 @@ describe("Range.ContextMenu", () => {
     });
   });
 
+  describe("download", () => {
+    it("should open the CSV dialog on the time range of every range", async () => {
+      const at = (month: number) =>
+        new TimeRange(
+          new TimeStamp(new Date(2020, month, 5, 12)),
+          new TimeStamp(new Date(2020, month, 5, 13)),
+        );
+      const ranges = [
+        await createTestRange(client, { name: uniqueName("csv"), timeRange: at(6) }),
+        await createTestRange(client, { name: uniqueName("csv"), timeRange: at(2) }),
+      ];
+      await renderMenu(ranges);
+      fireEvent.click(screen.getByRole("menuitem", { name: "Download as CSV" }));
+      await screen.findByText("Download data for 2 ranges as CSV");
+      expect(document.body.textContent).toMatch(/Mar 5, 2020.*Jul 5, 2020/);
+    });
+  });
+
   describe("copy", () => {
     it("should offer no time range for a range planned with no times", async () => {
       const planned = await createPlannedTestRange(client, uniqueName("planned"));
