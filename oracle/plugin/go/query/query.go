@@ -859,6 +859,23 @@ func (c *fieldCollector) addSearch(field resolution.Field, access string) error 
 	if textType.IsTypeParam() && textType.TypeParam.HasDefault() {
 		textType = *textType.TypeParam.Default
 	}
+	for _, expr := range field.Domains["search"].Expressions {
+		if expr.Name != "secondary" {
+			return errors.Newf(
+				"%s: @search field %s has unknown expression %s",
+				c.typ.QualifiedName,
+				field.Name,
+				expr.Name,
+			)
+		}
+		if len(expr.Values) > 0 {
+			return errors.Newf(
+				"%s: @search field %s needs no value for secondary",
+				c.typ.QualifiedName,
+				field.Name,
+			)
+		}
+	}
 	if field.Optional || key.ResolvePrimitive(textType, c.table) != "string" {
 		return errors.Newf(
 			"%s: @search field %s must be a string that is not optional",
