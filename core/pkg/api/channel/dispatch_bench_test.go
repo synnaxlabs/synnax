@@ -40,6 +40,26 @@ type benchWriter struct {
 	subject  freighter.Context
 }
 
+// openBenchLayer opens a service layer over a fresh node, closed when b ends.
+func openBenchLayer(b *testing.B) (*gorp.DB, *service.Layer) {
+	b.Helper()
+	gomega.RegisterTestingT(b)
+	node := disttestutil.OpenNode(b.Context())
+	layer, err := svctestutil.OpenLayer(b.Context(), node)
+	if err != nil {
+		b.Fatalf("failed to open the layer: %v", err)
+	}
+	b.Cleanup(func() {
+		if err := layer.Close(); err != nil {
+			b.Errorf("failed to close the layer: %v", err)
+		}
+		if err := node.Close(); err != nil {
+			b.Errorf("failed to close the node: %v", err)
+		}
+	})
+	return node.DB, layer
+}
+
 func openBenchWriter(b *testing.B, db *gorp.DB, layer *service.Layer) benchWriter {
 	b.Helper()
 	svc, err := apichannel.NewService(apichannel.ServiceConfig{
@@ -90,21 +110,8 @@ func openBenchWriter(b *testing.B, db *gorp.DB, layer *service.Layer) benchWrite
 // BenchmarkDispatchCalculated measures an old API edit of the expression or the
 // operations of a calculated channel. Each iteration alternates between two values.
 func BenchmarkDispatchCalculated(b *testing.B) {
-	gomega.RegisterTestingT(b)
-	node := disttestutil.OpenNode(b.Context())
-	layer, err := svctestutil.OpenLayer(b.Context(), node)
-	if err != nil {
-		b.Fatalf("failed to open the layer: %v", err)
-	}
-	defer func() {
-		if err := layer.Close(); err != nil {
-			b.Errorf("failed to close the layer: %v", err)
-		}
-		if err := node.Close(); err != nil {
-			b.Errorf("failed to close the node: %v", err)
-		}
-	}()
-	w := openBenchWriter(b, node.DB, layer)
+	db, layer := openBenchLayer(b)
+	w := openBenchWriter(b, db, layer)
 	created, err := w.create(w.subject, apichannel.CreateRequest{
 		Channels: []apichannel.Channel{
 			{Name: "bench_input", DataType: telem.Float32T, Virtual: true},
