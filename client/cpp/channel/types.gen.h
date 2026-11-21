@@ -27,7 +27,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/service/channel/pb/channel.pb.h"

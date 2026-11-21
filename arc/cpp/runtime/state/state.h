@@ -218,8 +218,8 @@ public:
     /// stamp, reusing its buffer. Nodes with no input time to copy use it.
     void stamp_cycle(x::telem::TimeStamp now, size_t output_idx) const;
 
-    /// Reads buffered data and time series from a channel. Returns (data, index_data,
-    /// ok). If the channel has an associated index, both data and time are returned.
+    /// Reads buffered data and time series from a channel. Returns (data, time, ok).
+    /// time holds the time series of each clock that the data series carry.
     [[nodiscard]] std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key) const;
 

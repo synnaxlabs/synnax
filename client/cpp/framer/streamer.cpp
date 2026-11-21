@@ -28,11 +28,20 @@ Client::open_streamer(const StreamerConfig &config) const {
     grpc::framer::StreamerRequest req;
     config.to_proto(req);
     if (!net_stream->send(req).ok()) net_stream->close_send();
-    auto [_, res_err] = net_stream->receive();
-    auto streamer = Streamer(std::move(net_stream), config);
-    streamer.codec = Codec(this->channel_client);
-    if (const auto codec_err = streamer.codec.update(config.channels))
+    Codec codec(this->channel_client);
+    if (const auto codec_err = codec.update(config.channels))
         return {Streamer(), codec_err};
+    // The open ack is the first frame of the codec's state, and it declares the types.
+    auto [ack, res_err] = net_stream->receive();
+    if (!res_err && !ack.buffer().empty())
+        if (auto [_, decode_err] = codec.decode(
+                reinterpret_cast<const std::uint8_t *>(ack.buffer().data()),
+                ack.buffer().size()
+            );
+            decode_err)
+            return {Streamer(), decode_err};
+    auto streamer = Streamer(std::move(net_stream), config);
+    streamer.codec = std::move(codec);
     return {std::move(streamer), res_err};
 }
 
