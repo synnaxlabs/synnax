@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package checkpoint
+package checkpoint_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -53,28 +56,40 @@ func switchState(keys int) *state.Snapshot {
 func BenchmarkSwitch(b *testing.B) {
 	for _, keys := range []int{1_000, 10_000, 100_000} {
 		b.Run(fmt.Sprintf("keys=%d", keys), func(b *testing.B) {
-			c, err := New(Config{
+			stepped := make(chan struct{}, 1)
+			c, err := checkpoint.New(checkpoint.Config{
 				FS:       xfs.NewMem(),
 				DB:       1,
 				LogSize:  1 << 20,
 				Prepared: func(uint64, error) {},
-				Executor: func(f func()) { f() },
+				Executor: func(f func()) {
+					f()
+					stepped <- struct{}{}
+				},
 			})
 			if err != nil {
 				b.Fatal(err)
 			}
+			ran := make(chan error, 1)
+			go func() { ran <- c.Run(b.Context()) }()
+			b.Cleanup(func() {
+				if err := <-ran; !errors.Is(err, context.Canceled) {
+					b.Error(err)
+				}
+			})
 			s, generation := switchState(keys), uint64(1)
-			if err = c.write(head{generation: generation, snapshot: s}); err != nil {
-				b.Fatal(err)
+			step := func() {
+				c.Head(generation, s)
+				<-stepped
+				if err := c.Err(); err != nil {
+					b.Fatal(err)
+				}
 			}
+			step()
 			b.ReportAllocs()
 			for b.Loop() {
 				generation++
-				if err = c.write(
-					head{generation: generation, snapshot: s},
-				); err != nil {
-					b.Fatal(err)
-				}
+				step()
 			}
 		})
 	}
