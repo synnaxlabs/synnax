@@ -234,16 +234,22 @@ describe("Diagram", () => {
 
   describe("zoom reset", () => {
     const holdControl = (): void => {
-      fireEvent.mouseMove(window, { clientX: 10, clientY: 10 });
+      const { left, top } = pane().getBoundingClientRect();
+      fireEvent.mouseMove(window, { clientX: left + 10, clientY: top + 10 });
       fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
     };
 
     it("resets the view on a Control-click of the canvas", async () => {
       const { onViewportChange } = await renderDiagram();
       holdControl();
-      onViewportChange.mockClear();
-      fireEvent.mouseDown(pane(), { button: 0 });
-      expect(onViewportChange).toHaveBeenCalled();
+      // The diagram learns its box from a resize observer, which reports on its own
+      // schedule.
+      await waitFor(() => {
+        onViewportChange.mockClear();
+        fireEvent.mouseDown(pane(), { button: 0 });
+        fireEvent.mouseUp(pane(), { button: 0 });
+        expect(onViewportChange).toHaveBeenCalled();
+      });
     });
 
     it("leaves the view alone on a Control-click of a node", async () => {
