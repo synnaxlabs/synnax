@@ -31,7 +31,7 @@ var AnalogReadRangeMigration = migrate.NewInstrumentedEntry(
 		c AnalogReadConfig,
 		ins alamos.Instrumentation,
 	) (AnalogReadConfig, error) {
-		logOrdered(ins, c.GorpKey(), orderAIRanges(c.Channels))
+		logOrdered(ins, c.GorpKey(), OrderAIRanges(c.Channels))
 		return c, nil
 	},
 )
@@ -44,7 +44,7 @@ var AnalogWriteRangeMigration = migrate.NewInstrumentedEntry(
 		c AnalogWriteConfig,
 		ins alamos.Instrumentation,
 	) (AnalogWriteConfig, error) {
-		logOrdered(ins, c.GorpKey(), orderAORanges(c.Channels))
+		logOrdered(ins, c.GorpKey(), OrderAORanges(c.Channels))
 		return c, nil
 	},
 )
@@ -57,14 +57,14 @@ var CounterReadRangeMigration = migrate.NewInstrumentedEntry(
 		c CounterReadConfig,
 		ins alamos.Instrumentation,
 	) (CounterReadConfig, error) {
-		logOrdered(ins, c.GorpKey(), orderCIRanges(c.Channels))
+		logOrdered(ins, c.GorpKey(), OrderCIRanges(c.Channels))
 		return c, nil
 	},
 )
 
-// orderAIRanges orders the channel ranges as AnalogReadRangeMigration does, and returns
+// OrderAIRanges orders the channel ranges as AnalogReadRangeMigration does, and returns
 // the indices of the channels it changes.
-func orderAIRanges(channels []AIChannel) []int {
+func OrderAIRanges(channels []AIChannel) []int {
 	var changed []int
 	for i := range channels {
 		var ok bool
@@ -75,8 +75,8 @@ func orderAIRanges(channels []AIChannel) []int {
 	return changed
 }
 
-// orderAORanges is orderAIRanges for analog output channels.
-func orderAORanges(channels []AOChannel) []int {
+// OrderAORanges is OrderAIRanges for analog output channels.
+func OrderAORanges(channels []AOChannel) []int {
 	var changed []int
 	for i := range channels {
 		var ok bool
@@ -87,8 +87,8 @@ func orderAORanges(channels []AOChannel) []int {
 	return changed
 }
 
-// orderCIRanges is orderAIRanges for counter input channels.
-func orderCIRanges(channels []CIChannel) []int {
+// OrderCIRanges is OrderAIRanges for counter input channels.
+func OrderCIRanges(channels []CIChannel) []int {
 	var changed []int
 	for i := range channels {
 		var ok bool

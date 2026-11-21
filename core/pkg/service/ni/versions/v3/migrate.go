@@ -225,8 +225,7 @@ func MigrateDOChannel(ctx context.Context, old v2.DOChannel) (DOChannel, error) 
 }
 
 // MigrateAnalogReadConfig lifts a v2 analog read config to v3. A thermocouple whose
-// cold-junction port clamps is disabled. Each channel range is ordered as
-// AnalogReadRangeMigration does.
+// cold-junction port clamps is disabled.
 func MigrateAnalogReadConfig(
 	ctx context.Context,
 	old v2.AnalogReadConfig,
@@ -246,36 +245,23 @@ func MigrateAnalogReadConfig(
 			cfg.Channels[i].Variant = n
 		}
 	}
-	orderAIRanges(cfg.Channels)
 	return cfg, nil
 }
 
-// MigrateAnalogWriteConfig lifts a v2 analog write config to v3. It orders each
-// channel range as MigrateAnalogReadConfig does.
+// MigrateAnalogWriteConfig lifts a v2 analog write config to v3.
 func MigrateAnalogWriteConfig(
 	ctx context.Context,
 	old v2.AnalogWriteConfig,
 ) (AnalogWriteConfig, error) {
-	cfg, err := autoMigrateAnalogWriteConfig(ctx, old)
-	if err != nil {
-		return AnalogWriteConfig{}, err
-	}
-	orderAORanges(cfg.Channels)
-	return cfg, nil
+	return autoMigrateAnalogWriteConfig(ctx, old)
 }
 
-// MigrateCounterReadConfig lifts a v2 counter read config to v3. It orders each
-// channel range as MigrateAnalogReadConfig does.
+// MigrateCounterReadConfig lifts a v2 counter read config to v3.
 func MigrateCounterReadConfig(
 	ctx context.Context,
 	old v2.CounterReadConfig,
 ) (CounterReadConfig, error) {
-	cfg, err := autoMigrateCounterReadConfig(ctx, old)
-	if err != nil {
-		return CounterReadConfig{}, err
-	}
-	orderCIRanges(cfg.Channels)
-	return cfg, nil
+	return autoMigrateCounterReadConfig(ctx, old)
 }
 
 // MigrateDigitalReadConfig lifts a v2 digital read config to v3.

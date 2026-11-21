@@ -127,6 +127,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*AnalogReadConfig).SetKey,
 			PatchEntry:      (*AnalogReadConfig).Patch,
 			HashEntry:       (*AnalogReadConfig).HashContent,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogReadConfig) error {
+				v3.OrderAIRanges(c.Channels)
+				return nil
+			},
 			ValidateEntry: func(c *AnalogReadConfig) error {
 				v := validate.New("ni.AnalogReadConfig")
 				v.Exec(c.Validate)
@@ -153,7 +157,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*AnalogWriteConfig).SetKey,
 			PatchEntry:      (*AnalogWriteConfig).Patch,
 			HashEntry:       (*AnalogWriteConfig).HashContent,
-			ValidateEntry:   (*AnalogWriteConfig).Validate,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *AnalogWriteConfig) error {
+				v3.OrderAORanges(c.Channels)
+				return nil
+			},
+			ValidateEntry: (*AnalogWriteConfig).Validate,
 		},
 	); !ok(err, s.AnalogWrite) {
 		return nil, err
@@ -174,6 +182,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*CounterReadConfig).SetKey,
 			PatchEntry:      (*CounterReadConfig).Patch,
 			HashEntry:       (*CounterReadConfig).HashContent,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *CounterReadConfig) error {
+				v3.OrderCIRanges(c.Channels)
+				return nil
+			},
 			ValidateEntry: func(c *CounterReadConfig) error {
 				v := validate.New("ni.CounterReadConfig")
 				v.Exec(c.Validate)
