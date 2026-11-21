@@ -49,7 +49,10 @@ export interface UseDispatchReturn<Key extends record.Key, Action> {
   dispatch: (input: DispatchInput<Key, Action>) => void;
   /** Applies actions and resolves to whether they committed. */
   dispatchAsync: (input: DispatchInput<Key, Action>) => Promise<boolean>;
-  /** Groups actions so undo takes them back as one step. */
+  /**
+   * Groups actions so undo takes them back as one step.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction: (input: { key: Key; kind?: string }) => actions.Transaction<Action>;
 }
 

@@ -7,11 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ICD } from "@/platform/icd";
 import { renderWithConsole } from "@/testutil";
+
+describe("ICD.Picker.PaneHeader", () => {
+  it("should show the hint of the frame under the title", async () => {
+    await renderWithConsole(
+      <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+            <ICD.Picker.PaneHeader
+              title="plant/oven"
+              free={2}
+              picked={0}
+              onPickAll={() => {}}
+              onClear={() => {}}
+            />
+          </ICD.Picker.Frame>
+        </ICD.Picker.Root>
+      </Dialog.Frame>,
+    );
+    expect(screen.getByText("plant/oven")).toBeTruthy();
+    expect(screen.getByText("Select the values to read.")).toBeTruthy();
+  });
+});
+
+describe("ICD.Picker.PaneSkeleton", () => {
+  it("should show the hint of the frame while values load", async () => {
+    await renderWithConsole(
+      <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+            <ICD.Picker.PaneSkeleton noun="Field" title="plant/oven" />
+          </ICD.Picker.Frame>
+        </ICD.Picker.Root>
+      </Dialog.Frame>,
+    );
+    expect(screen.getByText("plant/oven")).toBeTruthy();
+    expect(screen.getByText("Select the values to read.")).toBeTruthy();
+  });
+});
 
 describe("ICD.Picker.Footer", () => {
   it("should name each picked noun with its count, adding the counts of a noun", async () => {
