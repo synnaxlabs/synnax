@@ -13,7 +13,6 @@ import {
   box,
   color as xcolor,
   id,
-  scale,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -22,6 +21,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { Layout } from "@/lineplot/aether/layout";
 import { range } from "@/lineplot/range/aether";
 import { ranger } from "@/ranger/aether";
 import { renderAether } from "@/testutil/renderAether";
@@ -53,12 +53,8 @@ const renderProps = (
   timeRange: TimeRange,
   shown: TimeRange = timeRange,
 ): range.ProviderProps => ({
-  dataToDecimalScale: scale.Scale.scale(
-    Number(shown.start.valueOf()),
-    Number(shown.end.valueOf()),
-  ),
+  layout: new Layout([shown.numericBounds], box.DECIMAL),
   region: REGION,
-  viewport: REGION,
   timeRange,
 });
 
@@ -215,7 +211,7 @@ describe("Provider", () => {
       renderProps(new TimeRange(shown.start.add(two), shown.end.add(two))),
     );
     expect(provider.state.hovered?.key).toEqual(ranges[0].key);
-    expect(provider.state.hovered?.viewport.lower).toBeCloseTo(-200);
+    expect(provider.state.hovered?.viewport.lower).toBeCloseTo(-0.2);
     provider.setState((s) => ({ ...s, menuOpen: false }));
     provider.render(props);
     expect(provider.state.hovered?.key).toEqual(ranges[1].key);
@@ -558,7 +554,7 @@ describe("Provider", () => {
       provider.setState((s) => ({ ...s, cursor: { x: 600, y: -14 } }));
       provider.render(props);
       expect(provider.state.hovered?.key).toEqual(rng.key);
-      expect(provider.state.hovered?.viewport.upper).toBeCloseTo(750);
+      expect(provider.state.hovered?.viewport.upper).toBeCloseTo(0.75);
     });
 
     it("should redraw as the strip changes, and stop when it hides", async () => {

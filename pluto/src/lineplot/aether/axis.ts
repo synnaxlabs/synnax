@@ -10,9 +10,9 @@
 import { theme as baseTheme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
-  box,
+  type box,
   direction,
-  scale,
+  type scale,
   scheduler,
   TimeSpan,
   TimeStamp,
@@ -215,22 +215,5 @@ export abstract class BaseAxis<
     )
       this.internal.updateBounds?.(bounds);
     return [bounds, err];
-  }
-
-  dataToDecimalScale(
-    hold: boolean,
-    fetchDataBounds: () => line.DataBounds[],
-    viewport: box.Box,
-  ): [scale.Scale, bounds.Bounds, Error | null] {
-    const [bounds, err] = this.iBounds(hold, fetchDataBounds);
-    const dir = direction.swap(direction.construct(this.state.location));
-    return [
-      scale.Scale.scale<number>(bounds)
-        .scale(1)
-        .translate(-box.root(viewport)[dir])
-        .magnify(1 / box.dim(viewport, dir)),
-      bounds,
-      err,
-    ];
   }
 }
