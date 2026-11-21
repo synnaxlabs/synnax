@@ -82,7 +82,8 @@ collapse: a gap shorter than the two margins merges.
 
 - **Margin**: 5% of the range duration on each side, with a floor. A range with no end
   gets no right margin, because no data exists after its newest sample. Its left margin
-  is the floor, so its bound does not move as it grows.
+  is 5% of its duration so far, so the margin grows with the range and does not change
+  when the range ends.
 - **Rolling window**: Its margin comes from its span, which does not change. The gap
   before it grows from zero, so its seam appears with no jump.
 - **Outer edges**: The first and last segments end at their windows. In place of a
