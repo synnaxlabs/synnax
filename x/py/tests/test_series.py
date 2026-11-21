@@ -330,6 +330,38 @@ class TestSeries:
         assert converted.alignment_multiple == 4
         assert converted.alignment_bounds.upper == 8
 
+    def test_clock_defaults_to_zero(self) -> None:
+        """Should give a series no clock unless one is set"""
+        assert telem.Series([1, 2], data_type=telem.DataType.INT8).clock == 0
+
+    def test_clock_kept_by_derived_series(self) -> None:
+        """Should carry the clock into a copy, a slice, a conversion, and a payload"""
+        s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8, clock=5)
+        multi = telem.MultiSeries([s1])
+        derived = [
+            telem.Series(s1),
+            telem.Series(multi),
+            s1[1:],
+            s1.astype(telem.DataType.FLOAT64),
+            TypeAdapter(telem.Series).validate_python(
+                TypeAdapter(telem.Series).dump_python(s1)
+            ),
+        ]
+        assert [d.clock for d in derived] == [5] * len(derived)
+
+    def test_clock_left_out_when_zero(self) -> None:
+        """Should leave the clock out of a payload when it is zero"""
+        adapter = TypeAdapter(telem.Series)
+        unclocked = telem.Series([1], data_type=telem.DataType.INT8)
+        assert "clock" not in adapter.dump_python(unclocked, mode="json")
+        clocked = telem.Series([1], data_type=telem.DataType.INT8, clock=5)
+        assert adapter.dump_python(clocked, mode="json")["clock"] == 5
+
+    def test_clock_argument_wins(self) -> None:
+        """Should prefer an explicit clock to the source's clock"""
+        s1 = telem.Series([1, 2], data_type=telem.DataType.INT8, clock=5)
+        assert telem.Series(s1, clock=7).clock == 7
+
     def test_alignment_preserved_from_series(self) -> None:
         """Should preserve alignment when constructing from another telem.Series"""
         s1 = telem.Series(

@@ -15,6 +15,7 @@ package domain
 import (
 	"context"
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // DB provides a persistent, concurrent store for reading and writing domains of
@@ -51,7 +53,14 @@ type DB struct {
 	fc            *fileController
 	closed        *atomic.Bool
 	resourceCount *atomic.Int64
-	cfg           Config
+	// drop holds the free of Drop until the last writer or iterator closes.
+	drop *dropState
+	cfg  Config
+}
+
+type dropState struct {
+	mu   sync.Mutex
+	free func() error
 }
 
 // Config is the configuration for opening a DB.
@@ -164,6 +173,7 @@ func Open(configs ...Config) (*DB, error) {
 		fc:            controller,
 		closed:        &atomic.Bool{},
 		resourceCount: &atomic.Int64{},
+		drop:          &dropState{},
 	}, nil
 }
 
@@ -202,6 +212,48 @@ func (db *DB) MarkClosed() error {
 		)
 	}
 	return nil
+}
+
+// Drop marks the DB closed, then releases its files and runs free once no writer,
+// iterator, or delete is open on it: now, or in the call that closes the last one. It
+// returns the error of a free that runs now. A later free logs its error. A failed
+// release logs its error, since the files go anyway.
+func (db *DB) Drop(free func() error) error {
+	db.drop.mu.Lock()
+	db.closed.Store(true)
+	if db.resourceCount.Load() > 0 {
+		db.drop.free = free
+		db.drop.mu.Unlock()
+		return nil
+	}
+	db.drop.mu.Unlock()
+	return db.free(free)
+}
+
+// unpin ends one writer, iterator, or delete, and runs the free of Drop when it ends
+// the last one.
+func (db *DB) unpin() {
+	if db.resourceCount.Add(-1) > 0 {
+		return
+	}
+	db.drop.mu.Lock()
+	free := db.drop.free
+	db.drop.free = nil
+	db.drop.mu.Unlock()
+	if free == nil {
+		return
+	}
+	if err := db.free(free); err != nil {
+		db.cfg.L.Error("failed to remove the files of a dropped DB", zap.Error(err))
+	}
+}
+
+// free releases the files of a dropped DB, then runs free.
+func (db *DB) free(free func() error) error {
+	if err := db.Release(); err != nil {
+		db.cfg.L.Error("failed to release the files of a dropped DB", zap.Error(err))
+	}
+	return free()
 }
 
 // UnmarkClosed opens a DB that MarkClosed marked closed.

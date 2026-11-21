@@ -16,8 +16,7 @@
 //
 //  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the ts.TS interface) for writing frames of
-//     telemetry.
+//  2. A time-series engine (Cesium) for writing frames of telemetry.
 //
 // It's important to note that the storage package does NOT manage any sort of
 // distributed storage implementation.
@@ -27,7 +26,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
-	"os"
+	"math/rand/v2"
 	"path/filepath"
 
 	"github.com/cockroachdb/pebble/v2"
@@ -37,7 +36,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
@@ -51,6 +49,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -109,6 +108,31 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
+	// KVFS is the file system of the key-value store and the directory lock.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	KVFS vfs.FS
+	// TSFS is the file system of the time-series engine.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	TSFS xfs.FS
+	// Clock is the clock that the time-series engine reads the time from.
+	//
+	// [OPTIONAL] - Defaults to the clock of the engine.
+	Clock xtime.Clock
+	// Random is the source of every random choice of the time-series engine.
+	//
+	// [OPTIONAL] - Defaults to the source of the engine.
+	Random rand.Source
+	// Executor runs each step of the owners of the time-series engine and each sync of
+	// its files.
+	//
+	// [OPTIONAL] - Defaults to the executor of the engine.
+	Executor func(f func())
+	// PointerLogEnabled opens the time-series engine on its pointer log layout.
+	//
+	// [OPTIONAL] - Defaults to false.
+	PointerLogEnabled *bool
 	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
 	// against the version recorded in the data directory, unless it is a 0.0 version.
 	//
@@ -130,6 +154,7 @@ func defaultLayerConfig() LayerConfig {
 		KVEngine:             KVEnginePebble,
 		TSEngine:             TSEngineCesium,
 		UpdateBackupDisabled: new(false),
+		PointerLogEnabled:    new(false),
 	}
 }
 
@@ -141,6 +166,12 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.KVFS = override.Nil(cfg.KVFS, other.KVFS)
+	cfg.TSFS = override.Nil(cfg.TSFS, other.TSFS)
+	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
+	cfg.Random = override.Nil(cfg.Random, other.Random)
+	cfg.Executor = override.Nil(cfg.Executor, other.Executor)
+	cfg.PointerLogEnabled = override.Nil(cfg.PointerLogEnabled, other.PointerLogEnabled)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -256,7 +287,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, kvFS); !ok(err, nil) {
+	if err = configureStorageDir(cfg, kvFS, tsFS); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -297,9 +328,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 }
 
 // Run runs the time-series engine and the Gorp DB until ctx ends or one of them fails,
-// then waits for both to stop and returns the first error. Writes to the engine, its
-// streamers, and the opening of Gorp tables with indexes or references need Run to
-// run. Call Run once.
+// then waits for both to stop and returns the first error. The opening of Gorp tables
+// with indexes or references needs Run to run. Call Run once.
 func (s *Layer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return s.TS.Run(ctx) })
@@ -325,19 +355,33 @@ func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
 func openFileSystems(cfg LayerConfig) (vfs.FS, xfs.FS) {
-	if *cfg.InMemory {
-		return vfs.NewMem(), xfs.NewMem()
-	} else {
-		return vfs.Default, xfs.Default
+	kvFS, tsFS := cfg.KVFS, cfg.TSFS
+	if kvFS == nil {
+		kvFS = vfs.Default
+		if *cfg.InMemory {
+			kvFS = vfs.NewMem()
+		}
 	}
+	if tsFS == nil {
+		tsFS = xfs.Default
+		if *cfg.InMemory {
+			tsFS = xfs.NewMem()
+		}
+	}
+	return kvFS, tsFS
 }
 
-func configureStorageDir(cfg LayerConfig, vfs vfs.FS) error {
+func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
+	// The two file systems are one on disk, but an injected pair needs the directory in
+	// each.
+	if _, err := tsFS.Sub(cfg.Dirname); err != nil {
+		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
+	}
 	if !*cfg.InMemory {
-		return validateSufficientDirPermissions(cfg)
+		return validateSufficientDirPermissions(cfg, vfs)
 	}
 	return nil
 }
@@ -358,8 +402,8 @@ Synnax requires the storage directory to have at least
 permissions.
 `
 
-func validateSufficientDirPermissions(cfg LayerConfig) error {
-	stat, err := os.Stat(cfg.Dirname)
+func validateSufficientDirPermissions(cfg LayerConfig, fs vfs.FS) error {
+	stat, err := fs.Stat(cfg.Dirname)
 	if err != nil {
 		return err
 	}
@@ -517,16 +561,28 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	return pebblekv.Wrap(db, logger), nil
 }
 
-func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
 			"[storage] - unsupported time-series engine: %s",
 			cfg.TSEngine,
 		)
 	}
-	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
-		FS:              fs,
-	})
+	opts := []cesium.Option{
+		cesium.WithFS(fs),
+		cesium.WithInstrumentation(cfg.Child("ts")),
+	}
+	if cfg.Clock != nil {
+		opts = append(opts, cesium.WithClock(cfg.Clock))
+	}
+	if cfg.Random != nil {
+		opts = append(opts, cesium.WithRandom(cfg.Random))
+	}
+	if cfg.Executor != nil {
+		opts = append(opts, cesium.WithExecutor(cfg.Executor))
+	}
+	if *cfg.PointerLogEnabled {
+		opts = append(opts, cesium.WithPointerLog())
+	}
+	return cesium.Open(ctx, filepath.Join(cfg.Dirname, cesiumDir), opts...)
 }

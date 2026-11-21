@@ -70,12 +70,13 @@ func primaryLiteralOnly[N antlr.ParserRuleContext](
 		return lit.NumericLiteral() != nil
 	}
 	if qid := prim.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		scope, err := ctx.Scope.Resolve(ctx, head)
+		var buf [2]string
+		parts := parser.AppendQualifiedNameParts(buf[:0], qid)
+		scope, err := ctx.Scope.Resolve(ctx, parts[0])
 		if err != nil {
 			return false
 		}
-		sym, err := scope.Resolve(ctx, tail)
+		sym, err := scope.Resolve(ctx, parts[1])
 		return err == nil && sym.Kind == symbol.KindConstant
 	}
 	if prim.LPAREN() == nil || prim.Expression() == nil {

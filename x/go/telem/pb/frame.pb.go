@@ -41,6 +41,7 @@ type Series struct {
 	Data              []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	Alignment         uint64                 `protobuf:"varint,4,opt,name=alignment,proto3" json:"alignment,omitempty"`
 	AlignmentMultiple uint32                 `protobuf:"varint,5,opt,name=alignment_multiple,json=alignmentMultiple,proto3" json:"alignment_multiple,omitempty"`
+	Clock             uint32                 `protobuf:"varint,6,opt,name=clock,proto3" json:"clock,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -110,6 +111,13 @@ func (x *Series) GetAlignmentMultiple() uint32 {
 	return 0
 }
 
+func (x *Series) GetClock() uint32 {
+	if x != nil {
+		return x.Clock
+	}
+	return 0
+}
+
 type Frame struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
@@ -167,14 +175,15 @@ var File_x_go_telem_pb_frame_proto protoreflect.FileDescriptor
 const file_x_go_telem_pb_frame_proto_rawDesc = "" +
 	"\n" +
 	"\x19x/go/telem/pb/frame.proto\x12\n" +
-	"x.telem.pb\x1a\x19x/go/telem/pb/telem.proto\"\xbc\x01\n" +
+	"x.telem.pb\x1a\x19x/go/telem/pb/telem.proto\"\xd2\x01\n" +
 	"\x06Series\x124\n" +
 	"\n" +
 	"time_range\x18\x01 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x1b\n" +
 	"\tdata_type\x18\x02 \x01(\tR\bdataType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1c\n" +
 	"\talignment\x18\x04 \x01(\x04R\talignment\x12-\n" +
-	"\x12alignment_multiple\x18\x05 \x01(\rR\x11alignmentMultiple\"G\n" +
+	"\x12alignment_multiple\x18\x05 \x01(\rR\x11alignmentMultiple\x12\x14\n" +
+	"\x05clock\x18\x06 \x01(\rR\x05clock\"G\n" +
 	"\x05Frame\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12*\n" +
 	"\x06series\x18\x02 \x03(\v2\x12.x.telem.pb.SeriesR\x06seriesB\x88\x01\n" +

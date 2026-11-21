@@ -355,6 +355,21 @@ func (c *column) skip(k int) {
 	c.position += uint32(k)
 }
 
+// clockError returns an error when the series the column points at is not on the clock
+// of index, so its samples cannot pair with the samples of index. Only valid when the
+// column has a sample.
+func (c *column) clockError(index *column) error {
+	if c.pending[0].Clock != uint32(index.key) {
+		return errors.Newf(
+			"[api.Read] channel %s has samples that do not pair with the time of its "+
+				"index channel %s",
+			c.name,
+			index.name,
+		)
+	}
+	return nil
+}
+
 // unindexedError returns the error for a sample the column points at that sits at no
 // alignment of its index.
 func (c *column) unindexedError() error {

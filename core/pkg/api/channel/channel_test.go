@@ -18,11 +18,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -30,7 +32,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -160,14 +161,12 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse an edit that reads an unreadable channel through a stored one",
 			func(ctx SpecContext) {
-				stored := channel.Channel{
+				creator := calctestutil.Creator{DB: db, Channel: channelSvc}
+				stored := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					Expression: fmt.Sprintf("return %s * 2", secret.Name),
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &stored)
-				})).To(Succeed())
+				}))
 				grantOn(
 					ctx,
 					u.ResourceID(),
@@ -333,7 +332,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			Expect(dist.Storage.TS.WriteSeries(
 				ctx,
-				ch.Key().StorageKey(),
+				uint32(ch.Key()),
 				start,
 				telem.NewSeriesSecondsTSV(10, 11, 12),
 			)).To(Succeed())
@@ -341,10 +340,10 @@ var _ = Describe("Service", func() {
 				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 			))
 		})
-		stored := func(ctx SpecContext) ts.Channel {
+		stored := func(ctx SpecContext) cesium.Channel {
 			GinkgoHelper()
 			return MustSucceed(
-				dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 			)
 		}
 
@@ -359,7 +358,7 @@ var _ = Describe("Service", func() {
 				frame := MustSucceed(dist.Storage.TS.Read(
 					ctx,
 					telem.TimeRangeMax,
-					ch.Key().StorageKey(),
+					uint32(ch.Key()),
 				))
 				Expect(frame.Len()).To(Equal(int64(3)))
 			},
@@ -380,8 +379,11 @@ var _ = Describe("Service", func() {
 				Expect(channelSvc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeFalse())
-				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+				// The channel service drops the storage on its worker after the commit.
+				Eventually(func(g Gomega) {
+					g.Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
+						Error().To(MatchError(cesium.ErrChannelNotFound))
+				}).Should(Succeed())
 			},
 		)
 		Describe("Dispatch", func() {
@@ -404,7 +406,7 @@ var _ = Describe("Service", func() {
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
 				Expect(stored(ctx).Name).To(Equal(ch.Name))
 			})
-			It("Should rename the channel in both stores with update on it", func(
+			It("Should rename the channel record with update on it", func(
 				ctx SpecContext,
 			) {
 				grantOn(
@@ -417,7 +419,7 @@ var _ = Describe("Service", func() {
 				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
 					To(Equal(apichannel.DispatchResponse{}))
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
-				Expect(stored(ctx).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
 			})
 		})
 	})

@@ -172,6 +172,7 @@ var _ = Describe("ScanTask", func() {
 	open := func(interval time.Duration) *driver.ScanTask {
 		GinkgoHelper()
 		st := MustSucceed(driver.NewScanTask(driver.ScanTaskConfig{
+			Channel: channelSvc,
 			Scanner: scanner,
 			DB:      db, Status: statusSvc,
 			Device:             deviceSvc,
@@ -222,6 +223,7 @@ var _ = Describe("ScanTask", func() {
 	Describe("NewScanTask", func() {
 		It("Should reject a configuration with no make", func() {
 			Expect(driver.NewScanTask(driver.ScanTaskConfig{
+				Channel: channelSvc,
 				Scanner: scanner,
 				DB:      db, Status: statusSvc,
 				Device:             deviceSvc,

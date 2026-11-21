@@ -1367,3 +1367,37 @@ class TestTimeProperties:
         tr = sy.TimeRange(0, 10)
         with pytest.raises(ValidationError):
             sy.TimeRange.__setattr__(tr, "end", sy.TimeStamp(20))
+
+
+class TestDataTypeCode:
+    @pytest.mark.parametrize(
+        ("data_type", "code"),
+        [
+            (sy.DataType.UINT8, 1),
+            (sy.DataType.UINT16, 2),
+            (sy.DataType.UINT32, 3),
+            (sy.DataType.UINT64, 4),
+            (sy.DataType.INT8, 5),
+            (sy.DataType.INT16, 6),
+            (sy.DataType.INT32, 7),
+            (sy.DataType.INT64, 8),
+            (sy.DataType.FLOAT32, 9),
+            (sy.DataType.FLOAT64, 10),
+            (sy.DataType.TIMESTAMP, 11),
+            (sy.DataType.UUID, 12),
+            (sy.DataType.STRING, 13),
+            (sy.DataType.BYTES, 14),
+            (sy.DataType.JSON, 15),
+            (sy.DataType.BOOLEAN, 16),
+        ],
+    )
+    def test_code_round_trip(self, data_type: sy.DataType, code: int) -> None:
+        """Should map each data type to its code and back"""
+        assert sy.code_of(data_type) == code
+        assert sy.data_type_of(code) == data_type
+
+    def test_unknown(self) -> None:
+        """Should map a type with no code to 0, and a code with no type to UNKNOWN"""
+        assert sy.code_of(sy.DataType.UNKNOWN) == sy.DataTypeCode.unknown
+        for code in (0, 17, 255):
+            assert sy.data_type_of(code) == sy.DataType.UNKNOWN

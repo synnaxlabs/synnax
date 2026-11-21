@@ -192,6 +192,41 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
+    it("should fail the status of a channel streamed on another clock", async () => {
+      const store = new Store();
+      const joins = new Joins(store);
+      joins.join(2, 1);
+      const frame = new framer.Frame(
+        [1, 2],
+        [
+          new Series({
+            data: new BigInt64Array([1n]),
+            dataType: DataType.TIMESTAMP,
+            clock: 1,
+          }),
+          new Series({ data: new Float32Array([1]), clock: 9 }),
+        ],
+      );
+      const streamer = new MultiplexedStreamer({
+        store,
+        joins,
+        onWait: () => {},
+        openStreamer: createStreamOpener([oneFrameStreamer([1, 2], frame)]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const sub = streamer.demand([1, 2], () => {});
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(sub.status(1).variant).toEqual("success");
+      expect(sub.status(2)).toMatchObject({
+        variant: "error",
+        name: "2",
+        message: "Samples do not pair with time",
+        description:
+          "Channel 2 has samples that do not pair with the time of its index channel.",
+      });
+      await streamer.close();
+    });
+
     it("should stream a key opened after a rejected one", async () => {
       const streamer = new MultiplexedStreamer({
         ...createCache(),

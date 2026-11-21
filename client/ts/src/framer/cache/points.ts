@@ -27,17 +27,17 @@ import {
 import { type channel } from "@/channel";
 import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
-import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
+import { type Block, RAW_LEVEL, type RawBlock, rawTile } from "@/framer/cache/block";
 import {
   choose,
   cover,
-  index as tileIndex,
-  indexes,
   level as tileLevel,
   pointLimit as tilePointLimit,
   type Position,
   positionKey,
+  tileAt,
   tileRange,
+  tiles,
   tileSpan,
 } from "@/framer/cache/grid";
 import { type Joins } from "@/framer/cache/join";
@@ -99,7 +99,7 @@ interface Live {
 
 // Returns the start of the tile of the level after the one that holds ts.
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
-  tileRange({ level, index: tileIndex(ts, level) + 1 }).start.valueOf();
+  tileRange({ level, tile: tileAt(ts, level) + 1 }).start.valueOf();
 
 /**
  * Serves one channel under a points limit: reduced tiles across the window, and raw
@@ -493,10 +493,10 @@ export class Points {
     const level = tileLevel(home);
     if (this.dynamic && level <= RAW_LEVEL)
       return TimeStamp.max(
-        tileRange({ level, index: tileIndex(home.start, level) }).start,
+        tileRange({ level, tile: tileAt(home.start, level) }).start,
         floor,
       );
-    const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
+    const edge = tileRange({ level: RAW_LEVEL, tile: rawTile(committed) }).start;
     return TimeStamp.max(home.start, edge, floor);
   }
 
@@ -530,7 +530,7 @@ export class Points {
     const first = this.raw.find((s) => {
       const { end } = tileRange({
         level: RAW_LEVEL,
-        index: rawIndex(s.timeRange.start),
+        tile: rawTile(s.timeRange.start),
       });
       return TimeStamp.min(s.timeRange.end, end).after(boundary);
     });
@@ -561,9 +561,9 @@ export class Points {
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);
     const floor = this.streaming ? RAW_LEVEL : level;
-    return indexes(tiled, level)
-      .flatMap((index) =>
-        end == null ? [{ level, index }] : cover({ level, index }, end, floor),
+    return tiles(tiled, level)
+      .flatMap((tile) =>
+        end == null ? [{ level, tile }] : cover({ level, tile }, end, floor),
       )
       .filter((p) => start == null || tileRange(p).end.after(start))
       .map((p) => {
@@ -621,7 +621,7 @@ export class Points {
     }
     let other: Held | undefined;
     for (const tile of tiles) {
-      if (tile.spec.level !== p.level || tile.spec.index !== p.index) continue;
+      if (tile.spec.level !== p.level || tile.spec.tile !== p.tile) continue;
       if (tile.spec.aggregation === aggregation) return tile;
       other ??= tile;
     }
@@ -726,10 +726,10 @@ export class Points {
   // stored sample when a writer's clock runs ahead of the Core's. A static window stops
   // at its end.
   private lastBlock(tr: TimeRange): number {
-    const now = rawIndex(this.props.now());
+    const now = rawTile(this.props.now());
     const last = Math.max(now, this.props.store.newestBlock(this.key));
     if (this.dynamic) return last;
-    return Math.min(rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
+    return Math.min(rawTile(tr.end.sub(TimeSpan.nanoseconds(1))), last);
   }
 
   // Sets raw to the samples of the raw range, and returns the blocks of it that wait
@@ -752,28 +752,28 @@ export class Points {
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
       : Infinity;
-    const current = rawIndex(now);
+    const current = rawTile(now);
     const blocks: RawBlock[] = [];
     // A block after the one of now only draws once it holds samples.
-    for (let i = rawIndex(stored.start); i <= last; i++) {
+    for (let i = rawTile(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
       if (b != null) blocks.push(b);
     }
     const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
-        .filter((b) => (b.index < joinFrom ? !b.covers(stored) : !joined))
-        .map((b) => b.index),
+        .filter((b) => (b.tile < joinFrom ? !b.covers(stored) : !joined))
+        .map((b) => b.tile),
     );
-    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(stored));
+    const unread = blocks.filter((b) => b.tile < joinFrom && !b.covers(stored));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
     const fresh = blocks
-      .filter((b) => !filling.has(b.index))
-      .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.index)));
+      .filter((b) => !filling.has(b.tile))
+      .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.tile)));
     const standIns = this.raw.filter(
       (s) =>
-        (filling.has(rawIndex(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
+        (filling.has(rawTile(s.timeRange.start)) || s.timeRange.start.before(kept)) &&
         !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
     );
     this.raw = [...fresh, ...standIns]
@@ -796,7 +796,7 @@ export class Points {
       return { raw: [], tail: [], filling: false };
     }
     this.raw = this.raw.filter((s) => s.timeRange.overlapsWith(tr));
-    const first = rawIndex(tr.start);
+    const first = rawTile(tr.start);
     const filling = [...fillingBlocks].some((i) => i >= first);
     const tail =
       this.live == null
@@ -858,7 +858,7 @@ export class Points {
       const { store } = this.props;
       // The index's blocks find where the window's end cuts the channel's samples.
       const keys = unique.unique([this.key, this.index ?? this.key]);
-      for (let i = rawIndex(raw.start), last = this.lastBlock(raw); i <= last; i++)
+      for (let i = rawTile(raw.start), last = this.lastBlock(raw); i <= last; i++)
         keys.forEach((k) => {
           const b = store.findRaw(k, i);
           if (b != null) next.add(b);

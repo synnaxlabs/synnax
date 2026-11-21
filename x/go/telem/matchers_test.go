@@ -102,7 +102,31 @@ TimeRange:
 	Expected: 1970-01-01T00:00:01Z - :02 (1s)
 	Actual: 1970-01-01T00:00:01Z - :03 (2s)`,
 			),
+			Entry("Mismatched Clocks",
+				telem.Series{
+					DataType: telem.Float64T,
+					Data:     telem.NewSeries([]float64{1, 2, 3}).Data,
+					Clock:    5,
+				},
+				telem.Series{
+					DataType: telem.Float64T,
+					Data:     telem.NewSeries([]float64{1, 2, 3}).Data,
+					Clock:    7,
+				},
+				`Series did not match:
+Clock:
+	Expected: 5
+	Actual: 7`,
+			),
 		)
+		It("Should ignore the clock when excluded", func() {
+			expected := telem.NewSeriesV[uint8](1, 2, 3)
+			actual := expected
+			actual.Clock = 7
+			Expect(actual).To(
+				telem.MatchSeries(expected, telem.ExcludeSeriesFields("Clock")),
+			)
+		})
 	})
 	Describe("MatchSeriesData", func() {
 		It("Should only match against the series data", func() {
@@ -194,6 +218,13 @@ TimeRange:
 			s2.Alignment = telem.NewAlignment(20, 5)
 			Expect(s2).To(telem.MatchWrittenSeries(s1))
 		})
+		It("Should ignore the clock by default", func() {
+			s1 := telem.NewSeriesV[int64](1, 2, 3)
+			s2 := telem.NewSeriesV[int64](1, 2, 3)
+			s2.Clock = 9
+			Expect(s2).To(telem.MatchWrittenSeries(s1))
+			Expect(s2).To(telem.MatchSeriesData(s1))
+		})
 		It("Should still check DataType and Data", func() {
 			s1 := telem.NewSeriesV[int64](1, 2, 3)
 			s2 := telem.NewSeriesV[uint64](1, 2, 3)
@@ -207,6 +238,16 @@ TimeRange:
 			// Also exclude DataType from comparison
 			Expect(s2).
 				To(telem.MatchWrittenSeries(s1, telem.ExcludeSeriesFields("DataType")))
+		})
+	})
+	Describe("MatchWrittenFrame", func() {
+		It("Should ignore the clock of each series", func() {
+			s := telem.NewSeriesV[int64](1, 2, 3)
+			written := s
+			written.Clock = 9
+			Expect(telem.UnaryFrame[uint32](1, written)).To(
+				telem.MatchWrittenFrame(telem.UnaryFrame[uint32](1, s)),
+			)
 		})
 	})
 	Describe("MatchSeriesDataV", func() {

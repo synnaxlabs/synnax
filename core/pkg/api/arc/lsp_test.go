@@ -114,8 +114,8 @@ var _ = Describe("LSP", func() {
 	BeforeEach(func(ctx SpecContext) {
 		ch = channel.Channel{
 			Name:     "api_lsp_ch",
-			DataType: telem.Float32T,
-			Virtual:  true,
+			DataType: telem.TimestampT,
+			IsIndex:  true,
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &ch)
@@ -175,7 +175,7 @@ var _ = Describe("LSP", func() {
 				Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
 			return stored.Name, MustSucceed(
-				node.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+				node.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 			).Name
 		}
 
@@ -197,7 +197,7 @@ var _ = Describe("LSP", func() {
 		})
 
 		It(
-			"Should rename a channel in both stores when the subject can update it",
+			"Should rename the channel record when the subject can update it",
 			func(
 				ctx SpecContext,
 			) {
@@ -205,7 +205,7 @@ var _ = Describe("LSP", func() {
 				Expect(rename()).ToNot(HaveKey("error"))
 				gorpName, cesiumName := names(ctx)
 				Expect(gorpName).To(Equal("api_lsp_renamed"))
-				Expect(cesiumName).To(Equal("api_lsp_renamed"))
+				Expect(cesiumName).To(Equal("api_lsp_ch"))
 			},
 		)
 	})

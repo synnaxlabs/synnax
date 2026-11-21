@@ -802,7 +802,8 @@ func (w Writer) allocateAndWrite(
 		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
+		stored := channel.ToStorage(allocated)
+		if err := w.svc.cfg.TS.CreateChannel(ctx, stored...); err != nil {
 			return err
 		}
 		w.svc.mu.Lock()
@@ -942,6 +943,28 @@ func validateNameSyntax(names []string) error {
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
+	// Only a key with a record has data to drop: a key with data and no record is data
+	// that Sweep keeps, and only a purge removes it.
+	var existing []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		SkipMissingKeys().
+		Entries(&existing).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	// A writer can hold a leased virtual channel, so the claim covers it, but only a
+	// stored channel has storage to drop.
+	claimed := lo.Reject(KeysFromChannels(existing), func(key Key, _ int) bool {
+		return key.Free()
+	})
+	stored := KeysFromChannels(lo.Filter(existing, func(c Channel, _ int) bool {
+		return c.Distribution().Stored()
+	}))
+	release, err := w.svc.cfg.Framer.ClaimDelete(claimed)
+	if err != nil {
+		return err
+	}
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
@@ -955,16 +978,27 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 			return nil
 		}).
 		Exec(ctx, w.tx); err != nil {
+		release()
 		return err
 	}
-	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
-			return err
+	// The intent is durable before the record delete commits, so storage that a crash
+	// leaves behind a committed delete goes at the next start.
+	if err := w.svc.cfg.TS.Intend(stored.Uint32()); err != nil {
+		release()
+		return err
+	}
+	// The storage drops only once the delete of the records is durable, so a crash
+	// never leaves a record whose data is gone.
+	gorp.AfterEnd(w.tx, func(committed bool) {
+		if !committed {
+			release()
+			return
 		}
 		w.svc.mu.Lock()
 		w.svc.mu.externalNonVirtualSet.Remove(keys...)
 		w.svc.mu.Unlock()
-		return nil
+		dropCtx := context.WithoutCancel(ctx)
+		w.svc.cfg.DropExecutor(func() { w.svc.dropStorage(dropCtx, stored, release) })
 	})
 	return nil
 }
@@ -1010,37 +1044,7 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for i, key := range keys {
-		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
-	}
-	if len(keys) > 0 {
-		count := len(w.svc.renames.Pending(w.tx))
-		gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-			return w.renameStored(ctx, count)
-		})
-	}
 	return nil
-}
-
-// rename is a new name for a channel.
-type rename struct {
-	key  Key
-	name string
-}
-
-// renameStored sends every rename in the transaction of w to storage in one call when
-// count is the number of renames in the transaction. Only the hook of the last rename
-// sends. It runs after the storage creates registered before that rename.
-func (w Writer) renameStored(ctx context.Context, count int) error {
-	renames := w.svc.renames.Pending(w.tx)
-	if len(renames) != count {
-		return nil
-	}
-	names := make(map[Key]string, len(renames))
-	for _, r := range renames {
-		names[r.key] = r.name
-	}
-	return w.svc.cfg.Channel.Rename(ctx, names)
 }
 
 // positions maps each value in vals to the positions that hold it, in ascending order.

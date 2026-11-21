@@ -14,30 +14,28 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // DB is a database for a single channel. It executes reads (via iterators) and writes
-// (via writers) against an underlying domain.DB. It also manages the channel's control
-// state, allowing for dynamic handoff between multiple writers.
+// (via writers) against an underlying domain.DB. It also holds the claims of the
+// channel's writers, so writers of one claim share a domain writer.
 type DB struct {
 	// domain is the underlying domain database on which writes will be executed.
-	domain     *domain.DB
-	controller *control.Controller[*controlledWriter]
+	domain *domain.DB
+	// claims holds the claims of the channel's writers.
+	claims *claim.Set[*sharedWriter]
 	// idx is the index used for resolving timestamp positions on this channel.
 	idx              *index.Domain
 	wrapError        func(error) error
 	closed           *atomic.Bool
-	leadingAlignment *alignment.Counter
+	leadingAlignment *telem.AlignmentCounter
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
 	resolver *offsetResolver
@@ -76,17 +74,12 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 // writer's next write position, so the indexed channel lands in the same sample space
 // as the timestamps it is being written against. Otherwise a fresh leading domain is
 // reserved, keeping the data ordered after everything already persisted. It returns
-// alignment.ErrExhausted when no leading domain is left.
+// telem.ErrAlignmentsExhausted when no leading domain is left.
 func (db *DB) WriteCursor(ts telem.TimeStamp) (telem.Alignment, error) {
-	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
+	if cw, ok := db.claims.ResourceAt(ts.Range(ts + 1)); ok {
 		return cw.loadAlignment(), nil
 	}
 	return db.leadingAlignment.Next()
-}
-
-// LeadingControlState returns the first chronological gate in this unary database.
-func (db *DB) LeadingControlState() *control.State {
-	return db.controller.LeadingState()
 }
 
 // HasDataFor check whether there is a time range in the unary DB's underlying domain
@@ -96,9 +89,9 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	if db.closed.Load() {
 		return false, ErrDBClosed
 	}
-	release, err := db.lockControllerForNonWriteOp(tr, "has_data_for")
+	release, err := db.claimForNonWriteOp(tr)
 	if err != nil {
-		return true, errors.Skip(err, xcontrol.ErrUnauthorized)
+		return true, errors.Skip(err, claim.ErrClaimed)
 	}
 	defer release()
 	hasData, err := db.domain.HasDataFor(ctx, tr)
@@ -144,18 +137,13 @@ func (db *DB) UnmarkClosed() {
 	db.closed.Store(false)
 }
 
+// Drop marks the database closed, then frees its files and runs free once no writer,
+// iterator, or delete is open on it: now, or in the call that closes the last one. It
+// returns the error of a free that runs now.
+func (db *DB) Drop(free func() error) error {
+	db.closed.Store(true)
+	return db.wrapError(db.domain.Drop(free))
+}
+
 // Release frees the files of a database that MarkClosed marked closed.
 func (db *DB) Release() error { return db.wrapError(db.domain.Release()) }
-
-// RenameChannelInMeta renames the channel to the given name, and persists the change to
-// the underlying file system.
-func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
-	if db.cfg.Channel.Name == newName {
-		return nil
-	}
-	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
-}

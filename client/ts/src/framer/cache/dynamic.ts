@@ -181,6 +181,7 @@ export class Dynamic {
       timeRange: start.range(TimeStamp.MAX),
       glBufferUsage: "dynamic",
       alignment,
+      clock: source.clock,
       key: `dynamic-${this.counter}`,
     });
   }
@@ -259,7 +260,8 @@ export class Dynamic {
           next: series.dataType.toString(),
         });
         this.flushCurr(res);
-      } else if (series.alignment < this.curr.alignment) {
+      } else if (series.clock !== this.curr.clock) this.flushCurr(res);
+      else if (series.alignment < this.curr.alignment) {
         // The alignment counter rewound (e.g. the Core restarted and reset its
         // in-memory counter).
         ins.L.warn("alignment regressed, resetting buffer", {

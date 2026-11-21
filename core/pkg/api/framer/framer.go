@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -118,6 +119,11 @@ type Service struct {
 	records  map[channel.Key]signals.Record
 	errs     *errors.Codec
 	alamos.Instrumentation
+}
+
+// nameErrors names the channels of err that the subject of ctx can retrieve.
+func (s *Service) nameErrors(ctx context.Context, err error) error {
+	return apichannel.NameErrors(ctx, s.db, s.channel, s.access, err)
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -397,7 +403,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 			ctx context.Context,
 			res IteratorResponse,
 		) (IteratorResponse, bool, error) {
-			res.Error = s.errs.Encode(res.Error, false)
+			res.Error = s.errs.Encode(s.nameErrors(ctx, res.Error), false)
 			return res, true, nil
 		},
 	}
@@ -688,7 +694,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 			return WriterResponse{
 				Command:    i.Command,
 				Authorized: i.Authorized,
-				Err:        s.errs.Encode(i.Err, false),
+				Err:        s.errs.Encode(s.nameErrors(ctx, i.Err), false),
 				End:        i.End,
 			}, true, nil
 		},

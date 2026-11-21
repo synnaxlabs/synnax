@@ -10,20 +10,22 @@
 package storage_test
 
 import (
+	"context"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,6 +37,43 @@ type entry struct {
 func (e entry) GorpKey() int32 { return e.Key }
 
 var _ = Describe("storage", func() {
+	It("Should open the stores on the file systems that the config injects", func(
+		ctx SpecContext,
+	) {
+		kvFS, tsFS := vfs.NewMem(), xfs.NewMem()
+		l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname: "data",
+			Version: "0.0.0",
+			KVFS:    kvFS,
+			TSFS:    tsFS,
+		}))
+		StartRun(l.Run)
+		Expect(l.TS.CreateChannel(ctx, cesium.Channel{
+			Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		Expect(kvFS.Stat(filepath.Join("data", "LOCK"))).Error().ToNot(HaveOccurred())
+		Expect(MustSucceed(kvFS.List(filepath.Join("data", "kv")))).ToNot(BeEmpty())
+		Expect(tsFS.Exists(filepath.Join("data", "cesium", "1"))).To(BeTrue())
+	})
+
+	It("Should open the time-series engine on the pointer log when it is enabled", func(
+		ctx SpecContext,
+	) {
+		tsFS := xfs.NewMem()
+		l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname:           "data",
+			Version:           "0.0.0",
+			KVFS:              vfs.NewMem(),
+			TSFS:              tsFS,
+			Random:            rand.NewPCG(1, 2),
+			PointerLogEnabled: new(true),
+		}))
+		StartRun(l.Run)()
+		Expect(tsFS.Exists(
+			filepath.Join("data", "cesium", "0000000000000001.head"),
+		)).To(BeTrue())
+	})
+
 	Describe("Run", func() {
 		It("Should run the time-series engine until its context ends", func(
 			ctx SpecContext,
@@ -42,21 +81,11 @@ var _ = Describe("storage", func() {
 			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
 				InMemory: new(true),
 			}))
-			StartRun(l.Run)
-			streamer := MustSucceed(l.TS.NewStreamer(cesium.StreamerConfig{
-				SendOpenAck: true,
-			}))
-			requests := confluence.NewStream[cesium.StreamerRequest]()
-			responses := confluence.NewStream[cesium.StreamerResponse](1)
-			streamer.InFrom(requests)
-			streamer.OutTo(responses)
-			sCtx, cancel := signal.WithCancel(ctx)
-			DeferCleanup(cancel)
-			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			// The streamer acknowledges its open only once the relay runs.
-			Eventually(responses.Outlet()).Should(Receive())
-			requests.Close()
-			Eventually(sCtx.Stopped()).Should(BeClosed())
+			StartRun(l.Run)()
+			ended, cancel := context.WithCancel(ctx)
+			cancel()
+			// The layer ran the engine once, so the engine refuses a second run.
+			Expect(l.TS.Run(ended)).To(MatchError("run called twice"))
 		})
 
 		It("Should run the Gorp DB until its context ends", func(ctx SpecContext) {

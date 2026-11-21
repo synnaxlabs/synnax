@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -293,13 +292,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								),
 							),
 						).To(Succeed())
-						w, _ := MustSucceed2(
+						w := MustSucceed(
 							db.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									End:     17 * telem.SecondTS,
-									Subject: control.Subject{Key: "test_writer"},
+									Start: 10 * telem.SecondTS,
+									End:   17 * telem.SecondTS,
 								},
 							),
 						)
@@ -317,20 +315,19 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
-						w, _ = MustSucceed2(
+						w = MustSucceed(
 							db.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   17 * telem.SecondTS,
-									Subject: control.Subject{Key: "test_writer"},
+									Start: 17 * telem.SecondTS,
 								},
 							),
 						)
 						MustSucceed(w.Write(telem.NewSeriesV[int64](17, 18)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						i := MustSucceed(
 							db.OpenIterator(unary.IterRange(telem.TimeRangeMax)),
@@ -1748,23 +1745,21 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Specify(
 							"Chunk ends on the first sample it leaves out",
 							func(ctx SpecContext) {
-								iw, _ := MustSucceed2(indexDB.OpenWriter(
+								iw := MustSucceed(indexDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   telem.SecondTS,
-										Subject: control.Subject{Key: "index"},
+										Start: telem.SecondTS,
 									},
 								))
 								align := MustSucceed(iw.Write(
 									telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
 								))
 								MustSucceed(iw.Commit(ctx))
-								MustSucceed(iw.Close())
-								dw, _ := MustSucceed2(db.OpenWriter(
+								Expect(iw.Close()).To(Succeed())
+								dw := MustSucceed(db.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   telem.SecondTS,
-										Subject: control.Subject{Key: "data"},
+										Start: telem.SecondTS,
 									},
 								))
 								MustSucceed(dw.WriteAt(
@@ -1776,7 +1771,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									12*telem.SecondTS+1,
 									nil,
 								)).To(Succeed())
-								MustSucceed(dw.Close())
+								Expect(dw.Close()).To(Succeed())
 								iter := MustSucceed(
 									db.OpenIterator(unary.IteratorConfig{
 										Bounds: (4*telem.SecondTS + 1).
@@ -2030,7 +2025,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							faulty, db, iter := openFaulty(ctx)
 							Expect(iter.Close()).To(Succeed())
 							faulty.SetOptions(WithFailReadAt())
-							prefix := fmt.Sprintf("channel [Wild]<%d>:", data)
+							prefix := fmt.Sprintf("channel <%d>:", data)
 							Expect(
 								ReadUnary(ctx, db, telem.TimeRangeMax),
 							).Error().
@@ -2245,12 +2240,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								}))
 							)
 							dataDB2.SetIndex(indexDB2.Index())
-							w, _ := MustSucceed2(
+							w := MustSucceed(
 								indexDB2.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "test"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
@@ -2264,7 +2258,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20)),
 							)
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							Expect(
 								unary.Write(
 									ctx,
@@ -2341,12 +2335,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.Byte,
 							}))
-							w, _ := MustSucceed2(
+							w := MustSucceed(
 								indexDB2.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "test"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
@@ -2371,7 +2364,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								),
 							)
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						})
 						// The following regression test is used to assert that upon
 						// reading the second auto-span in a domain that begins with an
@@ -2512,7 +2505,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(i.Error()).To(MatchError(unary.ErrIteratorClosed))
 						Expect(
 							i.Error(),
-						).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
+						).To(MatchError(ContainSubstring("<%d>", key)))
 						Expect(i.Valid()).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 						Expect(db.Close()).To(Succeed())
@@ -2594,27 +2587,25 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					}))
 					db.SetIndex(indexDB.Index())
 
-					indexW, _ := MustSucceed2(indexDB.OpenWriter(
+					indexW := MustSucceed(indexDB.OpenWriter(
 						ctx,
 						unary.WriterConfig{
-							Start:   1 * telem.SecondTS,
-							Subject: control.Subject{Key: "test"},
+							Start: 1 * telem.SecondTS,
 						},
 					))
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 					MustSucceed(indexW.Commit(ctx))
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(6, 7, 8)))
 					MustSucceed(indexW.Commit(ctx))
-					MustSucceed(indexW.Close())
+					Expect(indexW.Close()).To(Succeed())
 					Expect(
 						indexFS.List("."),
 					).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
 
-					unaryW, _ := MustSucceed2(db.OpenWriter(
+					unaryW := MustSucceed(db.OpenWriter(
 						ctx,
 						unary.WriterConfig{
-							Start:   1 * telem.SecondTS,
-							Subject: control.Subject{Key: "test"},
+							Start: 1 * telem.SecondTS,
 						},
 					))
 					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](1, 2, 3, 4, 5)))
@@ -2622,7 +2613,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					MustSucceed(unaryW.Commit(ctx))
 					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](6, 7, 8)))
 					MustSucceed(unaryW.Commit(ctx))
-					MustSucceed(unaryW.Close())
+					Expect(unaryW.Close()).To(Succeed())
 					// Assert that we've rolled over the correct number of files
 					Expect(
 						unaryFS.List("."),
@@ -2701,11 +2692,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					}))
 					db2.SetIndex(indexDB.Index())
 
-					indexW, _ := MustSucceed2(indexDB.OpenWriter(
+					indexW := MustSucceed(indexDB.OpenWriter(
 						ctx,
 						unary.WriterConfig{
-							Start:   1 * telem.SecondTS,
-							Subject: control.Subject{Key: "test"},
+							Start: 1 * telem.SecondTS,
 						},
 					),
 					)
@@ -2718,18 +2708,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(11)))
 					MustSucceed(indexW.Commit(ctx))
 
-					MustSucceed(indexW.Close())
+					Expect(indexW.Close()).To(Succeed())
 					// Assert that we've rolled over the correct number of files
 					Expect(
 						indexFS.List("."),
 					).To(HaveLen(6 /* meta, index, counter, and 3 data files*/))
 
 					// Write to the first data channel
-					unaryW, _ := MustSucceed2(db1.OpenWriter(
+					unaryW := MustSucceed(db1.OpenWriter(
 						ctx,
 						unary.WriterConfig{
-							Start:   1 * telem.SecondTS,
-							Subject: control.Subject{Key: "test"},
+							Start: 1 * telem.SecondTS,
 						},
 					),
 					)
@@ -2748,18 +2737,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					MustSucceed(unaryW.Write(telem.NewSeriesV[float32](11)))
 					MustSucceed(unaryW.Commit(ctx))
 
-					MustSucceed(unaryW.Close())
+					Expect(unaryW.Close()).To(Succeed())
 					// Assert that we've rolled over the correct number of files
 					Expect(
 						uFS1.List("."),
 					).To(HaveLen(5 /* meta, index, counter, and 2 data files*/))
 
 					// Write to the second data channel
-					unaryW, _ = MustSucceed2(db2.OpenWriter(
+					unaryW = MustSucceed(db2.OpenWriter(
 						ctx,
 						unary.WriterConfig{
-							Start:   1 * telem.SecondTS,
-							Subject: control.Subject{Key: "test"},
+							Start: 1 * telem.SecondTS,
 						},
 					),
 					)
@@ -2770,7 +2758,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					)
 					MustSucceed(unaryW.Commit(ctx))
-					MustSucceed(unaryW.Close())
+					Expect(unaryW.Close()).To(Succeed())
 					// Assert that we've rolled over the correct number of files
 					Expect(
 						uFS2.List("."),

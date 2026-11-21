@@ -62,6 +62,9 @@ const (
 	// ModeStreamOnly streams written frames and does not persist them. Re-exported
 	// from [writer.ModeStreamOnly].
 	ModeStreamOnly = writer.ModeStreamOnly
+	// AlwaysIndexPersistOnAutoCommit syncs every auto commit. Re-exported from
+	// [writer.AlwaysIndexPersistOnAutoCommit].
+	AlwaysIndexPersistOnAutoCommit = writer.AlwaysIndexPersistOnAutoCommit
 	// CommandEndDomain represents a call to Writer.EndDomain. Re-exported from
 	// [writer.CommandEndDomain].
 	CommandEndDomain = writer.CommandEndDomain

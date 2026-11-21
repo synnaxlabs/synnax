@@ -11,18 +11,40 @@ package testutil
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 )
 
-// nopFreeIndexResolver is registered on every provisioned node so distribution-layer
-// tests can write to free channels without a service layer. It resolves no indexes, so
-// free frames carry zero alignments; tests that assert on alignments register their own
-// resolver.
-type nopFreeIndexResolver struct{}
+// records holds the channels that a Node creates, so that distribution-layer tests can
+// write to free and virtual channels without a service layer. It is safe for concurrent
+// use.
+type records struct {
+	byKey map[channel.Key]channel.Channel
+	mu    sync.RWMutex
+}
 
-func (nopFreeIndexResolver) ResolveFreeIndexes(
-	context.Context, channel.Keys,
-) (map[channel.Key]channel.Key, error) {
-	return nil, nil
+func (r *records) add(channels []channel.Channel) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, ch := range channels {
+		r.byKey[ch.Key()] = ch
+	}
+}
+
+// Resolve implements writer.ChannelResolver.
+func (r *records) Resolve(
+	_ context.Context,
+	keys channel.Keys,
+) (map[channel.Key]writer.Facts, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	found := make(map[channel.Key]writer.Facts, len(keys))
+	for _, k := range keys {
+		if ch, ok := r.byKey[k]; ok {
+			found[k] = writer.FactsOf(ch)
+		}
+	}
+	return found, nil
 }

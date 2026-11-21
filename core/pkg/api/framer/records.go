@@ -132,6 +132,7 @@ func keepAllowed(
 		DataType:          series.DataType,
 		Alignment:         series.Alignment,
 		AlignmentMultiple: series.AlignmentMultiple,
+		Clock:             series.Clock,
 	}
 	variable := series.DataType.IsVariable()
 	for sample := range series.Samples() {

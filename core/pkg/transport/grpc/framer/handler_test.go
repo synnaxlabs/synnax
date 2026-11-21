@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -209,7 +210,10 @@ var _ = Describe("gRPC Framer Transport", func() {
 					Buffer:  []byte{0x01, 0x02},
 				},
 			)
-			Eventually(errs).Should(Receive(MatchError(io.ErrUnexpectedEOF)))
+			Eventually(errs).Should(Receive(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("remote sent a frame that ends early")),
+			)))
 		})
 
 		It("Should fail to receive an open command for a missing channel", func(
