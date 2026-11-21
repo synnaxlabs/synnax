@@ -738,15 +738,17 @@ Each phase is one PR. Phases 1 and 3 are about 2,000 hand-written lines, and the
 - **Phase 21: A view version.** The `channel` view type mints view v4 from v3, which
   `core/v0.62.0` shipped.
 - **Phase 27: Used by nothing.** Phase 21's "used by nothing" filter ships dark behind a
-  Console flag, since until Phase 26 fills the key lists, a channel that only a
-  calculation or an Arc reads looks unused. Phase 27 turns it on.
+  Console flag, since until Phase 26 fills the Arc's lists, a channel that only an Arc
+  reads looks unused. Phase 27 turns it on.
 - **Outside names**: An output that sends a channel's name, such as the Kafka key mode
   `channel_name`, sends the local name, as today. Sift channels take the local name, and
   a Sift flow takes the name stored in its config (RFC 0117 §4.9). Status details that
   hold channel keys stay untracked links.
-- **Phase 3: The whole calculation shape.** `reads` stays empty until Phase 26, and
-  nothing reads `primary` until RFC 0117 Phase 5. The `weak` and `direction` tags on its
-  links are live-only and arrive with Phase 1.
+- **Phase 3: The whole calculation shape.** Each compile of a calculation fills its
+  `reads` from Phase 3: a save and the graph's start compile, never the migration, which
+  parses no Arc. Phase 26 adds the Arc's lists. Nothing reads `primary` until RFC 0117
+  Phase 5. The `weak` and `direction` tags on its links are live-only and arrive with
+  Phase 1.
 - **Across RFCs**: Phases 3 and 25 land after RFC 0117 Phase 2. Phases 34 to 38 land
   after RFC 0117 Phase 6 and RFC 0118's alignment counter. Phase 39 lands after RFC 0117
   Phases 5, 6, and 7, and one minor after Phase 3 ships. RFC 0117 Phase 6 lifts the key
