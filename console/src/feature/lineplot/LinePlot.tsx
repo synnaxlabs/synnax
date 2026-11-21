@@ -466,6 +466,12 @@ const Internal = (): ReactElement => {
   const linePlotRef = useRef<Base.FrameRef | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
   const [zoomed, setZoomed] = useState<string | null>(null);
+  // A zoom to a range moves the view and clears the selection box. The stored selection
+  // goes too, as it would mark other times in the new view.
+  const handleZoomedChange = (zoomedKey: string | null) => {
+    setZoomed(zoomedKey);
+    dispatch(Session.LinePlot.setSelection({ key, box: box.ZERO }));
+  };
 
   const rangeProviderProps = {
     visible: vis.annotations.visible,
@@ -525,7 +531,7 @@ const Internal = (): ReactElement => {
           legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
           relativeDisabled={!FLAGS.compare}
-          onZoomedChange={setZoomed}
+          onZoomedChange={handleZoomedChange}
           hold={hold}
           onHold={handleHold}
           onContextMenu={handleContextMenu}
