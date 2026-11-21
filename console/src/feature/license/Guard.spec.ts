@@ -26,9 +26,9 @@ import {
   HANDOFF_CODE,
   renderGuard,
 } from "@/feature/license/testutil";
-import { License } from "@/platform/license";
 import { stubHub } from "@/platform/license/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { fakePickedFile, interceptFilePicker, UNLICENSED_STATUS } from "@/testutil";
 
@@ -166,7 +166,7 @@ describe("License.Guard", () => {
     fireEvent.click(screen.getByText("Activate on the portal"));
     expect(await screen.findByText("Failed to activate license")).toBeTruthy();
     expect(hub).toHaveBeenCalledWith(
-      License.HANDOFF_URL,
+      `${TEST_URL}/api/handoff`,
       expect.objectContaining({ headers: { authorization: `Bearer ${code}` } }),
     );
   });

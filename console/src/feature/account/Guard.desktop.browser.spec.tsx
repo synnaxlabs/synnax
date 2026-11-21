@@ -20,10 +20,11 @@ import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFailed, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import { License } from "@/platform/license";
 import { stubHub } from "@/platform/license/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
+import { Portal } from "@/platform/portal";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -206,9 +207,9 @@ describe("Account.Guard", () => {
     fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
+    expect(url.origin + url.pathname).toBe(`${TEST_URL}/desktop/login`);
     const { fingerprint } = await client.license.retrieve();
-    expect(url.searchParams.get("fp")).toBe(License.joinFingerprint(fingerprint));
+    expect(url.searchParams.get("fp")).toBe(Portal.joinFingerprint(fingerprint));
     expect(url.searchParams.get("name")).toBe("Synnax Desktop");
     expect(url.searchParams.get("state")).toBe(
       Session.Account.selectPending(store.getState()),
