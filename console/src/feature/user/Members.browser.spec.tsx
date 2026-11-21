@@ -224,7 +224,7 @@ describe("User.Members", () => {
     await openContextMenu(root.name);
     expect(await screen.findByText("Manage sign-in")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
-    const picker = within(line).getByRole("button", { name: /Owner/ });
+    const picker = await within(line).findByRole("button", { name: /Owner/ });
     expect(picker.getAttribute("aria-disabled")).toBe("true");
   });
 
