@@ -73,6 +73,7 @@ func holderReference[E gorp.Entry[string]](
 var _ = Describe("Policies", Ordered, func() {
 	var db *gorp.DB
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, policyChannel]{
