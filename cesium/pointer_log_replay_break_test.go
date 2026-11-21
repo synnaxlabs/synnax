@@ -166,7 +166,7 @@ var _ = Describe("Pointer log replay breaker", func() {
 		ctx SpecContext,
 	) {
 		first, second := workload(ctx), workload(ctx)
-		Expect(len(second)).To(Equal(len(first)))
+		Expect(second).To(HaveLen(len(first)))
 		for name, b := range first {
 			Expect(second).To(HaveKey(name))
 			Expect(bytes.Equal(second[name], b)).To(BeTrue(), "file %s differs", name)

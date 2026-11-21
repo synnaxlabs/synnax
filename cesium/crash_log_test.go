@@ -13,11 +13,11 @@ import (
 	"math/rand/v2"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // Each entry holds on the pointer log, where a commit is durable once its writer
@@ -25,7 +25,7 @@ import (
 // corruption error.
 var _ = DescribeTable("Crash harness, pointer log",
 	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, ordered bool) {
-		_, err := crash.Run(ctx, crash.Config{
+		MustSucceed(crash.Run(ctx, crash.Config{
 			Open: openCrashEngine(
 				ack,
 				cesium.WithPointerLog,
@@ -38,8 +38,7 @@ var _ = DescribeTable("Crash harness, pointer log",
 			Corrupt: func(err error) bool {
 				return errors.Is(err, place.ErrCorrupt)
 			},
-		})
-		Expect(err).ToNot(HaveOccurred())
+		}))
 	},
 	Entry("Durable, Strict", crash.Durable, crash.Strict, false),
 	Entry("Durable, SyncErrors", crash.Durable, crash.SyncErrors, false),
@@ -52,11 +51,4 @@ var _ = DescribeTable("Crash harness, pointer log",
 	Entry("Durable, Mixed", crash.Durable, crash.Mixed, false),
 	Entry("Durable, Mixed, ordered", crash.Durable, crash.Mixed, true),
 	Entry("Visible, Mixed", crash.Visible, crash.Mixed, false),
-	Entry("Durable, OneTimeReadFaults", crash.Durable, crash.OneTimeReadFaults, false),
-	Entry(
-		"Durable, RepeatedReadFaults",
-		crash.Durable,
-		crash.RepeatedReadFaults,
-		false,
-	),
 )

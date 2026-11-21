@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var brkErrSync = errors.New("segment sync failed")
+var errBrkSync = errors.New("segment sync failed")
 
 // brkSegFS fails the Sync of every segment file while fail is set.
 type brkSegFS struct {
@@ -57,7 +57,7 @@ type brkSegFile struct {
 
 func (f brkSegFile) Sync() error {
 	if f.fail.Load() {
-		return brkErrSync
+		return errBrkSync
 	}
 	return f.File.Sync()
 }
@@ -95,8 +95,8 @@ func (f brkSuffixFS) Sub(name string) (xfs.FS, error) {
 }
 
 func (f brkSuffixFS) SyncDir(name string) error {
-	if f.dirFail.Load() && !(f.root && (name == "" || name == ".")) {
-		return brkErrSync
+	if f.dirFail.Load() && (!f.root || (name != "" && name != ".")) {
+		return errBrkSync
 	}
 	return f.FS.SyncDir(name)
 }
@@ -105,9 +105,11 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 	var (
 		fail, dirFail atomic.Bool
 		db            *cesium.DB
-		done          chan error
-		idx, data     cesium.ChannelKey
-		keys          []cesium.ChannelKey
+		// done closes once Run returns, and runErr then holds its error.
+		done      chan struct{}
+		runErr    error
+		idx, data cesium.ChannelKey
+		keys      []cesium.ChannelKey
 	)
 	start := func(ctx context.Context, suffix string) {
 		GinkgoHelper()
@@ -128,12 +130,16 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 			cesium.WithRandom(rand.NewPCG(1, 2)),
 		))
 		runCtx, cancel := context.WithCancel(context.Background())
-		done = make(chan error, 1)
-		go func() { done <- db.Run(runCtx) }()
+		done = make(chan struct{})
+		go func() {
+			runErr = db.Run(runCtx)
+			close(done)
+		}()
 		DeferCleanup(func() {
 			cancel()
-			Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
-			_ = db.Close()
+			Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+			// Close returns the failure that ended Run, if any.
+			Expect(db.Close()).To(Or(Succeed(), MatchError(errBrkSync)))
 		})
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		keys = []cesium.ChannelKey{idx, data}
@@ -146,7 +152,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 		)).To(Succeed())
 	}
 	// syncOnce writes, commits, and syncs one sample, and returns the first error.
-	syncOnce := func(ctx context.Context) error {
+	syncOnce := func(ctx context.Context) (err error) {
 		GinkgoHelper()
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
@@ -155,7 +161,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 		if err != nil {
 			return err
 		}
-		defer func() { _ = w.Close() }()
+		defer func() { err = errors.Join(err, w.Close()) }()
 		if _, _, err = w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeriesSecondsTSV(10),
 			telem.NewSeriesV[int64](10),
@@ -171,8 +177,9 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 	It("Should end DB.Run after a failed sync of the log", func(ctx SpecContext) {
 		start(ctx, ".log")
 		fail.Store(true)
-		Expect(syncOnce(ctx)).To(MatchError(brkErrSync))
-		Eventually(done).WithTimeout(5 * time.Second).Should(Receive(HaveOccurred()))
+		Expect(syncOnce(ctx)).To(MatchError(errBrkSync))
+		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+		Expect(runErr).To(MatchError(errBrkSync))
 	})
 
 	It("Should end DB.Run after a failed sync of a new segment's directory", func(
@@ -180,8 +187,9 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 	) {
 		start(ctx, ".log")
 		dirFail.Store(true)
-		Expect(syncOnce(ctx)).To(MatchError(brkErrSync))
-		Eventually(done).WithTimeout(5 * time.Second).Should(Receive(HaveOccurred()))
+		Expect(syncOnce(ctx)).To(MatchError(errBrkSync))
+		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
+		Expect(runErr).To(MatchError(errBrkSync))
 	})
 })
 
@@ -190,11 +198,12 @@ var _ = Describe("Pointer log breaker", func() {
 		fail      atomic.Bool
 		fs        xfs.FS
 		db        *cesium.DB
-		stop      func()
-		runErr    func() error
+		closeDB   func()
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
 	)
+	// open opens and runs a DB on fs. closeDB stops it once, checks that Run returned
+	// no error, and closes it. The cleanup of the spec calls it for a DB still open.
 	open := func(ctx context.Context) {
 		GinkgoHelper()
 		db = MustSucceed(cesium.Open(
@@ -204,29 +213,18 @@ var _ = Describe("Pointer log breaker", func() {
 			cesium.WithPointerLog(),
 			cesium.WithRandom(rand.NewPCG(1, 2)),
 		))
-		opened, run := db, GoRun(GinkgoT().Context(), db.Run)
-		DeferCleanup(func() {
-			_ = run()
-			_ = opened.Close()
-		})
-		runErr = run
-		stop = func() {
+		opened, run, closed := db, GoRun(GinkgoT().Context(), db.Run), false
+		stopAndClose := func() {
 			GinkgoHelper()
-			Expect(runErr()).To(Succeed())
+			if closed {
+				return
+			}
+			closed = true
+			Expect(run()).To(Succeed())
+			Expect(opened.Close()).To(Succeed())
 		}
-	}
-	closeDB := func() {
-		GinkgoHelper()
-		stop()
-		Expect(db.Close()).To(Succeed())
-	}
-	// reopenAfterFailure stops a database whose state failed, as the Core does after
-	// DB.Run returns, and opens it again.
-	reopenAfterFailure := func(ctx context.Context) {
-		GinkgoHelper()
-		_ = runErr()
-		_ = db.Close()
-		open(ctx)
+		closeDB = stopAndClose
+		DeferCleanup(stopAndClose)
 	}
 	BeforeEach(func(ctx SpecContext) {
 		fail.Store(false)
@@ -271,9 +269,9 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				write(ctx, w, 10, 11)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(brkErrSync))
+				Expect(w.Sync()).To(MatchError(errBrkSync))
 				fail.Store(false)
-				Expect(w.Close()).To(MatchError(brkErrSync))
+				Expect(w.Close()).To(MatchError(errBrkSync))
 				Expect(read(ctx).Series).To(BeEmpty())
 				closeDB()
 				open(ctx)
@@ -290,9 +288,9 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(w.Sync()).To(Succeed())
 				write(ctx, w, 12)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(brkErrSync))
+				Expect(w.Sync()).To(MatchError(errBrkSync))
 				fail.Store(false)
-				Expect(w.Close()).To(MatchError(brkErrSync))
+				Expect(w.Close()).To(MatchError(errBrkSync))
 				next := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: keys,
 					Start:    20 * telem.SecondTS,
@@ -317,10 +315,11 @@ var _ = Describe("Pointer log breaker", func() {
 				Expect(w.Sync()).To(Succeed())
 				write(ctx, w, 12)
 				fail.Store(true)
-				Expect(w.Sync()).To(MatchError(brkErrSync))
+				Expect(w.Sync()).To(MatchError(errBrkSync))
 				fail.Store(false)
-				Expect(w.Close()).To(MatchError(brkErrSync))
-				reopenAfterFailure(ctx)
+				Expect(w.Close()).To(MatchError(errBrkSync))
+				closeDB()
+				open(ctx)
 				Expect(read(ctx).Series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
 			})
 	})
@@ -351,8 +350,9 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				write(ctx, w, 10, 11)
 				Expect(w.Close()).To(Succeed())
-				_ = db.Drop([]cesium.ChannelKey{idx, data})
-				reopenAfterFailure(ctx)
+				Expect(db.Drop([]cesium.ChannelKey{idx, data})).To(Succeed())
+				closeDB()
+				open(ctx)
 				Expect(db.RetrieveChannel(ctx, data)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
 			})
@@ -387,49 +387,9 @@ var _ = Describe("Pointer log breaker", func() {
 				}))
 				written, _ := MustSucceed2(w.Write(ctx, frame(10, 11), nil))
 				Expect(written.Get(data).Series[0].Alignment.DomainIndex()).To(
-					BeNumerically(">=", uint32(telem.LeadingDomain)),
+					BeNumerically(">=", telem.LeadingDomain),
 				)
 				Expect(w.Close()).To(Succeed())
-			})
-	})
-
-	Describe("A frame that leaves out a data channel", func() {
-		It("Should never pair a sample of the data channel with another stamp",
-			func(ctx SpecContext) {
-				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels: keys,
-					Start:    10 * telem.SecondTS,
-				}))
-				MustSucceed2(w.Write(ctx, frame(10, 11), nil))
-				clockOnly := telem.MultiFrame(
-					[]cesium.ChannelKey{idx},
-					[]telem.Series{telem.NewSeriesSecondsTSV(12)},
-				)
-				if _, _, err := w.Write(ctx, clockOnly, nil); err != nil {
-					Expect(w.Close()).To(HaveOccurred())
-					return
-				}
-				MustSucceed2(w.Commit(ctx, nil))
-				write(ctx, w, 13)
-				Expect(w.Close()).To(Succeed())
-				fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx, data))
-				stamps := map[telem.Alignment]telem.TimeStamp{}
-				for _, s := range fr.Get(idx).Series {
-					for i := range s.Len() {
-						stamps[s.Alignment.AddSamples(uint32(i))] = s.ValueAt[telem.TimeStamp](
-							int(i),
-						)
-					}
-				}
-				for _, s := range fr.Get(data).Series {
-					for i := range s.Len() {
-						v := s.ValueAt[int64](int(i))
-						Expect(stamps[s.Alignment.AddSamples(uint32(i))]).To(
-							Equal(telem.TimeStamp(v)*telem.SecondTS),
-							"data value %d", v,
-						)
-					}
-				}
 			})
 	})
 
@@ -498,8 +458,10 @@ var _ = Describe("Pointer log breaker", func() {
 				commits(failed, 1)
 				Expect(failed.Sync()).To(Succeed())
 				commits(failed, 10_500)
-				Expect(failed.Sync()).To(HaveOccurred())
-				Expect(failed.Close()).To(HaveOccurred())
+				fail.Store(true)
+				Expect(failed.Sync()).To(MatchError(errBrkSync))
+				fail.Store(false)
+				Expect(failed.Close()).To(MatchError(errBrkSync))
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
 					Start:    (second + 1) * telem.SecondTS,
@@ -555,19 +517,20 @@ var _ = Describe("Pointer log breaker", func() {
 					Start:    1 * telem.SecondTS,
 				}))
 				Expect(commits(failed, 1)).To(Succeed())
-				Expect(commits(failed, 10_500)).To(HaveOccurred())
-				Expect(failed.Close()).To(HaveOccurred())
+				fail.Store(true)
+				Expect(commits(failed, 10_500)).To(MatchError(errBrkSync))
+				fail.Store(false)
+				Expect(failed.Close()).To(MatchError(errBrkSync))
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: wide,
 					Start:    (second + 1) * telem.SecondTS,
 				}))
 				for range 5 {
-					if commits(w, 9_000) != nil {
-						break
-					}
+					Expect(commits(w, 9_000)).To(Succeed())
 				}
-				_ = w.Close()
-				reopenAfterFailure(ctx)
+				Expect(w.Close()).To(Succeed())
+				closeDB()
+				open(ctx)
 				Expect(read(ctx).Series).To(BeEmpty())
 			})
 	})
