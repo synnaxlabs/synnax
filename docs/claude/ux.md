@@ -904,9 +904,9 @@ says why in a sentence, then gives the raw error.
 ### Plot controls
 
 - The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
-  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
-  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
-  what the plot shows, such as the time mode.
+  tooltip, the range strip, the breaks toggle, measure, and hold. Each is state of the
+  window, never saved with the plot. A setting saved with the plot goes in the toolbar,
+  even when it changes what the plot shows, such as the time mode.
 
 ### Plot range select
 

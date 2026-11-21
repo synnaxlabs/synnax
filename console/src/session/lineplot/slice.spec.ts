@@ -315,6 +315,30 @@ describe("LinePlot Slice", () => {
       );
       expect(docOf()?.breaks.hidden).toBe(false);
     });
+
+    it("should reset the zoom and close the open breaks", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        store.dispatch(
+          LinePlot.storeBreaks({
+            key: KEY,
+            open: [5],
+            pan: { x: 0.2, y: 0 },
+            zoom: { width: 0.5, height: 1 },
+            selection: box.construct({ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 }),
+          }),
+        );
+      });
+      const before = docOf()?.viewport.renderTrigger ?? 0;
+      act(
+        () => void store.dispatch(LinePlot.setBreaksHidden({ key: KEY, hidden: true })),
+      );
+      const doc = docOf();
+      expect(doc?.viewport.renderTrigger).toBe(before + 1);
+      expect(doc?.viewport.zoom).toEqual(LinePlot.ZERO_STATE.viewport.zoom);
+      expect(doc?.breaks.open).toEqual([]);
+      expect(box.areaIsZero(doc?.selection.box ?? box.ZERO)).toBe(true);
+    });
   });
 
   describe("setRangeAnnotationsVisible", () => {

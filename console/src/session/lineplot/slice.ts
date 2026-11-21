@@ -179,6 +179,18 @@ export interface RemovePayload {
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
 const initializeDocument = Window.createDocumentInitializer(stateZ);
 
+// resetView moves the plot to its home view with every break closed. It bumps the
+// render trigger, so a mounted plot applies the view.
+const resetView = (state: State, viewport: Partial<ViewportState> = {}): void => {
+  state.viewport = {
+    ...deep.copy(ZERO_STATE.viewport),
+    ...viewport,
+    renderTrigger: state.viewport.renderTrigger + 1,
+  };
+  state.selection = deep.copy(ZERO_STATE.selection);
+  state.breaks.open = [];
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -187,13 +199,7 @@ export const { actions, reducer } = createSlice({
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
       (state, { payload }) => {
         const { key: _key, ...rest } = payload;
-        state.viewport = {
-          ...deep.copy(ZERO_STATE.viewport),
-          ...rest,
-          renderTrigger: state.viewport.renderTrigger + 1,
-        };
-        state.selection = deep.copy(ZERO_STATE.selection);
-        state.breaks.open = [];
+        resetView(state, rest);
       },
     ),
     storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
@@ -263,6 +269,8 @@ export const { actions, reducer } = createSlice({
     setBreaksHidden: withSelectedState<SetBreaksHiddenPayload, SliceState>(
       (state, { payload: { hidden } }) => {
         state.breaks.hidden = hidden;
+        // The breaks change the home view, so the zoom resets to show the whole plot.
+        resetView(state);
       },
     ),
     setHidden: withSelectedState<SetHiddenPayload, SliceState>(

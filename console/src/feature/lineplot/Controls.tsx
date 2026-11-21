@@ -27,10 +27,8 @@ const BreaksToggle = (): ReactElement => {
   const key = LinePlot.useKey();
   const breaksHidden = Session.LinePlot.useSelectBreaksHidden();
   const dispatch = Session.useDispatch();
-  // The breaks change the home view, so the zoom resets to show the whole plot.
   const handleChange = (shown: boolean): void => {
     dispatch(Session.LinePlot.setBreaksHidden({ key, hidden: !shown }));
-    dispatch(Session.LinePlot.setViewport({ key }));
   };
   return (
     <Button.Toggle
