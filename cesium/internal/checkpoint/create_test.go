@@ -49,10 +49,10 @@ var _ = Describe("Create", func() {
 	It("Should write every segment to head 1 when the sealed records do not pass the "+
 		"part size", func() {
 		s := withSealed(sealed(1, 10), sealed(2, 20))
-		MustSucceed(checkpoint.Create(fs, db, s, 1<<20))
+		MustSucceed(checkpoint.Create(fs, db, 1, s, 1<<20))
 		h, got := reopen()
 		Expect(h.Parts).To(BeEmpty())
-		Expect(h.Limits.Parts).To(Equal(uint64(1)))
+		Expect(h.Limits).To(Equal(s.Limits), "no part, so no part limit")
 		Expect(got.Channels).To(Equal(s.Channels))
 		Expect(partFiles()).To(BeEmpty())
 	})
@@ -63,7 +63,7 @@ var _ = Describe("Create", func() {
 			sealed(1, 10), sealed(2, 20), sealed(3, 30),
 			sealed(4, 40), sealed(5, 50), sealed(6, 60),
 		)
-		MustSucceed(checkpoint.Create(fs, db, s, 2*segOf))
+		MustSucceed(checkpoint.Create(fs, db, 1, s, 2*segOf))
 		h, head := MustSucceed2(checkpoint.Read(fs, 1))
 		Expect(h.Parts).To(HaveLen(3))
 		for i, p := range h.Parts {
@@ -84,7 +84,7 @@ var _ = Describe("Create", func() {
 		old := sealed(1, 10)
 		old.Version, old.File = 0, 7
 		s := withSealed(old, sealed(2, 20))
-		MustSucceed(checkpoint.Create(fs, db, s, 1))
+		MustSucceed(checkpoint.Create(fs, db, 1, s, 1))
 		_, got := reopen()
 		Expect(got.Channels[0].Segments[0].File).To(Equal(uint16(7)))
 		Expect(got.Channels).To(Equal(s.Channels))
@@ -93,7 +93,7 @@ var _ = Describe("Create", func() {
 	It("Should remove the part files that a cut-short create left", func() {
 		f := MustSucceed(fs.Open("0000000000000009.part", os.O_CREATE|os.O_RDWR))
 		Expect(f.Close()).To(Succeed())
-		MustSucceed(checkpoint.Create(fs, db, withSealed(sealed(1, 10)), 1<<20))
+		MustSucceed(checkpoint.Create(fs, db, 1, withSealed(sealed(1, 10)), 1<<20))
 		Expect(partFiles()).To(BeEmpty())
 	})
 })

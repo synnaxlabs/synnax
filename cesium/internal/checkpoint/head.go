@@ -104,13 +104,8 @@ type Part struct {
 // Name returns the file name of the head of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generation) }
 
-// Encode returns the bytes of the head of generation in database db that holds s. The
-// bytes depend on db, generation, and s alone.
-func Encode(db, generation uint64, s *state.Snapshot) []byte {
-	return encodeHead(db, generation, s, nil)
-}
-
-// encodeHead is Encode for a head that names parts.
+// encodeHead returns the bytes of the head of generation in database db that holds s
+// and names parts. The bytes depend on its arguments alone.
 func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
 	return headFormat.encode(db, body{
 		file:     generation,

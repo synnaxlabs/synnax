@@ -14,13 +14,18 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-// Create writes head 1 of database db, which holds s, to the root fs. When the sealed
-// segment records of s pass partSize bytes, they go to parts of about partSize bytes
-// each, which Create writes and syncs before the head, and the head holds the rest. A
-// partSize of zero is the default of Config.PartSize. Create first removes each part
-// file that a cut-short create left. It returns the index of the parts. The sync of the
-// header sector of the head is the commit point.
-func Create(fs xfs.FS, db uint64, s *state.Snapshot, partSize int) (*Index, error) {
+// Create writes the head of generation in database db, which holds s, to the root fs.
+// When the sealed segment records of s pass partSize bytes, they go to parts of about
+// partSize bytes each, which Create writes and syncs before the head, and the head
+// holds the rest. A partSize of zero is the default of Config.PartSize. Create first
+// removes each part file that a cut-short create left. It returns the index of the
+// parts. The sync of the header sector of the head is the commit point.
+func Create(
+	fs xfs.FS,
+	db, generation uint64,
+	s *state.Snapshot,
+	partSize int,
+) (*Index, error) {
 	if partSize == 0 {
 		partSize = defaultPartSize
 	}
@@ -34,7 +39,7 @@ func Create(fs xfs.FS, db uint64, s *state.Snapshot, partSize int) (*Index, erro
 	)
 	if f.sealedSize() > partSize {
 		for _, channels := range split(f.keep(true), partSize) {
-			p, err := writePart(fs, db, x.limit, 1, channels)
+			p, err := writePart(fs, db, x.limit, generation, channels)
 			if err != nil {
 				return nil, err
 			}
@@ -44,8 +49,18 @@ func Create(fs xfs.FS, db uint64, s *state.Snapshot, partSize int) (*Index, erro
 		f.part(f.sealedAt())
 	}
 	head := *s
-	head.Channels, head.Limits.Parts = f.keep(false), x.limit
-	return x, Write(fs, 1, encodeHead(db, 1, &head, parts))
+	head.Channels = f.keep(false)
+	if len(parts) > 0 {
+		head.Limits.Parts = x.limit
+	}
+	if _, err := writeFile(
+		fs,
+		Name(generation),
+		encodeHead(db, generation, &head, parts),
+	); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
 
 // removeParts removes each part file of the root fs, and syncs the root when it removed

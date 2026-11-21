@@ -11,17 +11,45 @@ package checkpoint_test
 
 import (
 	"encoding/binary"
+	"io"
+	"math"
+	"os"
 
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const (
 	db         = 0xD8D8
 	generation = 3
 )
+
+// encode returns the bytes of the head of generation in database dbID that holds s, as
+// Create writes it with no part.
+func encode(dbID, generation uint64, s *state.Snapshot) ([]byte, error) {
+	fs := xfs.NewMem()
+	if _, err := checkpoint.Create(fs, dbID, generation, s, math.MaxInt); err != nil {
+		return nil, err
+	}
+	f, err := fs.Open(checkpoint.Name(generation), os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(io.NewSectionReader(f, 0, math.MaxInt64))
+	return b, errors.Join(err, f.Close())
+}
+
+// mustEncode returns the bytes of the head of generation that holds s, as encode does.
+func mustEncode(generation uint64, s *state.Snapshot) []byte {
+	GinkgoHelper()
+	return MustSucceed(encode(db, generation, s))
+}
 
 // sample returns a snapshot of a clock with two segments, two data keys on it, one data
 // segment on another clock, and two intents. pointers sets how many pointers the open

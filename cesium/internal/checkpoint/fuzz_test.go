@@ -19,17 +19,25 @@ import (
 
 func addHeads(f *testing.F) {
 	f.Helper()
-	f.Add(checkpoint.Encode(db, generation, sample(2)))
-	f.Add(checkpoint.Encode(db, generation, &state.Snapshot{Sequence: 1}))
+	head := func(s *state.Snapshot) []byte {
+		f.Helper()
+		b, err := encode(db, generation, s)
+		if err != nil {
+			f.Fatal(err)
+		}
+		return b
+	}
+	f.Add(head(sample(2)))
+	f.Add(head(&state.Snapshot{Sequence: 1}))
 	for _, r := range headRefusals {
-		f.Add(reseal(r.mutate(checkpoint.Encode(db, generation, sample(2)))))
+		f.Add(reseal(r.mutate(head(sample(2)))))
 	}
 	for _, off := range []int{30, 4100, 4200} {
-		b := checkpoint.Encode(db, generation, sample(2))
+		b := head(sample(2))
 		b[off] ^= 1
 		f.Add(b)
 	}
-	b := checkpoint.Encode(db, generation, sample(2))
+	b := head(sample(2))
 	clear(b[:checkpoint.SectorSize])
 	f.Add(b)
 }
@@ -64,7 +72,10 @@ func roundTrip(t *testing.T, b []byte) {
 		return
 	}
 	checkOrder(t, s)
-	again := checkpoint.Encode(h.DB, h.Generation, s)
+	again, err := encode(h.DB, h.Generation, s)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(again) != len(b) ||
 		!bytes.Equal(again[:checkpoint.SectorSize], b[:checkpoint.SectorSize]) ||
 		!bytes.Equal(again[checkpoint.BodyStart:], b[checkpoint.BodyStart:]) {

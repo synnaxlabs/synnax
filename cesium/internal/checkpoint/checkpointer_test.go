@@ -136,8 +136,9 @@ var _ = Describe("Checkpointer", func() {
 					for _, g := range []uint64{1, 2, 3} {
 						Expect(log.Prepare(fs, g, logSize)).To(Succeed())
 					}
-					empty := checkpoint.Encode(db, 1, &state.Snapshot{Sequence: 1})
-					Expect(checkpoint.Write(fs, 1, empty)).To(Succeed())
+					MustSucceed(
+						checkpoint.Create(fs, db, 1, &state.Snapshot{Sequence: 1}, 0),
+					)
 					c.Head(2, sample(2))
 					Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
 					_, s := MustSucceed2(checkpoint.Read(fs, 2))
@@ -158,8 +159,9 @@ var _ = Describe("Checkpointer", func() {
 				for _, g := range []uint64{1, 2, 3} {
 					Expect(log.Prepare(fs, g, logSize)).To(Succeed())
 				}
-				empty := checkpoint.Encode(db, 1, &state.Snapshot{Sequence: 1})
-				Expect(checkpoint.Write(fs, 1, empty)).To(Succeed())
+				MustSucceed(
+					checkpoint.Create(fs, db, 1, &state.Snapshot{Sequence: 1}, 0),
+				)
 				leftover := MustSucceed(
 					fs.Open(checkpoint.Name(2), os.O_CREATE|os.O_RDWR),
 				)
@@ -199,9 +201,9 @@ var _ = Describe("Checkpointer", func() {
 			func() {
 				fs := makeFS()
 				Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-				Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
+				MustSucceed(checkpoint.Create(fs, db, 1, &state.Snapshot{
 					Limits: state.Limits{Segments: 1, Alignments: 1},
-				}))).To(Succeed())
+				}, 0))
 				var (
 					l     *log.Log
 					cp    *checkpoint.Checkpointer

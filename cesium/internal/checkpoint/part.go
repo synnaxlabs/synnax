@@ -46,7 +46,7 @@ func encodePart(db, id, generation uint64, channels []*state.Channel) ([]byte, P
 	return b, p
 }
 
-// writePart writes the part id of channels to the root fs, as Write does a head, and
+// writePart writes the part id of channels to the root fs, as writeFile does, and
 // returns the record of it that a head holds.
 func writePart(
 	fs xfs.FS,

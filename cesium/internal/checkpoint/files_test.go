@@ -10,6 +10,7 @@
 package checkpoint_test
 
 import (
+	"math"
 	"os"
 	"strconv"
 
@@ -39,14 +40,22 @@ var _ = Describe("Files", func() {
 				return MustSucceed(fs.Exists(name))
 			}
 
-			Describe("Write", func() {
+			Describe("Create", func() {
 				It(
 					"Should write the body, sync, sync the root, then commit the "+
 						"header "+
 						"sector",
 					func() {
-						b := checkpoint.Encode(db, generation, sample(2))
-						Expect(checkpoint.Write(fs, generation, b)).To(Succeed())
+						b := mustEncode(generation, sample(2))
+						MustSucceed(
+							checkpoint.Create(
+								fs,
+								db,
+								generation,
+								sample(2),
+								math.MaxInt,
+							),
+						)
 						Expect(fs.Ops()).To(Equal([]string{
 							"truncate " + name + " " + itoa(len(b)),
 							"write " + name + " 4096 " + itoa(len(b)-4096),
@@ -65,10 +74,15 @@ var _ = Describe("Files", func() {
 					"Should remove the head of a failed attempt and sync the root",
 					func(failSync int) {
 						fs.failSync = failSync
-						b := checkpoint.Encode(db, generation, sample(2))
 						Expect(
-							checkpoint.Write(fs, generation, b),
-						).To(MatchError(errSync))
+							checkpoint.Create(
+								fs,
+								db,
+								generation,
+								sample(2),
+								math.MaxInt,
+							),
+						).Error().To(MatchError(errSync))
 						Expect(exists(name)).To(BeFalse())
 						ops := fs.Ops()
 						Expect(ops[len(ops)-2:]).
@@ -88,10 +102,12 @@ var _ = Describe("Files", func() {
 				)
 
 				It("Should refuse a head that exists", func() {
-					b := checkpoint.Encode(db, generation, sample(2))
-					Expect(checkpoint.Write(fs, generation, b)).To(Succeed())
-					Expect(checkpoint.Write(fs, generation, b)).
-						To(MatchError(ContainSubstring("exists")))
+					MustSucceed(
+						checkpoint.Create(fs, db, generation, sample(2), math.MaxInt),
+					)
+					Expect(
+						checkpoint.Create(fs, db, generation, sample(2), math.MaxInt),
+					).Error().To(MatchError(ContainSubstring("exists")))
 					_, s := MustSucceed2(checkpoint.Read(fs, generation))
 					Expect(s.Channels).To(HaveLen(3))
 				})
@@ -100,8 +116,16 @@ var _ = Describe("Files", func() {
 			Describe("Read", func() {
 				var b []byte
 				BeforeEach(func() {
-					b = checkpoint.Encode(db, generation, sample(4000))
-					Expect(checkpoint.Write(fs, generation, b)).To(Succeed())
+					b = mustEncode(generation, sample(4000))
+					MustSucceed(
+						checkpoint.Create(
+							fs,
+							db,
+							generation,
+							sample(4000),
+							math.MaxInt,
+						),
+					)
 				})
 
 				DescribeTable(
@@ -206,8 +230,13 @@ var _ = Describe("Files", func() {
 				complete := func(gs ...uint64) {
 					GinkgoHelper()
 					for _, g := range gs {
-						b := checkpoint.Encode(db, g, &state.Snapshot{Sequence: 1})
-						Expect(checkpoint.Write(fs, g, b)).To(Succeed())
+						MustSucceed(checkpoint.Create(
+							fs,
+							db,
+							g,
+							&state.Snapshot{Sequence: 1},
+							math.MaxInt,
+						))
 					}
 				}
 

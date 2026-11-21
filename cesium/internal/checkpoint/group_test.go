@@ -31,10 +31,7 @@ var _ = Describe("Group commit", func() {
 		func() {
 			fs := xfs.NewMem()
 			Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-			Expect(
-				checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{})),
-			).
-				To(Succeed())
+			MustSucceed(checkpoint.Create(fs, db, 1, &state.Snapshot{}, 0))
 			var (
 				l     *log.Log
 				cp    *checkpoint.Checkpointer

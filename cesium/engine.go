@@ -174,7 +174,7 @@ func commit(o *options, r *recovery, snapshot *state.Snapshot) error {
 	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
 		return err
 	}
-	parts, err := checkpoint.Create(o.fs, r.db, snapshot, 0)
+	parts, err := checkpoint.Create(o.fs, r.db, 1, snapshot, 0)
 	if err != nil {
 		return err
 	}

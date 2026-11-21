@@ -25,18 +25,11 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Write writes head bytes b of generation, from Encode, to the root fs: it creates the
-// file, sets its size, writes and syncs the body, syncs the root, then writes and syncs
-// the header sector. That last sync is the commit point. On an error, Write removes the
-// file with no further sync of it, and syncs the root.
-func Write(fs xfs.FS, generation uint64, b []byte) error {
-	_, err := writeFile(fs, Name(generation), b)
-	return err
-}
-
-// writeFile writes the checkpoint file b to name in the root fs, as Write does a head.
-// On an error, it returns true when no file of the attempt is left: the create failed,
-// or the remove and the sync of the root after it succeeded.
+// writeFile writes the checkpoint file b to name in the root fs: it creates the file,
+// sets its size, writes and syncs the body, syncs the root, then writes and syncs the
+// header sector. That last sync is the commit point. On an error, it removes the file
+// with no further sync of it, syncs the root, and returns true when no file of the
+// attempt is left: the create failed, or the remove and the sync after it succeeded.
 func writeFile(fs xfs.FS, name string, b []byte) (gone bool, err error) {
 	f, err := fs.Open(name, os.O_CREATE|os.O_EXCL|os.O_RDWR)
 	if err != nil {
