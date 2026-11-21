@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label } from "@synnaxlabs/client";
+import { color, label } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { color, id } from "@synnaxlabs/x";
+import { color as xcolor, id } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { type FC, Profiler, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -47,7 +47,7 @@ describe("Tags", () => {
     await findByText(lbl.name);
     await waitFor(() =>
       expect(container.querySelector("svg")?.getAttribute("color")).toEqual(
-        color.cssString("#123456"),
+        xcolor.cssString("#123456"),
       ),
     );
   });
@@ -92,5 +92,54 @@ describe("Tags", () => {
     await findByText(renamed);
     expect(renders.held).toBeGreaterThan(before.held);
     expect(renders.other).toEqual(before.other);
+  });
+
+  it("should not re-render a tag when an unused named color changes", async () => {
+    const used = await client.colors.create({
+      name: `used-${id.create()}`,
+      light: "#123456",
+    });
+    const unused = await client.colors.create({
+      name: `unused-${id.create()}`,
+      light: "#654321",
+    });
+    const [fixed] = await createLabels();
+    const [named, control] = await client.labels.create([
+      { name: `named-${id.create()}`, color: { type: "named", key: used.key } },
+      { name: `control-${id.create()}`, color: { type: "named", key: unused.key } },
+    ]);
+    const renders = { fixed: 0, named: 0 };
+    const { findByText } = render(
+      <>
+        <Profiler id="fixed" onRender={() => renders.fixed++}>
+          <Label.Tags keys={[fixed.key]} />
+        </Profiler>
+        <Profiler id="named" onRender={() => renders.named++}>
+          <Label.Tags keys={[named.key]} />
+        </Profiler>
+        <Label.Tags keys={[control.key]} />
+      </>,
+      { wrapper },
+    );
+    const dotOf = async (name: string): Promise<string | null | undefined> =>
+      (await findByText(name))
+        .closest(".lyra-tag")
+        ?.querySelector("svg")
+        ?.getAttribute("color");
+    await waitFor(async () =>
+      expect(await dotOf(named.name)).toEqual(xcolor.cssString("#123456")),
+    );
+    await waitFor(async () =>
+      expect(await dotOf(control.name)).toEqual(xcolor.cssString("#654321")),
+    );
+    await findByText(fixed.name);
+    const before = { ...renders };
+    await client.colors.dispatch(unused.key, [
+      color.set({ path: ["light"], value: xcolor.construct("#abcdef") }),
+    ]);
+    await waitFor(async () =>
+      expect(await dotOf(control.name)).toEqual(xcolor.cssString("#abcdef")),
+    );
+    expect(renders).toEqual(before);
   });
 });

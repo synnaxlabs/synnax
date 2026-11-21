@@ -21,13 +21,13 @@ import {
   createScannedDevice,
   createVariableNode,
   dragNode,
-  preloadForms,
 } from "@/feature/opcua/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -41,7 +41,7 @@ import {
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(OPCUA.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.

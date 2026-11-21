@@ -14,11 +14,12 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
-import { createKafkaDevice, preloadForms } from "@/feature/kafka/testutil";
+import { createKafkaDevice } from "@/feature/kafka/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -27,7 +28,7 @@ import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(Kafka.Task.FORMS);
 
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
   const rendered = await renderTaskFormTab(

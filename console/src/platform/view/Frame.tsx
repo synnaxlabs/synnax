@@ -126,7 +126,7 @@ const Body = ({
       : { variant: "resource", resource: view.resourceID(key) };
   const select = (key: view.Key) => {
     // A user who may not change the panel keeps the view it stores.
-    if (!canChange) return;
+    if (canChange !== true) return;
     // A view open in another tab of the panel focuses that tab instead.
     openTab({ ...tabOf(key), key: tab });
     setSearchTerm("");
@@ -146,7 +146,8 @@ const Body = ({
     editable,
     staticViews: staticViewKeys,
     select,
-    openInNewTab: canChange ? openInNewTab : null,
+    selectPending: canChange == null,
+    openInNewTab: canChange === true ? openInNewTab : null,
     getInitialView,
   };
   const searchValue: SearchContextValue = { term: searchTerm, setTerm: setSearchTerm };
@@ -354,7 +355,12 @@ const Item = ({ itemKey, icon, onAnchorChange }: ItemProps): ReactElement | null
   if (item == null) return null;
   const { name } = item;
   return (
-    <Tabs.Tab ref={handleRef} itemKey={itemKey} onClickCapture={handleClickCapture}>
+    <Tabs.Tab
+      ref={handleRef}
+      itemKey={itemKey}
+      disabled={ctx.selectPending && itemKey !== ctx.selected}
+      onClickCapture={handleClickCapture}
+    >
       {item.static === true
         ? Icon.resolve(icon)
         : Appearance.renderIcon({
