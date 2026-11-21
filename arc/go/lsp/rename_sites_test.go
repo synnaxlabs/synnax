@@ -58,11 +58,9 @@ var _ = Describe("Rename sites", func() {
 			"'trig' -> {sensor: f()}\n"
 		OpenArcDocument(server, ctx, docURI, content)
 		result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: 5, Character: 9},
-			},
-			NewName: "PT 1",
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 5, Character: 9},
+			NewName:      "PT 1",
 		}))
 		Expect(result.Changes[docURI]).To(ConsistOf(protocol.TextEdit{
 			Range: protocol.Range{

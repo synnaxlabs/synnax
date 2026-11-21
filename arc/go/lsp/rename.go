@@ -275,20 +275,30 @@ func (s *Server) taken(
 }
 
 // channelSites returns the start of each token of content where a channel can be
-// named, in code points. block parses content as the body of a function.
+// named, in code points. block parses content as the body of a function. A source that
+// does not parse names no channel.
 func channelSites(content string, block bool, cfg parser.Config) set.Set[int] {
 	if !block {
-		tree, _ := parser.Parse(content, cfg)
+		tree, diags := parser.Parse(content, cfg)
+		if diags != nil {
+			return nil
+		}
 		return sitesOf(tree, 0)
 	}
-	tree, _ := parser.ParseBlock("{"+content+"}", cfg)
+	tree, diags := parser.ParseBlock("{"+content+"}", cfg)
+	if diags != nil {
+		return nil
+	}
 	return sitesOf(tree, 1)
 }
 
 // expressionSites returns the start of each token of the expression source where a
-// channel can be named, in code points.
+// channel can be named, in code points. A source that does not parse names no channel.
 func expressionSites(source string, cfg parser.Config) set.Set[int] {
-	tree, _ := parser.ParseExpression(source, cfg)
+	tree, diags := parser.ParseExpression(source, cfg)
+	if diags != nil {
+		return nil
+	}
 	return sitesOf(tree, 0)
 }
 

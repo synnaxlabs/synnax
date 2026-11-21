@@ -77,11 +77,9 @@ var _ = Describe("UTF-16 rename breaker", func() {
 	) []protocol.TextEdit {
 		GinkgoHelper()
 		result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: line, Character: char},
-			},
-			NewName: newName,
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: line, Character: char},
+			NewName:      newName,
 		}))
 		Expect(result).ToNot(BeNil())
 		return result.Changes[docURI]
@@ -144,10 +142,8 @@ var _ = Describe("UTF-16 rename breaker", func() {
 			standA := channel("Stand A", types.Chan(types.F64()), 20)
 			server, _ := open(ctx, content, standA)
 			params := &protocol.PrepareRenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-					Position:     protocol.Position{Line: 1, Character: 12},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				Position:     protocol.Position{Line: 1, Character: 12},
 			}
 			result := MustSucceed(server.PrepareRename(ctx, params))
 			// A client fills its rename box with the placeholder, or with the text of
@@ -172,10 +168,8 @@ var _ = Describe("UTF-16 rename breaker", func() {
 			server, _ := open(ctx, content, standA)
 			prepare := func(char uint32) protocol.PrepareRenameResult {
 				params := &protocol.PrepareRenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-						Position:     protocol.Position{Line: 1, Character: char},
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+					Position:     protocol.Position{Line: 1, Character: char},
 				}
 				return MustSucceed(server.PrepareRename(ctx, params))
 			}
@@ -193,11 +187,9 @@ var _ = Describe("UTF-16 rename breaker", func() {
 				"'trig' -> f()\n"
 			server, _ := open(ctx, content)
 			result, err := server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-					Position:     protocol.Position{Line: 1, Character: 5},
-				},
-				NewName: "sensor",
+				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				Position:     protocol.Position{Line: 1, Character: 5},
+				NewName:      "sensor",
 			})
 			// A refusal also keeps the program's meaning.
 			if err != nil {
