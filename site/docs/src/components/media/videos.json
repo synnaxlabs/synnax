@@ -9,6 +9,26 @@
     "width": 1920,
     "height": 1080
   },
+  "blog/labjack-software/connect": {
+    "version": "f3c04645a5e7",
+    "width": 1920,
+    "height": 1080
+  },
+  "blog/labjack-software/export": {
+    "version": "8d8dd8626453",
+    "width": 1920,
+    "height": 1080
+  },
+  "blog/labjack-software/plot": {
+    "version": "66268ee36ff6",
+    "width": 1920,
+    "height": 1080
+  },
+  "blog/labjack-software/read": {
+    "version": "ab580f0713f2",
+    "width": 1920,
+    "height": 1080
+  },
   "client/calculated-channels/create": {
     "version": "474a8e036bae",
     "width": 1920,

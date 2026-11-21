@@ -399,6 +399,12 @@ func sampleNumber(dt telem.DataType, sample []byte) number {
 	panic(fmt.Sprintf("json: %q does not hold numbers", dt))
 }
 
+// AppendFloat appends v to dst as a JSON number in the shortest form that round trips.
+// It returns an error wrapping validate.ErrValidation when v is NaN or infinite.
+func AppendFloat(dst []byte, v float64) ([]byte, error) {
+	return appendJSONNumber(dst, number{kind: floatNumber, f: v})
+}
+
 // appendJSONNumber appends n as a JSON number. A float takes the shortest form that
 // round trips, and integers stay exact.
 func appendJSONNumber(dst []byte, n number) ([]byte, error) {

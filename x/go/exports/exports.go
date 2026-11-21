@@ -42,11 +42,14 @@ type Config struct {
 	GOOS []string
 	// Base is the root of a checkout to compare with. When set, Check returns only
 	// the findings that the same module directories under Base lack, and the findings
-	// that Gated covers. Every module directory must then be relative.
+	// that Gated covers, less the ones that Pending names. Every module directory must
+	// then be relative.
 	Base string
 	// Gated are the modules and usages whose findings Check returns beside a base,
 	// new or not.
 	Gated []Gate
+	// Pending are the identifiers whose findings Check drops beside a base.
+	Pending []Pending
 }
 
 // Usage says which code uses the identifier of a finding: "unused" when no other
@@ -64,6 +67,84 @@ type Gate struct {
 	Module string `json:"module"`
 	// Usage is the usage of the findings.
 	Usage Usage `json:"usage"`
+}
+
+// Pending names an exported identifier whose first caller is in an open pull request,
+// so that the pull request that adds the identifier can merge first. The entry is stale
+// once no finding of its module matches it.
+type Pending struct {
+	// Module is a module directory as Config.Modules gives it.
+	Module string `json:"module"`
+	// Package is the import path of the package that declares the identifier.
+	Package string `json:"package"`
+	// Receiver is the name of the type that declares a method, and empty otherwise.
+	Receiver string `json:"receiver,omitempty"`
+	// Name is the identifier.
+	Name string `json:"name"`
+	// Caller is the URL of the pull request that adds the first caller.
+	Caller string `json:"caller"`
+}
+
+func (p Pending) names(f Finding) bool {
+	return f.Module == p.Module && f.Package == p.Package &&
+		f.Receiver == p.Receiver && f.Name == p.Name
+}
+
+// String formats the entry as "package.Name (caller URL)". A method's name carries
+// its receiver: "package.Type.Name".
+func (p Pending) String() string {
+	name := p.Name
+	if p.Receiver != "" {
+		name = p.Receiver + "." + name
+	}
+	return fmt.Sprintf("%s.%s (caller %s)", p.Package, name, p.Caller)
+}
+
+func validatePending(pending []Pending, known set.Set[string]) error {
+	for _, p := range pending {
+		if !known.Contains(p.Module) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"exports: pending module %s must be one of the modules or workspace",
+				p.Module,
+			)
+		}
+		if p.Package == "" || p.Name == "" || p.Caller == "" {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"exports: pending %s must name a package, a name, and a caller",
+				p,
+			)
+		}
+	}
+	return nil
+}
+
+// withoutPending returns failed less the findings that pending names. It returns
+// validate.ErrValidation when an entry of one of modules is stale against head.
+func withoutPending(
+	failed, head []Finding,
+	pending []Pending,
+	modules []string,
+) ([]Finding, error) {
+	checked := set.New(modules...)
+	var stale []string
+	for _, p := range pending {
+		if checked.Contains(p.Module) && !slices.ContainsFunc(head, p.names) {
+			stale = append(stale, p.String())
+		}
+	}
+	if len(stale) > 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"exports: no finding matches pending %s: its caller has landed or the "+
+				"identifier is gone, so delete the entry",
+			strings.Join(stale, ", "),
+		)
+	}
+	return slices.DeleteFunc(failed, func(f Finding) bool {
+		return slices.ContainsFunc(pending, func(p Pending) bool { return p.names(f) })
+	}), nil
 }
 
 // Finding is an exported identifier that no other package uses.
@@ -165,8 +246,10 @@ func module(modules []string, file string) (string, error) {
 //
 // Check skips generated files, test files, main packages, versions/vN packages, and
 // methods of unexported types. It returns validate.ErrValidation when cfg has no
-// modules, no GOOS values, an absolute module directory beside a base, or a gate of an
-// unknown usage or module, and an error when a package fails to load.
+// modules, no GOOS values, an absolute module directory beside a base, a gate of an
+// unknown usage or module, a pending entry of an unknown module or without a package,
+// name, or caller, or beside a base a stale pending entry of one of cfg.Modules. It
+// returns an error when a package fails to load.
 func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 	if len(cfg.Modules) == 0 {
 		return nil, errors.Wrap(
@@ -196,6 +279,9 @@ func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 				g.Module,
 			)
 		}
+	}
+	if err := validatePending(cfg.Pending, known); err != nil {
+		return nil, err
 	}
 	if cfg.Base == "" {
 		return check(ctx, cfg)
@@ -227,7 +313,8 @@ func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 			return nil, err
 		}
 	}
-	return failing(base, head, cfg.Gated), nil
+	failed := failing(base, head, cfg.Gated)
+	return withoutPending(failed, head, cfg.Pending, cfg.Modules)
 }
 
 // inBase returns the directories under base of the modules that base holds. A module

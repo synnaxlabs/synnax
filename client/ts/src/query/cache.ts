@@ -14,6 +14,7 @@ import {
   observe,
   type record,
   type state,
+  type TimeStamp,
 } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -59,6 +60,11 @@ export interface CacheParams {
    * Defaults to {@link DEFAULT_RECORD_CAP}.
    */
   recordCap?: number;
+  /**
+   * The clock that the teardown grace of answers and lists reads. Defaults to the
+   * system clock.
+   */
+  clock?: () => TimeStamp;
 }
 
 /** The most records a table holds by default. */
@@ -284,6 +290,7 @@ export class Cache {
       epoch: () => this.epochCount,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
+      clock: this.params.clock,
     };
   }
 

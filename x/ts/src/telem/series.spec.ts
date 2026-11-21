@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import vm from "node:vm";
+
 import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
@@ -127,6 +129,49 @@ describe("Series", () => {
       it(`should read ${JSON.stringify(value)} as data`, () => {
         expect(new Series(value).length).toEqual(length);
       });
+    });
+
+    describe("from a byte view", () => {
+      it("should read the bytes of a Uint8Array as samples of the data type", () => {
+        const bytes = new Uint8Array(new Float32Array([1.5, 2.5]).buffer);
+        const s = Series.z.parse({ data: bytes, dataType: "float32" });
+        expect(s.length).toEqual(2);
+        expect(Array.from(s)).toEqual([1.5, 2.5]);
+      });
+
+      it("should throw when the byte length is not a multiple of the density", () => {
+        expect(() =>
+          Series.z.parse({ data: new Uint8Array(7), dataType: "float32" }),
+        ).toThrow(RangeError);
+      });
+
+      it("should read only the bytes inside the view", () => {
+        const backing = new Uint8Array(12);
+        new DataView(backing.buffer).setFloat64(2, 3.25, true);
+        const s = Series.z.parse({
+          data: backing.subarray(2, 10),
+          dataType: "float64",
+        });
+        expect(s.length).toEqual(1);
+        expect(s.at(0)).toEqual(3.25);
+      });
+    });
+
+    it("should read an ArrayBuffer from another realm", () => {
+      const data: ArrayBuffer = vm.runInNewContext(
+        "new BigInt64Array([1n, 2n]).buffer",
+      );
+      const s = new Series({ data, dataType: DataType.INT64 });
+      expect(s.data).toBeInstanceOf(BigInt64Array);
+      expect(Array.from(s)).toEqual([1n, 2n]);
+    });
+
+    it("should convert the values of a typed array of another data type", () => {
+      const s = new Series({
+        data: new Int32Array([1, 2]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(Array.from(s)).toEqual([1, 2]);
     });
 
     it("should read a plain object as params", () => {
@@ -2607,6 +2652,15 @@ describe("MultiSeries", () => {
       const b = new Series(new Float32Array([4, 5, 6]));
       const multi = new MultiSeries([a, b]);
       expect(multi.at(10)).toBeUndefined();
+    });
+
+    it("should return undefined for a negative index past the start", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.at(-7)).toBeUndefined();
+      expect(multi.at(-12)).toBeUndefined();
+      expect(() => multi.at(-7, true)).toThrow();
     });
 
     it("should throw an error if the index is not found and required is true", () => {

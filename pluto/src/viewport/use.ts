@@ -35,7 +35,10 @@ export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 
 export interface UseRefValue {
   reset: () => void;
-  /** Moves the view to b without emitting a change, for a view set elsewhere. */
+  /**
+   * Moves the view to b without emitting a change, for a view set elsewhere. Clears the
+   * mask, as a pan does.
+   */
   sync: (b: box.Box) => void;
 }
 
@@ -162,10 +165,12 @@ export const use = ({
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(
-    () => setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial))),
-    [initial],
-  );
+  // A view that moves leaves the mask on other values, so the mask clears.
+  useEffect(() => {
+    const next = box.truncate(initial, calculateTruncPrecision(initial));
+    if (!box.equals(stateRef.current, next)) setMaskBox(box.ZERO);
+    setStateRef(() => next);
+  }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -282,7 +287,10 @@ export const use = ({
           cursor: xy.ZERO,
         });
       },
-      sync: (b) => setStateRef(b),
+      sync: (b) => {
+        setMaskBox(box.ZERO);
+        setStateRef(b);
+      },
     }),
     [onChange],
   );

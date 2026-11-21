@@ -69,13 +69,15 @@ export interface List<D extends Data, C> {
    */
   more: (n: number, options?: FetchOptions) => Promise<Window<D, C>>;
   /**
-   * Returns the window without touching the network, or undefined before a fetch or
-   * when a trigger does not cover the window.
+   * Returns the window without touching the network, or undefined before a fetch, when
+   * a trigger does not cover the window, or when the window's fetches stopped short of
+   * the list's limit.
    */
   getCached: () => Window<D, C> | undefined;
   /**
    * Subscribes to changes in the window. The window is maintained while a subscriber
-   * exists, and for a grace window after the last one leaves. Returns a destructor that
+   * exists, and for a grace window after the last one leaves. A window that stops short
+   * of the list's limit does not reach the handler. Returns a destructor that
    * unsubscribes.
    */
   onChange: (handler: WindowHandler<D, C>) => destructor.Destructor;
@@ -149,12 +151,15 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The window's keys, in list order. */
   keys: K[];
   end: C | null;
+  /** How many records the fetches of the window returned, up to its end. */
+  covered: number;
   fetched: boolean;
   /** The largest limit a reader asked for: Infinity for every match, 0 before any. */
   limit: number;
   /** The limit of the ranked fetch behind the window. */
   searchLimit?: number;
-  handlers: Set<WindowHandler<D, C>>;
+  /** The subscribers of the window, with the limit each one reads. */
+  handlers: Map<WindowHandler<D, C>, number | undefined>;
   /** The list handles of the window, by the limit they ask for. */
   lists: Map<number | undefined, List<D, C>>;
   /** Present exactly while the window is maintained. */
@@ -209,15 +214,18 @@ export class Lists<
   private readonly detachEpoch?: destructor.Destructor;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
+  private readonly clock: () => TimeStamp;
   private sweepTimer?: ReturnType<typeof setTimeout>;
 
   constructor(config: ListsConfig<Q, D, K, V, C, O>, hooks: SpaceHooks = {}) {
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.clock = hooks.clock ?? (() => TimeStamp.now());
     this.release = config.table.hold({
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
+      written: (key) => this.written(key),
     });
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // The fresh stream's own epoch refetches after a reset, not the reset itself.
@@ -246,7 +254,9 @@ export class Lists<
       more: async (n, options) => await this.more(entry, n, options),
       getCached: () => {
         const window = this.cachedOf(entry);
-        return window != null && this.triggersCover(entry) ? window : undefined;
+        return window != null && this.triggersCover(entry) && this.covers(entry, limit)
+          ? window
+          : undefined;
       },
       onChange: (handler) => this.subscribe(entry, limit, handler),
     }));
@@ -314,6 +324,17 @@ export class Lists<
     });
   }
 
+  /**
+   * Places a written key in each maintained window again. A fetch that the Core answers
+   * before it commits the write misses the key, and the commit can leave the record as
+   * it was, so no change reaches the window.
+   */
+  private written(key: K): void {
+    this.entries.forEach((entry) => {
+      if (entry.teardown != null) this.changed(entry, [key]);
+    });
+  }
+
   private ensure(query: Q): Entry<Q, K, D, V, C> {
     const hashed = hash(query);
     return map.getOrInsert(this.entries, hashed, () => {
@@ -326,9 +347,10 @@ export class Lists<
           serverComputed?.(query) === true,
         keys: [],
         end: null,
+        covered: 0,
         fetched: false,
         limit: 0,
-        handlers: new Set(),
+        handlers: new Map(),
         lists: new Map(),
         queue: Promise.resolve(),
         generation: 0,
@@ -421,6 +443,7 @@ export class Lists<
     entry.fetched = true;
     entry.stale = false;
     entry.end = this.endOf(entry, page.records, size);
+    entry.covered = page.records.length;
     if (ranked) {
       entry.searchLimit = size;
       entry.keys = page.records.map(({ key }) => key);
@@ -443,6 +466,7 @@ export class Lists<
     const page = await this.page(entry, { ...entry.query, after, limit: n }, options);
     if (page == null) return await this.replace(entry, options);
     entry.end = this.endOf(entry, page.records, n);
+    entry.covered += page.records.length;
     this.admitPage(entry, page);
     entry.limit = Math.max(entry.limit, entry.keys.length);
     this.deliver(entry);
@@ -572,8 +596,14 @@ export class Lists<
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
     if (entry.ingesting) return;
     const changes = entry.ranked ? events.filter(isChange) : events;
-    if (changes.length === 0) return;
-    const keys = changes.map(({ key }) => key);
+    if (changes.length > 0)
+      this.changed(
+        entry,
+        changes.map(({ key }) => key),
+      );
+  }
+
+  private changed(entry: Entry<Q, K, D, V, C>, keys: K[]): void {
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {
@@ -595,7 +625,7 @@ export class Lists<
     void startStreaming(this.hooks, (exc) => this.report(exc));
     // A refetch sizes the window to the largest limit a reader asked for.
     entry.limit = Math.max(entry.limit, limit ?? Infinity);
-    entry.handlers.add(handler);
+    entry.handlers.set(handler, limit);
     entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
     // A change in the grace window found no subscriber to refetch for.
@@ -604,7 +634,7 @@ export class Lists<
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
       if (this.grace.isZero) return this.teardown(entry);
-      entry.idleSince = TimeStamp.now();
+      entry.idleSince = this.clock();
       this.armSweep();
     };
   }
@@ -700,7 +730,7 @@ export class Lists<
 
   private sweep(): void {
     let idle = false;
-    const now = TimeStamp.now();
+    const now = this.clock();
     this.entries.forEach((entry) => {
       if (entry.idleSince == null) return;
       if (entry.handlers.size > 0) {
@@ -799,13 +829,25 @@ export class Lists<
     const window = this.cachedOf(entry);
     if (window === entry.delivered) return;
     entry.delivered = window;
-    entry.handlers.forEach((handler) => {
+    entry.handlers.forEach((limit, handler) => {
+      // A discarded window reaches every reader, and a short one waits for its fetch.
+      if (window != null && !this.covers(entry, limit)) return;
       try {
         handler(window);
       } catch (exc) {
         this.report(exc, `failed to notify ${this.config.name} list subscriber`);
       }
     });
+  }
+
+  /**
+   * Whether the window answers a reader of the limit: it holds every match, or its
+   * fetches reached the limit. A record that a change removes since stays counted.
+   */
+  private covers(entry: Entry<Q, K, D, V, C>, limit: number | undefined): boolean {
+    if (entry.end == null) return true;
+    if (limit == null) return false;
+    return Math.max(entry.covered, entry.keys.length) >= limit;
   }
 
   private report(
