@@ -35,6 +35,7 @@ import {
 interface Read {
   start: number;
   end?: number;
+  failure?: string;
 }
 
 /**
@@ -47,11 +48,17 @@ const reportLicenseReads = (client: Client): void => {
   vi.spyOn(client.license, "retrieve").mockImplementation(async () => {
     const read: Read = { start: performance.now() };
     reads.push(read);
-    try {
-      return await retrieve();
-    } finally {
-      read.end = performance.now();
-    }
+    const result = retrieve();
+    result.then(
+      () => {
+        read.end = performance.now();
+      },
+      (error: unknown) => {
+        read.end = performance.now();
+        read.failure = error instanceof Error ? error.message : typeof error;
+      },
+    );
+    return await result;
   });
   const begun = performance.now();
   onTestFailed(() => {
@@ -60,11 +67,13 @@ const reportLicenseReads = (client: Client): void => {
       reads.length === 0
         ? "none"
         : reads
-            .map(({ start, end }) =>
-              end == null
-                ? `at ${Math.round(start - begun)} ms, still waiting after ${Math.round(now - start)} ms`
-                : `at ${Math.round(start - begun)} ms, took ${Math.round(end - start)} ms`,
-            )
+            .map(({ start, end, failure }) => {
+              const at = `at ${Math.round(start - begun)} ms`;
+              if (end == null)
+                return `${at}, still waiting after ${Math.round(now - start)} ms`;
+              const took = `${at}, took ${Math.round(end - start)} ms`;
+              return failure == null ? took : `${took}, failed: ${failure}`;
+            })
             .join("; ");
     // A browser spec has no process to write to stderr through.
     console.error(`license reads: ${report}`);
