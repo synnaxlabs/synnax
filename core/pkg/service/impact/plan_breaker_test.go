@@ -215,6 +215,30 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		},
 	)
 
+	// D-225 length-prefixes each field. With no lengths, two holders whose keys shift a
+	// field boundary hash the same text with the same entry count.
+	It("Should give a new token when two status keys shift a field boundary", func(
+		ctx SpecContext,
+	) {
+		a := create(ctx, channel.Channel{})
+		b := create(ctx, channel.Channel{})
+		seam := string(impact.EffectCascade) + string(status.ResourceID("").Type)
+		id := uuid.New().String()
+		k1, k2 := "a"+id, "b"+id+seam+"c"+id
+		k1Shifted, k2Shifted := "a"+id+seam+"b"+id, "c"+id
+		setStatus(ctx, k1, a.Key())
+		setStatus(ctx, k2, b.Key())
+		before := plan(ctx, nil, a.Key(), b.Key())
+		Expect(before.Entries).To(HaveLen(2))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Status.NewWriter(tx).Delete(ctx, k1, k2)
+		})).To(Succeed())
+		setStatus(ctx, k1Shifted, a.Key())
+		setStatus(ctx, k2Shifted, b.Key())
+		after := plan(ctx, nil, a.Key(), b.Key())
+		Expect(after.Entries).To(HaveLen(2))
+		Expect(after.Token).ToNot(Equal(before.Token))
+	})
 	It(
 		"Should refuse a stale token when a holder appears on a hidden channel it deletes",
 		func(
