@@ -474,6 +474,15 @@ describe("viewport/use", () => {
       expect(box.right(h.result.current.maskBox)).toBeCloseTo(60);
     });
 
+    it("should end a select drag exactly at its bound", async () => {
+      // Rounds up past the bound to six places.
+      const upper = 0.6000006;
+      const h = setup({ selectBound: async () => ({ lower: 0, upper }) });
+      drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      await act(async () => {});
+      expect(box.right(lastEvent(h.onChange).box)).toBe(upper);
+    });
+
     it("should stop the mask at the bound during the drag", async () => {
       const { h, settle } = bounded();
       fireEvent.keyDown(document.body, { code: ALT });
