@@ -10,6 +10,8 @@
 package parser_test
 
 import (
+	"testing"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,18 @@ import (
 var _ = Describe("AST Utilities", func() {
 	parseExpr := func(code string) parser.IExpressionContext {
 		return MustSucceed(parser.ParseExpression(code))
+	}
+
+	// holdText stores the text of each token under t in the token, so a read of the
+	// text does not allocate.
+	var holdText func(t antlr.Tree)
+	holdText = func(t antlr.Tree) {
+		if term, ok := t.(antlr.TerminalNode); ok {
+			term.GetSymbol().SetText(term.GetText())
+		}
+		for i := range t.GetChildCount() {
+			holdText(t.GetChild(i))
+		}
 	}
 
 	Describe("SoleOperand", func() {
@@ -330,6 +344,21 @@ var _ = Describe("AST Utilities", func() {
 			Entry("literal", "42", "", ""),
 			Entry("negation", "-x", "", ""),
 		)
+
+		DescribeTable("Should allocate only what GetPrimaryExpression allocates",
+			func(code string) {
+				expr := parseExpr(code)
+				holdText(expr)
+				descent := testing.AllocsPerRun(100, func() {
+					parser.GetPrimaryExpression(expr)
+				})
+				Expect(testing.AllocsPerRun(100, func() {
+					parser.ExpressionName(expr)
+				})).To(Equal(descent))
+			},
+			Entry("bare name", "x"),
+			Entry("qualified name", "m.doubled"),
+		)
 	})
 
 	Describe("CollectNamedPrimaries", func() {
@@ -602,6 +631,18 @@ var _ = Describe("AST Utilities", func() {
 		It("Should return empty parts for a non-identifier primary", func() {
 			Expect(parser.PrimaryName(primaryOf("42"))).To(BeZero())
 		})
+
+		DescribeTable("Should not allocate for an unquoted name",
+			func(code string) {
+				primary := primaryOf(code)
+				holdText(primary)
+				Expect(testing.AllocsPerRun(100, func() {
+					parser.PrimaryName(primary)
+				})).To(BeZero())
+			},
+			Entry("bare name", "x"),
+			Entry("qualified name", "math.avg"),
+		)
 
 		It("Should join or blank the name to match the parts", func() {
 			Expect(parser.PrimaryName(primaryOf("x")).String()).To(Equal("x"))

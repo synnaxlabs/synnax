@@ -79,7 +79,7 @@ const LARGE_BYTES = LARGE_SAMPLES * DataType.FLOAT64.density.valueOf();
 const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
   key: 1,
   level: 10,
-  index: 3,
+  tile: 3,
   pointLimit: 100,
   aggregation: "min_max",
   ...overrides,
@@ -189,7 +189,7 @@ describe("tile", () => {
         const cached = reader
           .read(createSpec({ key: 1 }))
           .then(() => (resolved = true));
-        const fetched = reader.read(createSpec({ key: 2, index: 4 }));
+        const fetched = reader.read(createSpec({ key: 2, tile: 4 }));
         await sleep.sleep(TimeSpan.milliseconds(5));
         expect(resolved).toBe(true);
         await Promise.all([cached, fetched]);
@@ -214,8 +214,8 @@ describe("tile", () => {
       const { reader, calls } = createReader();
       const mid = tileRange(createSpec()).start.add(TimeSpan.milliseconds(512));
       await Promise.all([
-        reader.read(createSpec({ index: 3 })),
-        reader.read(createSpec({ index: 4 })),
+        reader.read(createSpec({ tile: 3 })),
+        reader.read(createSpec({ tile: 4 })),
         reader.read(createSpec({ level: 11 })),
         reader.read(createSpec({ pointLimit: 50 })),
         reader.read(createSpec({ aggregation: "average" })),
@@ -270,14 +270,14 @@ describe("tile", () => {
         { budget: Size.bytes(2.5 * LARGE_BYTES) },
         LARGE_SAMPLES,
       );
-      await reader.read(createSpec({ index: 1 }));
-      await reader.read(createSpec({ index: 2 }));
-      await reader.read(createSpec({ index: 1 }));
-      await reader.read(createSpec({ index: 3 }));
+      await reader.read(createSpec({ tile: 1 }));
+      await reader.read(createSpec({ tile: 2 }));
+      await reader.read(createSpec({ tile: 1 }));
+      await reader.read(createSpec({ tile: 3 }));
       expect(calls).toHaveLength(3);
-      await reader.read(createSpec({ index: 1 }));
+      await reader.read(createSpec({ tile: 1 }));
       expect(calls).toHaveLength(3);
-      await reader.read(createSpec({ index: 2 }));
+      await reader.read(createSpec({ tile: 2 }));
       expect(calls).toHaveLength(4);
       reader.close();
     });
@@ -287,16 +287,16 @@ describe("tile", () => {
         { budget: Size.bytes(1.5 * LARGE_BYTES) },
         LARGE_SAMPLES,
       );
-      const spec = createSpec({ index: 1 });
+      const spec = createSpec({ tile: 1 });
       await reader.read(spec);
       const tile = store.get(tileKey(spec))!;
       tile.pins++;
-      await reader.read(createSpec({ index: 2 }));
-      await reader.read(createSpec({ index: 1 }));
+      await reader.read(createSpec({ tile: 2 }));
+      await reader.read(createSpec({ tile: 1 }));
       expect(calls).toHaveLength(2);
       tile.pins--;
-      await reader.read(createSpec({ index: 3 }));
-      await reader.read(createSpec({ index: 1 }));
+      await reader.read(createSpec({ tile: 3 }));
+      await reader.read(createSpec({ tile: 1 }));
       expect(calls).toHaveLength(4);
       reader.close();
     });
@@ -306,14 +306,14 @@ describe("tile", () => {
         { budget: Size.bytes(3.5 * LARGE_BYTES) },
         LARGE_SAMPLES,
       );
-      await reader.read(createSpec({ key: 1, index: 1 }));
+      await reader.read(createSpec({ key: 1, tile: 1 }));
       await Promise.all([
-        reader.read(createSpec({ key: 1, index: 1 })),
-        reader.read(createSpec({ key: 2, index: 1 })),
+        reader.read(createSpec({ key: 1, tile: 1 })),
+        reader.read(createSpec({ key: 2, tile: 1 })),
       ]);
-      await reader.read(createSpec({ key: 1, index: 2 }));
+      await reader.read(createSpec({ key: 1, tile: 2 }));
       expect(calls).toHaveLength(3);
-      await reader.read(createSpec({ key: 1, index: 1 }));
+      await reader.read(createSpec({ key: 1, tile: 1 }));
       expect(calls).toHaveLength(3);
       reader.close();
     });
@@ -328,9 +328,9 @@ describe("tile", () => {
         },
       });
       await Promise.all(
-        Array.from({ length: 1000 }, (_, index) => reader.read(createSpec({ index }))),
+        Array.from({ length: 1000 }, (_, tile) => reader.read(createSpec({ tile }))),
       );
-      await reader.read(createSpec({ index: 0 }));
+      await reader.read(createSpec({ tile: 0 }));
       expect(fetches).toBe(1001);
       reader.close();
     });
@@ -379,17 +379,17 @@ describe("tile", () => {
             );
           },
         });
-        await reader.read(createSpec({ index: 1 }));
-        await reader.read(createSpec({ index: 2 }));
-        await reader.read(createSpec({ index: 1, key: 2 }));
+        await reader.read(createSpec({ tile: 1 }));
+        await reader.read(createSpec({ tile: 2 }));
+        await reader.read(createSpec({ tile: 1, key: 2 }));
         dataType = DataType.UINT8;
-        const changed = await reader.read(createSpec({ index: 3 }));
+        const changed = await reader.read(createSpec({ tile: 3 }));
         expect(changed.dataType.equals(DataType.UINT8)).toBe(true);
         expect(calls).toHaveLength(4);
-        const refetched = await reader.read(createSpec({ index: 1 }));
+        const refetched = await reader.read(createSpec({ tile: 1 }));
         expect(refetched.dataType.equals(DataType.UINT8)).toBe(true);
         expect(calls).toHaveLength(5);
-        const other = await reader.read(createSpec({ index: 1, key: 2 }));
+        const other = await reader.read(createSpec({ tile: 1, key: 2 }));
         expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
         expect(calls).toHaveLength(5);
         reader.close();
@@ -467,10 +467,10 @@ describe("tile", () => {
       const { reader } = createReader({
         readRemote: async () => await new Promise<framer.Frame>(() => {}),
       });
-      const queued = reader.read(createSpec({ index: 1 }));
+      const queued = reader.read(createSpec({ tile: 1 }));
       await sleep.sleep(TimeSpan.milliseconds(10));
       const inFlightRead = expect(queued).rejects.toThrow("tile reader is closed");
-      const batched = expect(reader.read(createSpec({ index: 2 }))).rejects.toThrow(
+      const batched = expect(reader.read(createSpec({ tile: 2 }))).rejects.toThrow(
         "tile reader is closed",
       );
       reader.close();

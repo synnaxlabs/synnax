@@ -710,10 +710,15 @@ func analyzeNamedPrimary(
 			context.VarRead{Var: resolved, Site: ctx.AST},
 		)
 	}
-	if !tracksChannelRead(resolved) {
-		return
+	if tracksChannelRead(resolved) {
+		recordChannelRead(ctx.Scope, resolved)
 	}
-	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+}
+
+// recordChannelRead records that the function that encloses scope reads the channel
+// resolved.
+func recordChannelRead(scope, resolved *symbol.Symbol) {
+	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 		panic(fnErr)
 	}
