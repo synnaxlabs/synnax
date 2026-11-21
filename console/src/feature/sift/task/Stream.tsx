@@ -17,7 +17,7 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Status as PStatus } from "@synnaxlabs/pluto";
+import { Calculation, Channel, Status as PStatus } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -43,9 +43,6 @@ const Properties = () => (
 const CHANNEL_QUERY: Channel.ListQuery = {
   where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
 };
-
-// The query keeps calculated channels, which the Core does not store.
-const isStored = (ch: channel.Channel): boolean => !ch.isCalculated;
 
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to send",
@@ -76,42 +73,46 @@ const Progress = () => {
   );
 };
 
-const Form: FC = () => (
-  <PForm.Sections className={CSS.B("sift-stream")}>
-    <PForm.Section title="Data">
-      <PForm.Field path={path.config.channels} label="Channels" required>
-        {({ value, onChange, preview }) => (
-          <Channel.SelectMultiple
-            value={value}
-            onChange={onChange}
-            preview={preview}
-            query={CHANNEL_QUERY}
-            filter={isStored}
-            triggerProps={CHANNEL_TRIGGER_PROPS}
-            full="x"
-          />
-        )}
-      </PForm.Field>
-    </PForm.Section>
-    <PForm.Section title="Runs">
-      <PForm.Field
-        path={path.config.labels}
-        label="Labels"
-        helpText="A range with one of these labels becomes a Sift run."
-      >
-        {({ value, onChange, preview }) => (
-          <Label.SelectMultiple
-            value={value}
-            onChange={onChange}
-            preview={preview}
-            full="x"
-          />
-        )}
-      </PForm.Field>
-    </PForm.Section>
-    <Progress />
-  </PForm.Sections>
-);
+const Form: FC = () => {
+  // The query keeps calculated channels, which the Core does not store.
+  const isStored = Calculation.useNonOutputFilter();
+  return (
+    <PForm.Sections className={CSS.B("sift-stream")}>
+      <PForm.Section title="Data">
+        <PForm.Field path={path.config.channels} label="Channels" required>
+          {({ value, onChange, preview }) => (
+            <Channel.SelectMultiple
+              value={value}
+              onChange={onChange}
+              preview={preview}
+              query={CHANNEL_QUERY}
+              filter={isStored}
+              triggerProps={CHANNEL_TRIGGER_PROPS}
+              full="x"
+            />
+          )}
+        </PForm.Field>
+      </PForm.Section>
+      <PForm.Section title="Runs">
+        <PForm.Field
+          path={path.config.labels}
+          label="Labels"
+          helpText="A range with one of these labels becomes a Sift run."
+        >
+          {({ value, onChange, preview }) => (
+            <Label.SelectMultiple
+              value={value}
+              onChange={onChange}
+              preview={preview}
+              full="x"
+            />
+          )}
+        </PForm.Field>
+      </PForm.Section>
+      <Progress />
+    </PForm.Sections>
+  );
+};
 
 const onConfigure: Task.OnConfigure<StreamSchemas["config"]> = async (
   client: Client,

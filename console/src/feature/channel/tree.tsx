@@ -9,7 +9,7 @@
 
 import "@/feature/channel/tree.css";
 
-import { channel, isCalculated, query, status, type Synnax } from "@synnaxlabs/client";
+import { channel, query, status, type Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -20,6 +20,7 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import {
   Access,
+  Calculation,
   Channel as PChannel,
   Schematic as PSchematic,
 } from "@synnaxlabs/pluto";
@@ -110,8 +111,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
   const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
-  const isCalc =
-    singleResource && firstChannel != null && isCalculated(firstChannel.payload);
+  const isCalc = Calculation.useIsOutput(firstChannel?.key ?? 0) && singleResource;
   const renamable = firstChannel?.internal !== true;
 
   return (
@@ -155,7 +155,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key) };
-  const { data: chStatus } = PChannel.useResultStatus(params);
+  const { data: chStatus } = Calculation.useResultStatus({ channel: params.key });
   const kind = PChannel.useKind(params);
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);

@@ -60,6 +60,28 @@ describe("queries", () => {
     });
   });
 
+  describe("useNonOutputFilter", () => {
+    it("should keep only the channels that no calculation writes, once loaded", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      const plain = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const output = await client.channels.retrieve(calc.output);
+      const { result } = renderHook(() => Calculation.useNonOutputFilter(), {
+        wrapper,
+      });
+      // A channel whose answer has not loaded stays out.
+      expect(result.current(plain)).toBe(false);
+      await waitFor(() => expect(result.current(plain)).toBe(true));
+      await waitFor(() => expect(result.current(output)).toBe(false));
+    });
+  });
+
   describe("useResultStatus", () => {
     const setStatus = async (
       calc: calculation.Calculation,

@@ -28,7 +28,7 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Device, Synnax } from "@synnaxlabs/pluto";
+import { Calculation, Channel, Device, Synnax } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange, deep } from "@synnaxlabs/x";
 import { useState } from "react";
 import { z } from "zod";
@@ -70,9 +70,6 @@ export interface UploadModalParams {
 const CHANNEL_QUERY: Channel.ListQuery = {
   where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
 };
-
-// The query keeps calculated channels, which the Core does not store.
-const isStored = (ch: channel.Channel): boolean => !ch.isCalculated;
 
 const CHANNEL_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to upload",
@@ -155,6 +152,8 @@ const UploadForm = ({ name, source, close, device }: UploadFormProps) => {
     values: { rack: 0, config: { device, asset: "", channels: [] } },
   });
   const [rejection, setRejection] = useState<status.Status | null>(null);
+  // The query keeps calculated channels, which the Core does not store.
+  const isStored = Calculation.useNonOutputFilter();
   return (
     <Form.Form<typeof formSchema> {...form}>
       <Modal.Frame className={CSS.B("sift-upload")}>
