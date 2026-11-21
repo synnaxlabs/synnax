@@ -59,10 +59,22 @@ func (p Policies) of(id gorp.ReferenceID) (Policy, bool) {
 	return policy, ok
 }
 
-// check returns an error naming each reference of refs that p leaves out, and each that
-// p retargets but that cannot retarget.
+// check returns an error naming each row of Links in a table that KeptTables keeps,
+// each reference of refs that p leaves out, and each that p retargets but that cannot
+// retarget.
 func (p Policies) check(refs []gorp.ReferenceInfo) error {
-	var unmapped, fixed []string
+	var kept, unmapped, fixed []string
+	for id := range p.Links {
+		if p.KeptTables != nil && p.KeptTables(id.Table) {
+			kept = append(kept, referenceText(id))
+		}
+	}
+	if len(kept) > 0 {
+		return errors.Newf(
+			"[impact] - rows for %s, whose tables keep every link",
+			sorted(kept),
+		)
+	}
 	for _, r := range refs {
 		policy, ok := p.of(r.ID)
 		if !ok {

@@ -142,6 +142,16 @@ var _ = Describe("Policies", Ordered, func() {
 		})).To(MatchError("[impact] - keeper.channel cannot retarget"))
 	})
 
+	It("Should fail on a row for a reference in a table that keeps every link", func() {
+		Expect(open(map[gorp.ReferenceID]impact.Policy{
+			display:                                 impact.PolicyRetarget,
+			keeper:                                  impact.PolicyKeep,
+			{Table: "read_config", Name: "channel"}: impact.PolicyKeep,
+		})).To(MatchError(
+			"[impact] - rows for read_config.channel, whose tables keep every link",
+		))
+	})
+
 	It("Should retarget only the links that it maps to a retarget", func() {
 		policies := impact.Policies{Links: map[gorp.ReferenceID]impact.Policy{
 			display: impact.PolicyRetarget,
