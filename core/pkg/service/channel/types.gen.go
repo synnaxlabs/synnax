@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a node
@@ -86,6 +87,28 @@ type Operation struct {
 func (o Operation) Validate() error {
 	v := validate.New("Operation")
 	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
+	return v.Error()
+}
+
+// Created is a channel that a create action carries, with the expression and operations
+// of the calculation that writes it for clients that read them from the channel.
+type Created struct {
+	Channel
+	// Expression is the expression of the calculation that writes the channel, or empty
+	// when none writes it.
+	Expression string `json:"expression" msgpack:"expression"`
+	// Operations are the operations of the calculation that writes the channel.
+	Operations []Operation `json:"operations" msgpack:"operations"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Created) Validate() error {
+	v := validate.New("Created")
+	v.Exec(c.Channel.Validate)
+	for i := range c.Operations {
+		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 

@@ -92,6 +92,10 @@ func (w Writer) CreateOutput(
 			"a calculation that makes its output names none",
 		), "output")
 	}
+	// The fill reads the operations before Create validates them.
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
 	output := channel.Channel{
 		Name:        name,
 		Virtual:     true,
@@ -111,7 +115,12 @@ func (w Writer) CreateOutput(
 	created := []channel.Channel{output}
 	if err = w.channels.NewWriter(w.tx).
 		WithDispatchKey(w.dispatchKey).
-		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
+		CreateMany(
+			ctx,
+			&created,
+			channel.FreeIndex(),
+			channel.WithFill(FillOf(*c)),
+		); err != nil {
 		if b, ok := errors.AsType[channel.BatchError](err); ok {
 			err = b.Err
 		}

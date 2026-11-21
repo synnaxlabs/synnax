@@ -58,6 +58,9 @@ type createOptions struct {
 	// builtIn is true when Declare creates the channels, which the channel limit does
 	// not count.
 	builtIn bool
+	// fill is the fill of each channel that the call is given, when a calculation in
+	// flight writes it.
+	fill *Fill
 }
 
 // limited reports whether the channel limit counts ch.
@@ -77,6 +80,12 @@ func FreeIndex() CreateOption {
 func needsFreeIndex(ch Channel, opts createOptions) bool {
 	return ch.LocalIndex == 0 && opts.freeIndex && ch.Virtual &&
 		ch.Leaseholder == node.KeyFree
+}
+
+// WithFill returns a CreateOption that gives the create action of each channel that the
+// call is given the fill of the calculation in flight that writes it.
+func WithFill(fill Fill) CreateOption {
+	return func(o *createOptions) { o.fill = &fill }
 }
 
 // RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
@@ -380,6 +389,7 @@ func (w Writer) create(
 	opts createOptions,
 ) error {
 	channels := *_channels
+	given := len(channels)
 	if err := w.validateCreate(ctx, channels, opts); err != nil {
 		return err
 	}
@@ -416,7 +426,38 @@ func (w Writer) create(
 		}
 	}
 	*_channels = channels
-	return w.attachCreates(ctx, lo.Uniq(written))
+	fills, err := w.fills(ctx, channels[:given], linked, opts)
+	if err != nil {
+		return err
+	}
+	return w.attachCreates(ctx, lo.Uniq(written), fills)
+}
+
+// fills returns the fill of each given channel from opts, and of each linked channel
+// that a stored calculation writes.
+func (w Writer) fills(
+	ctx context.Context,
+	given []Channel,
+	linked Keys,
+	opts createOptions,
+) (map[Key]Fill, error) {
+	var fills map[Key]Fill
+	if len(linked) > 0 && w.svc.cfg.Fills != nil {
+		var err error
+		if fills, err = w.svc.cfg.Fills(ctx, w.tx, linked...); err != nil {
+			return nil, err
+		}
+	}
+	if opts.fill == nil {
+		return fills, nil
+	}
+	if fills == nil {
+		fills = make(map[Key]Fill, len(given))
+	}
+	for _, ch := range given {
+		fills[ch.Key()] = *opts.fill
+	}
+	return fills, nil
 }
 
 // validateCreate validates each channel, its group, and the names of channels.
@@ -653,8 +694,13 @@ func sameGroup(a, b *group.Key) bool {
 	return *a == *b
 }
 
-// attachCreates attaches a create action that holds the stored channel for each key.
-func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
+// attachCreates attaches a create action that holds the stored channel for each key,
+// with its fill.
+func (w Writer) attachCreates(
+	ctx context.Context,
+	keys Keys,
+	fills map[Key]Fill,
+) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -666,7 +712,14 @@ func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 		return err
 	}
 	for _, c := range stored {
-		w.dispatcher.Attach(w.tx, c.Key(), NewCreateAction(CreatePayload{Channel: c}))
+		fill := fills[c.Key()]
+		w.dispatcher.Attach(w.tx, c.Key(), NewCreateAction(CreatePayload{
+			Channel: Created{
+				Channel:    c,
+				Expression: fill.Expression,
+				Operations: fill.Operations,
+			},
+		}))
 	}
 	return nil
 }

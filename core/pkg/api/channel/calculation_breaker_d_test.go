@@ -157,8 +157,6 @@ var _ = Describe("Old API breaker d", func() {
 	Describe("Broadcasts", func() {
 		var rec *Recorder[channel.Key, channel.Action]
 		BeforeEach(func() {
-			Skip("D-211: the founder rules whether channel broadcasts keep " +
-				"expression and operations for one minor")
 			rec = &Recorder[channel.Key, channel.Action]{}
 			DeferCleanup(channelSvc.Actions().OnChange(rec.Record))
 		})
@@ -178,19 +176,20 @@ var _ = Describe("Old API breaker d", func() {
 			input := createChannel(ctx, telem.Float32T)
 			req := calculated(input)
 			ch := create(ctx, req)
-			var created *channel.Channel
+			var created *channel.Created
 			for _, a := range actionsOn(ch.Key, "") {
 				if a.Create != nil {
 					created = &a.Create.Channel
 				}
 			}
 			Expect(created).ToNot(BeNil())
-			// Once D-211 rules for the broadcasts, the create carries req.Expression.
+			Expect(created.Expression).To(Equal(req.Expression))
 		})
 
 		It("Should broadcast an old API set of the expression on the channel", func(
 			ctx SpecContext,
 		) {
+			Skip("D-250: channel broadcasts fill only the create")
 			input := createChannel(ctx, telem.Float32T)
 			ch := create(ctx, calculated(input))
 			expression := fmt.Sprintf("return %s * 3", input.Name)
