@@ -40,3 +40,7 @@ configure({
     return error;
   },
 });
+
+// The Lyra testutil imports Testing Library, so it also loads after setupBrowser.
+const { preloadTimeLanguage } = await import("@synnaxlabs/lyra/testutil");
+preloadTimeLanguage();
