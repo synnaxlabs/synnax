@@ -107,7 +107,9 @@ func addLive(
 	r checkpoint.Records,
 	first, last telem.TimeStamp,
 ) {
-	for i, seg := range r.Segments {
+	var buf [16]int
+	for _, i := range r.Reaching(first, last, buf[:0]) {
+		seg := r.Segments[i]
 		if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) &&
 			reaches(seg.Pointers, first, last) {
 			pre.Segments = append(pre.Segments, seg)

@@ -95,6 +95,44 @@ var _ = Describe("Part cache", func() {
 		Expect(MustSucceed(cache.Records(h.Parts[0], 99)).Segments).To(BeEmpty())
 	})
 
+	It("Should find every record that reaches a range, out of order of identity",
+		func() {
+			// Backfills leave stamps out of the order of identity, and segment 2, the
+			// lowest, spans two pointers far apart.
+			stamps := []telem.TimeStamp{50, 10, 90, 30, 70, 20, 60}
+			ch := &state.Channel{Key: 5}
+			for i, stamp := range stamps {
+				ch.Segments = append(ch.Segments, sealed(uint64(i+1), stamp))
+			}
+			wide := &ch.Segments[1]
+			wide.Pointers = append(wide.Pointers, state.Pointer{
+				First: 200, Last: 210, Alignment: telem.NewAlignment(2, 1),
+				Offset: 8, Length: 8, Samples: 1,
+			})
+			wide.Length = 16
+			s := &state.Snapshot{
+				Channels: []*state.Channel{ch},
+				Limits:   state.Limits{Segments: 8, Alignments: 8},
+			}
+			h := switchTo(2, s)
+			r := MustSucceed(checkpoint.NewCache(fs, db, 64<<20).Records(h.Parts[0], 5))
+			for first := telem.TimeStamp(0); first <= 220; first += 5 {
+				for _, last := range []telem.TimeStamp{first, first + 15, first + 100} {
+					var want []int
+					for i, seg := range r.Segments {
+						for _, ptr := range seg.Pointers {
+							if ptr.First <= last && first <= ptr.Last {
+								want = append(want, i)
+								break
+							}
+						}
+					}
+					Expect(r.Reaching(first, last, nil)).To(ContainElements(want),
+						"range %d to %d", first, last)
+				}
+			}
+		})
+
 	It("Should give the same records from the cache after the file is gone", func() {
 		s := wide(3, 2)
 		h := switchTo(2, s)

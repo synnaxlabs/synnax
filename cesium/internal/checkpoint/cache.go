@@ -10,15 +10,18 @@
 package checkpoint
 
 import (
+	"cmp"
 	"encoding/binary"
 	"io"
 	"os"
 	"slices"
+	"sort"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // defaultCacheSize is the budget of a part cache that a Config leaves out.
@@ -31,6 +34,60 @@ type Records struct {
 	First int
 	// Segments are the records, in rising order of identity.
 	Segments []state.Segment
+	// order holds the indexes of the records in rising order of their lowest stamp, and
+	// reach the highest stamp of the records up to each place in order.
+	order []int
+	reach []telem.TimeStamp
+}
+
+// Reaching appends to buf the index of each record whose stamps may reach [first,
+// last], and returns buf. A record it leaves out has no pointer in the range.
+func (r Records) Reaching(first, last telem.TimeStamp, buf []int) []int {
+	k := sort.Search(len(r.order), func(i int) bool {
+		return lowest(r.Segments[r.order[i]]) > last
+	})
+	for i := k - 1; i >= 0 && r.reach[i] >= first; i-- {
+		buf = append(buf, r.order[i])
+	}
+	return buf
+}
+
+// index sets the order and reach of r.
+func (r *Records) index() {
+	r.order = make([]int, 0, len(r.Segments))
+	for i, seg := range r.Segments {
+		if len(seg.Pointers) > 0 {
+			r.order = append(r.order, i)
+		}
+	}
+	slices.SortFunc(r.order, func(a, b int) int {
+		return cmp.Compare(lowest(r.Segments[a]), lowest(r.Segments[b]))
+	})
+	r.reach = make([]telem.TimeStamp, len(r.order))
+	for i, j := range r.order {
+		r.reach[i] = highest(r.Segments[j])
+		if i > 0 {
+			r.reach[i] = max(r.reach[i], r.reach[i-1])
+		}
+	}
+}
+
+// lowest returns the lowest first stamp of the pointers of seg, which has one or more.
+func lowest(seg state.Segment) telem.TimeStamp {
+	lo := seg.Pointers[0].First
+	for _, p := range seg.Pointers[1:] {
+		lo = min(lo, p.First)
+	}
+	return lo
+}
+
+// highest returns the highest last stamp of the pointers of seg, which has one or more.
+func highest(seg state.Segment) telem.TimeStamp {
+	hi := seg.Pointers[0].Last
+	for _, p := range seg.Pointers[1:] {
+		hi = max(hi, p.Last)
+	}
+	return hi
 }
 
 // Cache holds what readers load of parts, up to a byte budget: the layout of each part
@@ -322,6 +379,7 @@ func (c *Cache) loadRecords(p Part, l *partLayout, key uint32) (r Records, err e
 			r.Segments[j].Pointers = ptrs[a:b:b]
 		}
 	}
+	r.index()
 	return r, nil
 }
 
