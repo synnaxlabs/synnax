@@ -41,6 +41,23 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
+	if o.pointerLog {
+		e, err := openEngine(o)
+		if err != nil {
+			return nil, err
+		}
+		db := &DB{
+			options:        o,
+			closed:         &atomic.Bool{},
+			historyChanges: observe.New[HistoryChange](),
+			engine:         e,
+		}
+		if db.mu.channels, err = loadChannels(ctx, o); err != nil {
+			return nil, errors.Join(err, db.Close())
+		}
+		db.mu.hiddenChannels = make(map[ChannelKey]Channel)
+		return db, nil
+	}
 
 	info, err := o.fs.List("")
 	if err != nil {

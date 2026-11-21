@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type patch, type spatial } from "@synnaxlabs/x";
+import { type direction, type location, type patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -97,12 +97,12 @@ const collapseNode = (n: Draft<Node>): Draft<Node> => {
   return n;
 };
 
-// directionAndSideForLocation maps a spatial.Location onto the (direction, side)
+// directionAndSideForLocation maps a location.Location onto the (direction, side)
 // pair that places a new empty leaf on that side of the original. Returns null
 // for locations that do not divide the area in two (e.g., "center").
 const directionAndSideForLocation = (
-  loc: spatial.Location,
-): { direction: spatial.Direction; side: spatial.Order } | null => {
+  loc: location.Location,
+): { direction: direction.Direction; side: location.Order } | null => {
   switch (loc) {
     case "left":
       return { direction: "x", side: "first" };
@@ -125,7 +125,7 @@ const directionAndSideForLocation = (
 const splitLeafAt = (
   state: Draft<Panel>,
   leafPath: number,
-  loc: spatial.Location,
+  loc: location.Location,
   size: number,
 ): number | null => {
   const node = findNode(state.root, leafPath);

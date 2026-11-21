@@ -104,6 +104,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 	if err != nil {
 		return nil, err
 	}
+	if db.engine != nil {
+		lw, err := db.openLogWriter(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return &Writer{WriterConfig: cfg, log: lw}, nil
+	}
 	idx, err := db.openClockWriter(ctx, cfg)
 	if err != nil {
 		return nil, err

@@ -312,7 +312,7 @@ func (c *Calculator) String() string {
 // is free to discard the returned value.
 //
 // The first error a node reports during the step is returned, with no new calculations.
-// A step that uses its whole loop budget returns an error wrapping
+// A step that uses its whole loop budget returns an error marked with
 // runtime.ErrLoopBudget.
 func (c *Calculator) Next(
 	ctx context.Context,
@@ -334,7 +334,9 @@ func (c *Calculator) Next(
 		}
 		c.clock.Advance(c.scheduler.Next(ctx, cycle))
 		var highest telem.TimeStamp
+		flushedFrom := len(ofr.RawKeys())
 		ofr, highest, currChanged = c.state.channel.Flush(ofr, cycle.Now)
+		c.stampClocks(ofr, flushedFrom)
 		c.clock.Advance(highest)
 		// Series and strings must be cleared after every flush, not just at the end
 		// of the loop. On each iteration the scheduler may create new series/string
@@ -363,6 +365,17 @@ func (c *Calculator) Next(
 		return output, false, nil
 	}
 	return frame.NewFromStorage(ofr), true, nil
+}
+
+// stampClocks gives the series of fr from index from on, which the calculation wrote,
+// the clock of the calculated channel.
+func (c *Calculator) stampClocks(fr telem.Frame[uint32], from int) {
+	clock := uint32(c.cfg.Module.Channel.Index())
+	for i := from; i < len(fr.RawKeys()); i++ {
+		s := fr.RawSeriesAt(i)
+		s.Clock = clock
+		fr.SetRawSeriesAt(i, s)
+	}
 }
 
 func (c *Calculator) Close() error {

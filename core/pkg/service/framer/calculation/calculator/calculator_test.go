@@ -118,7 +118,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			})
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
 			Expect(c.Next(ctx, fr, frame.Frame{})).Error().
-				To(MatchError(runtime.ErrLoopBudget))
+				To(MatchError(fmt.Sprintf(
+					"The program ran more than %d loop iterations and function calls "+
+						"in one cycle.",
+					runtime.DefaultLoopBudget,
+				)))
 		})
 
 		It("Should run a loop that stays under the budget", func(ctx SpecContext) {
@@ -381,6 +385,9 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(
 				of.Get(calc.Index()).Series[0].Alignment,
 			).To(Equal(telem.NewAlignment(10, 5)))
+			for _, k := range []channel.Key{calc.Key(), calc.Index()} {
+				Expect(of.Get(k).Series[0].Clock).To(Equal(uint32(calc.Index())))
+			}
 		})
 
 		Specify(

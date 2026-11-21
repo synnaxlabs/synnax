@@ -83,7 +83,7 @@ func (c *offsetCache) invalidateAll() {
 
 func buildOffsetTable(
 	ins alamos.Instrumentation,
-	r *domain.Reader,
+	r domain.RangeReader,
 	domainSize telem.Size,
 	tr telem.TimeRange,
 ) (*offsetTable, error) {
@@ -183,7 +183,7 @@ func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetRes
 // byte offset.
 func (r *offsetResolver) byteOffset(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	sampleIdx int64,
 ) (telem.Size, error) {
 	if r.cache == nil {
@@ -205,7 +205,7 @@ func (r *offsetResolver) byteOffset(
 
 func (r *offsetResolver) domainSampleCount(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 ) (int64, error) {
 	if r.cache == nil {
 		return r.density.SampleCount(iter.Size()), nil
@@ -225,7 +225,7 @@ func (r *offsetResolver) invalidate() {
 
 func (r *offsetResolver) tableFor(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 ) (*offsetTable, error) {
 	tr := iter.TimeRange()
 	// A pointer's Start is immutable; its End advances on commit. Match End

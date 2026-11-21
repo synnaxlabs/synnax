@@ -25,17 +25,20 @@ var _ = Describe("Frame Translator", func() {
 				Data:              []byte{0, 0, 128, 63, 0, 0, 0, 64},
 				Alignment:         telem.NewAlignment(1, 5),
 				AlignmentMultiple: 3,
+				Clock:             5,
 				TimeRange: telem.TimeRange{
 					Start: telem.TimeStamp(1000),
 					End:   telem.TimeStamp(2000),
 				},
 			}
 			pb := MustSucceed(telempb.SeriesToPB(original))
+			Expect(pb.Clock).To(Equal(uint32(5)))
 			result := MustSucceed(telempb.SeriesFromPB(pb))
 			Expect(result.DataType).To(Equal(original.DataType))
 			Expect(result.Data).To(Equal(original.Data))
 			Expect(result.Alignment).To(Equal(original.Alignment))
 			Expect(result.AlignmentMultiple).To(Equal(original.AlignmentMultiple))
+			Expect(result.Clock).To(Equal(original.Clock))
 			Expect(result.TimeRange.Start).To(Equal(original.TimeRange.Start))
 			Expect(result.TimeRange.End).To(Equal(original.TimeRange.End))
 		})

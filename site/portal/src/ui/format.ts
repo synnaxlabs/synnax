@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array, math } from "@synnaxlabs/x";
+
 import { type Event, type License } from "@/server/db/schema";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
@@ -86,11 +88,12 @@ export const standing = (
   const expiries = live.flatMap(({ license }) =>
     license.expiresAt == null ? [] : [license.expiresAt.getTime()],
   );
+  const nextExpiry = array.minBy(expiries, (time) => time);
   return {
     active: live.length,
-    seats: live.reduce((n, l) => n + l.seats, 0),
-    capacity: live.reduce((n, l) => n + l.license.nodes, 0),
-    nextExpiry: expiries.length === 0 ? null : new Date(Math.min(...expiries)),
+    seats: math.sum(live.map((l) => l.seats)),
+    capacity: math.sum(live.map((l) => l.license.nodes)),
+    nextExpiry: nextExpiry == null ? null : new Date(nextExpiry),
   };
 };
 

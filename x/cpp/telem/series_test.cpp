@@ -13,6 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/telem/code.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
@@ -2762,5 +2763,119 @@ TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
     dst.copy_from(src);
     ASSERT_EQ(dst.data_type(), STRING_T);
     ASSERT_EQ(dst.strings(), std::vector<std::string>({"foo", "bar"}));
+}
+
+/// @brief it should keep the fractional part of float values when the scalar is an
+/// integer.
+TEST(TestSeriesInplace, IntegerScalarKeepsFloatFractions) {
+    Series added(std::vector<float>{1.5f, 2.5f});
+    added.add_inplace(1);
+    ASSERT_EQ(added.values<float>(), std::vector<float>({2.5f, 3.5f}));
+    Series subtracted(std::vector<float>{1.5f, 2.5f});
+    subtracted.sub_inplace(1);
+    ASSERT_EQ(subtracted.values<float>(), std::vector<float>({0.5f, 1.5f}));
+    Series multiplied(std::vector<float>{1.5f, 2.5f});
+    multiplied.multiply_inplace(2);
+    ASSERT_EQ(multiplied.values<float>(), std::vector<float>({3.0f, 5.0f}));
+    Series divided(std::vector<float>{1.5f, 2.5f});
+    divided.divide_inplace(2);
+    ASSERT_EQ(divided.values<float>(), std::vector<float>({0.75f, 1.25f}));
+}
+
+/// @brief it should keep the fractional part of float values in scalar operators
+/// when the scalar is an integer.
+TEST(TestSeriesOperators, IntegerScalarKeepsFloatFractions) {
+    const Series s(std::vector<double>{1.5, 2.5});
+    ASSERT_EQ((s + 1).values<double>(), std::vector<double>({2.5, 3.5}));
+    ASSERT_EQ((s - 1).values<double>(), std::vector<double>({0.5, 1.5}));
+    ASSERT_EQ((s * 2).values<double>(), std::vector<double>({3.0, 5.0}));
+    ASSERT_EQ((s / 2).values<double>(), std::vector<double>({0.75, 1.25}));
+    ASSERT_EQ((s % 2).values<double>(), std::vector<double>({1.5, 0.5}));
+    ASSERT_EQ((4 - s).values<double>(), std::vector<double>({2.5, 1.5}));
+    ASSERT_EQ((15 / s).values<double>(), std::vector<double>({10.0, 6.0}));
+    ASSERT_EQ((5 % s).values<double>(), std::vector<double>({0.5, 0.0}));
+}
+
+/// @brief it should throw instead of trapping when an integer series is divided by a
+/// scalar that truncates to zero.
+TEST(TestSeriesOperators, IntegerSeriesZeroDivisorThrows) {
+    Series s(std::vector<int32_t>{4, 6});
+    ASSERT_THROW(s.divide_inplace(0.5), std::runtime_error);
+    ASSERT_THROW(s / 0.5, std::runtime_error);
+    ASSERT_THROW(s % 0.5, std::runtime_error);
+    const Series zero(std::vector<int32_t>{1, 0});
+    ASSERT_THROW(1.0 / zero, std::runtime_error);
+    ASSERT_THROW(1.0 % zero, std::runtime_error);
+}
+
+/// @brief it should apply a floating-point scalar to an integer series using
+/// integer arithmetic.
+TEST(TestSeriesOperators, FloatScalarOnIntegerSeries) {
+    const Series s(std::vector<int32_t>{4, 6});
+    ASSERT_EQ((s + 1.5).values<int32_t>(), std::vector<int32_t>({5, 7}));
+    ASSERT_EQ((s / 2.5).values<int32_t>(), std::vector<int32_t>({2, 3}));
+}
+
+/// @brief it should give a series no clock unless one is set.
+TEST(SeriesTest, ClockDefaultsToZero) {
+    const Series s(std::vector<float>{1, 2});
+    ASSERT_EQ(s.clock, 0);
+}
+
+/// @brief it should carry the clock through copies, moves, and the proto form.
+TEST(SeriesTest, ClockKeptByDerivedSeries) {
+    Series s(std::vector<float>{1, 2, 3});
+    s.clock = 5;
+    ASSERT_EQ(s.deep_copy().clock, 5);
+    ASSERT_EQ(s.shallow_copy().clock, 5);
+    ASSERT_EQ(s.last().clock, 5);
+    Series dst(FLOAT32_T, 3);
+    dst.copy_from(s);
+    ASSERT_EQ(dst.clock, 5);
+    const auto pb = s.to_proto();
+    ASSERT_EQ(pb.clock(), 5);
+    ASSERT_EQ(ASSERT_NIL_P(Series::from_proto(pb)).clock, 5);
+    Series moved = std::move(dst);
+    ASSERT_EQ(moved.clock, 5);
+    Series assigned(FLOAT32_T, 1);
+    assigned = std::move(moved);
+    ASSERT_EQ(assigned.clock, 5);
+}
+}
+
+namespace x::telem {
+/// @brief it should map each data type to its type code and back.
+TEST(DataTypeCodeTest, RoundTrip) {
+    const std::vector<std::pair<DataType, std::uint8_t>> codes = {
+        {UINT8_T, 1},
+        {UINT16_T, 2},
+        {UINT32_T, 3},
+        {UINT64_T, 4},
+        {INT8_T, 5},
+        {INT16_T, 6},
+        {INT32_T, 7},
+        {INT64_T, 8},
+        {FLOAT32_T, 9},
+        {FLOAT64_T, 10},
+        {TIMESTAMP_T, 11},
+        {UUID_T, 12},
+        {STRING_T, 13},
+        {BYTES_T, 14},
+        {JSON_T, 15},
+        {BOOLEAN_T, 16},
+    };
+    for (const auto &[dt, code]: codes) {
+        ASSERT_EQ(static_cast<std::uint8_t>(code_of(dt)), code);
+        ASSERT_EQ(data_type_of(code), dt);
+    }
+}
+
+/// @brief it should map a type with no code to Unknown, and a code with none to
+/// UNKNOWN_T.
+TEST(DataTypeCodeTest, Unknown) {
+    ASSERT_EQ(code_of(UNKNOWN_T), DataTypeCode::Unknown);
+    ASSERT_EQ(data_type_of(0), UNKNOWN_T);
+    ASSERT_EQ(data_type_of(17), UNKNOWN_T);
+    ASSERT_EQ(data_type_of(255), UNKNOWN_T);
 }
 }

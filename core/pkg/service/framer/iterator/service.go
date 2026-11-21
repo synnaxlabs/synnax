@@ -146,7 +146,11 @@ func (s *Service) NewStream(
 		return nil, err
 	}
 	p := plumber.New()
-	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
+	channels, err := s.retrieveChannels(ctx, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg, channels)
 	if err != nil {
 		return nil, err
 	}
@@ -253,19 +257,16 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 }
 
 // newCalculationTransform returns a transform that runs the calculations cfg requests,
-// and rewrites cfg.Keys to the concrete channels those calculations read. When cfg
-// aggregates, it also returns the group sizer for the transform's output. It returns
-// nil for both when cfg requests no calculated channels.
+// whose channels are channels, and rewrites cfg.Keys to the concrete channels those
+// calculations read. When cfg aggregates, it also returns the group sizer for the
+// transform's output. It returns nil for both when cfg requests no calculated channels.
 func (s *Service) newCalculationTransform(
 	ctx context.Context,
 	cfg *Config,
+	channels []channel.Channel,
 ) (*calculationTransform, *groupSizer, error) {
 	originalKeys := slices.Clone(cfg.Keys)
-	channels, err := s.retrieveChannels(ctx, cfg.Keys)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = refuseVirtual(channels); err != nil {
+	if err := refuseVirtual(channels); err != nil {
 		return nil, nil, err
 	}
 	// A free index has no expression, so add the calculated channel that writes it.

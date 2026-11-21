@@ -57,13 +57,22 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		}
 	}()
 	for _, key := range cfg.Channels {
+		ucfg := unary.IteratorConfig{
+			Bounds:        cfg.Bounds,
+			AutoChunkSize: cfg.AutoChunkSize,
+			Reduction:     cfg.Reduction,
+			Cache:         cache,
+		}
+		if db.engine != nil {
+			iter, iterErr := db.openLogIterator(key, ucfg)
+			if iterErr != nil {
+				return nil, iterErr
+			}
+			internal = append(internal, iter)
+			continue
+		}
 		if uDB, ok := db.mu.dbs.unary[key]; ok {
-			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
-				Bounds:        cfg.Bounds,
-				AutoChunkSize: cfg.AutoChunkSize,
-				Reduction:     cfg.Reduction,
-				Cache:         cache,
-			})
+			iter, iterErr := uDB.OpenIterator(ucfg)
 			if iterErr != nil {
 				return nil, iterErr
 			}
@@ -83,4 +92,29 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		limited:   limited,
 		chunkSize: db.chunkSize,
 	}, nil
+}
+
+// openLogIterator opens the iterator of key on the pointer log layout, which takes the
+// stamps of a data channel from its clock. The caller holds db.mu.
+func (db *DB) openLogIterator(
+	key ChannelKey,
+	cfg unary.IteratorConfig,
+) (*unary.Iterator, error) {
+	ch, ok := db.mu.channels[key]
+	if !ok {
+		return nil, channel.NewNotFoundError(key)
+	}
+	clock := ch.Clock()
+	idx := &index.Domain{
+		Instrumentation: db.Instrumentation,
+		DB:              logSource{e: db.engine, key: clock},
+		Channel:         db.mu.channels[clock],
+	}
+	return unary.NewIterator(
+		db.Instrumentation,
+		ch,
+		logSource{e: db.engine, key: key},
+		idx,
+		cfg,
+	)
 }

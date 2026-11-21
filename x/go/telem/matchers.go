@@ -25,7 +25,7 @@ type SeriesMatcherOption func(*seriesMatcher)
 
 // ExcludeSeriesFields returns an option that configures the series matcher to exclude
 // specific fields from comparison. Valid fields are "DataType", "TimeRange",
-// "Alignment", and "Data".
+// "Alignment", "Clock", and "Data".
 func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
 	return func(m *seriesMatcher) {
 		m.excludedFields = set.New(fields...)
@@ -42,7 +42,8 @@ type seriesMatcher struct {
 // - DataType (unless excluded)
 // - TimeRange (unless excluded)
 // - Data contents (unless excluded)
-// - Alignment and AlignmentMultiple (unless excluded).
+// - Alignment and AlignmentMultiple (unless excluded)
+// - Clock (unless excluded).
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	return newSeriesMatcher(expected, opts...)
 }
@@ -59,16 +60,16 @@ func newSeriesMatcher(expected Series, opts ...SeriesMatcherOption) *seriesMatch
 }
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
-// but excludes TimeRange and Alignment fields by default. This is useful when comparing
-// Series that have been written to and read from storage, where these fields might
-// differ but the actual data remains the same.
+// but excludes TimeRange, Alignment, and Clock fields by default. This is useful when
+// comparing Series that have been written to and read from storage, where these fields
+// might differ but the actual data remains the same.
 func MatchWrittenSeries(
 	expected Series,
 	opts ...SeriesMatcherOption,
 ) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
-		excludedFields: set.New("TimeRange", "Alignment"),
+		excludedFields: set.New("TimeRange", "Alignment", "Clock"),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -76,10 +77,10 @@ func MatchWrittenSeries(
 	return m
 }
 
-// MatchSeriesData returns a matcher that only compares the data contents of two Series,
-// ignoring DataType, TimeRange, and Alignment.
+// MatchSeriesData returns a matcher that compares the data type and data contents of
+// two Series, ignoring TimeRange, Alignment, and Clock.
 func MatchSeriesData(expected Series) types.GomegaMatcher {
-	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
+	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment", "Clock"))
 }
 
 // MatchSeriesDataV is a generic variant of MatchSeriesData that creates a Series from
@@ -113,6 +114,9 @@ func (m *seriesMatcher) matches(actual Series) bool {
 	if !m.excludedFields.Contains("Alignment") &&
 		(actual.Alignment != m.expected.Alignment ||
 			actual.Multiple() != m.expected.Multiple()) {
+		return false
+	}
+	if !m.excludedFields.Contains("Clock") && actual.Clock != m.expected.Clock {
 		return false
 	}
 	return m.excludedFields.Contains("Data") ||
@@ -157,6 +161,14 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			"AlignmentMultiple:\n\tExpected: %d\n\tActual: %d",
 			m.expected.Multiple(),
 			actualSeries.Multiple(),
+		))
+	}
+	if !m.excludedFields.Contains("Clock") &&
+		actualSeries.Clock != m.expected.Clock {
+		differences = append(differences, fmt.Sprintf(
+			"Clock:\n\tExpected: %d\n\tActual: %d",
+			m.expected.Clock,
+			actualSeries.Clock,
 		))
 	}
 	if dataTypesEqual && !m.excludedFields.Contains("Data") &&
@@ -208,7 +220,9 @@ func MatchWrittenFrame[K xtypes.SizedNumeric](
 	return &frameMatcher[K]{
 		expected: expected,
 		matchSeriesOpts: append(
-			[]SeriesMatcherOption{ExcludeSeriesFields("TimeRange", "Alignment")},
+			[]SeriesMatcherOption{
+				ExcludeSeriesFields("TimeRange", "Alignment", "Clock"),
+			},
 			opts...,
 		),
 	}

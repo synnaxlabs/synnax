@@ -142,6 +142,8 @@ public:
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.
     Alignment alignment;
+    /// @brief the key of the clock that timed the samples. Zero means no clock.
+    std::uint32_t clock = 0;
 
 private:
     /// @brief validates that the count samples from index are within the series. A
@@ -169,7 +171,8 @@ private:
         sample_count(other.sample_count),
         buffer(alloc(other.byte_cap())),
         time_range(other.time_range),
-        alignment(other.alignment) {
+        alignment(other.alignment),
+        clock(other.clock) {
         memcpy(this->buffer.get(), other.buffer.get(), other.byte_size());
     }
 
@@ -184,7 +187,31 @@ private:
         sample_count(other.sample_count),
         buffer(other.buffer),
         time_range(other.time_range),
-        alignment(other.alignment) {}
+        alignment(other.alignment),
+        clock(other.clock) {}
+
+    /// @brief division that throws on an integer zero divisor.
+    struct Divide {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>)
+                if (b == 0) throw std::runtime_error("division by zero");
+            return a / b;
+        }
+    };
+
+    /// @brief modulo that throws on an integer zero divisor and uses fmod for
+    /// floating-point types.
+    struct Modulo {
+        template<typename A, typename B>
+        auto operator()(A a, B b) const {
+            if constexpr (std::is_integral_v<A>) {
+                if (b == 0) throw std::runtime_error("modulo by zero");
+                return a % b;
+            } else
+                return std::fmod(a, b);
+        }
+    };
 
     template<typename SourceType, typename TargetType, typename Op>
 #ifdef _MSC_VER
@@ -527,7 +554,8 @@ public:
         sample_count(other.sample_count),
         buffer(std::move(other.buffer)),
         time_range(other.time_range),
-        alignment(other.alignment) {
+        alignment(other.alignment),
+        clock(other.clock) {
         other.buffer = nullptr;
     }
 
@@ -542,6 +570,7 @@ public:
             this->buffer = std::move(other.buffer);
             time_range = other.time_range;
             alignment = other.alignment;
+            clock = other.clock;
             other.buffer = nullptr;
         }
         return *this;
@@ -781,7 +810,8 @@ private:
         cached_byte_size(pb.data().size()),
         sample_count(0),
         time_range(tr),
-        alignment(pb.alignment()) {
+        alignment(pb.alignment()),
+        clock(pb.clock()) {
         // Calculate size based on data type
         if (!this->type.is_variable()) {
             this->sample_count = pb.data().size() / this->type.density();
@@ -1345,23 +1375,23 @@ public:
 
     template<typename T>
     void add_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::plus<T>());
+        cast_and_apply_numeric_op(rhs, std::plus<>());
     }
 
     template<typename T>
     void sub_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::minus<T>());
+        cast_and_apply_numeric_op(rhs, std::minus<>());
     }
 
     template<typename T>
     void multiply_inplace(const T &rhs) const noexcept {
-        cast_and_apply_numeric_op(rhs, std::multiplies<T>());
+        cast_and_apply_numeric_op(rhs, std::multiplies<>());
     }
 
     template<typename T>
     void divide_inplace(const T &rhs) const {
         if (rhs == 0) throw std::runtime_error("division by zero");
-        cast_and_apply_numeric_op(rhs, std::divides<T>());
+        cast_and_apply_numeric_op(rhs, Divide());
     }
 
     /// @brief replaces each value v with f(v). f takes and returns a double, and the
@@ -1434,42 +1464,38 @@ public:
     /// @brief Series + scalar operator. Returns a new Series.
     template<typename T>
     Series operator+(T scalar) const {
-        return apply_scalar_op(scalar, std::plus<T>());
+        return apply_scalar_op(scalar, std::plus<>());
     }
 
     /// @brief Series - scalar operator. Returns a new Series.
     template<typename T>
     Series operator-(T scalar) const {
-        return apply_scalar_op(scalar, std::minus<T>());
+        return apply_scalar_op(scalar, std::minus<>());
     }
 
     /// @brief Series * scalar operator. Returns a new Series.
     template<typename T>
     Series operator*(T scalar) const {
-        return apply_scalar_op(scalar, std::multiplies<T>());
+        return apply_scalar_op(scalar, std::multiplies<>());
     }
 
     /// @brief Series / scalar operator. Returns a new Series.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series divides by
+    /// a scalar that truncates to zero.
     template<typename T>
     Series operator/(T scalar) const {
         if (scalar == 0) throw std::runtime_error("division by zero");
-        return apply_scalar_op(scalar, std::divides<T>());
+        return apply_scalar_op(scalar, Divide());
     }
 
     /// @brief Series % scalar operator. Returns a new Series.
     /// Uses % for integer types, std::fmod for floating-point types.
-    /// @throws std::runtime_error if scalar is zero.
+    /// @throws std::runtime_error if scalar is zero, or if an integer series takes the
+    /// modulo of a scalar that truncates to zero.
     template<typename T>
     Series operator%(T scalar) const {
         if (scalar == 0) throw std::runtime_error("modulo by zero");
-        if constexpr (std::is_integral_v<T>) {
-            return apply_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return apply_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return apply_scalar_op(scalar, Modulo());
     }
 
     /// @brief scalar + Series operator (commutative). Returns a new Series.
@@ -1487,26 +1513,22 @@ public:
     /// @brief scalar - Series operator. Computes (scalar - element) for each element.
     template<typename T>
     friend Series operator-(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::minus<T>());
+        return s.apply_reverse_scalar_op(scalar, std::minus<>());
     }
 
     /// @brief scalar / Series operator. Computes (scalar / element) for each element.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
-        return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+        return s.apply_reverse_scalar_op(scalar, Divide());
     }
 
     /// @brief scalar % Series operator. Computes (scalar % element) for each element.
     /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if an element of an integer series is zero.
     template<typename T>
     friend Series operator%(T scalar, const Series &s) {
-        if constexpr (std::is_integral_v<T>) {
-            return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
-        } else {
-            return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
-                return std::fmod(a, b);
-            });
-        }
+        return s.apply_reverse_scalar_op(scalar, Modulo());
     }
 
     /// @brief Series > Series comparison. Returns BOOLEAN_T Series with 0/1 values.
@@ -1647,6 +1669,7 @@ public:
             this->alignment.sample_index() + offset
         );
         out.time_range = this->time_range;
+        out.clock = this->clock;
         return out;
     }
 
@@ -1700,6 +1723,7 @@ public:
                            : this->cached_byte_cap / this->type.density();
         this->time_range = src.time_range;
         this->alignment = src.alignment;
+        this->clock = src.clock;
     }
 
     void resize(size_t new_size) {

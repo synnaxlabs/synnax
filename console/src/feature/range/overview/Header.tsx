@@ -217,7 +217,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
   const typescript = Range.typescriptCode(rangeKey);
   const handleCSV = (): void =>
     openCSV({
-      timeRange: form.get(path.timeRange).value,
+      timeRange: range.timeRange,
       name,
       channels: [],
       icon: <Icon.Range />,

@@ -141,6 +141,6 @@ export const filterShape = <K extends record.Key = string>(
 export const getAllNodesOfMinDepth = <K extends record.Key = string>(
   data: Shape<K>,
 ): K[] => {
-  const minDepth = Math.min(...data.nodes.map((node) => node.depth));
+  const minDepth = array.minBy(data.nodes, (node) => node.depth)?.depth;
   return data.keys.filter((_, index) => data.nodes[index].depth === minDepth);
 };

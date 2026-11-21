@@ -27,7 +27,7 @@ import (
 type Domain struct {
 	alamos.Instrumentation
 	// DB is the database to query for timestamp values.
-	DB *domain.DB
+	DB domain.Source
 	// Channel is the channel definition for the index.
 	Channel channel.Channel
 }
@@ -71,7 +71,7 @@ func (i *Domain) Distance(
 		err = span.EndWith(err, ErrDiscontinuous)
 	}()
 
-	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
+	iter := i.DB.OpenCursor(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	effectiveDomainTR, ok, err := i.seekDistanceStart(ctx, iter, tr, continuous)
@@ -127,7 +127,7 @@ func (i *Domain) Distance(
 // in the index.
 func (i *Domain) searchEnd(
 	end telem.TimeStamp,
-	r *domain.Reader,
+	r domain.RangeReader,
 	startToDomain Approximation[int64],
 ) (Approximation[int64], bool, error) {
 	endApprox, err := i.search(end, r)
@@ -145,7 +145,7 @@ func (i *Domain) searchEnd(
 // that domain.
 func (i *Domain) seekDistanceStart(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	tr telem.TimeRange,
 	continuous continuousPolicy,
 ) (telem.TimeRange, bool, error) {
@@ -180,7 +180,7 @@ func (i *Domain) seekDistanceStart(
 // distance from tr.Start to the start of the domain it stops on, and false if no
 // domain holds tr.End.
 func seekEnd(
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	tr telem.TimeRange,
 	startApprox Approximation[int64],
 	domainLen int64,
@@ -216,9 +216,9 @@ func seekEnd(
 // closing it fails.
 func reopenReader(
 	ctx context.Context,
-	iter *domain.Iterator,
-	r *domain.Reader,
-) (*domain.Reader, error) {
+	iter domain.Cursor,
+	r domain.RangeReader,
+) (domain.RangeReader, error) {
 	if err := r.Close(); err != nil {
 		return r, err
 	}
@@ -254,7 +254,7 @@ func (i *Domain) AppendSegments(
 			segments = nil
 		}
 	}()
-	iter := i.DB.OpenIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.OpenCursor(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
 		return nil, NewDiscontinuousStampError(ts)
@@ -272,7 +272,7 @@ func (i *Domain) AppendSegments(
 		if lo, hi := max(start, base), min(end, base+n); lo < hi {
 			dst = append(dst, Segment{
 				TimeRange: iter.TimeRange(),
-				Alignment: telem.NewAlignment(iter.Position(), uint32(lo-base)),
+				Alignment: iter.Alignment().AddSamples(uint32(lo - base)),
 				Len:       hi - lo,
 			})
 		}
@@ -295,7 +295,7 @@ func (i *Domain) Coverage(
 	ctx context.Context,
 	tr telem.TimeRange,
 ) (end telem.TimeStamp, count int64, err error) {
-	iter := i.DB.OpenIterator(domain.IterRange(tr.Start.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.OpenCursor(domain.IterRange(tr.Start.SpanRange(telem.TimeSpanMax)))
 	defer func() {
 		if err = errors.Combine(err, iter.Close()); err != nil {
 			end, count = 0, 0
@@ -328,7 +328,7 @@ func (i *Domain) Coverage(
 // after ts.
 func (i *Domain) position(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	ts telem.TimeStamp,
 ) (pos int64, err error) {
 	r, err := iter.OpenReader(ctx)
@@ -379,7 +379,7 @@ func (i *Domain) EndAfter(
 	ref telem.TimeStamp,
 	n int64,
 ) (end telem.TimeStamp, err error) {
-	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.OpenCursor(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 	defer func() {
 		if err = errors.Combine(err, iter.Close()); err != nil {
 			end = 0
@@ -399,7 +399,7 @@ func (i *Domain) EndAfter(
 // count still owed after the domain's samples.
 func (i *Domain) endInDomain(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	ref telem.TimeStamp,
 	n int64,
 ) (end telem.TimeStamp, found bool, remaining int64, err error) {
@@ -428,7 +428,7 @@ func (i *Domain) zeroStamp(
 	ctx context.Context,
 	ref telem.TimeStamp,
 ) (approx TimeStampApproximation, err error) {
-	iter := i.DB.OpenIterator(domain.IterRange(ref.Range(ref + 1)))
+	iter := i.DB.OpenCursor(domain.IterRange(ref.Range(ref + 1)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
 		err = errors.Wrapf(
@@ -438,7 +438,7 @@ func (i *Domain) zeroStamp(
 		)
 		return approx, err
 	}
-	var r *domain.Reader
+	var r domain.RangeReader
 	r, err = iter.OpenReader(ctx)
 	if err != nil {
 		return approx, err
@@ -464,7 +464,7 @@ func (i *Domain) forwardStamp(
 	offset int64,
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
-	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
+	iter := i.DB.OpenCursor(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	effectiveDomainLen, err := i.seekFirstDomain(ctx, iter, ref, offset, continuous)
@@ -524,7 +524,7 @@ func (i *Domain) forwardStamp(
 // length of the effective domain that holds ref.
 func (i *Domain) seekFirstDomain(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	ref telem.TimeStamp,
 	offset int64,
 	continuous bool,
@@ -551,7 +551,7 @@ func (i *Domain) seekFirstDomain(
 // holds the sample offset samples after the start of that first domain. It returns the
 // offset of the sample within the domain it stops on, and false when no domain holds
 // it.
-func seekForward(iter *domain.Iterator, offset, domainLen int64) (int64, bool) {
+func seekForward(iter domain.Cursor, offset, domainLen int64) (int64, bool) {
 	totalTraversed := domainLen
 	for {
 		if !iter.Next() {
@@ -571,8 +571,8 @@ func seekForward(iter *domain.Iterator, offset, domainLen int64) (int64, bool) {
 // one. approximateStamp leaves iter on that previous domain.
 func (i *Domain) approximateStamp(
 	ctx context.Context,
-	r *domain.Reader,
-	iter *domain.Iterator,
+	r domain.RangeReader,
+	iter domain.Cursor,
 	upperTSByteOffset,
 	lowerTSByteOffset telem.Size,
 ) (TimeStampApproximation, error) {
@@ -601,7 +601,7 @@ func (i *Domain) approximateStamp(
 // when iter is already on the first domain.
 func (i *Domain) previousDomainStamp(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	offset telem.Size,
 ) (ts telem.TimeStamp, ok bool, err error) {
 	if !iter.Prev() {
@@ -628,7 +628,7 @@ func (i *Domain) backwardStamp(
 	ctx, span := i.T.Bench(ctx, "backward_stamp")
 	defer func() { err = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.OpenIterator(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))
+	iter := i.DB.OpenCursor(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	ref, effectiveDomainLen, err := i.seekLastDomain(ctx, iter, ref, offset, continuous)
@@ -692,7 +692,7 @@ func (i *Domain) backwardStamp(
 // domain onto its last possible sample.
 func (i *Domain) seekLastDomain(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	ref telem.TimeStamp,
 	offset int64,
 	continuous bool,
@@ -725,7 +725,7 @@ func (i *Domain) seekLastDomain(
 // offset of the sample from the end of the domain it stops on, the length of that
 // domain, and false when no domain holds it.
 func seekBackward(
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	offset, domainLen int64,
 ) (int64, int64, bool) {
 	totalTraversed := domainLen
@@ -745,7 +745,7 @@ func seekBackward(
 // domain(s). The effective domain can be many continuous domains as long as they're
 // immediately continuous, i.e., the end of one domain is the start of the other.
 func resolveForwardEffectiveDomainTR(
-	i *domain.Iterator,
+	i domain.Cursor,
 ) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
 	effectiveDomainBounds = i.TimeRange()
 	effectiveDomainLen = sampleCount(i.Size())
@@ -768,7 +768,7 @@ func resolveForwardEffectiveDomainTR(
 // domain(s). The effective domain can be many continuous domains as long as they're
 // immediately continuous, i.e., the end of one domain is the start of the other.
 func resolveBackwardEffectiveDomainTR(
-	i *domain.Iterator,
+	i domain.Cursor,
 ) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
 	effectiveDomainBounds = i.TimeRange()
 	effectiveDomainLen = sampleCount(i.Size())
@@ -793,7 +793,7 @@ func resolveBackwardEffectiveDomainTR(
 // point at the first sample with that timestamp.
 func (i *Domain) search(
 	ts telem.TimeStamp,
-	r *domain.Reader,
+	r domain.RangeReader,
 ) (Approximation[int64], error) {
 	var (
 		start int64

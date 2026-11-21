@@ -466,7 +466,7 @@ var _ = Describe("Channel", func() {
 			})
 
 			It(
-				"Should keep the time range of a batch trimmed at entry",
+				"Should keep the time range and clock of a batch trimmed at entry",
 				func(ctx SpecContext) {
 					source := MustSucceed(factory.Create(rnode.Config{
 						Node: ir.Node{
@@ -484,8 +484,10 @@ var _ = Describe("Channel", func() {
 					}
 					data := telem.NewSeriesV[float32](1.5, 2.5, 3.5)
 					data.TimeRange = tr
+					data.Clock = 11
 					stamps := telem.NewSeriesSecondsTSV(100, 101, 102)
 					stamps.TimeRange = tr
+					stamps.Clock = 11
 					fr := telem.Frame[uint32]{}
 					fr = fr.Append(10, data)
 					fr = fr.Append(11, stamps)
@@ -500,6 +502,8 @@ var _ = Describe("Channel", func() {
 					Expect(out.Unmarshal[float32]()).To(Equal([]float32{2.5, 3.5}))
 					Expect(out.TimeRange).To(Equal(tr))
 					Expect(nodeState.OutputTime(0).TimeRange).To(Equal(tr))
+					Expect(out.Clock).To(Equal(uint32(11)))
+					Expect(nodeState.OutputTime(0).Clock).To(Equal(uint32(11)))
 				},
 			)
 

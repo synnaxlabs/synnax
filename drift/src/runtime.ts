@@ -70,6 +70,8 @@ export interface Manager {
   /**
    * Creates a new window with the given properties. The window should not be shown
    * until the ready() method is called.
+   *
+   * @throws If the runtime fails to create the window.
    */
   create: (label: string, props: Omit<WindowProps, "key">) => Promise<void>;
   /** Closes the window with the given key. */

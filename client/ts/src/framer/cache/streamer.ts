@@ -13,6 +13,7 @@ import {
   type CrudeTimeSpan,
   type destructor,
   errors,
+  map,
   Rate,
   scheduler,
   type Series,
@@ -124,7 +125,7 @@ export class MultiplexedStreamer {
 
   // Serializes stream open, update, and close against each other. An open or update
   // retries while holding it, so close() interrupts them before acquiring it.
-  private readonly connMu = sync.newMutex({ closed: false });
+  private readonly connMu = sync.createMutex({ closed: false });
   // Belongs to the current stream, so a retired stream's abort listener is collected
   // with it.
   private streamAbort: AbortController | null = null;
@@ -206,9 +207,7 @@ export class MultiplexedStreamer {
     this.entries.add(entry);
     keys.forEach((key) => {
       if (!this.statuses.has(key)) this.statuses.set(key, status.create(LOADING));
-      const entries = this.entriesByKey.get(key);
-      if (entries == null) this.entriesByKey.set(key, new Set([entry]));
-      else entries.add(entry);
+      map.getOrInsert(this.entriesByKey, key, () => new Set()).add(entry);
     });
     this.scheduleReconcile();
     return {
@@ -511,18 +510,23 @@ export class MultiplexedStreamer {
 
   private async run(streamer: Streamer): Promise<void> {
     const { joins, onWait, instrumentation: ins } = this.props;
+    const failed = new Set<channel.Key>();
+    const fail = (k: channel.Key, failure: status.Status): void => {
+      failed.add(k);
+      this.setStatus(k, failure);
+    };
     try {
       for await (const frame of streamer) {
         // Group series by key in one pass; per-key get() scans the whole frame.
         const grouped: Map<channel.Key, Series[]> = new Map();
         frame.forEach((k, s) => {
-          const key = k as channel.Key;
-          const existing = grouped.get(key);
-          if (existing == null) grouped.set(key, [s]);
-          else existing.push(s);
+          map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
         });
-        onWait(joins.write(grouped));
-        grouped.forEach((_, k) => this.setStatus(k, STREAMING));
+        failed.clear();
+        onWait(joins.write(grouped, fail));
+        grouped.forEach((_, k) => {
+          if (!failed.has(k)) this.setStatus(k, STREAMING);
+        });
         if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;
