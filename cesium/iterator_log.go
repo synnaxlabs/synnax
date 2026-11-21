@@ -34,17 +34,17 @@ func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
 	return domain.NewCursor(&logCursor{e: s.e, key: s.key, bounds: cfg.Bounds})
 }
 
-// logRange is one committed pointer of a key, with the segment that holds it.
+// logRange is one committed pointer of a key, with the segment that holds it. Its time
+// range starts at start, which is the end of the pointer before it when the pointer
+// goes on with that pointer's stretch in a new segment.
 type logRange struct {
-	seg state.Segment
-	ptr state.Pointer
+	seg   state.Segment
+	ptr   state.Pointer
+	start telem.TimeStamp
 }
 
 func (r logRange) timeRange() telem.TimeRange {
-	return telem.TimeRange{
-		Start: r.ptr.First,
-		End:   r.ptr.Last + 1,
-	}
+	return telem.TimeRange{Start: r.start, End: r.ptr.Last + 1}
 }
 
 // logCursor moves over the pointers of one key in time order. Each seek loads the
@@ -72,12 +72,18 @@ func (c *logCursor) load() {
 	}
 	for _, seg := range ch.Segments {
 		for _, ptr := range seg.Pointers {
-			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr})
+			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
 		}
 	}
 	slices.SortFunc(c.ranges, func(a, b logRange) int {
 		return cmp.Compare(a.ptr.First, b.ptr.First)
 	})
+	for i := 1; i < len(c.ranges); i++ {
+		prev, r := c.ranges[i-1].ptr, &c.ranges[i]
+		if prev.Alignment.AddSamples(prev.Samples) == r.ptr.Alignment {
+			r.start = prev.Last + 1
+		}
+	}
 }
 
 // at moves the cursor to position pos, which is valid when it holds a range that
@@ -113,7 +119,10 @@ func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 		c.ranges,
 		stamp,
 		func(r logRange, t telem.TimeStamp) int {
-			return cmp.Compare(r.ptr.First, t+1)
+			if r.start <= t {
+				return -1
+			}
+			return 1
 		},
 	)
 	return c.at(pos - 1)

@@ -38,36 +38,47 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 }
 
 // dropLog drops keys on the pointer log layout, as Drop does: one durable Drop record
-// per key, then the removal of its files and its metadata. It keeps an index that a
-// channel outside keys uses. The caller holds db.mu.
+// per key, then the removal of its files and its metadata. It keeps a clock that a key
+// outside keys uses, and logs the Drop of each clock after the Drops of the keys it
+// times. The caller holds db.mu.
 func (db *DB) dropLog(keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
 	dropping := set.New(keys...)
-	var (
-		entry   log.Entry
-		dropped []ChannelKey
-	)
+	snapshot, err := db.engine.state.Snapshot()
+	if err != nil {
+		return err
+	}
+	var dropped, clocks []ChannelKey
 	for _, k := range keys {
 		ch, live := db.mu.channels[k]
 		if !live {
 			ch, live = db.mu.hiddenChannels[k]
 		}
-		if !live && db.engine.state.Channel(k) == nil {
+		stored := db.engine.state.Channel(k)
+		if !live && stored == nil {
 			continue
 		}
-		if ch.IsIndex && db.indexUsedOutside(k, dropping) {
+		if !ch.IsIndex && !timesItself(stored, k) {
+			dropped = append(dropped, k)
 			continue
 		}
-		entry.Add(&log.Drop{Key: k})
-		dropped = append(dropped, k)
+		if !db.indexUsedOutside(k, dropping) &&
+			!clockStoredOutside(snapshot, k, dropping) {
+			clocks = append(clocks, k)
+		}
 	}
-	if entry.Len() == 0 {
+	dropped = append(dropped, clocks...)
+	if len(dropped) == 0 {
 		return nil
 	}
-	if _, err := db.engine.log.Append(&entry).Wait(); err != nil {
+	var entry log.Entry
+	for _, k := range dropped {
+		entry.Add(&log.Drop{Key: k})
+	}
+	if _, err = db.engine.log.Append(&entry).Wait(); err != nil {
 		return err
 	}
-	err := db.engine.reap()
+	err = db.engine.reap()
 	for _, k := range dropped {
 		delete(db.mu.channels, k)
 		delete(db.mu.hiddenChannels, k)
@@ -85,6 +96,37 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 		}
 	}
 	return db.fs.SyncDir("")
+}
+
+// timesItself reports whether a stored segment of ch, the stored channel of key, has
+// key as its clock.
+func timesItself(ch *state.Channel, key ChannelKey) bool {
+	if ch == nil {
+		return false
+	}
+	return slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
+		return seg.Clock == key
+	})
+}
+
+// clockStoredOutside reports whether a stored segment of a key outside dropping has
+// clock as its clock.
+func clockStoredOutside(
+	s *state.Snapshot,
+	clock ChannelKey,
+	dropping set.Set[ChannelKey],
+) bool {
+	for _, ch := range s.Channels {
+		if ch.Key == clock || dropping.Contains(ch.Key) {
+			continue
+		}
+		for _, seg := range ch.Segments {
+			if seg.Clock == clock {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"cmp"
+	"math"
 	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -24,6 +25,10 @@ import (
 
 // segmentLimit is the stream length at which a commit seals the segment of a key.
 const segmentLimit = 1 << 30
+
+// entryLimit is the size of the records since the last sync at which a commit syncs, so
+// that the entry of a sync always fits in one log frame.
+const entryLimit = log.MaxFrame / 4
 
 // logWriter writes one clock and the channels it times to the segments of the pointer
 // log layout. Write appends with no sync, Commit makes the written samples visible, and
@@ -181,8 +186,14 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	if err != nil {
 		return fr, false, err
 	}
+	if w.number != 0 && uint64(w.next)+uint64(n) > math.MaxUint32 {
+		if _, refused, err := w.commit(skip); err != nil || refused {
+			return fr, refused, err
+		}
+		w.number = 0
+	}
 	if w.number == 0 {
-		if w.number, err = w.st.NewAlignment(); err != nil {
+		if w.number, err = w.newAlignment(); err != nil {
 			return fr, false, err
 		}
 		w.next = 0
@@ -218,14 +229,23 @@ func (w *logWriter) write(fr Frame, skip func(ChannelKey) bool) (Frame, bool, er
 	return fr.ExcludeKeys(w.excluded), len(w.excluded) > 0, nil
 }
 
-// validate checks the series of fr for the keys of w: one per key, of the key's type,
-// all of one length, and the clock's among them. It returns the clock series and the
-// length, or zero when fr holds no series of w.
+// newAlignment returns the alignment number of a new stretch.
+func (w *logWriter) newAlignment() (uint32, error) {
+	if w.unstored {
+		a, err := w.e.unstored.Next()
+		return a.DomainIndex(), err
+	}
+	return w.st.NewAlignment()
+}
+
+// validate checks the series of fr for the keys of w: exactly one per key, of the key's
+// type, and all of one length. It returns the clock series and the length, or zero when
+// fr holds no series of w.
 func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 	var (
-		clock    telem.Series
-		hasClock bool
-		n        int64 = -1
+		clock telem.Series
+		n     int64 = -1
+		count int
 	)
 	for i, k := range fr.RawKeys() {
 		lk, ok := w.byKey[k]
@@ -246,19 +266,32 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 			return clock, 0, sameLengthForAllSeriesError(lk.ch, n, s)
 		}
 		if k == w.clock {
-			clock, hasClock = s, true
+			clock = s
 		}
+		count++
 	}
 	if n <= 0 {
 		return clock, 0, nil
 	}
-	if !hasClock {
-		return clock, 0, channel.Wrap(w.clock, errors.Wrap(
-			validate.ErrValidation,
-			"frame holds samples that the clock does not stamp",
-		))
+	if count != len(w.keys) {
+		return clock, 0, w.missingError()
 	}
 	return clock, n, nil
+}
+
+// missingError returns the error for a frame of the current write that leaves out a
+// key of w.
+func (w *logWriter) missingError() error {
+	data := make([]Channel, 0, len(w.keys)-1)
+	for _, lk := range w.keys[1:] {
+		data = append(data, lk.ch)
+	}
+	for _, lk := range w.keys {
+		if lk.frame != w.frames {
+			return missingChannelError(w.keys[0].ch, lk.ch, data)
+		}
+	}
+	return nil
 }
 
 // checkOrder returns the first and last stamps of the clock series s, which must rise
@@ -380,7 +413,11 @@ func (w *logWriter) commit(skip func(ChannelKey) bool) (telem.TimeStamp, bool, e
 	for _, lk := range w.keys {
 		lk.skipped = false
 	}
-	return end, false, w.sealFull()
+	err := w.sealFull()
+	if err == nil && len(w.entry.Bytes()) > entryLimit {
+		err = w.sync()
+	}
+	return end, false, err
 }
 
 // sealFull seals each segment that reached segmentLimit, so the next write creates
@@ -419,7 +456,8 @@ func (w *logWriter) endStretch() error {
 
 // sync syncs every segment with unsynced bytes, then logs the records since the last
 // sync and waits until they are durable. A failed sync takes the samples that no
-// durable record covers out of view and seals each segment.
+// durable record covers out of view, and logs only the Seals of each segment at its
+// durable length.
 func (w *logWriter) sync() error {
 	handles := slices.Clone(w.sealed)
 	for _, lk := range w.keys {
@@ -427,20 +465,20 @@ func (w *logWriter) sync() error {
 			handles = append(handles, lk.h)
 		}
 	}
-	if err := w.e.budget.Sync(handles); err != nil {
+	err := w.e.budget.Sync(handles)
+	if err != nil {
 		seals, takeErr := w.st.TakeBack()
+		w.entry.Reset()
 		for i := range seals {
 			w.entry.Add(&seals[i])
 		}
-		return errors.Join(err, takeErr, w.flush())
+		err = errors.Join(err, takeErr)
+	} else {
+		for _, lk := range w.keys {
+			lk.dirty = false
+		}
 	}
-	for _, lk := range w.keys {
-		lk.dirty = false
-	}
-	if err := w.flush(); err != nil {
-		return err
-	}
-	var err error
+	err = errors.Join(err, w.flush())
 	for _, h := range w.sealed {
 		err = errors.Join(err, h.Close())
 	}

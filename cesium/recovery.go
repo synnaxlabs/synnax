@@ -285,12 +285,14 @@ func (r *recovery) replay(
 		return err
 	}
 	if !ok {
-		if r.gen == 1 && r.head.Sequence == 0 && allZero(b[:log.FramesStart]) {
-			r.fresh, r.first = true, 1
-			r.pos = log.Position{End: log.FramesStart, Sequence: 1}
-			return nil
+		fresh, err := r.fresh1(b)
+		if err != nil || fresh {
+			return err
 		}
 		return errors.Wrapf(place.ErrCorrupt, "no header of log %d passes", r.gen)
+	}
+	if err = checkSize(h, b); err != nil {
+		return err
 	}
 	if h.Sequence > r.head.Sequence+1 {
 		return errors.Wrapf(
@@ -330,6 +332,46 @@ func (r *recovery) replay(
 	}
 }
 
+// fresh1 reports whether the log in b is the log 1 of a new database whose headers
+// failed: no head entry and no frame. A header written but not synced is then torn, and
+// recovery makes r start the log.
+func (r *recovery) fresh1(b []byte) (bool, error) {
+	if r.gen != 1 || r.head.Sequence != 0 || len(b) < log.FramesStart {
+		return false, nil
+	}
+	framed := func() bool {
+		_, err := log.DecodeFrame(b[log.FramesStart:], r.db, 1, log.FramesStart)
+		return err == nil
+	}
+	if framed() {
+		return false, nil
+	}
+	end := min(log.FramesStart+log.MaxFrame, int64(len(b)))
+	if err := r.reread(1, b[log.FramesStart:end], log.FramesStart); err != nil {
+		return false, err
+	}
+	if framed() {
+		return false, nil
+	}
+	r.fresh, r.first = true, 1
+	r.pos = log.Position{End: log.FramesStart, Sequence: 1}
+	return true, nil
+}
+
+// checkSize refuses a log in b whose size differs from the size in its header h.
+func checkSize(h log.Header, b []byte) error {
+	if h.Size == uint64(len(b)) {
+		return nil
+	}
+	return errors.Wrapf(
+		place.ErrCorrupt,
+		"log %d is %d bytes, not the %d bytes of its header",
+		h.Generation,
+		len(b),
+		h.Size,
+	)
+}
+
 // follow reports whether the next log goes on after the last valid frame of log r.gen,
 // which ends at end, and then moves r to it and returns its bytes and the crc field of
 // its first header. A next log that links to another frame, or a valid frame in a next
@@ -348,6 +390,9 @@ func (r *recovery) follow(
 	case err != nil:
 		return nil, 0, false, err
 	case passes && h.PrevCRC == prev && h.Sequence == sequence:
+		if err = checkSize(h, next); err != nil {
+			return nil, 0, false, err
+		}
 		r.gen++
 		r.first, r.logHeader, r.size = h.Sequence, h, int64(len(next))
 		return next, crc, true, nil
@@ -514,8 +559,9 @@ func (r *recovery) rewriteHeadSector() error {
 
 // restart writes and syncs a frame that holds one Restart at the block boundary after
 // the last valid frame, unless that frame is a clean mark, and returns its sequence and
-// records. A Restart that would pass three quarters of the log goes in the next log,
-// and switched is then true.
+// records. A Restart that would pass three quarters of the log goes in the next log
+// when its file is whole, or when the Restart does not fit in the live log, and
+// switched is then true.
 func (r *recovery) restart() (
 	sequence uint64,
 	records []log.Record,
@@ -534,11 +580,17 @@ func (r *recovery) restart() (
 		Entries:  e.Bytes(),
 	}
 	start := (r.pos.End + log.BlockSize - 1) &^ (log.BlockSize - 1)
-	if start+int64(frame.Size()) > r.size/4*3 {
-		if frame.PrevCRC, err = r.next(); err != nil {
+	if end := start + int64(frame.Size()); end > r.size/4*3 {
+		whole, err := r.nextWhole()
+		if err != nil {
 			return 0, nil, false, err
 		}
-		start, switched = log.FramesStart, true
+		if whole || end > r.size {
+			if frame.PrevCRC, err = r.next(whole); err != nil {
+				return 0, nil, false, err
+			}
+			start, switched = log.FramesStart, true
+		}
 	}
 	b := frame.Append(nil, r.db, r.gen, uint64(start))
 	f, err := r.fs.Open(log.Name(r.gen), os.O_RDWR)
@@ -560,30 +612,36 @@ func (r *recovery) restart() (
 	return sequence, []log.Record{&log.Restart{}}, switched, nil
 }
 
-// next makes the next log live: its file, prepared when it is missing or not whole,
-// then both header copies, synced. It returns the crc field of the copy at 0.
-func (r *recovery) next() (uint32, error) {
+// nextWhole reports whether the file of the next log exists at its full size.
+func (r *recovery) nextWhole() (bool, error) {
+	name := log.Name(r.gen + 1)
+	ok, err := r.fs.Exists(name)
+	if err != nil || !ok {
+		return false, err
+	}
+	f, err := r.fs.Open(name, os.O_RDONLY)
+	if err != nil {
+		return false, err
+	}
+	info, err := f.Stat()
+	if err = errors.Join(err, f.Close()); err != nil {
+		return false, err
+	}
+	return info.Size() == log.FileSize, nil
+}
+
+// next makes the next log live: its file, synced in the root when it is whole and else
+// prepared, then both header copies, synced. It returns the crc field of the copy at 0.
+func (r *recovery) next(whole bool) (uint32, error) {
 	gen := r.gen + 1
-	size, err := r.fs.Exists(log.Name(gen))
+	var err error
+	if whole {
+		err = r.fs.SyncDir("")
+	} else {
+		err = log.Prepare(r.fs, gen, log.FileSize)
+	}
 	if err != nil {
 		return 0, err
-	}
-	whole := false
-	if size {
-		f, err := r.fs.Open(log.Name(gen), os.O_RDONLY)
-		if err != nil {
-			return 0, err
-		}
-		info, err := f.Stat()
-		if err = errors.Join(err, f.Close()); err != nil {
-			return 0, err
-		}
-		whole = info.Size() == log.FileSize
-	}
-	if !whole {
-		if err = log.Prepare(r.fs, gen, log.FileSize); err != nil {
-			return 0, err
-		}
 	}
 	h := log.Header{
 		DB:         r.db,
@@ -613,12 +671,3 @@ func (r *recovery) next() (uint32, error) {
 
 // frameMagic is the first four bytes of every log frame.
 var frameMagic = binary.LittleEndian.AppendUint32(nil, 0x464C5043)
-
-func allZero(b []byte) bool {
-	for _, c := range b {
-		if c != 0 {
-			return false
-		}
-	}
-	return true
-}

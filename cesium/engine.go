@@ -57,7 +57,10 @@ type engine struct {
 	switched uint64
 	// ready is closed once the orphan pass is done. A writer waits for it before it
 	// creates a segment file.
-	ready    chan struct{}
+	ready chan struct{}
+	// unstored gives out the alignment numbers of unstored writers, from
+	// telem.LeadingDomain.
+	unstored *telem.AlignmentCounter
 	shutdown sync.Once
 	closeErr error
 	// keys holds the key of each segment that the state may give back as dead, so that
@@ -87,10 +90,11 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	e := &engine{
-		ins:   o.Instrumentation,
-		fs:    o.fs,
-		exec:  o.executor,
-		ready: make(chan struct{}),
+		ins:      o.Instrumentation,
+		fs:       o.fs,
+		exec:     o.executor,
+		ready:    make(chan struct{}),
+		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
@@ -287,7 +291,12 @@ func (e *engine) run(ctx context.Context) error {
 	if e.switched != 0 {
 		e.switchedTo(e.switched)
 	}
-	err := e.orphans()
+	snapshot, err := e.state.Snapshot()
+	if err == nil {
+		orphaned := make(chan error, 1)
+		e.exec(func() { orphaned <- e.orphans(snapshot) })
+		err = <-orphaned
+	}
 	close(e.ready)
 	if err == nil {
 		select {
@@ -311,14 +320,10 @@ func segmentName(key ChannelKey, id uint64) string {
 	return fmt.Sprintf("%d/%016x.seg", key, id)
 }
 
-// orphans removes each segment and check file of a channel directory that the state
+// orphans removes each segment and check file of a channel directory that snapshot
 // does not name, and cuts each named segment file to its committed length. In the root,
 // it keeps what a switch keeps.
-func (e *engine) orphans() error {
-	snapshot, err := e.state.Snapshot()
-	if err != nil {
-		return err
-	}
+func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {
 		for _, seg := range ch.Segments {
