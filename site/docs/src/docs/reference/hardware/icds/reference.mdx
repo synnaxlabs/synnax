@@ -230,9 +230,8 @@ When a task reads more than one message from a topic:
 
 ### Defaults
 
-A field of type Float, Signed integer, Unsigned integer, String, Boolean, or Timestamp
-can have a default. The task writes the default when the document has no value at the
-pointer of the field:
+Every JSON field can have a default. The task writes the default when the document has
+no value at the pointer of the field:
 
 - The document has no value at the pointer.
 - The value is `null`, and the channel is not a `json` channel.
@@ -242,9 +241,10 @@ pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
-To set a default in the Console, open the **Options** of the field and select
-**Optional**. The Console shows the default of a timestamp field and can remove it, but
-only code can set it.
+To set a default in the Console, open the **Options** of the field, select **Optional**,
+and set the **Default**. A timestamp default is **Now**, the time of each read or write,
+or a **Constant** time. A UUID default is **Random**, a new UUID for each message, or a
+**Constant** UUID.
 
 ### Enum values
 
