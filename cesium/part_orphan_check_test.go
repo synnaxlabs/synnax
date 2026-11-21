@@ -48,6 +48,15 @@ func byOrphanPass() bool {
 	}
 }
 
+// Sub keeps the gate on the FS that Open gives the engine, a Sub of its root.
+func (f headGateFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return headGateFS{FS: sub, armed: f.armed}, nil
+}
+
 func (f headGateFS) List(name string) ([]xfs.FileInfo, error) {
 	if name == "" && f.armed.Load() && byOrphanPass() {
 		for deadline := time.Now().Add(time.Minute); time.Now().Before(deadline); {
