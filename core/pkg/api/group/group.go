@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -29,6 +30,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Impact deletes groups.
+	//
+	// [REQUIRED]
+	Impact *impact.Service
 }
 
 var (
@@ -40,6 +45,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Impact = override.Nil(c.Impact, other.Impact)
 	return c
 }
 
@@ -47,11 +53,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.group")
 	v.NotNil("group", c.Group)
+	v.NotNil("impact", c.Impact)
 	return v.Error()
 }
 
 type Service struct {
 	internal *group.Service
+	impact   *impact.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -61,6 +69,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Group,
+		impact:   cfg.Impact,
 	}, nil
 }
 
@@ -182,5 +191,11 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	_, err := s.impact.Apply(
+		ctx,
+		tx,
+		impact.Change{Variant: impact.DeleteFoldersChange{Keys: req.Keys}},
+		impact.ApplyOptions{},
+	)
+	return struct{}{}, err
 }

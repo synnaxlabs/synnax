@@ -14,12 +14,14 @@ import (
 	. "github.com/onsi/gomega"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apigroup.ServiceConfig {
 		return apigroup.ServiceConfig{
-			Group: &group.Service{},
+			Group:  &group.Service{},
+			Impact: &impact.Service{},
 		}
 	}
 
@@ -40,6 +42,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apigroup.ServiceConfig) { c.Group = nil },
 				"group: must be non-nil",
 			),
+			Entry(
+				"impact",
+				func(c *apigroup.ServiceConfig) { c.Impact = nil },
+				"impact: must be non-nil",
+			),
 		)
 	})
 
@@ -48,12 +55,14 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apigroup.ServiceConfig{}.Override(cfg)
 			Expect(merged.Group).To(BeIdenticalTo(cfg.Group))
+			Expect(merged.Impact).To(BeIdenticalTo(cfg.Impact))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apigroup.ServiceConfig{})
 			Expect(merged.Group).To(BeIdenticalTo(cfg.Group))
+			Expect(merged.Impact).To(BeIdenticalTo(cfg.Impact))
 		})
 	})
 })

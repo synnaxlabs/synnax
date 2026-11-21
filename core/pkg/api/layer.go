@@ -1004,7 +1004,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Group, err = group.NewService(group.ServiceConfig{
-		Group: cfg.Service.Group,
+		Group:  cfg.Service.Group,
+		Impact: cfg.Service.Impact,
 	}); err != nil {
 		return nil, err
 	}

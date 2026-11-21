@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package impact plans each change to channels: every record that the change touches,
-// the picks for each, and the default. It applies a change with the caller's picks.
+// Package impact plans each change to channels and folders: every record that the
+// change touches, the picks for each, and the default. It applies a change with the
+// caller's picks.
 package impact
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -31,6 +34,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Group is the service of the folders that a change touches.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// RecordOf returns the record that the holder of a reference stands for.
 	//
 	// [REQUIRED]
@@ -47,6 +54,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
 	return c
@@ -56,12 +64,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("impact")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
 	return v.Error()
 }
 
-// Service applies changes to channels.
+// Service applies changes to channels and folders.
 type Service struct{ cfg ServiceConfig }
 
 // OpenService opens a Service from cfgs.
@@ -80,16 +89,19 @@ type ApplyOptions struct {
 	Picks map[string]Choice
 }
 
-// Apply carries out c in tx with the picks of opts. With no picks, it deletes as
-// channel.Writer.DeleteMany does with allowInternal false, which applies the default of
-// every record, and returns an empty plan. With picks, it plans c in tx and returns the
-// entries that it applied, with the count of the records that keep a deleted channel. A
-// restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
-// record. A delete pick on a channel adds the channel to the delete, and the holders of
-// that channel take their picks or defaults. A delete pick on another record deletes it
-// through ServiceConfig.Delete before the channels go. A pick for no entry, or one that
-// its entry does not allow, fails with a validation error. Given a gorp.DB, Apply runs
-// in a transaction of its own.
+// Apply carries out c in tx with the picks of opts. A delete of channels with no picks
+// deletes as channel.Writer.DeleteMany does with allowInternal false, which applies the
+// default of every record, and returns an empty plan. With picks, it plans c in tx and
+// returns the entries that it applied, with the count of the records that keep a
+// deleted channel. A restrict entry that takes cancel fails Apply with the
+// gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
+// delete, and the holders of that channel take their picks or defaults. A delete pick
+// on
+// another record deletes it through ServiceConfig.Delete before the channels go. A
+// delete of folders deletes as group.Writer.Delete does and plans no entries. A pick
+// for no entry, or one that its entry does not allow, fails with a validation error.
+// Given a
+// gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -103,10 +115,40 @@ func (s *Service) Apply(
 		})
 		return applied, err
 	}
-	keys, err := deletedKeys(c)
-	if err != nil {
-		return Plan{}, err
+	switch v := c.Variant.(type) {
+	case DeleteChannelsChange:
+		return s.deleteChannels(ctx, tx, v.Keys, opts)
+	case DeleteFoldersChange:
+		return Plan{}, s.deleteFolders(ctx, tx, v.Keys, opts)
 	}
+	return Plan{}, errors.Wrap(validate.ErrValidation, "unknown change")
+}
+
+// deleteFolders deletes the folders with keys. Its plan has no entries, so every pick
+// fails.
+func (s *Service) deleteFolders(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []group.Key,
+	opts ApplyOptions,
+) error {
+	if len(opts.Picks) > 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"no entry is %s",
+			slices.Min(slices.Collect(maps.Keys(opts.Picks))),
+		)
+	}
+	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
+}
+
+// deleteChannels deletes the channels with keys, as Apply describes.
+func (s *Service) deleteChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []channel.Key,
+	opts ApplyOptions,
+) (Plan, error) {
 	w := s.cfg.Channel.NewWriter(tx)
 	if len(opts.Picks) == 0 {
 		return Plan{}, w.DeleteMany(ctx, keys, false)
@@ -240,13 +282,4 @@ func pickOf(e Entry, id string, picks map[string]Choice) (Choice, error) {
 		return pick, nil
 	}
 	return "", errors.Wrapf(validate.ErrValidation, "entry %s cannot take %s", id, pick)
-}
-
-// deletedKeys returns the keys of the channels that c deletes.
-func deletedKeys(c Change) ([]channel.Key, error) {
-	d, ok := c.Variant.(DeleteChannelsChange)
-	if !ok {
-		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
-	}
-	return d.Keys, nil
 }
