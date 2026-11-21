@@ -131,8 +131,9 @@ In absolute time, the traces of one stored line split the time:
 
 - A range owns its own window. Where two fixed windows overlap, the one that starts
   first owns the overlap, and on equal starts the one listed first in the plot owns it.
-  A range with no end is a fixed window. Fixed windows come first, and a rolling window
-  takes what is left.
+  A range with no end is a fixed window. A rolling window comes first, and the fixed
+  windows take what is left. A rolling window ends at now, so each window keeps one
+  piece of time, and a range inside a rolling window draws through the rolling trace.
 - The time between two windows goes half to each, and no span leaves the segment of its
   window. So a closed gap belongs to no trace, and an open gap goes half to each trace
   beside it.
