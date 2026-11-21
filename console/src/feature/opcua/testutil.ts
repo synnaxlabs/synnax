@@ -25,6 +25,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
+import { preload } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {
@@ -124,3 +125,10 @@ export const dragNode = async (name: string, target: string): Promise<void> => {
   fireEvent.dragStart(await screen.findByText(name));
   fireEvent.drop(await screen.findByText(new RegExp(target)));
 };
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/opcua/task/Read"),
+    async () => await import("@/feature/opcua/task/Write"),
+  );
