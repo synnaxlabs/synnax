@@ -150,7 +150,7 @@ fragment STR_PREFIX
 // A channel path in single quotes. Inside it, \' is a quote and \\ is a backslash;
 // the parser package decodes them.
 CHANNEL_NAME
-    : '\'' (~['\\\r\n] | '\\' ['\\])* '\''
+    : '\'' (~['\\\r\n] | '\\' ['\\])+ '\''
     ;
 
 // =============================================================================

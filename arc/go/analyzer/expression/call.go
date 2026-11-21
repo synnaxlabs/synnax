@@ -215,7 +215,7 @@ func readsFlowVariable[T antlr.ParserRuleContext](
 	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
 		return false
 	}
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return false
 	}

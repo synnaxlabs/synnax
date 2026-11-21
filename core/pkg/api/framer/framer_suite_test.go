@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -26,13 +27,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -53,6 +54,7 @@ var (
 	apiSvc     *apiframer.Service
 	framerSvc  *svcframer.Service
 	channelSvc *channel.Service
+	creator    calctestutil.Creator
 	rbacSvc    *rbac.Service
 	userSvc    *user.Service
 	svc        *service.Layer
@@ -69,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	store := &storage.Layer{
 		KV:   kv,
 		Gorp: gorp.Wrap(kv),
-		TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		TS:   DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(faultyFS)))),
 	}
 	StartRun(store.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
@@ -89,6 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	rbacSvc = svc.RBAC
 	userSvc = svc.User
 	apiSvc = MustSucceed(apiframer.NewService(apiframer.ServiceConfig{
