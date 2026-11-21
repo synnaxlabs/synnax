@@ -117,6 +117,12 @@ var _ = Describe("Calculation", func() {
 				})...,
 			)
 			g := createGroup(ctx)
+			grant(
+				ctx,
+				[]access.Action{access.ActionUpdate},
+				u.ResourceID(),
+				group.ResourceID(g.Key),
+			)
 			name := "made_" + uuid.New().String()[:8]
 			res := MustSucceed(createInput(ctx, apicalculation.Input{
 				Calculation: calculation.Calculation{
