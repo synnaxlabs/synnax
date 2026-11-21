@@ -571,9 +571,10 @@ describe("default ranges", () => {
     ],
     aoCurrentRanges: [{ lower: 0, upper: 0.02 }],
   };
+  const current = NI.Task.createAIChannel("ai_current");
 
   it("should give a current input the widest current range", () => {
-    expect(NI.Task.defaultAIRange("ai_current", hardware)).toEqual({
+    expect(NI.Task.defaultAIRange("ai_voltage", current, hardware)).toEqual({
       lower: -0.02,
       upper: 0.02,
     });
@@ -587,9 +588,48 @@ describe("default ranges", () => {
   });
 
   it.each([
-    ["a voltage input", NI.Task.defaultAIRange("ai_voltage", hardware)],
+    "ai_rtd",
+    "ai_thermistor_iex",
+    "ai_thermistor_vex",
+    "ai_thermocouple",
+  ] as const)("should give %s a range of 0 to 100 °C", (type) => {
+    const channel = NI.Task.createAIChannel(type);
+    expect(NI.Task.defaultAIRange("ai_voltage", channel, hardware)).toEqual({
+      lower: 0,
+      upper: 100,
+    });
+  });
+
+  it("should give 0 to 100 °C in the units the channel keeps", () => {
+    const channel = NI.Task.AI_CHANNEL_SCHEMAS.ai_thermocouple.parse({
+      type: "ai_thermocouple",
+      units: "Kelvins",
+    });
+    expect(NI.Task.defaultAIRange("ai_temp_builtin", channel, hardware)).toEqual({
+      lower: 273.15,
+      upper: 373.15,
+    });
+  });
+
+  it.each([
+    [
+      "a voltage input",
+      NI.Task.defaultAIRange(
+        "ai_current",
+        NI.Task.createAIChannel("ai_voltage"),
+        hardware,
+      ),
+    ],
     ["a voltage output", NI.Task.defaultAORange("ao_voltage", hardware)],
-    ["a device with no hardware", NI.Task.defaultAIRange("ai_current")],
+    ["a device with no hardware", NI.Task.defaultAIRange("ai_voltage", current)],
+    [
+      "a temperature input that measured temperature before",
+      NI.Task.defaultAIRange(
+        "ai_thermocouple",
+        NI.Task.createAIChannel("ai_rtd"),
+        hardware,
+      ),
+    ],
   ])("should keep the range of %s", (_, range) => {
     expect(range).toBeUndefined();
   });
