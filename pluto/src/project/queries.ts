@@ -27,7 +27,7 @@ export type RetrieveQuery = {
   key: project.Key;
 };
 
-export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
+export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
   onChange: ({ client, query }, handler) =>
