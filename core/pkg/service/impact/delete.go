@@ -115,18 +115,22 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 // token returns the hex form of the first 16 bytes of a SHA-256 hash of the delete of
 // the channels with keys, in sorted order, and its entries, which are sorted.
 func token(keys []channel.Key, entries []Entry) string {
-	h := sha256.New()
-	h.Write([]byte(DeleteChannelsChangeType))
 	sorted := slices.Clone(keys)
 	slices.Sort(sorted)
-	for _, k := range slices.Compact(sorted) {
-		h.Write(binary.BigEndian.AppendUint32(nil, uint32(k)))
+	sorted = slices.Compact(sorted)
+	buf := make([]byte, 0, len(DeleteChannelsChangeType)+4*len(sorted)+64*len(entries))
+	buf = append(buf, DeleteChannelsChangeType...)
+	for _, k := range sorted {
+		buf = binary.BigEndian.AppendUint32(buf, uint32(k))
 	}
 	for _, e := range entries {
-		h.Write([]byte{0})
-		h.Write([]byte(e.Record.String()))
-		h.Write([]byte{0})
-		h.Write([]byte(e.Effect))
+		buf = append(buf, 0)
+		buf = append(buf, e.Record.Type...)
+		buf = append(buf, ':')
+		buf = append(buf, e.Record.Key...)
+		buf = append(buf, 0)
+		buf = append(buf, e.Effect...)
 	}
-	return hex.EncodeToString(h.Sum(nil)[:16])
+	sum := sha256.Sum256(buf)
+	return hex.EncodeToString(sum[:16])
 }
