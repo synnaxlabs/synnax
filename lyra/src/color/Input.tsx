@@ -20,7 +20,10 @@ import { Flex } from "@/flex";
 
 export interface InputProps
   extends
-    Omit<HexTextProps, "text" | "alpha" | "onChange" | "onClear" | "startContent">,
+    Omit<
+      HexTextProps,
+      "text" | "named" | "alpha" | "onChange" | "onClear" | "startContent"
+    >,
     Pick<SwatchProps, "mixed" | "library"> {
   /** The picked color. Absent means the theme picks. */
   value?: color.Crude;
@@ -35,7 +38,7 @@ export interface InputProps
  * color into the box, or clicks the swatch to open the picker. An empty box means
  * Auto: the swatch shows the fallback, and the box shows "Auto". While mixed, the box
  * shows "Mixed" until the user sets a color. While the value follows a named color of
- * the library, the box shows its name.
+ * the library, the box holds its name until the user types a color.
  */
 export const Input = ({
   value,
@@ -49,8 +52,10 @@ export const Input = ({
   ...rest
 }: InputProps): ReactElement => {
   const named =
-    library?.named == null ? undefined : findNamed(library.palettes, library.named);
-  const empty = mixed || value == null || named != null;
+    mixed || library?.named == null
+      ? undefined
+      : findNamed(library.palettes, library.named);
+  const digits = mixed || value == null ? "" : color.hex(value).slice(1);
   return (
     <Flex.Box pack className={CSS.cls(CSS.B("color-input"), className)}>
       <Swatch
@@ -64,9 +69,10 @@ export const Input = ({
       />
       <HexText
         size={size}
-        placeholder={mixed ? "Mixed" : (named?.name ?? "Auto")}
-        startContent={empty ? undefined : "#"}
-        text={empty ? "" : color.hex(value).slice(1)}
+        placeholder={mixed ? "Mixed" : "Auto"}
+        startContent={named == null && digits !== "" ? "#" : undefined}
+        text={named?.name ?? digits}
+        named={named != null}
         alpha={color.opacity(value ?? fallback)}
         onChange={onChange}
         onClear={() => onChange(undefined)}

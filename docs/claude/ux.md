@@ -68,6 +68,13 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+On a plot in relative time, a range takes its own color when it is clearly apart from
+the other colors of the plot: an OKLab distance of 0.05 or more in normal vision and in
+three simulations of color blindness. Else it takes the series color that the fewest
+colors of the plot are close to. The Core picks the color when the range joins the plot
+and saves it on the plot. Rejected: an exact match only, which lets a range's red sit
+next to the series red.
+
 A user adds a series color in Settings, where they set its value. The Series palette in
 a color picker has no "+".
 
@@ -354,7 +361,9 @@ bound, a log precision, or the line plot X channel.
 - A user never needs to leave the field to create or edit a shared item. Settings is
   still a full editor for every type: create, edit, find, and delete, and, where the
   type supports them, see what uses an item and Replace with.
-- Each type has one editor. The field and Settings open the same editor.
+- Each type has one form and one save path. The field and Settings may lay out its
+  fields differently, such as a Light and Dark switch in a picker and two columns in a
+  table.
 - The field's picker creates in place, as every select of things users make does. A
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
@@ -393,12 +402,19 @@ bound, a log precision, or the line plot X channel.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
   Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
-  under it. Each palette sits under its title, which ends with the name of the hovered
-  color, else the linked one. Swatches have no tooltips.
+  under it. Each palette sits under its title, which ends with the name of the color an
+  open swatch menu acts on, else the hovered color, else the focused color, else the
+  linked one. A hovered name stays until the pointer leaves the palette, and a focused
+  name until the focus leaves it. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
   button.
 - An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- A named color has one view in the picker for create and edit. Its labels, Name,
+  Palette (create only), and Color, share an 8rem column at the left. Every control is
+  small: 24 px, with 12 px text. The Light and Dark buttons each show a swatch of their
+  value. Create sits at the trailing edge, under a hairline across the view, 9 px from
+  each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
@@ -451,6 +467,8 @@ bound, a log precision, or the line plot X channel.
   that integration.
 - A submenu of targets keeps a target that already has the change, with a check, and
   disables it. Add to plot does this for a plot that shows the range.
+- A selection of two or more ranges has Compare under Add to plot. It opens a new plot
+  in relative time with the ranges, named "Compare A and B".
 - In a selection, an option that only some of the items have shows a minus mark. The
   first click adds it to all of them, and the next click removes it from all of them.
 - A picker leaves out a choice that the Core would reject. The Parent picker leaves out
@@ -468,6 +486,11 @@ bound, a log precision, or the line plot X channel.
   text changes, so a second click makes no copy. It needs create permission. A filter
   never creates. A new parent range covers the ranges that move into it. Under the
   divider, the create option comes first, then "No <noun>".
+- A create button at the foot of a dialog, such as "New project" in the project selector
+  or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
+  the sides and the bottom of the dialog. Under a hairline, it keeps the same 1rem
+  above, so its fill has an even edge. It matches a small button: 24 px, with 12 px
+  text. A dialog never restyles it.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
@@ -861,6 +884,13 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot controls
+
+- The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
+  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
+  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
+  what the plot shows, such as the time mode.
+
 ### Plot range select
 
 - The dialog opens above the field. The Live row holds one chip per preset and an Off
@@ -879,6 +909,12 @@ says why in a sentence, then gives the raw error.
 - The labels share one column as wide as the widest label, so every field starts at one
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The time mode, "Absolute" and "Relative" at medium size, sits right of X1. It moves
+  down with X1 below 171rem. X1 then fills its row, and the time mode lines up with the
+  right edge of Y1 and Y2. Below 76rem it shows only its icons: a clock and a timeline.
+  A change of mode resets the zoom, because a zoom in one mode means nothing in the
+  other. Rejected: the plot controls (the mode is saved), and the toolbar header (it
+  holds actions and tabs).
 - The X1 dialog floats, so it can be wider than its trigger.
 
 ### Plot lines tab
@@ -895,6 +931,31 @@ says why in a sentence, then gives the raw error.
 
 - A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
   above and below. A 1 px line with no space was too heavy.
+- In relative time, each range name sits above its channels. The range name is weight
+  500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
+  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
+  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
+  swatch on each channel (one color again and again), a guide or bar in the range color,
+  an axis at the end of the channel, and an axis icon (a small box at text size).
+- The eyes take no room at rest. On hover the legend grows to the right as they fade in,
+  so no text moves.
+- Option or Alt click on an eye shows only that item, and a second one restores what was
+  hidden before. A channel hidden in all ranges shows again only in the range whose eye
+  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
+  rolling window is named as its saved range is, such as "Rolling 5min".
+
+### Plot hover and tooltip
+
+- The pointer on a legend entry draws its lines twice as wide and on top. The other
+  lines draw at 25 percent over the background: the other ranges in relative time, and
+  the other channels in absolute time. The pointer on a line of the plot only makes its
+  tooltip entry bold. Rejected: a dim from the plot, which flickers as the pointer
+  crosses lines to read values.
+- The tooltip groups by channel. Under each channel, each range shows its color, name,
+  and value, from high to low. Rejected: channels under each range, and one flat list.
+- The tooltip lists as many entries as fit inside the plot, and stays inside it. The
+  last entry then reads "and N more". Rejected: a fixed count, which cuts a compare of 2
+  channels and 8 ranges, and no limit, where entries past the plot edge do not show.
 
 ## Interaction
 

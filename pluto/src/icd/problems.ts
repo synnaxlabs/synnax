@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import type { PathError } from "@synnaxlabs/client";
 import type { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x";
 
 /**
- * Rewrites a dotted problem path, such as "messages.2.bitLength", into the form path of
- * the value it names, with element keys in place of array indexes.
+ * Rewrites a problem path, such as ["messages", "2", "bitLength"], into the form path
+ * of the value it names, with element keys in place of array indexes.
  */
-const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
+const toFormPath = (path: string[], value: unknown): deep.Target<unknown> =>
   deep
-    .resolvePath(path, value)
+    .resolvePath(path.join("."), value)
     .split(".")
     .reduce<deep.Path<unknown>>((target, part) => target[part], deep.path<unknown>());
 
@@ -26,12 +26,16 @@ const toFormPath = (path: string, value: unknown): deep.Target<unknown> =>
  * @returns the form paths it marked.
  */
 export const markProblems = (
-  problems: icd.Problem[],
+  problems: PathError[],
   value: unknown,
   setStatus: Form.ContextValue["setStatus"],
 ): deep.Target<unknown>[] =>
-  problems.map(({ path, message }) => {
+  problems.map(({ path, error }) => {
     const formPath = toFormPath(path, value);
-    setStatus(formPath, { key: String(formPath), variant: "error", message });
+    setStatus(formPath, {
+      key: String(formPath),
+      variant: "error",
+      message: error.message,
+    });
     return formPath;
   });

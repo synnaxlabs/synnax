@@ -62,6 +62,8 @@ const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 // Computed per call so an empty time axis tracks the present instead of app start.
 const emptyBounds = (type: TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  if (type === "relative")
+    return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
   const now = TimeStamp.now();
   return {
     lower: Number(now.valueOf()),
@@ -133,6 +135,8 @@ export abstract class BaseAxis<
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
+    // A held view in one tick type means nothing in another.
+    if (this.state.type !== this.prevState.type) i.boundSnapshot = undefined;
     const theme = theming.use(ctx);
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"

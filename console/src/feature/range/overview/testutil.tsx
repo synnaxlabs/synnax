@@ -27,7 +27,8 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   CaptureStatuses,
   createTestStore,
-  renderSuspended,
+  preload,
+  renderLazy,
   type TestStore,
 } from "@/testutil";
 
@@ -76,7 +77,7 @@ export const renderOverview = async (
   const { Content, Guard } = TAB;
   assert(Guard != null);
   let statuses: Status.NotificationSpec[] = [];
-  await renderSuspended(
+  await renderLazy(
     <>
       <div style={{ width }}>
         <Guard FallbackComponent={Deleted}>
@@ -96,3 +97,7 @@ export const renderOverview = async (
     });
   return { store, project: proj.key, setTabResource, statuses: () => statuses };
 };
+
+/** Loads the module of the lazy overview before the specs of a file run. */
+export const preloadOverview = (): void =>
+  preload(async () => await import("@/feature/range/overview/Overview"));

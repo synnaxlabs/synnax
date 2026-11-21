@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
 )
@@ -48,9 +50,14 @@ func readChannels(svc *channel.Service) v1.Channels {
 	}
 }
 
-// createICD returns the v1.CreateICD that creates an ICD with svc.
+// createICD returns the v1.CreateICD that lifts an ICD to the current shape and creates
+// it with svc.
 func createICD(svc *icd.Service) v1.CreateICD {
-	return func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error {
+	return func(ctx context.Context, tx gorp.Tx, old icdv0.ICD) error {
+		ic, err := icdv1.MigrateICD(ctx, old)
+		if err != nil {
+			return err
+		}
 		return svc.NewWriter(tx).Create(ctx, &ic)
 	}
 }
@@ -78,15 +85,21 @@ func (r readResolver) resolve(
 	if err != nil {
 		return nil, err
 	}
-	icds := make(map[icd.Key]icd.ICD)
+	var (
+		icds = make(map[icd.Key]icd.ICD)
+		ic   icd.ICD
+	)
 	if ok {
-		icds[staged.Key] = staged
+		if ic, err = icdv1.MigrateICD(ctx, staged); err != nil {
+			return nil, err
+		}
+		icds[ic.Key] = ic
 	}
 	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
-		return r.create(ctx, tx, staged)
+		return r.icds.NewWriter(tx).Create(ctx, &ic)
 	}, nil
 }
 
