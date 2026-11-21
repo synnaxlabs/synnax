@@ -141,6 +141,44 @@ var _ = Describe("Reader", func() {
 					}),
 			)
 
+			It("Should read a held block once for reads inside it, and again after a "+
+				"reset or for another block or segment", func() {
+				stream := pattern(2*segment.BlockSize + 10)
+				com := write(cfg, stream)
+				r := &countingReader{ReaderAt: h}
+				p := make([]byte, 8)
+				for _, off := range []int64{100, 5000, 100} {
+					Expect(rd.Read(r, com, p, off)).To(Succeed())
+					Expect(p).To(Equal(stream[off : off+8]))
+				}
+				Expect(r.reads.Load()).To(Equal(int64(1)))
+				Expect(rd.Read(r, com, p, segment.BlockSize+8)).To(Succeed())
+				Expect(r.reads.Load()).To(Equal(int64(2)))
+				rd.Reset()
+				Expect(rd.Read(r, com, p, segment.BlockSize+8)).To(Succeed())
+				Expect(r.reads.Load()).To(Equal(int64(3)), "a reset drops the block")
+				other := com
+				other.ID++
+				Expect(rd.Read(r, other, p, segment.BlockSize+8)).
+					To(MatchError(place.ErrCorrupt), "another segment checks with its seed")
+				Expect(r.reads.Load()).To(Equal(int64(5)))
+			})
+
+			It("Should hold no block after a read that fails its check", func() {
+				stream := pattern(segment.BlockSize + 10)
+				com := write(cfg, stream)
+				p := make([]byte, 8)
+				Expect(rd.Read(h, com, p, 100)).To(Succeed())
+				other := com
+				other.ID++
+				bad := &flipReader{ReaderAt: h, at: 50, left: -1}
+				Expect(rd.Read(bad, other, p, 100)).To(MatchError(place.ErrCorrupt))
+				r := &countingReader{ReaderAt: h}
+				Expect(rd.Read(r, com, p, 100)).To(Succeed())
+				Expect(p).To(Equal(stream[100:108]))
+				Expect(r.reads.Load()).To(Equal(int64(1)))
+			})
+
 			It("Should read each block once, into place when it fits", func() {
 				com := write(cfg, pattern(4*segment.BlockSize+10))
 				r := &countingReader{ReaderAt: h}
@@ -203,8 +241,11 @@ var _ = Describe("Reader", func() {
 			It("Should refuse a tail whose checksum is not the committed one", func() {
 				com := write(cfg, pattern(100))
 				com.TailCRC++
-				Expect(rd.Read(h, com, make([]byte, 100), 0)).
-					To(MatchError(place.ErrCorrupt))
+				Expect(rd.Read(h, com, make([]byte, 100), 0)).To(SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(Equal("block at stream offset 0 of segment 3 of key 6 "+
+						"fails two reads: block at file offset 0 fails its check: corrupt")),
+				))
 			})
 
 			It("Should refuse a file shorter than the committed length", func() {

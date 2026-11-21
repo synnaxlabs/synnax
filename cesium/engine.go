@@ -47,6 +47,8 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
+	// readers pools the segment readers of iterators, each of which holds a block.
+	readers sync.Pool
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -84,6 +86,7 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	e := &engine{fs: o.fs, exec: o.executor, ready: make(chan struct{})}
+	e.readers.New = func() any { return segment.NewReader() }
 	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
@@ -359,6 +362,17 @@ func (e *engine) cut(name string, size int64) error {
 		return err
 	}
 	return errors.Join(f.Truncate(size), f.Close())
+}
+
+// reader returns a segment reader from the pool, with no block held from an earlier
+// read.
+func (e *engine) reader() *segment.Reader {
+	rd, ok := e.readers.Get().(*segment.Reader)
+	if !ok {
+		panic("cesium: the segment reader pool holds another type")
+	}
+	rd.Reset()
+	return rd
 }
 
 // segmentConfig returns the identity and block layout of seg.

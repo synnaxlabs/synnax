@@ -31,7 +31,7 @@ var _ domain.Source = logSource{}
 
 // OpenCursor implements domain.Source.
 func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds, rd: segment.NewReader()}
+	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds}
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it.
@@ -59,9 +59,6 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on
 	// the old layout.
 	cur logRange
-	// rd checks the blocks that the readers of the cursor read. The readers share it,
-	// so they are not safe for concurrent use.
-	rd *segment.Reader
 }
 
 var _ domain.Cursor = (*logCursor)(nil)
@@ -159,7 +156,8 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	cfg := c.e.segmentConfig(r.seg)
 	cfg.Key = c.key
 	return &logReader{
-		rd: c.rd,
+		e:  c.e,
+		rd: c.e.reader(),
 		seg: segment.Committed{
 			Config:  cfg,
 			Length:  int64(r.seg.Length),
@@ -178,8 +176,9 @@ func (c *logCursor) Close() error {
 }
 
 // logReader reads the bytes of one pointer from its segment file, and checks each block
-// that it reads.
+// that it reads with a segment reader from the pool of the engine until Close.
 type logReader struct {
+	e      *engine
 	rd     *segment.Reader
 	seg    segment.Committed
 	h      *segment.Handle
@@ -210,4 +209,7 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
-func (r *logReader) Close() error { return r.h.Close() }
+func (r *logReader) Close() error {
+	r.e.readers.Put(r.rd)
+	return r.h.Close()
+}

@@ -27,9 +27,19 @@ type Committed struct {
 	TailCRC uint32
 }
 
-// Reader reads checked stream bytes of segments. It holds the scratch space of a block,
-// and is not safe for concurrent use.
-type Reader struct{ block []byte }
+// Reader reads checked stream bytes of segments. It keeps the last block that it
+// checked on its own, so a later read inside that block reads no bytes again. It is not
+// safe for
+// concurrent use.
+type Reader struct {
+	block []byte
+	// held names the checked bytes of block: their segment, the stream offset of the
+	// block, and their size. size is zero when block holds none.
+	held struct {
+		db, id      uint64
+		start, size int64
+	}
+}
 
 // NewReader returns a reader.
 func NewReader() *Reader {
@@ -64,16 +74,10 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 			if err := rd.checked(r, s, start, p[:BlockSize+s.trailer()]); err != nil {
 				return err
 			}
+		} else if err := rd.hold(r, s, start, end); err != nil {
+			return err
 		} else {
-			size := end - start
-			if end-start == BlockSize {
-				size += s.trailer()
-			}
-			b := rd.block[:size]
-			if err := rd.checked(r, s, start, b); err != nil {
-				return err
-			}
-			copy(p[:n], b[off-start:])
+			copy(p[:n], rd.block[off-start:])
 		}
 		p, off = p[n:], off+int64(n)
 	}
@@ -83,6 +87,34 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 // checked reads the block at stream offset start into b, which holds the block and its
 // trailer, or the unfinished last block, and checks it. It reads once more when the
 // first read fails.
+// hold makes rd hold the checked block of s from stream offset start to end.
+func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
+	size := end - start
+	if size == BlockSize {
+		size += s.trailer()
+	}
+	if rd.holds(s, start, size) {
+		return nil
+	}
+	rd.held.size = 0
+	if err := rd.checked(r, s, start, rd.block[:size]); err != nil {
+		return err
+	}
+	rd.held.db, rd.held.id, rd.held.start, rd.held.size = s.DB, s.ID, start, size
+	return nil
+}
+
+// Reset drops the block that rd holds, so the next read of it reads and checks it
+// again. A caller resets a reader before it reads for another caller.
+func (rd *Reader) Reset() { rd.held.size = 0 }
+
+// holds reports whether rd holds the size checked bytes at stream offset start of s.
+// Blocks only grow, so a longer checked tail holds a shorter one.
+func (rd *Reader) holds(s Committed, start, size int64) bool {
+	h := rd.held
+	return h.size >= size && h.db == s.DB && h.id == s.ID && h.start == start
+}
+
 func (rd *Reader) checked(r io.ReaderAt, s Committed, start int64, b []byte) error {
 	err := rd.readBlock(r, s, start, b)
 	if err == nil {
@@ -91,17 +123,13 @@ func (rd *Reader) checked(r io.ReaderAt, s Committed, start int64, b []byte) err
 	if err = rd.readBlock(r, s, start, b); err == nil {
 		return nil
 	}
-	if errors.Is(err, place.ErrCorrupt) || errors.Is(err, io.EOF) ||
-		errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, os.ErrNotExist) {
-		return errors.Wrapf(
-			place.ErrCorrupt,
-			"block at stream offset %d of segment %d "+
-				"of key %d fails two reads: %v",
-			start,
-			s.ID,
-			s.Key,
-			err,
-		)
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, os.ErrNotExist) {
+		err = errors.Wrapf(place.ErrCorrupt, "%v", err)
+	}
+	if errors.Is(err, place.ErrCorrupt) {
+		return errors.Wrapf(err, "block at stream offset %d of segment %d of key %d "+
+			"fails two reads", start, s.ID, s.Key)
 	}
 	return err
 }
