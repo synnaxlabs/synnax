@@ -590,7 +590,13 @@ describe("range/explorer/Explorer", () => {
         expect(copies).toHaveLength(2);
         return copies[1];
       };
-      await waitFor(second);
+      await waitFor(() => {
+        const copies = screen.getAllByRole("listitem", { name: rng.name });
+        expect(copies).toHaveLength(2);
+        copies.forEach((copy) =>
+          within(copy).getByText(rng.name, { selector: "mark" }),
+        );
+      });
       await openContextMenu(second);
       fireEvent.click(await menuItem("Rename"));
       const editing = await awaitTextEditingElement();
