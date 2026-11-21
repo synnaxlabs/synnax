@@ -78,6 +78,32 @@ func (bv *Base) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (csp CommandStatePair) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(csp.Command))
+	w.Uint32(uint32(csp.State))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (csp *CommandStatePair) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		csp.Command = channel.Key(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		csp.State = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (d Device) EncodeOrc(w *orc.Writer) error {
 	switch v := d.Variant.(type) {
 	case T4Device:
@@ -85,15 +111,123 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.Bool(v.AnalogInput != nil)
+		if v.AnalogInput != nil {
+			w.Uint32(uint32(len(v.AnalogInput)))
+			for key, val := range v.AnalogInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.AnalogOutput != nil)
+		if v.AnalogOutput != nil {
+			w.Uint32(uint32(len(v.AnalogOutput)))
+			for key, val := range v.AnalogOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.Bool(v.DigitalInput != nil)
+		if v.DigitalInput != nil {
+			w.Uint32(uint32(len(v.DigitalInput)))
+			for key, val := range v.DigitalInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.DigitalOutput != nil)
+		if v.DigitalOutput != nil {
+			w.Uint32(uint32(len(v.DigitalOutput)))
+			for key, val := range v.DigitalOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
 	case T7Device:
 		w.String("t7")
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.Bool(v.AnalogInput != nil)
+		if v.AnalogInput != nil {
+			w.Uint32(uint32(len(v.AnalogInput)))
+			for key, val := range v.AnalogInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.AnalogOutput != nil)
+		if v.AnalogOutput != nil {
+			w.Uint32(uint32(len(v.AnalogOutput)))
+			for key, val := range v.AnalogOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.Bool(v.DigitalInput != nil)
+		if v.DigitalInput != nil {
+			w.Uint32(uint32(len(v.DigitalInput)))
+			for key, val := range v.DigitalInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.DigitalOutput != nil)
+		if v.DigitalOutput != nil {
+			w.Uint32(uint32(len(v.DigitalOutput)))
+			for key, val := range v.DigitalOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
 	case T8Device:
 		w.String("t8")
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
+		}
+		w.Bool(v.AnalogInput != nil)
+		if v.AnalogInput != nil {
+			w.Uint32(uint32(len(v.AnalogInput)))
+			for key, val := range v.AnalogInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.AnalogOutput != nil)
+		if v.AnalogOutput != nil {
+			w.Uint32(uint32(len(v.AnalogOutput)))
+			for key, val := range v.AnalogOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		w.Bool(v.DigitalInput != nil)
+		if v.DigitalInput != nil {
+			w.Uint32(uint32(len(v.DigitalInput)))
+			for key, val := range v.DigitalInput {
+				w.String(string(key))
+				w.Uint32(uint32(val))
+			}
+		}
+		w.Bool(v.DigitalOutput != nil)
+		if v.DigitalOutput != nil {
+			w.Uint32(uint32(len(v.DigitalOutput)))
+			for key, val := range v.DigitalOutput {
+				w.String(string(key))
+				if err := val.EncodeOrc(w); err != nil {
+					return err
+				}
+			}
 		}
 	default:
 		return errors.Newf("Device: nil or unknown variant %T", d.Variant)
@@ -113,17 +247,377 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogInput = make(map[T4AnalogInputPort]channel.Key, n)
+				for range n {
+					var key T4AnalogInputPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T4AnalogInputPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.AnalogInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogOutput = make(map[AnalogOutputPort]CommandStatePair, n)
+				for range n {
+					var key AnalogOutputPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = AnalogOutputPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.AnalogOutput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalInput = make(map[T4DigitalPort]channel.Key, n)
+				for range n {
+					var key T4DigitalPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T4DigitalPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.DigitalInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalOutput = make(map[T4DigitalPort]CommandStatePair, n)
+				for range n {
+					var key T4DigitalPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T4DigitalPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.DigitalOutput[key] = val
+				}
+			}
+		}
 		d.Variant = v
 	case "t7":
 		var v T7Device
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogInput = make(map[T7AnalogInputPort]channel.Key, n)
+				for range n {
+					var key T7AnalogInputPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T7AnalogInputPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.AnalogInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogOutput = make(map[AnalogOutputPort]CommandStatePair, n)
+				for range n {
+					var key AnalogOutputPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = AnalogOutputPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.AnalogOutput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalInput = make(map[T7DigitalPort]channel.Key, n)
+				for range n {
+					var key T7DigitalPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T7DigitalPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.DigitalInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalOutput = make(map[T7DigitalPort]CommandStatePair, n)
+				for range n {
+					var key T7DigitalPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T7DigitalPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.DigitalOutput[key] = val
+				}
+			}
+		}
 		d.Variant = v
 	case "t8":
 		var v T8Device
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogInput = make(map[T8AnalogInputPort]channel.Key, n)
+				for range n {
+					var key T8AnalogInputPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T8AnalogInputPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.AnalogInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.AnalogOutput = make(map[AnalogOutputPort]CommandStatePair, n)
+				for range n {
+					var key AnalogOutputPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = AnalogOutputPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.AnalogOutput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalInput = make(map[T8DigitalPort]channel.Key, n)
+				for range n {
+					var key T8DigitalPort
+					var val channel.Key
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T8DigitalPort(rawV)
+					}
+					{
+						rawV, err := r.Uint32()
+						if err != nil {
+							return err
+						}
+						val = channel.Key(rawV)
+					}
+					v.DigitalInput[key] = val
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.DigitalOutput = make(map[T8DigitalPort]CommandStatePair, n)
+				for range n {
+					var key T8DigitalPort
+					var val CommandStatePair
+					{
+						rawV, err := r.String()
+						if err != nil {
+							return err
+						}
+						key = T8DigitalPort(rawV)
+					}
+					if err = val.DecodeOrc(r); err != nil {
+						return err
+					}
+					v.DigitalOutput[key] = val
+				}
+			}
 		}
 		d.Variant = v
 	default:
