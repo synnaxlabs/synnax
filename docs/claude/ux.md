@@ -98,6 +98,8 @@ a color picker has no "+".
   it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
+- An eye modifier is 11 units wide, centered in an 11-unit square at top right. It is
+  wider than it is tall, so at 9 units it reads too small.
 - Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
   modifier's box, with a circle on a round base, or with the modifier's outline when a
   box removes a small detail. A cut line keeps its round caps. Remove slivers.

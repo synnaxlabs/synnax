@@ -10,13 +10,13 @@
 import "@/feature/lineplot/LinePlot.css";
 
 import { lineplot, ranger } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   Access,
+  Channel,
   LinePlot as Base,
   Panel as PlutoPanel,
   Ranger,
@@ -106,7 +106,7 @@ interface Compare {
   hovered: Base.Hovered | null;
   onItemVisibleChange: (item: Item, visible: boolean) => void;
   onShowOnly: (item: Item) => void;
-  hiddenCount: number;
+  hidden: Session.LinePlot.Hidden;
   /** The key of the range the plot is zoomed to, if any. */
   zoomed: string | null;
   onShowAll: () => void;
@@ -120,7 +120,7 @@ interface CompareMenuItemsProps {
 }
 
 // CompareMenuItems lists the actions on a range heading or a line of one range in the
-// legend, or on the line under the pointer.
+// legend, or on the line under the pointer. Off any range, it lists only Show all.
 const CompareMenuItems = ({
   menuKey,
   compare: {
@@ -129,7 +129,7 @@ const CompareMenuItems = ({
     hovered,
     onItemVisibleChange,
     onShowOnly,
-    hiddenCount,
+    hidden,
     zoomed,
     onShowAll,
   },
@@ -144,7 +144,19 @@ const CompareMenuItems = ({
   const trace = heading == null ? Base.parseTraceKey(menuKey, ranges) : null;
   const target = hovered ?? trace;
   const range = heading ?? ranges.find((r) => r.key === target?.range);
-  if (range?.zero == null) return null;
+  const showAll =
+    countHidden(hidden) > 0 ? (
+      <Menu.Item itemKey="showAll" onClick={onShowAll}>
+        <Icon.Visible /> Show all
+      </Menu.Item>
+    ) : null;
+  if (range?.zero == null)
+    return showAll == null ? null : (
+      <>
+        {showAll}
+        <Menu.Divider />
+      </>
+    );
   const { zero } = range;
   const applyT0 = (t0: TimeStamp | undefined) =>
     dispatch({ key, actions: [lineplot.setRangeT0({ range: range.key, t0 })] });
@@ -158,6 +170,7 @@ const CompareMenuItems = ({
   const shown = timeRange.boundBy(new TimeRange(TimeStamp.ZERO, TimeStamp.now()));
   const zoomable = !shown.span.isZero;
   const t0Editable = editable && isKey;
+  const lineHidden = target != null && hidden.lines.includes(target.line);
   const handleSetT0 = () =>
     handleError(async () => {
       const t0 = await setT0Modal({
@@ -188,31 +201,46 @@ const CompareMenuItems = ({
         itemKey="showOnlyRange"
         onClick={() => onShowOnly({ variant: "range", range: range.key })}
       >
-        <Icon.Visible /> Show only this range
+        <Ranger.VisibleIcon /> Show only this range
       </Menu.Item>
       {target != null && (
         <>
           <Menu.Item
+            itemKey="showOnlyTrace"
+            onClick={() =>
+              onShowOnly({ variant: "trace", line: target.line, range: target.range })
+            }
+          >
+            <Channel.VisibleIcon /> Show only this channel in this range
+          </Menu.Item>
+          <Menu.Item
             itemKey="showOnlyLine"
             onClick={() => onShowOnly({ variant: "line", line: target.line })}
           >
-            <Icon.Visible /> Show only this channel
+            <Channel.VisibleIcon /> Show only this channel in all ranges
           </Menu.Item>
-          <Menu.Item
-            itemKey="hideLine"
-            onClick={() =>
-              onItemVisibleChange({ variant: "line", line: target.line }, false)
-            }
-          >
-            <Icon.Hidden /> Hide this channel in all ranges
-          </Menu.Item>
+          {lineHidden ? (
+            <Menu.Item
+              itemKey="showLine"
+              onClick={() =>
+                onItemVisibleChange({ variant: "line", line: target.line }, true)
+              }
+            >
+              <Channel.VisibleIcon /> Show this channel in all ranges
+            </Menu.Item>
+          ) : (
+            <Menu.Item
+              itemKey="hideLine"
+              onClick={() =>
+                onItemVisibleChange({ variant: "line", line: target.line }, false)
+              }
+            >
+              <Channel.HiddenIcon /> Hide this channel in all ranges
+            </Menu.Item>
+          )}
         </>
       )}
-      {hiddenCount > 0 && (
-        <Menu.Item itemKey="showAll" onClick={onShowAll}>
-          <Icon.Visible /> Show all
-        </Menu.Item>
-      )}
+      {showAll}
       {heading != null && (zoomable || t0Editable) && (
         <>
           <Menu.Divider />
@@ -400,13 +428,6 @@ const Internal = (): ReactElement => {
       ],
     });
   };
-  const hiddenCount = countHidden(hidden);
-  const legendFooter =
-    relative && hiddenCount > 0 ? (
-      <Button.Button variant="text" size="small" onClick={handleShowAll}>
-        {`Show all (${hiddenCount} hidden)`}
-      </Button.Button>
-    ) : undefined;
   const handleHoveredChange = (h: Base.Hovered | null) => {
     hoveredRef.current = h;
   };
@@ -489,7 +510,7 @@ const Internal = (): ReactElement => {
               hovered: keys.length === 0 ? menuHovered : null,
               onItemVisibleChange: handleItemVisibleChange,
               onShowOnly: handleShowOnly,
-              hiddenCount,
+              hidden,
               zoomed,
               onShowAll: handleShowAll,
             }
@@ -522,7 +543,6 @@ const Internal = (): ReactElement => {
           onLineVisibleChange={handleLineVisibleChange}
           onRangeVisibleChange={handleRangeVisibleChange}
           onRangeColorChange={hasUpdatePermission ? handleRangeColorChange : undefined}
-          legendFooter={legendFooter}
           onHoveredChange={handleHoveredChange}
           relativeDisabled={!FLAGS.compare}
           onZoomedChange={setZoomed}

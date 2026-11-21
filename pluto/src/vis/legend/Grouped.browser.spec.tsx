@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
@@ -47,6 +48,51 @@ describe("Legend.Grouped", () => {
     expect(computed(divider, "border-top")).toBe(
       resolve("var(--pluto-border)", "border-top"),
     );
+  });
+
+  it("should line up nested labels with the group name with no start", async () => {
+    await renderThemed(
+      <div style={{ position: "relative", width: 400, height: 400 }}>
+        <Legend.Grouped
+          nested
+          data={[
+            {
+              key: "r",
+              name: "Range",
+              color: "#ff0000",
+              data: [{ key: "a", label: "a" }],
+            },
+          ]}
+        />
+      </div>,
+    );
+    const name = screen.getByText("Range").getBoundingClientRect();
+    const label = screen.getByText("a").getBoundingClientRect();
+    expect(label.left).toBeCloseTo(name.left, 0);
+  });
+
+  it("should put the badge of a nested group at the right edge", async () => {
+    await renderThemed(
+      <div style={{ position: "relative", width: 400, height: 400 }}>
+        <Legend.Grouped
+          nested
+          data={[
+            {
+              key: "r",
+              name: "R",
+              color: "#ff0000",
+              badge: { label: "T0", tooltip: "Custom T0" },
+              data: [{ key: "a", label: "a much longer channel name" }],
+            },
+          ]}
+        />
+      </div>,
+    );
+    const badge = screen.getByText("T0").getBoundingClientRect();
+    const label = screen
+      .getByText("a much longer channel name")
+      .getBoundingClientRect();
+    expect(badge.right).toBeGreaterThanOrEqual(label.right);
   });
 
   it("should leave space between the divider and the groups on each side", async () => {
