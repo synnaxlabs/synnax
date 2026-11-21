@@ -313,21 +313,21 @@ export const Frame = ({
     setState((prev) => ({ ...prev, openBreaks: change.openBreaks }));
     if (zoomHistory.current === history)
       zoomHistory.current = history.map((v, i) => ({ ...v, viewport: change.held[i] }));
-    if (moveView) {
-      viewportRef?.current?.sync(change.viewport);
-      applyViewport({
-        box: change.viewport,
-        mode: "zoom",
-        cursor: xy.ZERO,
-        stage: "end",
-      });
-    }
     // A selection made during the await holds its own times.
     if (selectionRef.current === selection && !box.areaIsZero(selection)) {
       selectionRef.current = change.selection;
       onViewportChange?.({
         box: change.selection,
         mode: "select",
+        cursor: xy.ZERO,
+        stage: "end",
+      });
+    }
+    if (moveView) {
+      viewportRef?.current?.sync(change.viewport, selectionRef.current);
+      applyViewport({
+        box: change.viewport,
+        mode: "zoom",
         cursor: xy.ZERO,
         stage: "end",
       });
@@ -365,6 +365,7 @@ export const Frame = ({
       setZoomedKey(null);
     }
     if (args.mode === "select" && args.stage === "end") selectionRef.current = args.box;
+    else if (changesView(args)) selectionRef.current = box.ZERO;
     if (args.mode === "zoomReset") closeBreaks();
     applyViewport(args);
     onViewportChange?.(args);
@@ -423,7 +424,7 @@ export const Frame = ({
         box.construct({ x: x.lower, y: 0 }, { x: x.upper, y: 1 }),
         box.DECIMAL.root,
       );
-    viewportRef?.current?.sync(next);
+    viewportRef?.current?.sync(next, selectionRef.current);
     applyViewport({ box: next, mode: "zoom", cursor: xy.ZERO, stage: "start" });
     setHold(back?.hold ?? true);
   };
