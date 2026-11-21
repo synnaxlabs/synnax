@@ -28,6 +28,7 @@
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
@@ -92,7 +93,17 @@ struct Variant {
     std::optional<std::string> fallback;
     std::optional<double> float_fallback;
     std::optional<x::telem::TimeStamp> timestamp_fallback;
+    void (*generate)(x::telem::Series &dst) = nullptr;
 };
+
+void append_now(x::telem::Series &dst) {
+    dst.write(x::telem::TimeStamp::now());
+}
+
+void append_random_uuid(x::telem::Series &dst) {
+    const auto id = x::uuid::create();
+    dst.write(id.data(), 1);
+}
 
 template<typename Entries, typename Convert>
 std::vector<x::json::Enum> enums_of(const Entries &entries, const Convert &convert) {
@@ -149,14 +160,57 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
                 auto [format, err] = x::json::parse_time_format(v.time_format);
                 if (err) return {{}, err};
                 out.sample.time_format = format;
-                out.timestamp_fallback = v.default_;
-            } else if constexpr (std::is_same_v<F, icd::JSONJSONField>)
+                if (v.default_.has_value())
+                    std::visit(
+                        [&]<typename D>(const D &d) {
+                            if constexpr (
+                                std::is_same_v<D, icd::ConstantTimestampDefault>
+                            )
+                                out.timestamp_fallback = d.value;
+                            else {
+                                static_assert(
+                                    std::is_same_v<D, icd::NowTimestampDefault>
+                                );
+                                out.generate = append_now;
+                            }
+                        },
+                        *v.default_
+                    );
+            } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
                 out.kind = payload::KIND_JSON;
-            else if constexpr (std::is_same_v<F, icd::UuidJSONField>)
+                if (v.default_.has_value()) {
+                    if (!x::json::json::accept(*v.default_))
+                        return {
+                            {},
+                            x::errors::Error(
+                                x::errors::VALIDATION,
+                                "default is not valid JSON"
+                            ),
+                        };
+                    out.fallback = *v.default_;
+                }
+            } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
                 out.kind = payload::KIND_UUID;
-            else {
+                if (v.default_.has_value())
+                    std::visit(
+                        [&]<typename D>(const D &d) {
+                            if constexpr (std::is_same_v<D, icd::ConstantUUIDDefault>)
+                                out.fallback = x::json::json(d.value.to_string())
+                                                   .dump();
+                            else {
+                                static_assert(
+                                    std::is_same_v<D, icd::RandomUUIDDefault>
+                                );
+                                out.generate = append_random_uuid;
+                            }
+                        },
+                        *v.default_
+                    );
+            } else {
                 static_assert(std::is_same_v<F, icd::BytesJSONField>);
                 out.kind = payload::KIND_BYTES;
+                if (v.default_.has_value())
+                    out.fallback = x::json::json(*v.default_).dump();
             }
             return {std::move(out), x::errors::NIL};
         },
@@ -224,20 +278,19 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     auto [sample, sample_err] = x::json::Decoder::create(std::move(v.sample));
     if (sample_err) return {Field{}, sample_err};
     field.sample = std::move(sample);
-    if (v.timestamp_fallback.has_value()) {
-        field.fallback = *v.timestamp_fallback;
-        return {std::move(field), x::errors::NIL};
-    }
+    field.generate = v.generate;
     auto dst = one_sample(dt);
     x::errors::Error err;
-    if (v.float_fallback.has_value())
+    if (v.timestamp_fallback.has_value())
+        dst.write(*v.timestamp_fallback);
+    else if (v.float_fallback.has_value())
         err = field.append_float(*v.float_fallback, dst);
     else if (v.fallback.has_value())
         err = field.decode(*v.fallback, dst);
     else
         return {std::move(field), x::errors::NIL};
     if (err) return {Field{}, wrap(err, "default")};
-    field.fallback = dst.at(0);
+    field.fallback = std::move(dst);
     return {std::move(field), x::errors::NIL};
 }
 
@@ -333,6 +386,8 @@ JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values
         x::errors::Error err;
         if (raw.has_value() && !absent(*raw, f.data_type))
             err = f.decode(*raw, dst);
+        else if (f.generate != nullptr)
+            f.generate(dst);
         else if (f.fallback.has_value())
             dst.write(*f.fallback);
         else

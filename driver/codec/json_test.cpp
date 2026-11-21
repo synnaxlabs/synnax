@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -157,6 +158,41 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     const auto [message, err] = dec.decode("not json");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
+}
+
+/// @brief it should give a timestamp field with a now default the time of each decode.
+TEST(JSON, DecodesNowDefault) {
+    auto m = reading<icd::TimestampJSONField>(x::telem::TIMESTAMP_T);
+    std::get<icd::TimestampJSONField>(m.payload.fields[0])
+        .default_ = icd::NowTimestampDefault{};
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    const auto stamp = dec.samples(0)[0].at<x::telem::TimeStamp>(0);
+    ASSERT_GE(stamp, before);
+    ASSERT_LE(stamp, x::telem::TimeStamp::now());
+}
+
+/// @brief it should give a UUID field with a random default a new UUID on each decode.
+TEST(JSON, DecodesRandomDefault) {
+    auto m = reading<icd::UuidJSONField>(x::telem::UUID_T);
+    std::get<icd::UuidJSONField>(m.payload.fields[0])
+        .default_ = icd::RandomUUIDDefault{};
+    auto dec = ASSERT_NIL_P(JSON::create({m}));
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    const auto first = dec.samples(0)[0].uuids()[0];
+    ASSERT_EQ(ASSERT_NIL_P(dec.decode("{}")), 0);
+    ASSERT_NE(first, x::uuid::NIL);
+    ASSERT_NE(dec.samples(0)[0].uuids()[0], first);
+}
+
+/// @brief it should reject a JSON field whose default is not JSON text.
+TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
+    auto m = reading<icd::JSONJSONField>(x::telem::JSON_T);
+    std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = "{";
+    const auto err = JSON::create({m}).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    ASSERT_EQ(err.data, "message reading: field v: default is not valid JSON");
 }
 
 /// @brief it should decode a document without allocating when a string match rule
