@@ -13,6 +13,9 @@ import (
 	"slices"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -38,8 +41,8 @@ type durable struct {
 	pointers []Pointer
 }
 
-// chanState is the state of one key: its segments, in rising order of identity, and
-// the visible Channel that readers load.
+// chanState is the state of one key: its segments, in rising order of identity, and the
+// visible Channel that readers load.
 type chanState struct {
 	key    uint32
 	segs   []*segState
@@ -66,6 +69,40 @@ func (c *chanState) remove(id uint64) {
 	c.segs = slices.DeleteFunc(c.segs, func(s *segState) bool { return s.vis.ID == id })
 }
 
+// checkViews panics when the pointers of c, in the visible view or the durable one, are
+// not apart in time, or not in stream order inside a segment, or when a durable view
+// runs past the visible one. It runs only in a build with invariants.
+func (c *chanState) checkViews() {
+	if !invariants.Enabled {
+		return
+	}
+	vis, dur := &Channel{Key: c.key}, &Channel{Key: c.key}
+	for _, s := range c.segs {
+		if s.dur.length > s.vis.Length || len(s.dur.pointers) > len(s.vis.Pointers) {
+			panic(errors.Newf("state: durable view of segment %d runs past its "+
+				"visible view", s.vis.ID))
+		}
+		vis.Segments = append(vis.Segments, s.vis)
+		dur.Segments = append(
+			dur.Segments,
+			Segment{ID: s.vis.ID, Pointers: s.dur.pointers},
+		)
+		for _, ptrs := range [][]Pointer{s.vis.Pointers, s.dur.pointers} {
+			for i := 1; i < len(ptrs); i++ {
+				if ptrs[i].Offset < ptrs[i-1].Offset+ptrs[i-1].Length {
+					panic(errors.Newf("state: pointers of segment %d are out of "+
+						"stream order", s.vis.ID))
+				}
+			}
+		}
+	}
+	for _, ch := range []*Channel{vis, dur} {
+		if err := checkApart(ch); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
 	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
@@ -76,7 +113,8 @@ func (c *chanState) publish() {
 }
 
 // overlaps returns the first pointer of c, in the durable view or the visible one, that
-// shares a stamp with [first, last], and false when there is none.
+// shares a stamp with [first, last], and false when there is none. It reads every
+// pointer, since a backfill leaves the pointers of a segment out of time order.
 func (c *chanState) overlaps(
 	first, last telem.TimeStamp,
 	durableView bool,
@@ -86,56 +124,87 @@ func (c *chanState) overlaps(
 		if durableView {
 			ptrs = s.dur.pointers
 		}
-		i, _ := slices.BinarySearchFunc(
-			ptrs,
-			first,
-			func(p Pointer, t telem.TimeStamp) int {
-				if p.Last < t {
-					return -1
-				}
-				return 1
-			},
-		)
-		if i < len(ptrs) && ptrs[i].First <= last {
-			return ptrs[i], true
+		for _, p := range ptrs {
+			if p.First <= last && first <= p.Last {
+				return p, true
+			}
 		}
 	}
 	return Pointer{}, false
 }
 
-// extend returns ptrs with a commit of samples at alignment from first to last over
-// the stream range [from, to), which extends the last pointer when the alignment
-// follows it. It changes the last pointer in place only when inPlace is true.
-func extend(
+// grow returns the pointer that a commit of samples at alignment from first to last
+// over the stream range [from, to) leaves last in ptrs, and true when it extends the
+// last pointer, which it does when the alignment and the range follow it.
+func grow(
 	ptrs []Pointer,
 	alignment telem.Alignment,
 	first, last telem.TimeStamp,
 	from, to, samples uint32,
-	inPlace bool,
-) []Pointer {
+) (Pointer, bool) {
 	if n := len(ptrs); n > 0 {
 		p := ptrs[n-1]
 		if p.Alignment.AddSamples(p.Samples) == alignment && p.Offset+p.Length == from {
 			p.Last = last
 			p.Length += to - from
 			p.Samples += samples
-			if !inPlace {
-				ptrs = slices.Clone(ptrs)
-			}
-			ptrs[n-1] = p
-			return ptrs
+			return p, true
 		}
 	}
-	next := Pointer{
+	return Pointer{
 		First:     first,
 		Last:      last,
 		Alignment: alignment,
 		Offset:    from,
 		Length:    to - from,
 		Samples:   samples,
+	}, false
+}
+
+// checkGrow checks the pointer that a commit leaves last in the pointers ptrs of
+// segment id of key, which end at from: its stamps go on after the stretch that it
+// extends, and its shape passes checkShape.
+func checkGrow(
+	id uint64,
+	key uint32,
+	ptrs []Pointer,
+	c *log.Commit,
+	from, to uint32,
+) error {
+	first := telem.TimeStamp(c.First)
+	p, extended := grow(ptrs, telem.Alignment(c.Alignment), first,
+		telem.TimeStamp(c.Last), from, to, c.Samples)
+	if extended && first <= ptrs[len(ptrs)-1].Last {
+		return refuse("commit of key %d at %d goes back inside its stretch, which "+
+			"reaches %d", key, first, ptrs[len(ptrs)-1].Last)
+	}
+	return checkShape(id, key, p)
+}
+
+// checkShape checks that pointer p of segment id of key holds at least one byte for
+// each sample, and stamps that do not go back.
+func checkShape(id uint64, key uint32, p Pointer) error {
+	if p.Samples == 0 || p.Length < p.Samples || p.First > p.Last ||
+		(p.Samples == 1 && p.First != p.Last) {
+		return refuse("segment %d of key %d has a pointer of %d samples in %d bytes "+
+			"from %d to %d", id, key, p.Samples, p.Length, p.First, p.Last)
+	}
+	return nil
+}
+
+// extend returns ptrs with the pointer p that grow returned, which replaces the last
+// pointer when extended is true. It changes the last pointer in place only when inPlace
+// is true.
+func extend(ptrs []Pointer, p Pointer, extended, inPlace bool) []Pointer {
+	if extended {
+		if !inPlace {
+			ptrs = slices.Clone(ptrs)
+		}
+		ptrs[len(ptrs)-1] = p
+		return ptrs
 	}
 	if !inPlace {
-		return append(slices.Clip(ptrs), next)
+		return append(slices.Clip(ptrs), p)
 	}
-	return append(ptrs, next)
+	return append(ptrs, p)
 }

@@ -65,6 +65,7 @@ var _ = Describe("Config", func() {
 			"versions"),
 		Entry("append", func(c *state.Config) { c.Append = nil }, "append"),
 		Entry("executor", func(c *state.Config) { c.Executor = nil }, "executor"),
+		Entry("on head", func(c *state.Config) { c.OnHead = nil }, "on_head"),
 	)
 })
 
@@ -211,6 +212,27 @@ var _ = Describe("Replay", func() {
 			To(Equal(state.Limits{Segments: 40, Alignments: 100}))
 	})
 
+	It("Should refuse a commit over stored data that a backfill wrote earlier in its "+
+		"segment", func() {
+		Expect(replay(
+			commit(1, 3, 0, 32, 32, slot(4, 20)),
+			commit(1, 4, 0, 32, 32, slot(4, 24)),
+		)).To(SatisfyAll(
+			MatchError(state.ErrRefused),
+			MatchError(
+				ContainSubstring("from 32 to 32 overlaps its pointer from 32 to "+
+					"32"),
+			),
+		))
+	})
+
+	It("Should open again on the head of a state that replayed a backfill", func() {
+		Expect(replay(commit(1, 3, 0, 32, 32, slot(4, 20)))).To(Succeed())
+		run(s)
+		snap := MustSucceed(s.Snapshot())
+		Expect(state.Open(config(&appended{}), snap)).Error().ToNot(HaveOccurred())
+	})
+
 	It("Should refuse an entry that does not follow the last one", func() {
 		Expect(s.Replay(11, []log.Record{&log.Restart{}})).
 			To(MatchError(ContainSubstring("entry 11 follows entry 9")))
@@ -263,6 +285,12 @@ var _ = Describe("Replay", func() {
 			state.ErrRefused, "gives segment 4 length 16, not above 16"),
 		Entry("a commit over stored data", commit(1, 3, 0, 45, 45, slot(4, 20)),
 			state.ErrRefused, "commit of key 5 from 45 to 45 overlaps its pointer"),
+		Entry("a commit whose stamps go back inside its stretch",
+			commit(1, 2, 2, 35, 35, slot(4, 20)), state.ErrRefused,
+			"commit of key 5 at 35 goes back inside its stretch, which reaches 50"),
+		Entry("a commit of fewer bytes than samples",
+			commit(4, 3, 0, 60, 70, slot(4, 18)), state.ErrRefused,
+			"segment 4 of key 5 has a pointer of 4 samples in 2 bytes"),
 		Entry("a seal of a segment no create made", &log.Seal{Segment: 11},
 			state.ErrRefused, "seal of segment 11, which no create made"),
 		Entry("a seal of a sealed segment", &log.Seal{

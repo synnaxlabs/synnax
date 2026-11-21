@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,9 +41,18 @@ var _ = Describe("Log end check", func() {
 			}
 			fs := newOpFS(inner)
 			Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
-			l := MustSucceed(log.Start(log.Config{
-				FS:         fs,
-				Executor:   goExec,
+			// No next file is ready, as on a full disk, so every frame stays in this
+			// log under its end limits.
+			var l *log.Log
+			l = MustSucceed(log.Start(log.Config{
+				FS:       fs,
+				Executor: goExec,
+				Prepare: func(next uint64) {
+					go l.Prepared(next, errors.New("no space for the next log"))
+				},
+				OnDurable:  noDurable,
+				OnRefused:  func([]log.Record, error) {},
+				Switched:   func(uint64) {},
 				DB:         db,
 				Generation: generation,
 				Sequence:   5,

@@ -177,17 +177,12 @@ func cut(ptrs []Pointer, t *log.Tombstone) []Pointer {
 
 type tombstoneRequest struct {
 	t    *log.Tombstone
-	dead []uint64
-	take bool
 	done chan error
 }
 
+func (r *tombstoneRequest) fail(err error) { r.done <- err }
+
 func (r *tombstoneRequest) run(s *State) {
-	if r.take {
-		r.dead, s.core.dead = s.core.dead, nil
-		r.done <- nil
-		return
-	}
 	if err := s.core.checkTombstone(r.t); err != nil {
 		r.done <- err
 		return
@@ -213,17 +208,4 @@ func (s *State) CheckTombstone(t *log.Tombstone) error {
 		return err
 	}
 	return wait(s, r.done)
-}
-
-// TakeDead returns the sealed segments that durable Tombstones left with no live
-// pointer since the last call, which the database unlinks once no reader pins them.
-func (s *State) TakeDead() ([]uint64, error) {
-	r := &tombstoneRequest{take: true, done: make(chan error, 1)}
-	if err := s.enqueue(r); err != nil {
-		return nil, err
-	}
-	if err := wait(s, r.done); err != nil {
-		return nil, err
-	}
-	return r.dead, nil
 }

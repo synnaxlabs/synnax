@@ -11,14 +11,15 @@ package checkpoint_test
 
 import (
 	"encoding/binary"
+	"os"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
-	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -27,7 +28,7 @@ var _ = Describe("Head", func() {
 		"Should decode the state that it encodes",
 		func(s *state.Snapshot) {
 			b := checkpoint.Encode(db, generation, s)
-			h, got := MustSucceed2(checkpoint.Decode(b))
+			h, got := MustSucceed2(decode(b))
 			Expect(h.DB).To(Equal(uint64(db)))
 			Expect(h.Generation).To(Equal(uint64(generation)))
 			Expect(h.Sequence).To(Equal(s.Sequence))
@@ -168,8 +169,24 @@ func withRecord(b []byte, kind int, record []byte) []byte {
 	return reseal(grown)
 }
 
+// decode writes the head bytes b to a memory file system and reads them back.
+func decode(b []byte) (checkpoint.Header, *state.Snapshot, error) {
+	fs := xfs.NewMem()
+	f, err := fs.Open(checkpoint.Name(generation), os.O_CREATE|os.O_RDWR)
+	if err != nil {
+		return checkpoint.Header{}, nil, err
+	}
+	if _, err = f.Write(b); err != nil {
+		return checkpoint.Header{}, nil, err
+	}
+	if err = f.Close(); err != nil {
+		return checkpoint.Header{}, nil, err
+	}
+	return checkpoint.Read(fs, generation)
+}
+
 func decodeErr(b []byte) error {
-	_, _, err := checkpoint.Decode(b)
+	_, _, err := decode(b)
 	return err
 }
 
@@ -203,7 +220,7 @@ var _ = Describe("Head checks", func() {
 			make([]byte, 48),
 		)
 		Expect(decodeErr(b)).To(And(
-			MatchError(log.ErrUnknown),
+			MatchError(checkpoint.ErrUnknown),
 			MatchError(ContainSubstring("section 1")),
 		))
 	})

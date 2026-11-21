@@ -13,14 +13,13 @@ import (
 	"context"
 	"os"
 	"sync"
-	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/set"
@@ -28,7 +27,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 2 << 20
+const logSize = 4 << 20
+
+// fillers is how many entries of 10,000 intents pass three quarters of a log.
+const fillers = 24
 
 func goExec(f func()) { go f() }
 
@@ -75,11 +77,8 @@ var _ = Describe("Checkpointer", func() {
 		"Should refuse a config with a field that is not set",
 		func(change func(*checkpoint.Config), field string) {
 			cfg := checkpoint.Config{
-				FS:      xfs.NewMem(),
-				LogSize: logSize,
-				Snapshot: func() (*state.Snapshot, error) {
-					return &state.Snapshot{}, nil
-				},
+				FS:       xfs.NewMem(),
+				LogSize:  logSize,
 				Prepared: func(uint64, error) {},
 				Executor: goExec,
 			}
@@ -91,7 +90,6 @@ var _ = Describe("Checkpointer", func() {
 		},
 		Entry("file system", func(c *checkpoint.Config) { c.FS = nil }, "fs"),
 		Entry("log size", func(c *checkpoint.Config) { c.LogSize = 0 }, "log_size"),
-		Entry("snapshot", func(c *checkpoint.Config) { c.Snapshot = nil }, "snapshot"),
 		Entry("prepared", func(c *checkpoint.Config) { c.Prepared = nil }, "prepared"),
 		Entry("executor", func(c *checkpoint.Config) { c.Executor = nil }, "executor"),
 	)
@@ -101,23 +99,14 @@ var _ = Describe("Checkpointer", func() {
 			var (
 				fs xfs.FS
 				p  *prepared
-				// snapErr holds the error of the next Snapshot, or nil.
-				snapErr atomic.Pointer[error]
-				c       *checkpoint.Checkpointer
+				c  *checkpoint.Checkpointer
 			)
 			BeforeEach(func() {
 				fs, p = makeFS(), &prepared{}
-				snapErr.Store(nil)
 				c = MustSucceed(checkpoint.New(checkpoint.Config{
-					FS:      fs,
-					DB:      db,
-					LogSize: logSize,
-					Snapshot: func() (*state.Snapshot, error) {
-						if err := snapErr.Load(); err != nil {
-							return nil, *err
-						}
-						return sample(2), nil
-					},
+					FS:       fs,
+					DB:       db,
+					LogSize:  logSize,
 					Prepared: p.on,
 					Executor: goExec,
 				}))
@@ -150,12 +139,12 @@ var _ = Describe("Checkpointer", func() {
 					}
 					empty := checkpoint.Encode(db, 1, &state.Snapshot{Sequence: 1})
 					Expect(checkpoint.Write(fs, 1, empty)).To(Succeed())
-					c.Switched(2)
+					c.Head(2, sample(2))
 					Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
 					_, s := MustSucceed2(checkpoint.Read(fs, 2))
 					Expect(s.Sequence).To(Equal(sample(2).Sequence))
 					Expect(exists(checkpoint.Name(1))).To(BeTrue())
-					c.Switched(3)
+					c.Head(3, sample(2))
 					Eventually(func() bool { return exists(checkpoint.Name(1)) }).
 						Should(BeFalse())
 					Expect(exists(log.Name(1))).To(BeFalse())
@@ -171,121 +160,142 @@ var _ = Describe("Checkpointer", func() {
 				}
 				empty := checkpoint.Encode(db, 1, &state.Snapshot{Sequence: 1})
 				Expect(checkpoint.Write(fs, 1, empty)).To(Succeed())
-				fault := errors.New("state failed")
-				snapErr.Store(&fault)
-				c.Switched(2)
-				Eventually(c.Err).Should(MatchError(fault))
-				Expect(exists(checkpoint.Name(2))).To(BeFalse())
+				leftover := MustSucceed(
+					fs.Open(checkpoint.Name(2), os.O_CREATE|os.O_RDWR),
+				)
+				Expect(leftover.Close()).To(Succeed())
+				c.Head(2, sample(2))
+				Eventually(c.Err).Should(MatchError(ContainSubstring("exists")))
+				Expect(readErr(fs, 2)).To(MatchError(place.ErrCorrupt))
 				Expect(exists(log.Name(1))).To(BeTrue())
-				snapErr.Store(nil)
-				c.Switched(3)
+				c.Head(3, sample(2))
 				Eventually(func() error { return readErr(fs, 3) }).Should(Succeed())
 				Eventually(c.Err).Should(Succeed())
 				Expect(exists(checkpoint.Name(1))).To(BeTrue(), "the newest older head")
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
 
-			It("Should report a full disk when heads fail with many logs", func() {
-				for g := range uint64(checkpoint.MaxLogs + 1) {
+			It("Should refuse the file of a next log when the root holds MaxLogs "+
+				"logs", func() {
+				for g := range uint64(checkpoint.MaxLogs) {
 					f := MustSucceed(fs.Open(log.Name(g+1), os.O_CREATE|os.O_RDWR))
 					Expect(f.Close()).To(Succeed())
 				}
-				fault := errors.New("no head")
-				snapErr.Store(&fault)
-				c.Switched(18)
-				Eventually(c.Err).Should(MatchError(checkpoint.ErrDiskFull))
+				c.Prepare(checkpoint.MaxLogs + 1)
+				Eventually(p.count).Should(Equal(1))
+				Expect(p.errs[0]).To(MatchError(checkpoint.ErrDiskFull))
+				Expect(exists(log.Name(checkpoint.MaxLogs + 1))).To(BeFalse())
+				Expect(fs.Remove(log.Name(1))).To(Succeed())
+				c.Prepare(checkpoint.MaxLogs + 1)
+				Eventually(p.count).Should(Equal(2))
+				Expect(p.errs[1]).ToNot(HaveOccurred())
 			})
 		})
 	}
 
-	It("Should switch a log of a running state and write a head of its durable state",
-		func() {
-			fs := xfs.NewMem()
-			Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-			Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
-				Limits: state.Limits{Segments: 1, Alignments: 1},
-			}))).To(Succeed())
-			var l *log.Log
-			st := MustSucceed(state.Open(state.Config{
-				Versions: set.New[uint16](1),
-				Version:  1,
-				Append:   func(e *log.Entry) { l.Append(e) },
-				Executor: goExec,
-			}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
-			cp := MustSucceed(checkpoint.New(checkpoint.Config{
-				FS:       fs,
-				DB:       db,
-				LogSize:  logSize,
-				Snapshot: st.Snapshot,
-				Prepared: func(next uint64, err error) { l.Prepared(next, err) },
-				Executor: goExec,
-			}))
-			l = MustSucceed(log.Start(log.Config{
-				FS:       fs,
-				Executor: goExec,
-				OnDurable: func(seq uint64, records []log.Record) {
-					Expect(st.Durable(seq, records)).To(Succeed())
-				},
-				Prepare: cp.Prepare,
-				Seals: func() ([]log.Record, error) {
-					seals, err := st.SealUnheld()
-					records := make([]log.Record, len(seals))
-					for i := range seals {
-						records[i] = &seals[i]
-					}
-					return records, err
-				},
-				Switched:   cp.Switched,
-				DB:         db,
-				Generation: 1,
-				Sequence:   1,
-			}))
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-			var wg sync.WaitGroup
-			for _, run := range []func(context.Context) error{st.Run, l.Run, cp.Run} {
-				wg.Go(func() { Expect(run(ctx)).To(Succeed()) })
-			}
-			DeferCleanup(func() {
-				Expect(l.Close()).To(Succeed())
-				Expect(cp.Close()).To(Succeed())
-				Expect(st.Close()).To(Succeed())
-				wg.Wait()
-			})
-
-			w := MustSucceed(st.OpenWriter(state.WriterConfig{
-				Keys:  []state.WriterKey{{Key: 5, DataType: 4}},
-				Clock: 5,
-				Start: 10,
-			}))
-			id := MustSucceed(w.NewSegment(5))
-			n := MustSucceed(w.NewAlignment())
-			c := &log.Commit{
-				Samples: 2, Alignment: uint64(n) << 32, First: 10, Last: 20,
-				Slots: []log.Slot{{Segment: id, Length: 16, TailCRC: 7}},
-			}
-			Expect(w.Commit(c)).To(Succeed())
-			var e log.Entry
-			e.Add(&log.Create{Segment: id, Key: 5, Clock: 5, Version: 1, DataType: 4})
-			e.Add(c)
-			MustSucceed(l.Append(&e).Wait())
-			Expect(w.Close()).To(Succeed())
-			for i := range uint32(12) {
-				var filler log.Entry
-				for k := range uint32(10_000) {
-					filler.Add(&log.Intent{Key: 1_000_000 + i*10_000 + k})
+	for fsName, makeFS := range fstestutil.FileSystems {
+		It(
+			"Should switch a log of a running state and write a head of its durable state, on "+fsName,
+			func() {
+				fs := makeFS()
+				Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
+				Expect(checkpoint.Write(fs, 1, checkpoint.Encode(db, 1, &state.Snapshot{
+					Limits: state.Limits{Segments: 1, Alignments: 1},
+				}))).To(Succeed())
+				var (
+					l     *log.Log
+					cp    *checkpoint.Checkpointer
+					ready = make(chan uint64, 4)
+				)
+				st := MustSucceed(state.Open(state.Config{
+					Versions: set.New[uint16](1),
+					Version:  1,
+					Append:   func(e *log.Entry) { l.Append(e) },
+					Executor: goExec,
+					OnHead:   func(g uint64, s *state.Snapshot) { cp.Head(g, s) },
+				}, &state.Snapshot{Limits: state.Limits{Segments: 1, Alignments: 1}}))
+				cp = MustSucceed(checkpoint.New(checkpoint.Config{
+					FS:      fs,
+					DB:      db,
+					LogSize: logSize,
+					Prepared: func(next uint64, err error) {
+						l.Prepared(next, err)
+						ready <- next
+					},
+					Executor: goExec,
+				}))
+				l = MustSucceed(log.Start(log.Config{
+					FS:       fs,
+					Executor: goExec,
+					OnDurable: func(seq uint64, records []log.Record) {
+						Expect(st.Durable(seq, records)).To(Succeed())
+					},
+					OnRefused: func(records []log.Record, err error) {
+						_ = st.Refused(records, err)
+					},
+					Prepare: cp.Prepare,
+					Switched: func(g uint64) {
+						Expect(st.Switch(g)).To(Succeed())
+					},
+					DB:         db,
+					Generation: 1,
+					Sequence:   1,
+				}))
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+				var wg sync.WaitGroup
+				for _, run := range []func(context.Context) error{st.Run, l.Run, cp.Run} {
+					wg.Go(func() { Expect(run(ctx)).To(Succeed()) })
 				}
-				MustSucceed(l.Append(&filler).Wait())
-			}
-			Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
-			Eventually(cp.Err).Should(Succeed())
-			_, head := MustSucceed2(checkpoint.Read(fs, 2))
-			live := MustSucceed(st.Snapshot())
-			Expect(head.Sequence).To(BeNumerically("<=", live.Sequence))
-			Expect(head.Channels).To(Equal(live.Channels))
-			Expect(
-				head.Channels[0].Segments[0].Sealed,
-			).To(BeTrue(), "sealed at the switch")
-			Expect(head.Intents).To(HaveLen(len(live.Intents)))
-		})
+				DeferCleanup(func() {
+					Expect(l.Close()).To(Succeed())
+					Expect(cp.Close()).To(Succeed())
+					Expect(st.Close()).To(Succeed())
+					wg.Wait()
+				})
+
+				w := MustSucceed(st.OpenWriter(state.WriterConfig{
+					Keys:  []state.WriterKey{{Key: 5, DataType: 4}},
+					Clock: 5,
+					Start: 10,
+				}))
+				id := MustSucceed(w.NewSegment(5))
+				n := MustSucceed(w.NewAlignment())
+				c := &log.Commit{
+					Samples: 2, Alignment: uint64(n) << 32, First: 10, Last: 20,
+					Slots: []log.Slot{{Segment: id, Length: 16, TailCRC: 7}},
+				}
+				Expect(w.Commit(c)).To(Succeed())
+				var e log.Entry
+				e.Add(
+					&log.Create{Segment: id, Key: 5, Clock: 5, Version: 1, DataType: 4},
+				)
+				e.Add(c)
+				MustSucceed(l.Append(&e).Wait())
+				Expect(w.Close()).To(Succeed())
+				Eventually(ready).Should(Receive(Equal(uint64(2))))
+				for i := range uint32(fillers) {
+					var filler log.Entry
+					for k := range uint32(10_000) {
+						filler.Add(&log.Intent{Key: 1_000_000 + i*10_000 + k})
+					}
+					MustSucceed(l.Append(&filler).Wait())
+				}
+				Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
+				Eventually(cp.Err).Should(Succeed())
+				_, head := MustSucceed2(checkpoint.Read(fs, 2))
+				next := MustSucceed(
+					log.DecodeHeader(fileBytes(fs, log.Name(2)), db, 2, 0),
+				)
+				Expect(head.Sequence).To(Equal(next.Sequence - 1))
+				Expect(head.Channels[0].Segments[0].Sealed).
+					To(BeFalse(), "sealed after the switch")
+				Expect(len(head.Intents) % 10_000).To(BeZero())
+				Expect(len(head.Intents)).To(BeNumerically("<", fillers*10_000))
+				Expect(MustSucceed(st.Snapshot()).Intents).To(HaveLen(fillers * 10_000))
+				Eventually(func() bool { return st.Channel(5).Segments[0].Sealed }).
+					Should(BeTrue())
+			},
+		)
+	}
 })

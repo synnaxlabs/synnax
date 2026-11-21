@@ -27,20 +27,33 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 2 << 20
+const logSize = 4 << 20
 
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
 
 func noDurable(uint64, []log.Record) {}
 
-func noSeals() ([]log.Record, error) { return nil, nil }
+func noRefused([]log.Record, error) {}
 
 // durables collects what a log hands its OnDurable hook.
 type durables struct {
 	mu      sync.Mutex
 	seqs    []uint64
 	records [][]log.Record
+	refused []error
+}
+
+func (d *durables) onRefused(_ []log.Record, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.refused = append(d.refused, err)
+}
+
+func (d *durables) refusals() []error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]error(nil), d.refused...)
 }
 
 func (d *durables) on(seq uint64, records []log.Record) {
@@ -187,8 +200,8 @@ var _ = Describe("Log", func() {
 				FS:         xfs.NewMem(),
 				Executor:   goExec,
 				OnDurable:  noDurable,
+				OnRefused:  noRefused,
 				Prepare:    func(uint64) {},
-				Seals:      noSeals,
 				Switched:   func(uint64) {},
 				Generation: 1,
 				Sequence:   1,
@@ -203,8 +216,8 @@ var _ = Describe("Log", func() {
 		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
 		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
 		Entry("durable hook", func(c *log.Config) { c.OnDurable = nil }, "on_durable"),
+		Entry("refused hook", func(c *log.Config) { c.OnRefused = nil }, "on_refused"),
 		Entry("prepare hook", func(c *log.Config) { c.Prepare = nil }, "prepare"),
-		Entry("seals hook", func(c *log.Config) { c.Seals = nil }, "seals"),
 		Entry("switched hook", func(c *log.Config) { c.Switched = nil }, "switched"),
 		Entry("generation", func(c *log.Config) { c.Generation = 0 }, "generation"),
 		Entry("sequence", func(c *log.Config) { c.Sequence = 0 }, "sequence"),
@@ -234,8 +247,8 @@ var _ = Describe("Log", func() {
 						go f()
 					},
 					OnDurable:  hook.on,
+					OnRefused:  hook.onRefused,
 					Prepare:    func(next uint64) { prepare(next) },
-					Seals:      noSeals,
 					Switched:   func(uint64) {},
 					DB:         db,
 					Generation: generation,
@@ -279,17 +292,16 @@ var _ = Describe("Log", func() {
 			})
 
 			DescribeTable(
-				"Should refuse a log file that is not a whole number of blocks with "+
-					"room "+
-					"for the reserve",
+				"Should refuse a log file that is not a whole number of blocks, or "+
+					"that ends its commits before its switch",
 				func(size int64) {
 					Expect(log.Prepare(fs, generation, size)).To(Succeed())
 					Expect(log.Start(log.Config{
 						FS:         fs,
 						Executor:   goExec,
 						OnDurable:  noDurable,
+						OnRefused:  noRefused,
 						Prepare:    func(uint64) {},
-						Seals:      noSeals,
 						Switched:   func(uint64) {},
 						Generation: generation,
 						Sequence:   1,
@@ -298,10 +310,7 @@ var _ = Describe("Log", func() {
 						MatchError(ContainSubstring("is not a whole number of blocks")),
 					))
 				},
-				Entry(
-					"too small",
-					int64(log.FramesStart+log.DeleteReserve+log.BlockSize),
-				),
+				Entry("too small", int64(4*log.DeleteReserve-log.BlockSize)),
 				Entry("not whole blocks", int64(logSize+100)),
 			)
 
@@ -496,7 +505,34 @@ var _ = Describe("Log", func() {
 					MatchError(log.ErrFull),
 					MatchError(ContainSubstring("does not fit in log 3")),
 				))
+				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrFull)))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(hook.refusals()).To(HaveLen(1))
+			})
+
+			It("Should take an entry that fits in a log that cannot switch after the "+
+				"frame before it", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				first := l.Append(of(&log.Drop{Key: 1}))
+				Eventually(fs.held).Should(Receive())
+				half := l.Append(bigEntry(logSize / 2))
+				quarter := l.Append(bigEntry(logSize / 4))
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Expect(half.Wait()).To(Equal(uint64(6)))
+				Expect(quarter.Wait()).To(Equal(uint64(7)))
+				Expect(hook.refusals()).To(BeEmpty())
+			})
+
+			It("Should report an entry refused at once to OnRefused", func() {
+				open(logSize)
+				closeLog()
+				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).Error().
+					To(MatchError(log.ErrClosed))
+				Expect(hook.refusals()).To(HaveExactElements(MatchError(log.ErrClosed)))
 			})
 
 			It("Should stop an entry with no Commit two blocks before the end, so "+

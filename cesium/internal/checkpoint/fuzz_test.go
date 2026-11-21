@@ -59,7 +59,7 @@ func checkOrder(t *testing.T, s *state.Snapshot) {
 // the bytes between the header sector and the body, which carry nothing.
 func roundTrip(t *testing.T, b []byte) {
 	t.Helper()
-	h, s, err := checkpoint.Decode(b)
+	h, s, err := decode(b)
 	if err != nil {
 		return
 	}
@@ -72,16 +72,16 @@ func roundTrip(t *testing.T, b []byte) {
 	}
 }
 
-// FuzzDecode checks that the head decoder never panics, and that a head it accepts
-// encodes to the same bytes.
-func FuzzDecode(f *testing.F) {
+// FuzzRead checks that the head reader never panics, and that a head it accepts encodes
+// to the same bytes.
+func FuzzRead(f *testing.F) {
 	addHeads(f)
 	f.Fuzz(roundTrip)
 }
 
-// FuzzDecodeResealed sets the checksums of each input again before it decodes it, so
-// the fuzzer reaches the checks after the checksums.
-func FuzzDecodeResealed(f *testing.F) {
+// FuzzReadResealed sets the checksums of each input again before it decodes it, so the
+// fuzzer reaches the checks after the checksums.
+func FuzzReadResealed(f *testing.F) {
 	addHeads(f)
 	f.Fuzz(func(t *testing.T, b []byte) { roundTrip(t, reseal(b)) })
 }

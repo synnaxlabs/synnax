@@ -56,7 +56,6 @@ var _ = Describe("Switch", func() {
 				ran   chan error
 				hook  *durables
 				calls *switches
-				seals []log.Record
 			)
 
 			// open starts log 3 of logSize bytes, and answers each Prepare with answer.
@@ -68,11 +67,11 @@ var _ = Describe("Switch", func() {
 					FS:        fs,
 					Executor:  goExec,
 					OnDurable: hook.on,
+					OnRefused: hook.onRefused,
 					Prepare: func(next uint64) {
 						calls.prepare(next)
 						go answer(next)
 					},
-					Seals:      func() ([]log.Record, error) { return seals, nil },
 					Switched:   calls.onSwitched,
 					DB:         db,
 					Generation: generation,
@@ -102,14 +101,16 @@ var _ = Describe("Switch", func() {
 				return seq
 			}
 
-			BeforeEach(func() { seals = nil })
-
 			It(
 				"Should switch to the next log before a frame passes three quarters, "+
-					"and "+
-					"link it to the last frame",
+					"and link it to the last frame",
 				func() {
-					open(ready)
+					done := make(chan uint64, 4)
+					open(func(next uint64) {
+						ready(next)
+						done <- next
+					})
+					Eventually(done).Should(Receive(Equal(uint64(generation + 1))))
 					last := fill()
 					Expect(last).To(Equal(uint64(7)))
 					old := walkLog(logBytes(fs, generation), generation)
@@ -131,40 +132,22 @@ var _ = Describe("Switch", func() {
 			)
 
 			It(
-				"Should log the seals of unheld open segments first in the next log",
-				func() {
-					seals = []log.Record{&log.Seal{Segment: 9, Length: 8, TailCRC: 3}}
-					open(ready)
-					Expect(fill()).To(Equal(uint64(8)))
-					frames := walkLog(logBytes(fs, generation+1), generation+1)
-					Expect(frames[0].Sequence).To(Equal(uint64(7)))
-					Expect(decodeAll(frames[0].Entries)).
-						To(Equal([]any{log.Seal{Segment: 9, Length: 8, TailCRC: 3}}))
-					seqs, records := hook.get()
-					Expect(seqs).To(Equal([]uint64{5, 6, 7, 8}))
-					Expect(records[2]).To(Equal(seals))
-				},
-			)
-
-			It(
-				"Should hold a frame back from three quarters until the next file is "+
-					"ready",
+				"Should go on in the live log past three quarters until the next file is "+
+					"ready, then switch",
 				func() {
 					asked := make(chan uint64, 4)
 					open(func(next uint64) { asked <- next })
 					Eventually(asked).Should(Receive(Equal(uint64(generation + 1))))
-					MustSucceed(l.Append(bigEntry(logSize / 4)).Wait())
-					MustSucceed(l.Append(bigEntry(logSize / 4)).Wait())
-					third := make(chan uint64, 1)
-					go func() {
-						third <- MustSucceed(l.Append(bigEntry(logSize / 4)).Wait())
-					}()
-					Consistently(third).ShouldNot(Receive())
+					Expect(fill()).To(Equal(uint64(7)))
+					Expect(
+						MustSucceed(fs.Exists(log.Name(generation + 1))),
+					).To(BeFalse())
 					ready(generation + 1)
-					Eventually(third).Should(Receive(Equal(uint64(7))))
+					Expect(l.Append(bigEntry(logSize / 8)).Wait()).To(Equal(uint64(8)))
 					frames := walkLog(logBytes(fs, generation+1), generation+1)
-					Expect(frames[0].Sequence).To(Equal(uint64(7)))
-					Expect(frames[0].Count).To(Equal(uint32(1)))
+					Expect(frames[0].Sequence).To(Equal(uint64(8)))
+					_, switched := calls.get()
+					Expect(switched).To(Equal([]uint64{4}))
 				},
 			)
 

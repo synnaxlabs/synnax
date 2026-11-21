@@ -34,17 +34,15 @@ type core struct {
 	intents  set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
-	// limits are the durable limits, and reserved the limits below which the state
-	// gives out values. reserved is at least limits.
+	// limits are the durable limits, below which the state gives out values. reserved
+	// holds the limits of the last Reserve appended, above limits while that Reserve
+	// waits for its frame.
 	limits, reserved Limits
-	// replaying is true while the state replays the log at open, when every record
-	// changes the visible view as well as the durable one.
-	replaying bool
 	// keysChanged is true when a key joined or left channels since the owner last
 	// published the keys.
 	keysChanged bool
-	// dead holds the sealed segments that a Tombstone left with no live pointer, which
-	// the database unlinks once no reader pins them.
+	// dead holds the segments that left the state with a file left to unlink once no
+	// reader pins it.
 	dead []uint64
 	keys set.Set[uint32]
 }
@@ -199,6 +197,11 @@ func (c *core) commit(r *log.Commit) error {
 			return refuse("commit gives segment %d length %d, not above %d",
 				slot.Segment, slot.Length, s.dur.length)
 		}
+		err := checkGrow(slot.Segment, s.key, s.dur.pointers, r, s.dur.length,
+			slot.Length)
+		if err != nil {
+			return err
+		}
 		if p, ok := c.channels[s.key].overlaps(first, last, true); ok {
 			return refuse(
 				"commit of key %d from %d to %d overlaps its pointer from %d "+
@@ -215,8 +218,9 @@ func (c *core) commit(r *log.Commit) error {
 	}
 	for _, slot := range r.Slots {
 		s := c.segments[slot.Segment]
-		s.dur.pointers = extend(s.dur.pointers, telem.Alignment(r.Alignment), first,
-			last, s.dur.length, slot.Length, r.Samples, true)
+		p, extended := grow(s.dur.pointers, telem.Alignment(r.Alignment), first, last,
+			s.dur.length, slot.Length, r.Samples)
+		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
 	}
 	return nil

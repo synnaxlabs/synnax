@@ -12,12 +12,15 @@
 package checkpoint
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 )
 
 const (
@@ -61,7 +64,15 @@ func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generatio
 // Encode returns the bytes of the head of generation in database db that holds s. The
 // bytes depend on db, generation, and s alone.
 func Encode(db, generation uint64, s *state.Snapshot) []byte {
-	clocks := Clocks(s)
+	b := encode(db, generation, s)
+	if invariants.Enabled {
+		checkRoundTrip(b)
+	}
+	return b
+}
+
+func encode(db, generation uint64, s *state.Snapshot) []byte {
+	clocks := clocksOf(s)
 	var l layout
 	l.counts[sectionChans] = uint64(len(s.Channels))
 	for _, c := range s.Channels {
@@ -162,9 +173,9 @@ func putSector(b []byte, l *layout, db, generation uint64, s *state.Snapshot) {
 	binary.LittleEndian.PutUint32(h[sectorCRC:], sum)
 }
 
-// Clocks returns the distinct clock keys that the data segments of s name, in rising
+// clocksOf returns the distinct clock keys that the data segments of s name, in rising
 // order.
-func Clocks(s *state.Snapshot) []uint32 {
+func clocksOf(s *state.Snapshot) []uint32 {
 	var clocks []uint32
 	for _, c := range s.Channels {
 		for _, seg := range c.Segments {
@@ -186,5 +197,27 @@ func putLE32(b []byte, vs ...uint32) {
 func putLE64(b []byte, vs ...uint64) {
 	for i, v := range vs {
 		binary.LittleEndian.PutUint64(b[8*i:], v)
+	}
+}
+
+// checkRoundTrip panics when the head b does not decode, or decodes to a state that
+// encodes to other bytes.
+func checkRoundTrip(b []byte) {
+	h, err := decodeSector(b)
+	if err == nil {
+		err = checkChunkTable(b, h)
+	}
+	for i := uint64(0); err == nil && i < chunkCount(h); i++ {
+		err = checkChunk(b, h, i)
+	}
+	var s *state.Snapshot
+	if err == nil {
+		s, err = parse(b, h)
+	}
+	if err != nil {
+		panic(errors.Wrap(err, "checkpoint: an encoded head does not decode"))
+	}
+	if !bytes.Equal(encode(h.DB, h.Generation, s), b) {
+		panic(errors.New("checkpoint: a decoded head encodes to other bytes"))
 	}
 }

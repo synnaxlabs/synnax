@@ -13,7 +13,7 @@ import (
 	"encoding/binary"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/place"
 )
 
@@ -50,7 +50,7 @@ var headRefusals = []headRefusal{
 	{"format version", func(b []byte) []byte {
 		b[8] = 2
 		return b
-	}, log.ErrUnknown, "head format version 2"},
+	}, checkpoint.ErrUnknown, "head format version 2"},
 	{"file kind", func(b []byte) []byte {
 		b[10] = 5
 		return b
@@ -58,7 +58,7 @@ var headRefusals = []headRefusal{
 	{"section count", func(b []byte) []byte {
 		put32(b, 80, 10)
 		return b
-	}, log.ErrUnknown, "head with 10 sections"},
+	}, checkpoint.ErrUnknown, "head with 10 sections"},
 	{"reserved byte", func(b []byte) []byte {
 		b[200] = 1
 		return b
@@ -77,7 +77,7 @@ var headRefusals = []headRefusal{
 	{"record version", func(b []byte) []byte {
 		binary.LittleEndian.PutUint16(b[table(b)+24*4+2:], 2)
 		return b
-	}, log.ErrUnknown, "section 5 version 2"},
+	}, checkpoint.ErrUnknown, "section 5 version 2"},
 	{"record size", func(b []byte) []byte {
 		put32(b, table(b)+24*5+4, 40)
 		return b
