@@ -19,7 +19,7 @@ import type { ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
-import { numberOptionsOf } from "@/platform/icd/number";
+import { binaryOptionsOf, numberOptionsOf } from "@/platform/icd/number";
 import { Optional, Options, showsDefault } from "@/platform/icd/Options";
 
 type Field = icd.BinaryField | icd.TextField | icd.JSONField;
@@ -152,6 +152,19 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
   field.type === "timestamp" ? field.timeFormat : field.type;
 
+/** A binary field that becomes another kind keeps a default the kind holds exactly. */
+const withBinaryKind = (field: icd.BinaryField, kind: NumberKind): icd.BinaryField => {
+  const options = binaryOptionsOf(field, kind);
+  switch (options.type) {
+    case "float":
+      return { ...field, kind: options.type, default: options.default };
+    case "integer":
+      return { ...field, kind: options.type, default: options.default };
+    case "unsigned":
+      return { ...field, kind: options.type, default: options.default };
+  }
+};
+
 /**
  * Only a number field scales, so a field that stops being one drops its scaling. A
  * number field that becomes another number kind keeps each mapping and the default
@@ -222,7 +235,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       render: "type",
       width: 20,
       get: ({ kind }) => kind,
-      set: (f, cell) => ({ ...f, kind: cell as NumberKind }),
+      set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
     multiplexor,
@@ -333,7 +346,7 @@ const fieldsFromRows = (
   );
 
 /** A change to one of these picks a new union member, so it replaces the field. */
-const DISCRIMINATORS = ["encoding", "type"] as const;
+const DISCRIMINATORS = ["encoding", "type", "kind"] as const;
 
 /**
  * Writes each changed property of a field as its own edit, so another client's edit to

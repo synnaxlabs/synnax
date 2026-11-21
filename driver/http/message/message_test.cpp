@@ -294,7 +294,8 @@ TEST(Reader, RejectsIndexFieldWithNoChannel) {
 TEST(Reader, RejectsIndexFieldWithDefault) {
     auto e = indexed();
     auto &fields = std::get<icd::JSONPayload>(e.ic.messages[0].payload).fields;
-    std::get<icd::TimestampJSONField>(fields.back()).default_ = x::telem::TimeStamp(5);
+    std::get<icd::TimestampJSONField>(fields.back())
+        .default_ = icd::ConstantTimestampDefault{.value = x::telem::TimeStamp(5)};
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(err.data, "message reading: the index field t cannot take a default");

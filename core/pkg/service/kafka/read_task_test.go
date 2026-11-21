@@ -1664,7 +1664,7 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
 		Entry("text that is not base64",
 			telem.BytesT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "a*b="}, "illegal base64 data"),
+			map[string]any{"ts": 10e9, "v": "a*b="}, "not canonical base64"),
 		Entry("an integer beyond the channel's range",
 			telem.Uint8T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
