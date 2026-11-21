@@ -389,6 +389,19 @@ var _ = Describe("Read", func() {
 		))
 	})
 
+	It("Should refuse the data samples past the last stamp before the end of their "+
+		"pointer", func() {
+		root.channel(idx(1))
+		root.file(1, 1, stamps(1, 2, 3, 4, 5))
+		root.pointers(1, old{1, 6, 1, 0, 40})
+		root.channel(data(telem.Int64T))
+		root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data)
+		root.pointers(2, old{1, 4, 1, 0, 40})
+		Expect(convert.Read(cfg())).Error().To(MatchError(
+			"bytes 24 to 40 of 2/1.domain have no stamps in key 1",
+		))
+	})
+
 	It(
 		"Should refuse a data key whose index is not an index of the old layout",
 		func() {

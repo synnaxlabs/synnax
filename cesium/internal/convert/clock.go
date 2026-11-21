@@ -150,7 +150,8 @@ func (r *reader) data(ch channel.Channel) error {
 
 // split adds the pieces of data pointer d of key, one for each pointer of c whose
 // stamps time its samples. Sample i of d takes stamp i of c from the first stamp at or
-// after the start of d. A density of zero is a variable type.
+// after the start of d, and every stamp it takes is before the end of d. A density of
+// zero is a variable type.
 func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) error {
 	name, off, end := fileName(key, d.file), d.offset, d.offset+d.size
 	k, pos, first, err := r.start(c, d)
@@ -161,18 +162,9 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 		if k == len(c.ptrs) {
 			return noStamps(name, off, end, c.key)
 		}
-		n, final := c.count(k)-pos, false
-		switch {
-		case density != 0:
-			n = min(n, (end-off)/uint32(density))
-		case c.last[k] >= d.end:
-			var e uint32
-			if e, _, err = r.search(c, k, pos, d.end); err != nil {
-				return err
-			}
-			n, final = e-pos, true
-		default:
-			final = k+1 == len(c.ptrs) || c.first[k+1] >= d.end
+		n, final, err := r.take(c, k, pos, d, density, off)
+		if err != nil {
+			return err
 		}
 		if n == 0 {
 			return noStamps(name, off, end, c.key)
@@ -206,6 +198,47 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 		}
 	}
 	return nil
+}
+
+// take returns how many stamps of pointer k of c, from position pos, time the samples
+// of d from stream offset off. final is true when the samples of a variable type end in
+// k.
+func (r *reader) take(
+	c *clock,
+	k int,
+	pos uint32,
+	d pointer,
+	density telem.Density,
+	off uint32,
+) (uint32, bool, error) {
+	n, end := c.count(k)-pos, d.offset+d.size
+	switch {
+	case density != 0 && c.last[k] >= d.end:
+		n, err := r.below(c, k, pos, min(n, (end-off)/uint32(density)), d.end)
+		return n, false, err
+	case density != 0:
+		return min(n, (end-off)/uint32(density)), false, nil
+	case c.last[k] >= d.end:
+		e, _, err := r.search(c, k, pos, d.end)
+		return e - pos, true, err
+	}
+	return n, k+1 == len(c.ptrs) || c.first[k+1] >= d.end, nil
+}
+
+// below returns how many of the n stamps from position pos of pointer k of c are before
+// t. It reads one stamp when all of them are, and searches otherwise.
+func (r *reader) below(
+	c *clock,
+	k int,
+	pos, n uint32,
+	t telem.TimeStamp,
+) (uint32, error) {
+	last, err := r.stamp(c, k, pos+n-1)
+	if err != nil || last < t {
+		return n, err
+	}
+	e, _, err := r.search(c, k, pos, t)
+	return e - pos, err
 }
 
 // start returns the pointer k of c and the position in it of the first stamp at or
