@@ -898,6 +898,37 @@ describe("LinePlot", () => {
       });
     });
 
+    it("should not toggle a break on a click on the label of the x axis", async () => {
+      const { getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.XAxis axisKey="x1" location="bottom" type="time" label="Time" />
+      ));
+      const axis = document.querySelector(".pluto-axis");
+      expect(axis).not.toBeNull();
+      vi.spyOn(axis!, "getBoundingClientRect").mockReturnValue(
+        DOMRect.fromRect({ x: 0, y: 0, width: 400, height: 60 }),
+      );
+      fireEvent.click(axis!, { clientX: 120, clientY: 55 });
+      await act(async () => {});
+      expect(getBreakChange).not.toHaveBeenCalled();
+    });
+
+    it("should toggle the break under a click on the range strip", async () => {
+      const { getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.XAxis axisKey="x1" location="bottom" type="time">
+          <LinePlot.Range.Provider />
+        </LinePlot.XAxis>
+      ));
+      const strip = document.querySelector(".pluto-lineplot-range-provider");
+      expect(strip).not.toBeNull();
+      fireEvent.click(strip!, { clientX: 120 });
+      await waitFor(() => expect(getBreakChange).toHaveBeenCalled());
+      expect(getBreakChange.mock.calls[0][0].action).toEqual({
+        variant: "toggle",
+        x: 120,
+        source: "plot",
+      });
+    });
+
     it("should not toggle a break on a click on the x2 axis", async () => {
       const { getBreakChange } = await renderFrame(CHANGE, () => (
         <LinePlot.XAxis axisKey="x2" location="top" type="time" />
