@@ -36,7 +36,8 @@ type clockEntry struct {
 	members map[string]*clockMember
 	holder  *clockMember
 	w       *cesium.Writer
-	// end is the end of the last commit of a writer of the entry.
+	// end is the end of the last commit of a writer of the entry, as of the last
+	// transfer, which folds it in from the old holder.
 	end telem.TimeStamp
 	// handing is true when leave closed the holder's writer in the event that follow
 	// ends.
@@ -50,8 +51,9 @@ type clockMember struct {
 	keys  []cesium.ChannelKey
 	start telem.TimeStamp
 	// end is the end of the last commit of the session, or start, which a commit
-	// without the clock returns, as a writer with nothing to commit does.
-	end telem.TimeStamp
+	// without the clock returns, as a writer with nothing to commit does. last is the
+	// end of its last commit through the entry's writer, or zero.
+	end, last telem.TimeStamp
 	// pending is true when the session wrote samples since its last commit, and dropped
 	// is true when a handoff dropped them. The next commit then reports a refusal.
 	pending, dropped bool
@@ -78,8 +80,11 @@ func (e *clockEntry) follow(ctx context.Context, ts *cesium.DB) {
 		}
 		e.w = nil
 	}
-	if e.holder != nil && e.holder.pending {
-		e.holder.pending, e.holder.dropped = false, true
+	if e.holder != nil {
+		e.end = max(e.end, e.holder.last)
+		if e.holder.pending {
+			e.holder.pending, e.holder.dropped = false, true
+		}
 	}
 	e.holder = leader
 	if leader == nil || leader.err != nil {
@@ -106,6 +111,7 @@ func (e *clockEntry) leave(m *clockMember) error {
 	if e.holder != m {
 		return nil
 	}
+	e.end = max(e.end, m.last)
 	e.holder = nil
 	if e.w == nil {
 		return nil
@@ -144,8 +150,7 @@ func (c *clockWriter) held() (*cesium.Writer, error) {
 }
 
 // lock locks the entry of a shared writer to read. A session changes only its own
-// member under it, and only the holder writes through the entry's writer and sets its
-// end, which only a transfer reads.
+// member under it, and only the holder writes through the entry's writer.
 func (c *clockWriter) lock() {
 	if c.shares {
 		c.entry.mu.RLock()
@@ -221,8 +226,8 @@ func (c *clockWriter) Commit(
 	}
 	end, skipped, err := w.Commit(ctx, skip)
 	if err == nil && !skipped && c.own == nil {
-		c.member.end, c.member.pending, c.member.dropped = end, false, false
-		c.entry.end = max(c.entry.end, end)
+		c.member.end, c.member.last = end, end
+		c.member.pending, c.member.dropped = false, false
 	}
 	return end, skipped, err
 }
