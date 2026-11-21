@@ -69,6 +69,7 @@ func (e *engine) preload(
 		for i, seg := range r.Segments {
 			if p.Live(r.First+i) && !killed(ch.Kills, p, seg.ID) &&
 				reaches(seg.Pointers, first, last) {
+				seg.Part = p.ID
 				pre.Segments = append(pre.Segments, seg)
 			}
 		}

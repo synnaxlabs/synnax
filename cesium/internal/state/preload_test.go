@@ -31,6 +31,7 @@ var _ = Describe("Preloads", func() {
 		run(s)
 		MustSucceed(s.Snapshot())
 		record = s.Channel(6).Segments[0]
+		record.Part = 7
 		Expect(s.Parted(
 			5,
 			[]state.Tag{{Part: 7, Segment: record}},
@@ -88,5 +89,41 @@ var _ = Describe("Preloads", func() {
 			d = MustSucceed(s.BeginDelete(6, 15, 25, preload(5)))
 			Expect(d.Empty).To(BeTrue())
 			Expect(d.Release()).To(Succeed())
+		})
+})
+
+var _ = Describe("Put-back", func() {
+	It("Should put a parted record that the state lacks back for the cut of a delete",
+		func() {
+			head := sample()
+			head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+			cfg := config(&appended{})
+			cfg.Generation = 5
+			s := MustSucceed(state.Open(cfg, head))
+			run(s)
+			record := state.Segment{
+				ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+				TailCRC: 3, Part: 7,
+				Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+			}
+			d := MustSucceed(s.BeginDelete(6, 15, 25, state.Preload{
+				Key: 6, Generation: 5, Segments: []state.Segment{record},
+			}))
+			Expect(d.Left.Segment.ID).To(Equal(uint64(3)))
+			Expect(s.Channel(6).Segments).To(Equal([]state.Segment{record}))
+			Expect(s.Durable(10, []log.Record{&log.Tombstone{
+				Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
+			}})).To(Succeed())
+			Expect(d.Release()).To(Succeed())
+			snap := MustSucceed(s.Snapshot())
+			Expect(
+				snap.Kills,
+			).To(Equal([]state.Kill{{Key: 6, Segment: 3, Generation: 5}}))
+			seg := s.Channel(6).Segments[0]
+			Expect(seg.Part).To(BeZero())
+			Expect(seg.Pointers).To(Equal([]state.Pointer{
+				pointer(1, 0, 10, 10, 0, 4, 1),
+				pointer(1, 2, 30, 30, 8, 4, 1),
+			}))
 		})
 })

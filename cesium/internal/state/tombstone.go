@@ -257,6 +257,8 @@ func (r *beginDeleteRequest) run(s *State) {
 	for _, seg := range records {
 		edges(seg, seg.Pointers)
 	}
+	// The Tombstone cuts the records that the delete reaches as head segments.
+	s.core.putBack(r.d.key, records)
 	r.d.c = &claim{start: r.start, end: last, bounded: true}
 	ch.claims = append(ch.claims, r.d.c)
 	r.d.done <- nil

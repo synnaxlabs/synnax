@@ -29,7 +29,7 @@ type Preload struct {
 	// for.
 	Generation uint64
 	// Segments are the live records of the key in the parts of that Channel whose
-	// pointers reach the time range of the step.
+	// pointers reach the time range of the step, each tagged with its part.
 	Segments []Segment
 }
 
@@ -70,6 +70,36 @@ func (c *chanState) stored(first, last telem.TimeStamp, pre []Segment) (Pointer,
 		}
 	}
 	return Pointer{}, false
+}
+
+// putBack puts each record of records, which parts of key hold, back into the state as
+// a tagged segment, so a cut can change it. A tagged segment that the state still holds
+// takes its record, and a segment that the state holds untagged keeps its own.
+func (c *core) putBack(key uint32, records []Segment) {
+	ch := c.channels[key]
+	for _, rec := range records {
+		seg := c.segments[rec.ID]
+		switch {
+		case seg == nil:
+			seg = &segState{key: key}
+			c.segments[rec.ID] = seg
+			ch.insert(seg)
+		case seg.vis.Part == 0:
+			continue
+		}
+		ptrs := slices.Clone(rec.Pointers)
+		seg.vis, seg.vis.Pointers = rec, ptrs
+		seg.dur = durable{
+			created:  true,
+			sealed:   rec.Sealed,
+			length:   rec.Length,
+			tailCRC:  rec.TailCRC,
+			pointers: ptrs,
+		}
+	}
+	if len(records) > 0 {
+		ch.publish()
+	}
 }
 
 // overlap returns the first pointer of ptrs that shares a stamp with [first, last]. It
