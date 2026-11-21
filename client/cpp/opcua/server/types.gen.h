@@ -16,6 +16,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/certificate/types.gen.h"
@@ -36,8 +37,10 @@ struct ReadField;
 struct StatusDetails;
 struct Where;
 struct Cursor;
+struct Configuration;
 struct Connection;
 struct RetrieveRequest;
+struct Identity;
 struct Server;
 struct RetrieveResponse;
 
@@ -136,6 +139,23 @@ struct Cursor {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Configuration holds the server fields that the task forms own.
+struct Configuration {
+    /// @brief read_indexes are the index channels of the channels that read tasks write
+    /// to.
+    std::vector<::synnax::channel::Key> read_indexes = {};
+    /// @brief read_channels maps a node ID to the channel that holds the node's
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> read_channels = {};
+    /// @brief read_fields bind members of structure values to channels.
+    std::vector<ReadField> read_fields = {};
+    /// @brief write_channels maps a node ID to the channel that commands the node.
+    std::unordered_map<std::string, ::synnax::channel::Key> write_channels = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Connection holds the settings that the Driver connects to a server with.
 struct Connection {
     /// @brief endpoint is the endpoint URL of the server.
@@ -213,6 +233,20 @@ struct RetrieveRequest {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Identity holds the server fields that the connect form and the scanner's
+/// certificate pin own.
+struct Identity {
+    /// @brief rack is the key of the rack whose Driver connects to the server.
+    ::synnax::rack::Key rack = 0;
+    /// @brief name is a human-readable name for the server.
+    std::string name;
+    /// @brief connection holds the settings that the Driver connects with.
+    Connection connection;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Server is an OPC UA server that a rack's Driver connects to.
 struct Server {
     /// @brief key uniquely identifies the server.
@@ -239,6 +273,29 @@ struct Server {
     static Server parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the rack, name, and connection of the server.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the channel maps of the server. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a server.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
 struct RetrieveResponse {

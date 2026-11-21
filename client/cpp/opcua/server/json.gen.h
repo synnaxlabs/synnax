@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/certificate/json.gen.h"
@@ -146,6 +147,54 @@ inline x::json::json Server::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .name = parser.required_field<std::string>("name"),
+        .connection = parser.field<Connection>("connection"),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["name"] = this->name;
+    j["connection"] = this->connection.to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .read_indexes = parser.field<std::vector<::synnax::channel::Key>>(
+            "read_indexes",
+            std::vector<::synnax::channel::Key>{}
+        ),
+        .read_channels = parser.field<
+            std::unordered_map<std::string, ::synnax::channel::Key>>(
+            "read_channels",
+            std::unordered_map<std::string, ::synnax::channel::Key>{}
+        ),
+        .read_fields = parser.field<std::vector<ReadField>>(
+            "read_fields",
+            std::vector<ReadField>{}
+        ),
+        .write_channels = parser.field<
+            std::unordered_map<std::string, ::synnax::channel::Key>>(
+            "write_channels",
+            std::unordered_map<std::string, ::synnax::channel::Key>{}
+        ),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["read_indexes"] = this->read_indexes;
+    j["read_channels"] = this->read_channels;
+    j["read_fields"] = x::json::to_array(this->read_fields);
+    j["write_channels"] = this->write_channels;
+    return j;
+}
+
 inline Where Where::parse(x::json::Parser parser) {
     return Where{
         .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
@@ -212,6 +261,47 @@ inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["servers"] = x::json::to_array(this->servers);
     return j;
+}
+
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }
