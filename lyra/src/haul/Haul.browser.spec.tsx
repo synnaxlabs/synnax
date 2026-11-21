@@ -189,7 +189,7 @@ describe("Haul", () => {
       const source = screen.getByTestId("source");
       fireEvent.dragStart(source, DRAG);
       expect(source.hasAttribute("data-haul-source")).toBe(true);
-      fireEvent.dragEnd(source);
+      fireEvent.dragEnd(source, DRAG);
       expect(source.hasAttribute("data-haul-source")).toBe(false);
     });
 
@@ -234,7 +234,7 @@ describe("Haul", () => {
       const a = screen.getByRole("treeitem", { name: "a" });
       fireEvent.dragStart(a, DRAG);
       expect(dimmed()).toEqual(["a", "b"]);
-      fireEvent.dragEnd(a);
+      fireEvent.dragEnd(a, DRAG);
       expect(dimmed()).toEqual([]);
     });
 

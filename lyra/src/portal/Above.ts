@@ -34,10 +34,10 @@ export interface AboveProps extends PropsWithChildren {
 }
 
 /**
- * Shows its children above every open modal dialog, such as a drag preview or a
- * notification. The content moves into the last modal opened, where it stays usable,
- * and back to element when the modals close. It keeps its state as it moves. A modal
- * opened later must come later in the document, as one opened from another does.
+ * Shows its children above every open modal dialog, such as a notification. The
+ * content moves into the last modal opened, where it stays usable, and back to element
+ * when the modals close. It keeps its state as it moves. A modal opened later must come
+ * later in the document, as one opened from another does.
  */
 export const Above = ({ element, children }: AboveProps): ReactElement => {
   const [host] = useState(createDetachedElement);
