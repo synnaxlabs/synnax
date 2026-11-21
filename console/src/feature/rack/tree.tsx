@@ -214,6 +214,11 @@ const TreeItem = Tree.createItem({
             { where: { rack: { eq: Number(id.key) } } },
             Tree.toResource("ni_chassis"),
           ),
+          Tree.createSource(
+            client.ni.devices,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("ni_device"),
+          ),
         ]
       : []),
   ],

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ni } from "@synnaxlabs/client";
+import type { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice } from "@/feature/ni/task/testutil";
@@ -105,57 +105,18 @@ describe("typed devices", async () => {
     });
   });
 
-  describe("useList", () => {
-    it("should list the devices on a rack", async () => {
+  describe("useRename", () => {
+    it("should rename the device and keep its configuration", async () => {
       const dev = await createTyped();
       const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(
-        () => NI.Device.useList({ query: { where: { rack: { eq: rack.key } } } }),
-        { wrapper },
-      );
-      act(() => result.current.more());
-      await waitFor(() => expect(result.current.data).toContain(dev.key));
-      expect(result.current.getItem(dev.key)?.name).toBe(dev.name);
-    });
-  });
-
-  describe("useUpdateConfiguration", () => {
-    it("should replace the configuration group", async () => {
-      const dev = await createTyped();
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(() => NI.Device.useUpdateConfiguration(), {
-        wrapper,
-      });
-      const configuration = {
-        ...ni.device.configurationZ.parse(dev),
-        identifier: "dev",
-      };
+      const { result } = renderHook(() => NI.Device.useRename(), { wrapper });
+      const name = uniqueName("renamed");
       await act(async () => {
-        await result.current.updateAsync({ key: dev.key, configuration });
+        await result.current.updateAsync({ key: dev.key, name });
       });
       const stored = await client.ni.devices.retrieve({ key: dev.key });
-      expect(stored.identifier).toBe("dev");
-      expect(stored.name).toBe(dev.name);
+      expect(stored.name).toBe(name);
       expect(stored.analogInput.channels).toEqual({ 0: 1 });
-    });
-  });
-
-  describe("useList item reads", () => {
-    it("should read a device outside the list with its status", async () => {
-      const dev = await createTyped();
-      const empty = await client.racks.create({ name: uniqueName("ni_empty") });
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(
-        () => NI.Device.useList({ query: { where: { rack: { eq: empty.key } } } }),
-        { wrapper },
-      );
-      act(() => result.current.more());
-      await waitFor(() => expect(result.current.variant).toBe("success"));
-      const stop = result.current.subscribe(() => {}, dev.key);
-      onTestFinished(stop);
-      await waitFor(() =>
-        expect(result.current.getItem(dev.key)?.status).toBeDefined(),
-      );
     });
   });
 

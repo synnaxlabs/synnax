@@ -44,7 +44,9 @@ const TREE_ITEMS: Tree.Items = {
   ...Arc.TREE_ITEMS,
   ...Channel.TREE_ITEMS,
   ...Device.TREE_ITEMS,
-  ...(FLAGS.typedNIDevices ? NI.Chassis.TREE_ITEMS : {}),
+  ...(FLAGS.typedNIDevices
+    ? { ...NI.Chassis.TREE_ITEMS, ...NI.Device.TREE_ITEMS }
+    : {}),
   ...Group.createTreeItems(GROUP_MEMBERS),
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,

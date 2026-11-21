@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type ni } from "@synnaxlabs/client";
+import { type device, ni } from "@synnaxlabs/client";
 import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
 import { primitive, verbs } from "@synnaxlabs/x";
 
@@ -31,7 +31,6 @@ export const useByKeys = (keys: device.Key[]): Device[] | undefined =>
   useResultMultiple(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
 const RESOURCE_NAME = "NI device";
-const PLURAL_RESOURCE_NAME = "NI devices";
 
 const BASE_QUERY = { includeStatus: true } as const;
 
@@ -50,42 +49,24 @@ export const { useResult: useRetrieve } = Flux.createRetrieve<
   getCached: ({ client, query }) => client.ni.devices.watch(query).getCached(),
 });
 
-export type ListQuery = ni.device.RetrieveRequest;
-
-/** Lists NI devices from the typed device table, with their statuses. */
-export const useList = ({
-  query,
-  ...rest
-}: Omit<
-  Flux.UseListParams<ListQuery, ni.device.Device>,
-  "itemQuery" | "name"
-> = {}): Flux.UseListReturn<ni.device.Key, ni.device.Device> =>
-  Flux.useList((client) => client.ni.devices, {
-    ...rest,
-    name: PLURAL_RESOURCE_NAME,
-    query: query === null ? null : { ...BASE_QUERY, ...query },
-    itemQuery: (key) => ({ ...BASE_QUERY, key }),
-  });
-
-export interface UpdateConfigurationParams {
-  key: ni.device.Key;
-  configuration: ni.device.Configuration;
-}
+export interface RenameParams extends Pick<ni.device.Device, "key" | "name"> {}
 
 /**
- * Replaces the configuration group of an NI device. The Core clears each field that
- * the group leaves out, so a caller sends the whole group.
+ * Renames an NI device. The Core clears each configuration field that an update leaves
+ * out, so the rename sends the stored configuration with the new name.
  */
-export const { useUpdate: useUpdateConfiguration } =
-  Flux.createUpdate<UpdateConfigurationParams>({
-    name: RESOURCE_NAME,
-    verbs: verbs.UPDATE,
-    update: async ({ client, data }) => {
-      const { key, configuration } = data;
-      await client.ni.devices.update(key, { ...configuration, group: "configuration" });
-      return data;
-    },
-  });
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.RENAME,
+  update: async ({ client, data }) => {
+    const { key, name } = data;
+    const stored = ni.device.configurationZ.parse(
+      await client.ni.devices.retrieve({ key }),
+    );
+    await client.ni.devices.update(key, { ...stored, name, group: "configuration" });
+    return data;
+  },
+});
 
 export type DeleteParams = ni.device.Key | ni.device.Key[];
 
