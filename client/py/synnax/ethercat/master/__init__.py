@@ -9,18 +9,24 @@
 
 from synnax.ethercat.master.types_gen import (
     TYPE_RESOURCE_ID,
+    Cursor,
     Key,
     Master,
     Status,
     StatusDetails,
+    Where,
+    WhereInput,
     resource_id,
 )
 
 __all__ = [
     "TYPE_RESOURCE_ID",
+    "Cursor",
     "Key",
     "Master",
     "Status",
     "StatusDetails",
+    "Where",
+    "WhereInput",
     "resource_id",
 ]
