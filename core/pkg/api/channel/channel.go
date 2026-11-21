@@ -294,7 +294,12 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	calcs, err := s.calculations.Outputs(ctx, snap, virtualKeys(resChannels)...)
+	// The embedded snapshot converts to an interface with no allocation.
+	calcs, err := s.calculations.Outputs(
+		ctx,
+		snap.Snapshot,
+		virtualKeys(resChannels)...,
+	)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -393,7 +398,7 @@ func (s *Service) retrieve(
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
-	if err = q.Exec(ctx, snap); err != nil {
+	if err = q.Exec(ctx, snap.Snapshot); err != nil {
 		return nil, err
 	}
 	if named {
@@ -498,7 +503,16 @@ func (s *Service) translateForward(
 // virtualKeys returns the keys of the virtual channels of channels, the only channels
 // that a calculation can write.
 func virtualKeys(channels []channel.Channel) channel.Keys {
-	var keys channel.Keys
+	n := 0
+	for _, ch := range channels {
+		if ch.Virtual {
+			n++
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	keys := make(channel.Keys, 0, n)
 	for _, ch := range channels {
 		if ch.Virtual {
 			keys = append(keys, ch.Key())
