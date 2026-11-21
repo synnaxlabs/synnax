@@ -97,9 +97,7 @@ class LinePlotBreaks(ConsoleCase):
         plot.select_menu_option("Open all breaks")
         plot.expect_menu_option("Close all breaks")
 
-        self.console.reload()
-        assert plot.pane_locator is not None
-        plot.pane_locator.wait_for(state="visible", timeout=10000)
+        plot.reload_console()
         plot.expect_menu_option("Close all breaks")
         plot.expect_menu_option("Open all breaks", offered=False)
 
