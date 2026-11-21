@@ -359,17 +359,17 @@ var _ = Describe("Service", func() {
 		It("Should write only the configuration group", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Rack)
-			Expect(update(testutil.AuthedCtx(ctx, u), rename(d.Key))).
-				Error().ToNot(HaveOccurred())
+			res := MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(d.Key)))
 			got := retrieveDevice(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(res.Device).To(Equal(got))
 		})
 
 		It("Should write only the identity group", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Rack)
-			Expect(update(
+			res := MustSucceed(update(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.UpdateRequest{
 					Key: d.Key,
@@ -382,10 +382,11 @@ var _ = Describe("Service", func() {
 						},
 					}},
 				},
-			)).Error().ToNot(HaveOccurred())
+			))
 			got := retrieveDevice(ctx, d.Key)
 			Expect(got.Serial).To(Equal("02B"))
 			Expect(got.Name).To(Equal(d.Name))
+			Expect(res.Device).To(Equal(got))
 		})
 
 		It("Should reject a request with no group", func(ctx SpecContext) {
