@@ -292,30 +292,34 @@ class Plot(ConsolePage):
             .filter(has_text=re.compile(f"^{re.escape(range_name)}$"))
         )
 
-    def create_range_from_selection(self, range_name: str) -> None:
-        """Create a range by selecting a region on the plot and using the context menu.
+    def select_region(self) -> dict[str, float]:
+        """Select the middle half of the plot with an Alt drag.
 
-        :param range_name: Name for the new range
+        :returns: The center of the selection, in page pixels.
         """
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
-
         box = self.pane_locator.bounding_box()
         if not box:
             raise RuntimeError("Could not get plot bounding box")
-
         start_x = box["x"] + box["width"] * 0.25
         end_x = box["x"] + box["width"] * 0.75
         center_y = box["y"] + box["height"] / 2
-
-        # Alt+drag to create selection
         self.page.keyboard.down("Alt")
         self.page.mouse.move(start_x, center_y)
         self.page.mouse.down()
         self.page.mouse.move(end_x, center_y, steps=10)
         self.page.mouse.up()
         self.page.keyboard.up("Alt")
-        self.page.mouse.click((start_x + end_x) / 2, center_y, button="right")
+        return {"x": (start_x + end_x) / 2, "y": center_y}
+
+    def create_range_from_selection(self, range_name: str) -> None:
+        """Create a range by selecting a region on the plot and using the context menu.
+
+        :param range_name: Name for the new range
+        """
+        center = self.select_region()
+        self.page.mouse.click(center["x"], center["y"], button="right")
 
         self.page.get_by_text("Create range from selection").click(timeout=5000)
         self.page.get_by_role("textbox", name="Name").wait_for(
