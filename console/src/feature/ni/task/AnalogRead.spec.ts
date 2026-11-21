@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ni, task } from "@synnaxlabs/client";
+import { type ni, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -727,6 +727,33 @@ describe("AnalogRead ports", () => {
     fireEvent.click(await findChannelListItem("chan_ranged"));
     await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(false));
     expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
+  });
+
+  it("should drop a held range when another client changes the range", async () => {
+    const dev = await createDevice();
+    const channel = createChannel("ai_voltage", 0, {
+      device: dev.key,
+      name: "chan_ranged",
+      minVal: 0,
+      maxVal: 5,
+    });
+    const { draft } = await renderWith([channel]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    const other = createTestClient();
+    await other.tasks.retrieve({ key: draft.key });
+    await other.tasks.dispatch(
+      draft.key,
+      task.set({
+        path: ["config", "channels", channel.key],
+        value: { ...channel, minVal: 1, maxVal: 6 },
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("1"),
+    );
+    expect(fieldInvalid("Minimum value")).toBe(false);
   });
 
   it("should name the values that fit in no range", async () => {
