@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  calculation,
   channel as channelClient,
   DataType,
   lineplot,
@@ -22,7 +21,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { binary, TimeStamp, uuid } from "@synnaxlabs/x";
+import { binary, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -146,24 +145,9 @@ describe("channel/tree", () => {
         name: uniqueName("calc"),
         expression: "return 1",
       });
-      // The channel cache holds a calculated channel only with its status.
-      await client.statuses.set({
-        owner: calculation.resourceID(calc.key),
-        name: "Calculation status",
-        variant: "info",
-        message: "ok",
-        time: TimeStamp.now(),
-      });
-      await expect
-        .poll(async () => {
-          const [output] = await client.channels.retrieve({
-            where: { key: { in: [calc.output] } },
-            includeStatus: true,
-          });
-          await client.calculations.outputs.retrieve([calc.output]);
-          return factsOf(output);
-        })
-        .toBe("int64·Calculated");
+      const [output] = await client.channels.retrieve([calc.output]);
+      await client.calculations.outputs.retrieve([calc.output]);
+      expect(factsOf(output)).toBe("int64·Calculated");
     });
 
     it("previews a channel missing from the cache by its type name", () => {
