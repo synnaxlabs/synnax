@@ -679,6 +679,14 @@ describe("viewport/use", () => {
       h.rerender({ initial: INITIAL });
       expect(readViewport(h)).toEqual(INITIAL);
     });
+
+    it("should clear the mask when the initial box changes", () => {
+      const h = setup();
+      drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, { keys: [ALT] });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      h.rerender({ initial: INITIAL });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+    });
   });
 
   describe("truncation", () => {

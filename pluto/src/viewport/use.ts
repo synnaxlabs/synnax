@@ -162,10 +162,11 @@ export const use = ({
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(
-    () => setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial))),
-    [initial],
-  );
+  // A new initial view moves the view, so the mask no longer marks the same values.
+  useEffect(() => {
+    setMaskBox(box.ZERO);
+    setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial)));
+  }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
