@@ -176,7 +176,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		}
 	}
 	for _, u := range w.uniques {
-		if err = u.Check(ctx, w.tx, &entry); err != nil {
+		if err = u.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}
