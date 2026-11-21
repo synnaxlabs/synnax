@@ -8,43 +8,46 @@
 // included in the file licenses/APL.txt.
 
 import type { icd } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Flux, ICD as PICD } from "@synnaxlabs/pluto";
-import type { deep } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useSyncExternalStore } from "react";
+import { ICD as PICD } from "@synnaxlabs/pluto";
+import type { deep, destructor, record } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import type { ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
+/** A JSON message of an ICD, as one option of the field. */
+interface Choice extends record.KeyedNamed<string> {
+  icdName: string;
+}
+
 const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>
   `${icdKey}/${message}`;
 
-interface ChoicesProps extends Pick<
-  Flux.UseListReturn<icd.Key, icd.ICD>,
-  "getItem" | "subscribe"
-> {
-  icdKey: icd.Key;
-}
-
-/** Lists the JSON messages of an ICD, current with its edits. */
-const Choices = ({ icdKey, getItem, subscribe }: ChoicesProps): ReactElement[] => {
-  const parent = useSyncExternalStore(
-    (callback) => subscribe(callback, icdKey),
-    () => getItem(icdKey),
-  );
-  if (parent == null) return [];
-  return parent.messages
-    .filter(({ payload }) => payload.format === "json")
-    .map((m) => (
-      <Select.Item key={m.key} itemKey={choiceKey(parent.key, m.key)}>
-        <Text.Text>{m.name}</Text.Text>
-        <Text.Text color={9}>{parent.name}</Text.Text>
-      </Select.Item>
-    ));
+const parseChoiceKey = (key: string): [icd.Key, icd.MessageKey] => {
+  const [icdKey, message] = key.split("/");
+  return [icdKey, message];
 };
+
+const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
+  const choice = List.useItem<string, Choice>(props.itemKey);
+  return (
+    <Select.Item {...props}>
+      <Text.Text>{choice?.name}</Text.Text>
+      <Text.Text color={9}>{choice?.icdName}</Text.Text>
+    </Select.Item>
+  );
+};
+
+const choiceRenderProp = Component.renderProp(ChoiceItem);
 
 export interface MessageFormatFieldProps {
   /** The path of a source that reads one message. */
@@ -53,7 +56,10 @@ export interface MessageFormatFieldProps {
   disabled?: boolean;
 }
 
-/** Picks the message that a source reads from the JSON messages of every ICD. */
+/**
+ * Picks the message that a source reads from the JSON messages of every ICD. A search
+ * matches ICD names on the Core and lists every JSON message of each match.
+ */
 export const MessageFormatField = ({
   path,
   onChange,
@@ -62,31 +68,81 @@ export const MessageFormatField = ({
   const isPreview = Task.useIsPreview();
   const icdKey = Form.useFieldValue(path.icd);
   const { message } = Form.useFieldValue(path.messages[0]);
-  const { data, getItem, subscribe, more } = PICD.useList({ pageSize: 1000 });
-  // The trigger names the message that the source reads before the dialog opens.
+  const icds = PICD.useList();
+  // List readers need one choice object for as long as its ICD stays the same.
+  const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
+  const choicesOf = (parent: icd.ICD): Map<string, Choice> => {
+    let choices = cache.current.get(parent);
+    if (choices == null) {
+      choices = new Map(
+        parent.messages
+          .filter(({ payload }) => payload.format === "json")
+          .map(({ key, name }) => {
+            const itemKey = choiceKey(parent.key, key);
+            return [itemKey, { key: itemKey, name, icdName: parent.name }];
+          }),
+      );
+      cache.current.set(parent, choices);
+    }
+    return choices;
+  };
+  const getChoice = (key: string): Choice | undefined => {
+    const parent = icds.getItem(parseChoiceKey(key)[0]);
+    return parent == null ? undefined : choicesOf(parent).get(key);
+  };
+  const getItem = List.createGetItem<string, Choice>(getChoice, (keys) =>
+    keys.map(getChoice).filter((c) => c != null),
+  );
+  const subscribe = (callback: () => void, key: string): destructor.Destructor =>
+    icds.subscribe(callback, parseChoiceKey(key)[0]);
+  const parents = Store.useItems({
+    keys: icds.data,
+    subscribe: icds.subscribe,
+    getItem: icds.getItem,
+  });
+  const data = useMemoDeepEqual(
+    parents.flatMap((parent) => [...choicesOf(parent).keys()]),
+  );
+  // A page of ICDs with no JSON message adds no row, so no scroll asks for the next.
+  const rowsBeforeRead = useRef<number | null>(null);
+  const handleFetchMore = () => {
+    rowsBeforeRead.current = data.length;
+    icds.more();
+  };
+  const handleSearch = (term: string) => {
+    rowsBeforeRead.current = 0;
+    icds.search(term);
+  };
   useEffect(() => {
-    more();
-  }, []);
+    const before = rowsBeforeRead.current;
+    if (before == null || icds.variant !== "success") return;
+    rowsBeforeRead.current = null;
+    if (data.length <= before && !icds.complete) handleFetchMore();
+  }, [icds.variant, data]);
   const handleChange = (key: string) => {
-    const [parent, messageKey] = key.split("/");
-    const picked = getItem(parent)?.messages.find(({ key }) => key === messageKey);
+    const [parent, messageKey] = parseChoiceKey(key);
+    const picked = icds.getItem(parent)?.messages.find(({ key }) => key === messageKey);
     if (picked == null) throw new Error(`No message format has the key ${key}`);
     onChange(parent, picked);
   };
   return (
     <Input.Item label="Message format" padHelpText={false}>
-      <Select.Simple<string>
+      <Select.Single<string, Choice>
         resourceName="message format"
         value={choiceKey(icdKey, message)}
         onChange={handleChange}
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={handleFetchMore}
+        onSearch={handleSearch}
+        status={icds.status}
         allowNone={false}
         preview={isPreview}
         disabled={disabled}
       >
-        {data.map((key) => (
-          <Choices key={key} icdKey={key} getItem={getItem} subscribe={subscribe} />
-        ))}
-      </Select.Simple>
+        {choiceRenderProp}
+      </Select.Single>
     </Input.Item>
   );
 };

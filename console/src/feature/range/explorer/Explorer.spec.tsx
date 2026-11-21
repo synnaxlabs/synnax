@@ -659,7 +659,9 @@ describe("range/explorer/Explorer", () => {
       if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
       const plot = await client.lineplots.retrieve({ key: tab.resource.key });
       expect(plot.name).toBe(`Plot for ${rng.name}`);
-      expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
+      expect(plot.ranges).toEqual([
+        expect.objectContaining({ variant: "key", key: rng.key }),
+      ]);
     });
 
     it("should add the range to a plot in the panel, and check a plot that shows it", async () => {
@@ -693,8 +695,8 @@ describe("range/explorer/Explorer", () => {
       await waitFor(async () => {
         const plot = await client.lineplots.retrieve({ key: tab.resource.key });
         expect(plot.ranges).toEqual([
-          { variant: "key", key: shown.key },
-          { variant: "key", key: added.key },
+          expect.objectContaining({ variant: "key", key: shown.key }),
+          expect.objectContaining({ variant: "key", key: added.key }),
         ]);
       });
     });
