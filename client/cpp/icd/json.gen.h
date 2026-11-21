@@ -108,6 +108,7 @@ inline Message Message::parse(x::json::Parser parser) {
         .key = parser.field<MessageKey>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .payload = parse_payload(parser.child("payload")),
+        .cycle_time = parser.field<std::optional<::x::telem::TimeSpan>>("cycle_time"),
     };
 }
 
@@ -116,6 +117,7 @@ inline x::json::json Message::to_json() const {
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["payload"] = ::synnax::icd::to_json(this->payload);
+    if (this->cycle_time.has_value()) j["cycle_time"] = this->cycle_time->nanoseconds();
     return j;
 }
 
