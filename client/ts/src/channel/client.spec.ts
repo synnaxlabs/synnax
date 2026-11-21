@@ -49,6 +49,8 @@ const CREATED: channel.Stored = {
   localIndex: 5,
   virtual: false,
   concurrency: control.Concurrency.exclusive,
+  operations: undefined,
+  expression: "",
   group: undefined,
 };
 
@@ -222,7 +224,10 @@ describe("channel.Client", () => {
       const { channels } = await createStreamedClient({
         added: [channel.set({ path: ["dataType"], value: DataType.INT64.toString() })],
       });
-      await channels.dispatch(RENAMED.key, channel.set({ path: ["group"], value: G1 }));
+      await channels.dispatch(
+        RENAMED.key,
+        channel.set({ path: ["expression"], value: "return 1" }),
+      );
       expect(channels.store.get(RENAMED.key)?.dataType).toEqual(DataType.INT64);
     });
   });
@@ -288,7 +293,7 @@ describe("channel.Client", () => {
       const before = channels.store.get(CREATED_KEY);
       const sent = channels.dispatch(
         CREATED_KEY,
-        channel.set({ path: ["group"], value: G1 }),
+        channel.set({ path: ["expression"], value: "return 1" }),
       );
       stream.push(createdFrame(2));
       stream.push(

@@ -155,11 +155,11 @@ struct Operation {
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::channel::pb::Operation;
-    [[nodiscard]] std::pair<::api::channel::pb::Operation, x::errors::Error>
+    using proto_type = ::service::channel::pb::Operation;
+    [[nodiscard]] std::pair<::service::channel::pb::Operation, x::errors::Error>
     to_proto() const;
     static std::pair<Operation, x::errors::Error>
-    from_proto(const ::api::channel::pb::Operation &pb);
+    from_proto(const ::service::channel::pb::Operation &pb);
 };
 
 /// @brief Order is a sort of channels.
