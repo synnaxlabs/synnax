@@ -225,13 +225,14 @@ func (c *Checkpointer) write(h head) error {
 	for i, p := range pl.index.parts {
 		refs[i] = p.Part
 	}
-	ranges := pl.index.ranges()
+	ranges := pl.index.rangesAfter(c.index)
+	pl.index.ranges = ranges
 	s := *h.snapshot
-	s.Channels, s.Limits.Parts = withRanges(pl.head, ranges), pl.index.limit
+	s.Channels, s.Limits.Parts = pl.head, pl.index.limit
 	if gone, err := writeFile(
 		c.cfg.FS,
 		Name(h.generation),
-		encodeHead(c.cfg.DB, h.generation, &s, refs),
+		encodeHead(c.cfg.DB, h.generation, &s, refs, ranges),
 	); err != nil {
 		// A head that may stay names the parts.
 		if !gone {
