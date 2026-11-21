@@ -194,25 +194,21 @@ func (d *Decoder) record(t uint16) Record {
 }
 
 // Clone returns a copy of r that shares no memory with it. The records of a Decoder
-// stay
-// valid only until its next call, so a caller that keeps one clones it.
+// stay valid only until its next call, so a caller that keeps one clones it.
 func Clone(r Record) Record {
 	switch r := r.(type) {
 	case *Reserve:
-		c := *r
-		return &c
+		return copyOf(r)
 	case *Create:
-		c := *r
-		return &c
+		return copyOf(r)
 	case *Commit:
-		c := *r
+		c := copyOf(r)
 		c.Slots = slices.Clone(r.Slots)
-		return &c
+		return c
 	case *Seal:
-		c := *r
-		return &c
+		return copyOf(r)
 	case *Tombstone:
-		c := *r
+		c := copyOf(r)
 		c.Left, c.Right = nil, nil
 		if r.Left != nil {
 			c.left = *r.Left
@@ -222,23 +218,25 @@ func Clone(r Record) Record {
 			c.right = *r.Right
 			c.Right = &c.right
 		}
-		return &c
+		return c
 	case *Replace:
-		c := *r
+		c := copyOf(r)
 		c.Pointers = slices.Clone(r.Pointers)
-		return &c
+		return c
 	case *Drop:
-		c := *r
-		return &c
+		return copyOf(r)
 	case *Restart:
 		return &Restart{}
 	case *Check:
-		c := *r
-		return &c
+		return copyOf(r)
 	case *Intent:
-		c := *r
-		return &c
+		return copyOf(r)
 	default:
 		panic(fmt.Sprintf("log: clone of an unknown record %T", r))
 	}
+}
+
+func copyOf[T any](r *T) *T {
+	c := *r
+	return &c
 }

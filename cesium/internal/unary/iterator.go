@@ -127,8 +127,8 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	), nil
 }
 
-// NewIterator returns an iterator of ch over the ranges that src holds, which takes
-// the stamps of ch from idx. The pointer log layout opens its iterators with it.
+// NewIterator returns an iterator of ch over the ranges that src holds, which takes the
+// stamps of ch from idx. The pointer log layout opens its iterators with it.
 func NewIterator(
 	ins alamos.Instrumentation,
 	ch channel.Channel,

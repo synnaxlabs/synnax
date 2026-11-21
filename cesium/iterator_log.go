@@ -56,8 +56,8 @@ type logCursor struct {
 	ranges []logRange
 	pos    int
 	valid  bool
-	// cur is the range of the last valid move, which a move that fails keeps, as on
-	// the old layout.
+	// cur is the range of the last valid move, which a move that fails keeps, as on the
+	// old layout.
 	cur logRange
 }
 

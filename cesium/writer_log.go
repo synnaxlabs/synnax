@@ -26,8 +26,8 @@ import (
 const segmentLimit = 1 << 30
 
 // logWriter writes one clock and the channels it times to the segments of the pointer
-// log layout. Write appends with no sync, Commit makes the written samples visible,
-// and Sync makes the commits durable with one log entry.
+// log layout. Write appends with no sync, Commit makes the written samples visible, and
+// Sync makes the commits durable with one log entry.
 type logWriter struct {
 	e  *engine
 	st *state.Writer
@@ -66,8 +66,8 @@ type logKey struct {
 	// last sync are unsynced.
 	committed int64
 	dirty     bool
-	// frame is the last frame that held a series of the key, and skipped is true when
-	// a write of the uncommitted run skipped the key.
+	// frame is the last frame that held a series of the key, and skipped is true when a
+	// write of the uncommitted run skipped the key.
 	frame   int
 	skipped bool
 }

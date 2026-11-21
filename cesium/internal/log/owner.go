@@ -214,8 +214,8 @@ func newLog(cfg Config) (*Log, error) {
 	return l, nil
 }
 
-// openFile opens the file of the log of generation and returns its size, a whole
-// number of blocks of at least minSize.
+// openFile opens the file of the log of generation and returns its size, a whole number
+// of blocks of at least minSize.
 func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 	file, err := l.cfg.FS.Open(Name(generation), os.O_RDWR)
 	if err != nil {

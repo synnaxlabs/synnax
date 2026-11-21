@@ -35,8 +35,8 @@ var ErrOldLayout = errors.New("the root holds the old storage layout")
 // then every log entry after it, in log order.
 type recovery struct {
 	fs xfs.FS
-	// heads and logs are the generations of the head and log files in the listing
-	// taken at open.
+	// heads and logs are the generations of the head and log files in the listing taken
+	// at open.
 	heads, logs []uint64
 	// db is the identity of the database, and head the header of the head in use.
 	db   uint64
@@ -56,8 +56,9 @@ type recovery struct {
 	// last is the last valid frame and its offset, which recovery writes again.
 	last    []byte
 	lastOff int64
-	buf     []byte
-	dec     log.Decoder
+	// buf holds the log that replay reads, and following the log after it.
+	buf, following []byte
+	dec            log.Decoder
 }
 
 // list sorts the head and log files of the root, and reports whether a channel
@@ -106,8 +107,7 @@ func generationOf(name, suffix string) (uint64, bool) {
 // new database: no head at all, or only an incomplete head 1 whose log holds no frame.
 func (r *recovery) pickHead() (*state.Snapshot, error) {
 	var incomplete []uint64
-	for i := len(r.heads) - 1; i >= 0; i-- {
-		g := r.heads[i]
+	for _, g := range slices.Backward(r.heads) {
 		h, s, err := checkpoint.Read(r.fs, g)
 		if err == nil {
 			for _, gen := range incomplete {
@@ -164,7 +164,15 @@ func (r *recovery) logEmpty(generation uint64) (bool, error) {
 
 // read reads the whole log file of generation into the buffer of r. It returns false
 // when no such file exists.
-func (r *recovery) read(generation uint64) (b []byte, ok bool, err error) {
+func (r *recovery) read(generation uint64) ([]byte, bool, error) {
+	return r.readInto(&r.buf, generation)
+}
+
+// readInto reads the whole log file of generation into buf.
+func (r *recovery) readInto(
+	buf *[]byte,
+	generation uint64,
+) (b []byte, ok bool, err error) {
 	name := log.Name(generation)
 	if ok, err = r.fs.Exists(name); err != nil || !ok {
 		return nil, false, err
@@ -178,11 +186,11 @@ func (r *recovery) read(generation uint64) (b []byte, ok bool, err error) {
 	if err != nil {
 		return nil, false, err
 	}
-	r.buf = slices.Grow(r.buf[:0], int(info.Size()))[:info.Size()]
-	if _, err = f.ReadAt(r.buf, 0); err != nil && !errors.Is(err, io.EOF) {
+	*buf = slices.Grow((*buf)[:0], int(info.Size()))[:info.Size()]
+	if _, err = f.ReadAt(*buf, 0); err != nil && !errors.Is(err, io.EOF) {
 		return nil, false, err
 	}
-	return r.buf, true, nil
+	return *buf, true, nil
 }
 
 // reread reads n bytes at off of the log of generation again, into b.
@@ -214,8 +222,8 @@ func (r *recovery) header(b []byte, db, generation uint64) (log.Header, uint32, 
 	return log.Header{}, 0, false
 }
 
-// verifiedHeader is header with the second read of the header copies of the rule that
-// a failed check is read again before recovery decides.
+// verifiedHeader is header with the second read of the header copies of the rule that a
+// failed check is read again before recovery decides.
 func (r *recovery) verifiedHeader(
 	b []byte,
 	db, generation uint64,
@@ -309,36 +317,14 @@ func (r *recovery) replay(
 		); err != nil {
 			return err
 		}
-		next, ok, err := r.read(r.gen + 1)
+		next, crc, ok, err := r.follow(end, sequence, prev)
 		if err != nil {
 			return err
 		}
 		if ok {
-			nh, crc, passes, err := r.verifiedHeader(next, r.db, r.gen+1)
-			if err != nil {
-				return err
-			}
-			if passes && nh.PrevCRC == prev && nh.Sequence == sequence {
-				r.gen++
-				r.first, r.logHeader, r.size = nh.Sequence, nh, int64(len(next))
-				b, prev, end = next, crc, log.FramesStart
-				continue
-			}
-			if passes {
-				return errors.Wrapf(
-					place.ErrCorrupt,
-					"log %d links to another frame than the end of log %d at %d",
-					r.gen+1,
-					r.gen,
-					end,
-				)
-			}
-			if err = r.scan(next, r.gen+1, log.FramesStart, sequence); err != nil {
-				return err
-			}
-			if b, _, err = r.read(r.gen); err != nil {
-				return err
-			}
+			r.buf, r.following = r.following, r.buf
+			b, prev, end = next, crc, log.FramesStart
+			continue
 		}
 		if err = r.scan(b, r.gen, end, sequence); err != nil {
 			return err
@@ -346,6 +332,39 @@ func (r *recovery) replay(
 		r.pos = log.Position{End: end, Sequence: sequence, PrevCRC: prev}
 		return nil
 	}
+}
+
+// follow reports whether the next log goes on after the last valid frame of log r.gen,
+// which ends at end, and then moves r to it and returns its bytes and the crc field of
+// its first header. A next log that links to another frame, or a valid frame in a next
+// log whose headers fail, refuses with an error that wraps place.ErrCorrupt.
+func (r *recovery) follow(
+	end int64,
+	sequence uint64,
+	prev uint32,
+) ([]byte, uint32, bool, error) {
+	next, ok, err := r.readInto(&r.following, r.gen+1)
+	if err != nil || !ok {
+		return nil, 0, false, err
+	}
+	h, crc, passes, err := r.verifiedHeader(next, r.db, r.gen+1)
+	switch {
+	case err != nil:
+		return nil, 0, false, err
+	case passes && h.PrevCRC == prev && h.Sequence == sequence:
+		r.gen++
+		r.first, r.logHeader, r.size = h.Sequence, h, int64(len(next))
+		return next, crc, true, nil
+	case passes:
+		return nil, 0, false, errors.Wrapf(
+			place.ErrCorrupt,
+			"log %d links to another frame than the end of log %d at %d",
+			r.gen+1,
+			r.gen,
+			end,
+		)
+	}
+	return nil, 0, false, r.scan(next, r.gen+1, log.FramesStart, sequence)
 }
 
 // frames applies the valid frames of the log of generation r.gen in b from end, and

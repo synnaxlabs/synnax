@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/segment"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 const (
@@ -40,6 +42,7 @@ const (
 // engine is the pointer log layout of a DB: the state owner, the log owner, the
 // checkpointer, and the budget of the segment file handles.
 type engine struct {
+	ins    alamos.Instrumentation
 	fs     xfs.FS
 	db     uint64
 	exec   func(f func())
@@ -57,8 +60,8 @@ type engine struct {
 	ready    chan struct{}
 	shutdown sync.Once
 	closeErr error
-	// keys holds the key of each segment that the state may give back as dead, so
-	// that reap can name its file.
+	// keys holds the key of each segment that the state may give back as dead, so that
+	// reap can name its file.
 	keys struct {
 		sync.Mutex
 		of map[uint64]ChannelKey
@@ -83,7 +86,12 @@ func openEngine(o *options) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &engine{fs: o.fs, exec: o.executor, ready: make(chan struct{})}
+	e := &engine{
+		ins:   o.Instrumentation,
+		fs:    o.fs,
+		exec:  o.executor,
+		ready: make(chan struct{}),
+	}
 	e.keys.of = make(map[uint64]ChannelKey)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
@@ -199,22 +207,38 @@ func (e *engine) recover(r *recovery) (err error) {
 func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }
 
 // durable hands a durable entry to the state. A refusal fails the state, whose later
-// calls return the error.
+// calls return the error, so the hook only logs it.
 func (e *engine) durable(sequence uint64, records []log.Record) {
-	_ = e.state.Durable(sequence, records)
+	if err := e.state.Durable(sequence, records); err != nil {
+		e.ins.L.Error(
+			"state refused a durable log entry",
+			zap.Uint64("sequence", sequence),
+			zap.Error(err),
+		)
+	}
 }
 
 // refused hands an entry that the log refused to the state. The state fails the
 // requests that wait for it, and returns no error of its own.
 func (e *engine) refused(records []log.Record, err error) {
-	_ = e.state.Refused(records, err)
+	if stateErr := e.state.Refused(records, err); stateErr != nil {
+		e.ins.L.Error("state failed a refused log entry", zap.Error(stateErr))
+	}
 }
 
 func (e *engine) prepare(next uint64) { e.ckpt.Prepare(next) }
 
 // switchedTo hands a switch of the log to the state, which takes the snapshot of the
 // head there. The state fails itself on an error, and its later calls return it.
-func (e *engine) switchedTo(generation uint64) { _ = e.state.Switch(generation) }
+func (e *engine) switchedTo(generation uint64) {
+	if err := e.state.Switch(generation); err != nil {
+		e.ins.L.Error(
+			"state failed the switch to a log",
+			zap.Uint64("generation", generation),
+			zap.Error(err),
+		)
+	}
+}
 
 func (e *engine) onHead(
 	generation uint64,
@@ -288,8 +312,8 @@ func segmentName(key ChannelKey, id uint64) string {
 }
 
 // orphans removes each segment and check file of a channel directory that the state
-// does not name, and cuts each named segment file to its committed length. In the
-// root, it keeps what a switch keeps.
+// does not name, and cuts each named segment file to its committed length. In the root,
+// it keeps what a switch keeps.
 func (e *engine) orphans() error {
 	snapshot, err := e.state.Snapshot()
 	if err != nil {

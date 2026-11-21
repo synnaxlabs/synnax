@@ -88,8 +88,7 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 }
 
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses
-// index.
-// The caller holds db.mu.
+// index. The caller holds db.mu.
 func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) bool {
 	for _, chs := range []map[ChannelKey]Channel{db.mu.channels, db.mu.hiddenChannels} {
 		for k, ch := range chs {
@@ -101,9 +100,8 @@ func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) b
 	return false
 }
 
-// decideLog decides the fate of each key of the pointer log layout against records,
-// as decide does on the old layout, and returns the keys it keeps. The caller holds
-// db.mu.
+// decideLog decides the fate of each key of the pointer log layout against records, as
+// decide does on the old layout, and returns the keys it keeps. The caller holds db.mu.
 func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error) {
 	snapshot, err := db.engine.state.Snapshot()
 	if err != nil {
