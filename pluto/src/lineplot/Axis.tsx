@@ -14,7 +14,7 @@ import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { direction, type text } from "@synnaxlabs/x";
+import { direction, type location, type text } from "@synnaxlabs/x";
 import {
   type FC,
   type MouseEvent,
@@ -102,8 +102,9 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     );
     const { toggleBreak } = useContext(component);
     const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-      // Only x1 holds breaks.
-      if (dir === "x" && axisKey === "x1") toggleBreak(e.clientX, "axis");
+      // Only x1 holds breaks, and its marks sit on the ticks, not on the label.
+      if (dir === "x" && axisKey === "x1" && onTicks(e, location, size))
+        toggleBreak(e.clientX, "axis");
       onClick?.(e);
     };
 
@@ -163,6 +164,17 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
   };
   C.displayName = `${dir.toUpperCase()}Axis`;
   return C;
+};
+
+// onTicks returns whether a click lands on the ticks of an x axis of size pixels, which
+// sit next to the plot.
+const onTicks = (
+  e: MouseEvent<HTMLDivElement>,
+  loc: location.Outer,
+  size: number,
+): boolean => {
+  const { top, bottom } = e.currentTarget.getBoundingClientRect();
+  return loc === "top" ? bottom - e.clientY <= size : e.clientY - top <= size;
 };
 
 export const XAxis = axisFactory("x");
