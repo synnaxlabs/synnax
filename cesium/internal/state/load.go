@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// load sets c to the durable state s of a head. It returns an error
-// that wraps ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a
-// segment format version that this binary does not read.
+// load sets c to the durable state s of a head. It returns an error that wraps
+// ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a segment format
+// version that this binary does not read.
 func (c *core) load(s *Snapshot) error {
 	if s.Limits.Alignments > uint64(telem.LeadingDomain) {
 		return refuse(
@@ -69,19 +69,10 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 	var end uint32
 	for _, p := range seg.Pointers {
 		a := p.Alignment
+		if err := checkShape(seg.ID, key, p); err != nil {
+			return err
+		}
 		switch {
-		case p.Samples == 0 || p.Length < p.Samples || p.First > p.Last ||
-			(p.Samples == 1 && p.First != p.Last):
-			return refuse(
-				"segment %d of key %d has a pointer of %d samples in %d bytes "+
-					"from %d to %d",
-				seg.ID,
-				key,
-				p.Samples,
-				p.Length,
-				p.First,
-				p.Last,
-			)
 		case p.Offset < end:
 			return refuse(
 				"segment %d has a pointer at %d, before the end %d of the one "+

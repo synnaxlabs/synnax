@@ -162,8 +162,8 @@ func Prepare(fs xfs.FS, next uint64, size int64) error {
 // Clean removes from the root fs what the switch to generation live no longer needs:
 // every head and log older than the newest older head that Read takes and whose logs
 // all exist from its generation to live. It tries every removal, then syncs the root,
-// and returns the
-// errors of the removals that failed, which the next switch tries again.
+// and returns the errors of the removals that failed, which the next switch tries
+// again.
 func Clean(fs xfs.FS, live uint64) error {
 	entries, err := fs.List("")
 	if err != nil {

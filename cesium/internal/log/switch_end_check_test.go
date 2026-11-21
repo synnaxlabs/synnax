@@ -33,7 +33,7 @@ var _ = Describe("Check: switch", func() {
 			Prepare: func(next uint64) {
 				l.Prepared(next, errors.New("no space left on device"))
 			},
-			Seals:      noSeals,
+			OnRefused:  func([]log.Record, error) {},
 			Switched:   func(uint64) {},
 			DB:         db,
 			Generation: generation,

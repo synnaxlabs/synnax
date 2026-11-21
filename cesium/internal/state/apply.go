@@ -192,6 +192,11 @@ func (c *core) commit(r *log.Commit) error {
 			return refuse("commit gives segment %d length %d, not above %d",
 				slot.Segment, slot.Length, s.dur.length)
 		}
+		err := checkGrow(slot.Segment, s.key, s.dur.pointers, r, s.dur.length,
+			slot.Length)
+		if err != nil {
+			return err
+		}
 		if p, ok := c.channels[s.key].overlaps(first, last, true); ok {
 			return refuse(
 				"commit of key %d from %d to %d overlaps its pointer from %d "+
@@ -208,8 +213,9 @@ func (c *core) commit(r *log.Commit) error {
 	}
 	for _, slot := range r.Slots {
 		s := c.segments[slot.Segment]
-		s.dur.pointers = extend(s.dur.pointers, telem.Alignment(r.Alignment), first,
-			last, s.dur.length, slot.Length, r.Samples, true)
+		p, extended := grow(s.dur.pointers, telem.Alignment(r.Alignment), first, last,
+			s.dur.length, slot.Length, r.Samples)
+		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
 	}
 	return nil

@@ -27,7 +27,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 2 << 20
+const logSize = 4 << 20
+
+// fillers is how many entries of 10,000 intents pass three quarters of a log.
+const fillers = 24
 
 func goExec(f func()) { go f() }
 
@@ -271,7 +274,7 @@ var _ = Describe("Checkpointer", func() {
 				MustSucceed(l.Append(&e).Wait())
 				Expect(w.Close()).To(Succeed())
 				Eventually(ready).Should(Receive(Equal(uint64(2))))
-				for i := range uint32(12) {
+				for i := range uint32(fillers) {
 					var filler log.Entry
 					for k := range uint32(10_000) {
 						filler.Add(&log.Intent{Key: 1_000_000 + i*10_000 + k})
@@ -288,8 +291,8 @@ var _ = Describe("Checkpointer", func() {
 				Expect(head.Channels[0].Segments[0].Sealed).
 					To(BeFalse(), "sealed after the switch")
 				Expect(len(head.Intents) % 10_000).To(BeZero())
-				Expect(len(head.Intents)).To(BeNumerically("<", 12*10_000))
-				Expect(MustSucceed(st.Snapshot()).Intents).To(HaveLen(12 * 10_000))
+				Expect(len(head.Intents)).To(BeNumerically("<", fillers*10_000))
+				Expect(MustSucceed(st.Snapshot()).Intents).To(HaveLen(fillers * 10_000))
 				Eventually(func() bool { return st.Channel(5).Segments[0].Sealed }).
 					Should(BeTrue())
 			},

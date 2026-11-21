@@ -31,8 +31,8 @@ var (
 )
 
 const (
-	// firstBlock and laterBlock are how many values a Reserve gives out: the first
-	// of an open, then each after it.
+	// firstBlock and laterBlock are how many values a Reserve gives out: the first of
+	// an open, then each after it.
 	firstBlock = 16
 	laterBlock = 1024
 )
@@ -57,8 +57,8 @@ type WriterConfig struct {
 	Bounded bool
 }
 
-// claim is the time range that a writer may write on one key. A pin keeps stamps that
-// a writer writes against from a delete, and conflicts with no writer.
+// claim is the time range that a writer may write on one key. A pin keeps stamps that a
+// writer writes against from a delete, and conflicts with no writer.
 type claim struct {
 	w          *Writer
 	start, end telem.TimeStamp
@@ -99,9 +99,9 @@ func (r *openRequest) run(s *State) { r.w.done <- s.openWriter(r.w) }
 
 // OpenWriter opens a writer of cfg. It returns an error that wraps ErrConflict when the
 // start lies in stored data of one of its keys, when a bounded claim starts inside
-// another claim, or when another writer that is not bounded claims one of its keys.
-// The writer takes over each open segment of its keys that no writer holds, when it
-// has the same clock, type, and version, and every commit of it is durable.
+// another claim, or when another writer that is not bounded claims one of its keys. The
+// writer takes over each open segment of its keys that no writer holds, when it has the
+// same clock, type, and version, and every commit of it is durable.
 func (s *State) OpenWriter(cfg WriterConfig) (*Writer, error) {
 	w := &Writer{
 		s:      s,
@@ -400,8 +400,8 @@ func (s *State) Refused(records []log.Record, err error) error {
 	return s.enqueue(&refusedRequest{records: records, err: err})
 }
 
-// NewAlignment gives out the alignment number of a new stretch. It returns
-// ErrExhausted when every number below the numbers of unstored data is given out.
+// NewAlignment gives out the alignment number of a new stretch. It returns ErrExhausted
+// when every number below the numbers of unstored data is given out.
 func (w *Writer) NewAlignment() (uint32, error) {
 	r := &alignmentRequest{w: w}
 	if err := w.call(r); err != nil {
@@ -445,6 +445,11 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 			return refuse("commit gives segment %d length %d, not above %d",
 				slot.Segment, slot.Length, seg.vis.Length)
 		}
+		err := checkGrow(slot.Segment, seg.key, seg.vis.Pointers, c, seg.vis.Length,
+			slot.Length)
+		if err != nil {
+			return err
+		}
 		ch := s.core.channels[seg.key]
 		if p, ok := ch.overlaps(first, last, false); ok {
 			return errors.Wrapf(ErrConflict, "commit of key %d from %d to %d overlaps "+
@@ -480,9 +485,11 @@ func (s *State) commit(w *Writer, c *log.Commit) error {
 	}
 	for _, slot := range c.Slots {
 		seg := s.core.segments[slot.Segment]
-		seg.vis.Pointers = extend(seg.vis.Pointers, telem.Alignment(c.Alignment), first,
-			last, seg.vis.Length, slot.Length, c.Samples, false)
+		p, extended := grow(seg.vis.Pointers, telem.Alignment(c.Alignment), first, last,
+			seg.vis.Length, slot.Length, c.Samples)
+		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
+		s.core.channels[seg.key].checkViews()
 		s.core.channels[seg.key].publish()
 	}
 	return nil
@@ -530,8 +537,8 @@ func (s *State) sealVisible(w *Writer, seg *segState) log.Seal {
 	}
 }
 
-// Seal seals the open segment that w holds for key at its committed length, and
-// returns the Seal that the caller logs.
+// Seal seals the open segment that w holds for key at its committed length, and returns
+// the Seal that the caller logs.
 func (w *Writer) Seal(key uint32) (log.Seal, error) {
 	r := &sealRequest{w: w, key: key}
 	if err := w.call(r); err != nil {
@@ -542,7 +549,9 @@ func (w *Writer) Seal(key uint32) (log.Seal, error) {
 
 // TakeBack takes the samples that no durable record covers out of the visible view of
 // every segment that w holds, seals each at its durable length, and returns their
-// Seals, which the caller logs. A writer calls it after a failed sync.
+// Seals, which the caller logs. A segment with no durable Create leaves the state for
+// TakeDead instead. A writer calls it after a failed sync, with no entry of its own in
+// the log queue.
 func (w *Writer) TakeBack() ([]log.Seal, error) {
 	r := &takeBackRequest{w: w}
 	if err := w.call(r); err != nil {
@@ -554,8 +563,14 @@ func (w *Writer) TakeBack() ([]log.Seal, error) {
 func (s *State) takeBack(w *Writer) []log.Seal {
 	seals := make([]log.Seal, 0, len(w.held))
 	for _, seg := range w.held {
+		if !seg.dur.created {
+			delete(w.held, seg.key)
+			s.drop(seg)
+			continue
+		}
 		seg.vis.Pointers = slices.Clone(seg.dur.pointers)
 		seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
+		s.core.channels[seg.key].checkViews()
 		seals = append(seals, s.sealVisible(w, seg))
 		s.core.channels[seg.key].publish()
 	}
@@ -583,10 +598,7 @@ func (r *switchRequest) run(s *State) {
 			continue
 		}
 		if !seg.dur.created {
-			s.core.channels[seg.key].remove(id)
-			delete(s.core.segments, id)
-			s.core.dead = append(s.core.dead, id)
-			s.core.channels[seg.key].publish()
+			s.drop(seg)
 			continue
 		}
 		seg.vis.Sealed = true
@@ -611,11 +623,21 @@ func (r *switchRequest) run(s *State) {
 
 func (*switchRequest) fail(error) {}
 
+// drop takes seg, which has no durable byte, out of the state, for the database to
+// unlink its file.
+func (s *State) drop(seg *segState) {
+	ch := s.core.channels[seg.key]
+	ch.remove(seg.vis.ID)
+	delete(s.core.segments, seg.vis.ID)
+	s.core.dead = append(s.core.dead, seg.vis.ID)
+	ch.publish()
+}
+
 // Switch queues the switch of the state to the log of generation, which the log owner
 // asks for right after the last entry of the log before it went to Durable. The owner
-// takes the durable snapshot there, so it covers exactly the entries before the
-// switch, and hands it to the OnHead hook. It seals every open segment that no writer
-// holds, and appends their Seals to the new log. Switch returns at once.
+// takes the durable snapshot there, so it covers exactly the entries before the switch,
+// and hands it to the OnHead hook. It seals every open segment that no writer holds,
+// and appends their Seals to the new log. Switch returns at once.
 func (s *State) Switch(generation uint64) error {
 	return s.enqueue(&switchRequest{generation: generation})
 }

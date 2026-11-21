@@ -54,8 +54,7 @@ func (c Config) Validate() error {
 // Checkpointer is the owner of heads and log files. It makes the file of the next log
 // when the log asks, and writes the head of a log when the state hands it the snapshot
 // of the switch, then removes what the switch no longer needs. Each step runs on its
-// executor, and its
-// calls return at once. A Checkpointer is safe for concurrent use.
+// executor, and its calls return at once. A Checkpointer is safe for concurrent use.
 type Checkpointer struct {
 	cfg  Config
 	wake chan struct{}
@@ -93,8 +92,8 @@ func (c *Checkpointer) signal() {
 	}
 }
 
-// Prepare queues switch step 1 for the log of generation next: the file of the log,
-// and the removal of a leftover head of that generation. It reports the result to the
+// Prepare queues switch step 1 for the log of generation next: the file of the log, and
+// the removal of a leftover head of that generation. It reports the result to the
 // Prepared hook: an error that wraps ErrDiskFull when the root holds MaxLogs logs below
 // next.
 func (c *Checkpointer) Prepare(next uint64) {

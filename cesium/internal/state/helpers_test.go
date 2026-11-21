@@ -22,9 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// appended holds the entries that a state appends to its log, and the snapshots that
-// it hands to its OnHead hook. Once s is set, it acts as the log for Reserves: it hands
-// s each one as durable at the next sequence, or as refused with refusal when that is
+// appended holds the entries that a state appends to its log, and the snapshots that it
+// hands to its OnHead hook. Once s is set, it acts as the log for Reserves: it hands s
+// each one as durable at the next sequence, or as refused with refusal when that is
 // set.
 type appended struct {
 	mu      sync.Mutex

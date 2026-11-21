@@ -20,32 +20,36 @@ import (
 
 var _ = Describe("Check: state", func() {
 	var (
-		a   *appended
-		s   *state.State
-		seq uint64
-		fed int
+		a *appended
+		s *state.State
 	)
 
+	// start opens and runs a state on h whose Reserves become durable as it appends
+	// them, as a log does.
 	start := func(h *state.Snapshot) {
 		GinkgoHelper()
-		a, fed = &appended{}, 0
+		a = &appended{}
 		s = MustSucceed(state.Open(config(a), h))
-		seq = h.Sequence
+		a.s, a.seq = s, h.Sequence
 		run(s)
 	}
 
-	// log hands the state every Reserve that it appended, then an entry of records, as
-	// the log owner does after their frames are synced.
+	// logged hands the state an entry of records as durable, as the log owner does
+	// after
+	// its frame is synced.
 	logged := func(records ...log.Record) {
 		GinkgoHelper()
-		for _, r := range a.reserves()[fed:] {
-			seq++
-			Expect(s.Durable(seq, []log.Record{&r})).To(Succeed())
-			fed++
-		}
-		seq++
-		Expect(s.Durable(seq, records)).To(Succeed())
+		Expect(a.durable(records)).To(Succeed())
 		MustSucceed(s.Snapshot())
+	}
+
+	// switched switches the state to generation 2, and returns the Seals that it
+	// appended.
+	switched := func() []log.Seal {
+		GinkgoHelper()
+		Expect(s.Switch(2)).To(Succeed())
+		Eventually(a.switched).Should(HaveLen(1))
+		return a.seals()
 	}
 
 	live := func(start int64, bounded bool, key uint32) state.WriterConfig {
@@ -157,8 +161,7 @@ var _ = Describe("Check: state", func() {
 			Expect(second.Close()).To(Succeed())
 			later := MustSucceed(s.OpenWriter(live(200, false, 5)))
 			Expect(later.Close()).To(Succeed())
-			seals := MustSucceed(s.SealUnheld())
-			Expect(seals).To(HaveLen(2))
+			Expect(switched()).To(HaveLen(2))
 		})
 
 	It("Should keep the state when the log takes the Seals of a switch after a "+
@@ -172,12 +175,14 @@ var _ = Describe("Check: state", func() {
 			To(MatchError(state.ErrConflict))
 		Expect(b.Close()).To(Succeed())
 		// The switch logs a Seal for each open segment that no writer holds.
-		seals := MustSucceed(s.SealUnheld())
+		seals := switched()
 		records := make([]log.Record, len(seals))
 		for i := range seals {
 			records[i] = &seals[i]
 		}
-		logged(records...)
+		if len(records) > 0 {
+			logged(records...)
+		}
 		Expect(s.Err()).ToNot(HaveOccurred())
 	})
 
