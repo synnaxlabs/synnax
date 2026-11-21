@@ -182,8 +182,8 @@ var _ = Describe("Reference", func() {
 		statuses  *gorp.Table[string, refStatus]
 		deviceRef deviceRefs
 		ownerRef  *gorp.TargetReference[string, refStatus]
-		// onDetach is the detach hook of the device table. Nil runs no hook.
-		onDetach func(ctx context.Context, tx gorp.Tx, d refDevice) error
+		// onRewrite is the rewrite hook of the device table. Nil runs no hook.
+		onRewrite func(ctx context.Context, tx gorp.Tx, d refDevice) error
 		// onTargetSet is the target hook of the device table. Nil runs no hook.
 		onTargetSet func(ctx context.Context, tx gorp.Tx, d refDevice) error
 		// watched names the tables whose writes onTargetSet watches.
@@ -203,7 +203,7 @@ var _ = Describe("Reference", func() {
 				Name: "label",
 			}))
 			deviceRef = newDeviceRefs()
-			onDetach = nil
+			onRewrite = nil
 			onTargetSet = nil
 			hooks := make(map[string]func(context.Context, gorp.Tx, refDevice) error)
 			for _, table := range watched {
@@ -219,11 +219,11 @@ var _ = Describe("Reference", func() {
 					DB:         db,
 					Name:       "device",
 					References: deviceRef.all(),
-					OnDetach: func(ctx context.Context, tx gorp.Tx, d refDevice) error {
-						if onDetach == nil {
+					OnRewrite: func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+						if onRewrite == nil {
 							return nil
 						}
-						return onDetach(ctx, tx, d)
+						return onRewrite(ctx, tx, d)
 					},
 					OnTargetSet: hooks,
 				}),
@@ -991,11 +991,11 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
-		Describe("OnDetach", func() {
+		Describe("OnRewrite", func() {
 			var detached []refDevice
 			BeforeEach(func(ctx SpecContext) {
 				detached = nil
-				onDetach = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+				onRewrite = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
 					detached = append(detached, d)
 					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
 				}
@@ -1031,7 +1031,7 @@ var _ = Describe("Reference", func() {
 
 			It("Should fail the delete when the hook fails", func(ctx SpecContext) {
 				hookErr := errors.New("hook failed")
-				onDetach = func(context.Context, gorp.Tx, refDevice) error {
+				onRewrite = func(context.Context, gorp.Tx, refDevice) error {
 					return hookErr
 				}
 				Expect(labels.NewDelete().
@@ -1430,6 +1430,32 @@ var _ = Describe("Reference", func() {
 					Targets:  func(*refProject) []string { return nil },
 				},
 				"project.references.1.detach: must be set when on_delete is Detach",
+			),
+			Entry(
+				"retargeting a Restrict reference",
+				gorp.KeyReferenceConfig[string, refProject, string]{
+					Name:     "label",
+					Table:    "label",
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
+					Targets:  func(*refProject) []string { return nil },
+					Retarget: func(*refProject, map[string]string) {},
+				},
+				"project.references.1.retarget: "+
+					"must be nil unless on_delete is Detach or Weak",
+			),
+			Entry(
+				"retargeting a Cascade reference",
+				gorp.KeyReferenceConfig[string, refProject, string]{
+					Name:     "label",
+					Table:    "label",
+					OnDelete: gorp.Cascade,
+					Kind:     gorp.Place,
+					Targets:  func(*refProject) []string { return nil },
+					Retarget: func(*refProject, map[string]string) {},
+				},
+				"project.references.1.retarget: "+
+					"must be nil unless on_delete is Detach or Weak",
 			),
 			Entry(
 				"inlining with no Inline",
@@ -1924,7 +1950,7 @@ var _ = Describe("Inline reference", func() {
 					},
 				}),
 			},
-			OnDetach: func(_ context.Context, _ gorp.Tx, f refFill) error {
+			OnRewrite: func(_ context.Context, _ gorp.Tx, f refFill) error {
 				rewritten = append(rewritten, f)
 				return nil
 			},

@@ -218,10 +218,10 @@ func (t *Table[K, E]) detach(
 	// A detach moves the values of e, so it checks them.
 	w := t.writer(tx, checkUnique)
 	w.derived = true
-	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
+	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
 	}
-	return t.onDetach(ctx, tx, e)
+	return t.onRewrite(ctx, tx, e)
 }
 
 // delete deletes entries and applies the OnDelete of every reference that points at

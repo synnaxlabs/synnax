@@ -78,6 +78,12 @@ func (r refInfo) Detaches() bool {
 	return r.OnDelete == "Detach" || (r.OnDelete == "Weak" && r.HoldsNone())
 }
 
+// Retargets reports whether the reference gets a Retarget: a Detach or Weak reference
+// that holds the keys of one table.
+func (r refInfo) Retargets() bool {
+	return !r.IsID && (r.OnDelete == "Detach" || r.OnDelete == "Weak")
+}
+
 // ZeroOperand returns Zero in a form that can follow == in Go.
 func (r refInfo) ZeroOperand() string {
 	if strings.HasSuffix(r.Zero, "{}") {

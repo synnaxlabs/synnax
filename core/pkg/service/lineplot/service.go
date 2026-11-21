@@ -114,7 +114,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: newMigrations(),
 		// A channel or named color delete rewrites the line plot outside any line plot
 		// write, so the service sends the line plot as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, p LinePlot) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, p LinePlot) error {
 			s.state.Dispatcher().
 				Attach(tx, p.Key, NewCreateAction(CreatePayload{LinePlot: p}))
 			return nil
