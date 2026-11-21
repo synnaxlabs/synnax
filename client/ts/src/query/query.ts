@@ -404,6 +404,8 @@ export class Space<
   };
   private readonly detachEpoch?: destructor.Destructor;
   private readonly detachMissed?: destructor.Destructor;
+  private missRound: Promise<void> | null = null;
+  private missQueued = false;
   private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
   private readonly clock: () => TimeStamp;
@@ -432,7 +434,29 @@ export class Space<
       // epoch bump refetches, not the reset itself.
       if (epoch !== 0) refetchMaintained();
     });
-    this.detachMissed = hooks.onMissed?.(refetchMaintained);
+    this.detachMissed = hooks.onMissed?.(() => this.refetchOnMiss());
+  }
+
+  // Runs one refetch round of the maintained answers at a time. A miss during a round
+  // runs one more round after it, since the running one can have fetched before the
+  // change that the miss reports.
+  private refetchOnMiss(): void {
+    if (this.missRound != null) {
+      this.missQueued = true;
+      return;
+    }
+    const fetches: Promise<void>[] = [];
+    this.queries.forEach((query) => {
+      if (query.teardown == null) return;
+      if (query.state.variant === "loading") query.reconnected = true;
+      else fetches.push(this.refetch(query));
+    });
+    this.missRound = Promise.allSettled(fetches).then(() => {
+      this.missRound = null;
+      if (!this.missQueued) return;
+      this.missQueued = false;
+      this.refetchOnMiss();
+    });
   }
 
   /**
