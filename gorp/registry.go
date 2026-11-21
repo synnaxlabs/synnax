@@ -471,8 +471,12 @@ func (r *registry) planned(
 			}
 		}
 	}
-	p := newDeletePlan(table)
-	p.planned = true
+	p := &deletePlan{
+		table:    table,
+		cascades: make(map[string]set.Set[string]),
+		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
+		planned:  true,
+	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
 	}
@@ -522,7 +526,7 @@ type planWalk struct {
 	restricted   set.Set[Target]
 	// effects holds, by OnDelete, the effect of the walk on each entry it meets, for
 	// PlanDelete. It is nil for a delete.
-	effects map[OnDelete][]DeleteEffect
+	effects *[Weak + 1][]DeleteEffect
 }
 
 // record adds the effect of the delete of target on dep, which holds it through ref,

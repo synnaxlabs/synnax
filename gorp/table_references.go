@@ -104,8 +104,12 @@ func (t *Table[K, E]) exists(
 	if err != nil {
 		return false, err
 	}
-	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(codec.Encode(pk))
+	return t.has(snap, key.NewCodec[K](t.keyPrefix), pk)
+}
+
+// has reports whether snap holds the entry with key k, which codec encodes.
+func (t *Table[K, E]) has(snap Snapshot, codec key.Codec[K], k K) (bool, error) {
+	_, closer, err := snap.Get(codec.Encode(k))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}

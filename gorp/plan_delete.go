@@ -15,8 +15,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/x/set"
 )
 
 // DeleteEffect is what a delete does to one entry that holds an entry it removes.
@@ -81,22 +81,29 @@ func (t *Table[K, E]) PlanDelete(
 	if !t.registered {
 		return DeleteEffects{}, nil
 	}
-	var entries []E
-	if err := t.NewRetrieve().
-		Where(MatchKeys[K, E](keys...)).
-		Entries(&entries).
-		Exec(ctx, snap); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return DeleteEffects{}, err
+	var (
+		codec     = key.NewCodec[K](t.keyPrefix)
+		formatted = make([]string, 0, len(keys))
+		seen      = make(set.Set[K], len(keys))
+	)
+	for _, k := range keys {
+		if seen.Contains(k) {
+			continue
+		}
+		seen.Add(k)
+		held, err := t.has(snap, codec, k)
+		if err != nil {
+			return DeleteEffects{}, err
+		}
+		if held {
+			formatted = append(formatted, FormatKey(k))
+		}
 	}
-	if len(entries) == 0 {
+	if len(formatted) == 0 {
 		return DeleteEffects{}, nil
 	}
-	formatted := make([]string, len(entries))
-	for i, e := range entries {
-		formatted[i] = FormatKey(e.GorpKey())
-	}
 	w := newPlanWalk(t.name, formatted, t.db.MaxDeleteSize)
-	w.effects = make(map[OnDelete][]DeleteEffect)
+	w.effects = new([Weak + 1][]DeleteEffect)
 	if err := t.db.registry.walk(ctx, snap, w); err != nil {
 		return DeleteEffects{}, err
 	}
