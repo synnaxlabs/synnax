@@ -374,6 +374,17 @@ describe("Lists", () => {
       expect(names(list.getCached())).toEqual(["b"]);
     });
 
+    it("should serve and deliver a paged window that a delete shortens", async () => {
+      const { table, list, handler } = await maintained([
+        rec("1", "a"),
+        rec("2", "b"),
+        rec("3", "c"),
+      ]);
+      table.delete("1");
+      expect(names(list.getCached())).toEqual(["b"]);
+      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
+    });
+
     it("should remove a deleted member and keep the end", async () => {
       const { table, list } = await maintained([
         rec("1", "a"),
@@ -384,17 +395,6 @@ describe("Lists", () => {
       const window = list.getCached();
       expect(names(window)).toEqual(["a"]);
       expect(window?.end).toEqual({ key: "2", name: "b" });
-    });
-
-    it("should serve and deliver a paged window that a delete shortens", async () => {
-      const { table, list, handler } = await maintained([
-        rec("1", "a"),
-        rec("2", "b"),
-        rec("3", "c"),
-      ]);
-      table.delete("1");
-      expect(names(list.getCached())).toEqual(["b"]);
-      expect(names(handler.mock.lastCall?.[0])).toEqual(["b"]);
     });
 
     it("should place several changes of one batch", async () => {
