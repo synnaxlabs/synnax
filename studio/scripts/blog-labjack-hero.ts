@@ -32,10 +32,10 @@ const TASK = "LabJack read task";
 const CLIMB_MS = 20_000;
 
 /**
- * The hero still of the blog post `labjack-software`, from a real LabJack T7 on USB
- * with a type K thermocouple on `AIN0` and `GND`: a live plot of the thermocouple as a
- * hand warms it, beside the read task that streams it. Fails when no T7 is on USB, or
- * when the reading does not start to rise within three minutes.
+ * The hero still of the blog post `labjack-data-acquisition`, from a real LabJack T7 on
+ * USB with a type K thermocouple on `AIN0` and `GND`: a live plot of the thermocouple
+ * as a hand warms it, beside the read task that streams it. Fails when no T7 is on USB,
+ * or when the reading does not start to rise within three minutes.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();

@@ -25,9 +25,9 @@ export { desktop, driver, integrations } from "./common/blog-labjack";
 const CLIMB_MS = 25_000;
 
 /**
- * Blog `labjack-software` step 6 (Record and export): hold Alt, drag across the warm-up
- * on the live plot, and open the selection's menu on Download region as CSV. Needs a
- * real T7 on USB, and LABJACK_WARM=1 with a person at the T7.
+ * Blog `labjack-data-acquisition` step 6 (Record and export): hold Alt, drag across the
+ * warm-up on the live plot, and open the selection's menu on Download region as CSV.
+ * Needs a real T7 on USB, and LABJACK_WARM=1 with a person at the T7.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();

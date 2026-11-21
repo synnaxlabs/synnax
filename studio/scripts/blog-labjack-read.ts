@@ -15,8 +15,8 @@ import { choose, fieldItem } from "./common/task";
 export { desktop, driver, integrations } from "./common/blog-labjack";
 
 /**
- * Blog `labjack-software` step 4 (Read the thermocouple): make the read task's AIN0
- * channel a thermocouple in Celsius, and start the task. Needs a real T7 on USB.
+ * Blog `labjack-data-acquisition` step 4 (Read the thermocouple): make the read task's
+ * AIN0 channel a thermocouple in Celsius, and start the task. Needs a real T7 on USB.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await openProject(session);

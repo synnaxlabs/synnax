@@ -14,9 +14,9 @@ import { configure, findT7, openProject, waitWallGone } from "./common/blog-labj
 export { desktop, driver, integrations } from "./common/blog-labjack";
 
 /**
- * Blog `labjack-software` step 3 (Connect the LabJack): open the connect dialog from
- * the devices toolbar, select LabJack hardware, configure the T7 that the Driver found,
- * and save it with a read task. Needs a real T7 on USB.
+ * Blog `labjack-data-acquisition` step 3 (Connect the LabJack): open the connect dialog
+ * from the devices toolbar, select LabJack hardware, configure the T7 that the Driver
+ * found, and save it with a read task. Needs a real T7 on USB.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;

@@ -27,9 +27,9 @@ export { desktop, driver, integrations } from "./common/blog-labjack";
 const CLIMB_MS = 22_000;
 
 /**
- * Blog `labjack-software` step 5 (Plot it live): with a person's hand warming the
- * thermocouple, select Plot channels on the started read task and watch the line climb.
- * Needs a real T7 on USB, and LABJACK_WARM=1 with a person at the T7.
+ * Blog `labjack-data-acquisition` step 5 (Plot it live): with a person's hand warming
+ * the thermocouple, select Plot channels on the started read task and watch the line
+ * climb. Needs a real T7 on USB, and LABJACK_WARM=1 with a person at the T7.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const client = fixtures.connect();
