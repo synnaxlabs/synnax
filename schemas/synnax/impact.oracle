@@ -101,9 +101,10 @@ PlanRequest struct {
         @doc value "is the change to plan."
     }
     picks  map<string, Choice> {
-        @doc value """
+        @doc value        """
             maps the text form of the record of a visible entry to the pick for it.
         """
+        @ts preserve_keys
     }
     hidden Choice?             {
         @doc value "is the pick for every entry that the caller cannot see."
@@ -117,15 +118,16 @@ ApplyRequest struct {
     change Change              {
         @doc value "is the change to apply."
     }
-    token  string              {
+    token  string = "" {
         @doc value """
             is the token of the plan that the caller saw. Empty skips the check.
         """
     }
     picks  map<string, Choice> {
-        @doc value """
+        @doc value        """
             maps the text form of the record of a visible entry to the pick for it.
         """
+        @ts preserve_keys
     }
     hidden Choice?             {
         @doc value "is the pick for every entry that the caller cannot see."

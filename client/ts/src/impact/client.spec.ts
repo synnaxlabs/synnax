@@ -91,6 +91,19 @@ describe("impact", () => {
       .toBe(true);
   });
 
+  it("should apply a delete with no token and return its change", async () => {
+    const ch = await createChannel();
+    await createPlot(ch.key);
+    const applied = await client.impact.apply(deleteOf(ch.key));
+    expect(applied.change).toEqual(deleteOf(ch.key));
+    expect(applied.entries).toEqual([]);
+    await expect
+      .poll(
+        async () => await isGone(async () => await client.channels.retrieve(ch.key)),
+      )
+      .toBe(true);
+  });
+
   it("should refuse a stale token with the plan as it is now", async () => {
     const ch = await createChannel();
     const stale = await client.impact.plan(deleteOf(ch.key));

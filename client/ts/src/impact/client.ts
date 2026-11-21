@@ -23,9 +23,7 @@ import {
 export interface PlanOptions extends Omit<z.input<typeof planRequestZ>, "change"> {}
 
 /** The token and picks of {@link Client.apply}. A missing token skips the check. */
-export interface ApplyOptions extends Partial<
-  Omit<z.input<typeof applyRequestZ>, "change">
-> {}
+export interface ApplyOptions extends Omit<z.input<typeof applyRequestZ>, "change"> {}
 
 /** Lists every record that a change to channels touches, and carries the change out. */
 export class Client {
@@ -58,7 +56,7 @@ export class Client {
   async apply(change: Change, options: ApplyOptions = {}): Promise<Plan> {
     return await this.unary.send(
       "/impact/apply",
-      { token: "", ...options, change },
+      { ...options, change },
       applyRequestZ,
       planZ,
     );
