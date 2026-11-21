@@ -115,24 +115,29 @@ describe("Tooltip.Frame", () => {
       errors.push(e.message);
     };
     window.addEventListener("error", handleError);
+    // Wider than the room on either side of the anchor, the tooltip runs past the
+    // right edge when centered above it.
+    const width = window.innerWidth;
     const anchor = document.createElement("div");
-    anchor.style.cssText =
-      "position: fixed; top: 300px; left: 150px; width: 250px; height: 20px";
+    anchor.style.cssText = "position: fixed; top: 300px; height: 20px";
+    anchor.style.left = `${Math.round(width * 0.36)}px`;
+    anchor.style.width = `${Math.round(width * 0.6)}px`;
     document.body.appendChild(anchor);
-    // Centered above the anchor, it runs past the right edge and sits against it. Its
-    // fractional width wraps in any narrower box.
+    // A fractional width wraps in any narrower box.
+    const tipWidth = Math.floor(width * 0.68) + 0.3;
     render(
       <Tooltip.Frame anchor={anchor} location={{ x: "center", y: "top" }}>
-        <span style={{ display: "inline-block", width: "280.3px" }}>a</span>
+        <span style={{ display: "inline-block", width: `${tipWidth}px` }}>a</span>
         <span style={{ display: "inline-block", width: "20px" }}>b</span>
       </Tooltip.Frame>,
     );
     const frame = getFrame();
     assert(frame != null);
     const { left } = frame.style;
+    expect(left).toBe(`${width - frame.offsetWidth}px`);
     const height = frame.offsetHeight;
-    anchor.style.left = "50px";
-    anchor.style.width = "200px";
+    anchor.style.left = `${Math.round(width * 0.12)}px`;
+    anchor.style.width = `${Math.round(width * 0.48)}px`;
     await expect.poll(() => frame.style.left).not.toBe(left);
     window.removeEventListener("error", handleError);
     anchor.remove();
