@@ -66,6 +66,9 @@ func newIndexes() indexes {
 				return []string{string(e.Name)}
 			},
 			func(e *Channel) []string {
+				if e.Description == "" {
+					return nil
+				}
 				return []string{e.Description}
 			},
 		),
