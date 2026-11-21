@@ -8,23 +8,54 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/color/v0"
-import "schemas/synnax/versions/label/v0"
-import "schemas/x/versions/color/v2"
 import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-Range struct extends v3.Range {
-    color color.Ref? {
-        @doc value """
-            is an optional display color for visual identification of the range in user
-            interfaces, a named color or a fixed color.
-        """
-    }
-}
+Range = v3.Range
 
 Stage = v3.Stage
 
 Where = v3.Where
 
-Ref = v1.Ref
+Ref union on variant {
+    key {
+        key   Key              {
+            @doc value "is the key of a range saved in the Core."
+        }
+        t0    telem.TimeStamp? {
+            @doc value """
+                is the zero of the range on a relative time axis. Null is the range
+                start.
+            """
+        }
+        color color.Ref?       {
+            @doc value """
+                is the color that a relative time axis draws the range in. A line plot
+                write with no color gets the range's own color when it is clearly apart
+                from the other colors of the plot, else a series color.
+            """
+        }
+
+        @doc value "is a range saved in the Core."
+    }
+    window {
+        window telem.Window {
+            @doc value "is the window the reference resolves to."
+        }
+        color  color.Ref?   {
+            @doc value """
+                is the color that a relative time axis draws the window in. A line plot
+                write with no color gets a series color.
+            """
+        }
+
+        @doc value "is a window carried inline: rolling or fixed."
+    }
+
+    @doc value  """
+        is the range a visualization shows: a range saved in the Core, or an inline
+        window.
+    """
+    @go marshal
+}

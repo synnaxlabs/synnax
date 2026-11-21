@@ -15,7 +15,7 @@ describe("Kafka Device Properties", () => {
   it("should accept a cluster with brokers and no authentication", () => {
     const props = Kafka.Device.SCHEMAS.properties.parse({
       brokers: ["localhost:9092"],
-      tls: false,
+      secure: false,
       sasl: { mechanism: "none" },
     });
     expect(props.brokers).toEqual(["localhost:9092"]);
@@ -24,7 +24,7 @@ describe("Kafka Device Properties", () => {
   it("should accept SASL credentials", () => {
     const props = Kafka.Device.SCHEMAS.properties.parse({
       brokers: ["broker:9093"],
-      tls: true,
+      secure: true,
       sasl: { mechanism: "scram_sha_256", username: "u", password: "p" },
     });
     expect(props.sasl.mechanism).toBe("scram_sha_256");

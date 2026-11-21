@@ -75,18 +75,27 @@ const setRead = (
 interface Index {
   nodes: Tree.Node[];
   byKey: Map<string, Node>;
+  /** The key of each group. */
+  groups: Set<string>;
 }
 
+/** A list of sources of the task, and the key of its group, or null with no groups. */
+type List<S extends Source> = [string | null, deep.Target<S[]>];
+
 /** Each source key with the message and shown fields of each read, or null for none. */
-type Structure = [string, [icd.MessageKey, TreeField[]][] | null][];
+type Sources = [string, [icd.MessageKey, TreeField[]][] | null][];
+
+/** The sources of each list, by the key of its group. */
+type Structure = [string | null, Sources][];
 
 /**
- * The sources of the task as tree nodes. A source holds the fields of its message, or a
- * node for each message when it reads several. A source that reads no messages stands
- * alone. The index field stays hidden, as the timestamp section edits it.
+ * The sources of the task as tree nodes, under the node of their group when they have
+ * one. A source holds the fields of its message, or a node for each message when it
+ * reads several. A source that reads no messages stands alone. The index field stays
+ * hidden, as the timestamp section edits it.
  */
 const useIndex = <S extends Source>(
-  sources: deep.Target<S[]>,
+  lists: () => List<S>[],
   sourceOf: (source: S) => ReadSource | null,
   formats: Formats,
 ): Index => {
@@ -100,48 +109,58 @@ const useIndex = <S extends Source>(
   };
   const getStructure = () =>
     JSON.stringify(
-      get(sources).value.map((s): Structure[number] => {
-        const source = sourceOf(s);
-        return [
-          s.key,
-          source == null
-            ? null
-            : source.messages.map(({ message, index }) => [
-                message,
-                fieldsOf(formats, source.icd, message)
-                  .filter(({ key }) => key !== index)
-                  .map(treeFieldOf),
-              ]),
-        ];
-      }),
+      lists().map(([group, sources]): Structure[number] => [
+        group,
+        get(sources).value.map((s): Sources[number] => {
+          const source = sourceOf(s);
+          return [
+            s.key,
+            source == null
+              ? null
+              : source.messages.map(({ message, index }) => [
+                  message,
+                  fieldsOf(formats, source.icd, message)
+                    .filter(({ key }) => key !== index)
+                    .map(treeFieldOf),
+                ]),
+          ];
+        }),
+      ]),
     );
   const structure = useSyncExternalStore(subscribe, getStructure, getStructure);
   const byKey = new Map<string, Node>();
-  const nodes = (JSON.parse(structure) as Structure).map(
-    ([source, reads]): Tree.Node => {
-      byKey.set(source, { kind: "source", source });
-      if (reads == null) return { key: source };
-      const fieldNodes = (
-        read: number,
-        message: icd.MessageKey,
-        fields: TreeField[],
-      ): Tree.Node[] =>
-        fields.map((field) => {
-          const key = fieldKey(source, message, field.key);
-          byKey.set(key, { kind: "field", source, read, field });
-          return { key };
-        });
-      if (reads.length === 1)
-        return { key: source, children: fieldNodes(0, ...reads[0]) };
-      const children = reads.map(([message, fields], read): Tree.Node => {
-        const key = messageKey(source, message);
-        byKey.set(key, { kind: "message", source, read });
-        return { key, children: fieldNodes(read, message, fields) };
+  const groups = new Set<string>();
+  const sourceNode = ([source, reads]: Sources[number]): Tree.Node => {
+    byKey.set(source, { kind: "source", source });
+    if (reads == null) return { key: source };
+    const fieldNodes = (
+      read: number,
+      message: icd.MessageKey,
+      fields: TreeField[],
+    ): Tree.Node[] =>
+      fields.map((field) => {
+        const key = fieldKey(source, message, field.key);
+        byKey.set(key, { kind: "field", source, read, field });
+        return { key };
       });
-      return { key: source, children };
+    if (reads.length === 1)
+      return { key: source, children: fieldNodes(0, ...reads[0]) };
+    const children = reads.map(([message, fields], read): Tree.Node => {
+      const key = messageKey(source, message);
+      byKey.set(key, { kind: "message", source, read });
+      return { key, children: fieldNodes(read, message, fields) };
+    });
+    return { key: source, children };
+  };
+  const nodes = (JSON.parse(structure) as Structure).flatMap(
+    ([group, sources]): Tree.Node[] => {
+      const children = sources.map(sourceNode);
+      if (group == null) return children;
+      groups.add(group);
+      return [{ key: group, children }];
     },
   );
-  return { nodes, byKey };
+  return { nodes, byKey, groups };
 };
 
 interface MessageItemProps extends Tree.ItemRenderProps<string> {
@@ -200,9 +219,22 @@ const FieldItem = ({
   );
 };
 
-export interface UseArgs<S extends Source> {
-  /** The sources of the task in its form. */
-  sources: deep.Target<S[]>;
+/** The groups of the sources of a task, such as topics that hold records. */
+interface Groups<G extends record.Keyed<string>, S extends Source> {
+  /** The groups of the task in its form. */
+  path: deep.Target<G[]>;
+  /** @returns the path of the sources of a group. */
+  sourcesOf: (group: string) => deep.Target<S[]>;
+  /** Renders the tree item of a group. */
+  Item: FC<Tree.ItemRenderProps<string>>;
+}
+
+/** Where the sources of a task are in its form: in one list, or in groups. */
+type Layout<G extends record.Keyed<string>, S extends Source> =
+  | { sources: deep.Target<S[]>; groups?: never }
+  | { groups: Groups<G, S>; sources?: never };
+
+interface BaseArgs<S extends Source> {
   /** @returns the source as one that reads ICD messages, or null when it reads none. */
   sourceOf: (source: S) => ReadSource | null;
   /** @returns the path of a source that reads ICD messages. */
@@ -227,13 +259,20 @@ export interface UseArgs<S extends Source> {
   onExpand: Dispatch<SetStateAction<string[]>>;
 }
 
+export type UseArgs<
+  S extends Source,
+  G extends record.Keyed<string> = record.Keyed<string>,
+> = BaseArgs<S> & Layout<G, S>;
+
 export interface UseReturn {
   tree: Tree.UseReturn<string>;
   handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"];
   contextMenu: (props: Menu.ContextMenuMenuProps) => ReactElement;
   renderItem: (props: Tree.ItemRenderProps<string>) => ReactElement;
-  /** The first selected node. */
+  /** The first selected node, unless it is a group. */
   current?: Node;
+  /** The key of the first selected node, when it is a group. */
+  currentGroup?: string;
   /** Adds a field to a message of a source and to its ICD, reads it, and selects it. */
   addField: (source: string, read: number) => void;
   /**
@@ -255,10 +294,13 @@ export interface UseReturn {
 /**
  * The tree of the sources of a read task, with each message and field that they read.
  * It edits the ICDs of the sources through their open forms, so call it inside a
- * {@link WithFormat} for the ICD of each source.
+ * {@link WithFormat} for the ICD of each source. Source keys must be unique across
+ * groups.
  */
-export const use = <S extends Source>({
-  sources,
+export const use = <
+  S extends Source,
+  G extends record.Keyed<string> = record.Keyed<string>,
+>({
   sourceOf,
   pathOf,
   SourceItem,
@@ -270,11 +312,27 @@ export const use = <S extends Source>({
   onSelect,
   expanded,
   onExpand,
-}: UseArgs<S>): UseReturn => {
+  ...layout
+}: UseArgs<S, G>): UseReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
-  const { remove } = PForm.useFieldListUtils(sources);
-  const { nodes, byKey } = useIndex(sources, sourceOf, formats);
+  const { groups: grouping } = layout;
+  const lists = (): List<S>[] =>
+    grouping == null
+      ? [[null, layout.sources]]
+      : ctx
+          .get(grouping.path)
+          .value.map(({ key }): List<S> => [key, grouping.sourcesOf(key)]);
+  const all = (): S[] => lists().flatMap(([, list]) => ctx.get(list).value);
+  /** @returns the list that holds a source. */
+  const listOf = (source: string): deep.Target<S[]> => {
+    const found = lists().find(([, list]) =>
+      ctx.get(list).value.some(({ key }) => key === source),
+    );
+    if (found == null) throw new Error(`No list of the task holds source ${source}`);
+    return found[1];
+  };
+  const { nodes, byKey, groups } = useIndex(lists, sourceOf, formats);
   const tree = Tree.use({
     nodes,
     selected,
@@ -284,7 +342,7 @@ export const use = <S extends Source>({
     toggleOn: "caret",
   });
   const disabledPath = (source: string) =>
-    deep.widen<Source[]>(sources)[source].disabled;
+    deep.widen<Source[]>(listOf(source))[source].disabled;
   const read = (source: string, r: number, field: TreeField, on: boolean) =>
     setRead(ctx, pathOf(source), r, field, on, () => bindingOf(source, r, field));
 
@@ -335,13 +393,11 @@ export const use = <S extends Source>({
       timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
     const priorFormat = formatOf(formats, source.icd);
     const held = priorFormat.value().messages.find(({ key }) => key === prior.message);
-    const readElsewhere = ctx
-      .get(sources)
-      .value.some(
-        (s) =>
-          s.key !== sourceKey &&
-          sourceOf(s)?.messages.some((m) => m.message === prior.message),
-      );
+    const readElsewhere = all().some(
+      (s) =>
+        s.key !== sourceKey &&
+        sourceOf(s)?.messages.some((m) => m.message === prior.message),
+    );
     if (
       made.current.has(prior.message) &&
       held?.payload.format === "json" &&
@@ -399,7 +455,7 @@ export const use = <S extends Source>({
         const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
         const { message } = messages[r];
         formatOf(formats, icdKey).remove(fieldsPath(message)[field.key]);
-        for (const s of ctx.get(sources).value)
+        for (const s of all())
           sourceOf(s)?.messages.forEach((m, i) => {
             if (m.message !== message) return;
             if (m.index === field.key)
@@ -447,8 +503,17 @@ export const use = <S extends Source>({
           ctx.get(path).value.filter((_, r) => !reads.has(r)),
         );
       });
-      if (removed.size > 0) remove([...removed]);
+      if (removed.size > 0)
+        lists().forEach(([, list]) =>
+          PForm.fieldListUtils(ctx, list).remove([...removed]),
+        );
     });
+    onSelect([]);
+  };
+  /** Removes each chosen group with its sources. */
+  const removeGroups = (chosen: string[]) => {
+    if (grouping == null) throw new Error("The task tree has no groups to remove");
+    PForm.fieldListUtils(ctx, grouping.path).remove(chosen);
     onSelect([]);
   };
   /**
@@ -467,8 +532,20 @@ export const use = <S extends Source>({
   };
   /** @returns whether the source of a key reads ICD messages. */
   const readsMessages = (key: string): boolean =>
-    ctx.get(sources).value.some((s) => s.key === key && sourceOf(s) != null);
+    all().some((s) => s.key === key && sourceOf(s) != null);
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const chosenGroups = keys.filter((k) => groups.has(k));
+    if (chosenGroups.length > 0)
+      return (
+        <Task.Views.ContextMenu
+          keys={keys}
+          onRemove={
+            chosenGroups.length === keys.length
+              ? () => removeGroups(chosenGroups)
+              : undefined
+          }
+        />
+      );
     const chosen = keys.flatMap((k) => byKey.get(k) ?? []);
     const switchable = chosen.filter(
       (n): n is SourceNode | FieldNode => n.kind !== "message",
@@ -523,6 +600,8 @@ export const use = <S extends Source>({
   };
 
   const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    if (grouping != null && groups.has(p.itemKey))
+      return <grouping.Item key={key} {...p} />;
     const node = byKey.get(p.itemKey);
     if (node?.kind === "field")
       return (
@@ -542,13 +621,16 @@ export const use = <S extends Source>({
     return <SourceItem key={key} {...p} />;
   };
 
-  const current = selected.length > 0 ? byKey.get(selected[0]) : undefined;
+  const [first] = selected;
+  const current = first == null ? undefined : byKey.get(first);
+  const currentGroup = first != null && groups.has(first) ? first : undefined;
   return {
     tree,
     handleSelect,
     contextMenu,
     renderItem,
     current,
+    currentGroup,
     addField,
     addMessage,
     setMessage,

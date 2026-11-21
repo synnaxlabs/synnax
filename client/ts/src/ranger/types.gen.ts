@@ -46,6 +46,11 @@ export const payloadZ = z.object({
   /** name is a human-readable name for the range. */
   name: z.string().min(1),
   /**
+   * hasChildren is true when a range is nested in the range, derived on read and not
+   * persisted.
+   */
+  hasChildren: z.boolean().default(false),
+  /**
    * timeRange is the temporal extent of the range, defining its start and end
    * timestamps.
    */
@@ -62,11 +67,6 @@ export const payloadZ = z.object({
    * range.
    */
   parent: keyZ.optional(),
-  /**
-   * hasChildren is true when a range is nested in the range, derived on read and not
-   * persisted.
-   */
-  hasChildren: z.boolean().default(false),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -150,6 +150,14 @@ export const keyRefZ = z.object({
   variant: z.literal("key"),
   /** key is the key of a range saved in the Core. */
   key: keyZ,
+  /** t0 is the zero of the range on a relative time axis. Null is the range start. */
+  t0: telem.timeStampZ.optional(),
+  /**
+   * color is the color that a relative time axis draws the range in. A line plot write
+   * with no color gets the range's own color when it is clearly apart from the other
+   * colors of the plot, else a series color.
+   */
+  color: zod.nullToUndefined(color.refZ),
 });
 export interface KeyRef extends z.infer<typeof keyRefZ> {}
 
@@ -158,6 +166,11 @@ export const windowRefZ = z.object({
   variant: z.literal("window"),
   /** window is the window the reference resolves to. */
   window: telem.windowZ,
+  /**
+   * color is the color that a relative time axis draws the window in. A line plot write
+   * with no color gets a series color.
+   */
+  color: zod.nullToUndefined(color.refZ),
 });
 export interface WindowRef extends z.infer<typeof windowRefZ> {}
 
