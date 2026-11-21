@@ -47,8 +47,7 @@ type Config struct {
 	alamos.Instrumentation
 	// StreamerBufferSize sets the channel buffer size, in frames, between the relay and
 	// each streamer. The relay drops a frame for a streamer whose buffer is full, so a
-	// slow streamer never delays the relay or other streamers. The streamer then sends
-	// a Response with Missed set.
+	// slow streamer never delays the relay or other streamers.
 	//
 	// [OPTIONAL] - Defaults to 100.
 	StreamerBufferSize int

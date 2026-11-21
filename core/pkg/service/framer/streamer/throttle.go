@@ -81,7 +81,14 @@ func (t *throttle) handle(
 	ok bool,
 	first *bool,
 ) (bool, error) {
-	if ok && (res.Ack || res.Missed) {
+	if ok && res.Ack {
+		return true, signal.SendUnderContext(sCtx, t.Out.Inlet(), res)
+	}
+	// The buffered frame came before the drops that the marker reports.
+	if ok && res.Missed {
+		if err := t.flush(sCtx); err != nil {
+			return false, err
+		}
 		return true, signal.SendUnderContext(sCtx, t.Out.Inlet(), res)
 	}
 	if *first && res.Frame.Empty() {

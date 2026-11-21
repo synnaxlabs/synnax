@@ -29,11 +29,12 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	demands       confluence.Inlet[demand]
-	relay         *Relay
-	addr          address.Address
-	sendOpenAck   bool
-	excludeGroups []uint32
+	demands         confluence.Inlet[demand]
+	relay           *Relay
+	addr            address.Address
+	sendOpenAck     bool
+	missedRequested bool
+	excludeGroups   []uint32
 	// keys holds the streamer's channels. The relay's delta reads it to skip frames
 	// before they reach the streamer's buffer.
 	keys atomic.Pointer[set.Set[channel.Key]]
@@ -58,6 +59,11 @@ type StreamerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to empty.
 	ExcludeGroups []uint32
+	// MissedRequested asks for a Response with Missed set after the relay drops frames
+	// for the streamer.
+	//
+	// [OPTIONAL] - Defaults to false.
+	MissedRequested *bool
 }
 
 var _ config.Config[StreamerConfig] = StreamerConfig{}
@@ -67,6 +73,7 @@ func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
+	c.MissedRequested = override.Nil(c.MissedRequested, other.MissedRequested)
 	return c
 }
 
@@ -74,6 +81,7 @@ func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 func (c StreamerConfig) Validate() error {
 	v := validate.New("streamer_config")
 	v.NotNil("send_open_ack", c.SendOpenAck)
+	v.NotNil("missed_requested", c.MissedRequested)
 	return v.Error()
 }
 
@@ -81,16 +89,20 @@ func (c StreamerConfig) Validate() error {
 // relay. Each subsequent StreamerConfig overrides the parameters specified in the
 // previous config. See the StreamerConfig struct for information on required fields.
 func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
-	cfg, err := config.New(StreamerConfig{SendOpenAck: new(false)}, cfgs...)
+	cfg, err := config.New(StreamerConfig{
+		SendOpenAck:     new(false),
+		MissedRequested: new(false),
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &streamer{
-		sendOpenAck:   *cfg.SendOpenAck,
-		excludeGroups: cfg.ExcludeGroups,
-		addr:          address.Rand(),
-		demands:       r.demands,
-		relay:         r,
+		sendOpenAck:     *cfg.SendOpenAck,
+		missedRequested: *cfg.MissedRequested,
+		excludeGroups:   cfg.ExcludeGroups,
+		addr:            address.Rand(),
+		demands:         r.demands,
+		relay:           r,
 	}
 	s.setKeys(cfg.Keys)
 	return s, nil
@@ -155,6 +167,9 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
+		if !s.missedRequested {
+			missed = nil
+		}
 		return s.forward(ctx, responses, missed)
 	}, o.Signal...)
 }
@@ -173,9 +188,9 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{})
 }
 
-// forward applies key updates from the inlet, sends matching frames from responses, and
-// sends a missed marker for each drop episode, until the context is canceled or the
-// inlet closes.
+// forward applies key updates from the inlet and sends matching frames from responses
+// until the context is canceled or the inlet closes. After a value on missed, it sends
+// a missed marker once it has sent every frame buffered before the drop.
 func (s *streamer) forward(
 	ctx context.Context,
 	responses <-chan Response,
@@ -186,7 +201,20 @@ func (s *streamer) forward(
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing
 	// while an update propagates.
 	var pendingAcks []chan struct{}
+	// The relay drops a frame only when responses is full, so once responses empties,
+	// every frame buffered before the drop has been sent.
+	lost := false
 	for {
+		if lost && len(responses) == 0 {
+			lost = false
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{Missed: true},
+			); err != nil {
+				return err
+			}
+		}
 		var nextAck chan struct{}
 		if len(pendingAcks) > 0 {
 			nextAck = pendingAcks[0]
@@ -195,13 +223,7 @@ func (s *streamer) forward(
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-missed:
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				Response{Missed: true},
-			); err != nil {
-				return err
-			}
+			lost = true
 		case <-nextAck:
 			pendingAcks = pendingAcks[1:]
 			if err := signal.SendUnderContext(

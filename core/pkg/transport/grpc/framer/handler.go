@@ -205,6 +205,7 @@ func (t frameStreamerRequestTranslator) Backward(
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 		ExcludeGroups:    msg.ExcludeGroups,
 		AckRequested:     msg.AckRequested,
+		MissedRequested:  msg.MissedRequested,
 	}
 	if len(rq.Keys) > 0 {
 		if err := t.codec.Update(ctx, rq.Keys); err != nil {

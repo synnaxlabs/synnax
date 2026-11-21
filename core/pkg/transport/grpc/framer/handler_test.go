@@ -340,6 +340,18 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(req.AckRequested).To(BeTrue())
 		})
 
+		It("Should receive a request for missed markers", func(ctx SpecContext) {
+			requests, _ := serve(transport.FrameStreamer, 1)
+			exchange(
+				MustSucceed(client.Exec(ctx)),
+				0,
+				&grpcframer.StreamerRequest{MissedRequested: true},
+			)
+			var req framer.StreamerRequest
+			Eventually(requests).Should(Receive(&req))
+			Expect(req.MissedRequested).To(BeTrue())
+		})
+
 		DescribeTable(
 			"Should send an ack",
 			func(ctx SpecContext, keyed bool) {

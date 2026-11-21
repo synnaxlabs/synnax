@@ -369,7 +369,7 @@ var _ = Describe("Relay", func() {
 		)
 
 		It(
-			"Should send one missed marker per drop episode and keep streaming",
+			"Should send one missed marker per drop episode after the buffered frames",
 			func(ctx SpecContext) {
 				store := storagetestutil.OpenLayer(ctx)
 				DeferCleanup(store.Close)
@@ -381,11 +381,15 @@ var _ = Describe("Relay", func() {
 				}))
 				DeferCleanup(r.Close)
 				key := channel.NewKey(node.KeyFree, 1)
-				openStreamer := func(buffer int) confluence.Outlet[relay.Response] {
+				openStreamer := func(
+					buffer int,
+					missedRequested bool,
+				) confluence.Outlet[relay.Response] {
 					GinkgoHelper()
 					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
-						Keys:        channel.Keys{key},
-						SendOpenAck: new(true),
+						Keys:            channel.Keys{key},
+						SendOpenAck:     new(true),
+						MissedRequested: new(missedRequested),
 					}))
 					sCtx, cancel := signal.Isolated()
 					req, res := confluence.Attach(reader, buffer)
@@ -398,8 +402,9 @@ var _ = Describe("Relay", func() {
 					Eventually(res.Outlet()).Should(Receive())
 					return res
 				}
-				stalled := openStreamer(0)
-				live := openStreamer(10)
+				stalled := openStreamer(0, true)
+				unrequested := openStreamer(0, false)
+				live := openStreamer(10, false)
 				send := func(n int) {
 					GinkgoHelper()
 					for v := range int64(n) {
@@ -409,36 +414,44 @@ var _ = Describe("Relay", func() {
 						Eventually(live.Outlet()).Should(Receive())
 					}
 				}
-				// drain reads stalled until it stays empty.
-				drain := func() (frames, markers int) {
+				// drain reads the outlet until it stays empty. It returns the frames
+				// read and the number of frames read before each marker.
+				drain := func(
+					out confluence.Outlet[relay.Response],
+				) (frames int, markers []int) {
 					GinkgoHelper()
 					for {
 						var res relay.Response
 						select {
-						case res = <-stalled.Outlet():
+						case res = <-out.Outlet():
 						case <-time.After(200 * time.Millisecond):
 							return frames, markers
 						}
 						if res.Missed {
 							Expect(res.Frame.Empty()).To(BeTrue())
-							markers++
+							markers = append(markers, frames)
 						} else {
 							frames++
 						}
 					}
 				}
-				// stalled holds one frame and buffers four, so it drops three.
+				// A stalled streamer holds one frame and buffers four, so it drops
+				// three.
 				send(8)
-				frames, markers := drain()
+				frames, markers := drain(stalled)
 				Expect(frames).To(Equal(5))
-				Expect(markers).To(Equal(1))
+				Expect(markers).To(Equal([]int{5}))
+				frames, markers = drain(unrequested)
+				Expect(frames).To(Equal(5))
+				Expect(markers).To(BeEmpty())
 				send(2)
-				frames, markers = drain()
+				frames, markers = drain(stalled)
 				Expect(frames).To(Equal(2))
-				Expect(markers).To(Equal(0))
+				Expect(markers).To(BeEmpty())
+				drain(unrequested)
 				send(8)
-				_, markers = drain()
-				Expect(markers).To(Equal(1))
+				_, markers = drain(stalled)
+				Expect(markers).To(Equal([]int{5}))
 			},
 		)
 	})
