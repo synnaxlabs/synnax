@@ -350,8 +350,9 @@ var _ = Describe("Control moved from Cesium", func() {
 							MustSucceed(low.Commit(ctx)),
 						).To(Equal(14*telem.SecondTS + 1))
 						Expect(low.Close()).To(Succeed())
+						// The handoff to high dropped the uncommitted 12 and 13.
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
+						Expect(f.Get(idx).Len()).To(Equal(int64(3)))
 					},
 				)
 				It(
@@ -551,7 +552,7 @@ var _ = Describe("Control moved from Cesium", func() {
 							w2Frame := telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
-									telem.NewSeriesSecondsTSV(12, 13, 14),
+									telem.NewSeriesSecondsTSV(13, 14, 15),
 									telem.NewSeriesV[int16](4, 5, 6),
 								},
 							)
@@ -573,7 +574,7 @@ var _ = Describe("Control moved from Cesium", func() {
 							By("Committing the second writer")
 							Expect(
 								MustSucceed(w2.Commit(ctx)),
-							).To(Equal(telem.SecondTS*14 + 1))
+							).To(Equal(telem.SecondTS*15 + 1))
 
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
@@ -585,10 +586,15 @@ var _ = Describe("Control moved from Cesium", func() {
 								start.SpanRange(10*telem.Second),
 								dataChKey,
 							))
-							Expect(f.Count()).To(Equal(1))
+							// The handoff seals the writer of w1, so the samples
+							// of w2 start a new stretch.
+							Expect(f.Count()).To(Equal(2))
 							Expect(
 								f.SeriesAt(0).Data,
-							).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
+							).To(Equal(telem.NewSeriesV[int16](1, 2, 3).Data))
+							Expect(
+								f.SeriesAt(1).Data,
+							).To(Equal(telem.NewSeriesV[int16](4, 5, 6).Data))
 						},
 					)
 				})

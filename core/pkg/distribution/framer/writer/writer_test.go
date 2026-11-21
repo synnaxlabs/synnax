@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -641,7 +642,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				Expect(iter.Value().SeriesAt(0).Len()).To(Equal(int64(3)))
+				Expect(iter.Value().Get(keys[0]).Len()).To(Equal(int64(3)))
 				Expect(iter.Close()).To(Succeed())
 			},
 			Entry("sync", true),
@@ -698,11 +699,102 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				Expect(iter.Value().Count()).To(Equal(1))
+				// The handoff to second seals the writer of first, so the samples
+				// of second start a new stretch.
+				Expect(iter.Value().Count()).To(Equal(2))
 				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
-					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
+					telem.NewSeriesV[int16](1, 2, 3).Data,
+				))
+				Expect(iter.Value().SeriesAt(1).Data).To(Equal(
+					telem.NewSeriesV[int16](4, 5, 6).Data,
 				))
 				Expect(iter.Close()).To(Succeed())
+			},
+		)
+		It(
+			"Should hand off a clock while both writers write and commit",
+			func(ctx SpecContext) {
+				host := testutil.NewNode(ctx)
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "race_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "race_data",
+					DataType:   telem.Int64T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
+				open := func(key string, authority control.Authority) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject:   control.Subject{Key: key},
+						Keys:             keys,
+						Start:            10 * telem.SecondTS,
+						Authorities:      []control.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				low, high := open("low", 1), open("high", 2)
+				var (
+					mu    sync.Mutex
+					stamp = 10 * telem.SecondTS
+					wg    sync.WaitGroup
+				)
+				// write takes the next stamp and writes it under one lock, so the
+				// stamps
+				// of the two writers rise in the order they reach the clock.
+				write := func(w *writer.Writer) {
+					mu.Lock()
+					defer mu.Unlock()
+					stamp += telem.SecondTS
+					MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV(stamp),
+						telem.NewSeriesV(int64(stamp)),
+					})))
+				}
+				for _, w := range []*writer.Writer{low, high} {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for range 50 {
+							write(w)
+							MustSucceed2(w.Commit())
+						}
+					})
+				}
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for i := range 50 {
+						authority := control.Authority(3)
+						if i%2 == 1 {
+							authority = 0
+						}
+						Expect(high.SetAuthority(writer.Config{
+							Authorities: []control.Authority{authority},
+						})).To(Succeed())
+					}
+				})
+				wg.Wait()
+				Expect(high.Close()).To(Succeed())
+				Expect(low.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				fr := iter.Value()
+				Expect(iter.Close()).To(Succeed())
+				var last telem.TimeStamp
+				for _, s := range fr.Get(idx.Key()).Series {
+					for _, t := range s.Unmarshal[telem.TimeStamp]() {
+						Expect(t).To(BeNumerically(">", last))
+						last = t
+					}
+				}
+				Expect(fr.Get(data.Key()).Len()).To(Equal(fr.Get(idx.Key()).Len()))
 			},
 		)
 	})

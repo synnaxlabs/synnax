@@ -27,17 +27,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// session runs one Cesium writer for each clock of a writer's stored channels behind
-// the
+// session writes a writer's stored channels through one handle per clock, behind the
 // writer's request and response streams. The first error ends the work of the session:
 // every later request gets it. A refusal for no control is not an error. A refused
-// write
-// makes the next commit unauthorized, and a refused commit or end of domain is
+// write makes the next commit unauthorized, and a refused commit or end of domain is
 // unauthorized.
 type session struct {
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
-	ws []*cesium.Writer
+	ws []*clockWriter
+	ts *cesium.DB
 	// gates gate the writes of the session on its control of each channel.
 	gates    *gates
 	controls *controls
@@ -71,7 +70,7 @@ type session struct {
 }
 
 func (s *Service) newSession(
-	ws []*cesium.Writer,
+	ws []*clockWriter,
 	cfg Config,
 	autoIndex *indexStamper,
 	release func(),
@@ -79,6 +78,7 @@ func (s *Service) newSession(
 ) *session {
 	return &session{
 		ws:              ws,
+		ts:              s.cfg.TS,
 		gates:           g,
 		controls:        s.controls,
 		lacks:           g.lacks,
@@ -124,11 +124,11 @@ func (s *session) run(ctx context.Context) error {
 // and on their control. It returns the first error of the session or of the closes, and
 // otherwise cause.
 func (s *session) close(cause error) error {
-	err := s.err
-	for _, w := range s.ws {
-		err = errors.Join(err, w.Close())
-	}
+	unlock := lockEntries(s.ws)
+	err := errors.Join(s.err, closeClocks(s.ws))
 	s.controls.notify(s.gates.release())
+	followAll(context.Background(), s.ts, s.ws)
+	unlock()
 	s.release()
 	if err != nil {
 		return err
@@ -158,10 +158,14 @@ func (s *session) exec(
 		return end, !writeRefused, nil
 	case CommandSetAuthority:
 		var transfers []transfer
+		unlock := lockEntries(s.ws)
 		if transfers, err = s.gates.setAuthority(req.Config); err != nil {
+			unlock()
 			s.err = err
 			return 0, false, err
 		}
+		followAll(ctx, s.ts, s.ws)
+		unlock()
 		s.controls.notify(transfers)
 	case CommandEndDomain:
 		err = s.endDomain(ctx, req.Config.Keys)
@@ -257,7 +261,7 @@ func (s *session) endDomain(ctx context.Context, indexes channel.Keys) error {
 		}
 	}
 	for _, w := range s.ws {
-		if !slices.Contains(ended, w.Clock) {
+		if !slices.Contains(ended, w.clock) {
 			continue
 		}
 		if err := w.EndStretch(ctx); err != nil {

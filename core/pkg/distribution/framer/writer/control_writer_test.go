@@ -27,7 +27,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 			BeforeEach(func(ctx SpecContext) { db = mustOpenDBOnFS(ctx, openFS()) })
 
 			It(
-				"Should leave the samples of another writer uncommitted when a commit skips them",
+				"Should drop the uncommitted samples of a writer that loses its clock",
 				func(ctx SpecContext) {
 					ix, x, iy, y := GenerateChannelKey(), GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey()
@@ -90,10 +90,11 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, x)).Get(x).Len(),
 					).
 						To(BeZero())
+					// The handoff of iy dropped the uncommitted samples of a.
 					Expect(
 						MustSucceed(db.Read(ctx, telem.TimeRangeMax, y)).Get(y).Len(),
 					).
-						To(Equal(int64(3)))
+						To(Equal(int64(1)))
 					Expect(
 						a.Commit(ctx),
 					).Error().
@@ -376,7 +377,7 @@ var _ = Describe("Writer control moved from Cesium", func() {
 				)
 
 				It(
-					"Should write below its start in a claim that another writer has written",
+					"Should write below its start once it takes the clock",
 					func(ctx SpecContext) {
 						key := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
@@ -414,10 +415,9 @@ var _ = Describe("Writer control moved from Cesium", func() {
 							db.Read(ctx, telem.TimeRangeMax, key),
 						).Get(key).
 							Series
+						// The handoff dropped the uncommitted samples of w1.
 						Expect(series).To(HaveLen(1))
 						Expect(series[0]).To(telem.MatchSeriesDataV[telem.TimeStamp](
-							10*telem.SecondTS,
-							11*telem.SecondTS,
 							12*telem.SecondTS,
 							13*telem.SecondTS,
 						))
@@ -809,7 +809,9 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						MustSucceed(live.Write(ctx, frames(20)))
 						MustSucceed(live.Commit(ctx))
 						Expect(live.Close()).To(Succeed())
-						Expect(read(ctx, idx).Series).To(HaveLen(1))
+						// Each handoff of idx seals its writer, so idx gets a new
+						// stretch.
+						Expect(read(ctx, idx).Series).To(HaveLen(2))
 						Expect(read(ctx, idx2).Series).To(HaveLen(2))
 						Expect(read(ctx, idx3).Series).To(HaveLen(2))
 					},
@@ -830,10 +832,13 @@ var _ = Describe("Writer control moved from Cesium", func() {
 						MustSucceed(low.Write(ctx, frame(20, 21)))
 						MustSucceed(low.Commit(ctx))
 						Expect(low.Close()).To(Succeed())
+						// Each handoff of idx seals its writer and starts a new
+						// stretch.
 						series := read(ctx, data).Series
-						Expect(series).To(HaveLen(2))
-						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
-						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+						Expect(series).To(HaveLen(3))
+						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+						Expect(series[1]).To(telem.MatchSeriesDataV[int64](12))
+						Expect(series[2]).To(telem.MatchSeriesDataV[int64](20, 21))
 					},
 				)
 			})

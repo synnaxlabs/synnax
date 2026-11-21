@@ -54,6 +54,27 @@ type controlled struct {
 	c *control.Controller[channel.Key, *region]
 	// index is the index of the channel, or zero.
 	index channel.Key
+	// clock is the Cesium writer of an index that the sessions on it share, or nil.
+	clock *clockEntry
+}
+
+// clockEntry returns the entry of the writer that the sessions on the clock ch share,
+// creating it with the controller of ch.
+func (cs *controls) clockEntry(ch cesium.Channel) (*clockEntry, error) {
+	ctl, err := cs.acquire(ch)
+	if err != nil {
+		return nil, err
+	}
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if ctl.clock == nil {
+		ctl.clock = &clockEntry{
+			clock:   ch.Key,
+			ctl:     ctl,
+			members: make(map[string]*clockMember),
+		}
+	}
+	return ctl.clock, nil
 }
 
 func newControls() *controls {

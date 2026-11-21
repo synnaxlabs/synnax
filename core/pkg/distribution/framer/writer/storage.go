@@ -48,14 +48,38 @@ func (s *Service) newStorage(
 	if err != nil {
 		return nil, err
 	}
+	ws, err := s.clockWriters(cfg, channels)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	unlock := lockEntries(ws)
+	defer unlock()
 	g, transfers, err := s.controls.openGates(cfg, channels)
 	if err != nil {
 		release()
 		return nil, err
 	}
-	ws, err := s.openClocks(ctx, cfg, channels)
+	for _, c := range ws {
+		if c.shares {
+			c.entry.members[c.member.subject] = c.member
+		}
+	}
+	followAll(ctx, s.cfg.TS, ws)
+	for _, c := range ws {
+		if c.shares && c.member.err != nil {
+			err = c.member.err
+			break
+		}
+	}
+	if err == nil {
+		err = s.openOwn(ctx, cfg, ws)
+	}
 	if err != nil {
-		g.release()
+		err = errors.Join(err, closeClocks(ws))
+		transfers = append(transfers, g.release()...)
+		followAll(ctx, s.cfg.TS, ws)
+		s.controls.notify(transfers)
 		release()
 		named, _ := s.controls.nameHolder(err)
 		return nil, named
@@ -64,16 +88,21 @@ func (s *Service) newStorage(
 	return s.newSession(ws, cfg, autoIndex, release, g), nil
 }
 
-// openClocks opens one Cesium writer for each clock of channels, which are the stored
-// channels of cfg. On an error it closes the writers it opened.
-func (s *Service) openClocks(
-	ctx context.Context,
+// clockWriters returns the handle of the session of cfg on each clock of channels,
+// which are the stored channels of cfg. A session that persists and streams, and that
+// writes a clock, shares the clock's writer with the other sessions on it. The other
+// handles hold their own writer, which openOwn opens, and a handle whose session holds
+// a gate on the clock follows the clock's entry.
+func (s *Service) clockWriters(
 	cfg Config,
 	channels []cesium.Channel,
-) (ws []*cesium.Writer, err error) {
+) ([]*clockWriter, error) {
 	var (
-		clocks []cesium.ChannelKey
-		keys   = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
+		clocks  []cesium.ChannelKey
+		keys    = make(map[cesium.ChannelKey][]cesium.ChannelKey, 1)
+		byKey   = make(map[cesium.ChannelKey]cesium.Channel, len(channels))
+		ws      = make([]*clockWriter, 0, 1)
+		sharing = cfg.Mode == ModePersistStream
 	)
 	for _, ch := range channels {
 		clock := ch.Clock()
@@ -81,30 +110,65 @@ func (s *Service) openClocks(
 			clocks = append(clocks, clock)
 		}
 		keys[clock] = append(keys[clock], ch.Key)
+		byKey[ch.Key] = ch
 	}
-	defer func() {
-		if err != nil {
-			for _, w := range ws {
-				err = errors.Join(err, w.Close())
-			}
-			ws = nil
-		}
-	}()
-	ws = make([]*cesium.Writer, 0, len(clocks))
 	for _, clock := range clocks {
-		var w *cesium.Writer
-		if w, err = s.cfg.TS.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: keys[clock],
-			Clock:    clock,
+		c := &clockWriter{
+			clock: clock,
+			member: &clockMember{
+				subject: cfg.ControlSubject.Key,
+				keys:    keys[clock],
+				start:   cfg.Start,
+				end:     cfg.Start,
+			},
+		}
+		if ch, writesClock := byKey[clock]; writesClock && cfg.Mode != ModePersistOnly {
+			entry, err := s.controls.clockEntry(ch)
+			if err != nil {
+				return nil, err
+			}
+			c.entry, c.shares = entry, sharing
+		}
+		ws = append(ws, c)
+	}
+	return ws, nil
+}
+
+// openOwn opens the writer of each handle of ws that does not share its clock's writer.
+// A failed open returns its error, and the caller closes the writers that opened.
+func (s *Service) openOwn(ctx context.Context, cfg Config, ws []*clockWriter) error {
+	for _, c := range ws {
+		if c.shares {
+			continue
+		}
+		w, err := s.cfg.TS.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: c.member.keys,
+			Clock:    c.clock,
 			Start:    cfg.Start,
 			Bounded:  cfg.Mode == ModePersistOnly,
 			Unstored: cfg.Mode == ModeStreamOnly,
-		}); err != nil {
-			return ws, err
+		})
+		if err != nil {
+			return err
 		}
-		ws = append(ws, w)
+		c.own = w
 	}
-	return ws, nil
+	return nil
+}
+
+// closeClocks closes the own writer of each handle of ws, and leaves each shared clock.
+// The caller holds the entries' locks.
+func closeClocks(ws []*clockWriter) error {
+	var err error
+	for _, c := range ws {
+		switch {
+		case c.own != nil:
+			err = errors.Join(err, c.own.Close())
+		case c.shares:
+			err = errors.Join(err, c.entry.leave(c.member))
+		}
+	}
+	return err
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one
