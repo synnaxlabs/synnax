@@ -177,10 +177,10 @@ var _ = Describe("Paths", Ordered, func() {
 			Where(channel.MatchKeys(root, top, nested)).
 			Entries(&chs).
 			Exec(ctx, db)).To(Succeed())
-		paths := MustSucceed(channel.Paths(ctx, db, chs))
+		texts := channel.PathTexts(MustSucceed(channel.Paths(ctx, db, chs)))
 		byKey := make(map[channel.Key]string, len(chs))
 		for i, ch := range chs {
-			byKey[ch.Key()] = paths[i].String()
+			byKey[ch.Key()] = texts[i]
 		}
 		Expect(byKey).To(Equal(map[channel.Key]string{
 			root:   nameOf(ctx, root),
@@ -188,6 +188,16 @@ var _ = Describe("Paths", Ordered, func() {
 			nested: stand + "." + sensors + "." + nameOf(ctx, nested),
 		}))
 		Expect(channel.Paths(ctx, db, nil)).To(BeEmpty())
+	})
+
+	It("Should join the names of the folders and the channel of each path", func() {
+		folders := group.Path{{Name: "stand"}, {Name: "sensors"}}
+		Expect(channel.PathTexts([]channel.Path{
+			{Folders: folders, Name: "pt_01"},
+			{Name: "at_top"},
+			{Folders: folders[:1], Name: "pt_02"},
+		})).To(Equal([]string{"stand.sensors.pt_01", "at_top", "stand.pt_02"}))
+		Expect(channel.PathTexts(nil)).To(BeEmpty())
 	})
 
 	It("Should find a path sent in another normal form", func(ctx SpecContext) {

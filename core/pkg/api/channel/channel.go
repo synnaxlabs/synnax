@@ -253,8 +253,7 @@ func (s *Service) Retrieve(
 }
 
 // fillPaths sets the path of each of channels, the API forms of stored, when the
-// subject
-// can retrieve every folder on it.
+// subject can retrieve every folder on it.
 func fillPaths(
 	ctx context.Context,
 	snap bind.Snapshot,
