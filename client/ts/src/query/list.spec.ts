@@ -188,6 +188,18 @@ describe("Lists", () => {
       expect(lists.list({ order: byName, limit: 3 })).not.toBe(list);
     });
 
+    it("should return undefined from getCached of every match while a limit shortens the window", async () => {
+      const { lists } = setup([rec("1", "a"), rec("2", "b"), rec("3", "c")]);
+      const small = lists.list({ order: byName, limit: 1 });
+      small.onChange(vi.fn());
+      await small.retrieve();
+      expect(names(small.getCached())).toEqual(["a"]);
+      expect(lists.list({ order: byName }).getCached()).toBeUndefined();
+      const all = await lists.list({ order: byName }).retrieve();
+      expect(names(all)).toEqual(["a", "b", "c"]);
+      expect(names(lists.list({ order: byName }).getCached())).toEqual(["a", "b", "c"]);
+    });
+
     it("should return undefined from getCached before a fetch", () => {
       const { lists } = setup([rec("1", "a")]);
       expect(lists.list({ order: byName }).getCached()).toBeUndefined();

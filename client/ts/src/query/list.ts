@@ -69,8 +69,9 @@ export interface List<D extends Data, C> {
    */
   more: (n: number, options?: FetchOptions) => Promise<Window<D, C>>;
   /**
-   * Returns the window without touching the network, or undefined before a fetch or
-   * when a trigger does not cover the window.
+   * Returns the window without touching the network, or undefined before a fetch, when
+   * a trigger does not cover the window, or when a list without a limit finds a window
+   * that does not hold every match.
    */
   getCached: () => Window<D, C> | undefined;
   /**
@@ -246,7 +247,9 @@ export class Lists<
       more: async (n, options) => await this.more(entry, n, options),
       getCached: () => {
         const window = this.cachedOf(entry);
-        return window != null && this.triggersCover(entry) ? window : undefined;
+        if (window == null || !this.triggersCover(entry)) return undefined;
+        // A list with a limit can leave the window short of a list without one.
+        return limit == null && window.end != null ? undefined : window;
       },
       onChange: (handler) => this.subscribe(entry, limit, handler),
     }));
