@@ -20,6 +20,7 @@ import {
   primitive,
   type record,
   strings,
+  timer,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -157,6 +158,8 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
    * the timeout, whichever is longer.
    */
   timeout?: CrudeTimeSpan;
+  /** Starts each wait for a status. Defaults to a timer on the system clock. */
+  timer?: timer.Start;
 }
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
@@ -594,8 +597,8 @@ export class Client extends query.Retriever<
 
   /**
    * Applies actions to the cached task and sends them to the Core. Paths and values
-   * take the camelCase form of the cached task. Returns false without side effects when
-   * the task is not cached.
+   * take the camelCase form of the cached task.
+   * @throws {NotCachedError} if the task is not cached, before any change.
    * @throws {Error} if the task cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached task drops the actions.
    */
@@ -611,7 +614,10 @@ export class Client extends query.Retriever<
     await this.dispatcher.settled(key);
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }
@@ -1127,6 +1133,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   task,
   type,
   timeout,
+  timer,
   name: taskName,
   statusDataZ,
   args,
@@ -1141,6 +1148,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
       commands: [{ args, task, type, configHash, pinned }],
       racks,
       timeout,
+      timer,
       statusDataZ,
       name: taskName,
     })
@@ -1154,6 +1162,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
   racks: RackKey[];
   timeout?: CrudeTimeSpan;
+  timer?: timer.Start;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
 }
@@ -1164,6 +1173,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   commands,
   racks,
   timeout = COMMAND_DEADLINE,
+  timer: start = timer.start,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
@@ -1180,16 +1190,17 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     ? parsedTimeout
     : FINAL_STATUS_TIMEOUT;
   const { promise, resolve, reject } = Promise.withResolvers<Status<StatusData>[]>();
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let current: timer.Timer | undefined;
   const timeOutAfter = (span: TimeSpan): void => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
+    current?.cancel();
+    current = start(span);
+    void current.expired.then(() => {
       formatTimeoutError(
         taskName,
         span,
         commands.map((c) => c.task),
       ).then(reject, reject);
-    }, span.milliseconds);
+    });
   };
   const acknowledged = new Set<string>();
   // A loading status shows the Driver still works on its command, so once every
@@ -1236,7 +1247,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     return replies;
   } finally {
     ended = true;
-    clearTimeout(timer);
+    current?.cancel();
     close();
   }
 };

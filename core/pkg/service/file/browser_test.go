@@ -129,6 +129,9 @@ var _ = Describe("List", func() {
 
 		It("Should take a relative secrets folder from the working folder",
 			func(ctx SpecContext) {
+				// The working folder is the real path, which differs from a symlinked
+				// temporary folder such as /var on macOS.
+				dir = MustSucceed(filepath.EvalSymlinks(dir))
 				Expect(os.Mkdir(filepath.Join(dir, "secrets"), 0o700)).To(Succeed())
 				GinkgoT().Chdir(dir)
 				b = configure(ctx, "secrets")

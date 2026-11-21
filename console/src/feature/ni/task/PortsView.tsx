@@ -206,6 +206,7 @@ const AddDevice = ({ rack, exclude, onAdd }: AddDeviceProps): ReactElement => (
     triggerProps={{
       placeholder: "Add device",
       variant: "text",
+      size: "small",
       icon: <Icon.Add />,
       hideCaret: true,
       className: CSS.BE("ni-ports", "trigger"),

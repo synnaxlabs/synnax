@@ -21,11 +21,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
-  Pick<
-    schematic.StateIndicatorNodeConfig,
-    "strokeColor" | "orientation" | "inlineSize" | "size"
-  >
+  Pick<schematic.StateIndicatorNodeConfig, "orientation" | "inlineSize" | "size">
 > {
+  strokeColor?: color.Crude;
   options: schematic.StateIndicatorNodeConfig["options"];
   className?: string;
   matchedOptionKey?: string | null;

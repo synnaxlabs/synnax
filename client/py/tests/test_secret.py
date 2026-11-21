@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import rack, secret
+from synnax import certificate, rack, secret
 from x import filter
 from x.testutil import assert_eventually
 
@@ -229,4 +229,41 @@ class TestSecret:
         with pytest.raises(sy.ValidationError, match="is not on rack:"):
             client.secrets.grant(
                 rack.resource_id(r.key), s.key, task=t.key, type_="test_connection"
+            )
+
+    def test_grant_certificates(self, client: sy.Synnax) -> None:
+        """Should grant a file certificate of the subject rack, and refuse one of
+        another rack."""
+        r = client.racks.create(name="Grant rack")
+        other = client.racks.create(name="Other rack")
+        t = client.tasks.create(
+            name="Grant scanner", type="sift_scan", config={"rate": 1}, rack=r.key
+        )
+
+        def file(name: str, rack_key: int) -> certificate.Certificate:
+            return client.certificates.set(
+                certificate.FileCertificate(
+                    name=name, certificate_path="/etc/synnax/client.crt", rack=rack_key
+                )
+            )
+
+        own = file("Own", r.key)
+        client.secrets.grant(
+            rack.resource_id(r.key),
+            [],
+            task=t.key,
+            type_="test_connection",
+            certificates=own.key,
+        )
+        foreign = file("Foreign", other.key)
+        with pytest.raises(
+            sy.ValidationError,
+            match=f'certificate "Foreign" is a file of rack {other.key}, not of rack:',
+        ):
+            client.secrets.grant(
+                rack.resource_id(r.key),
+                [],
+                task=t.key,
+                type_="test_connection",
+                certificates=[foreign.key],
             )

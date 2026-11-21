@@ -125,6 +125,62 @@ describe("on this page", () => {
     expect(active()).toEqual(["v1"]);
   });
 
+  describe("groups", () => {
+    // Mirrors the markup of releases/List.astro.
+    const GROUPED = `
+      <article><h6 id="v2">v2</h6><h6 id="v1">v1</h6></article>
+      <div data-outline="article h6">
+        <div class="release-indicator" data-outline-indicator></div>
+        <details id="2026" open>
+          <summary>2026</summary>
+          <a href="#v2" data-item-key="v2">v2</a>
+        </details>
+        <details id="2025">
+          <summary>2025</summary>
+          <a href="#v1" data-item-key="v1">v1</a>
+        </details>
+      </div>
+    `;
+
+    const group = (id: string): HTMLDetailsElement =>
+      document.getElementById(id) as HTMLDetailsElement;
+
+    const toggle = (id: string, open: boolean): void => {
+      group(id).open = open;
+      group(id).dispatchEvent(new Event("toggle"));
+    };
+
+    const showGrouped = (tops: Record<string, number>): HTMLElement => {
+      document.body.innerHTML = GROUPED;
+      for (const heading of document.querySelectorAll("h6"))
+        heading.getBoundingClientRect = () =>
+          ({ top: tops[heading.id] ?? 2000, height: 30 }) as DOMRect;
+      document.dispatchEvent(new Event("astro:after-swap"));
+      return document.querySelector(".release-indicator") as HTMLElement;
+    };
+
+    it("should open the group of the entry being read", () => {
+      showGrouped({ v2: -900, v1: 100 });
+      expect(active()).toEqual(["v1"]);
+      expect(group("2025").open).toBe(true);
+    });
+
+    it("should keep a group closed until reading moves to another group", () => {
+      showGrouped({ v2: 100 });
+      toggle("2026", false);
+      window.dispatchEvent(new Event("scroll"));
+      expect(group("2026").open).toBe(false);
+    });
+
+    it("should hide the indicator while its entry is in a closed group", () => {
+      const indicator = showGrouped({ v2: 100 });
+      toggle("2026", false);
+      expect(indicator.style.opacity).toBe("0");
+      toggle("2026", true);
+      expect(indicator.style.opacity).toBe("1");
+    });
+  });
+
   describe("outline bar", () => {
     // Mirrors the markup of OutlineBar.astro.
     const BAR = `

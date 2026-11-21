@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -51,6 +52,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Rack *rack.Service
+	// Certificate finds the certificates that a grant names.
+	//
+	// [REQUIRED]
+	Certificate *certificate.Service
 	// DB reads the records that a resolve without a grant checks.
 	//
 	// [REQUIRED]
@@ -69,6 +74,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.Certificate = override.Nil(c.Certificate, other.Certificate)
 	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
@@ -80,6 +86,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("task", c.Task)
 	v.NotNil("rack", c.Rack)
+	v.NotNil("certificate", c.Certificate)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -91,6 +98,7 @@ type Service struct {
 	internal *secret.Service
 	task     *task.Service
 	racks    *rack.Service
+	certs    *certificate.Service
 	db       *gorp.DB
 }
 
@@ -105,6 +113,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		internal: cfg.Secret,
 		task:     cfg.Task,
 		racks:    cfg.Rack,
+		certs:    cfg.Certificate,
 		db:       cfg.DB,
 	}, nil
 }
@@ -234,10 +243,7 @@ func (s *Service) fillUses(
 		if err != nil {
 			return err
 		}
-		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
-			id = taskOf(id)
-			return id, snap.Allowed(id)
-		})
+		base.Uses = snap.Visible(uses)
 		secrets[i].SetBase(base)
 	}
 	return nil
@@ -274,13 +280,17 @@ func (s *Service) Delete(
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
-// GrantCreateRequest names a subject, the command it may run once, and the secrets it
-// reads to run it.
+// GrantCreateRequest names a subject, the command it may run once, and the secrets and
+// certificates it reads to run it.
 type GrantCreateRequest struct {
 	// Subject is the subject that may run the command. It must be a rack.
 	Subject resource.ID `json:"subject" msgpack:"subject"`
-	// Secrets are the secrets the subject reads to run the command.
+	// Secrets are the secrets the subject reads to run the command. The private key of
+	// a stored certificate is a secret.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Certificates are the file certificates the subject reads to run the command.
+	// Each must be a file of the subject rack.
+	Certificates []certificate.Key `json:"certificates" msgpack:"certificates"`
 	// Command is the command the subject runs. Its task must be on the subject rack.
 	Command task.Command `json:"command" msgpack:"command"`
 }
@@ -291,16 +301,20 @@ type GrantCreateResponse struct {
 }
 
 // CreateGrant creates a grant that lets the subject run the command once with the
-// secrets, within a minute. Only a user with create access on devices and retrieve
-// access on each secret may call it. It returns query.ErrNotFound when the task of the
-// command does not exist, and a validation error when the task is not on the subject
-// rack.
+// secrets and certificates, within a minute. Only a user with create access on devices
+// and retrieve access on each secret and certificate may call it. It returns
+// query.ErrNotFound when the task of the command or a certificate does not exist, and a
+// validation error when the task is not on the subject rack or a certificate is not a
+// file of the subject rack.
 func (s *Service) CreateGrant(
 	ctx context.Context,
 	tx gorp.Tx,
 	req GrantCreateRequest,
 ) (GrantCreateResponse, error) {
-	if err := s.enforceGrant(ctx, tx, req.Secrets); err != nil {
+	if err := s.enforceGrant(ctx, tx, req); err != nil {
+		return GrantCreateResponse{}, err
+	}
+	if err := s.checkCertificates(ctx, tx, req); err != nil {
 		return GrantCreateResponse{}, err
 	}
 	var t task.Task
@@ -320,16 +334,43 @@ func (s *Service) CreateGrant(
 	) {
 		return GrantCreateResponse{}, v.Error()
 	}
-	key, err := s.internal.Grant(ctx, tx, req.Subject, req.Command, req.Secrets...)
+	key, err := s.internal.Grant(ctx, tx, grant.Grant{
+		Subject:      req.Subject,
+		Secrets:      req.Secrets,
+		Certificates: req.Certificates,
+		Command:      req.Command,
+	})
 	if err != nil {
 		return GrantCreateResponse{}, err
 	}
 	return GrantCreateResponse{Grant: key}, nil
 }
 
+// Vouched returns a predicate for bind.ServiceConfig.Vouched. It reports that a rack
+// cannot add a use of a secret, or of a certificate with a private key, since the use
+// would let the rack read it.
+func Vouched(
+	certs *certificate.Service,
+) func(context.Context, gorp.Tx, resource.ID) (bool, error) {
+	return func(ctx context.Context, tx gorp.Tx, target resource.ID) (bool, error) {
+		if target.Type != resource.TypeCertificate {
+			return target.Type == resource.TypeSecret, nil
+		}
+		key, err := resource.ParseUUIDKey(target)
+		if err != nil {
+			return false, err
+		}
+		return certs.HasPrivateKey(ctx, tx, key)
+	}
+}
+
 var errGrantSubject = errors.Wrap(access.ErrDenied, "only a user can grant secrets")
 
-func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) error {
+func (s *Service) enforceGrant(
+	ctx context.Context,
+	tx gorp.Tx,
+	req GrantCreateRequest,
+) error {
 	subject := auth.GetSubject(ctx)
 	if subject.Type != resource.TypeUser {
 		return errGrantSubject
@@ -345,8 +386,50 @@ func (s *Service) enforceGrant(ctx context.Context, tx gorp.Tx, keys []Key) erro
 	return enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: secret.ResourceIDs(keys),
+		Objects: append(
+			secret.ResourceIDs(req.Secrets),
+			certificate.ResourceIDs(req.Certificates)...,
+		),
 	})
+}
+
+// checkCertificates returns a validation error when a certificate of req is not a file
+// of the subject rack.
+func (s *Service) checkCertificates(
+	ctx context.Context,
+	tx gorp.Tx,
+	req GrantCreateRequest,
+) error {
+	if len(req.Certificates) == 0 {
+		return nil
+	}
+	var certs []certificate.Certificate
+	if err := s.certs.NewRetrieve().
+		Where(certificate.MatchKeys(req.Certificates...)).
+		Entries(&certs).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	for _, c := range certs {
+		file, ok := c.Variant.(certificate.FileCertificate)
+		if !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"certificate %q is stored: name its private key in secrets",
+				c.Base().Name,
+			)
+		}
+		if file.Rack.ResourceID() != req.Subject {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"certificate %q is a file of rack %d, not of %s",
+				file.Name,
+				file.Rack,
+				req.Subject,
+			)
+		}
+	}
+	return nil
 }
 
 // ResolveRequest names a grant to spend and the task that runs its command, or, without
@@ -390,6 +473,9 @@ type ResolveResponse struct {
 	// Secrets holds the keys of the secrets that the grant names, file secrets
 	// included. Empty without a grant.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Certificates holds the keys of the file certificates that the grant names. Empty
+	// without a grant.
+	Certificates []certificate.Key `json:"certificates" msgpack:"certificates"`
 	// Values holds one value for each secret, except a file secret of a calling rack
 	// that is not the Core's, which the rack reads from its own secrets folder.
 	Values []Value `json:"values" msgpack:"values"`
@@ -427,9 +513,10 @@ func (s *Service) Resolve(
 		return ResolveResponse{}, err
 	}
 	res := ResolveResponse{
-		Command: g.Command,
-		Secrets: g.Secrets,
-		Values:  make([]Value, 0, len(values)),
+		Command:      g.Command,
+		Secrets:      g.Secrets,
+		Certificates: g.Certificates,
+		Values:       make([]Value, 0, len(values)),
 	}
 	for k, v := range values {
 		res.Values = append(res.Values, Value{Key: k, Value: string(v)})
@@ -480,7 +567,8 @@ func (s *Service) resolveUsed(
 	return values, err
 }
 
-// usedOn returns true when a record in on uses the secret with key.
+// usedOn returns true when a record in on uses the secret with key, directly or through
+// a certificate whose private key it holds.
 func (s *Service) usedOn(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -491,9 +579,27 @@ func (s *Service) usedOn(
 	if err != nil {
 		return false, err
 	}
-	return lo.SomeBy(uses, func(id resource.ID) bool {
-		return on.Contains(taskOf(id))
-	}), nil
+	onRack := func(id resource.ID) bool { return on.Contains(taskOf(id)) }
+	for _, id := range uses {
+		if onRack(id) {
+			return true, nil
+		}
+		if id.Type != resource.TypeCertificate {
+			continue
+		}
+		cert, err := resource.ParseUUIDKey(id)
+		if err != nil {
+			return false, err
+		}
+		certUses, err := s.certs.Uses(ctx, snap, cert)
+		if err != nil {
+			return false, err
+		}
+		if lo.SomeBy(certUses, onRack) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // taskOf returns the task of a config record, and any other ID as it is.

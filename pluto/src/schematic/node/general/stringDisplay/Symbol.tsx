@@ -10,6 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -38,13 +39,14 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
   const badged = Staleness.useBadged();
+  const resolve = Color.useResolve();
   const content = Primitive.useCanvasBox<HTMLDivElement>(position);
   const { stale } = BaseStringValue.use({
     aetherKey: nodeKey,
     box: content.box,
     telem: telem.streamChannelStringValue({ channel }),
     level,
-    color: textColor,
+    color: resolve(textColor),
     stalenessColor,
     stalenessTimeout,
     staleColorHidden: badged,
@@ -57,7 +59,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       {stale && badged && <Stale.Indicator />}
       <StringDisplay
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}

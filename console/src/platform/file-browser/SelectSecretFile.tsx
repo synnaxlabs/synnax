@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, status, type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, status } from "@synnaxlabs/client";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
 import { unique } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { list } from "@/platform/file-browser/list";
+import { useSession } from "@/platform/file-browser/Provider";
+import type { Session } from "@/platform/file-browser/session";
 
 type State =
   | { variant: "loading" }
@@ -26,10 +26,10 @@ type State =
   | { variant: "error"; status: status.Status }
   | { variant: "success"; names: string[] };
 
-const listNames = async (client: Client, rack: rack.Key): Promise<State> => {
-  const { secretsDir } = await list(client, rack);
+const listNames = async (session: Session): Promise<State> => {
+  const { secretsDir } = await session.list();
   if (secretsDir === "") return { variant: "none" };
-  const { entries } = await list(client, rack, secretsDir);
+  const { entries } = await session.list(secretsDir);
   return {
     variant: "success",
     names: entries.filter((e) => e.kind === "file").map((e) => e.name),
@@ -56,15 +56,15 @@ export const SelectSecretFile = ({
   onChange,
   allowNone = false,
 }: SelectSecretFileProps): ReactElement => {
-  const client = Synnax.use();
+  const session = useSession(rack);
   const [state, setState] = useState<State>({ variant: "loading" });
   useAsyncEffect(
     async (signal) => {
       setState({ variant: "loading" });
-      if (client == null) return;
+      if (session == null) return;
       let next: State;
       try {
-        next = await listNames(client, rack);
+        next = await listNames(session);
       } catch (e) {
         next = {
           variant: "error",
@@ -73,7 +73,7 @@ export const SelectSecretFile = ({
       }
       if (!signal.aborted) setState(next);
     },
-    [client, rack],
+    [session],
   );
   const names = state.variant === "success" ? state.names : [];
   const options = unique.unique([...names, value]).filter((n) => n !== "");
