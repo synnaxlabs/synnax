@@ -488,18 +488,17 @@ export class ChannelData
     return { keys: [key], window, limit };
   }
 
-  // Reads the samples that bound the home view, reduced with min_max so they keep the
-  // extremes that other aggregations drop. A window that streams ends at the newest
-  // sample of every line on its axis, so it bounds the view the caller passes instead.
-  // The draw serves until the first ones load.
+  // Reads the samples that bound the view the caller passes, or the home view when it
+  // passes none, reduced with min_max so they keep the extremes that other aggregations
+  // drop. A line can draw past its window, so the view can too. The draw serves until
+  // the first ones load.
   private readBounds(
     client: Client,
     key: channel.Key,
     view: bounds.Bounds | undefined,
   ): framer.Snapshot {
     this.boundsRead = true;
-    const range =
-      (this.live || this.streaming) && view != null ? viewRange(view) : undefined;
+    const range = view == null ? undefined : viewRange(view);
     const target = range == null ? undefined : view;
     if (
       this.bounds == null ||
