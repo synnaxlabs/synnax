@@ -94,9 +94,9 @@ describe("useModal", () => {
     const name = uniqueName("key");
     await createKey(name);
     expect(findButton("Cancel").getAttribute("aria-disabled")).toBe("true");
-    pressEscape();
+    await pressEscape();
     await screen.findByText(`Copy the key for ${name}`);
-    pressEscape();
+    await pressEscape();
     await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
   });
 
@@ -166,7 +166,7 @@ describe("useModal", () => {
     });
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
-    pressEscape();
+    await pressEscape();
     expect(await screen.findByText("Successfully changed password")).toBeTruthy();
   });
 
