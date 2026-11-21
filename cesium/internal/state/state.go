@@ -44,6 +44,9 @@ type Segment struct {
 	Length, TailCRC uint32
 	// Pointers are the committed ranges, in stream order.
 	Pointers []Pointer
+	// Part is the identity of a part that holds this record as it is, or 0. A reader
+	// may read the pointers of the segment from that part.
+	Part uint64
 }
 
 // Channel is the state of one key. A Channel that the state publishes never changes.

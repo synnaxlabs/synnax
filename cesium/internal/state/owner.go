@@ -12,6 +12,7 @@ package state
 import (
 	"context"
 	"maps"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -281,6 +282,44 @@ func (r *durableRequest) run(s *State) {
 	if len(s.parked) > 0 {
 		s.unpark()
 	}
+}
+
+// Tag names the part that holds a segment record, as the part holds it.
+type Tag struct {
+	Part    uint64
+	Segment Segment
+}
+
+type partedRequest struct{ tags []Tag }
+
+func (*partedRequest) fail(error) {}
+
+func (r *partedRequest) run(s *State) {
+	changed := make(map[uint32]bool)
+	for _, t := range r.tags {
+		seg, ok := s.core.segments[t.Segment.ID]
+		if !ok || seg.holder != nil || !sameRecord(seg.vis, t.Segment) {
+			continue
+		}
+		seg.vis.Part = t.Part
+		changed[seg.key] = true
+	}
+	for key := range changed {
+		s.core.channels[key].publish()
+	}
+}
+
+// sameRecord reports whether a and b are the same sealed segment record.
+func sameRecord(a, b Segment) bool {
+	return a.Sealed && b.Sealed && a.Length == b.Length && a.TailCRC == b.TailCRC &&
+		slices.Equal(a.Pointers, b.Pointers)
+}
+
+// Parted queues the tags of the records that a switch wrote to parts. The owner tags
+// each sealed segment whose record is still the one that its part holds, and leaves
+// the rest. It does not wait for the owner.
+func (s *State) Parted(tags []Tag) error {
+	return s.enqueue(&partedRequest{tags: tags})
 }
 
 // Durable queues the records of the durable entry of sequence, which the log owner
