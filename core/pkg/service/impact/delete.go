@@ -112,25 +112,44 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 	return ok
 }
 
-// token returns the hex form of the first 16 bytes of a SHA-256 hash of the delete of
-// the channels with keys, in sorted order, and its entries, which are sorted.
-func token(keys []channel.Key, entries []Entry) string {
-	sorted := slices.Clone(keys)
-	slices.Sort(sorted)
-	sorted = slices.Compact(sorted)
-	buf := make([]byte, 0, len(DeleteChannelsChangeType)+4*len(sorted)+64*len(entries))
-	buf = append(buf, DeleteChannelsChangeType...)
+// token returns the hex form of the first 16 bytes of a SHA-256 hash of p, the plan of
+// the delete of the channels with keys as the caller sees it: the keys in sorted order,
+// each visible entry's record and effect, and the hidden count. Each field holds its
+// length, so no two plans hash the same bytes.
+func token(keys []channel.Key, p Plan) string {
+	sorted := keys
+	for i := 1; i < len(keys); i++ {
+		if keys[i] <= keys[i-1] {
+			sorted = slices.Compact(slices.Sorted(slices.Values(keys)))
+			break
+		}
+	}
+	var (
+		fixed [512]byte
+		buf   = fixed[:0]
+	)
+	buf = appendField(buf, string(DeleteChannelsChangeType))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(sorted)))
 	for _, k := range sorted {
 		buf = binary.BigEndian.AppendUint32(buf, uint32(k))
 	}
-	for _, e := range entries {
-		buf = append(buf, 0)
-		buf = append(buf, e.Record.Type...)
-		buf = append(buf, ':')
-		buf = append(buf, e.Record.Key...)
-		buf = append(buf, 0)
-		buf = append(buf, e.Effect...)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(p.Entries)))
+	for _, e := range p.Entries {
+		buf = appendField(buf, string(e.Record.Type))
+		buf = appendField(buf, e.Record.Key)
+		buf = appendField(buf, string(e.Effect))
 	}
-	sum := sha256.Sum256(buf)
-	return hex.EncodeToString(sum[:16])
+	buf = binary.BigEndian.AppendUint32(buf, p.Hidden)
+	var (
+		sum     = sha256.Sum256(buf)
+		encoded [32]byte
+	)
+	hex.Encode(encoded[:], sum[:16])
+	return string(encoded[:])
+}
+
+// appendField appends the length of s, then s, to buf.
+func appendField(buf []byte, s string) []byte {
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s)))
+	return append(buf, s...)
 }

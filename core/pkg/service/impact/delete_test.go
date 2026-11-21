@@ -344,7 +344,12 @@ var _ = Describe("Delete", Ordered, func() {
 			ch := createChannel(ctx, channel.Channel{})
 			stale := plan(ctx, nil, ch.Key())
 			plot := createPlot(ctx, ch.Key())
-			_, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, ch.Key())
+			applied, err := apply(
+				ctx,
+				impact.ApplyOptions{Token: stale.Token},
+				ch.Key(),
+			)
+			Expect(applied).To(BeZero())
 			Expect(err).To(MatchError("the records that the change touches changed"))
 			changed, ok := errors.AsType[impact.PlanChangedError](err)
 			Expect(ok).To(BeTrue())
@@ -372,16 +377,35 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 		})
 
-		It("Should count an entry the caller cannot see and keep it in the token", func(
-			ctx SpecContext,
-		) {
+		It("Should count an entry the caller cannot see", func(ctx SpecContext) {
 			ch := createChannel(ctx, channel.Channel{})
 			plot := createPlot(ctx, ch.Key())
-			full := plan(ctx, nil, ch.Key())
 			seen := plan(ctx, hide(lineplot.ResourceID(plot.Key)), ch.Key())
 			Expect(seen.Entries).To(BeEmpty())
 			Expect(seen.Hidden).To(Equal(uint32(1)))
-			Expect(seen.Token).To(Equal(full.Token))
+		})
+
+		It("Should keep the token and apply the hidden pick when a hidden entry is "+
+			"swapped for another", func(ctx SpecContext) {
+			ch := createChannel(ctx, channel.Channel{})
+			first := createTask(ctx, ch.Key())
+			p := plan(ctx, hide(task.ResourceID(first.Key)), ch.Key())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Task.NewWriter(tx).Delete(ctx, first.Key, false)
+			})).To(Succeed())
+			second := createTask(ctx, ch.Key())
+			visible := hide(task.ResourceID(first.Key), task.ResourceID(second.Key))
+			applied := MustSucceed(apply(ctx, impact.ApplyOptions{
+				Token:   p.Token,
+				Hidden:  new(impact.ChoiceDelete),
+				Visible: visible,
+			}, ch.Key()))
+			Expect(applied.Token).To(Equal(p.Token))
+			Expect(applied.Hidden).To(Equal(uint32(1)))
+			Expect(MustSucceed(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(second.Key)).
+				Exists(ctx, db))).To(BeFalse())
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
 		})
 
 		It("Should apply one hidden pick to every hidden entry that allows it", func(

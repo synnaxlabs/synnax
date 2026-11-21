@@ -51,7 +51,6 @@ var _ = Describe("Routes", Ordered, func() {
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 		svc := MustSucceed(apiimpact.NewService(apiimpact.ServiceConfig{
-			DB:     db,
 			RBAC:   layer.RBAC,
 			Impact: layer.Impact,
 		}))
@@ -193,10 +192,11 @@ var _ = Describe("Routes", Ordered, func() {
 			[]access.Action{access.ActionRetrieve, access.ActionDelete},
 			channel.ResourceID(ch),
 		)
-		_, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+		applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Hidden: new(impact.ChoiceDelete),
 		})
+		Expect(applied).To(BeZero())
 		Expect(err).To(And(
 			MatchError(access.ErrDenied),
 			MatchError(ContainSubstring("a record that it cannot see")),
@@ -222,10 +222,11 @@ var _ = Describe("Routes", Ordered, func() {
 			resource.ID{Type: resource.TypeStatus},
 		)
 		grant(ctx, u, []access.Action{access.ActionDelete}, channel.ResourceID(ch))
-		_, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+		applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Picks:  map[string]impact.Choice{id.String(): impact.ChoiceDelete},
 		})
+		Expect(applied).To(BeZero())
 		Expect(err).To(And(
 			MatchError(access.ErrDenied),
 			MatchError(ContainSubstring("cannot delete")),

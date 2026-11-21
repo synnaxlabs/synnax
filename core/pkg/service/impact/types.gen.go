@@ -193,8 +193,8 @@ type Plan struct {
 	// Hidden is the number of entries whose records the caller cannot see. One pick
 	// covers all of them.
 	Hidden uint32 `json:"hidden" msgpack:"hidden"`
-	// Token is the hex form of a hash of the change and every entry, hidden ones too.
-	// Apply refuses a token that no longer matches.
+	// Token is the hex form of a hash of the change, each visible entry, and the hidden
+	// count, with the caller's picks. Apply refuses a token that no longer matches.
 	Token string `json:"token" msgpack:"token"`
 	// Change is the change that the plan covers.
 	Change Change `json:"change" msgpack:"change"`

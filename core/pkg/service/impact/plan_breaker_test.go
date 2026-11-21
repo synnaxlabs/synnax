@@ -228,16 +228,15 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 				DataType:   telem.Float32T,
 				LocalIndex: index.LocalKey,
 			})
-			hidden := []resource.ID{channel.ResourceID(data.Key())}
-			p := plan(ctx, hide(hidden...), index.Key())
+			dataID := channel.ResourceID(data.Key())
+			p := plan(ctx, hide(dataID), index.Key())
 			Expect(p.Entries).To(BeEmpty())
 			Expect(p.Hidden).To(Equal(uint32(1)))
 			late := createTask(ctx, data.Key())
-			hidden = append(hidden, task.ResourceID(late.Key))
 			_, err := apply(ctx, impact.ApplyOptions{
 				Token:   p.Token,
 				Hidden:  new(impact.ChoiceDelete),
-				Visible: hide(hidden...),
+				Visible: hide(dataID, task.ResourceID(late.Key)),
 			}, index.Key())
 			_, changed := errors.AsType[impact.PlanChangedError](err)
 			Expect(changed).To(
@@ -250,7 +249,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		},
 	)
 
-	It("Should keep the token when only the visibility of an entry changes", func(
+	It("Should give a new token when only the visibility of an entry changes", func(
 		ctx SpecContext,
 	) {
 		ch := create(ctx, channel.Channel{})
@@ -258,17 +257,18 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		id := task.ResourceID(tsk.Key)
 		seen := plan(ctx, nil, ch.Key())
 		hidden := plan(ctx, hide(id), ch.Key())
-		Expect(hidden.Token).To(Equal(seen.Token))
+		Expect(hidden.Token).ToNot(Equal(seen.Token))
 		Expect(hidden.Entries).To(BeEmpty())
 		Expect(hidden.Hidden).To(Equal(uint32(1)))
-		applied := MustSucceed(apply(ctx, impact.ApplyOptions{
+		_, err := apply(ctx, impact.ApplyOptions{
 			Token:   seen.Token,
 			Hidden:  new(impact.ChoiceDelete),
 			Visible: hide(id),
-		}, ch.Key()))
-		Expect(applied.Entries).To(BeEmpty())
-		Expect(applied.Hidden).To(Equal(uint32(1)))
-		Expect(taskExists(ctx, tsk.Key)).To(BeFalse())
+		}, ch.Key())
+		changed, ok := errors.AsType[impact.PlanChangedError](err)
+		Expect(ok).To(BeTrue())
+		Expect(changed.Plan).To(Equal(hidden))
+		Expect(taskExists(ctx, tsk.Key)).To(BeTrue())
 	})
 
 	It("Should apply a hidden pick with no hidden entries as a no-op", func(

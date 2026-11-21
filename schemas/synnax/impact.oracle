@@ -83,8 +83,9 @@ Plan struct {
     }
     token   string  {
         @doc value """
-            is the hex form of a hash of the change and every entry, hidden ones too.
-            Apply refuses a token that no longer matches.
+            is the hex form of a hash of the change, each visible entry, and the hidden
+            count, with the caller's picks. Apply refuses a token that no longer
+            matches.
         """
     }
     change  Change  {
@@ -92,4 +93,43 @@ Plan struct {
     }
 
     @doc value "is every record that a change touches, with the picks for each."
+}
+
+PlanRequest struct {
+    change Change              {
+        @doc value "is the change to plan."
+    }
+    picks  map<string, Choice> {
+        @doc value """
+            maps the text form of the record of a visible entry to the pick for it.
+        """
+    }
+    hidden Choice?             {
+        @doc value "is the pick for every entry that the caller cannot see."
+    }
+
+    @doc value "asks what a change would do with the caller's picks."
+    @go output "core/pkg/api/impact"
+}
+
+ApplyRequest struct {
+    change Change              {
+        @doc value "is the change to apply."
+    }
+    token  string              {
+        @doc value """
+            is the token of the plan that the caller saw. Empty skips the check.
+        """
+    }
+    picks  map<string, Choice> {
+        @doc value """
+            maps the text form of the record of a visible entry to the pick for it.
+        """
+    }
+    hidden Choice?             {
+        @doc value "is the pick for every entry that the caller cannot see."
+    }
+
+    @doc value "carries out a change with the caller's picks."
+    @go output "core/pkg/api/impact"
 }

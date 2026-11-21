@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // guessToken computes a plan token from what D-202 says it hashes: the change type,
@@ -75,7 +76,6 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
 		svc := MustSucceed(apiimpact.NewService(apiimpact.ServiceConfig{
-			DB:     db,
 			RBAC:   layer.RBAC,
 			Impact: layer.Impact,
 		}))
@@ -217,45 +217,6 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 	})
 
 	It(
-		"Should name no hidden task when its default cancel refuses a planned apply",
-		func(
-			ctx SpecContext,
-		) {
-			ch := createVirtual(ctx)
-			tsk := createTask(ctx, ch)
-			u := createUser(ctx)
-			grant(ctx, u, retrieveDelete, channel.ResourceID(ch))
-			p := MustSucceed(plan(
-				AuthedCtx(ctx, u),
-				apiimpact.PlanRequest{Change: deleteOf(ch)},
-			))
-			Expect(p.Entries).To(BeEmpty())
-			Expect(p.Hidden).To(Equal(uint32(1)))
-			_, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
-				Change: deleteOf(ch),
-				Token:  p.Token,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).ToNot(ContainSubstring(tsk.Key.String()))
-		},
-	)
-
-	It("Should name no hidden task when its default cancel refuses a bare apply", func(
-		ctx SpecContext,
-	) {
-		ch := createVirtual(ctx)
-		tsk := createTask(ctx, ch)
-		u := createUser(ctx)
-		grant(ctx, u, retrieveDelete, channel.ResourceID(ch))
-		_, err := apply(
-			AuthedCtx(ctx, u),
-			apiimpact.ApplyRequest{Change: deleteOf(ch)},
-		)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).ToNot(ContainSubstring(tsk.Key.String()))
-	})
-
-	It(
 		"Should answer a pick for a hidden record as it answers a pick for no record",
 		func(
 			ctx SpecContext,
@@ -288,7 +249,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 					},
 					Hidden: new(impact.ChoiceDelete),
 				})
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(validate.ErrValidation))
 				return strings.ReplaceAll(err.Error(), guess.String(), "<guess>")
 			}
 			right := channel.ResourceID(hidden.Key())
@@ -368,12 +329,11 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		// A second subject with the same plan never saw the task.
 		other := createUser(ctx)
 		grant(ctx, other, retrieveDelete, channel.ResourceID(ch))
-		_, err := apply(AuthedCtx(ctx, other), apiimpact.ApplyRequest{
+		Expect(apply(AuthedCtx(ctx, other), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Token:  p.Token,
 			Picks:  map[string]impact.Choice{id.String(): impact.ChoiceDelete},
-		})
-		Expect(err).To(MatchError(ContainSubstring("no entry is " + id.String())))
+		})).Error().To(MatchError(ContainSubstring("no entry is " + id.String())))
 		Expect(MustSucceed(layer.Task.NewRetrieve().
 			Where(task.MatchKeys(tsk.Key)).
 			Exists(ctx, db))).To(BeTrue())

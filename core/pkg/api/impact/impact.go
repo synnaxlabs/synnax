@@ -30,10 +30,6 @@ import (
 
 // ServiceConfig is the configuration for the impact API service.
 type ServiceConfig struct {
-	// DB reads the policies that decide which records a subject may see.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 	// RBAC checks which records a subject may see.
 	//
 	// [REQUIRED]
@@ -48,7 +44,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.DB = override.Nil(c.DB, other.DB)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Impact = override.Nil(c.Impact, other.Impact)
 	return c
@@ -57,7 +52,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.impact")
-	v.NotNil("db", c.DB)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("impact", c.Impact)
 	return v.Error()
@@ -75,26 +69,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// PlanRequest asks what a change would do.
-type PlanRequest struct {
-	// Change is the change to plan.
-	Change impact.Change `json:"change" msgpack:"change"`
-}
-
 // Named implements bind.Named: the subject needs retrieve on each channel it names.
 func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
-
-// ApplyRequest carries out a change with the caller's picks.
-type ApplyRequest struct {
-	// Change is the change to apply.
-	Change impact.Change `json:"change" msgpack:"change"`
-	// Token is the token of the plan that the caller saw. Empty skips the check.
-	Token string `json:"token" msgpack:"token"`
-	// Picks maps the text form of the record of a visible entry to the pick for it.
-	Picks map[string]impact.Choice `json:"picks" msgpack:"picks"`
-	// Hidden is the pick for every entry that the caller cannot see.
-	Hidden *impact.Choice `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
-}
 
 func named(c impact.Change) []resource.ID {
 	if d, ok := c.Variant.(impact.DeleteChannelsChange); ok {
@@ -103,14 +79,16 @@ func named(c impact.Change) []resource.ID {
 	return nil
 }
 
-// Plan returns every record that the change touches, with an entry for each that the
-// subject can retrieve and a count of the others.
+// Plan returns every record that the change touches with the subject's picks, with an
+// entry for each that the subject can retrieve and a count of the others.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap bind.Snapshot,
 	req PlanRequest,
 ) (impact.Plan, error) {
 	return s.cfg.Impact.Plan(ctx, snap, req.Change, impact.PlanOptions{
+		Picks:   req.Picks,
+		Hidden:  req.Hidden,
 		Visible: snap.Allowed,
 	})
 }
@@ -121,19 +99,29 @@ func (s *Service) Plan(
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, impact.Plan] {
-	apply := bind.Write(binder, s.apply)
 	return func(ctx context.Context, req ApplyRequest) (impact.Plan, error) {
-		plan, err := apply(ctx, req)
+		var visible func(resource.ID) bool
+		apply := func(
+			ctx context.Context,
+			tx gorp.Tx,
+			req ApplyRequest,
+		) (impact.Plan, error) {
+			var err error
+			visible, err = s.cfg.RBAC.NewEnforcer(tx).
+				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+			if err != nil {
+				return impact.Plan{}, err
+			}
+			return s.cfg.Impact.Apply(ctx, tx, req.Change, impact.ApplyOptions{
+				Token:   req.Token,
+				Picks:   req.Picks,
+				Hidden:  req.Hidden,
+				Visible: visible,
+			})
+		}
+		plan, err := bind.Write(binder, apply)(ctx, req)
 		denied, ok := errors.AsType[access.DeniedError](err)
-		if !ok {
-			return plan, err
-		}
-		visible, vErr := s.cfg.RBAC.NewEnforcer(s.cfg.DB).
-			Allowed(ctx, denied.Subject, access.ActionRetrieve)
-		if vErr != nil {
-			return impact.Plan{}, vErr
-		}
-		if visible(denied.Object) {
+		if !ok || visible == nil || visible(denied.Object) {
 			return plan, err
 		}
 		return impact.Plan{}, errors.Wrapf(
@@ -143,22 +131,4 @@ func (s *Service) ApplyHandler(
 			denied.Action,
 		)
 	}
-}
-
-func (s *Service) apply(
-	ctx context.Context,
-	tx gorp.Tx,
-	req ApplyRequest,
-) (impact.Plan, error) {
-	visible, err := s.cfg.RBAC.NewEnforcer(tx).
-		Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
-	if err != nil {
-		return impact.Plan{}, err
-	}
-	return s.cfg.Impact.Apply(ctx, tx, req.Change, impact.ApplyOptions{
-		Token:   req.Token,
-		Picks:   req.Picks,
-		Hidden:  req.Hidden,
-		Visible: visible,
-	})
 }

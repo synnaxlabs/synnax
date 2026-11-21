@@ -87,13 +87,21 @@ func (PlanChangedError) Error() string {
 
 // PlanOptions are the inputs of the caller to Plan.
 type PlanOptions struct {
+	// Picks maps the text form of the record of a visible entry to the pick for it. An
+	// entry with no pick takes its default.
+	Picks map[string]Choice
+	// Hidden is the pick for every entry that Visible hides and that allows it. Nil
+	// leaves those entries at their defaults.
+	Hidden *Choice
 	// Visible reports whether the caller may see a record. An entry whose record it
 	// cannot see counts in Plan.Hidden instead. Nil sees every record.
 	Visible func(resource.ID) bool
 }
 
-// Plan returns every record that c touches, as seen by snap, with the picks for each
-// and the token that Apply checks. It writes nothing.
+// Plan returns every record that c touches with the picks of opts, as seen by snap, and
+// the token that Apply checks. A delete pick on a channel adds its holders, as Apply
+// does. It writes nothing. A pick that is not a choice, that names no visible entry, or
+// that its entry does not allow fails with a validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -104,44 +112,60 @@ func (s *Service) Plan(
 	if err != nil {
 		return Plan{}, err
 	}
-	p, err := s.planDelete(ctx, snap, keys)
+	chosen, err := newPicks(opts)
 	if err != nil {
 		return Plan{}, err
 	}
-	p.Token = token(keys, p.Entries)
-	return seen(p.Plan, keys, opts.Visible), nil
+	r, err := s.resolve(ctx, snap, keys, chosen)
+	if err != nil {
+		return Plan{}, err
+	}
+	r.plan.Token = token(keys, r.plan)
+	return r.plan, nil
 }
 
 // ApplyOptions are the inputs of the caller to Apply.
 type ApplyOptions struct {
 	// Token is the token of the plan that the caller saw. Empty skips the check.
 	Token string
-	// Picks maps the text form of the record of a visible entry to the pick for it. An
-	// entry with no pick takes its default.
+	// Picks are the picks of PlanOptions.Picks.
 	Picks map[string]Choice
-	// Hidden is the pick for every entry that Visible hides and that allows it. Nil
-	// leaves those entries at their defaults.
+	// Hidden is the pick of PlanOptions.Hidden.
 	Hidden *Choice
 	// Visible reports whether the caller may see a record, as PlanOptions.Visible does.
 	Visible func(resource.ID) bool
 }
 
-// picks is ApplyOptions with its picks keyed by record.
+// picks is PlanOptions with its picks keyed by record.
 type picks struct {
 	named   map[resource.ID]Choice
 	hidden  *Choice
 	visible func(resource.ID) bool
 }
 
-// newPicks parses the picks of opts. A pick that names no record fails with a
-// validation error.
-func newPicks(opts ApplyOptions) (picks, error) {
+// newPicks parses the picks of opts. A pick that is not a choice, or that names no
+// record, fails with a validation error.
+func newPicks(opts PlanOptions) (picks, error) {
+	if opts.Hidden != nil && !opts.Hidden.IsValid() {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a choice",
+			*opts.Hidden,
+		)
+	}
 	p := picks{
 		named:   make(map[resource.ID]Choice, len(opts.Picks)),
 		hidden:  opts.Hidden,
 		visible: opts.Visible,
 	}
 	for text, pick := range opts.Picks {
+		if !pick.IsValid() {
+			return picks{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s is not a choice",
+				pick,
+			)
+		}
 		id, err := resource.ParseID(text)
 		if err != nil {
 			return picks{}, errors.Wrapf(validate.ErrValidation, "no entry is %s", text)
@@ -151,18 +175,21 @@ func newPicks(opts ApplyOptions) (picks, error) {
 	return p, nil
 }
 
-// pickOf returns the pick for e, or its default, or nothing when e allows no pick.
+// sees reports whether the caller may see r.
+func (p picks) sees(r resource.ID) bool { return p.visible == nil || p.visible(r) }
+
+// pickOf returns the pick for e, or its default, or nothing when e allows no pick. A
+// pick that names a hidden entry does not reach it, so it answers as a pick for no
+// entry does.
 func (p picks) pickOf(e Entry) (Choice, error) {
 	var (
 		pick    Choice
 		ok      bool
-		visible = p.visible == nil || p.visible(e.Record)
+		visible = p.sees(e.Record)
 	)
-	switch _, named := p.named[e.Record]; {
+	switch {
 	case visible:
 		pick, ok = p.named[e.Record]
-	case named:
-		return "", errors.Wrapf(validate.ErrValidation, "no entry is %s", e.Record)
 	case p.hidden != nil && len(e.Choices) > 0:
 		pick, ok = *p.hidden, true
 	}
@@ -175,13 +202,6 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 	if slices.Contains(e.Choices, pick) {
 		return pick, nil
 	}
-	if !visible {
-		return "", errors.Wrapf(
-			validate.ErrValidation,
-			"a hidden entry cannot take %s",
-			pick,
-		)
-	}
 	return "", errors.Wrapf(
 		validate.ErrValidation,
 		"entry %s cannot take %s",
@@ -193,14 +213,12 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // Apply carries out c in tx with the picks of opts. With no picks, no hidden pick, and
 // no token, it deletes as channel.Writer.DeleteMany does with allowInternal false,
 // which applies the default of every record, and returns an empty plan. Otherwise it
-// plans c in tx, fails with a PlanChangedError before any write when opts.Token names
-// another plan, and returns the entries that it applied, as opts.Visible lets the
-// caller see them. A restrict entry that takes cancel fails Apply with the
-// gorp.RestrictError of its record. A delete pick on a channel adds the channel to the
-// delete, and the holders of that channel take their picks or defaults. A delete pick
-// on another record deletes it through ServiceConfig.Delete before the channels go. A
-// pick for no visible entry, or one that its entry does not allow, fails with a
-// validation error. Given a gorp.DB, Apply runs in a transaction of its own.
+// plans c with the picks in tx, as Plan does, and fails with a PlanChangedError before
+// any write when opts.Token names another plan. It returns the entries that it applied,
+// as opts.Visible lets the caller see them. A restrict entry that takes cancel fails
+// Apply with the gorp.RestrictError of its record. A delete pick on a record other than
+// a channel deletes it through ServiceConfig.Delete before the channels go. Picks fail
+// as they fail Plan. Given a gorp.DB, Apply runs in a transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -222,32 +240,35 @@ func (s *Service) Apply(
 	if len(opts.Picks) == 0 && opts.Hidden == nil && opts.Token == "" {
 		return Plan{}, w.DeleteMany(ctx, keys, false)
 	}
-	chosen, err := newPicks(opts)
+	chosen, err := newPicks(PlanOptions{
+		Picks:   opts.Picks,
+		Hidden:  opts.Hidden,
+		Visible: opts.Visible,
+	})
 	if err != nil {
 		return Plan{}, err
 	}
-	first, err := s.planDelete(ctx, tx, keys)
+	r, err := s.resolve(ctx, tx, keys, chosen)
 	if err != nil {
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if first.Token = token(keys, first.Entries); first.Token != opts.Token {
-			return Plan{}, PlanChangedError{Plan: seen(first.Plan, keys, opts.Visible)}
+		if r.plan.Token = token(keys, r.plan); r.plan.Token != opts.Token {
+			return Plan{}, PlanChangedError{Plan: r.plan}
 		}
 	}
-	applied, last, records, err := s.resolve(ctx, tx, keys, first, chosen)
-	if err != nil {
-		return Plan{}, err
+	if r.cancel != nil {
+		return Plan{}, *r.cancel
 	}
-	if len(records) > 0 {
-		if err = s.cfg.Delete(ctx, tx, records); err != nil {
+	if len(r.records) > 0 {
+		if err = s.cfg.Delete(ctx, tx, r.records); err != nil {
 			return Plan{}, err
 		}
 	}
-	if err = w.DeletePlanned(ctx, last.keys, last.effects); err != nil {
+	if err = w.DeletePlanned(ctx, r.last.keys, r.last.effects); err != nil {
 		return Plan{}, err
 	}
-	return seen(applied, keys, opts.Visible), nil
+	return r.plan, nil
 }
 
 // seen returns p for the delete of the channels with keys, with the entries whose
@@ -257,74 +278,100 @@ func seen(p Plan, keys []channel.Key, visible func(resource.ID) bool) Plan {
 	if visible == nil {
 		return p
 	}
-	entries := p.Entries
-	p.Entries = make([]Entry, 0, len(entries))
-	for _, e := range entries {
+	first := slices.IndexFunc(p.Entries, func(e Entry) bool {
+		return !visible(e.Record)
+	})
+	if first < 0 {
+		return p
+	}
+	entries := make([]Entry, first, len(p.Entries)-1)
+	copy(entries, p.Entries)
+	for _, e := range p.Entries[first:] {
 		if visible(e.Record) {
-			p.Entries = append(p.Entries, e)
+			entries = append(entries, e)
 		} else {
 			p.Hidden++
 		}
 	}
+	p.Entries = entries
 	return p
 }
 
-// resolve applies chosen to first, the plan of the delete of the channels with keys in
-// tx, then plans again with each channel that picks add to it. It returns the entries
-// of the last plan and, for the channels that picks added, the entries that earlier
-// plans gave them, sorted by record; the last plan; and the records other than channels
-// that picks delete.
+// resolution is the plan of a change with picks, and what applying it does.
+type resolution struct {
+	// plan holds the entries that the change touches with the picks, as the caller sees
+	// them, with no token.
+	plan Plan
+	// last is the plan of the last delete, with every channel that picks add.
+	last planned
+	// records are the records other than channels that picks delete.
+	records []resource.ID
+	// cancel is the error of the first entry that takes cancel, or nil.
+	cancel *gorp.RestrictError
+}
+
+// resolve plans the delete of the channels with keys in snap with chosen, then plans
+// again with each channel that picks add to it. The plan holds the entries of the last
+// plan and, for the channels that picks added, the entries that earlier plans gave
+// them, sorted by record.
 func (s *Service) resolve(
 	ctx context.Context,
-	tx gorp.Tx,
+	snap gorp.Snapshot,
 	keys []channel.Key,
-	first planned,
 	chosen picks,
-) (Plan, planned, []resource.ID, error) {
+) (resolution, error) {
 	var (
-		p       = first
+		r       resolution
+		all     = keys
 		earlier []Entry
-		seen    = set.New[resource.ID]()
+		visible = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
-		records []resource.ID
 	)
 	for {
-		more, picked, err := choose(p, chosen)
+		p, err := s.planDelete(ctx, snap, all)
 		if err != nil {
-			return Plan{}, planned{}, nil, err
+			return resolution{}, err
+		}
+		more, picked, cancel, err := choose(p, chosen)
+		if err != nil {
+			return resolution{}, err
+		}
+		if r.cancel == nil {
+			r.cancel = cancel
 		}
 		for _, e := range p.Entries {
-			seen.Add(e.Record)
-		}
-		for _, r := range picked {
-			if !deleted.Contains(r) {
-				deleted.Add(r)
-				records = append(records, r)
+			if chosen.sees(e.Record) {
+				visible.Add(e.Record)
 			}
 		}
+		for _, rec := range picked {
+			if !deleted.Contains(rec) {
+				deleted.Add(rec)
+				r.records = append(r.records, rec)
+			}
+		}
+		r.last = p
 		if len(more) == 0 {
 			break
 		}
 		earlier = append(earlier, p.Entries...)
-		keys = append(keys, more...)
-		if p, err = s.planDelete(ctx, tx, keys); err != nil {
-			return Plan{}, planned{}, nil, err
-		}
+		all = append(slices.Clip(all), more...)
 	}
 	for id := range chosen.named {
-		if !seen.Contains(id) {
-			return Plan{}, planned{}, nil, errors.Wrapf(
+		if !visible.Contains(id) {
+			return resolution{}, errors.Wrapf(
 				validate.ErrValidation,
 				"no entry is %s",
 				id,
 			)
 		}
 	}
-	applied := Plan{Entries: p.Entries, Kept: p.Kept}
+	applied := Plan{Entries: r.last.Entries, Kept: r.last.Kept}
 	if len(earlier) > 0 {
-		applied.Entries = withEarlier(p.Entries, earlier)
+		applied.Entries = withEarlier(r.last.Entries, earlier)
 	}
-	return applied, p, records, nil
+	r.plan = seen(applied, keys, chosen.visible)
+	return r, nil
 }
 
 // withEarlier returns entries and each entry of earlier for a record that entries do
@@ -346,33 +393,39 @@ func withEarlier(entries, earlier []Entry) []Entry {
 }
 
 // choose applies chosen to the entries of p. It returns the channels and the other
-// records that the picks delete, and the cancel error of the first entry that takes
-// cancel.
-func choose(p planned, chosen picks) ([]channel.Key, []resource.ID, error) {
+// records that the picks delete, and the error of the first entry that takes cancel.
+func choose(
+	p planned,
+	chosen picks,
+) ([]channel.Key, []resource.ID, *gorp.RestrictError, error) {
 	var (
 		channels []channel.Key
 		records  []resource.ID
+		cancel   *gorp.RestrictError
 	)
 	for _, e := range p.Entries {
 		pick, err := chosen.pickOf(e)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		switch {
 		case pick == "":
 		case pick == ChoiceCancel:
-			return nil, nil, p.cancels[e.Record]
+			if cancel == nil {
+				restrict := p.cancels[e.Record]
+				cancel = &restrict
+			}
 		case e.Record.Type != resource.TypeChannel:
 			records = append(records, e.Record)
 		default:
 			k, err := channel.ParseKey(e.Record.Key)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			channels = append(channels, k)
 		}
 	}
-	return channels, records, nil
+	return channels, records, cancel, nil
 }
 
 // deletedKeys returns the keys of the channels that c deletes.
