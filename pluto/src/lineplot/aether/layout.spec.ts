@@ -11,9 +11,9 @@ import { bounds, box, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
+  collapse,
   join,
   Layout,
-  segments,
   shownSpans,
   spans,
   type Trace,
@@ -219,17 +219,17 @@ describe("Layout.span", () => {
   });
 });
 
-describe("segments", () => {
+describe("collapse", () => {
   const MIN = MINUTE;
 
   it("should give one segment padded by a share of its span for one window", () => {
-    expect(segments([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
+    expect(collapse([trace("1", 0, 100 * MIN)], 0.01)).toEqual([
       { lower: -MIN, upper: 101 * MIN },
     ]);
   });
 
   it("should give each window far from the others its own segment", () => {
-    const s = segments([trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)], 0);
+    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)], 0);
     expect(s).toEqual([
       { lower: 0, upper: 10.5 * MIN },
       { lower: 99.5 * MIN, upper: 110 * MIN },
@@ -237,12 +237,12 @@ describe("segments", () => {
   });
 
   it("should merge windows whose margins overlap", () => {
-    const s = segments([trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)], 0);
+    const s = collapse([trace("1", 0, 10 * MIN), trace("2", 10.8 * MIN, 20 * MIN)], 0);
     expect(s).toEqual([{ lower: 0, upper: 20 * MIN }]);
   });
 
   it("should pad the outer edges by a share of the span of every segment", () => {
-    const s = segments(
+    const s = collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN)],
       0.1,
     );
@@ -251,7 +251,7 @@ describe("segments", () => {
   });
 
   it("should give a growing window the floor before it and no margin after", () => {
-    const s = segments(
+    const s = collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
       0,
     );
@@ -259,7 +259,7 @@ describe("segments", () => {
   });
 
   it("should give a rolling window a margin from its span before it", () => {
-    const s = segments(
+    const s = collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "rolling" })],
       0,
     );
@@ -267,11 +267,11 @@ describe("segments", () => {
   });
 
   it("should pad a single sample by one on each side", () => {
-    expect(segments([trace("1", 5, 5)], 0.01)).toEqual([{ lower: 4, upper: 6 }]);
+    expect(collapse([trace("1", 5, 5)], 0.01)).toEqual([{ lower: 4, upper: 6 }]);
   });
 
   it("should give no segments when no trace has a window", () => {
-    expect(segments([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
+    expect(collapse([trace("1", Infinity, -Infinity)], 0.01)).toEqual([]);
   });
 });
 
@@ -406,9 +406,10 @@ describe("shownSpans", () => {
   const window = (start: number, hours: number) =>
     new TimeRange(start * HOUR, (start + hours) * HOUR);
   const ns = (t: { valueOf: () => bigint }) => Number(t.valueOf());
+  const NOW = new TimeStamp(1000 * HOUR);
 
   it("should leave out the gaps between windows far apart", () => {
-    const shown = shownSpans([window(0, 1), window(100, 1)]);
+    const shown = shownSpans([window(0, 1), window(100, 1)], NOW);
     expect(shown).toHaveLength(2);
     expect(ns(shown[0].start)).toEqual(0);
     expect(ns(shown[1].end)).toEqual(101 * HOUR);
@@ -417,7 +418,7 @@ describe("shownSpans", () => {
   });
 
   it("should hold the time between windows close together in one span", () => {
-    const shown = shownSpans([window(0, 1), window(1.05, 1)]);
+    const shown = shownSpans([window(0, 1), window(1.05, 1)], NOW);
     expect(shown).toHaveLength(1);
     expect(ns(shown[0].end)).toBeCloseTo(2.05 * HOUR, -1);
   });
@@ -429,13 +430,22 @@ describe("shownSpans", () => {
       start.add(TimeSpan.days(2)),
       start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
     );
-    const shown = shownSpans([first, later]);
+    const shown = shownSpans([first, later], NOW);
     expect(shown[0].start).toEqual(first.start);
     expect(shown[1].end).toEqual(later.end);
   });
 
+  it("should end a running window at the end it is given", () => {
+    const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
+    const shown = shownSpans([window(0, 1), running], new TimeStamp(101 * HOUR));
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
+    expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
+    expect(shown[1].end).toEqual(TimeStamp.MAX);
+  });
+
   it("should list the spans in time order", () => {
-    const shown = shownSpans([window(100, 1), window(0, 1)]);
+    const shown = shownSpans([window(100, 1), window(0, 1)], NOW);
     expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
   });
 });

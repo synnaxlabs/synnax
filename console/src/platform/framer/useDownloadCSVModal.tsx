@@ -114,10 +114,12 @@ const DownloadCSV = ({
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
   // The list reads in the order of the rows in the file.
-  const [given] = useState(() =>
-    timeRanges.map((tr) => new TimeRange(tr)).sort((a, b) => TimeRange.sort(a, b)),
-  );
-  const [shown] = useState(() => given.map(shownRange));
+  const [{ given, shown }] = useState(() => {
+    const sorted = timeRanges
+      .map((tr) => new TimeRange(tr))
+      .sort((a, b) => TimeRange.sort(a, b));
+    return { given: sorted, shown: sorted.map(shownRange) };
+  });
   // Form times are floats that round nanoseconds, so a time left as shown reads the
   // exact time behind it. An open end left as shown stays open.
   const toRead = (ranges: NumericTimeRange[]): TimeRange[] =>

@@ -189,8 +189,9 @@ type ReadRequest struct {
 	// in time order.
 	TimeRanges []telem.TimeRange `json:"time_ranges" msgpack:"time_ranges"`
 	// Reduction reduces the samples of each channel. A read without one keeps every
-	// sample. A stride runs over the samples of every range as one series. A read
-	// cannot take a limit over more than one range.
+	// sample. A stride keeps samples by their stored position, so each range keeps the
+	// samples it keeps when read alone. A read cannot take a limit over more than one
+	// range.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
 	// TimestampsIncluded also reads the index channels that timestamp Keys, when Keys
 	// leaves them out. A CSV read fails without it unless Keys holds every index.

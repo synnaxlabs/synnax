@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  array,
+  bounds,
+  type scale,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
 import { timeTickInterval } from "d3-time";
 import { z } from "zod";
@@ -78,6 +85,9 @@ class TimeTickFactory implements TickFactory {
   private readonly normalScale: ScaleTime<number, number>;
   private readonly preciseScale: PreciseTimeScale;
 
+  private prevSegmentKey: number[] = [];
+  private segmentTickCache: Tick[] = [];
+
   constructor(props: ParsedTickFactoryProps) {
     this.props = props;
     this.normalScale = scaleTime();
@@ -141,48 +151,40 @@ class TimeTickFactory implements TickFactory {
   // segmentTicks places ticks in the visible part of each segment at one interval,
   // which the visible time of all segments and the size of the axis pick.
   private segmentTicks(segments: TickSegment[], size: number): Tick[] {
-    const visible = segments.map(({ position, decimalToDataScale: s }) => ({
-      domain: new TimeRange(
-        new TimeStamp(s.pos(Math.max(position.lower, 0))),
-        new TimeStamp(s.pos(Math.min(position.upper, 1))),
-      ),
-      toDecimal: s.reverse(),
-    }));
-    const total = visible.reduce(
-      (sum, { domain }) => sum + domain.span.milliseconds,
-      0,
-    );
-    const count = calcTickCount(size, this.props.tickSpacing);
-    const interval = timeTickInterval(new Date(0), new Date(total), count);
-    if (interval == null) return [];
-    return visible.flatMap(({ domain, toDecimal }, segment) => {
-      const range = interval.range(domain.start.date(), domain.end.date());
-      const ticks = evenlySpaceTwoDayTicks(range, domain);
-      return ticks.map((tick) => ({
-        label: this.normalTickLabel(tick),
-        anchorLabel: anchorLabel(tick),
-        segment,
-        position: toDecimal.pos(Number(new TimeStamp(tick).valueOf())) * size,
-      }));
+    const visible = segments.map(({ position, decimalToDataScale: s }) => {
+      const lower = Math.max(position.lower, 0);
+      const upper = Math.min(position.upper, 1);
+      return { lower, upper, start: s.pos(lower), end: s.pos(upper), scale: s };
     });
+    const key = [size, ...visible.flatMap((v) => [v.lower, v.upper, v.start, v.end])];
+    if (array.equal(key, this.prevSegmentKey)) return this.segmentTickCache;
+    this.prevSegmentKey = key;
+    const total = visible.reduce((sum, { start, end }) => sum + end - start, 0);
+    const count = calcTickCount(size, this.props.tickSpacing);
+    const interval = timeTickInterval(new Date(0), new Date(total / NS_PER_MS), count);
+    this.segmentTickCache =
+      interval == null
+        ? []
+        : visible.flatMap(({ start, end, scale: s }, segment) => {
+            const domain = new TimeRange(new TimeStamp(start), new TimeStamp(end));
+            const range = interval.range(domain.start.date(), domain.end.date());
+            const toDecimal = s.reverse();
+            return evenlySpaceTwoDayTicks(range, domain).map((tick) => ({
+              label: this.normalTickLabel(tick),
+              anchorLabel: anchorLabel(tick),
+              segment,
+              position: toDecimal.pos(Number(new TimeStamp(tick).valueOf())) * size,
+            }));
+          });
+    return this.segmentTickCache;
   }
 
   normalTickLabel(date: Date): string {
     const ms = date.getMilliseconds();
-    if (date.getSeconds() !== 0 || ms !== 0) {
-      let formatted: string = `${date.getSeconds()}`;
-      if (ms !== 0) {
-        const millisecondString = Math.round(ms)
-          .toString()
-          .padStart(3, "0")
-          .replace(/0+$/, "");
-        formatted += `.${millisecondString}`;
-      }
-      return `${formatted}s`;
-    }
+    if (date.getSeconds() !== 0 || ms !== 0)
+      return `${date.getSeconds()}${ms !== 0 ? `.${fraction(ms)}` : ""}s`;
     // If we're on the minute, show the hour and minute in military time
-    if (date.getHours() !== 0 || date.getMinutes() !== 0)
-      return `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+    if (date.getHours() !== 0 || date.getMinutes() !== 0) return hourMinute(date);
     // Midnight ticks label the finest calendar unit that changed instead.
     const month = MONTH_FORMAT.format(date);
     if (date.getDate() !== 1) return `${month} ${date.getDate()}`;
@@ -262,14 +264,22 @@ class RelativeTickFactory implements TickFactory {
 // anchorLabel labels a date with its day and its time, to the finest unit that is not
 // zero: "Nov 18 10:00", "Nov 18 10:00:30", "Nov 18 10:00:30.25".
 const anchorLabel = (date: Date): string => {
-  const time = `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
   const ms = date.getMilliseconds();
   let seconds = "";
   if (date.getSeconds() !== 0 || ms !== 0)
     seconds = `:${date.getSeconds().toString().padStart(2, "0")}`;
-  if (ms !== 0) seconds += `.${ms.toString().padStart(3, "0").replace(/0+$/, "")}`;
-  return `${MONTH_FORMAT.format(date)} ${date.getDate()} ${time}${seconds}`;
+  if (ms !== 0) seconds += `.${fraction(ms)}`;
+  return `${MONTH_FORMAT.format(date)} ${date.getDate()} ${hourMinute(date)}${seconds}`;
 };
+
+// hourMinute labels the hour and minute of a date in 24-hour time: "9:05".
+const hourMinute = (date: Date): string =>
+  `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
+
+// fraction returns milliseconds as the digits after a decimal point of seconds, with no
+// trailing zeros: "25" for 250.
+const fraction = (ms: number): string =>
+  Math.round(ms).toString().padStart(3, "0").replace(/0+$/, "");
 
 const calcTickCount = (size: number, pixelsPerTick: number): number => {
   const tickCount = Math.floor(size / pixelsPerTick);
@@ -277,6 +287,8 @@ const calcTickCount = (size: number, pixelsPerTick: number): number => {
 };
 
 const DAY_MS = TimeSpan.DAY.milliseconds;
+
+const NS_PER_MS = Number(TimeSpan.MILLISECOND.valueOf());
 
 const MONTH_FORMAT = new Intl.DateTimeFormat("default", { month: "short" });
 

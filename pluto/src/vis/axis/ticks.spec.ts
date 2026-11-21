@@ -456,6 +456,14 @@ describe("TimeTickFactory segments", () => {
     create().forEach((t) => expect(t.label).toMatch(/^\d+(:\d\d|\.\d+)?s?$/));
   });
 
+  it("should return the ticks it made last for the same segments and size", () => {
+    const factory = newTickFactory({ type: "time" });
+    const params = { decimalToDataScale: segments()[0].decimalToDataScale, size: 800 };
+    const first = factory.create({ ...params, segments: segments() });
+    expect(factory.create({ ...params, segments: segments() })).toBe(first);
+    expect(factory.create({ ...params, segments: segments(0.4) })).not.toBe(first);
+  });
+
   it("should tick as one axis when one segment is in view", () => {
     const factory = newTickFactory({ type: "time" });
     const [a] = segments(1.5);

@@ -11,9 +11,8 @@ import { box, type location, scale, xy } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type AxisProps, axisStateZ, BREAK_WIDTH } from "@/vis/axis/axis";
-import { newCanvas } from "@/vis/axis/canvas";
+import { Bottom, newCanvas } from "@/vis/axis/canvas";
 import type { Tick } from "@/vis/axis/ticks";
-import type { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const LOCATIONS: location.Outer[] = ["bottom", "top", "left", "right"];
@@ -113,26 +112,24 @@ describe("axis/canvas", () => {
 
     const render = (ticks: Tick[]) => {
       const r = canvasTest.record();
-      const axis = newCanvas("bottom", r as unknown as render.Context, state("bottom"));
-      (axis as unknown as { tickFactory: { create: () => Tick[] } }).tickFactory = {
-        create: () => ticks,
-      };
+      const axis = new Bottom(r.context, state("bottom"));
+      vi.spyOn(axis.tickFactory, "create").mockReturnValue(ticks);
       axis.render({ ...PROPS, segments: SEGMENTS });
       const { calls } = r.lower2d;
       const labels = calls.filter((c) => c.op === "fillText").map((c) => c.args[0]);
       const ends = calls.filter((c) => c.op === "lineTo").map((c) => c.args[0]);
-      return { labels, ends };
+      return { labels, ends, calls };
     };
 
     it("should draw a faint mark at each open break", () => {
       const r = canvasTest.record();
-      const axis = newCanvas("bottom", r as unknown as render.Context, state("bottom"));
+      const axis = newCanvas("bottom", r.context, state("bottom"));
       axis.render({ ...PROPS, openBreaks: [0.25] });
       const { calls } = r.lower2d;
-      const faint = calls.findIndex((c) => {
-        const alpha = c.args[0] as number;
-        return c.op === "set:globalAlpha" && alpha < 1;
-      });
+      const faint = calls.findIndex(
+        ({ op, args: [alpha] }) =>
+          op === "set:globalAlpha" && typeof alpha === "number" && alpha < 1,
+      );
       expect(faint).toBeGreaterThan(-1);
       const end = calls.findIndex((c, i) => i > faint && c.op === "set:globalAlpha");
       const marked = calls
@@ -186,9 +183,19 @@ describe("axis/canvas", () => {
       expect(labels).toEqual(["Nov 18 14:31"]);
     });
 
+    it("should measure each label in the font of the axis", () => {
+      const { calls } = render([
+        { position: 40, label: "10:00", anchorLabel: "Nov 17 10:00", segment: 0 },
+      ]);
+      const font = calls.findIndex((c) => c.op === "set:font");
+      const measure = calls.findIndex((c) => c.op === "textDimensions");
+      expect(calls[font].args).toEqual([state("bottom").font]);
+      expect(measure).toBeGreaterThan(font);
+    });
+
     it("should draw every label of an axis with no breaks", () => {
       const r = canvasTest.record();
-      const axis = newCanvas("bottom", r as unknown as render.Context, state("bottom"));
+      const axis = newCanvas("bottom", r.context, state("bottom"));
       axis.render(PROPS);
       const labels = r.lower2d.calls.filter((c) => c.op === "fillText");
       expect(labels.length).toBeGreaterThan(0);

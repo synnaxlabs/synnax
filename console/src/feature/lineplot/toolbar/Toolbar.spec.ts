@@ -117,11 +117,11 @@ describe("lineplot/toolbar/Toolbar", () => {
       return { data, start };
     };
 
-    // Opens the CSV download of a plot of the channels and returns its Download button
-    // once it is enabled.
+    // Opens the CSV download of a plot of the channels over the windows. Returns its
+    // Download button once it is enabled.
     const openDownload = async (
       channels: channel.Key[],
-      window: Window = dynamicWindow(TimeSpan.seconds(30)),
+      windows: Window[] = [dynamicWindow(TimeSpan.seconds(30))],
     ): Promise<HTMLElement> => {
       const key = uuid.create();
       const lines = channels.map((yChannel) => {
@@ -134,7 +134,7 @@ describe("lineplot/toolbar/Toolbar", () => {
           name: uniqueName("plot"),
           channels: { y1: channels },
           lines,
-          ranges: [{ variant: "window", window }],
+          ranges: windows.map((window) => ({ variant: "window" as const, window })),
         },
         preloadedState: (key) => createPreloadedState(key),
       });
@@ -165,13 +165,33 @@ describe("lineplot/toolbar/Toolbar", () => {
       const downloads = captureBrowserDownloads();
       const { data, start } = await createStopped(id.create().replace(/-/g, "_"), 200n);
       const range = new TimeRange(start, start.add(TimeSpan.minutes(1)));
-      const download = await openDownload([data.key], staticWindow(range));
+      const download = await openDownload([data.key], [staticWindow(range)]);
       await act(async () => {
         fireEvent.click(download);
       });
       await waitFor(() => expect(downloads.blobs).toHaveLength(1));
       const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
       expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it("should download one span for each range a plot shows apart", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      const at = (month: number) =>
+        staticWindow(
+          new TimeRange(
+            new TimeStamp(new Date(2020, month, 5, 12)),
+            new TimeStamp(new Date(2020, month, 5, 13)),
+          ),
+        );
+      await openDownload([data.key], [at(6), at(2)]);
+      const text = document.body.textContent;
+      // Each span ends at its range and a margin.
+      expect(text).toMatch(
+        new RegExp(
+          String.raw`Mar 5, 2020\s*12:00.*Mar 5, 2020\s*13:0\d.*` +
+            String.raw`Jul 5, 2020\s*11:5\d.*Jul 5, 2020\s*13:00`,
+        ),
+      );
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {

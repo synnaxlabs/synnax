@@ -338,7 +338,7 @@ var _ = Describe("Read", func() {
 				To(Equal(telem.NewSeriesV[float32](1, 2, 6, 7).Data))
 		})
 
-		It("Should stride the samples of every time range as one series", func(
+		It("Should stride each time range by the stored position of its samples", func(
 			ctx SpecContext,
 		) {
 			index, channels := createIndexed(ctx, telem.Float32T)
@@ -355,12 +355,40 @@ var _ = Describe("Read", func() {
 				},
 			})
 			res.TimeRanges = []telem.TimeRange{
-				telem.NewRangeSeconds(1, 4),
-				telem.NewRangeSeconds(6, 9),
+				telem.NewRangeSeconds(1, 3),
+				telem.NewRangeSeconds(4, 6),
 			}
 			Expect(encodeSamples(ctx, res, channels[0])).
-				To(Equal(telem.NewSeriesV[float32](1, 3, 7).Data))
+				To(Equal(telem.NewSeriesV[float32](1, 5).Data))
 		})
+
+		It(
+			"Should encode the newest samples of the last time range that holds any",
+			func(
+				ctx SpecContext,
+			) {
+				index, channels := createIndexed(ctx, telem.Float32T)
+				write(
+					ctx,
+					index,
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+					channels,
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				)
+				res := response(
+					channels,
+					[]svcchannel.Channel{index},
+					svcframer.IteratorConfig{ChunkSize: 2},
+				)
+				res.TimeRanges = []telem.TimeRange{
+					telem.NewRangeSeconds(1, 4),
+					telem.NewRangeSeconds(10, 12),
+				}
+				res.Latest = 2
+				Expect(encodeSamples(ctx, res, channels[0])).
+					To(Equal(telem.NewSeriesV[float32](2, 3).Data))
+			},
+		)
 
 		It("Should encode a read with no data as a single terminator", func(
 			ctx SpecContext,
