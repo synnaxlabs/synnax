@@ -14,9 +14,11 @@ import type { record } from "@synnaxlabs/x";
 
 import {
   type ControlState,
+  type Hidden,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
+  type Solo,
   type State,
   type StoreState,
   type ToolbarState,
@@ -61,10 +63,19 @@ const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
 
 export const useSelectViewportMode = createSelector(selectViewportMode);
 
-const selectHiddenLines = (params: KeyedSelectorParams): string[] =>
-  selectState(params).hiddenLines;
+const selectHidden = (params: KeyedSelectorParams): Hidden => {
+  const { hiddenLines, hiddenRanges, hiddenTraces } = selectState(params);
+  return { lines: hiddenLines, ranges: hiddenRanges, traces: hiddenTraces };
+};
 
-export const useSelectHiddenLines = createSelector(selectHiddenLines);
+/** Selects the items of the plot that do not show. */
+export const useSelectHidden = createSelector(selectHidden);
+
+const selectSolo = (params: KeyedSelectorParams): Solo | null =>
+  selectState(params).solo;
+
+/** Selects the item the user showed alone, if any. */
+export const useSelectSolo = createSelector(selectSolo);
 
 const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =>
   selectState(params).measure.mode;

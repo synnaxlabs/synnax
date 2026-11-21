@@ -30,7 +30,6 @@ import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
-  getConfig,
   type RenderOptions,
   type RenderResult,
   screen,
@@ -45,7 +44,7 @@ import {
   useEffect,
   useImperativeHandle,
 } from "react";
-import { expect, onTestFinished } from "vitest";
+import { expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
 import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -448,6 +447,50 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
   tabKey: panel.TabKey;
 }
 
+interface Step {
+  name: string;
+  start: number;
+  end?: number;
+}
+
+const stepsByTest = new WeakMap<object, Step[]>();
+
+const formatStep = ({ name, start, end }: Step, now: number): string =>
+  end == null
+    ? `${name} still waiting after ${Math.round(now - start)} ms`
+    : `${name} ${Math.round(end - start)} ms`;
+
+/**
+ * Runs a wait of a task form spec and records how long it took, so a test that fails,
+ * a timeout included, reports the step it waited on.
+ */
+const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
+  const test = TestRunner.getCurrentTest();
+  if (test == null) return await run();
+  let steps = stepsByTest.get(test);
+  if (steps == null) {
+    const recorded: Step[] = [];
+    stepsByTest.set(test, recorded);
+    onTestFailed(() => {
+      const now = performance.now();
+      const report = recorded.map((s) => formatStep(s, now)).join("; ");
+      const line = `task form steps of "${test.name}": ${report}`;
+      // The console check fails a test on console output, so under Node the report
+      // writes to stderr. A browser spec has no process, and its test already failed.
+      if (typeof process === "undefined") console.error(line);
+      else process.stderr.write(`${line}\n`);
+    });
+    steps = recorded;
+  }
+  const entry: Step = { name, start: performance.now() };
+  steps.push(entry);
+  try {
+    return await run();
+  } finally {
+    entry.end = performance.now();
+  }
+};
+
 interface LoadProbeProps {
   onLoad: () => void;
 }
@@ -467,6 +510,12 @@ const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
+): Promise<RenderTaskFormTabResult> =>
+  await step("form load", async () => await renderTaskFormTabSteps(Form, options));
+
+const renderTaskFormTabSteps = async (
+  Form: FC<FormTabProps>,
+  options: RenderTaskFormTabOptions,
 ): Promise<RenderTaskFormTabResult> => {
   const { onStatuses, onCaughtError, analytics = Analytics.NOOP } = options;
   const client = options.client ?? defaultClient;
@@ -488,7 +537,8 @@ export const renderTaskFormTab = async (
     onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
-  const loaded = Promise.withResolvers<void>();
+  let loaded = false;
+  let loadError: unknown;
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
@@ -497,18 +547,39 @@ export const renderTaskFormTab = async (
           <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
             <Suspense fallback={null}>
               <Form taskKey={taskKey} />
-              <LoadProbe onLoad={loaded.resolve} />
+              <LoadProbe
+                onLoad={() => {
+                  loaded = true;
+                }}
+              />
             </Suspense>
             {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
           </PanelScopes>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
-    { wrapper, onCaughtError },
+    {
+      wrapper,
+      onCaughtError: (error, info) => {
+        loadError ??= error;
+        // React logs a caught error when the root sets no handler.
+        if (onCaughtError == null) console.error(error);
+        else onCaughtError(error, info);
+      },
+    },
   );
-  // A lazy form loads its module after the first render. The wait runs outside act,
-  // as findBy does, since act holds React's retry until its callback returns.
-  await getConfig().asyncWrapper(async () => await loaded.promise);
+  // A lazy form loads its module after the first render. waitFor runs outside act,
+  // since act holds React's retry until its callback returns.
+  // A cold module load under coverage can outlast the default wait, so the wait ends
+  // only short of the test timeout.
+  await waitFor(
+    () => {
+      if (loaded) return;
+      // A boundary that caught an error in place of the form holds the cause.
+      throw new Error("The task form did not load", { cause: loadError });
+    },
+    { timeout: 10_000 },
+  );
   return { ...result, ...created, store, tabKey: tab.key };
 };
 
@@ -527,16 +598,17 @@ export const awaitEditableForm = async (): Promise<void> => {
  * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
  * so clicking without the wait races the form's initial query.
  */
-export const clickDeploy = async (container: HTMLElement): Promise<void> => {
-  const button = await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
-    if (b.getAttribute("aria-disabled") === "true")
-      throw new Error("start button is disabled");
-    return b;
+export const clickDeploy = async (container: HTMLElement): Promise<void> =>
+  await step("clickDeploy", async () => {
+    const button = await waitFor(() => {
+      const b = within(container).getByRole("button", { name: "Start" });
+      if (b.getAttribute("aria-disabled") === "true")
+        throw new Error("start button is disabled");
+      return b;
+    });
+    // The click can re-render form parts that still suspend on their first query.
+    await act(async () => fireEvent.click(button));
   });
-  // The click can re-render form parts that still suspend on their first query.
-  await act(async () => fireEvent.click(button));
-};
 
 /**
  * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
@@ -629,10 +701,14 @@ export const awaitCommand = async (
       }
     }
   };
-  return await sync.withTimeout(
-    read(),
-    TimeSpan.seconds(10),
-    () => new Error(`no command for task ${taskKey} received within 10s`),
+  return await step(
+    "awaitCommand",
+    async () =>
+      await sync.withTimeout(
+        read(),
+        TimeSpan.seconds(10),
+        () => new Error(`no command for task ${taskKey} received within 10s`),
+      ),
   );
 };
 
