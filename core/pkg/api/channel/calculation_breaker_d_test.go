@@ -596,6 +596,7 @@ var _ = Describe("Old API breaker d", func() {
 				)
 			}).ToNot(Panic())
 			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring("0.operations.0.type")))
 		})
 	})
 })

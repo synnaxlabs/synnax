@@ -1,0 +1,400 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package channel
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"strconv"
+
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// calculationOperations returns the record form of ops. A none operation has no record
+// form, and a reset channel of 0 is absent. It returns an error wrapping
+// validate.ErrValidation, at the position of the operation, for an operation whose type
+// is not valid.
+func calculationOperations(ops []channel.Operation) ([]calculation.Operation, error) {
+	out := make([]calculation.Operation, 0, len(ops))
+	for i, op := range ops {
+		if err := op.Validate(); err != nil {
+			return nil, validate.PathedError(err, strconv.Itoa(i))
+		}
+		w := calculation.Window{Duration: op.Duration}
+		if op.ResetChannel != 0 {
+			w.Reset = new(op.ResetChannel)
+		}
+		var variant calculation.OperationVariant
+		switch op.Type {
+		case channel.OperationTypeMin:
+			variant = calculation.MinOperation{Window: w}
+		case channel.OperationTypeMax:
+			variant = calculation.MaxOperation{Window: w}
+		case channel.OperationTypeAvg:
+			variant = calculation.AvgOperation{Window: w}
+		case channel.OperationTypeDerivative:
+			variant = calculation.DerivativeOperation{}
+		case channel.OperationTypeNone:
+			continue
+		default:
+			panic(fmt.Sprintf("operation of unknown type %q", op.Type))
+		}
+		out = append(out, calculation.Operation{Variant: variant})
+	}
+	return out, nil
+}
+
+// channelOperations returns the old API form of ops.
+func channelOperations(ops []calculation.Operation) []channel.Operation {
+	out := make([]channel.Operation, len(ops))
+	for i, op := range ops {
+		var (
+			typ channel.OperationType
+			w   calculation.Window
+		)
+		switch v := op.Variant.(type) {
+		case calculation.MinOperation:
+			typ, w = channel.OperationTypeMin, v.Window
+		case calculation.MaxOperation:
+			typ, w = channel.OperationTypeMax, v.Window
+		case calculation.AvgOperation:
+			typ, w = channel.OperationTypeAvg, v.Window
+		case calculation.DerivativeOperation:
+			typ = channel.OperationTypeDerivative
+		default:
+			panic(fmt.Sprintf("operation of unknown type %T", op.Variant))
+		}
+		out[i] = channel.Operation{Type: typ, Duration: w.Duration}
+		if w.Reset != nil {
+			out[i].ResetChannel = *w.Reset
+		}
+	}
+	return out
+}
+
+// createChannels creates channels in tx. The channel at each position of unsavedAt is
+// the output of the unsaved calculation at the same position of unsaved, made through
+// calculation.Writer.CreateOutput. When retrieveIfExists is true, a channel whose name
+// or key is stored is found as channel.RetrieveIfNameExists finds it, and no
+// calculation is made for it. It returns the stored channels in the order of channels,
+// then the index channels of the new outputs. The error of a failed channel has its
+// position in channels as the first segment of its path.
+func (s *Service) createChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []channel.Channel,
+	unsaved []calculation.Unsaved,
+	unsavedAt []int,
+	retrieveIfExists bool,
+) ([]channel.Channel, error) {
+	var (
+		stored  = slices.Clone(channels)
+		plain   []channel.Channel
+		plainAt []int
+		opts    []channel.CreateOption
+		byName  = map[string]channel.Channel{}
+		byKey   = map[channel.Key]channel.Channel{}
+	)
+	for i, ch := range channels {
+		if !slices.Contains(unsavedAt, i) {
+			plain, plainAt = append(plain, ch), append(plainAt, i)
+		}
+	}
+	if retrieveIfExists {
+		opts = append(opts, channel.RetrieveIfNameExists())
+		found, err := s.storedChannels(ctx, tx, channels)
+		if err != nil {
+			return nil, err
+		}
+		for _, ch := range found {
+			byName[ch.Name], byKey[ch.Key()] = ch, ch
+		}
+	}
+	if len(plain) > 0 {
+		w := s.internal.NewWriter(tx)
+		if err := w.CreateMany(ctx, &plain, opts...); err != nil {
+			if b, ok := errors.AsType[channel.BatchError](err); ok {
+				return nil, validate.PathedError(b.Err, strconv.Itoa(plainAt[b.At]))
+			}
+			return nil, err
+		}
+		for j, i := range plainAt {
+			stored[i] = plain[j]
+		}
+	}
+	var (
+		w       = s.calculations.NewWriter(tx)
+		indexes []channel.Channel
+	)
+	for k, u := range unsaved {
+		i := unsavedAt[k]
+		if ch, ok := storedOf(byName, byKey, u.Output); ok && retrieveIfExists {
+			stored[i] = ch
+			continue
+		}
+		if err := s.checkKeyFree(ctx, tx, u.Output); err != nil {
+			return nil, validate.PathedError(err, strconv.Itoa(i))
+		}
+		c := calculation.Calculation{Expression: u.Expression, Operations: u.Operations}
+		created, err := w.CreateOutput(ctx, &c, u.Output.Name, u.Output.Group)
+		if err != nil {
+			return nil, validate.PathedError(err, strconv.Itoa(i))
+		}
+		stored[i] = created[0]
+		indexes = append(indexes, created[1:]...)
+	}
+	return slices.Concat(stored, indexes), nil
+}
+
+// storedChannels returns the stored channels that have the name or key of a channel in
+// channels.
+func (s *Service) storedChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []channel.Channel,
+) ([]channel.Channel, error) {
+	var byName []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchNames(channel.Names(channels)...)).
+		Entries(&byName).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	var keys []channel.Key
+	for _, ch := range channels {
+		if ch.LocalKey != 0 {
+			keys = append(keys, ch.Key())
+		}
+	}
+	if len(keys) == 0 {
+		return byName, nil
+	}
+	var byKey []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		SkipMissingKeys().
+		Entries(&byKey).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return slices.Concat(byName, byKey), nil
+}
+
+// checkKeyFree returns an error wrapping validate.ErrValidation when ch names the key
+// of a stored channel, which the old channel API refuses to create again.
+func (s *Service) checkKeyFree(
+	ctx context.Context,
+	tx gorp.Tx,
+	ch channel.Channel,
+) error {
+	if ch.LocalKey == 0 {
+		return nil
+	}
+	exists, err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(ch.Key())).
+		Exists(ctx, tx)
+	if err != nil || !exists {
+		return err
+	}
+	return errors.Wrapf(validate.ErrValidation, "channel %s already exists", ch.Key())
+}
+
+// storedOf returns the stored channel that has the name or key of ch.
+func storedOf(
+	byName map[string]channel.Channel,
+	byKey map[channel.Key]channel.Channel,
+	ch channel.Channel,
+) (channel.Channel, bool) {
+	if ch.LocalKey != 0 {
+		if s, ok := byKey[ch.Key()]; ok {
+			return s, true
+		}
+	}
+	s, ok := byName[ch.Name]
+	return s, ok
+}
+
+// calculationFields are the members of a channel that the old channel API edits on its
+// calculation.
+var calculationFields = set.New("expression", "operations")
+
+// calculationDocument is the part of a calculated channel that the old channel API
+// edits on its calculation.
+type calculationDocument struct {
+	Expression string              `json:"expression"`
+	Operations []channel.Operation `json:"operations"`
+}
+
+// applyChannel applies acts to the channel with key in tx. An action on the expression
+// or the operations edits the calculation that writes the channel, and every other
+// action edits the channel. It returns the actions the Core computed, such as a set of
+// a data type that the new expression changed. It returns an error wrapping
+// validate.ErrValidation for an edit of the expression or the operations of a channel
+// that no calculation writes.
+func (s *Service) applyChannel(
+	ctx context.Context,
+	tx gorp.Tx,
+	dispatchKey string,
+	key channel.Key,
+	acts []channel.Action,
+) ([]channel.Action, error) {
+	var calcActs, chanActs []channel.Action
+	for _, a := range acts {
+		if editsCalculation(a) {
+			calcActs = append(calcActs, a)
+		} else {
+			chanActs = append(chanActs, a)
+		}
+	}
+	var computed []channel.Action
+	if len(chanActs) > 0 {
+		var err error
+		if computed, err = s.internal.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Apply(ctx, key, chanActs...); err != nil {
+			return nil, err
+		}
+	}
+	if len(calcActs) == 0 {
+		return computed, nil
+	}
+	set, err := s.applyCalculation(ctx, tx, dispatchKey, key, calcActs)
+	if err != nil || set == nil {
+		return computed, err
+	}
+	return slices.Concat(computed, []channel.Action{*set}), nil
+}
+
+// applyCalculation applies acts on the expression or the operations to the calculation
+// that writes the channel with key. It returns a set of the data type of the channel
+// when the acts changed it.
+func (s *Service) applyCalculation(
+	ctx context.Context,
+	tx gorp.Tx,
+	dispatchKey string,
+	key channel.Key,
+	acts []channel.Action,
+) (*channel.Action, error) {
+	calcs, err := s.calculations.Outputs(ctx, tx, key)
+	if err != nil {
+		return nil, err
+	}
+	c, ok := calcs[key]
+	if !ok {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"only a calculated channel can change its expression or operations",
+		)
+	}
+	doc := calculationDocument{
+		Expression: c.Expression,
+		Operations: channelOperations(c.Operations),
+	}
+	for _, a := range acts {
+		if doc, err = editDocument(doc, a); err != nil {
+			return nil, err
+		}
+	}
+	ops, err := calculationOperations(doc.Operations)
+	if err != nil {
+		return nil, validate.PathedError(err, "operations")
+	}
+	before, err := s.channelOf(ctx, tx, key)
+	if err != nil {
+		return nil, err
+	}
+	// The reads that Apply adds belong to the calculation, which the old API does not
+	// show.
+	if _, err = s.calculations.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(
+		ctx,
+		c.Key,
+		calculation.NewSetAction(calculation.SetPayload{
+			Path:  []string{"expression"},
+			Value: doc.Expression,
+		}),
+		calculation.NewSetAction(calculation.SetPayload{
+			Path:  []string{"operations"},
+			Value: ops,
+		}),
+	); err != nil {
+		return nil, err
+	}
+	after, err := s.channelOf(ctx, tx, key)
+	if err != nil || after.DataType == before.DataType {
+		return nil, err
+	}
+	set := channel.NewSetAction(channel.SetPayload{
+		Path:  []string{"data_type"},
+		Value: after.DataType,
+	})
+	return &set, nil
+}
+
+func (s *Service) channelOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+) (channel.Channel, error) {
+	var ch channel.Channel
+	err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, tx)
+	return ch, err
+}
+
+// editsCalculation reports whether a edits the expression or the operations of a
+// channel, which applyChannel sends to the calculation of the channel.
+func editsCalculation(a channel.Action) bool {
+	path := actionPath(a)
+	return len(path) > 0 && calculationFields.Contains(path[0])
+}
+
+// actionPath returns the path that a path action of the old channel API edits.
+func actionPath(a channel.Action) []string {
+	switch {
+	case a.Set != nil:
+		return a.Set.Path
+	case a.Remove != nil:
+		return a.Remove.Path
+	case a.Insert != nil:
+		return a.Insert.Path
+	case a.Move != nil:
+		return a.Move.Path
+	default:
+		return nil
+	}
+}
+
+// editDocument applies a path action of the old channel API to doc.
+func editDocument(
+	doc calculationDocument,
+	a channel.Action,
+) (calculationDocument, error) {
+	var apply func(map[string]any) error
+	switch {
+	case a.Set != nil:
+		apply = patch.Set(*a.Set).Apply
+	case a.Remove != nil:
+		apply = patch.Remove(*a.Remove).Apply
+	case a.Insert != nil:
+		apply = patch.Insert(*a.Insert).Apply
+	case a.Move != nil:
+		apply = patch.Move(*a.Move).Apply
+	}
+	return patch.Edit(doc, apply)
+}

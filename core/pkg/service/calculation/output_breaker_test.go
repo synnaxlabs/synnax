@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Legacy breaker d", func() {
+var _ = Describe("CreateOutput breaker", func() {
 	var (
 		node     disttestutil.Node
 		channels *channel.Service
@@ -91,12 +91,11 @@ var _ = Describe("Legacy breaker d", func() {
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			c := calculation.Calculation{
 				Expression: "return wide * 2",
-				Operations: MustSucceed(
-					calculation.FromChannelOperations([]channel.Operation{{
-						Type:         channel.OperationTypeMax,
-						ResetChannel: channelKey(ctx, channels, node, "level"),
-					}}),
-				),
+				Operations: []calculation.Operation{{
+					Variant: calculation.MaxOperation{Window: calculation.Window{
+						Reset: new(channelKey(ctx, channels, node, "level")),
+					}},
+				}},
 			}
 			_, err := svc.NewWriter(tx).CreateOutput(ctx, &c, "doubled", nil)
 			return err
@@ -116,54 +115,6 @@ var _ = Describe("Legacy breaker d", func() {
 			return err
 		})).To(MatchError(validate.ErrValidation))
 		Expect(exists(ctx, channel.MatchNames("taken_time"))).To(BeFalse())
-	})
-
-	It("Should refuse an old API create of an operation with an unknown type", func(
-		ctx SpecContext,
-	) {
-		createInput(ctx, "wide", telem.Int64T)
-		requested := []calculation.Requested{{
-			Channel: channel.Channel{
-				Name:     "doubled",
-				DataType: telem.Int64T,
-				Virtual:  true,
-			},
-			Expression: "return wide * 2",
-			Operations: []channel.Operation{{Type: "sum", Duration: telem.Second}},
-		}}
-		var err error
-		Expect(func() {
-			err = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := svc.NewWriter(tx).CreateChannels(ctx, requested, false)
-				return err
-			})
-		}).ToNot(Panic())
-		Expect(err).To(MatchError(validate.ErrValidation))
-	})
-
-	It("Should refuse an old API edit of an operation with an unknown type", func(
-		ctx SpecContext,
-	) {
-		createInput(ctx, "wide", telem.Int64T)
-		created := createOutput(ctx, "doubled")
-		var err error
-		Expect(func() {
-			err = node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				_, err := svc.NewWriter(tx).ApplyChannel(
-					ctx,
-					created[0].Key(),
-					channel.NewSetAction(channel.SetPayload{
-						Path: []string{"operations"},
-						Value: []channel.Operation{{
-							Type:     "sum",
-							Duration: telem.Second,
-						}},
-					}),
-				)
-				return err
-			})
-		}).ToNot(Panic())
-		Expect(err).To(MatchError(validate.ErrValidation))
 	})
 })
 

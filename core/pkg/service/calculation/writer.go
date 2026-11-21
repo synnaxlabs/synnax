@@ -380,39 +380,6 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// storedChannels returns the stored channels that have the name or key of a channel in
-// channels.
-func (w Writer) storedChannels(
-	ctx context.Context,
-	channels []channel.Channel,
-) ([]channel.Channel, error) {
-	var byName []channel.Channel
-	if err := w.channels.NewRetrieve().
-		Where(channel.MatchNames(channel.Names(channels)...)).
-		Entries(&byName).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	var keys []channel.Key
-	for _, ch := range channels {
-		if ch.LocalKey != 0 {
-			keys = append(keys, ch.Key())
-		}
-	}
-	if len(keys) == 0 {
-		return byName, nil
-	}
-	var byKey []channel.Channel
-	if err := w.channels.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&byKey).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	return slices.Concat(byName, byKey), nil
-}
-
 // sameKeys reports whether a and b hold the same keys, in any order and with any
 // repeats, without allocating.
 func sameKeys(a, b []channel.Key) bool {

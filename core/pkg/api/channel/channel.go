@@ -188,19 +188,14 @@ func (s *Service) Create(
 	req CreateRequest,
 ) (CreateResponse, error) {
 	translated := translateChannelsBackward(req.Channels)
-	requested := make([]calculation.Requested, len(req.Channels))
 	var (
-		outputs channel.Keys
-		unsaved []calculation.Unsaved
+		outputs   channel.Keys
+		unsaved   []calculation.Unsaved
+		unsavedAt []int
 	)
 	for i, ch := range req.Channels {
-		requested[i] = calculation.Requested{
-			Channel:    translated[i],
-			Expression: ch.Expression,
-			Operations: ch.Operations,
-		}
 		if ch.Expression != "" {
-			ops, err := calculation.FromChannelOperations(ch.Operations)
+			ops, err := calculationOperations(ch.Operations)
 			if err != nil {
 				return CreateResponse{}, validate.PathedError(
 					err,
@@ -213,6 +208,7 @@ func (s *Service) Create(
 				Expression: ch.Expression,
 				Operations: ops,
 			})
+			unsavedAt = append(unsavedAt, i)
 		} else if ch.Key.LocalKey() != 0 {
 			outputs = append(outputs, translated[i].Key())
 		}
@@ -228,11 +224,14 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	stored, err := s.calculations.NewWriter(tx).
-		CreateChannels(ctx, requested, req.RetrieveIfNameExists)
-	if b, ok := errors.AsType[channel.BatchError](err); ok {
-		return CreateResponse{}, validate.PathedError(b.Err, strconv.Itoa(b.At))
-	}
+	stored, err := s.createChannels(
+		ctx,
+		tx,
+		translated,
+		unsaved,
+		unsavedAt,
+		req.RetrieveIfNameExists,
+	)
 	if err != nil {
 		return CreateResponse{}, err
 	}
@@ -493,7 +492,7 @@ func (s *Service) translateForward(
 			continue
 		}
 		translated[i].Expression = c.Expression
-		translated[i].Operations = calculation.ChannelOperations(c.Operations)
+		translated[i].Operations = channelOperations(c.Operations)
 		if len(translated[i].Operations) == 0 {
 			translated[i].Operations = []channel.Operation{
 				{Type: channel.OperationTypeNone},
@@ -682,13 +681,11 @@ func (s *Service) Dispatch(
 	tx gorp.Tx,
 	req DispatchRequest,
 ) (DispatchResponse, error) {
-	computed, err := s.calculations.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		ApplyChannel(ctx, req.Key, req.Actions...)
+	computed, err := s.applyChannel(ctx, tx, req.DispatchKey, req.Key, req.Actions)
 	if err != nil {
 		return DispatchResponse{}, err
 	}
-	if !calculation.EditsCalculation(req.Actions...) {
+	if !slices.ContainsFunc(req.Actions, editsCalculation) {
 		return DispatchResponse{Actions: computed}, nil
 	}
 	inputs, err := s.calculations.Inputs(ctx, tx, channel.Keys{req.Key}, nil)

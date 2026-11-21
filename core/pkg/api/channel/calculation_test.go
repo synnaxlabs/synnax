@@ -203,4 +203,66 @@ var _ = Describe("Calculation records", func() {
 		Expect(records).To(HaveLen(1))
 		Expect(records[0].Expression).To(Equal(expression))
 	})
+
+	It("Should update the record when a dispatch sets the operations", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		ch := create(ctx, apichannel.CreateRequest{
+			Channels: []apichannel.Channel{calculated(input)},
+		})
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: ch.Key,
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path: []string{"operations"},
+				Value: []channel.Operation{
+					{Type: channel.OperationTypeMax, Duration: telem.Second},
+					{Type: channel.OperationTypeDerivative},
+				},
+			})},
+		})).Error().To(Succeed())
+		Expect(recordsOf(ctx, ch.Key)).To(ConsistOf(HaveField(
+			"Operations",
+			[]calculation.Operation{
+				{Variant: calculation.MaxOperation{
+					Window: calculation.Window{Duration: telem.Second},
+				}},
+				{Variant: calculation.DerivativeOperation{}},
+			},
+		)))
+	})
+
+	It("Should return a set of the data type that a dispatch changes", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		wide := createChannel(ctx, telem.Int64T)
+		ch := create(ctx, apichannel.CreateRequest{
+			Channels: []apichannel.Channel{calculated(input)},
+		})
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: ch.Key,
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path:  []string{"expression"},
+				Value: fmt.Sprintf("return %s * 2", wide.Name),
+			})},
+		}))
+		Expect(res.Actions).To(ConsistOf(channel.NewSetAction(channel.SetPayload{
+			Path:  []string{"data_type"},
+			Value: telem.Int64T,
+		})))
+	})
+
+	It("Should refuse a dispatch of the expression of a plain channel", func(
+		ctx SpecContext,
+	) {
+		plain := createChannel(ctx, telem.Float32T)
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: plain.Key(),
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path:  []string{"expression"},
+				Value: "return 3",
+			})},
+		})).Error().To(MatchError(validate.ErrValidation))
+	})
 })
