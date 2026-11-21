@@ -30,10 +30,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const calculatedIndexNameSuffix = "_time"
+const freeIndexNameSuffix = "_time"
 
-// Writer creates, deletes, and renames channels within a single transaction. It infers
-// DataTypes for calculated channels before persisting. It changes storage channels when
+// Writer creates, deletes, and renames channels within a single transaction. It changes
+// storage channels when
 // the transaction commits, before the channel records reach the store, and a storage
 // error aborts the commit. A failed commit does not undo the storage changes that ran
 // before the failure. Obtain one from Service.NewWriter. A Writer is not safe for
@@ -156,7 +156,7 @@ func (w Writer) checkGroup(ctx context.Context, prev, next Channel) error {
 	return group.CheckMember(ctx, w.tx, next.Group, resource.TypeChannel, nil)
 }
 
-// regroupIndex moves the index of ch, the calculated channel with key, to the group of
+// regroupIndex moves the index of ch, the channel with key, to the group of
 // ch unless another channel uses the index.
 func (w Writer) regroupIndex(ctx context.Context, key Key, ch Channel) error {
 	used, err := w.usedIndexes(ctx, set.New(ch.Index()), set.New(key))
@@ -174,9 +174,7 @@ func dataTypeAction(dt telem.DataType) Action {
 	return NewSetAction(SetPayload{Path: []string{"data_type"}, Value: dt})
 }
 
-// Create creates a single channel, inferring the DataType if it is calculated. It
-// returns an error wrapping validate.ErrValidation when c is calculated and a channel
-// with its key exists.
+// Create creates a single channel, as CreateMany does.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
 	if err := w.CreateMany(ctx, &channels, opts...); err != nil {
@@ -455,8 +453,8 @@ func (w Writer) resetStoredNames(ctx context.Context, channels []Channel) error 
 	return nil
 }
 
-// synthesizeIndexes returns a new index channel for each calculated channel without
-// an index, and the positions in channels of the calculated channels that need one.
+// synthesizeIndexes returns a new index channel for each channel that needs a free
+// index and has none, and the positions of those channels in channels.
 func synthesizeIndexes(
 	channels []Channel,
 	opts createOptions,
@@ -471,11 +469,11 @@ func synthesizeIndexes(
 		if !needsFreeIndex(ch, opts) {
 			continue
 		}
-		indexName := ch.Name + calculatedIndexNameSuffix
+		indexName := ch.Name + freeIndexNameSuffix
 		if bi, inBatch := batchPositionByName[indexName]; inBatch {
 			// An in-batch channel can only serve as the index if it satisfies the same
 			// predicate as an adopted existing index. Adopting a host-leased or
-			// persisted index would graft its LocalKey into the calculated channel's
+			// persisted index would graft its LocalKey into the channel's
 			// free keyspace, producing an index key that resolves to the wrong channel.
 			if !isFreeIndex(channels[bi]) {
 				return nil, nil, errors.Wrapf(
@@ -501,17 +499,17 @@ func synthesizeIndexes(
 	return indexChannels, calcNeedingIndex, nil
 }
 
-// isFreeIndex reports whether ch can serve as the index of a calculated channel.
+// isFreeIndex reports whether ch can serve as the index of a free channel.
 func isFreeIndex(ch Channel) bool {
 	return ch.IsIndex && ch.Virtual && ch.Leaseholder == node.KeyFree &&
 		ch.DataType == telem.TimestampT
 }
 
 // adoptIndexes resolves the names of indexChannels against existing channels. A
-// compatible index, such as one left behind by a deleted calculated channel, replaces
+// compatible index, such as one left behind by a deleted free channel, replaces
 // its entry in indexChannels instead of a duplicate name. An incompatible channel is a
 // validation error. adoptIndexes returns the position in indexChannels of each adopted
-// index to move to the group of its new calculated channel.
+// index to move to the group of its new free channel.
 func (w Writer) adoptIndexes(
 	ctx context.Context,
 	indexChannels []Channel,
@@ -588,7 +586,7 @@ func (w Writer) allocateNew(
 	return written, nil
 }
 
-// linkStoredIndexes persists the index of each stored calculated channel at the
+// linkStoredIndexes persists the index of each stored free channel at the
 // positions calcNeedingIndex whose index channel was just created. It returns the keys
 // of the channels it updates.
 func (w Writer) linkStoredIndexes(
@@ -675,7 +673,7 @@ func (w Writer) allocateAndWrite(
 		}
 	}
 
-	linkCalculatedIndexes(channels, toCreate, opts)
+	linkFreeIndexes(channels, toCreate, opts)
 
 	externalCreatedKeys := make(Keys, 0, len(toCreate))
 	for _, ch := range toCreate {
@@ -723,10 +721,10 @@ func (w Writer) checkLimit(
 	return w.svc.cfg.Limit(types.Uint20(int(count) + externalNewCount))
 }
 
-// linkCalculatedIndexes links each calculated channel without an index in channels and
-// toCreate to its index channel in channels, by setting the LocalIndex of the
-// calculated channel to the LocalKey of the index.
-func linkCalculatedIndexes(channels, toCreate []Channel, opts createOptions) {
+// linkFreeIndexes links each channel in toCreate that needs a free index to its index
+// channel in channels, by setting the LocalIndex of the channel to the LocalKey of the
+// index.
+func linkFreeIndexes(channels, toCreate []Channel, opts createOptions) {
 	indexKeyByName := make(map[string]LocalKey, len(channels))
 	for _, ch := range channels {
 		if ch.IsIndex {
@@ -738,7 +736,7 @@ func linkCalculatedIndexes(channels, toCreate []Channel, opts createOptions) {
 			if !needsFreeIndex(chs[i], opts) {
 				continue
 			}
-			if k, ok := indexKeyByName[chs[i].Name+calculatedIndexNameSuffix]; ok {
+			if k, ok := indexKeyByName[chs[i].Name+freeIndexNameSuffix]; ok {
 				chs[i].LocalIndex = k
 			}
 		}

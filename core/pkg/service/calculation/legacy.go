@@ -11,6 +11,7 @@ package calculation
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -38,6 +39,8 @@ func ChannelOperations(ops []Operation) []channel.Operation {
 			typ, w = channel.OperationTypeAvg, v.Window
 		case DerivativeOperation:
 			typ = channel.OperationTypeDerivative
+		default:
+			panic(fmt.Sprintf("operation of unknown type %T", op.Variant))
 		}
 		out[i] = channel.Operation{Type: typ, Duration: w.Duration}
 		if w.Reset != nil {

@@ -23,7 +23,6 @@ import (
 
 var _ gorp.Entry[Key] = Channel{}
 
-// IsCalculated returns true if the channel is a calculated channel, false otherwise.
 // Key returns the key for the Channel.
 func (c Channel) Key() Key { return channel.NewKey(c.Leaseholder, c.LocalKey) }
 
