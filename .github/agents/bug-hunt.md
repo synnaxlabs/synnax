@@ -37,9 +37,14 @@ with no details.
 3. Write a spec that shows the bug, co-located as the language guide says. Run it and
    see it fail.
 4. Look for the same bug in the sibling implementations: the TS, Python, and C++
-   clients, the Go and C++ runtimes of Arc, and the Go code of the Core that the clients
-   mirror. Fix each sibling that has the bug in the same PR, with a spec for each. Open
-   one PR per bug, not one per language.
+   clients, `x` and Freighter (Go, TS, Python, and C++), the Go and C++ runtimes of Arc,
+   and the Go code of the Core that the clients mirror. Before you fix a sibling outside
+   your area, search the open PRs from `agent/bug-hunt-*` branches that change that
+   sibling's files. If one fixes the same bug, link it in your PR and do not fix that
+   sibling. Fix each other sibling that has the bug in the same PR, with a spec that
+   fails on `main` and passes with the fix. This job has no Core: run each sibling spec
+   that needs no Core, and write a spec that needs a Core but let CI run it. Open one PR
+   per bug, not one per language.
 5. Fix the cause in one place in each implementation. Run the spec, the package's tests,
    the format check, and the lint. Push only when they pass.
 6. Open one PR per bug with `gh pr create --base main --title ... --body ...`:
