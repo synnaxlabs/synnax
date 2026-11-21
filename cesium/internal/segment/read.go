@@ -29,11 +29,7 @@ type Committed struct {
 
 // Reader reads checked stream bytes of segments. It holds the scratch space of a block,
 // and is not safe for concurrent use.
-type Reader struct {
-	block []byte
-	// window holds the stream bytes that Seek walks.
-	window []byte
-}
+type Reader struct{ block []byte }
 
 // NewReader returns a reader.
 func NewReader() *Reader {

@@ -12,6 +12,7 @@ package segment_test
 import (
 	"io"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,17 @@ import (
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// countingReader counts the reads of a segment file.
+type countingReader struct {
+	io.ReaderAt
+	reads atomic.Int64
+}
+
+func (r *countingReader) ReadAt(p []byte, off int64) (int, error) {
+	r.reads.Add(1)
+	return r.ReaderAt.ReadAt(p, off)
+}
 
 // flipReader flips a bit at file offset at in the next left reads that cover it, or in
 // every read when left is negative, and counts the reads that cover it.

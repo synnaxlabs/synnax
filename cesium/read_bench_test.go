@@ -207,6 +207,7 @@ func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
 func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
 
 func readSamples(b *testing.B, pointerLog bool) {
+	b.Helper()
 	const n = 1_000_000
 	for _, late := range []int{0, n / 2} {
 		b.Run(fmt.Sprintf("late=%d", late), func(b *testing.B) {
@@ -233,6 +234,7 @@ func BenchmarkStreamFixedSpan(b *testing.B) { streamFixedSpan(b, false) }
 func BenchmarkStreamFixedSpanPointerLog(b *testing.B) { streamFixedSpan(b, true) }
 
 func streamFixedSpan(b *testing.B, pointerLog bool) {
+	b.Helper()
 	for _, c := range []struct{ samples, channels int }{
 		{samples: 1_000_000, channels: 1},
 		{samples: 1_000_000, channels: 8},
