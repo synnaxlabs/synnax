@@ -84,8 +84,9 @@ var _ = Describe("@group namespaced", func() {
 				"sibling *gorp.UniqueIndex[Key, Channel, group.Sibling]",
 				"sibling: group.NewMemberIndex[Key, Channel](",
 				"resource.TypeChannel,",
-				"s := group.Sibling{Name: e.Name}",
+				"var s group.Sibling",
 				"s.Parent = *e.Group",
+				"s.Name = e.Name",
 				"i.sibling,",
 			)
 	})

@@ -12,6 +12,8 @@ package group
 import (
 	"context"
 	"io"
+	"maps"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -69,7 +71,9 @@ type Service struct {
 	signals io.Closer
 	table   *gorp.Table[Key, Group]
 	indexes indexes
-	state   *actions.State[Key, Action]
+	// siblings holds the index of the names of the groups of each namespaced scope.
+	siblings map[resource.Type]siblingIndex
+	state    *actions.State[Key, Action]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -78,14 +82,19 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	s := &Service{
-		cfg:     cfg,
-		indexes: newIndexes(),
-		state:   actions.NewState[Key, Action](cfg.DB),
+		cfg:      cfg,
+		indexes:  newIndexes(),
+		siblings: newSiblingIndexes(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+	}
+	indexes := s.indexes.all()
+	for _, scope := range slices.Sorted(maps.Keys(s.siblings)) {
+		indexes = append(indexes, s.siblings[scope])
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
 		Name:            tableName,
-		Indexes:         append(s.indexes.all(), siblingIndexes()...),
+		Indexes:         indexes,
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -111,24 +120,18 @@ func (s *Service) BuiltinDeleteMigration() gorp.Migration {
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
-// such group exists. A name of a namespaced scope matches in any normal form.
+// such group exists. A name of a namespaced scope matches after NFC, and a create that
+// another holder of the name refuses returns an error that matches
+// query.ErrUniqueViolation.
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
 	name string,
 	scope resource.Type,
 ) (Group, error) {
-	if isNamespaced(scope) {
-		name = validate.NormalizeName(name)
-	}
 	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.NewRetrieve().
-			Where(MatchNames(name)).
-			Where(MatchScopes(scope)).
-			Where(MatchHasParent(false)).
-			Entry(&g).
-			Exec(ctx, tx)
-		if !errors.Is(err, query.ErrNotFound) {
+		found, err := s.retrieveTop(ctx, tx, name, scope, &g)
+		if err != nil || found {
 			return err
 		}
 		g = Group{Name: name, Scope: scope}
@@ -137,6 +140,43 @@ func (s *Service) CreateOrRetrieve(
 		return Group{}, err
 	}
 	return g, nil
+}
+
+// retrieveTop reads the top-level group of scope named name into g, and returns false
+// when there is none. The names of a namespaced scope match through its index.
+func (s *Service) retrieveTop(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	scope resource.Type,
+	g *Group,
+) (bool, error) {
+	idx, namespaced := s.siblings[scope]
+	if !namespaced {
+		err := s.NewRetrieve().
+			Where(MatchNames(name)).
+			Where(MatchScopes(scope)).
+			Where(MatchHasParent(false)).
+			Entry(g).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			return false, nil
+		}
+		return err == nil, err
+	}
+	holder, found, err := idx.Holder(
+		ctx,
+		tx,
+		Sibling{Name: validate.NormalizeName(name)},
+	)
+	if err != nil || !found || holder.Table != tableName {
+		return false, err
+	}
+	key, err := uuid.Parse(holder.Key)
+	if err != nil {
+		return false, err
+	}
+	return true, s.NewRetrieve().Where(MatchKeys(key)).Entry(g).Exec(ctx, tx)
 }
 
 // Changes returns the changes that c made to groups.

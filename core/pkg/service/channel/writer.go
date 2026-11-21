@@ -402,7 +402,7 @@ func (w Writer) create(
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index).
-	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
+	indexChannels, calcNeedingIndex, owners, err := synthesizeIndexes(channels)
 	if err != nil {
 		return err
 	}
@@ -410,8 +410,15 @@ func (w Writer) create(
 	if err != nil {
 		return err
 	}
+	// An error names the position in the request, so an index channel takes the
+	// position of its calculated channel.
+	requested := make([]int, len(channels), len(channels)+len(indexChannels))
+	for i := range requested {
+		requested[i] = i
+	}
+	requested = append(requested, owners...)
 	channels = append(channels, indexChannels...)
-	written, err := w.allocateNew(ctx, channels, opts)
+	written, err := w.allocateNew(ctx, channels, requested, opts)
 	if err != nil {
 		return err
 	}
@@ -584,10 +591,12 @@ func boolRank(b bool) int {
 }
 
 // synthesizeIndexes returns a new index channel for each calculated channel without
-// an index, and the positions in channels of the calculated channels that need one.
-func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
+// an index, the positions in channels of the calculated channels that need one, and
+// the position of the calculated channel of each new index channel.
+func synthesizeIndexes(channels []Channel) ([]Channel, []int, []int, error) {
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
+	var owners []int
 	batchPositionByName := make(map[string]int, len(channels))
 	for i, ch := range channels {
 		batchPositionByName[ch.Name] = i
@@ -603,7 +612,7 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			// persisted index would graft its LocalKey into the calculated channel's
 			// free keyspace, producing an index key that resolves to the wrong channel.
 			if !isFreeIndex(channels[bi]) {
-				return nil, nil, errors.Wrapf(
+				return nil, nil, nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q in the same request cannot serve as the index for calculated channel %q",
 					indexName,
@@ -622,8 +631,9 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			Group:       ch.Group,
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
+		owners = append(owners, i)
 	}
-	return indexChannels, calcNeedingIndex, nil
+	return indexChannels, calcNeedingIndex, owners, nil
 }
 
 // isFreeIndex reports whether ch can serve as the index of a calculated channel.
@@ -689,10 +699,12 @@ func (w Writer) adoptIndexes(
 }
 
 // allocateNew allocates local keys for the channels without one through the
-// distribution allocator, writes them, and returns their keys.
+// distribution allocator, writes them, and returns their keys. An error names the
+// position in requested of the channel that a name index refuses.
 func (w Writer) allocateNew(
 	ctx context.Context,
 	channels []Channel,
+	requested []int,
 	opts createOptions,
 ) (Keys, error) {
 	newIndices := make([]int, 0, len(channels))
@@ -706,13 +718,20 @@ func (w Writer) allocateNew(
 	// Allocate uses up keys, so a name that an index refuses fails before it.
 	for _, i := range newIndices {
 		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
-			return nil, nameTaken(err, i)
+			return nil, nameTaken(err, requested[i])
 		}
 		if err := w.svc.indexes.sibling.Check(ctx, w.tx, &channels[i]); err != nil {
-			return nil, nameTaken(err, i)
+			return nil, nameTaken(err, requested[i])
 		}
 	}
-	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
+	if err := w.allocateAndWrite(
+		ctx,
+		channels,
+		requested,
+		newIndices,
+		minimal,
+		opts,
+	); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -788,6 +807,7 @@ func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
+	requested []int,
 	newIndices []int,
 	minimal []channel.Channel,
 	opts createOptions,
@@ -828,7 +848,7 @@ func (w Writer) allocateAndWrite(
 		at, name := -1, takenName(err)
 		for _, i := range newIndices {
 			if channels[i].Name == name {
-				at = i
+				at = requested[i]
 			}
 		}
 		return nameTaken(err, at)

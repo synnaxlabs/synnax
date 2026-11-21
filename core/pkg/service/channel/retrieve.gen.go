@@ -69,10 +69,11 @@ func newIndexes() indexes {
 		sibling: group.NewMemberIndex[Key, Channel](
 			resource.TypeChannel,
 			func(e Channel) group.Sibling {
-				s := group.Sibling{Name: e.Name}
+				var s group.Sibling
 				if e.Group != nil {
 					s.Parent = *e.Group
 				}
+				s.Name = e.Name
 				return s
 			},
 		),

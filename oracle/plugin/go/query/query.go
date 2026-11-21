@@ -80,6 +80,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	searched := make(set.Set[fieldDecl])
 	referenced := make(set.Set[fieldDecl])
 	rt := newResourceTypes(req.Resolutions)
+	if err := checkNamespacedRetrieves(req.Resolutions); err != nil {
+		return nil, err
+	}
 
 	for _, typ := range slices.Concat(
 		req.Resolutions.StructTypes(),
@@ -280,6 +283,11 @@ type siblingInfo struct {
 	// is a pointer.
 	Field    string
 	Optional bool
+	// Name is the Go field that holds the record's name. NameOptional is true when it
+	// is a pointer, and NameDistinct is true when its type is a distinct string type.
+	Name         string
+	NameOptional bool
+	NameDistinct bool
 }
 
 // HasSearch reports whether the retrieve declared any @search fields.
@@ -467,6 +475,26 @@ func generateRetrieveFile(
 	return buf.Bytes(), nil
 }
 
+// checkNamespacedRetrieves returns an error when the record of a @group namespaced
+// member has no @retrieve, since the indexes of its retrieve hold its sibling index.
+func checkNamespacedRetrieves(table *resolution.Table) error {
+	groups, err := groupdomain.Extract(table)
+	if err != nil || groups == nil {
+		return err
+	}
+	for _, m := range groups.Members {
+		if m.Namespaced && (!plugindomain.HasDomainFromType(m.Record, "retrieve") ||
+			plugindomain.HasExprFromType(m.Record, "retrieve", "references")) {
+			return errors.Newf(
+				"%s: @group namespaced needs @retrieve on the record, whose indexes "+
+					"hold its sibling index",
+				m.Record.QualifiedName,
+			)
+		}
+	}
+	return nil
+}
+
 // newSiblingInfo returns the sibling index of typ when its group field is @group
 // namespaced, and adds the imports that the index needs to imps. It returns nil
 // otherwise.
@@ -499,13 +527,37 @@ func newSiblingInfo(
 		return alias + "."
 	}
 	enumPath := enum.FindOutputPath(groups.Enum, table, "go")
+	fields := resolution.UnifiedFields(typ, table)
+	name := fields[slices.IndexFunc(fields, func(f resolution.Field) bool {
+		return f.Name == "name"
+	})]
 	return &siblingInfo{
 		Group: qualify(output.GetPath(groups.Record, "go")),
 		Scope: qualify(enumPath) + naming.GetGoName(groups.Enum) +
 			naming.ToPascalCase(m.Scope.Name),
-		Field:    naming.GetFieldName(m.Field),
-		Optional: m.Field.Optional,
+		Field:        naming.GetFieldName(m.Field),
+		Optional:     m.Field.Optional,
+		Name:         naming.GetFieldName(name),
+		NameOptional: name.Optional,
+		NameDistinct: isDistinct(name.Type, table),
 	}
+}
+
+// isDistinct reports whether ref names a distinct type, through any aliases.
+func isDistinct(ref resolution.TypeRef, table *resolution.Table) bool {
+	for !resolution.IsPrimitive(ref.Name) {
+		typ, ok := table.Get(ref.Name)
+		if !ok {
+			return false
+		}
+		alias, ok := typ.Form.(resolution.AliasForm)
+		if !ok {
+			_, distinct := typ.Form.(resolution.DistinctForm)
+			return distinct
+		}
+		ref = alias.Target
+	}
+	return false
 }
 
 func extractRetrieveInfo(
@@ -1179,15 +1231,22 @@ func newIndexes() indexes {
 		sibling: {{.Group}}NewMemberIndex[{{$ret.KeyType}}, {{$ret.GoName}}](
 			{{.Scope}},
 			func(e {{$ret.GoName}}) {{.Group}}Sibling {
+				var s {{.Group}}Sibling
 {{- if .Optional}}
-				s := {{.Group}}Sibling{Name: e.Name}
 				if e.{{.Field}} != nil {
 					s.Parent = *e.{{.Field}}
 				}
-				return s
 {{- else}}
-				return {{.Group}}Sibling{Parent: e.{{.Field}}, Name: e.Name}
+				s.Parent = e.{{.Field}}
 {{- end}}
+{{- if .NameOptional}}
+				if e.{{.Name}} != nil {
+					s.Name = {{if .NameDistinct}}string(*e.{{.Name}}){{else}}*e.{{.Name}}{{end}}
+				}
+{{- else}}
+				s.Name = {{if .NameDistinct}}string(e.{{.Name}}){{else}}e.{{.Name}}{{end}}
+{{- end}}
+				return s
 			},
 		),
 {{- end}}
