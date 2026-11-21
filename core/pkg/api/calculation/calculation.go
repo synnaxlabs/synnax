@@ -12,6 +12,7 @@ package calculation
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -22,9 +23,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -84,10 +87,23 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
+// Input is a calculation to create, with the output to make for it.
+type Input struct {
+	// Calculation is the calculation to create. When its output is 0, the create makes
+	// a virtual output for it, typed by its expression.
+	Calculation calculation.Calculation `json:"calculation" msgpack:"calculation"`
+	// Name is the name of the output to make. Set it when, and only when, the output of
+	// Calculation is 0.
+	Name string `json:"name" msgpack:"name"`
+	// Group is the group to place the made output in, or nil for the root. Set it only
+	// when the output of Calculation is 0.
+	Group *group.Key `json:"group" msgpack:"group"`
+}
+
 // CreateRequest holds the calculations to create.
 type CreateRequest struct {
 	// Calculations are the calculations to create.
-	Calculations []calculation.Calculation `json:"calculations" msgpack:"calculations"`
+	Calculations []Input `json:"calculations" msgpack:"calculations"`
 	// DispatchKey is stamped onto the create broadcasts so the sender skips its echo.
 	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }
@@ -99,25 +115,52 @@ type CreateResponse struct {
 }
 
 // Create creates the calculations, stopping at the first error. It returns a
-// validation error when a calculation is not valid or its output is not a virtual
-// channel that no other record writes.
+// validation error when a calculation is not valid, when its output is not a virtual
+// channel that no other record writes, or when an input both names an output and sets
+// the fields of one to make.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	w := s.internal.NewWriter(tx).WithDispatchKey(req.DispatchKey)
+	created := make([]calculation.Calculation, len(req.Calculations))
 	outputs := make(channel.Keys, len(req.Calculations))
-	for i := range req.Calculations {
-		if err := w.Create(ctx, &req.Calculations[i]); err != nil {
-			return CreateResponse{}, err
+	for i, in := range req.Calculations {
+		c := in.Calculation
+		var err error
+		switch {
+		case c.Output == 0:
+			_, err = w.CreateOutput(ctx, &c, in.Name, in.Group)
+		case in.Name != "":
+			err = madeOutputError("name")
+		case in.Group != nil:
+			err = madeOutputError("group")
+		default:
+			err = w.Create(ctx, &c)
 		}
-		outputs[i] = req.Calculations[i].Output
+		if err != nil {
+			return CreateResponse{}, validate.PathedError(
+				err,
+				"calculations",
+				strconv.Itoa(i),
+			)
+		}
+		created[i], outputs[i] = c, c.Output
 	}
 	if err := s.enforceInputs(ctx, tx, outputs...); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Calculations: req.Calculations}, nil
+	return CreateResponse{Calculations: created}, nil
+}
+
+// madeOutputError returns the error for an input that names its output and also sets
+// field, a field of an output to make.
+func madeOutputError(field string) error {
+	return validate.PathedError(errors.Wrap(
+		validate.ErrValidation,
+		"only a calculation that names no output makes one",
+	), field)
 }
 
 var _ bind.Named = RetrieveRequest{}

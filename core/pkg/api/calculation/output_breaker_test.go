@@ -42,8 +42,13 @@ var _ = Describe("Calculation output breaker", func() {
 		u := createUser(ctx)
 		grant(ctx, access.AllActions, u.ResourceID(), anyCalculation, anyChannel)
 		Expect(create(AuthedCtx(ctx, u), apicalculation.CreateRequest{
-			Calculations: []calculation.Calculation{
-				{Output: calc.Index(), Expression: "return 2"},
+			Calculations: []apicalculation.Input{
+				{
+					Calculation: calculation.Calculation{
+						Output:     calc.Index(),
+						Expression: "return 2",
+					},
+				},
 			},
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
@@ -61,8 +66,13 @@ var _ = Describe("Calculation output breaker", func() {
 		u := createUser(ctx)
 		grant(ctx, access.AllActions, u.ResourceID(), anyCalculation, anyChannel)
 		Expect(create(AuthedCtx(ctx, u), apicalculation.CreateRequest{
-			Calculations: []calculation.Calculation{
-				{Output: signal.Key(), Expression: "return 2"},
+			Calculations: []apicalculation.Input{
+				{
+					Calculation: calculation.Calculation{
+						Output:     signal.Key(),
+						Expression: "return 2",
+					},
+				},
 			},
 		})).Error().To(MatchError(validate.ErrValidation))
 	})

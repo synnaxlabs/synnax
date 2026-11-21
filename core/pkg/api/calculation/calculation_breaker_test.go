@@ -39,8 +39,13 @@ var _ = Describe("Calculation access breaker", func() {
 			grant(ctx, access.AllActions, u.ResourceID(), anyCalculation)
 			grant(ctx, access.AllActions, u.ResourceID(), channel.ResourceID(out.Key()))
 			_, err := create(AuthedCtx(ctx, u), apicalculation.CreateRequest{
-				Calculations: []calculation.Calculation{
-					{Output: out.Key(), Expression: "return " + hidden.Name},
+				Calculations: []apicalculation.Input{
+					{
+						Calculation: calculation.Calculation{
+							Output:     out.Key(),
+							Expression: "return " + hidden.Name,
+						},
+					},
 				},
 			})
 			var stored channel.Channel

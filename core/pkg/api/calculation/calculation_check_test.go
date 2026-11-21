@@ -98,8 +98,13 @@ var _ = Describe("Calculation access checks", func() {
 		grant(ctx, retrieves, u.ResourceID(), anyChannel)
 		out := createVirtual(ctx)
 		Expect(create(AuthedCtx(ctx, u), apicalculation.CreateRequest{
-			Calculations: []calculation.Calculation{
-				{Output: out.Key(), Expression: "return 2"},
+			Calculations: []apicalculation.Input{
+				{
+					Calculation: calculation.Calculation{
+						Output:     out.Key(),
+						Expression: "return 2",
+					},
+				},
 			},
 		})).Error().To(MatchError(access.ErrDenied))
 	})

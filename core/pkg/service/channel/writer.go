@@ -148,9 +148,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	// Opening the service clears the index of a calculated channel when it is missing.
-	if next.IsCalculated() && next.LocalIndex != 0 &&
-		!sameGroup(prev.Group, next.Group) {
+	if _, ok := freeIndexOf(next); ok && !sameGroup(prev.Group, next.Group) {
 		if err = w.regroupIndex(ctx, key, next); err != nil {
 			return nil, err
 		}
@@ -271,11 +269,11 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 }
 
 // DeleteMany deletes the channels with the given keys, along with their storage. It
-// also deletes the index of each deleted calculated channel that no other channel uses.
+// also deletes the free index of each deleted channel when no other channel uses it.
 // Unless allowInternal is true, deleting any internal channel returns an error and no
 // channels are deleted.
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	keys, err := w.withCalculatedIndexes(ctx, keys)
+	keys, err := w.withFreeIndexes(ctx, keys)
 	if err != nil {
 		return err
 	}
@@ -297,9 +295,9 @@ func (w Writer) DeleteManyByNames(
 	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
 }
 
-// withCalculatedIndexes returns keys and the index of each calculated channel in keys
-// that no channel outside keys uses.
-func (w Writer) withCalculatedIndexes(ctx context.Context, keys Keys) (Keys, error) {
+// withFreeIndexes returns keys and the free index of each channel in keys that no
+// channel outside keys uses.
+func (w Writer) withFreeIndexes(ctx context.Context, keys Keys) (Keys, error) {
 	var deleted []Channel
 	if err := w.svc.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
@@ -311,8 +309,8 @@ func (w Writer) withCalculatedIndexes(ctx context.Context, keys Keys) (Keys, err
 	deleting := set.New(keys...)
 	indexes := set.New[Key]()
 	for _, c := range deleted {
-		if c.IsCalculated() && c.LocalIndex != 0 && !deleting.Contains(c.Index()) {
-			indexes.Add(c.Index())
+		if idx, ok := freeIndexOf(c); ok && !deleting.Contains(idx) {
+			indexes.Add(idx)
 		}
 	}
 	used, err := w.usedIndexes(ctx, indexes, deleting)
@@ -322,9 +320,15 @@ func (w Writer) withCalculatedIndexes(ctx context.Context, keys Keys) (Keys, err
 	return slices.Concat(keys, indexes.Difference(used).Slice()), nil
 }
 
+// freeIndexOf returns the free index of ch, which the Core made for ch alone, and false
+// when ch has none.
+func freeIndexOf(ch Channel) (Key, bool) {
+	return ch.Index(), ch.Free() && !ch.IsIndex && ch.LocalIndex != 0
+}
+
 // usedIndexes returns the keys in indexes that a channel outside exclude uses as its
-// index. The Core keeps such an index where it is when it moves or deletes the
-// calculated channel that owns it.
+// index. The Core keeps such an index where it is when it moves or deletes the channel
+// that owns it.
 func (w Writer) usedIndexes(
 	ctx context.Context,
 	indexes set.Set[Key],
