@@ -48,6 +48,8 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { FileBrowser } from "@/platform/file-browser";
+import { Portal } from "@/platform/portal";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -228,23 +230,32 @@ const WINDOW_STYLE: CSSProperties = {
   height: 800,
 };
 
+// Specs stub the global fetch to answer for the portal.
+const PORTAL = new Portal.Client({
+  url: TEST_URL,
+  fetch: async (input, init) => await fetch(input, init),
+});
+
 const composeConsole = (
   SynnaxWrapper: FC<PropsWithChildren>,
   store: EnhancedStore,
+  portal: Portal.Client = PORTAL,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
-        <FileBrowser.Provider>
-          <Triggers.Provider>
-            <Provider store={store}>
-              <Session.Modals.Context>
-                <div style={WINDOW_STYLE}>{children}</div>
-              </Session.Modals.Context>
-            </Provider>
-          </Triggers.Provider>
-        </FileBrowser.Provider>
-      </Theming.Provider>
+      <Portal.Provider client={portal}>
+        <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+          <FileBrowser.Provider>
+            <Triggers.Provider>
+              <Provider store={store}>
+                <Session.Modals.Context>
+                  <div style={WINDOW_STYLE}>{children}</div>
+                </Session.Modals.Context>
+              </Provider>
+            </Triggers.Provider>
+          </FileBrowser.Provider>
+        </Theming.Provider>
+      </Portal.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;
@@ -269,17 +280,20 @@ export const renderSuspended = async (
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
+  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  portal?: Portal.Client;
 }
 
 export const renderWithConsole = async (
   ui: ReactElement,
   options: RenderWithConsoleOptions = {},
 ): Promise<RenderResult & { store: TestStore }> => {
-  const { preloadedState, store, ...rest } = options;
+  const { preloadedState, store, portal, ...rest } = options;
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client: null, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
+    portal,
   );
   return {
     ...(await renderSuspended(ui, { wrapper: Wrapper, ...rest })),
@@ -290,17 +304,20 @@ export const renderWithConsole = async (
 export interface RenderLinkHookOptions {
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
+  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  portal?: Portal.Client;
 }
 
 export const renderLinkHook = async <H,>(
   useHook: () => H,
   options: RenderLinkHookOptions = {},
 ): Promise<{ handler: H; store: TestStore; modals: Session.Modals.Store }> => {
-  const { client = null, preloadedState } = options;
+  const { client = null, preloadedState, portal } = options;
   const store = await createTestStore({ preloadedState });
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     store,
+    portal,
   );
   const useHandle = () => ({
     handler: useHook(),
@@ -314,17 +331,20 @@ export interface RenderHookWithConsoleOptions<Props> extends RenderHookOptions<P
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
   client?: Client | null;
+  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  portal?: Portal.Client;
 }
 
 export const renderHookWithConsole = async <Result, Props>(
   cb: (props: Props) => Result,
   options: RenderHookWithConsoleOptions<Props> = {},
 ): Promise<RenderHookResult<Result, Props> & { store: TestStore }> => {
-  const { preloadedState, store, client = null, ...rest } = options;
+  const { preloadedState, store, client = null, portal, ...rest } = options;
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   const Wrapper = composeConsole(
     createSynnaxWrapper({ client, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
+    portal,
   );
   return { ...renderHook(cb, { wrapper: Wrapper, ...rest }), store: resolvedStore };
 };
@@ -335,6 +355,8 @@ export interface CreateConsoleWrapperParams {
   store?: TestStore;
   /** Extra aether components merged over the default (eraser) test registry. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** Defaults to a portal at the test URL that sends through the global fetch. */
+  portal?: Portal.Client;
 }
 
 export const createConsoleWrapper = async ({
@@ -342,6 +364,7 @@ export const createConsoleWrapper = async ({
   preloadedState,
   store,
   additionalRegistry,
+  portal,
 }: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -352,7 +375,7 @@ export const createConsoleWrapper = async ({
     additionalRegistry: { ...ADDITIONAL_REGISTRY, ...additionalRegistry },
   });
   return {
-    wrapper: composeConsole(SynnaxWrapper, resolvedStore),
+    wrapper: composeConsole(SynnaxWrapper, resolvedStore, portal),
     store: resolvedStore,
   };
 };

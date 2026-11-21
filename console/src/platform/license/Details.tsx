@@ -19,7 +19,7 @@ import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
-import { ACCOUNT_URL } from "@/platform/license/urls";
+import { Portal } from "@/platform/portal";
 import { Session } from "@/session";
 
 const GrantedSummary = (): ReactElement | null => {
@@ -92,6 +92,7 @@ const GrantedDetails = (): ReactElement | null => {
 
 /** The account a Synnax Desktop machine is linked to, with a way to the hub. */
 const Account = (): ReactElement | null => {
+  const portal = Portal.use();
   const email = Session.Account.useSelectEmail();
   if (email == null) return null;
   return (
@@ -99,7 +100,12 @@ const Account = (): ReactElement | null => {
       <Text.Text level="small" color={10} overflow="fade">
         Logged in as {email}
       </Text.Text>
-      <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">
+      <Button.Button
+        variant="text"
+        size="small"
+        href={portal.accountURL}
+        target="_blank"
+      >
         <Icon.OpenExternal />
         Manage in your account
       </Button.Button>

@@ -67,12 +67,6 @@ describe("License.editionLabel", () => {
   });
 });
 
-describe("License.joinFingerprint", () => {
-  it("should join the host hashes with commas", () => {
-    expect(License.joinFingerprint(["a", "b"])).toBe("a, b");
-  });
-});
-
 describe("License.resolveBinding", () => {
   it("should call a license with no fingerprints floating", () => {
     expect(License.resolveBinding(BASE, ["a"])).toBe("floating");

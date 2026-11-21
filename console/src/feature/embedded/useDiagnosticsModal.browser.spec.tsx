@@ -31,8 +31,8 @@ import {
   RUNNING,
   type Status,
 } from "@/feature/embedded/testutil";
-import { License } from "@/platform/license";
 import { stubHub } from "@/platform/license/testutil";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { CaptureStatuses } from "@/testutil";
 
@@ -406,7 +406,7 @@ describe("Embedded diagnostics", () => {
       expect(statuses().map(({ message }) => message)).toContain("Erasing all data"),
     );
     expect(hub).toHaveBeenCalledWith(
-      License.UNLINK_URL,
+      `${TEST_URL}/api/desktop/unlink`,
       expect.objectContaining({ headers: { authorization: "Bearer shh" } }),
     );
   });

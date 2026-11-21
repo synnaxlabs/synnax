@@ -9,9 +9,7 @@
 
 import { type Mock, onTestFinished, vi } from "vitest";
 
-import { HANDOFF_URL } from "@/platform/license/urls";
-
-const PORTAL_ORIGIN = new URL(HANDOFF_URL).origin;
+import { TEST_URL } from "@/platform/portal/testutil";
 
 type Answer = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -26,7 +24,7 @@ export const stubHub = (answer: Answer): Mock<Answer> => {
   const real = globalThis.fetch;
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = input instanceof Request ? input.url : input.toString();
-    if (new URL(url).origin === PORTAL_ORIGIN) return await hub(url, init);
+    if (new URL(url).origin === TEST_URL) return await hub(url, init);
     return await real(input, init);
   });
   onTestFinished(() => spy.mockRestore());
