@@ -18,9 +18,9 @@
 package pb
 
 import (
-	pb2 "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
-	pb1 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	pb "github.com/synnaxlabs/x/control/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
+	pb2 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	pb1 "github.com/synnaxlabs/x/control/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -34,63 +34,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-type OperationType int32
-
-const (
-	OperationType_OPERATION_TYPE_MIN        OperationType = 0
-	OperationType_OPERATION_TYPE_MAX        OperationType = 1
-	OperationType_OPERATION_TYPE_AVG        OperationType = 2
-	OperationType_OPERATION_TYPE_NONE       OperationType = 3
-	OperationType_OPERATION_TYPE_DERIVATIVE OperationType = 4
-)
-
-// Enum value maps for OperationType.
-var (
-	OperationType_name = map[int32]string{
-		0: "OPERATION_TYPE_MIN",
-		1: "OPERATION_TYPE_MAX",
-		2: "OPERATION_TYPE_AVG",
-		3: "OPERATION_TYPE_NONE",
-		4: "OPERATION_TYPE_DERIVATIVE",
-	}
-	OperationType_value = map[string]int32{
-		"OPERATION_TYPE_MIN":        0,
-		"OPERATION_TYPE_MAX":        1,
-		"OPERATION_TYPE_AVG":        2,
-		"OPERATION_TYPE_NONE":       3,
-		"OPERATION_TYPE_DERIVATIVE": 4,
-	}
-)
-
-func (x OperationType) Enum() *OperationType {
-	p := new(OperationType)
-	*p = x
-	return p
-}
-
-func (x OperationType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (OperationType) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_api_channel_pb_channel_proto_enumTypes[0].Descriptor()
-}
-
-func (OperationType) Type() protoreflect.EnumType {
-	return &file_core_pkg_api_channel_pb_channel_proto_enumTypes[0]
-}
-
-func (x OperationType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use OperationType.Descriptor instead.
-func (OperationType) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{0}
-}
 
 // OrderField is a field that channels can be sorted by.
 type OrderField int32
@@ -120,11 +63,11 @@ func (x OrderField) String() string {
 }
 
 func (OrderField) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_api_channel_pb_channel_proto_enumTypes[1].Descriptor()
+	return file_core_pkg_api_channel_pb_channel_proto_enumTypes[0].Descriptor()
 }
 
 func (OrderField) Type() protoreflect.EnumType {
-	return &file_core_pkg_api_channel_pb_channel_proto_enumTypes[1]
+	return &file_core_pkg_api_channel_pb_channel_proto_enumTypes[0]
 }
 
 func (x OrderField) Number() protoreflect.EnumNumber {
@@ -133,75 +76,7 @@ func (x OrderField) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OrderField.Descriptor instead.
 func (OrderField) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{1}
-}
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-type Operation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is the aggregation operation type: min, max, avg, derivative, or none.
-	Type OperationType `protobuf:"varint,1,opt,name=type,proto3,enum=api.channel.pb.OperationType" json:"type,omitempty"`
-	// reset_channel is the key of a channel that resets the aggregation when it receives
-	// a sample. If 0, no reset channel is used.
-	ResetChannel uint32 `protobuf:"varint,2,opt,name=reset_channel,json=resetChannel,proto3" json:"reset_channel,omitempty"`
-	// duration is the interval at which the aggregation resets. If 0, the aggregation is
-	// not reset on a timer.
-	Duration      int64 `protobuf:"varint,3,opt,name=duration,proto3" json:"duration,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Operation) Reset() {
-	*x = Operation{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Operation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Operation) ProtoMessage() {}
-
-func (x *Operation) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Operation.ProtoReflect.Descriptor instead.
-func (*Operation) Descriptor() ([]byte, []int) {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Operation) GetType() OperationType {
-	if x != nil {
-		return x.Type
-	}
-	return OperationType_OPERATION_TYPE_MIN
-}
-
-func (x *Operation) GetResetChannel() uint32 {
-	if x != nil {
-		return x.ResetChannel
-	}
-	return 0
-}
-
-func (x *Operation) GetDuration() int64 {
-	if x != nil {
-		return x.Duration
-	}
-	return 0
 }
 
 // Channel is a logical collection of samples emitted by or representing values from a
@@ -236,12 +111,12 @@ type Channel struct {
 	Expression string `protobuf:"bytes,9,opt,name=expression,proto3" json:"expression,omitempty"`
 	// operations contains optional aggregation operations (min, max, avg, derivative)
 	// applied to channel data over time or triggered by a reset channel.
-	Operations []*Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
+	Operations []*pb.Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
-	Concurrency pb.Concurrency `protobuf:"varint,11,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
+	Concurrency pb1.Concurrency `protobuf:"varint,11,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// status is the current operational status of the channel.
-	Status *pb1.Status `protobuf:"bytes,12,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status *pb2.Status `protobuf:"bytes,12,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// group is the group the channel sits in, if any.
 	Group         *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -250,7 +125,7 @@ type Channel struct {
 
 func (x *Channel) Reset() {
 	*x = Channel{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +137,7 @@ func (x *Channel) String() string {
 func (*Channel) ProtoMessage() {}
 
 func (x *Channel) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +150,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Channel.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Channel) GetKey() uint32 {
@@ -341,21 +216,21 @@ func (x *Channel) GetExpression() string {
 	return ""
 }
 
-func (x *Channel) GetOperations() []*Operation {
+func (x *Channel) GetOperations() []*pb.Operation {
 	if x != nil {
 		return x.Operations
 	}
 	return nil
 }
 
-func (x *Channel) GetConcurrency() pb.Concurrency {
+func (x *Channel) GetConcurrency() pb1.Concurrency {
 	if x != nil {
 		return x.Concurrency
 	}
-	return pb.Concurrency(0)
+	return pb1.Concurrency(0)
 }
 
-func (x *Channel) GetStatus() *pb1.Status {
+func (x *Channel) GetStatus() *pb2.Status {
 	if x != nil {
 		return x.Status
 	}
@@ -383,7 +258,7 @@ type Cursor struct {
 
 func (x *Cursor) Reset() {
 	*x = Cursor{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +270,7 @@ func (x *Cursor) String() string {
 func (*Cursor) ProtoMessage() {}
 
 func (x *Cursor) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +283,7 @@ func (x *Cursor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cursor.ProtoReflect.Descriptor instead.
 func (*Cursor) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Cursor) GetKey() uint32 {
@@ -438,7 +313,7 @@ type Order struct {
 
 func (x *Order) Reset() {
 	*x = Order{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -450,7 +325,7 @@ func (x *Order) String() string {
 func (*Order) ProtoMessage() {}
 
 func (x *Order) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -463,7 +338,7 @@ func (x *Order) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Order.ProtoReflect.Descriptor instead.
 func (*Order) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Order) GetField() OrderField {
@@ -484,7 +359,7 @@ func (x *Order) GetDescending() bool {
 type RetrieveRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// where selects the channels to retrieve. An absent where selects all of them.
-	Where *pb2.Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
+	Where *pb.Where `protobuf:"bytes,1,opt,name=where,proto3,oneof" json:"where,omitempty"`
 	// search_term keeps the channels that match the term, closest match first.
 	SearchTerm string `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
 	// order sorts the channels. An absent order sorts them by key.
@@ -501,7 +376,7 @@ type RetrieveRequest struct {
 
 func (x *RetrieveRequest) Reset() {
 	*x = RetrieveRequest{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -513,7 +388,7 @@ func (x *RetrieveRequest) String() string {
 func (*RetrieveRequest) ProtoMessage() {}
 
 func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -526,10 +401,10 @@ func (x *RetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveRequest.ProtoReflect.Descriptor instead.
 func (*RetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RetrieveRequest) GetWhere() *pb2.Where {
+func (x *RetrieveRequest) GetWhere() *pb.Where {
 	if x != nil {
 		return x.Where
 	}
@@ -582,7 +457,7 @@ type RetrieveResponse struct {
 
 func (x *RetrieveResponse) Reset() {
 	*x = RetrieveResponse{}
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[5]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -594,7 +469,7 @@ func (x *RetrieveResponse) String() string {
 func (*RetrieveResponse) ProtoMessage() {}
 
 func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[5]
+	mi := &file_core_pkg_api_channel_pb_channel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -607,7 +482,7 @@ func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
 func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RetrieveResponse) GetChannels() []*Channel {
@@ -621,11 +496,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\x7f\n" +
-	"\tOperation\x121\n" +
-	"\x04type\x18\x01 \x01(\x0e2\x1d.api.channel.pb.OperationTypeR\x04type\x12#\n" +
-	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\xdb\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xdf\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -637,10 +508,10 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\binternal\x18\b \x01(\bR\binternal\x12\x1e\n" +
 	"\n" +
 	"expression\x18\t \x01(\tR\n" +
-	"expression\x129\n" +
+	"expression\x12=\n" +
 	"\n" +
 	"operations\x18\n" +
-	" \x03(\v2\x19.api.channel.pb.OperationR\n" +
+	" \x03(\v2\x1d.service.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
 	"\vconcurrency\x18\v \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\f \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
@@ -669,13 +540,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x06_afterB\b\n" +
 	"\x06_limitJ\x04\b\a\x10\b\"G\n" +
 	"\x10RetrieveResponse\x123\n" +
-	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels*\x8f\x01\n" +
-	"\rOperationType\x12\x16\n" +
-	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
-	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
-	"\x12OPERATION_TYPE_AVG\x10\x02\x12\x17\n" +
-	"\x13OPERATION_TYPE_NONE\x10\x03\x12\x1d\n" +
-	"\x19OPERATION_TYPE_DERIVATIVE\x10\x04*\"\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels*\"\n" +
 	"\n" +
 	"OrderField\x12\x14\n" +
 	"\x10ORDER_FIELD_NAME\x10\x00B\xad\x01\n" +
@@ -693,36 +558,34 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_api_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_core_pkg_api_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
-	(OperationType)(0),       // 0: api.channel.pb.OperationType
-	(OrderField)(0),          // 1: api.channel.pb.OrderField
-	(*Operation)(nil),        // 2: api.channel.pb.Operation
-	(*Channel)(nil),          // 3: api.channel.pb.Channel
-	(*Cursor)(nil),           // 4: api.channel.pb.Cursor
-	(*Order)(nil),            // 5: api.channel.pb.Order
-	(*RetrieveRequest)(nil),  // 6: api.channel.pb.RetrieveRequest
-	(*RetrieveResponse)(nil), // 7: api.channel.pb.RetrieveResponse
-	(pb.Concurrency)(0),      // 8: x.control.pb.Concurrency
-	(*pb1.Status)(nil),       // 9: service.status.pb.Status
-	(*pb2.Where)(nil),        // 10: service.channel.pb.Where
+	(OrderField)(0),          // 0: api.channel.pb.OrderField
+	(*Channel)(nil),          // 1: api.channel.pb.Channel
+	(*Cursor)(nil),           // 2: api.channel.pb.Cursor
+	(*Order)(nil),            // 3: api.channel.pb.Order
+	(*RetrieveRequest)(nil),  // 4: api.channel.pb.RetrieveRequest
+	(*RetrieveResponse)(nil), // 5: api.channel.pb.RetrieveResponse
+	(*pb.Operation)(nil),     // 6: service.channel.pb.Operation
+	(pb1.Concurrency)(0),     // 7: x.control.pb.Concurrency
+	(*pb2.Status)(nil),       // 8: service.status.pb.Status
+	(*pb.Where)(nil),         // 9: service.channel.pb.Where
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	0,  // 0: api.channel.pb.Operation.type:type_name -> api.channel.pb.OperationType
-	2,  // 1: api.channel.pb.Channel.operations:type_name -> api.channel.pb.Operation
-	8,  // 2: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	9,  // 3: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
-	1,  // 4: api.channel.pb.Order.field:type_name -> api.channel.pb.OrderField
-	10, // 5: api.channel.pb.RetrieveRequest.where:type_name -> service.channel.pb.Where
-	5,  // 6: api.channel.pb.RetrieveRequest.order:type_name -> api.channel.pb.Order
-	4,  // 7: api.channel.pb.RetrieveRequest.after:type_name -> api.channel.pb.Cursor
-	3,  // 8: api.channel.pb.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	6, // 0: api.channel.pb.Channel.operations:type_name -> service.channel.pb.Operation
+	7, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	8, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
+	0, // 3: api.channel.pb.Order.field:type_name -> api.channel.pb.OrderField
+	9, // 4: api.channel.pb.RetrieveRequest.where:type_name -> service.channel.pb.Where
+	3, // 5: api.channel.pb.RetrieveRequest.order:type_name -> api.channel.pb.Order
+	2, // 6: api.channel.pb.RetrieveRequest.after:type_name -> api.channel.pb.Cursor
+	1, // 7: api.channel.pb.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_channel_pb_channel_proto_init() }
@@ -730,16 +593,16 @@ func file_core_pkg_api_channel_pb_channel_proto_init() {
 	if File_core_pkg_api_channel_pb_channel_proto != nil {
 		return
 	}
+	file_core_pkg_api_channel_pb_channel_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_api_channel_pb_channel_proto_msgTypes[1].OneofWrappers = []any{}
-	file_core_pkg_api_channel_pb_channel_proto_msgTypes[2].OneofWrappers = []any{}
-	file_core_pkg_api_channel_pb_channel_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_api_channel_pb_channel_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_channel_pb_channel_proto_rawDesc), len(file_core_pkg_api_channel_pb_channel_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

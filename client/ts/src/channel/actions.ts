@@ -11,7 +11,7 @@ import { control, patch, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { keyZ, localKeyZ, nameZ } from "@/channel/types.gen";
+import { keyZ, localKeyZ, nameZ, operationZ } from "@/channel/types.gen";
 import { group } from "@/group";
 import { node } from "@/node";
 
@@ -25,6 +25,8 @@ export const storedZ = z.object({
   localIndex: localKeyZ,
   virtual: z.boolean(),
   concurrency: control.concurrencyZ,
+  operations: zod.nullToUndefined(operationZ.array()),
+  expression: z.string(),
   group: zod.nullToUndefined(group.keyZ),
 });
 

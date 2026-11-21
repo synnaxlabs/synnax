@@ -79,8 +79,8 @@ type Graph struct {
 		unresolvedByName map[string]set.Set[channel.Key]
 		// rejected holds the channels reported through RejectDefinition.
 		rejected set.Set[channel.Key]
-		// reported holds the expression of each untracked node when SetRuntimeStatus
-		// wrote its status.
+		// reported holds the expression that the runtime ran for its last report on
+		// each channel.
 		reported map[channel.Key]string
 		sync.RWMutex
 	}
@@ -201,30 +201,32 @@ func (g *Graph) RejectDefinition(
 	defer g.mu.Unlock()
 	g.mu.rejected.Add(key)
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		_, _, err := g.writeStatus(ctx, tx, key, stat)
-		return err
+		return g.writeStatus(ctx, tx, key, stat)
 	})
 }
 
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
-// channel with the given key when the report changes the stored status. A success
-// changes only a stored error. Any other report changes a stored status with a
-// different variant, message, or description. Routing runtime reports through the Graph
-// keeps a single writer on the status record, so a report and a validity clear apply in
-// submission order. The Graph drops a report for a deleted channel, and a report for a
-// channel it holds as invalid or rejected: that record describes the channel
-// definition. A report that changes nothing takes only the read lock of the DB.
+// channel with the given key when the report changes the stored status. expression is
+// the expression that the runtime ran, and the Graph clears the status once the
+// calculation holds another. A success changes only a stored error. Any other report
+// changes a stored status with a different variant, message, or description. Routing
+// runtime reports through the Graph keeps a single writer on the status record, so a
+// report and a validity clear apply in submission order. The Graph drops a report for a
+// deleted channel, and a report for a channel it holds as invalid or rejected: that
+// record describes the channel definition. A report that changes nothing takes only the
+// read lock of the DB.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
+	expression string,
 	stat *calculation.Status,
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	nd, tracked := g.mu.nodes[key]
-	if (tracked && nd.invalid) || g.mu.rejected.Contains(key) {
+	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
 		return nil
 	}
+	g.mu.reported[key] = expression
 	var changed bool
 	if err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		stored, found, err := g.retrieveStatus(ctx, snap, key)
@@ -238,21 +240,9 @@ func (g *Graph) SetRuntimeStatus(
 	} else {
 		g.L.Info(stat.String())
 	}
-	var (
-		c       calculation.Calculation
-		written bool
-	)
-	if err := g.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		c, written, err = g.writeStatus(ctx, tx, key, stat)
-		return err
-	}); err != nil {
-		return err
-	}
-	// The batch that first tracks the node can hold a newer expression.
-	if written && !tracked {
-		g.mu.reported[key] = c.Expression
-	}
-	return nil
+	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return g.writeStatus(ctx, tx, key, stat)
+	})
 }
 
 func changes(stored calculation.Status, found bool, next *calculation.Status) bool {
@@ -297,26 +287,24 @@ func (g *Graph) retrieveStatus(
 	return stored, err == nil, err
 }
 
-// writeStatus returns the calculation that owns the status it writes, and false when
-// no calculation writes the channel with key.
 func (g *Graph) writeStatus(
 	ctx context.Context,
 	tx gorp.Tx,
 	key channel.Key,
 	stat *calculation.Status,
-) (calculation.Calculation, bool, error) {
+) error {
 	c, ok, err := g.calculationOf(ctx, tx, key)
 	if err != nil {
-		return c, false, err
+		return err
 	}
 	if !ok {
 		g.L.Debug("dropping runtime status for a deleted calculation",
 			zap.Stringer("channel", key),
 		)
-		return c, false, nil
+		return nil
 	}
 	stat.Owner = new(calculation.ResourceID(c.Key))
-	return c, true, g.status.NewWriter(tx).Set(ctx, stat)
+	return g.status.NewWriter(tx).Set(ctx, stat)
 }
 
 // AcceptDefinition acts as ClearRuntimeStatus for the channel with the given key when
@@ -620,8 +608,6 @@ func (g *Graph) handleChanges(
 				)
 				continue
 			}
-			reported, wasReported := g.mu.reported[chg.Key]
-			delete(g.mu.reported, chg.Key)
 			if !found {
 				batch = append(batch, channelChange{
 					Key:   chg.Key,
@@ -633,6 +619,7 @@ func (g *Graph) handleChanges(
 					zap.Stringer("channel", chg.Key),
 				)
 				g.removeNode(chg.Key)
+				delete(g.mu.reported, chg.Key)
 				if chg.Value.Name != "" {
 					unresolvedNames = append(unresolvedNames, chg.Value.Name)
 				}
@@ -649,6 +636,7 @@ func (g *Graph) handleChanges(
 			prev, tracked := g.mu.nodes[chg.Key]
 			c, calculated := calcs[chg.Key]
 			if !calculated {
+				delete(g.mu.reported, chg.Key)
 				if tracked {
 					g.removeNode(chg.Key)
 					g.mu.rejected.Remove(chg.Key)
@@ -677,9 +665,11 @@ func (g *Graph) handleChanges(
 					zap.String("name", ch.Name),
 					zap.Stringers("deps", nd.deps),
 				)
-				if (!tracked && wasReported && reported != c.Expression) ||
-					(tracked && (prev.invalid ||
-						prev.calculation.Expression != c.Expression)) {
+				var heldExpression *string
+				if tracked {
+					heldExpression = &prev.calculation.Expression
+				}
+				if (tracked && prev.invalid) || g.stale(chg.Key, heldExpression, c) {
 					g.clearNodeStatus(ctx, tx, c)
 				}
 			}
@@ -745,11 +735,22 @@ func (g *Graph) setNodeStatus(
 	}
 }
 
+// stale reports whether the runtime status of c describes an expression that c no
+// longer holds: the expression of the last report, or else held, the expression that
+// the Graph held for the node. A status of an untracked node with no report is current.
+func (g *Graph) stale(key channel.Key, held *string, c calculation.Calculation) bool {
+	if reported, ok := g.mu.reported[key]; ok {
+		return reported != c.Expression
+	}
+	return held != nil && *held != c.Expression
+}
+
 func (g *Graph) clearNodeStatus(
 	ctx context.Context,
 	tx gorp.Tx,
 	c calculation.Calculation,
 ) {
+	delete(g.mu.reported, c.Output)
 	err := g.status.NewWriter(tx).DeleteOwned(ctx, calculation.ResourceID(c.Key))
 	if err != nil {
 		g.L.Warn(
@@ -860,7 +861,7 @@ func (g *Graph) reconcileQueued(
 				continue
 			}
 			valid = append(valid, refetched)
-			if oldInvalid || c.Expression != nd.calculation.Expression {
+			if oldInvalid || g.stale(key, &nd.calculation.Expression, c) {
 				g.clearNodeStatus(ctx, tx, c)
 			}
 			if oldInvalid || oldType != newNode.DataType {

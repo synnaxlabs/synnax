@@ -90,7 +90,9 @@ var _ = Describe("Actions", Ordered, func() {
 		Expect(frames[0].Key).To(Equal(ch.Key()))
 		Expect(frames[0].Actions).To(Equal([]channel.Action{
 			channel.NewCreateAction(
-				channel.CreatePayload{Channel: retrieve(ctx, ch.Key())},
+				channel.CreatePayload{
+					Channel: channel.Created{Channel: retrieve(ctx, ch.Key())},
+				},
 			),
 		}))
 	})
@@ -181,7 +183,9 @@ var _ = Describe("Actions", Ordered, func() {
 		Expect(apply(
 			ctx,
 			ch.Key(),
-			channel.NewCreateAction(channel.CreatePayload{Channel: ch}),
+			channel.NewCreateAction(
+				channel.CreatePayload{Channel: channel.Created{Channel: ch}},
+			),
 		)).Error().To(MatchError(ContainSubstring(
 			"only the Core dispatches a channel create",
 		)))

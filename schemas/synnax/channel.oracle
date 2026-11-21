@@ -73,7 +73,7 @@ OperationType enum {
     @doc value """
         is the type of aggregation operation to apply to channel data over time.
     """
-    @go output "core/pkg/api/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -101,7 +101,7 @@ Operation struct {
         min, max, average, or derivative values over a time duration or triggered by a
         reset channel.
     """
-    @go output "core/pkg/api/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -153,7 +153,7 @@ Channel struct {
     }
 
     action Create {
-        channel Channel
+        channel Created
 
         @doc value """
             replaces the channel with the given created state. Emitted by the Core when
@@ -193,6 +193,28 @@ Channel struct {
     @retrieve custom
     @retrieve key    "Key"
     @ts hand
+}
+
+Created struct extends Channel {
+    expression string      {
+        @doc value """
+            is the expression of the calculation that writes the channel, or empty when
+            none writes it.
+        """
+    }
+    operations Operation[] {
+        @doc value "are the operations of the calculation that writes the channel."
+    }
+
+    @cpp omit
+    @doc value """
+        is a channel that a create action carries, with the expression and operations of
+        the calculation that writes it for clients that read them from the channel.
+    """
+    @go output "core/pkg/service/channel"
+    @pb omit
+    @py omit
+    @ts omit
 }
 
 Status = status.Status<nil> {

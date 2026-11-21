@@ -437,6 +437,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
+		// The calculation service opens after this one, so a fill reads it as it runs.
+		Fills: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			keys ...channel.Key,
+		) (map[channel.Key]channel.Fill, error) {
+			return l.Calculation.Fills(ctx, tx, keys...)
+		},
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}

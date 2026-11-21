@@ -34,6 +34,131 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OperationType is the type of aggregation operation to apply to channel data over
+// time.
+type OperationType int32
+
+const (
+	OperationType_OPERATION_TYPE_MIN        OperationType = 0
+	OperationType_OPERATION_TYPE_MAX        OperationType = 1
+	OperationType_OPERATION_TYPE_AVG        OperationType = 2
+	OperationType_OPERATION_TYPE_NONE       OperationType = 3
+	OperationType_OPERATION_TYPE_DERIVATIVE OperationType = 4
+)
+
+// Enum value maps for OperationType.
+var (
+	OperationType_name = map[int32]string{
+		0: "OPERATION_TYPE_MIN",
+		1: "OPERATION_TYPE_MAX",
+		2: "OPERATION_TYPE_AVG",
+		3: "OPERATION_TYPE_NONE",
+		4: "OPERATION_TYPE_DERIVATIVE",
+	}
+	OperationType_value = map[string]int32{
+		"OPERATION_TYPE_MIN":        0,
+		"OPERATION_TYPE_MAX":        1,
+		"OPERATION_TYPE_AVG":        2,
+		"OPERATION_TYPE_NONE":       3,
+		"OPERATION_TYPE_DERIVATIVE": 4,
+	}
+)
+
+func (x OperationType) Enum() *OperationType {
+	p := new(OperationType)
+	*p = x
+	return p
+}
+
+func (x OperationType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OperationType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_channel_pb_channel_proto_enumTypes[0].Descriptor()
+}
+
+func (OperationType) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_channel_pb_channel_proto_enumTypes[0]
+}
+
+func (x OperationType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OperationType.Descriptor instead.
+func (OperationType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{0}
+}
+
+// Operation defines an aggregation operation applied to channel data. Operations
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
+type Operation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is the aggregation operation type: min, max, avg, derivative, or none.
+	Type OperationType `protobuf:"varint,1,opt,name=type,proto3,enum=service.channel.pb.OperationType" json:"type,omitempty"`
+	// reset_channel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
+	ResetChannel uint32 `protobuf:"varint,2,opt,name=reset_channel,json=resetChannel,proto3" json:"reset_channel,omitempty"`
+	// duration is the interval at which the aggregation resets. If 0, the aggregation is
+	// not reset on a timer.
+	Duration      int64 `protobuf:"varint,3,opt,name=duration,proto3" json:"duration,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Operation) Reset() {
+	*x = Operation{}
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Operation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Operation) ProtoMessage() {}
+
+func (x *Operation) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Operation.ProtoReflect.Descriptor instead.
+func (*Operation) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Operation) GetType() OperationType {
+	if x != nil {
+		return x.Type
+	}
+	return OperationType_OPERATION_TYPE_MIN
+}
+
+func (x *Operation) GetResetChannel() uint32 {
+	if x != nil {
+		return x.ResetChannel
+	}
+	return 0
+}
+
+func (x *Operation) GetDuration() int64 {
+	if x != nil {
+		return x.Duration
+	}
+	return 0
+}
+
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
@@ -68,7 +193,7 @@ type Channel struct {
 
 func (x *Channel) Reset() {
 	*x = Channel{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[0]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -80,7 +205,7 @@ func (x *Channel) String() string {
 func (*Channel) ProtoMessage() {}
 
 func (x *Channel) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[0]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -93,7 +218,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Channel.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Channel) GetName() string {
@@ -168,7 +293,7 @@ type WhereList struct {
 
 func (x *WhereList) Reset() {
 	*x = WhereList{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -180,7 +305,7 @@ func (x *WhereList) String() string {
 func (*WhereList) ProtoMessage() {}
 
 func (x *WhereList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -193,7 +318,7 @@ func (x *WhereList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
 func (*WhereList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WhereList) GetValues() []*Where {
@@ -212,7 +337,7 @@ type KeyList struct {
 
 func (x *KeyList) Reset() {
 	*x = KeyList{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -224,7 +349,7 @@ func (x *KeyList) String() string {
 func (*KeyList) ProtoMessage() {}
 
 func (x *KeyList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -237,7 +362,7 @@ func (x *KeyList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
 func (*KeyList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *KeyList) GetValues() []uint32 {
@@ -261,7 +386,7 @@ type KeySet struct {
 
 func (x *KeySet) Reset() {
 	*x = KeySet{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -273,7 +398,7 @@ func (x *KeySet) String() string {
 func (*KeySet) ProtoMessage() {}
 
 func (x *KeySet) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -286,7 +411,7 @@ func (x *KeySet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeySet.ProtoReflect.Descriptor instead.
 func (*KeySet) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *KeySet) GetEq() uint32 {
@@ -312,7 +437,7 @@ type NodeKeyList struct {
 
 func (x *NodeKeyList) Reset() {
 	*x = NodeKeyList{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -324,7 +449,7 @@ func (x *NodeKeyList) String() string {
 func (*NodeKeyList) ProtoMessage() {}
 
 func (x *NodeKeyList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -337,7 +462,7 @@ func (x *NodeKeyList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeKeyList.ProtoReflect.Descriptor instead.
 func (*NodeKeyList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *NodeKeyList) GetValues() []uint32 {
@@ -361,7 +486,7 @@ type NodeKeySet struct {
 
 func (x *NodeKeySet) Reset() {
 	*x = NodeKeySet{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -373,7 +498,7 @@ func (x *NodeKeySet) String() string {
 func (*NodeKeySet) ProtoMessage() {}
 
 func (x *NodeKeySet) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[5]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -386,7 +511,7 @@ func (x *NodeKeySet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeKeySet.ProtoReflect.Descriptor instead.
 func (*NodeKeySet) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *NodeKeySet) GetEq() uint32 {
@@ -412,7 +537,7 @@ type TelemDataTypeList struct {
 
 func (x *TelemDataTypeList) Reset() {
 	*x = TelemDataTypeList{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +549,7 @@ func (x *TelemDataTypeList) String() string {
 func (*TelemDataTypeList) ProtoMessage() {}
 
 func (x *TelemDataTypeList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[6]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +562,7 @@ func (x *TelemDataTypeList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemDataTypeList.ProtoReflect.Descriptor instead.
 func (*TelemDataTypeList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TelemDataTypeList) GetValues() []string {
@@ -461,7 +586,7 @@ type TelemDataTypeSet struct {
 
 func (x *TelemDataTypeSet) Reset() {
 	*x = TelemDataTypeSet{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +598,7 @@ func (x *TelemDataTypeSet) String() string {
 func (*TelemDataTypeSet) ProtoMessage() {}
 
 func (x *TelemDataTypeSet) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[7]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +611,7 @@ func (x *TelemDataTypeSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TelemDataTypeSet.ProtoReflect.Descriptor instead.
 func (*TelemDataTypeSet) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TelemDataTypeSet) GetEq() string {
@@ -512,7 +637,7 @@ type GroupKeyList struct {
 
 func (x *GroupKeyList) Reset() {
 	*x = GroupKeyList{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -524,7 +649,7 @@ func (x *GroupKeyList) String() string {
 func (*GroupKeyList) ProtoMessage() {}
 
 func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[8]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,7 +662,7 @@ func (x *GroupKeyList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GroupKeyList.ProtoReflect.Descriptor instead.
 func (*GroupKeyList) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{8}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GroupKeyList) GetValues() []string {
@@ -581,7 +706,7 @@ type Where struct {
 
 func (x *Where) Reset() {
 	*x = Where{}
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -593,7 +718,7 @@ func (x *Where) String() string {
 func (*Where) ProtoMessage() {}
 
 func (x *Where) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[9]
+	mi := &file_core_pkg_service_channel_pb_channel_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +731,7 @@ func (x *Where) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Where.ProtoReflect.Descriptor instead.
 func (*Where) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{9}
+	return file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Where) GetAnd() *WhereList {
@@ -697,7 +822,11 @@ var File_core_pkg_service_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	")core/pkg/service/channel/pb/channel.proto\x12\x12service.channel.pb\x1a\x1dx/go/control/pb/control.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xb1\x02\n" +
+	")core/pkg/service/channel/pb/channel.proto\x12\x12service.channel.pb\x1a\x1dx/go/control/pb/control.proto\x1a\x1bx/go/filter/pb/filter.proto\"\x83\x01\n" +
+	"\tOperation\x125\n" +
+	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
+	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\xb1\x02\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -758,7 +887,13 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"\b_virtualB\n" +
 	"\n" +
-	"\b_groupedB\xc5\x01\n" +
+	"\b_grouped*\x8f\x01\n" +
+	"\rOperationType\x12\x16\n" +
+	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
+	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
+	"\x12OPERATION_TYPE_AVG\x10\x02\x12\x17\n" +
+	"\x13OPERATION_TYPE_NONE\x10\x03\x12\x1d\n" +
+	"\x19OPERATION_TYPE_DERIVATIVE\x10\x04B\xc5\x01\n" +
 	"\x16com.service.channel.pbB\fChannelProtoP\x01Z3github.com/synnaxlabs/synnax/pkg/service/channel/pb\xa2\x02\x03SCP\xaa\x02\x12Service.Channel.Pb\xca\x02\x12Service\\Channel\\Pb\xe2\x02\x1eService\\Channel\\Pb\\GPBMetadata\xea\x02\x14Service::Channel::Pbb\x06proto3"
 
 var (
@@ -773,43 +908,47 @@ func file_core_pkg_service_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_service_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_core_pkg_service_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_core_pkg_service_channel_pb_channel_proto_goTypes = []any{
-	(*Channel)(nil),           // 0: service.channel.pb.Channel
-	(*WhereList)(nil),         // 1: service.channel.pb.WhereList
-	(*KeyList)(nil),           // 2: service.channel.pb.KeyList
-	(*KeySet)(nil),            // 3: service.channel.pb.KeySet
-	(*NodeKeyList)(nil),       // 4: service.channel.pb.NodeKeyList
-	(*NodeKeySet)(nil),        // 5: service.channel.pb.NodeKeySet
-	(*TelemDataTypeList)(nil), // 6: service.channel.pb.TelemDataTypeList
-	(*TelemDataTypeSet)(nil),  // 7: service.channel.pb.TelemDataTypeSet
-	(*GroupKeyList)(nil),      // 8: service.channel.pb.GroupKeyList
-	(*Where)(nil),             // 9: service.channel.pb.Where
-	(pb.Concurrency)(0),       // 10: x.control.pb.Concurrency
-	(*pb1.String)(nil),        // 11: x.filter.pb.String
-	(*pb1.Bool)(nil),          // 12: x.filter.pb.Bool
+	(OperationType)(0),        // 0: service.channel.pb.OperationType
+	(*Operation)(nil),         // 1: service.channel.pb.Operation
+	(*Channel)(nil),           // 2: service.channel.pb.Channel
+	(*WhereList)(nil),         // 3: service.channel.pb.WhereList
+	(*KeyList)(nil),           // 4: service.channel.pb.KeyList
+	(*KeySet)(nil),            // 5: service.channel.pb.KeySet
+	(*NodeKeyList)(nil),       // 6: service.channel.pb.NodeKeyList
+	(*NodeKeySet)(nil),        // 7: service.channel.pb.NodeKeySet
+	(*TelemDataTypeList)(nil), // 8: service.channel.pb.TelemDataTypeList
+	(*TelemDataTypeSet)(nil),  // 9: service.channel.pb.TelemDataTypeSet
+	(*GroupKeyList)(nil),      // 10: service.channel.pb.GroupKeyList
+	(*Where)(nil),             // 11: service.channel.pb.Where
+	(pb.Concurrency)(0),       // 12: x.control.pb.Concurrency
+	(*pb1.String)(nil),        // 13: x.filter.pb.String
+	(*pb1.Bool)(nil),          // 14: x.filter.pb.Bool
 }
 var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
-	10, // 0: service.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	9,  // 1: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
-	2,  // 2: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
-	4,  // 3: service.channel.pb.NodeKeySet.in:type_name -> service.channel.pb.NodeKeyList
-	6,  // 4: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
-	1,  // 5: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
-	1,  // 6: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
-	9,  // 7: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
-	3,  // 8: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
-	11, // 9: service.channel.pb.Where.name:type_name -> x.filter.pb.String
-	5,  // 10: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
-	7,  // 11: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
-	12, // 12: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
-	12, // 13: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
-	8,  // 14: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	0,  // 0: service.channel.pb.Operation.type:type_name -> service.channel.pb.OperationType
+	12, // 1: service.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	11, // 2: service.channel.pb.WhereList.values:type_name -> service.channel.pb.Where
+	4,  // 3: service.channel.pb.KeySet.in:type_name -> service.channel.pb.KeyList
+	6,  // 4: service.channel.pb.NodeKeySet.in:type_name -> service.channel.pb.NodeKeyList
+	8,  // 5: service.channel.pb.TelemDataTypeSet.in:type_name -> service.channel.pb.TelemDataTypeList
+	3,  // 6: service.channel.pb.Where.and:type_name -> service.channel.pb.WhereList
+	3,  // 7: service.channel.pb.Where.or:type_name -> service.channel.pb.WhereList
+	11, // 8: service.channel.pb.Where.not:type_name -> service.channel.pb.Where
+	5,  // 9: service.channel.pb.Where.key:type_name -> service.channel.pb.KeySet
+	13, // 10: service.channel.pb.Where.name:type_name -> x.filter.pb.String
+	7,  // 11: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
+	9,  // 12: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
+	14, // 13: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
+	14, // 14: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
+	10, // 15: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_channel_pb_channel_proto_init() }
@@ -817,23 +956,24 @@ func file_core_pkg_service_channel_pb_channel_proto_init() {
 	if File_core_pkg_service_channel_pb_channel_proto != nil {
 		return
 	}
-	file_core_pkg_service_channel_pb_channel_proto_msgTypes[0].OneofWrappers = []any{}
-	file_core_pkg_service_channel_pb_channel_proto_msgTypes[3].OneofWrappers = []any{}
-	file_core_pkg_service_channel_pb_channel_proto_msgTypes[5].OneofWrappers = []any{}
-	file_core_pkg_service_channel_pb_channel_proto_msgTypes[7].OneofWrappers = []any{}
-	file_core_pkg_service_channel_pb_channel_proto_msgTypes[9].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[8].OneofWrappers = []any{}
+	file_core_pkg_service_channel_pb_channel_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_channel_pb_channel_proto_rawDesc), len(file_core_pkg_service_channel_pb_channel_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   10,
+			NumEnums:      1,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_service_channel_pb_channel_proto_goTypes,
 		DependencyIndexes: file_core_pkg_service_channel_pb_channel_proto_depIdxs,
+		EnumInfos:         file_core_pkg_service_channel_pb_channel_proto_enumTypes,
 		MessageInfos:      file_core_pkg_service_channel_pb_channel_proto_msgTypes,
 	}.Build()
 	File_core_pkg_service_channel_pb_channel_proto = out.File

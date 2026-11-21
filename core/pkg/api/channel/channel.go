@@ -195,7 +195,7 @@ func (s *Service) Create(
 	)
 	for i, ch := range req.Channels {
 		if ch.Expression != "" {
-			ops, err := calculationOperations(ch.Operations)
+			ops, err := calculation.FromChannelOperations(ch.Operations)
 			if err != nil {
 				return CreateResponse{}, validate.PathedError(
 					err,
@@ -479,8 +479,7 @@ func namesByName(where *channel.Where) bool {
 }
 
 // translateForward returns the old API form of channels, with the expression and
-// operations of the calculation in shown that writes each one. A calculation with no
-// operations shows one none operation, as v0.62 did.
+// operations of the calculation in shown that writes each one.
 func (s *Service) translateForward(
 	channels []channel.Channel,
 	shown map[channel.Key]calculation.Calculation,
@@ -492,12 +491,7 @@ func (s *Service) translateForward(
 			continue
 		}
 		translated[i].Expression = c.Expression
-		translated[i].Operations = channelOperations(c.Operations)
-		if len(translated[i].Operations) == 0 {
-			translated[i].Operations = []Operation{
-				{Type: OperationTypeNone},
-			}
-		}
+		translated[i].Operations = calculation.ToChannelOperations(c.Operations)
 	}
 	return translated
 }
