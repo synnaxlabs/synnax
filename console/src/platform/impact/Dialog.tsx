@@ -12,6 +12,7 @@ import "@/platform/impact/Dialog.css";
 import {
   AccessDeniedError,
   impact,
+  isConnectionError,
   PlanChangedError,
   resource,
   type Synnax as Client,
@@ -32,7 +33,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
-import { compare } from "@synnaxlabs/x";
+import { compare, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useId, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -50,8 +51,10 @@ const ITEM_HEIGHT = 36;
 const DISPLAY_ITEMS = 8;
 /** Past this many entries, every group but the first starts closed. */
 const MANY_ENTRIES = 100;
-/** How long a plan loads before the loading line shows. */
-const LOADING_DELAY_MS = 150;
+/** A spinner shows only after this long, so a fast load shows none. */
+const SPINNER_DELAY = TimeSpan.milliseconds(150);
+/** A spinner that shows stays at least this long, so it never flashes. */
+const SPINNER_MIN = TimeSpan.milliseconds(300);
 
 interface GroupSpec {
   effect: impact.Effect;
@@ -90,11 +93,19 @@ const ACCESS_DENIED =
   "Your role cannot change a record that this delete changes. Ask an admin for " +
   "access, or cancel.";
 
-const reasonOf = (err: unknown): string => {
+const CONNECTION = "Check the connection to the Core";
+
+/**
+ * Returns why err happened, as sentences. next is the step that the user takes when the
+ * Core cannot be reached.
+ */
+const reasonOf = (err: unknown, next: string): string => {
   const text = err instanceof Error ? err.message : String(err);
-  if (!AccessDeniedError.matches(err))
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  return `${ACCESS_DENIED} ${text}`;
+  if (AccessDeniedError.matches(err)) return `${ACCESS_DENIED} ${text}`;
+  let sentence = text.charAt(0).toUpperCase() + text.slice(1);
+  if (!/[.!?]$/.test(sentence)) sentence += ".";
+  if (!isConnectionError(err)) return sentence;
+  return `${sentence} ${CONNECTION}, then ${next}.`;
 };
 
 /** The next step when a record that the user cannot see and did not pick blocks. */
@@ -150,9 +161,34 @@ const ROW_ORDER = compare.chain<Row>(
 );
 
 interface FooterStatus {
+  variant: "error" | "loading";
   message: string;
-  description: string;
+  description?: string;
 }
+
+const UPDATING: FooterStatus = { variant: "loading", message: "Updating the records" };
+
+/**
+ * Returns whether to show a spinner for a load: from SPINNER_DELAY after loading starts
+ * until it stops, and for at least SPINNER_MIN.
+ */
+const useSpinner = (loading: boolean): boolean => {
+  const [shownAt, setShownAt] = useState<TimeStamp | null>(null);
+  useEffect(() => {
+    if (loading && shownAt == null) {
+      const timer = setTimeout(
+        () => setShownAt(TimeStamp.now()),
+        SPINNER_DELAY.milliseconds,
+      );
+      return () => clearTimeout(timer);
+    }
+    if (loading || shownAt == null) return;
+    const left = SPINNER_MIN.milliseconds - TimeStamp.since(shownAt).milliseconds;
+    const timer = setTimeout(() => setShownAt(null), Math.max(0, left));
+    return () => clearTimeout(timer);
+  }, [loading, shownAt]);
+  return shownAt != null;
+};
 
 interface EntryProps {
   row: Row;
@@ -328,19 +364,6 @@ const Entries = ({ view, plural, ...rest }: EntriesProps): ReactElement => {
   );
 };
 
-interface SummaryProps {
-  status: FooterStatus;
-}
-
-const Summary = ({ status: { message, description } }: SummaryProps): ReactElement => (
-  <Flex.Box y empty role="status" className={CSS.BE("impact", "summary")}>
-    <Status.Summary variant="error" message={message} />
-    <Text.Text level="small" color={9}>
-      {description}
-    </Text.Text>
-  </Flex.Box>
-);
-
 const Dialog = ({
   change,
   names,
@@ -357,15 +380,11 @@ const Dialog = ({
   const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
   const [footer, setFooter] = useState<FooterStatus | null>(null);
-  const [slow, setSlow] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   Modals.useBusy(applying);
+  const listing = useSpinner(view == null && planError == null);
+  const updating = useSpinner(planning && view != null);
   const hiddenPick = hidden ? "delete" : undefined;
-
-  useEffect(() => {
-    if (view != null) return;
-    const timer = setTimeout(() => setSlow(true), LOADING_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [view]);
   const plural = names.length > 1;
 
   useAsyncEffect(
@@ -384,8 +403,9 @@ const Dialog = ({
       setPlanning(false);
       if (next == null) {
         setPlanError({
+          variant: "error",
           message: "Failed to list the records that this delete touches",
-          description: reasonOf(failure),
+          description: reasonOf(failure, "try again"),
         });
         return;
       }
@@ -393,8 +413,14 @@ const Dialog = ({
       setPlanError(null);
       setView((prev) => (prev == null ? planned : { ...planned, fresh: prev.fresh }));
     },
-    [client, change, picks, hiddenPick],
+    [client, change, picks, hiddenPick, attempt],
   );
+
+  const handleRetry = () => {
+    setPlanning(true);
+    setPlanError(null);
+    setAttempt((prev) => prev + 1);
+  };
 
   // A pick plans again, so Delete waits for that plan.
   const handlePick = (key: string, picked: boolean) => {
@@ -427,6 +453,7 @@ const Dialog = ({
     if (blockers.length > 0) {
       setUnpicked(new Set(blockers));
       setFooter({
+        variant: "error",
         message: blockedOf(blockers.length),
         description: "Delete each one too, or cancel.",
       });
@@ -452,10 +479,10 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      let description = reasonOf(failure);
+      let description = reasonOf(failure, "press Delete again");
       if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden)
-        description = `${description}. ${hiddenStepOf(view.plan.hidden)}`;
-      setFooter({ message: failureOf(names), description });
+        description = `${description} ${hiddenStepOf(view.plan.hidden)}`;
+      setFooter({ variant: "error", message: failureOf(names), description });
       return;
     }
     const current = impact.planOf(failure);
@@ -467,7 +494,11 @@ const Dialog = ({
     }
     setApplying(false);
     if (next == null) {
-      setFooter({ message: failureOf(names), description: reasonOf(failure) });
+      setFooter({
+        variant: "error",
+        message: failureOf(names),
+        description: reasonOf(failure, "press Delete again"),
+      });
       return;
     }
     const kept = new Set(current.entries.map(recordKey));
@@ -478,7 +509,11 @@ const Dialog = ({
     );
   };
 
-  const plan = view?.plan;
+  const shown = listing ? null : view;
+  const plan = shown?.plan;
+  let status = footer;
+  if (status == null) status = planError;
+  if (updating) status = UPDATING;
   const empty =
     plan != null && plan.entries.length === 0 && plan.kept === 0 && plan.hidden === 0;
 
@@ -487,7 +522,7 @@ const Dialog = ({
       <Modal.Header icon={<Icon.Channel />}>Channel.Delete</Modal.Header>
       <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
         {changed && (
-          <Note.Note variant="warning" role="status">
+          <Note.Note variant="warning" role="alert">
             <Text.Text level="small">
               These records changed. Check them again.
             </Text.Text>
@@ -497,16 +532,15 @@ const Dialog = ({
           {messageOf(names)}
         </Text.Text>
         <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
-        {view == null && planError == null && slow && (
+        {listing && (
           <Status.Summary
             variant="loading"
             message="Listing the records that this delete touches"
           />
         )}
-        {planError != null && <Summary status={planError} />}
-        {view != null && view.plan.entries.length > 0 && (
+        {shown != null && shown.plan.entries.length > 0 && (
           <Entries
-            view={view}
+            view={shown}
             plural={plural}
             picks={picks}
             unpicked={unpicked}
@@ -545,8 +579,17 @@ const Dialog = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Nav.Bar.Start className={CSS.BE("impact", "status")}>
-          {footer != null && <Summary status={footer} />}
+        {/* A live region stays mounted, so a screen reader reads each status. */}
+        <Nav.Bar.Start role="status" className={CSS.BE("impact", "status")}>
+          {status != null && (
+            <Status.Summary
+              className={CSS.BE("impact", "summary")}
+              variant={status.variant}
+              message={status.message}
+              description={status.description}
+              center={false}
+            />
+          )}
         </Nav.Bar.Start>
         <Nav.Bar.End x align="center">
           <Button.Button
@@ -557,16 +600,28 @@ const Dialog = ({
           >
             Cancel
           </Button.Button>
-          <Button.Button
-            variant="filled"
-            status={applying ? "loading" : "error"}
-            disabled={view == null || planning || planError != null}
-            trigger={Triggers.SAVE}
-            triggerIndicator
-            onClick={() => void handleDelete()}
-          >
-            Delete
-          </Button.Button>
+          {planError == null ? (
+            <Button.Button
+              variant="filled"
+              status={applying ? "loading" : "error"}
+              disabled={shown == null || planning || updating}
+              trigger={Triggers.SAVE}
+              triggerIndicator
+              onClick={() => void handleDelete()}
+            >
+              Delete
+            </Button.Button>
+          ) : (
+            <Button.Button
+              variant="filled"
+              trigger={Triggers.SAVE}
+              triggerIndicator
+              onClick={handleRetry}
+            >
+              <Icon.Refresh />
+              Try again
+            </Button.Button>
+          )}
         </Nav.Bar.End>
       </Modal.Footer>
     </Modal.Frame>

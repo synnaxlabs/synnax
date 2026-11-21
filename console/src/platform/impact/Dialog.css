@@ -18,10 +18,16 @@
     user-select: text;
 }
 
-/* a long error wraps in place, so the dialog keeps its width */
+/*
+ * a long error wraps in place, so the dialog keeps its width. The status keeps the
+ * space of a message and two description lines while empty, so nothing moves.
+ */
 .console-impact__status {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: calc(
+        var(--pluto-p-line-height) + 1rem + 2 * var(--pluto-small-line-height)
+    );
 }
 
 .console-impact__entries {
