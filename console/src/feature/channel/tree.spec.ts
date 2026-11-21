@@ -85,7 +85,9 @@ const createReadTask = async (ch: channelClient.Key) => {
 
 /** Waits for the dialog's Delete button to finish planning, then clicks it. */
 const clickDelete = async () => {
-  await waitFor(() => expect(findLastButton("Delete").disabled).toBe(false));
+  await waitFor(() =>
+    expect(findLastButton("Delete").getAttribute("aria-disabled")).toBeNull(),
+  );
   fireEvent.click(findLastButton("Delete"));
 };
 
