@@ -20,7 +20,8 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { server } from "vitest/browser";
 
 import { Color } from "@/feature/color";
 import { Modals } from "@/platform/modals";
@@ -47,6 +48,9 @@ const createColor = async (
   name: string = uniqueName("color"),
 ): Promise<color.Named> =>
   await client.colors.create({ name, light: "#00FF00", group: palette.key, position });
+
+// Chromium and WebKit can run at once against one Core, so each edits its own built-in.
+const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
 
 /** Returns the nth built-in color from the end, which no other spec here edits. */
 const builtinFromEnd = async (n: number): Promise<color.Named> => {
@@ -204,7 +208,9 @@ describe("Color.Settings", () => {
   it("should picture a dragged color filled with its light value", async () => {
     const shade = await createColor(await createPalette());
     await renderColors();
-    fireEvent.dragStart(await findColor(shade.name));
+    fireEvent.dragStart(await findColor(shade.name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
     expect(tile?.style.background).toBe("rgb(0, 255, 0)");
@@ -251,12 +257,19 @@ describe("Color.Settings", () => {
   });
 
   it("should mark an edited built-in and restore the values Synnax ships", async () => {
-    const shipped = await builtinFromEnd(2);
+    const shipped = await builtinFromEnd(EDITED_FROM_END);
     await client.colors.retrieve(shipped.key);
     await client.colors.dispatch(
       shipped.key,
       color.set({ path: ["light"], value: xcolor.construct("#123456") }),
     );
+    // A failed restore must not leave the built-in edited for later runs.
+    onTestFinished(async () => {
+      await client.colors.dispatch(
+        shipped.key,
+        color.set({ path: ["light"], value: shipped.light }),
+      );
+    });
     await renderColors();
     expect(
       await within(await findColor(shipped.name)).findByText("Edited"),

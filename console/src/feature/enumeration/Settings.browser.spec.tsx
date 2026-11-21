@@ -20,7 +20,8 @@ import {
   within,
 } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
+import { server } from "vitest/browser";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
@@ -46,6 +47,9 @@ const createEnumeration = async (
   ],
 ): Promise<enumeration.Enumeration> =>
   await client.enumerations.create({ name: uniqueName("enumeration"), entries });
+
+// Chromium and WebKit can run at once against one Core, so each edits its own built-in.
+const EDITED_FROM_END = server.browser === "webkit" ? 4 : 2;
 
 /** Returns the nth built-in from the end, which no other spec edits. */
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
@@ -296,7 +300,9 @@ describe("Enumeration.Settings", () => {
       },
     ]);
     await renderEnumerations();
-    fireEvent.dragStart(await findEntry(e.entries[0].name));
+    fireEvent.dragStart(await findEntry(e.entries[0].name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
     expect(tile?.style.background).toBe("rgb(0, 255, 0)");
@@ -310,12 +316,20 @@ describe("Enumeration.Settings", () => {
     const sibling = await findEntry(e.entries[1].name);
     const stranger = await findEntry(other.entries[1].name);
     const over = "console-enumeration-settings__item--over";
-    fireEvent.dragStart(dragged);
-    fireEvent.dragOver(stranger, { screenX: 1, screenY: 1 });
-    fireEvent.dragOver(sibling, { screenX: 2, screenY: 2 });
+    fireEvent.dragStart(dragged, { dataTransfer: new DataTransfer() });
+    fireEvent.dragOver(stranger, {
+      screenX: 1,
+      screenY: 1,
+      dataTransfer: new DataTransfer(),
+    });
+    fireEvent.dragOver(sibling, {
+      screenX: 2,
+      screenY: 2,
+      dataTransfer: new DataTransfer(),
+    });
     expect(sibling.className).toContain(over);
     expect(stranger.className).not.toContain(over);
-    fireEvent.dragEnd(dragged);
+    fireEvent.dragEnd(dragged, { dataTransfer: new DataTransfer() });
   });
 
   it("should warn about each entry that is hard to tell apart", async () => {
@@ -376,18 +390,31 @@ describe("Enumeration.Settings", () => {
   });
 
   it("should mark an edited built-in and restore its shipped entries", async () => {
-    const shipped = await builtinFromEnd(2);
+    const shipped = await builtinFromEnd(EDITED_FROM_END);
     await client.enumerations.retrieve(shipped.key);
     await client.enumerations.dispatch(
       shipped.key,
       enumeration.set({ path: ["entries"], value: shipped.entries.slice(1) }),
     );
+    // A failed restore must not leave the built-in edited for later runs.
+    onTestFinished(async () => {
+      await client.enumerations.dispatch(
+        shipped.key,
+        enumeration.set({ path: ["entries"], value: shipped.entries }),
+      );
+    });
     await renderEnumerations();
-    expect(await screen.findByText("Edited")).toBeTruthy();
+    // The other browser's run can mark its own built-in edited on the same page.
+    const heading = (): HTMLElement => {
+      const el = screen.getByText(shipped.name).closest<HTMLElement>("[aria-expanded]");
+      assert(el != null);
+      return el;
+    };
+    await waitFor(() => expect(within(heading()).getByText("Edited")).toBeTruthy());
     await openContextMenu(shipped.name);
     await clickAndSettle("Restore default");
     await expect.poll(async () => await stored(shipped.key)).toEqual(shipped.entries);
-    await waitFor(() => expect(screen.queryByText("Edited")).toBeNull());
+    await waitFor(() => expect(within(heading()).queryByText("Edited")).toBeNull());
   });
 
   it("should not offer to delete a built-in", async () => {
