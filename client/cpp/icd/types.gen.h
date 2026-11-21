@@ -751,6 +751,9 @@ struct Message {
     std::string name;
     /// @brief payload is the layout of the message's payload.
     Payload payload;
+    /// @brief cycle_time is the send cycle that the protocol states for the message.
+    /// When absent the protocol states none.
+    std::optional<::x::telem::TimeSpan> cycle_time;
 
     static Message parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

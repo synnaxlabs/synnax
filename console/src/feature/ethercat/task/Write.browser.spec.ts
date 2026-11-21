@@ -32,6 +32,7 @@ import {
   createRepeatedNameSlave,
   createSlaveDevice,
   createUnresolvedWriteChannel,
+  preloadForms,
 } from "@/feature/ethercat/testutil";
 import {
   awaitEditableForm,
@@ -44,6 +45,8 @@ import {
 } from "@/platform/task/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 let testRack: rack.Rack;
 
