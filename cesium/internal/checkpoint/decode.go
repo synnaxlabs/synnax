@@ -312,6 +312,7 @@ func parseSegment(
 		Version:  binary.LittleEndian.Uint16(r[24:]),
 		DataType: r[26],
 		Sealed:   r[27]&flagSealed != 0,
+		File:     binary.LittleEndian.Uint16(r[28:]),
 	}
 	first := uint64(binary.LittleEndian.Uint32(r[20:]))
 	end := ps.count
@@ -319,7 +320,7 @@ func parseSegment(
 		end = uint64(binary.LittleEndian.Uint32(b[ss.off+(index+1)*32+20:]))
 	}
 	switch {
-	case r[27]&^flagSealed != 0 || !allZero(r[28:32]):
+	case r[27]&^flagSealed != 0 || !allZero(r[30:32]):
 		return seg, corrupt("segment %d has unknown flags or a set reserved byte",
 			seg.ID)
 	case first != *nextPtr || end < first || end > ps.count:

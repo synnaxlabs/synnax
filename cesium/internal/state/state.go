@@ -35,6 +35,9 @@ type Segment struct {
 	Clock uint32
 	// Version is the format version of the segment.
 	Version uint16
+	// File is the number N of the old file <N>.domain of a version 0 segment, and zero
+	// for every other version.
+	File uint16
 	// DataType is the data type code of the samples.
 	DataType uint8
 	// Sealed is true when the segment never grows again.

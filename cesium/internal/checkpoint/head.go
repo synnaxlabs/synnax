@@ -145,6 +145,7 @@ func putChannels(b []byte, l *layout, s *state.Snapshot) {
 			if seg.Sealed {
 				b[sAt+27] = flagSealed
 			}
+			binary.LittleEndian.PutUint16(b[sAt+28:], seg.File)
 			sAt += uint64(recordSizes[sectionSegs])
 			for _, p := range seg.Pointers {
 				putLE64(b[pAt:], uint64(p.First), uint64(p.Last), uint64(p.Alignment))
