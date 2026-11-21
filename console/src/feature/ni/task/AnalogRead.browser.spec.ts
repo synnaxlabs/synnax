@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, sleep, TimeSpan } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
 import {
@@ -720,6 +720,41 @@ describe("AnalogRead ports", () => {
     commitFieldInput(screen.getByLabelText("Maximum value"), "9");
     await waitFor(async () => expect(await savedRange()).toEqual([8, 9]));
     expect(fieldInvalid("Minimum value")).toBe(false);
+  });
+
+  it("should not deploy while it holds a reversed range", async () => {
+    const dev = await createDevice();
+    const { container } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_ranged" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    const execute = vi.spyOn(client.tasks, "executeCommand");
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    await clickDeploy(container);
+    await sleep.sleep(TimeSpan.milliseconds(500));
+    expect(execute).not.toHaveBeenCalled();
+    execute.mockRestore();
+  });
+
+  it("should drop a held range when the user leaves the channel", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        name: "chan_ranged",
+        minVal: 0,
+        maxVal: 5,
+      }),
+      createChannel("ai_voltage", 1, { device: dev.key, name: "chan_other" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    commitFieldInput(screen.getByLabelText("Minimum value"), "8");
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(true));
+    fireEvent.click(await findChannelListItem("chan_other"));
+    fireEvent.click(await findChannelListItem("chan_ranged"));
+    await waitFor(() => expect(fieldInvalid("Minimum value")).toBe(false));
+    expect(screen.getByLabelText<HTMLInputElement>("Minimum value").value).toBe("0");
   });
 
   it("should name the values that fit in no range", async () => {
