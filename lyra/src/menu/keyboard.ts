@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { Triggers } from "@/triggers";
 
-const keyboardMenuKey = (
-  e: KeyboardEvent<HTMLElement>,
-): "F10" | "ContextMenu" | null => {
+type MenuKeyEvent = KeyboardEvent | ReactKeyboardEvent;
+
+const keyboardMenuKey = (e: MenuKeyEvent): "F10" | "ContextMenu" | null => {
   if (e.altKey || e.ctrlKey || e.metaKey) return null;
   const key = Triggers.eventKey(e);
   if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) return key;
@@ -25,10 +25,7 @@ const keyboardMenuKey = (
  * default, so the webview does not open its own menu.
  * @returns true if the key opens a context menu.
  */
-export const menuKeyDown = (
-  e: KeyboardEvent<HTMLElement>,
-  open: () => void,
-): boolean => {
+export const menuKeyDown = (e: MenuKeyEvent, open: () => void): boolean => {
   const key = keyboardMenuKey(e);
   if (key == null) return false;
   e.preventDefault();
@@ -40,7 +37,7 @@ export const menuKeyDown = (
  * Calls open on the release of the Menu key, as on Windows.
  * @returns true if the key opens a context menu.
  */
-export const menuKeyUp = (e: KeyboardEvent<HTMLElement>, open: () => void): boolean => {
+export const menuKeyUp = (e: MenuKeyEvent, open: () => void): boolean => {
   if (keyboardMenuKey(e) !== "ContextMenu") return false;
   e.preventDefault();
   open();

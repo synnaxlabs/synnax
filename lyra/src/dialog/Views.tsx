@@ -46,7 +46,10 @@ interface View {
   width: number;
 }
 
-export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap"> {}
+export interface ViewsProps extends Omit<Flex.BoxProps, "ref" | "x" | "y" | "gap"> {
+  /** Called with true when a view opens, and with false on Back. */
+  onViewingChange?: (viewing: boolean) => void;
+}
 
 /**
  * A box that can show a view in place of its children, such as an editor for one of its
@@ -56,6 +59,7 @@ export const Views = ({
   className,
   style,
   children,
+  onViewingChange,
   ...rest
 }: ViewsProps): ReactElement => {
   const [view, setView] = useState<View | null>(null);
@@ -77,6 +81,11 @@ export const Views = ({
     // offsetWidth ignores the scale of the dialog's entrance animation.
     const width = root.current?.offsetWidth ?? 0;
     setView({ title, content, width });
+    onViewingChange?.(true);
+  };
+  const back = (): void => {
+    setView(null);
+    onViewingChange?.(false);
   };
   const viewStyle: CSS.VarProperties | undefined =
     view == null ? undefined : { "--pluto-dialog-views-width": `${view.width}px` };
@@ -108,7 +117,7 @@ export const Views = ({
                 size="small"
                 square
                 textColor={9}
-                onClick={() => setView(null)}
+                onClick={back}
                 autoFocus
                 tooltip="Back"
                 aria-label="Back"
