@@ -755,27 +755,28 @@ var _ = Describe("Writer", func() {
 						telem.NewSeriesV(int64(stamp)),
 					})))
 				}
+				// Each writer has one caller. high takes the clock after its even
+				// commits and gives it back after its odd ones, so the clock moves
+				// between the commits of the two writers.
 				for _, w := range []*writer.Writer{low, high} {
 					wg.Go(func() {
 						defer GinkgoRecover()
-						for range 50 {
+						for i := range 50 {
 							write(w)
 							MustSucceed2(w.Commit())
+							if w != high {
+								continue
+							}
+							authority := control.Authority(3)
+							if i%2 == 1 {
+								authority = 0
+							}
+							Expect(high.SetAuthority(writer.Config{
+								Authorities: []control.Authority{authority},
+							})).To(Succeed())
 						}
 					})
 				}
-				wg.Go(func() {
-					defer GinkgoRecover()
-					for i := range 50 {
-						authority := control.Authority(3)
-						if i%2 == 1 {
-							authority = 0
-						}
-						Expect(high.SetAuthority(writer.Config{
-							Authorities: []control.Authority{authority},
-						})).To(Succeed())
-					}
-				})
 				wg.Wait()
 				Expect(high.Close()).To(Succeed())
 				Expect(low.Close()).To(Succeed())
