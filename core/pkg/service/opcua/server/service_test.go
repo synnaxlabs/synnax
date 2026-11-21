@@ -286,6 +286,53 @@ var _ = Describe("Service", func() {
 			)))
 	})
 
+	DescribeTable("Should refuse to delete a certificate that a server uses",
+		func(ctx SpecContext, set func(*server.Connection, certificate.Key)) {
+			pem, _ := certtestutil.NewPair()
+			c := certificate.Certificate{Variant: certificate.StoredCertificate{
+				Base: certificate.Base{Name: "PLC"},
+				Pem:  pem,
+			}}
+			Expect(e.certs.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+			s := newServer()
+			set(&s.Connection, c.Base().Key)
+			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			Expect(e.certs.NewWriter(tx).Delete(ctx, c.Base().Key)).
+				To(MatchError(ContainSubstring(
+					"because opcua_server %s references it through "+
+						"connection.certificates",
+					s.Key,
+				)))
+		},
+		Entry("client", func(c *server.Connection, k certificate.Key) {
+			c.ClientCertificate = &k
+		}),
+		Entry("server", func(c *server.Connection, k certificate.Key) {
+			c.ServerCertificate = &k
+		}),
+	)
+
+	It("Should reject a password file of another rack", func(ctx SpecContext) {
+		other := rack.Rack{Name: "Other"}
+		Expect(e.racks.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+		file := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "PLC password"},
+			FileName: "plc",
+			Rack:     other.Key,
+		}}
+		Expect(e.secret.NewWriter(tx).Set(ctx, &file, nil)).To(Succeed())
+		s := newServer()
+		s.Connection.Password = new(file.Base().Key)
+		Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"is a file of rack %d, not of rack %d",
+				other.Key,
+				s.Rack,
+			)),
+		))
+	})
+
 	It("Should refuse to delete a rack that holds a server", func(ctx SpecContext) {
 		other := rack.Rack{Name: "Other"}
 		Expect(e.racks.NewWriter(tx).Create(ctx, &other)).To(Succeed())
