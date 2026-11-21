@@ -24,11 +24,10 @@ type Create[K Key, E Entry[K]] struct {
 	table *Table[K, E]
 	// exclusive is true when Exec refuses an entry whose key exists.
 	exclusive bool
-	// uniqueChecked is true when the caller checked the unique values of every entry.
-	uniqueChecked bool
 }
 
-// NewCreate opens a new Create query.
+// NewCreate opens a new Create query. A Create that no Table built checks no
+// references and no unique values, so it is for migrations only.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 	return Create[K, E]{}
 }
@@ -52,16 +51,6 @@ func (c Create[K, E]) Exclusive() Create[K, E] {
 	return c
 }
 
-// UniqueChecked skips the checks of the unique indexes of the table. The caller must
-// have run UniqueIndex.Check on every entry for every unique index of the table, in
-// the same transaction with no write between, and no two entries may hold one value
-// of a space. It lets a caller that must fail before other work, such as taking keys,
-// check once.
-func (c Create[K, E]) UniqueChecked() Create[K, E] {
-	c.uniqueChecked = true
-	return c
-}
-
 // Exec executes the query against the provided transaction. It returns any errors
 // encountered during execution. An exclusive query returns an error wrapping
 // validate.ErrValidation that names the table and the key of an entry that exists.
@@ -69,11 +58,7 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	var w Writer[K, E]
 	if c.table != nil {
-		checks := checkAll
-		if c.uniqueChecked {
-			checks = checkReferences
-		}
-		w = c.table.writer(tx, checks)
+		w = c.table.writer(tx, checkAll)
 	} else {
 		w = wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	}

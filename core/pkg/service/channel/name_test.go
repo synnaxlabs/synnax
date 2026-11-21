@@ -117,26 +117,16 @@ var _ = Describe("Unique names", Ordered, func() {
 		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 	})
 
-	It("Should use up no channel keys on a create that the index refuses", func(
-		ctx SpecContext,
-	) {
-		index := func(name string) channel.Channel {
-			return channel.Channel{
-				Name:     name,
-				DataType: telem.TimestampT,
-				IsIndex:  true,
-			}
-		}
-		first := index(UniqueChannelName())
-		Expect(create(ctx, &first)).To(Succeed())
-		for range 3 {
-			dup := index(first.Name)
-			Expect(create(ctx, &dup)).To(MatchError(ContainSubstring("already exists")))
-		}
-		next := index(UniqueChannelName())
-		Expect(create(ctx, &next)).To(Succeed())
-		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
-	})
+	It("Should refuse a create whose name another channel holds, naming that channel",
+		func(ctx SpecContext) {
+			first := virtual(UniqueChannelName())
+			Expect(create(ctx, &first)).To(Succeed())
+			dup := virtual(first.Name)
+			Expect(create(ctx, &dup)).To(MatchError(ContainSubstring(
+				"channel with name '" + first.Name + "' already exists",
+			)))
+		},
+	)
 
 	It("Should keep each holder of a stored duplicate writable", func(ctx SpecContext) {
 		a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())

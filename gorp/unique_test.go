@@ -139,17 +139,6 @@ var _ = Describe("UniqueIndex", func() {
 			openItems(ctx)
 		})
 
-		It("Should skip the checks of a create that the caller checked", func(
-			ctx SpecContext,
-		) {
-			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				dup := uniqueItem{Key: 2, Name: "pt"}
-				return items.NewCreate().UniqueChecked().Entry(&dup).Exec(ctx, tx)
-			})).To(Succeed())
-			Expect(items.NewRetrieve().Count(ctx, db)).To(Equal(2))
-		})
-
 		It("Should refuse a second entry with the same value", func(ctx SpecContext) {
 			Expect(createItem(ctx, db, uniqueItem{Key: 1, Name: "pt"})).To(Succeed())
 			expectClash(
