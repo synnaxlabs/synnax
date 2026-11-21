@@ -71,7 +71,6 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 			},
 		}),
 	}
-	t.write = t.writeHeld
 	var err error
 	t.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Tombstone]{
 		DB:      db,
@@ -90,6 +89,8 @@ func openTombstones(ctx context.Context, db *gorp.DB) (tombstones, error) {
 			}),
 		},
 	})
+	// The hook copies t, so it binds once the table is open.
+	t.write = t.writeHeld
 	return t, err
 }
 
