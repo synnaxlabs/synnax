@@ -160,10 +160,10 @@ var _ = Describe("Old API breaker d", func() {
 			rec = &Recorder[channel.Key, channel.Action]{}
 			DeferCleanup(channelSvc.Actions().OnChange(rec.Record))
 		})
-		actionsOn := func(key channel.Key, dispatchKey string) []channel.Action {
+		actionsOn := func(key channel.Key) []channel.Action {
 			var out []channel.Action
 			for _, batch := range rec.Snapshot() {
-				if batch.Key == key && batch.DispatchKey == dispatchKey {
+				if batch.Key == key {
 					out = append(out, batch.Actions...)
 				}
 			}
@@ -177,29 +177,13 @@ var _ = Describe("Old API breaker d", func() {
 			req := calculated(input)
 			ch := create(ctx, req)
 			var created *channel.Created
-			for _, a := range actionsOn(ch.Key, "") {
+			for _, a := range actionsOn(ch.Key) {
 				if a.Create != nil {
 					created = &a.Create.Channel
 				}
 			}
 			Expect(created).ToNot(BeNil())
 			Expect(created.Expression).To(Equal(req.Expression))
-		})
-
-		It("Should broadcast an old API set of the expression on the channel", func(
-			ctx SpecContext,
-		) {
-			Skip("D-250: channel broadcasts fill only the create")
-			input := createChannel(ctx, telem.Float32T)
-			ch := create(ctx, calculated(input))
-			expression := fmt.Sprintf("return %s * 3", input.Name)
-			edit := set("expression", expression)
-			Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
-				Key:         ch.Key,
-				DispatchKey: "breaker-d",
-				Actions:     []channel.Action{edit},
-			})).Error().To(Succeed())
-			Expect(actionsOn(ch.Key, "breaker-d")).To(ContainElement(edit))
 		})
 	})
 
