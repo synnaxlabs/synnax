@@ -207,6 +207,7 @@ type Delete struct {
 type beginDeleteRequest struct {
 	d          *Delete
 	start, end telem.TimeStamp
+	pre        []Preload
 }
 
 func (r *beginDeleteRequest) fail(err error) { r.d.done <- err }
@@ -227,20 +228,34 @@ func (r *beginDeleteRequest) run(s *State) {
 			return
 		}
 	}
+	records, err := ch.preloadOf(r.pre)
+	if err != nil {
+		r.d.done <- err
+		return
+	}
 	r.d.Empty = true
-	for _, seg := range ch.segs {
-		for _, p := range seg.dur.pointers {
+	edges := func(seg Segment, ptrs []Pointer) {
+		for _, p := range ptrs {
 			if p.First > last || p.Last < r.start {
 				continue
 			}
 			r.d.Empty = false
 			if p.First < r.start {
-				r.d.Left = &Edge{Segment: seg.vis, Pointer: p}
+				r.d.Left = &Edge{Segment: seg, Pointer: p}
 			}
 			if p.Last >= r.end {
-				r.d.Right = &Edge{Segment: seg.vis, Pointer: p}
+				r.d.Right = &Edge{Segment: seg, Pointer: p}
 			}
 		}
+	}
+	// A segment that a part holds counts through its record in the preload.
+	for _, seg := range ch.segs {
+		if seg.vis.Part == 0 {
+			edges(seg.vis, seg.dur.pointers)
+		}
+	}
+	for _, seg := range records {
+		edges(seg, seg.Pointers)
 	}
 	r.d.c = &claim{start: r.start, end: last, bounded: true}
 	ch.claims = append(ch.claims, r.d.c)
@@ -249,13 +264,19 @@ func (r *beginDeleteRequest) run(s *State) {
 
 // BeginDelete claims the time range from start to end of key for a delete, and returns
 // the durable pointers at its ends, from which the caller builds the cuts of a
-// Tombstone. Until Release, a commit or a writer start that reaches the range gets an
-// error that wraps ErrConflict, so the durable view of the range does not change. It
-// returns an error that wraps ErrConflict when the claim of a writer or another delete
-// reaches the range.
-func (s *State) BeginDelete(key uint32, start, end telem.TimeStamp) (*Delete, error) {
+// Tombstone. pre is the preload of key over the range. Until Release, a commit or a
+// writer start that reaches the range gets an error that wraps ErrConflict, so the
+// durable view of the range does not change. It returns an error that wraps ErrConflict
+// when the claim of a writer or another delete reaches the range, and ErrStale when pre
+// is stale.
+func (s *State) BeginDelete(
+	key uint32,
+	start, end telem.TimeStamp,
+	pre ...Preload,
+) (*Delete, error) {
 	d := &Delete{s: s, key: key, done: make(chan error, 1)}
-	if err := s.enqueue(&beginDeleteRequest{d: d, start: start, end: end}); err != nil {
+	r := &beginDeleteRequest{d: d, start: start, end: end, pre: pre}
+	if err := s.enqueue(r); err != nil {
 		return nil, err
 	}
 	if err := wait(s, d.done); err != nil {

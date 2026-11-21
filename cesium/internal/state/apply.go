@@ -204,7 +204,7 @@ func (c *core) commit(r *log.Commit) error {
 		if err != nil {
 			return err
 		}
-		if p, ok := c.channels[s.key].overlaps(first, last, true); ok {
+		if p, ok := c.channels[s.key].overlapsDurable(first, last); ok {
 			return refuse(
 				"commit of key %d from %d to %d overlaps its pointer from %d "+
 					"to %d",

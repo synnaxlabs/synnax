@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
@@ -77,12 +78,12 @@ type engine struct {
 	// cache is the part cache of the checkpointer and the readers.
 	cache *checkpoint.Cache
 	// parts holds the parts that the last two heads name, which the range of a Channel
-	// may name.
-	parts struct {
-		sync.Mutex
-		live, older headParts
-	}
+	// may name. Only the state owner stores it, in the step that publishes the ranges.
+	parts atomic.Pointer[partSets]
 }
+
+// partSets are the parts of the last two heads.
+type partSets struct{ live, older headParts }
 
 // headParts are the parts that the head of generation names, in rising order of
 // identity.
@@ -149,7 +150,9 @@ func openEngine(o *options) (*engine, error) {
 	if err = e.recover(r); err != nil {
 		return nil, err
 	}
-	e.parts.live = headParts{generation: r.head.Generation, parts: r.head.Parts}
+	e.parts.Store(&partSets{
+		live: headParts{generation: r.head.Generation, parts: r.head.Parts},
+	})
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
@@ -259,10 +262,10 @@ func (e *engine) parted(
 	ranges []state.Range,
 ) {
 	swap := func() {
-		e.parts.Lock()
-		e.parts.older = e.parts.live
-		e.parts.live = headParts{generation: generation, parts: parts}
-		e.parts.Unlock()
+		e.parts.Store(&partSets{
+			live:  headParts{generation: generation, parts: parts},
+			older: e.parts.Load().live,
+		})
 	}
 	if err := e.state.Parted(generation, tags, ranges, swap); err != nil {
 		e.ins.L.Error("state refused what a head holds", zap.Error(err))
@@ -274,14 +277,13 @@ func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
 	if ch.Oldest == 0 {
 		return nil, nil
 	}
-	e.parts.Lock()
-	defer e.parts.Unlock()
+	sets := e.parts.Load()
 	var head headParts
 	switch ch.Generation {
-	case e.parts.live.generation:
-		head = e.parts.live
-	case e.parts.older.generation:
-		head = e.parts.older
+	case sets.live.generation:
+		head = sets.live
+	case sets.older.generation:
+		head = sets.older
 	default:
 		return nil, errors.Newf(
 			"key %d names the parts of head %d, which the engine no longer holds",

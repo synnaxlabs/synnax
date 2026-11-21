@@ -80,7 +80,14 @@ func (e *engine) deleteRange(
 	if tr.Start == tr.End {
 		return false, nil
 	}
-	d, err := e.state.BeginDelete(key, tr.Start, tr.End)
+	var d *state.Delete
+	keys := []ChannelKey{key}
+	_, err := e.withPreloads(nil, keys, tr.Start, tr.End-1, func(pre []state.Preload) (
+		err error,
+	) {
+		d, err = e.state.BeginDelete(key, tr.Start, tr.End, pre...)
+		return err
+	})
 	if err != nil {
 		return false, err
 	}

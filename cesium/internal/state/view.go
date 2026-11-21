@@ -126,22 +126,12 @@ func (c *chanState) publish() {
 	c.pub.Store(ch)
 }
 
-// overlaps returns the first pointer of c, in the durable view or the visible one, that
-// shares a stamp with [first, last], and false when there is none. It reads every
-// pointer, since a backfill leaves the pointers of a segment out of time order.
-func (c *chanState) overlaps(
-	first, last telem.TimeStamp,
-	durableView bool,
-) (Pointer, bool) {
+// overlapsDurable returns the first durable pointer of c that shares a stamp with
+// [first, last], and false when there is none.
+func (c *chanState) overlapsDurable(first, last telem.TimeStamp) (Pointer, bool) {
 	for _, s := range c.segs {
-		ptrs := s.vis.Pointers
-		if durableView {
-			ptrs = s.dur.pointers
-		}
-		for _, p := range ptrs {
-			if p.First <= last && first <= p.Last {
-				return p, true
-			}
+		if p, ok := overlap(s.dur.pointers, first, last); ok {
+			return p, true
 		}
 	}
 	return Pointer{}, false
