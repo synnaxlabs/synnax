@@ -102,7 +102,8 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     );
     const { toggleBreak } = useContext(component);
     const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-      if (dir === "x") toggleBreak(e.clientX, "axis");
+      // Only x1 holds breaks.
+      if (dir === "x" && axisKey === "x1") toggleBreak(e.clientX, "axis");
       onClick?.(e);
     };
 

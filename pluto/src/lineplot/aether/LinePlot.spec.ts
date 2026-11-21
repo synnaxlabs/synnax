@@ -435,6 +435,54 @@ describe("LinePlot breaks", () => {
     };
     expect(measureAt(900)).toEqual(measureAt(400) - 1);
   });
+
+  it("should lay out every x axis after the first in true time", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      gapsCollapsed: true,
+    });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    ["x1", "x2"].forEach((axisKey) => {
+      stack.driver.update([...base, axisKey], XAxis.TYPE, {
+        axisKey,
+        location: axisKey === "x1" ? "bottom" : "top",
+        type: "time",
+        autoBoundPadding: 0,
+      });
+      stack.driver.update([...base, axisKey, "y1"], YAxis.TYPE, { location: "left" });
+      [0, day].forEach((start, i) =>
+        stack.driver.update([...base, axisKey, "y1", `l${i}`], line.Line.TYPE, {
+          x: seriesSpec([start, start + minute]),
+          y: seriesSpec([0, 1]),
+          color: "#ff0000",
+        }),
+      );
+    });
+    renderPlot(recorder);
+    const plot = stack.driver.find<LinePlot>(base);
+    const { x1, x2 } = plot.getXBounds({ lower: 0.25, upper: 0.25 });
+    expect(x1.lower).toBeLessThan(minute);
+    expect(x2.lower).toBeCloseTo((day + minute) / 4, -6);
+  });
 });
 
 describe("LinePlot against a Core", () => {
