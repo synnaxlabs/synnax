@@ -120,9 +120,9 @@ BaseField::from_proto(const ::service::icd::pb::BaseField &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::service::icd::pb::BinaryField, x::errors::Error>
-BinaryField::to_proto() const {
-    ::service::icd::pb::BinaryField pb;
+inline std::pair<::service::icd::pb::TextBaseField, x::errors::Error>
+TextBaseField::to_proto() const {
+    ::service::icd::pb::TextBaseField pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     pb.set_scale(this->scale);
@@ -130,28 +130,13 @@ BinaryField::to_proto() const {
     pb.set_units(this->units);
     if (this->min.has_value()) pb.set_min(*this->min);
     if (this->max.has_value()) pb.set_max(*this->max);
-    pb.set_start_bit(this->start_bit);
-    pb.set_bit_length(this->bit_length);
-    {
-        auto [v, err] = byte_order_to_pb(this->byte_order);
-        if (err) return {{}, err};
-        pb.set_byte_order(v);
-    }
-    {
-        auto [v, err] = ::x::payload::kind_to_pb(this->kind);
-        if (err) return {{}, err};
-        pb.set_kind(v);
-    }
-    if (this->multiplexor.has_value())
-        pb.set_multiplexor(this->multiplexor->to_string());
-    for (const auto &item: this->multiplex_values)
-        pb.add_multiplex_values(item);
+    if (this->default_.has_value()) pb.set_default_(this->default_->to_proto());
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<BinaryField, x::errors::Error>
-BinaryField::from_proto(const ::service::icd::pb::BinaryField &pb) {
-    BinaryField cpp;
+inline std::pair<TextBaseField, x::errors::Error>
+TextBaseField::from_proto(const ::service::icd::pb::TextBaseField &pb) {
+    TextBaseField cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
@@ -163,25 +148,8 @@ BinaryField::from_proto(const ::service::icd::pb::BinaryField &pb) {
     cpp.units = pb.units();
     if (pb.has_min()) cpp.min = pb.min();
     if (pb.has_max()) cpp.max = pb.max();
-    cpp.start_bit = pb.start_bit();
-    cpp.bit_length = pb.bit_length();
-    {
-        auto [v, err] = byte_order_from_pb(pb.byte_order());
-        if (err) return {{}, err};
-        cpp.byte_order = v;
-    }
-    {
-        auto [v, err] = ::x::payload::kind_from_pb(pb.kind());
-        if (err) return {{}, err};
-        cpp.kind = v;
-    }
-    if (pb.has_multiplexor()) {
-        auto [v, err] = x::uuid::UUID::parse(pb.multiplexor());
-        if (err) return {{}, err};
-        cpp.multiplexor = v;
-    }
-    for (const auto &item: pb.multiplex_values())
-        cpp.multiplex_values.push_back(item);
+    if (pb.has_default_())
+        cpp.default_ = ::x::payload::Float::from_proto(pb.default_());
     return {cpp, x::errors::NIL};
 }
 
@@ -241,6 +209,7 @@ Message::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_payload() = v;
     }
+    if (this->cycle_time.has_value()) pb.set_cycle_time(this->cycle_time->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -258,6 +227,8 @@ Message::from_proto(const ::service::icd::pb::Message &pb) {
         if (err) return {{}, err};
         cpp.payload = v;
     }
+    if (pb.has_cycle_time())
+        cpp.cycle_time = ::x::telem::TimeSpan::from_proto(pb.cycle_time());
     return {cpp, x::errors::NIL};
 }
 
@@ -341,6 +312,61 @@ Where::from_proto(const ::service::icd::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.key = v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::BinaryBaseField, x::errors::Error>
+BinaryBaseField::to_proto() const {
+    ::service::icd::pb::BinaryBaseField pb;
+    pb.set_key(this->key.to_string());
+    pb.set_name(this->name);
+    pb.set_scale(this->scale);
+    pb.set_offset(this->offset);
+    pb.set_units(this->units);
+    if (this->min.has_value()) pb.set_min(*this->min);
+    if (this->max.has_value()) pb.set_max(*this->max);
+    pb.set_start_bit(this->start_bit);
+    pb.set_bit_length(this->bit_length);
+    {
+        auto [v, err] = byte_order_to_pb(this->byte_order);
+        if (err) return {{}, err};
+        pb.set_byte_order(v);
+    }
+    if (this->multiplexor.has_value())
+        pb.set_multiplexor(this->multiplexor->to_string());
+    for (const auto &item: this->multiplex_values)
+        pb.add_multiplex_values(item);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<BinaryBaseField, x::errors::Error>
+BinaryBaseField::from_proto(const ::service::icd::pb::BinaryBaseField &pb) {
+    BinaryBaseField cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    cpp.name = pb.name();
+    cpp.scale = pb.scale();
+    cpp.offset = pb.offset();
+    cpp.units = pb.units();
+    if (pb.has_min()) cpp.min = pb.min();
+    if (pb.has_max()) cpp.max = pb.max();
+    cpp.start_bit = pb.start_bit();
+    cpp.bit_length = pb.bit_length();
+    {
+        auto [v, err] = byte_order_from_pb(pb.byte_order());
+        if (err) return {{}, err};
+        cpp.byte_order = v;
+    }
+    if (pb.has_multiplexor()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.multiplexor());
+        if (err) return {{}, err};
+        cpp.multiplexor = v;
+    }
+    for (const auto &item: pb.multiplex_values())
+        cpp.multiplex_values.push_back(item);
     return {cpp, x::errors::NIL};
 }
 
@@ -458,6 +484,53 @@ FieldIdentifier::from_proto(const ::service::icd::pb::IdentifierFieldPayload &pb
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::BinaryFieldFloatPayload, x::errors::Error>
+FloatBinaryField::to_proto() const {
+    ::service::icd::pb::BinaryFieldFloatPayload pb;
+    if (this->default_.has_value()) pb.set_default_(this->default_->to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<FloatBinaryField, x::errors::Error>
+FloatBinaryField::from_proto(const ::service::icd::pb::BinaryFieldFloatPayload &pb) {
+    FloatBinaryField cpp;
+    if (pb.has_default_())
+        cpp.default_ = ::x::payload::Float::from_proto(pb.default_());
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::BinaryFieldIntegerPayload, x::errors::Error>
+IntegerBinaryField::to_proto() const {
+    ::service::icd::pb::BinaryFieldIntegerPayload pb;
+    if (this->default_.has_value()) pb.set_default_(this->default_->to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<IntegerBinaryField, x::errors::Error> IntegerBinaryField::from_proto(
+    const ::service::icd::pb::BinaryFieldIntegerPayload &pb
+) {
+    IntegerBinaryField cpp;
+    if (pb.has_default_())
+        cpp.default_ = ::x::payload::Integer::from_proto(pb.default_());
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::BinaryFieldUnsignedPayload, x::errors::Error>
+UnsignedBinaryField::to_proto() const {
+    ::service::icd::pb::BinaryFieldUnsignedPayload pb;
+    if (this->default_.has_value()) pb.set_default_(this->default_->to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<UnsignedBinaryField, x::errors::Error> UnsignedBinaryField::from_proto(
+    const ::service::icd::pb::BinaryFieldUnsignedPayload &pb
+) {
+    UnsignedBinaryField cpp;
+    if (pb.has_default_())
+        cpp.default_ = ::x::payload::Unsigned::from_proto(pb.default_());
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::icd::pb::TextFieldDelimitedPayload, x::errors::Error>
 DelimitedTextField::to_proto() const {
     ::service::icd::pb::TextFieldDelimitedPayload pb;
@@ -484,6 +557,66 @@ inline std::pair<TaggedTextField, x::errors::Error>
 TaggedTextField::from_proto(const ::service::icd::pb::TextFieldTaggedPayload &pb) {
     TaggedTextField cpp;
     cpp.tag = pb.tag();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::TimestampDefaultConstantPayload, x::errors::Error>
+ConstantTimestampDefault::to_proto() const {
+    ::service::icd::pb::TimestampDefaultConstantPayload pb;
+    pb.set_value(this->value.to_proto());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ConstantTimestampDefault, x::errors::Error>
+ConstantTimestampDefault::from_proto(
+    const ::service::icd::pb::TimestampDefaultConstantPayload &pb
+) {
+    ConstantTimestampDefault cpp;
+    cpp.value = ::x::telem::TimeStamp::from_proto(pb.value());
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::TimestampDefaultNowPayload, x::errors::Error>
+NowTimestampDefault::to_proto() const {
+    ::service::icd::pb::TimestampDefaultNowPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<NowTimestampDefault, x::errors::Error> NowTimestampDefault::from_proto(
+    const ::service::icd::pb::TimestampDefaultNowPayload &pb
+) {
+    NowTimestampDefault cpp;
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::UUIDDefaultConstantPayload, x::errors::Error>
+ConstantUUIDDefault::to_proto() const {
+    ::service::icd::pb::UUIDDefaultConstantPayload pb;
+    pb.set_value(this->value.to_string());
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ConstantUUIDDefault, x::errors::Error> ConstantUUIDDefault::from_proto(
+    const ::service::icd::pb::UUIDDefaultConstantPayload &pb
+) {
+    ConstantUUIDDefault cpp;
+    {
+        auto [v, err] = x::uuid::UUID::parse(pb.value());
+        if (err) return {{}, err};
+        cpp.value = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::icd::pb::UUIDDefaultRandomPayload, x::errors::Error>
+RandomUUIDDefault::to_proto() const {
+    ::service::icd::pb::UUIDDefaultRandomPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RandomUUIDDefault, x::errors::Error>
+RandomUUIDDefault::from_proto(const ::service::icd::pb::UUIDDefaultRandomPayload &pb) {
+    RandomUUIDDefault cpp;
     return {cpp, x::errors::NIL};
 }
 
@@ -618,7 +751,11 @@ TimestampJSONField::to_proto() const {
         if (err) return {{}, err};
         pb.set_time_format(v);
     }
-    if (this->default_.has_value()) pb.set_default_(this->default_->to_proto());
+    if (this->default_.has_value()) {
+        auto [v, err] = ::synnax::icd::to_proto(*this->default_);
+        if (err) return {{}, err};
+        *pb.mutable_default_() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -631,44 +768,61 @@ inline std::pair<TimestampJSONField, x::errors::Error> TimestampJSONField::from_
         if (err) return {{}, err};
         cpp.time_format = v;
     }
-    if (pb.has_default_())
-        cpp.default_ = ::x::telem::TimeStamp::from_proto(pb.default_());
+    if (pb.has_default_()) {
+        auto [v, err] = ::synnax::icd::timestamp_default_from_proto(pb.default_());
+        if (err) return {{}, err};
+        cpp.default_ = v;
+    }
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::icd::pb::JSONFieldJsonPayload, x::errors::Error>
 JSONJSONField::to_proto() const {
     ::service::icd::pb::JSONFieldJsonPayload pb;
+    if (this->default_.has_value()) pb.set_default_(*this->default_);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<JSONJSONField, x::errors::Error>
 JSONJSONField::from_proto(const ::service::icd::pb::JSONFieldJsonPayload &pb) {
     JSONJSONField cpp;
+    if (pb.has_default_()) cpp.default_ = pb.default_();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::icd::pb::JSONFieldUuidPayload, x::errors::Error>
 UuidJSONField::to_proto() const {
     ::service::icd::pb::JSONFieldUuidPayload pb;
+    if (this->default_.has_value()) {
+        auto [v, err] = ::synnax::icd::to_proto(*this->default_);
+        if (err) return {{}, err};
+        *pb.mutable_default_() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<UuidJSONField, x::errors::Error>
 UuidJSONField::from_proto(const ::service::icd::pb::JSONFieldUuidPayload &pb) {
     UuidJSONField cpp;
+    if (pb.has_default_()) {
+        auto [v, err] = ::synnax::icd::uuid_default_from_proto(pb.default_());
+        if (err) return {{}, err};
+        cpp.default_ = v;
+    }
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::icd::pb::JSONFieldBytesPayload, x::errors::Error>
 BytesJSONField::to_proto() const {
     ::service::icd::pb::JSONFieldBytesPayload pb;
+    if (this->default_.has_value()) pb.set_default_(*this->default_);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<BytesJSONField, x::errors::Error>
 BytesJSONField::from_proto(const ::service::icd::pb::JSONFieldBytesPayload &pb) {
     BytesJSONField cpp;
+    if (pb.has_default_()) cpp.default_ = pb.default_();
     return {cpp, x::errors::NIL};
 }
 
@@ -742,6 +896,18 @@ BooleanJSONMatch::from_proto(const ::service::icd::pb::JSONMatchBooleanPayload &
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::JSONMatchPresentPayload, x::errors::Error>
+PresentJSONMatch::to_proto() const {
+    ::service::icd::pb::JSONMatchPresentPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<PresentJSONMatch, x::errors::Error>
+PresentJSONMatch::from_proto(const ::service::icd::pb::JSONMatchPresentPayload &pb) {
+    PresentJSONMatch cpp;
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::icd::pb::PayloadBinaryPayload, x::errors::Error>
 BinaryPayload::to_proto() const {
     ::service::icd::pb::PayloadBinaryPayload pb;
@@ -752,7 +918,7 @@ BinaryPayload::to_proto() const {
         *pb.mutable_identifier() = v;
     }
     for (const auto &item: this->fields) {
-        auto [v, err] = item.to_proto();
+        auto [v, err] = ::synnax::icd::to_proto(item);
         if (err) return {{}, err};
         *pb.add_fields() = v;
     }
@@ -768,8 +934,11 @@ BinaryPayload::from_proto(const ::service::icd::pb::PayloadBinaryPayload &pb) {
         if (err) return {{}, err};
         cpp.identifier = v;
     }
-    if (auto err = x::pb::from_proto_repeated<BinaryField>(cpp.fields, pb.fields()))
-        return {{}, err};
+    for (const auto &item: pb.fields()) {
+        auto [v, err] = ::synnax::icd::binary_field_from_proto(item);
+        if (err) return {{}, err};
+        cpp.fields.push_back(v);
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -871,6 +1040,80 @@ identifier_from_proto(const ::service::icd::pb::Identifier &pb) {
     }
 }
 
+inline std::pair<::service::icd::pb::BinaryField, x::errors::Error>
+to_proto(const BinaryField &value) {
+    ::service::icd::pb::BinaryField pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            {
+                auto [base, base_err] = static_cast<const BinaryBaseField &>(v)
+                                            .to_proto();
+                if (base_err) return base_err;
+                *pb.mutable_binary_base_field() = base;
+            }
+            if constexpr (std::is_same_v<V, FloatBinaryField>)
+                *pb.mutable_float_() = inner;
+            else if constexpr (std::is_same_v<V, IntegerBinaryField>)
+                *pb.mutable_integer() = inner;
+            else if constexpr (std::is_same_v<V, UnsignedBinaryField>)
+                *pb.mutable_unsigned_() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<BinaryField, x::errors::Error>
+binary_field_from_proto(const ::service::icd::pb::BinaryField &pb) {
+    switch (pb.variant_case()) {
+        case ::service::icd::pb::BinaryField::kFloat: {
+            auto [v, err] = FloatBinaryField::from_proto(pb.float_());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = BinaryBaseField::from_proto(
+                    pb.binary_base_field()
+                );
+                if (base_err) return {{}, base_err};
+                static_cast<BinaryBaseField &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::BinaryField::kInteger: {
+            auto [v, err] = IntegerBinaryField::from_proto(pb.integer());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = BinaryBaseField::from_proto(
+                    pb.binary_base_field()
+                );
+                if (base_err) return {{}, base_err};
+                static_cast<BinaryBaseField &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::BinaryField::kUnsigned: {
+            auto [v, err] = UnsignedBinaryField::from_proto(pb.unsigned_());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = BinaryBaseField::from_proto(
+                    pb.binary_base_field()
+                );
+                if (base_err) return {{}, base_err};
+                static_cast<BinaryBaseField &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "BinaryField: no variant set")
+            };
+    }
+}
+
 inline std::pair<::service::icd::pb::TextField, x::errors::Error>
 to_proto(const TextField &value) {
     ::service::icd::pb::TextField pb;
@@ -880,9 +1123,10 @@ to_proto(const TextField &value) {
             auto [inner, err] = v.to_proto();
             if (err) return err;
             {
-                auto [base, base_err] = static_cast<const BaseField &>(v).to_proto();
+                auto [base, base_err] = static_cast<const TextBaseField &>(v)
+                                            .to_proto();
                 if (base_err) return base_err;
-                *pb.mutable_base_field() = base;
+                *pb.mutable_text_base_field() = base;
             }
             if constexpr (std::is_same_v<V, DelimitedTextField>)
                 *pb.mutable_delimited() = inner;
@@ -902,9 +1146,9 @@ text_field_from_proto(const ::service::icd::pb::TextField &pb) {
             auto [v, err] = DelimitedTextField::from_proto(pb.delimited());
             if (err) return {{}, err};
             {
-                auto [base, base_err] = BaseField::from_proto(pb.base_field());
+                auto [base, base_err] = TextBaseField::from_proto(pb.text_base_field());
                 if (base_err) return {{}, base_err};
-                static_cast<BaseField &>(v) = base;
+                static_cast<TextBaseField &>(v) = base;
             }
             return {v, x::errors::NIL};
         }
@@ -912,9 +1156,9 @@ text_field_from_proto(const ::service::icd::pb::TextField &pb) {
             auto [v, err] = TaggedTextField::from_proto(pb.tagged());
             if (err) return {{}, err};
             {
-                auto [base, base_err] = BaseField::from_proto(pb.base_field());
+                auto [base, base_err] = TextBaseField::from_proto(pb.text_base_field());
                 if (base_err) return {{}, base_err};
-                static_cast<BaseField &>(v) = base;
+                static_cast<TextBaseField &>(v) = base;
             }
             return {v, x::errors::NIL};
         }
@@ -922,6 +1166,89 @@ text_field_from_proto(const ::service::icd::pb::TextField &pb) {
             return {
                 {},
                 x::errors::Error(x::errors::VALIDATION, "TextField: no variant set")
+            };
+    }
+}
+
+inline std::pair<::service::icd::pb::TimestampDefault, x::errors::Error>
+to_proto(const TimestampDefault &value) {
+    ::service::icd::pb::TimestampDefault pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, ConstantTimestampDefault>)
+                *pb.mutable_constant() = inner;
+            else if constexpr (std::is_same_v<V, NowTimestampDefault>)
+                *pb.mutable_now() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<TimestampDefault, x::errors::Error>
+timestamp_default_from_proto(const ::service::icd::pb::TimestampDefault &pb) {
+    switch (pb.variant_case()) {
+        case ::service::icd::pb::TimestampDefault::kConstant: {
+            auto [v, err] = ConstantTimestampDefault::from_proto(pb.constant());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::TimestampDefault::kNow: {
+            auto [v, err] = NowTimestampDefault::from_proto(pb.now());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "TimestampDefault: no variant set"
+                )
+            };
+    }
+}
+
+inline std::pair<::service::icd::pb::UUIDDefault, x::errors::Error>
+to_proto(const UUIDDefault &value) {
+    ::service::icd::pb::UUIDDefault pb;
+    const auto visit_err = std::visit(
+        [&pb](const auto &v) -> x::errors::Error {
+            using V = std::decay_t<decltype(v)>;
+            auto [inner, err] = v.to_proto();
+            if (err) return err;
+            if constexpr (std::is_same_v<V, ConstantUUIDDefault>)
+                *pb.mutable_constant() = inner;
+            else if constexpr (std::is_same_v<V, RandomUUIDDefault>)
+                *pb.mutable_random() = inner;
+            return x::errors::NIL;
+        },
+        value
+    );
+    return {pb, visit_err};
+}
+
+inline std::pair<UUIDDefault, x::errors::Error>
+uuid_default_from_proto(const ::service::icd::pb::UUIDDefault &pb) {
+    switch (pb.variant_case()) {
+        case ::service::icd::pb::UUIDDefault::kConstant: {
+            auto [v, err] = ConstantUUIDDefault::from_proto(pb.constant());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::UUIDDefault::kRandom: {
+            auto [v, err] = RandomUUIDDefault::from_proto(pb.random());
+            if (err) return {{}, err};
+            return {v, x::errors::NIL};
+        }
+        default:
+            return {
+                {},
+                x::errors::Error(x::errors::VALIDATION, "UUIDDefault: no variant set")
             };
     }
 }
@@ -1090,6 +1417,8 @@ to_proto(const JSONMatch &value) {
                 *pb.mutable_string() = inner;
             else if constexpr (std::is_same_v<V, BooleanJSONMatch>)
                 *pb.mutable_boolean() = inner;
+            else if constexpr (std::is_same_v<V, PresentJSONMatch>)
+                *pb.mutable_present() = inner;
             return x::errors::NIL;
         },
         value
@@ -1142,6 +1471,16 @@ json_match_from_proto(const ::service::icd::pb::JSONMatch &pb) {
         }
         case ::service::icd::pb::JSONMatch::kBoolean: {
             auto [v, err] = BooleanJSONMatch::from_proto(pb.boolean());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = JSONBaseMatch::from_proto(pb.json_base_match());
+                if (base_err) return {{}, base_err};
+                static_cast<JSONBaseMatch &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::JSONMatch::kPresent: {
+            auto [v, err] = PresentJSONMatch::from_proto(pb.present());
             if (err) return {{}, err};
             {
                 auto [base, base_err] = JSONBaseMatch::from_proto(pb.json_base_match());

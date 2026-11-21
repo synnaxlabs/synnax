@@ -230,9 +230,8 @@ When a task reads more than one message from a topic:
 
 ### Defaults
 
-A field of type Float, Signed integer, Unsigned integer, String, Boolean, or Timestamp
-can have a default. The task writes the default when the document has no value at the
-pointer of the field:
+Every JSON field can have a default. The task writes the default when the document has
+no value at the pointer of the field:
 
 - The document has no value at the pointer.
 - The value is `null`, and the channel is not a `json` channel.
@@ -242,9 +241,16 @@ pointer of the field:
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
 
+A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
+timestamp default is now, the time of each read or write, or a constant time. In Python,
+the class is `NowTimestampDefault` or `ConstantTimestampDefault`. In TypeScript, `type`
+is `"now"` or `"constant"`. A UUID default is random, a new UUID for each message, or a
+constant UUID. In Python, the class is `RandomUUIDDefault` or `ConstantUUIDDefault`. In
+TypeScript, `type` is `"random"` or `"constant"`.
+
 To set a default in the Console, open the **Options** of the field and select
-**Optional**. The Console shows the default of a timestamp field and can remove it, but
-only code can set it.
+**Optional**. The Console shows the default of a timestamp, UUID, JSON, or bytes field
+and can remove it, but only code can set it.
 
 ### Enum values
 
@@ -304,6 +310,11 @@ TypeScript, `encoding` is `"delimited"` or `"tagged"`.
 <Field.Item label="Tag" field="tag" type="string" required>
   For a tagged field: the text that comes just before the value, such as `T=` in
   `T=21.4`.
+</Field.Item>
+
+<Field.Item id="text-default" label="Default" field="default">
+  The raw number, before scale and offset, for a read that finds no value or a write
+  with no channel for the field. With no default, a write needs a channel.
 </Field.Item>
 
 </Field.List>
@@ -391,7 +402,9 @@ A **Field value** identifier has these properties. In Python, the class is
 
 ### Binary field properties
 
-In Python, a binary field is a `BinaryField`.
+A binary field is a float, signed integer, or unsigned integer field. In Python, the
+class is `FloatBinaryField`, `IntegerBinaryField`, or `UnsignedBinaryField`. In
+TypeScript, `kind` is `"float"`, `"integer"`, or `"unsigned"`.
 
 <Field.List>
 
@@ -423,9 +436,15 @@ In Python, a binary field is a `BinaryField`.
   **Little endian** (`little_endian`) or **Big endian** (`big_endian`).
 </Field.Item>
 
-<Field.Item id="binary-type" label="Type" field="kind" type="string" default="unsigned">
+<Field.Item id="binary-type" label="Type" field="kind" type="string" required>
   The type of the raw bits: **Unsigned integer** (`unsigned`), **Signed integer**
   (`integer`), or **Float** (`float`).
+</Field.Item>
+
+<Field.Item id="binary-default" label="Default" field="default">
+  The raw value, before scale and offset, for a read that finds no value or a write with
+  no channel for the field. With no default, a write needs a channel. The value must fit
+  the bits of the field.
 </Field.Item>
 
 <Field.Item label="Multiplexor" field="multiplexor" type="field key">

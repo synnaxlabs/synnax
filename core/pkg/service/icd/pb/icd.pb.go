@@ -182,8 +182,8 @@ func (x *BaseField) GetMax() float64 {
 	return 0
 }
 
-// BinaryField is a field read from a bit range of a binary payload.
-type BinaryField struct {
+// TextBaseField carries the parts every text field shares.
+type TextBaseField struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for the field within its message.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -201,41 +201,27 @@ type BinaryField struct {
 	// max is the largest decoded value a write task accepts. When absent the field's
 	// encoding sets the limit.
 	Max *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
-	// start_bit is the bit where the field starts, numbered as in a DBC file: the least
-	// significant bit for little-endian fields and the most significant bit for
-	// big-endian fields.
-	StartBit uint32 `protobuf:"varint,8,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
-	// bit_length is the number of bits in the field, from 1 to 64.
-	BitLength uint32 `protobuf:"varint,9,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
-	// byte_order is the byte order of the field.
-	ByteOrder ByteOrder `protobuf:"varint,10,opt,name=byte_order,json=byteOrder,proto3,enum=service.icd.pb.ByteOrder" json:"byte_order,omitempty"`
-	// kind is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
-	// complement integer, or an unsigned integer. No other kind is valid.
-	Kind pb.Kind `protobuf:"varint,11,opt,name=kind,proto3,enum=x.payload.pb.Kind" json:"kind,omitempty"`
-	// multiplexor is the key of the field that selects whether this field is present.
-	// When absent the field is always present.
-	Multiplexor *string `protobuf:"bytes,12,opt,name=multiplexor,proto3,oneof" json:"multiplexor,omitempty"`
-	// multiplex_values are the raw values of the multiplexor for which this field is
-	// present.
-	MultiplexValues []int32 `protobuf:"varint,13,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// default is the raw number, before scale and offset, when a read finds none or no
+	// channel is bound.
+	Default       *float64 `protobuf:"fixed64,8,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BinaryField) Reset() {
-	*x = BinaryField{}
+func (x *TextBaseField) Reset() {
+	*x = TextBaseField{}
 	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BinaryField) String() string {
+func (x *TextBaseField) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BinaryField) ProtoMessage() {}
+func (*TextBaseField) ProtoMessage() {}
 
-func (x *BinaryField) ProtoReflect() protoreflect.Message {
+func (x *TextBaseField) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -247,100 +233,65 @@ func (x *BinaryField) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BinaryField.ProtoReflect.Descriptor instead.
-func (*BinaryField) Descriptor() ([]byte, []int) {
+// Deprecated: Use TextBaseField.ProtoReflect.Descriptor instead.
+func (*TextBaseField) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *BinaryField) GetKey() string {
+func (x *TextBaseField) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *BinaryField) GetName() string {
+func (x *TextBaseField) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *BinaryField) GetScale() float64 {
+func (x *TextBaseField) GetScale() float64 {
 	if x != nil {
 		return x.Scale
 	}
 	return 0
 }
 
-func (x *BinaryField) GetOffset() float64 {
+func (x *TextBaseField) GetOffset() float64 {
 	if x != nil {
 		return x.Offset
 	}
 	return 0
 }
 
-func (x *BinaryField) GetUnits() string {
+func (x *TextBaseField) GetUnits() string {
 	if x != nil {
 		return x.Units
 	}
 	return ""
 }
 
-func (x *BinaryField) GetMin() float64 {
+func (x *TextBaseField) GetMin() float64 {
 	if x != nil && x.Min != nil {
 		return *x.Min
 	}
 	return 0
 }
 
-func (x *BinaryField) GetMax() float64 {
+func (x *TextBaseField) GetMax() float64 {
 	if x != nil && x.Max != nil {
 		return *x.Max
 	}
 	return 0
 }
 
-func (x *BinaryField) GetStartBit() uint32 {
-	if x != nil {
-		return x.StartBit
+func (x *TextBaseField) GetDefault() float64 {
+	if x != nil && x.Default != nil {
+		return *x.Default
 	}
 	return 0
-}
-
-func (x *BinaryField) GetBitLength() uint32 {
-	if x != nil {
-		return x.BitLength
-	}
-	return 0
-}
-
-func (x *BinaryField) GetByteOrder() ByteOrder {
-	if x != nil {
-		return x.ByteOrder
-	}
-	return ByteOrder_BYTE_ORDER_LITTLE_ENDIAN
-}
-
-func (x *BinaryField) GetKind() pb.Kind {
-	if x != nil {
-		return x.Kind
-	}
-	return pb.Kind(0)
-}
-
-func (x *BinaryField) GetMultiplexor() string {
-	if x != nil && x.Multiplexor != nil {
-		return *x.Multiplexor
-	}
-	return ""
-}
-
-func (x *BinaryField) GetMultiplexValues() []int32 {
-	if x != nil {
-		return x.MultiplexValues
-	}
-	return nil
 }
 
 // JSONBaseField carries the parts every JSON field shares.
@@ -509,7 +460,10 @@ type Message struct {
 	// name is the name of the message, unique within its ICD.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// payload is the layout of the message's payload.
-	Payload       *Payload `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload *Payload `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	// cycle_time is the send cycle that the protocol states for the message. When absent
+	// the protocol states none.
+	CycleTime     *int64 `protobuf:"varint,4,opt,name=cycle_time,json=cycleTime,proto3,oneof" json:"cycle_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -563,6 +517,13 @@ func (x *Message) GetPayload() *Payload {
 		return x.Payload
 	}
 	return nil
+}
+
+func (x *Message) GetCycleTime() int64 {
+	if x != nil && x.CycleTime != nil {
+		return *x.CycleTime
+	}
+	return 0
 }
 
 // ICD is an interface control document: the messages a system sends and receives, and
@@ -847,6 +808,157 @@ func (x *Where) GetKey() *UuidSet {
 	return nil
 }
 
+// BinaryBaseField carries the parts every binary field shares.
+type BinaryBaseField struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for the field within its message.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is the name of the field, unique within its message.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// scale multiplies the raw value on decode.
+	Scale float64 `protobuf:"fixed64,3,opt,name=scale,proto3" json:"scale,omitempty"`
+	// offset is added to the scaled value on decode.
+	Offset float64 `protobuf:"fixed64,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	// units is the engineering unit of the decoded value.
+	Units string `protobuf:"bytes,5,opt,name=units,proto3" json:"units,omitempty"`
+	// min is the smallest decoded value a write task accepts. When absent the field's
+	// encoding sets the limit.
+	Min *float64 `protobuf:"fixed64,6,opt,name=min,proto3,oneof" json:"min,omitempty"`
+	// max is the largest decoded value a write task accepts. When absent the field's
+	// encoding sets the limit.
+	Max *float64 `protobuf:"fixed64,7,opt,name=max,proto3,oneof" json:"max,omitempty"`
+	// start_bit is the bit where the field starts, numbered as in a DBC file: the least
+	// significant bit for little-endian fields and the most significant bit for
+	// big-endian fields.
+	StartBit uint32 `protobuf:"varint,8,opt,name=start_bit,json=startBit,proto3" json:"start_bit,omitempty"`
+	// bit_length is the number of bits in the field, from 1 to 64.
+	BitLength uint32 `protobuf:"varint,9,opt,name=bit_length,json=bitLength,proto3" json:"bit_length,omitempty"`
+	// byte_order is the byte order of the field.
+	ByteOrder ByteOrder `protobuf:"varint,10,opt,name=byte_order,json=byteOrder,proto3,enum=service.icd.pb.ByteOrder" json:"byte_order,omitempty"`
+	// multiplexor is the key of the field that selects whether this field is present.
+	// When absent the field is always present.
+	Multiplexor *string `protobuf:"bytes,11,opt,name=multiplexor,proto3,oneof" json:"multiplexor,omitempty"`
+	// multiplex_values are the raw values of the multiplexor for which this field is
+	// present.
+	MultiplexValues []int32 `protobuf:"varint,12,rep,packed,name=multiplex_values,json=multiplexValues,proto3" json:"multiplex_values,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BinaryBaseField) Reset() {
+	*x = BinaryBaseField{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryBaseField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryBaseField) ProtoMessage() {}
+
+func (x *BinaryBaseField) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryBaseField.ProtoReflect.Descriptor instead.
+func (*BinaryBaseField) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *BinaryBaseField) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *BinaryBaseField) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BinaryBaseField) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetOffset() float64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *BinaryBaseField) GetMin() float64 {
+	if x != nil && x.Min != nil {
+		return *x.Min
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetMax() float64 {
+	if x != nil && x.Max != nil {
+		return *x.Max
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetStartBit() uint32 {
+	if x != nil {
+		return x.StartBit
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetBitLength() uint32 {
+	if x != nil {
+		return x.BitLength
+	}
+	return 0
+}
+
+func (x *BinaryBaseField) GetByteOrder() ByteOrder {
+	if x != nil {
+		return x.ByteOrder
+	}
+	return ByteOrder_BYTE_ORDER_LITTLE_ENDIAN
+}
+
+func (x *BinaryBaseField) GetMultiplexor() string {
+	if x != nil && x.Multiplexor != nil {
+		return *x.Multiplexor
+	}
+	return ""
+}
+
+func (x *BinaryBaseField) GetMultiplexValues() []int32 {
+	if x != nil {
+		return x.MultiplexValues
+	}
+	return nil
+}
+
 type IdentifierCanPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// id is the CAN arbitration identifier.
@@ -866,7 +978,7 @@ type IdentifierCanPayload struct {
 
 func (x *IdentifierCanPayload) Reset() {
 	*x = IdentifierCanPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[10]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +990,7 @@ func (x *IdentifierCanPayload) String() string {
 func (*IdentifierCanPayload) ProtoMessage() {}
 
 func (x *IdentifierCanPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[10]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +1003,7 @@ func (x *IdentifierCanPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentifierCanPayload.ProtoReflect.Descriptor instead.
 func (*IdentifierCanPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{10}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IdentifierCanPayload) GetId() uint32 {
@@ -941,7 +1053,7 @@ type IdentifierFieldPayload struct {
 
 func (x *IdentifierFieldPayload) Reset() {
 	*x = IdentifierFieldPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[11]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -953,7 +1065,7 @@ func (x *IdentifierFieldPayload) String() string {
 func (*IdentifierFieldPayload) ProtoMessage() {}
 
 func (x *IdentifierFieldPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[11]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -966,7 +1078,7 @@ func (x *IdentifierFieldPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdentifierFieldPayload.ProtoReflect.Descriptor instead.
 func (*IdentifierFieldPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{11}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *IdentifierFieldPayload) GetField() string {
@@ -983,6 +1095,144 @@ func (x *IdentifierFieldPayload) GetValue() int32 {
 	return 0
 }
 
+type BinaryFieldFloatPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
+	Default       *float64 `protobuf:"fixed64,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryFieldFloatPayload) Reset() {
+	*x = BinaryFieldFloatPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryFieldFloatPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryFieldFloatPayload) ProtoMessage() {}
+
+func (x *BinaryFieldFloatPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryFieldFloatPayload.ProtoReflect.Descriptor instead.
+func (*BinaryFieldFloatPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *BinaryFieldFloatPayload) GetDefault() float64 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
+type BinaryFieldIntegerPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
+	Default       *int64 `protobuf:"varint,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryFieldIntegerPayload) Reset() {
+	*x = BinaryFieldIntegerPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryFieldIntegerPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryFieldIntegerPayload) ProtoMessage() {}
+
+func (x *BinaryFieldIntegerPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryFieldIntegerPayload.ProtoReflect.Descriptor instead.
+func (*BinaryFieldIntegerPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *BinaryFieldIntegerPayload) GetDefault() int64 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
+type BinaryFieldUnsignedPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
+	Default       *uint64 `protobuf:"varint,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryFieldUnsignedPayload) Reset() {
+	*x = BinaryFieldUnsignedPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryFieldUnsignedPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryFieldUnsignedPayload) ProtoMessage() {}
+
+func (x *BinaryFieldUnsignedPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryFieldUnsignedPayload.ProtoReflect.Descriptor instead.
+func (*BinaryFieldUnsignedPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *BinaryFieldUnsignedPayload) GetDefault() uint64 {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return 0
+}
+
 type TextFieldDelimitedPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// position is the zero-based item index after splitting on the delimiter.
@@ -993,7 +1243,7 @@ type TextFieldDelimitedPayload struct {
 
 func (x *TextFieldDelimitedPayload) Reset() {
 	*x = TextFieldDelimitedPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[12]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1005,7 +1255,7 @@ func (x *TextFieldDelimitedPayload) String() string {
 func (*TextFieldDelimitedPayload) ProtoMessage() {}
 
 func (x *TextFieldDelimitedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[12]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1018,7 +1268,7 @@ func (x *TextFieldDelimitedPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextFieldDelimitedPayload.ProtoReflect.Descriptor instead.
 func (*TextFieldDelimitedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{12}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TextFieldDelimitedPayload) GetPosition() uint32 {
@@ -1038,7 +1288,7 @@ type TextFieldTaggedPayload struct {
 
 func (x *TextFieldTaggedPayload) Reset() {
 	*x = TextFieldTaggedPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[13]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1050,7 +1300,7 @@ func (x *TextFieldTaggedPayload) String() string {
 func (*TextFieldTaggedPayload) ProtoMessage() {}
 
 func (x *TextFieldTaggedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[13]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1063,7 +1313,7 @@ func (x *TextFieldTaggedPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextFieldTaggedPayload.ProtoReflect.Descriptor instead.
 func (*TextFieldTaggedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{13}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TextFieldTaggedPayload) GetTag() string {
@@ -1073,11 +1323,174 @@ func (x *TextFieldTaggedPayload) GetTag() string {
 	return ""
 }
 
+type TimestampDefaultConstantPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// value is the timestamp that the default gives.
+	Value         int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimestampDefaultConstantPayload) Reset() {
+	*x = TimestampDefaultConstantPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimestampDefaultConstantPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimestampDefaultConstantPayload) ProtoMessage() {}
+
+func (x *TimestampDefaultConstantPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimestampDefaultConstantPayload.ProtoReflect.Descriptor instead.
+func (*TimestampDefaultConstantPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *TimestampDefaultConstantPayload) GetValue() int64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type TimestampDefaultNowPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimestampDefaultNowPayload) Reset() {
+	*x = TimestampDefaultNowPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimestampDefaultNowPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimestampDefaultNowPayload) ProtoMessage() {}
+
+func (x *TimestampDefaultNowPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimestampDefaultNowPayload.ProtoReflect.Descriptor instead.
+func (*TimestampDefaultNowPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{19}
+}
+
+type UUIDDefaultConstantPayload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// value is the UUID that the default gives.
+	Value         string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UUIDDefaultConstantPayload) Reset() {
+	*x = UUIDDefaultConstantPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UUIDDefaultConstantPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UUIDDefaultConstantPayload) ProtoMessage() {}
+
+func (x *UUIDDefaultConstantPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UUIDDefaultConstantPayload.ProtoReflect.Descriptor instead.
+func (*UUIDDefaultConstantPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *UUIDDefaultConstantPayload) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type UUIDDefaultRandomPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UUIDDefaultRandomPayload) Reset() {
+	*x = UUIDDefaultRandomPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UUIDDefaultRandomPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UUIDDefaultRandomPayload) ProtoMessage() {}
+
+func (x *UUIDDefaultRandomPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UUIDDefaultRandomPayload.ProtoReflect.Descriptor instead.
+func (*UUIDDefaultRandomPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{21}
+}
+
 type JSONFieldFloatPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// enum_values maps text labels in the document to values.
 	EnumValues []*pb.FloatEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// default is the value when the document has none. Absent requires one.
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default       *float64 `protobuf:"fixed64,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1085,7 +1498,7 @@ type JSONFieldFloatPayload struct {
 
 func (x *JSONFieldFloatPayload) Reset() {
 	*x = JSONFieldFloatPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[14]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1097,7 +1510,7 @@ func (x *JSONFieldFloatPayload) String() string {
 func (*JSONFieldFloatPayload) ProtoMessage() {}
 
 func (x *JSONFieldFloatPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[14]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1110,7 +1523,7 @@ func (x *JSONFieldFloatPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldFloatPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldFloatPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{14}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *JSONFieldFloatPayload) GetEnumValues() []*pb.FloatEntry {
@@ -1131,7 +1544,8 @@ type JSONFieldIntegerPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// enum_values maps text labels in the document to values.
 	EnumValues []*pb.IntegerEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// default is the value when the document has none. Absent requires one.
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default       *int64 `protobuf:"varint,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1139,7 +1553,7 @@ type JSONFieldIntegerPayload struct {
 
 func (x *JSONFieldIntegerPayload) Reset() {
 	*x = JSONFieldIntegerPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[15]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1151,7 +1565,7 @@ func (x *JSONFieldIntegerPayload) String() string {
 func (*JSONFieldIntegerPayload) ProtoMessage() {}
 
 func (x *JSONFieldIntegerPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[15]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1164,7 +1578,7 @@ func (x *JSONFieldIntegerPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldIntegerPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldIntegerPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{15}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *JSONFieldIntegerPayload) GetEnumValues() []*pb.IntegerEntry {
@@ -1185,7 +1599,8 @@ type JSONFieldUnsignedPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// enum_values maps text labels in the document to values.
 	EnumValues []*pb.UnsignedEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// default is the value when the document has none. Absent requires one.
+	// default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default       *uint64 `protobuf:"varint,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1193,7 +1608,7 @@ type JSONFieldUnsignedPayload struct {
 
 func (x *JSONFieldUnsignedPayload) Reset() {
 	*x = JSONFieldUnsignedPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[16]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1205,7 +1620,7 @@ func (x *JSONFieldUnsignedPayload) String() string {
 func (*JSONFieldUnsignedPayload) ProtoMessage() {}
 
 func (x *JSONFieldUnsignedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[16]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1218,7 +1633,7 @@ func (x *JSONFieldUnsignedPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldUnsignedPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldUnsignedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{16}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *JSONFieldUnsignedPayload) GetEnumValues() []*pb.UnsignedEntry {
@@ -1239,7 +1654,7 @@ type JSONFieldStringPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// enum_values maps text labels in the document to values.
 	EnumValues []*pb.StringEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// default is the value when the document has none. Absent requires one.
+	// default is the value when a read finds none or no channel is bound.
 	Default       *string `protobuf:"bytes,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1247,7 +1662,7 @@ type JSONFieldStringPayload struct {
 
 func (x *JSONFieldStringPayload) Reset() {
 	*x = JSONFieldStringPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[17]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1259,7 +1674,7 @@ func (x *JSONFieldStringPayload) String() string {
 func (*JSONFieldStringPayload) ProtoMessage() {}
 
 func (x *JSONFieldStringPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[17]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1272,7 +1687,7 @@ func (x *JSONFieldStringPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldStringPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldStringPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{17}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *JSONFieldStringPayload) GetEnumValues() []*pb.StringEntry {
@@ -1293,7 +1708,7 @@ type JSONFieldBooleanPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// enum_values maps text labels in the document to values.
 	EnumValues []*pb.BooleanEntry `protobuf:"bytes,1,rep,name=enum_values,json=enumValues,proto3" json:"enum_values,omitempty"`
-	// default is the value when the document has none. Absent requires one.
+	// default is the value when a read finds none or no channel is bound.
 	Default       *bool `protobuf:"varint,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1301,7 +1716,7 @@ type JSONFieldBooleanPayload struct {
 
 func (x *JSONFieldBooleanPayload) Reset() {
 	*x = JSONFieldBooleanPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[18]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1313,7 +1728,7 @@ func (x *JSONFieldBooleanPayload) String() string {
 func (*JSONFieldBooleanPayload) ProtoMessage() {}
 
 func (x *JSONFieldBooleanPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[18]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1326,7 +1741,7 @@ func (x *JSONFieldBooleanPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldBooleanPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldBooleanPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{18}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *JSONFieldBooleanPayload) GetEnumValues() []*pb.BooleanEntry {
@@ -1347,15 +1762,15 @@ type JSONFieldTimestampPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// time_format is the encoding of the timestamp.
 	TimeFormat pb.TimeFormat `protobuf:"varint,1,opt,name=time_format,json=timeFormat,proto3,enum=x.payload.pb.TimeFormat" json:"time_format,omitempty"`
-	// default is the value when the document has none. Absent requires one.
-	Default       *int64 `protobuf:"varint,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
+	// default is the value when a read finds none or no channel is bound.
+	Default       *TimestampDefault `protobuf:"bytes,2,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JSONFieldTimestampPayload) Reset() {
 	*x = JSONFieldTimestampPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[19]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1367,7 +1782,7 @@ func (x *JSONFieldTimestampPayload) String() string {
 func (*JSONFieldTimestampPayload) ProtoMessage() {}
 
 func (x *JSONFieldTimestampPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[19]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1380,7 +1795,7 @@ func (x *JSONFieldTimestampPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldTimestampPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldTimestampPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{19}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *JSONFieldTimestampPayload) GetTimeFormat() pb.TimeFormat {
@@ -1390,22 +1805,25 @@ func (x *JSONFieldTimestampPayload) GetTimeFormat() pb.TimeFormat {
 	return pb.TimeFormat(0)
 }
 
-func (x *JSONFieldTimestampPayload) GetDefault() int64 {
-	if x != nil && x.Default != nil {
-		return *x.Default
+func (x *JSONFieldTimestampPayload) GetDefault() *TimestampDefault {
+	if x != nil {
+		return x.Default
 	}
-	return 0
+	return nil
 }
 
 type JSONFieldJsonPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the JSON text of the value when a read finds none or no channel is
+	// bound.
+	Default       *string `protobuf:"bytes,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JSONFieldJsonPayload) Reset() {
 	*x = JSONFieldJsonPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[20]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1417,7 +1835,7 @@ func (x *JSONFieldJsonPayload) String() string {
 func (*JSONFieldJsonPayload) ProtoMessage() {}
 
 func (x *JSONFieldJsonPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[20]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1430,18 +1848,27 @@ func (x *JSONFieldJsonPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldJsonPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldJsonPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{20}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *JSONFieldJsonPayload) GetDefault() string {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return ""
 }
 
 type JSONFieldUuidPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the value when a read finds none or no channel is bound.
+	Default       *UUIDDefault `protobuf:"bytes,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JSONFieldUuidPayload) Reset() {
 	*x = JSONFieldUuidPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[21]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1453,7 +1880,7 @@ func (x *JSONFieldUuidPayload) String() string {
 func (*JSONFieldUuidPayload) ProtoMessage() {}
 
 func (x *JSONFieldUuidPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[21]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1466,18 +1893,28 @@ func (x *JSONFieldUuidPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldUuidPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldUuidPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{21}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *JSONFieldUuidPayload) GetDefault() *UUIDDefault {
+	if x != nil {
+		return x.Default
+	}
+	return nil
 }
 
 type JSONFieldBytesPayload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// default is the base64 text of the value when a read finds none or no channel is
+	// bound.
+	Default       *string `protobuf:"bytes,1,opt,name=default,proto3,oneof" json:"default,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *JSONFieldBytesPayload) Reset() {
 	*x = JSONFieldBytesPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[22]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1489,7 +1926,7 @@ func (x *JSONFieldBytesPayload) String() string {
 func (*JSONFieldBytesPayload) ProtoMessage() {}
 
 func (x *JSONFieldBytesPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[22]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1502,7 +1939,14 @@ func (x *JSONFieldBytesPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONFieldBytesPayload.ProtoReflect.Descriptor instead.
 func (*JSONFieldBytesPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{22}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *JSONFieldBytesPayload) GetDefault() string {
+	if x != nil && x.Default != nil {
+		return *x.Default
+	}
+	return ""
 }
 
 type JSONMatchFloatPayload struct {
@@ -1515,7 +1959,7 @@ type JSONMatchFloatPayload struct {
 
 func (x *JSONMatchFloatPayload) Reset() {
 	*x = JSONMatchFloatPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[23]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1527,7 +1971,7 @@ func (x *JSONMatchFloatPayload) String() string {
 func (*JSONMatchFloatPayload) ProtoMessage() {}
 
 func (x *JSONMatchFloatPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[23]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1540,7 +1984,7 @@ func (x *JSONMatchFloatPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatchFloatPayload.ProtoReflect.Descriptor instead.
 func (*JSONMatchFloatPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{23}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *JSONMatchFloatPayload) GetValue() float64 {
@@ -1560,7 +2004,7 @@ type JSONMatchIntegerPayload struct {
 
 func (x *JSONMatchIntegerPayload) Reset() {
 	*x = JSONMatchIntegerPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[24]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1572,7 +2016,7 @@ func (x *JSONMatchIntegerPayload) String() string {
 func (*JSONMatchIntegerPayload) ProtoMessage() {}
 
 func (x *JSONMatchIntegerPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[24]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1585,7 +2029,7 @@ func (x *JSONMatchIntegerPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatchIntegerPayload.ProtoReflect.Descriptor instead.
 func (*JSONMatchIntegerPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{24}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *JSONMatchIntegerPayload) GetValue() int64 {
@@ -1605,7 +2049,7 @@ type JSONMatchUnsignedPayload struct {
 
 func (x *JSONMatchUnsignedPayload) Reset() {
 	*x = JSONMatchUnsignedPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[25]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1617,7 +2061,7 @@ func (x *JSONMatchUnsignedPayload) String() string {
 func (*JSONMatchUnsignedPayload) ProtoMessage() {}
 
 func (x *JSONMatchUnsignedPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[25]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +2074,7 @@ func (x *JSONMatchUnsignedPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatchUnsignedPayload.ProtoReflect.Descriptor instead.
 func (*JSONMatchUnsignedPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{25}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *JSONMatchUnsignedPayload) GetValue() uint64 {
@@ -1650,7 +2094,7 @@ type JSONMatchStringPayload struct {
 
 func (x *JSONMatchStringPayload) Reset() {
 	*x = JSONMatchStringPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[26]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1662,7 +2106,7 @@ func (x *JSONMatchStringPayload) String() string {
 func (*JSONMatchStringPayload) ProtoMessage() {}
 
 func (x *JSONMatchStringPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[26]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1675,7 +2119,7 @@ func (x *JSONMatchStringPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatchStringPayload.ProtoReflect.Descriptor instead.
 func (*JSONMatchStringPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{26}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *JSONMatchStringPayload) GetValue() string {
@@ -1695,7 +2139,7 @@ type JSONMatchBooleanPayload struct {
 
 func (x *JSONMatchBooleanPayload) Reset() {
 	*x = JSONMatchBooleanPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[27]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1707,7 +2151,7 @@ func (x *JSONMatchBooleanPayload) String() string {
 func (*JSONMatchBooleanPayload) ProtoMessage() {}
 
 func (x *JSONMatchBooleanPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[27]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1720,7 +2164,7 @@ func (x *JSONMatchBooleanPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatchBooleanPayload.ProtoReflect.Descriptor instead.
 func (*JSONMatchBooleanPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{27}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *JSONMatchBooleanPayload) GetValue() bool {
@@ -1728,6 +2172,42 @@ func (x *JSONMatchBooleanPayload) GetValue() bool {
 		return x.Value
 	}
 	return false
+}
+
+type JSONMatchPresentPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JSONMatchPresentPayload) Reset() {
+	*x = JSONMatchPresentPayload{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JSONMatchPresentPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JSONMatchPresentPayload) ProtoMessage() {}
+
+func (x *JSONMatchPresentPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JSONMatchPresentPayload.ProtoReflect.Descriptor instead.
+func (*JSONMatchPresentPayload) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{36}
 }
 
 type PayloadBinaryPayload struct {
@@ -1745,7 +2225,7 @@ type PayloadBinaryPayload struct {
 
 func (x *PayloadBinaryPayload) Reset() {
 	*x = PayloadBinaryPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[28]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1757,7 +2237,7 @@ func (x *PayloadBinaryPayload) String() string {
 func (*PayloadBinaryPayload) ProtoMessage() {}
 
 func (x *PayloadBinaryPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[28]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1770,7 +2250,7 @@ func (x *PayloadBinaryPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayloadBinaryPayload.ProtoReflect.Descriptor instead.
 func (*PayloadBinaryPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{28}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *PayloadBinaryPayload) GetLength() uint32 {
@@ -1809,7 +2289,7 @@ type PayloadTextPayload struct {
 
 func (x *PayloadTextPayload) Reset() {
 	*x = PayloadTextPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[29]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +2301,7 @@ func (x *PayloadTextPayload) String() string {
 func (*PayloadTextPayload) ProtoMessage() {}
 
 func (x *PayloadTextPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[29]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +2314,7 @@ func (x *PayloadTextPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayloadTextPayload.ProtoReflect.Descriptor instead.
 func (*PayloadTextPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{29}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *PayloadTextPayload) GetDelimiter() string {
@@ -1871,7 +2351,7 @@ type PayloadJsonPayload struct {
 
 func (x *PayloadJsonPayload) Reset() {
 	*x = PayloadJsonPayload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[30]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1883,7 +2363,7 @@ func (x *PayloadJsonPayload) String() string {
 func (*PayloadJsonPayload) ProtoMessage() {}
 
 func (x *PayloadJsonPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[30]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1896,7 +2376,7 @@ func (x *PayloadJsonPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PayloadJsonPayload.ProtoReflect.Descriptor instead.
 func (*PayloadJsonPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{30}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *PayloadJsonPayload) GetMatch() *JSONMatch {
@@ -1927,7 +2407,7 @@ type Identifier struct {
 
 func (x *Identifier) Reset() {
 	*x = Identifier{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[31]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1939,7 +2419,7 @@ func (x *Identifier) String() string {
 func (*Identifier) ProtoMessage() {}
 
 func (x *Identifier) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[31]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1952,7 +2432,7 @@ func (x *Identifier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Identifier.ProtoReflect.Descriptor instead.
 func (*Identifier) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{31}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *Identifier) GetVariant() isIdentifier_Variant {
@@ -1996,10 +2476,118 @@ func (*Identifier_Can) isIdentifier_Variant() {}
 
 func (*Identifier_Field) isIdentifier_Variant() {}
 
-// TextField is a field read from a text line.
+// BinaryField is a field read from a bit range of a binary payload. With no default, a
+// write needs a channel.
+type BinaryField struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	BinaryBaseField *BinaryBaseField       `protobuf:"bytes,1,opt,name=binary_base_field,json=binaryBaseField,proto3" json:"binary_base_field,omitempty"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*BinaryField_Float
+	//	*BinaryField_Integer
+	//	*BinaryField_Unsigned
+	Variant       isBinaryField_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BinaryField) Reset() {
+	*x = BinaryField{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BinaryField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BinaryField) ProtoMessage() {}
+
+func (x *BinaryField) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BinaryField.ProtoReflect.Descriptor instead.
+func (*BinaryField) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *BinaryField) GetBinaryBaseField() *BinaryBaseField {
+	if x != nil {
+		return x.BinaryBaseField
+	}
+	return nil
+}
+
+func (x *BinaryField) GetVariant() isBinaryField_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *BinaryField) GetFloat() *BinaryFieldFloatPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*BinaryField_Float); ok {
+			return x.Float
+		}
+	}
+	return nil
+}
+
+func (x *BinaryField) GetInteger() *BinaryFieldIntegerPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*BinaryField_Integer); ok {
+			return x.Integer
+		}
+	}
+	return nil
+}
+
+func (x *BinaryField) GetUnsigned() *BinaryFieldUnsignedPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*BinaryField_Unsigned); ok {
+			return x.Unsigned
+		}
+	}
+	return nil
+}
+
+type isBinaryField_Variant interface {
+	isBinaryField_Variant()
+}
+
+type BinaryField_Float struct {
+	Float *BinaryFieldFloatPayload `protobuf:"bytes,2,opt,name=float,proto3,oneof"`
+}
+
+type BinaryField_Integer struct {
+	Integer *BinaryFieldIntegerPayload `protobuf:"bytes,3,opt,name=integer,proto3,oneof"`
+}
+
+type BinaryField_Unsigned struct {
+	Unsigned *BinaryFieldUnsignedPayload `protobuf:"bytes,4,opt,name=unsigned,proto3,oneof"`
+}
+
+func (*BinaryField_Float) isBinaryField_Variant() {}
+
+func (*BinaryField_Integer) isBinaryField_Variant() {}
+
+func (*BinaryField_Unsigned) isBinaryField_Variant() {}
+
+// TextField is a field read from a text line. With no default, a write needs a channel.
 type TextField struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	BaseField *BaseField             `protobuf:"bytes,1,opt,name=base_field,json=baseField,proto3" json:"base_field,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TextBaseField *TextBaseField         `protobuf:"bytes,1,opt,name=text_base_field,json=textBaseField,proto3" json:"text_base_field,omitempty"`
 	// Types that are valid to be assigned to Variant:
 	//
 	//	*TextField_Delimited
@@ -2011,7 +2599,7 @@ type TextField struct {
 
 func (x *TextField) Reset() {
 	*x = TextField{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[32]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2023,7 +2611,7 @@ func (x *TextField) String() string {
 func (*TextField) ProtoMessage() {}
 
 func (x *TextField) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[32]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2036,12 +2624,12 @@ func (x *TextField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextField.ProtoReflect.Descriptor instead.
 func (*TextField) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{32}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *TextField) GetBaseField() *BaseField {
+func (x *TextField) GetTextBaseField() *TextBaseField {
 	if x != nil {
-		return x.BaseField
+		return x.TextBaseField
 	}
 	return nil
 }
@@ -2087,7 +2675,174 @@ func (*TextField_Delimited) isTextField_Variant() {}
 
 func (*TextField_Tagged) isTextField_Variant() {}
 
-// JSONField is a field read from a JSON document.
+// TimestampDefault is the default of a timestamp field.
+type TimestampDefault struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*TimestampDefault_Constant
+	//	*TimestampDefault_Now
+	Variant       isTimestampDefault_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TimestampDefault) Reset() {
+	*x = TimestampDefault{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TimestampDefault) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TimestampDefault) ProtoMessage() {}
+
+func (x *TimestampDefault) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TimestampDefault.ProtoReflect.Descriptor instead.
+func (*TimestampDefault) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *TimestampDefault) GetVariant() isTimestampDefault_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *TimestampDefault) GetConstant() *TimestampDefaultConstantPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*TimestampDefault_Constant); ok {
+			return x.Constant
+		}
+	}
+	return nil
+}
+
+func (x *TimestampDefault) GetNow() *TimestampDefaultNowPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*TimestampDefault_Now); ok {
+			return x.Now
+		}
+	}
+	return nil
+}
+
+type isTimestampDefault_Variant interface {
+	isTimestampDefault_Variant()
+}
+
+type TimestampDefault_Constant struct {
+	Constant *TimestampDefaultConstantPayload `protobuf:"bytes,1,opt,name=constant,proto3,oneof"`
+}
+
+type TimestampDefault_Now struct {
+	Now *TimestampDefaultNowPayload `protobuf:"bytes,2,opt,name=now,proto3,oneof"`
+}
+
+func (*TimestampDefault_Constant) isTimestampDefault_Variant() {}
+
+func (*TimestampDefault_Now) isTimestampDefault_Variant() {}
+
+// UUIDDefault is the default of a UUID field.
+type UUIDDefault struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*UUIDDefault_Constant
+	//	*UUIDDefault_Random
+	Variant       isUUIDDefault_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UUIDDefault) Reset() {
+	*x = UUIDDefault{}
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UUIDDefault) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UUIDDefault) ProtoMessage() {}
+
+func (x *UUIDDefault) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UUIDDefault.ProtoReflect.Descriptor instead.
+func (*UUIDDefault) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *UUIDDefault) GetVariant() isUUIDDefault_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *UUIDDefault) GetConstant() *UUIDDefaultConstantPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*UUIDDefault_Constant); ok {
+			return x.Constant
+		}
+	}
+	return nil
+}
+
+func (x *UUIDDefault) GetRandom() *UUIDDefaultRandomPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*UUIDDefault_Random); ok {
+			return x.Random
+		}
+	}
+	return nil
+}
+
+type isUUIDDefault_Variant interface {
+	isUUIDDefault_Variant()
+}
+
+type UUIDDefault_Constant struct {
+	Constant *UUIDDefaultConstantPayload `protobuf:"bytes,1,opt,name=constant,proto3,oneof"`
+}
+
+type UUIDDefault_Random struct {
+	Random *UUIDDefaultRandomPayload `protobuf:"bytes,2,opt,name=random,proto3,oneof"`
+}
+
+func (*UUIDDefault_Constant) isUUIDDefault_Variant() {}
+
+func (*UUIDDefault_Random) isUUIDDefault_Variant() {}
+
+// JSONField is a field read from a JSON document. With no default, a read needs its
+// value and a write needs a channel.
 type JSONField struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JsonBaseField *JSONBaseField         `protobuf:"bytes,1,opt,name=json_base_field,json=jsonBaseField,proto3" json:"json_base_field,omitempty"`
@@ -2109,7 +2864,7 @@ type JSONField struct {
 
 func (x *JSONField) Reset() {
 	*x = JSONField{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[33]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2121,7 +2876,7 @@ func (x *JSONField) String() string {
 func (*JSONField) ProtoMessage() {}
 
 func (x *JSONField) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[33]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2134,7 +2889,7 @@ func (x *JSONField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONField.ProtoReflect.Descriptor instead.
 func (*JSONField) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{33}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *JSONField) GetJsonBaseField() *JSONBaseField {
@@ -2301,6 +3056,7 @@ type JSONMatch struct {
 	//	*JSONMatch_Unsigned
 	//	*JSONMatch_String_
 	//	*JSONMatch_Boolean
+	//	*JSONMatch_Present
 	Variant       isJSONMatch_Variant `protobuf_oneof:"variant"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2308,7 +3064,7 @@ type JSONMatch struct {
 
 func (x *JSONMatch) Reset() {
 	*x = JSONMatch{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[34]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2320,7 +3076,7 @@ func (x *JSONMatch) String() string {
 func (*JSONMatch) ProtoMessage() {}
 
 func (x *JSONMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[34]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2333,7 +3089,7 @@ func (x *JSONMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JSONMatch.ProtoReflect.Descriptor instead.
 func (*JSONMatch) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{34}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *JSONMatch) GetJsonBaseMatch() *JSONBaseMatch {
@@ -2395,6 +3151,15 @@ func (x *JSONMatch) GetBoolean() *JSONMatchBooleanPayload {
 	return nil
 }
 
+func (x *JSONMatch) GetPresent() *JSONMatchPresentPayload {
+	if x != nil {
+		if x, ok := x.Variant.(*JSONMatch_Present); ok {
+			return x.Present
+		}
+	}
+	return nil
+}
+
 type isJSONMatch_Variant interface {
 	isJSONMatch_Variant()
 }
@@ -2419,6 +3184,10 @@ type JSONMatch_Boolean struct {
 	Boolean *JSONMatchBooleanPayload `protobuf:"bytes,6,opt,name=boolean,proto3,oneof"`
 }
 
+type JSONMatch_Present struct {
+	Present *JSONMatchPresentPayload `protobuf:"bytes,7,opt,name=present,proto3,oneof"`
+}
+
 func (*JSONMatch_Float) isJSONMatch_Variant() {}
 
 func (*JSONMatch_Integer) isJSONMatch_Variant() {}
@@ -2428,6 +3197,8 @@ func (*JSONMatch_Unsigned) isJSONMatch_Variant() {}
 func (*JSONMatch_String_) isJSONMatch_Variant() {}
 
 func (*JSONMatch_Boolean) isJSONMatch_Variant() {}
+
+func (*JSONMatch_Present) isJSONMatch_Variant() {}
 
 // Payload is the layout of a message's payload.
 type Payload struct {
@@ -2444,7 +3215,7 @@ type Payload struct {
 
 func (x *Payload) Reset() {
 	*x = Payload{}
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[35]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2456,7 +3227,7 @@ func (x *Payload) String() string {
 func (*Payload) ProtoMessage() {}
 
 func (x *Payload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[35]
+	mi := &file_core_pkg_service_icd_pb_icd_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2469,7 +3240,7 @@ func (x *Payload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Payload.ProtoReflect.Descriptor instead.
 func (*Payload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{35}
+	return file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *Payload) GetVariant() isPayload_Variant {
@@ -2542,27 +3313,20 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x03min\x18\x06 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
 	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01B\x06\n" +
 	"\x04_minB\x06\n" +
-	"\x04_max\"\xb5\x03\n" +
-	"\vBinaryField\x12\x10\n" +
+	"\x04_max\"\xe2\x01\n" +
+	"\rTextBaseField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
 	"\x05scale\x18\x03 \x01(\x01R\x05scale\x12\x16\n" +
 	"\x06offset\x18\x04 \x01(\x01R\x06offset\x12\x14\n" +
 	"\x05units\x18\x05 \x01(\tR\x05units\x12\x15\n" +
 	"\x03min\x18\x06 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
-	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01\x12\x1b\n" +
-	"\tstart_bit\x18\b \x01(\rR\bstartBit\x12\x1d\n" +
-	"\n" +
-	"bit_length\x18\t \x01(\rR\tbitLength\x128\n" +
-	"\n" +
-	"byte_order\x18\n" +
-	" \x01(\x0e2\x19.service.icd.pb.ByteOrderR\tbyteOrder\x12&\n" +
-	"\x04kind\x18\v \x01(\x0e2\x12.x.payload.pb.KindR\x04kind\x12%\n" +
-	"\vmultiplexor\x18\f \x01(\tH\x02R\vmultiplexor\x88\x01\x01\x12)\n" +
-	"\x10multiplex_values\x18\r \x03(\x05R\x0fmultiplexValuesB\x06\n" +
+	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01\x12\x1d\n" +
+	"\adefault\x18\b \x01(\x01H\x02R\adefault\x88\x01\x01B\x06\n" +
 	"\x04_minB\x06\n" +
-	"\x04_maxB\x0e\n" +
-	"\f_multiplexor\"\xd1\x01\n" +
+	"\x04_maxB\n" +
+	"\n" +
+	"\b_default\"\xd1\x01\n" +
 	"\rJSONBaseField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -2575,11 +3339,14 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x04_minB\x06\n" +
 	"\x04_max\")\n" +
 	"\rJSONBaseMatch\x12\x18\n" +
-	"\apointer\x18\x01 \x01(\tR\apointer\"b\n" +
+	"\apointer\x18\x01 \x01(\tR\apointer\"\x95\x01\n" +
 	"\aMessage\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\apayload\x18\x03 \x01(\v2\x17.service.icd.pb.PayloadR\apayload\"`\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.service.icd.pb.PayloadR\apayload\x12\"\n" +
+	"\n" +
+	"cycle_time\x18\x04 \x01(\x03H\x00R\tcycleTime\x88\x01\x01B\r\n" +
+	"\v_cycle_time\"`\n" +
 	"\x03ICD\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -2598,7 +3365,26 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x03not\x18\x03 \x01(\v2\x15.service.icd.pb.WhereH\x00R\x03not\x88\x01\x01\x12.\n" +
 	"\x03key\x18\x04 \x01(\v2\x17.service.icd.pb.UuidSetH\x01R\x03key\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
-	"\x04_key\"\x9f\x01\n" +
+	"\x04_key\"\x91\x03\n" +
+	"\x0fBinaryBaseField\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05scale\x18\x03 \x01(\x01R\x05scale\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x01R\x06offset\x12\x14\n" +
+	"\x05units\x18\x05 \x01(\tR\x05units\x12\x15\n" +
+	"\x03min\x18\x06 \x01(\x01H\x00R\x03min\x88\x01\x01\x12\x15\n" +
+	"\x03max\x18\a \x01(\x01H\x01R\x03max\x88\x01\x01\x12\x1b\n" +
+	"\tstart_bit\x18\b \x01(\rR\bstartBit\x12\x1d\n" +
+	"\n" +
+	"bit_length\x18\t \x01(\rR\tbitLength\x128\n" +
+	"\n" +
+	"byte_order\x18\n" +
+	" \x01(\x0e2\x19.service.icd.pb.ByteOrderR\tbyteOrder\x12%\n" +
+	"\vmultiplexor\x18\v \x01(\tH\x02R\vmultiplexor\x88\x01\x01\x12)\n" +
+	"\x10multiplex_values\x18\f \x03(\x05R\x0fmultiplexValuesB\x06\n" +
+	"\x04_minB\x06\n" +
+	"\x04_maxB\x0e\n" +
+	"\f_multiplexor\"\x9f\x01\n" +
 	"\x14IdentifierCanPayload\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1a\n" +
 	"\bextended\x18\x02 \x01(\bR\bextended\x12\x0e\n" +
@@ -2608,11 +3394,29 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x05_mask\"D\n" +
 	"\x16IdentifierFieldPayload\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value\"7\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value\"D\n" +
+	"\x17BinaryFieldFloatPayload\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\x01H\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"F\n" +
+	"\x19BinaryFieldIntegerPayload\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\x03H\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"G\n" +
+	"\x1aBinaryFieldUnsignedPayload\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\x04H\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"7\n" +
 	"\x19TextFieldDelimitedPayload\x12\x1a\n" +
 	"\bposition\x18\x01 \x01(\rR\bposition\"*\n" +
 	"\x16TextFieldTaggedPayload\x12\x10\n" +
-	"\x03tag\x18\x01 \x01(\tR\x03tag\"}\n" +
+	"\x03tag\x18\x01 \x01(\tR\x03tag\"7\n" +
+	"\x1fTimestampDefaultConstantPayload\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\x03R\x05value\"\x1c\n" +
+	"\x1aTimestampDefaultNowPayload\"2\n" +
+	"\x1aUUIDDefaultConstantPayload\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\"\x1a\n" +
+	"\x18UUIDDefaultRandomPayload\"}\n" +
 	"\x15JSONFieldFloatPayload\x129\n" +
 	"\venum_values\x18\x01 \x03(\v2\x18.x.payload.pb.FloatEntryR\n" +
 	"enumValues\x12\x1d\n" +
@@ -2642,16 +3446,25 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"enumValues\x12\x1d\n" +
 	"\adefault\x18\x02 \x01(\bH\x00R\adefault\x88\x01\x01B\n" +
 	"\n" +
-	"\b_default\"\x81\x01\n" +
+	"\b_default\"\xa3\x01\n" +
 	"\x19JSONFieldTimestampPayload\x129\n" +
 	"\vtime_format\x18\x01 \x01(\x0e2\x18.x.payload.pb.TimeFormatR\n" +
-	"timeFormat\x12\x1d\n" +
-	"\adefault\x18\x02 \x01(\x03H\x00R\adefault\x88\x01\x01B\n" +
+	"timeFormat\x12?\n" +
+	"\adefault\x18\x02 \x01(\v2 .service.icd.pb.TimestampDefaultH\x00R\adefault\x88\x01\x01B\n" +
 	"\n" +
-	"\b_default\"\x16\n" +
-	"\x14JSONFieldJsonPayload\"\x16\n" +
-	"\x14JSONFieldUuidPayload\"\x17\n" +
-	"\x15JSONFieldBytesPayload\"-\n" +
+	"\b_default\"A\n" +
+	"\x14JSONFieldJsonPayload\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\tH\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"^\n" +
+	"\x14JSONFieldUuidPayload\x12:\n" +
+	"\adefault\x18\x01 \x01(\v2\x1b.service.icd.pb.UUIDDefaultH\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"B\n" +
+	"\x15JSONFieldBytesPayload\x12\x1d\n" +
+	"\adefault\x18\x01 \x01(\tH\x00R\adefault\x88\x01\x01B\n" +
+	"\n" +
+	"\b_default\"-\n" +
 	"\x15JSONMatchFloatPayload\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\x01R\x05value\"/\n" +
 	"\x17JSONMatchIntegerPayload\x12\x14\n" +
@@ -2661,7 +3474,8 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x16JSONMatchStringPayload\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\tR\x05value\"/\n" +
 	"\x17JSONMatchBooleanPayload\x12\x14\n" +
-	"\x05value\x18\x01 \x01(\bR\x05value\"\xc3\x01\n" +
+	"\x05value\x18\x01 \x01(\bR\x05value\"\x19\n" +
+	"\x17JSONMatchPresentPayload\"\xc3\x01\n" +
 	"\x14PayloadBinaryPayload\x12\x1b\n" +
 	"\x06length\x18\x01 \x01(\rH\x00R\x06length\x88\x01\x01\x12?\n" +
 	"\n" +
@@ -2682,12 +3496,25 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"Identifier\x128\n" +
 	"\x03can\x18\x01 \x01(\v2$.service.icd.pb.IdentifierCanPayloadH\x00R\x03can\x12>\n" +
 	"\x05field\x18\x02 \x01(\v2&.service.icd.pb.IdentifierFieldPayloadH\x00R\x05fieldB\t\n" +
-	"\avariant\"\xdd\x01\n" +
-	"\tTextField\x128\n" +
-	"\n" +
-	"base_field\x18\x01 \x01(\v2\x19.service.icd.pb.BaseFieldR\tbaseField\x12I\n" +
+	"\avariant\"\xb7\x02\n" +
+	"\vBinaryField\x12K\n" +
+	"\x11binary_base_field\x18\x01 \x01(\v2\x1f.service.icd.pb.BinaryBaseFieldR\x0fbinaryBaseField\x12?\n" +
+	"\x05float\x18\x02 \x01(\v2'.service.icd.pb.BinaryFieldFloatPayloadH\x00R\x05float\x12E\n" +
+	"\ainteger\x18\x03 \x01(\v2).service.icd.pb.BinaryFieldIntegerPayloadH\x00R\ainteger\x12H\n" +
+	"\bunsigned\x18\x04 \x01(\v2*.service.icd.pb.BinaryFieldUnsignedPayloadH\x00R\bunsignedB\t\n" +
+	"\avariant\"\xea\x01\n" +
+	"\tTextField\x12E\n" +
+	"\x0ftext_base_field\x18\x01 \x01(\v2\x1d.service.icd.pb.TextBaseFieldR\rtextBaseField\x12I\n" +
 	"\tdelimited\x18\x02 \x01(\v2).service.icd.pb.TextFieldDelimitedPayloadH\x00R\tdelimited\x12@\n" +
 	"\x06tagged\x18\x03 \x01(\v2&.service.icd.pb.TextFieldTaggedPayloadH\x00R\x06taggedB\t\n" +
+	"\avariant\"\xac\x01\n" +
+	"\x10TimestampDefault\x12M\n" +
+	"\bconstant\x18\x01 \x01(\v2/.service.icd.pb.TimestampDefaultConstantPayloadH\x00R\bconstant\x12>\n" +
+	"\x03now\x18\x02 \x01(\v2*.service.icd.pb.TimestampDefaultNowPayloadH\x00R\x03nowB\t\n" +
+	"\avariant\"\xa6\x01\n" +
+	"\vUUIDDefault\x12H\n" +
+	"\bconstant\x18\x01 \x01(\v2*.service.icd.pb.UUIDDefaultConstantPayloadH\x00R\bconstant\x12B\n" +
+	"\x06random\x18\x02 \x01(\v2(.service.icd.pb.UUIDDefaultRandomPayloadH\x00R\x06randomB\t\n" +
 	"\avariant\"\xb2\x05\n" +
 	"\tJSONField\x12E\n" +
 	"\x0fjson_base_field\x18\x01 \x01(\v2\x1d.service.icd.pb.JSONBaseFieldR\rjsonBaseField\x12=\n" +
@@ -2701,14 +3528,15 @@ const file_core_pkg_service_icd_pb_icd_proto_rawDesc = "" +
 	"\x04uuid\x18\t \x01(\v2$.service.icd.pb.JSONFieldUuidPayloadH\x00R\x04uuid\x12=\n" +
 	"\x05bytes\x18\n" +
 	" \x01(\v2%.service.icd.pb.JSONFieldBytesPayloadH\x00R\x05bytesB\t\n" +
-	"\avariant\"\xb0\x03\n" +
+	"\avariant\"\xf5\x03\n" +
 	"\tJSONMatch\x12E\n" +
 	"\x0fjson_base_match\x18\x01 \x01(\v2\x1d.service.icd.pb.JSONBaseMatchR\rjsonBaseMatch\x12=\n" +
 	"\x05float\x18\x02 \x01(\v2%.service.icd.pb.JSONMatchFloatPayloadH\x00R\x05float\x12C\n" +
 	"\ainteger\x18\x03 \x01(\v2'.service.icd.pb.JSONMatchIntegerPayloadH\x00R\ainteger\x12F\n" +
 	"\bunsigned\x18\x04 \x01(\v2(.service.icd.pb.JSONMatchUnsignedPayloadH\x00R\bunsigned\x12@\n" +
 	"\x06string\x18\x05 \x01(\v2&.service.icd.pb.JSONMatchStringPayloadH\x00R\x06string\x12C\n" +
-	"\aboolean\x18\x06 \x01(\v2'.service.icd.pb.JSONMatchBooleanPayloadH\x00R\abooleanB\t\n" +
+	"\aboolean\x18\x06 \x01(\v2'.service.icd.pb.JSONMatchBooleanPayloadH\x00R\aboolean\x12C\n" +
+	"\apresent\x18\a \x01(\v2'.service.icd.pb.JSONMatchPresentPayloadH\x00R\apresentB\t\n" +
 	"\avariant\"\xc8\x01\n" +
 	"\aPayload\x12>\n" +
 	"\x06binary\x18\x01 \x01(\v2$.service.icd.pb.PayloadBinaryPayloadH\x00R\x06binary\x128\n" +
@@ -2733,104 +3561,125 @@ func file_core_pkg_service_icd_pb_icd_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_icd_pb_icd_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_icd_pb_icd_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_core_pkg_service_icd_pb_icd_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_core_pkg_service_icd_pb_icd_proto_goTypes = []any{
-	(ByteOrder)(0),                    // 0: service.icd.pb.ByteOrder
-	(*BaseField)(nil),                 // 1: service.icd.pb.BaseField
-	(*BinaryField)(nil),               // 2: service.icd.pb.BinaryField
-	(*JSONBaseField)(nil),             // 3: service.icd.pb.JSONBaseField
-	(*JSONBaseMatch)(nil),             // 4: service.icd.pb.JSONBaseMatch
-	(*Message)(nil),                   // 5: service.icd.pb.Message
-	(*ICD)(nil),                       // 6: service.icd.pb.ICD
-	(*WhereList)(nil),                 // 7: service.icd.pb.WhereList
-	(*UuidList)(nil),                  // 8: service.icd.pb.UuidList
-	(*UuidSet)(nil),                   // 9: service.icd.pb.UuidSet
-	(*Where)(nil),                     // 10: service.icd.pb.Where
-	(*IdentifierCanPayload)(nil),      // 11: service.icd.pb.IdentifierCanPayload
-	(*IdentifierFieldPayload)(nil),    // 12: service.icd.pb.IdentifierFieldPayload
-	(*TextFieldDelimitedPayload)(nil), // 13: service.icd.pb.TextFieldDelimitedPayload
-	(*TextFieldTaggedPayload)(nil),    // 14: service.icd.pb.TextFieldTaggedPayload
-	(*JSONFieldFloatPayload)(nil),     // 15: service.icd.pb.JSONFieldFloatPayload
-	(*JSONFieldIntegerPayload)(nil),   // 16: service.icd.pb.JSONFieldIntegerPayload
-	(*JSONFieldUnsignedPayload)(nil),  // 17: service.icd.pb.JSONFieldUnsignedPayload
-	(*JSONFieldStringPayload)(nil),    // 18: service.icd.pb.JSONFieldStringPayload
-	(*JSONFieldBooleanPayload)(nil),   // 19: service.icd.pb.JSONFieldBooleanPayload
-	(*JSONFieldTimestampPayload)(nil), // 20: service.icd.pb.JSONFieldTimestampPayload
-	(*JSONFieldJsonPayload)(nil),      // 21: service.icd.pb.JSONFieldJsonPayload
-	(*JSONFieldUuidPayload)(nil),      // 22: service.icd.pb.JSONFieldUuidPayload
-	(*JSONFieldBytesPayload)(nil),     // 23: service.icd.pb.JSONFieldBytesPayload
-	(*JSONMatchFloatPayload)(nil),     // 24: service.icd.pb.JSONMatchFloatPayload
-	(*JSONMatchIntegerPayload)(nil),   // 25: service.icd.pb.JSONMatchIntegerPayload
-	(*JSONMatchUnsignedPayload)(nil),  // 26: service.icd.pb.JSONMatchUnsignedPayload
-	(*JSONMatchStringPayload)(nil),    // 27: service.icd.pb.JSONMatchStringPayload
-	(*JSONMatchBooleanPayload)(nil),   // 28: service.icd.pb.JSONMatchBooleanPayload
-	(*PayloadBinaryPayload)(nil),      // 29: service.icd.pb.PayloadBinaryPayload
-	(*PayloadTextPayload)(nil),        // 30: service.icd.pb.PayloadTextPayload
-	(*PayloadJsonPayload)(nil),        // 31: service.icd.pb.PayloadJsonPayload
-	(*Identifier)(nil),                // 32: service.icd.pb.Identifier
-	(*TextField)(nil),                 // 33: service.icd.pb.TextField
-	(*JSONField)(nil),                 // 34: service.icd.pb.JSONField
-	(*JSONMatch)(nil),                 // 35: service.icd.pb.JSONMatch
-	(*Payload)(nil),                   // 36: service.icd.pb.Payload
-	(pb.Kind)(0),                      // 37: x.payload.pb.Kind
-	(*pb.FloatEntry)(nil),             // 38: x.payload.pb.FloatEntry
-	(*pb.IntegerEntry)(nil),           // 39: x.payload.pb.IntegerEntry
-	(*pb.UnsignedEntry)(nil),          // 40: x.payload.pb.UnsignedEntry
-	(*pb.StringEntry)(nil),            // 41: x.payload.pb.StringEntry
-	(*pb.BooleanEntry)(nil),           // 42: x.payload.pb.BooleanEntry
-	(pb.TimeFormat)(0),                // 43: x.payload.pb.TimeFormat
+	(ByteOrder)(0),                          // 0: service.icd.pb.ByteOrder
+	(*BaseField)(nil),                       // 1: service.icd.pb.BaseField
+	(*TextBaseField)(nil),                   // 2: service.icd.pb.TextBaseField
+	(*JSONBaseField)(nil),                   // 3: service.icd.pb.JSONBaseField
+	(*JSONBaseMatch)(nil),                   // 4: service.icd.pb.JSONBaseMatch
+	(*Message)(nil),                         // 5: service.icd.pb.Message
+	(*ICD)(nil),                             // 6: service.icd.pb.ICD
+	(*WhereList)(nil),                       // 7: service.icd.pb.WhereList
+	(*UuidList)(nil),                        // 8: service.icd.pb.UuidList
+	(*UuidSet)(nil),                         // 9: service.icd.pb.UuidSet
+	(*Where)(nil),                           // 10: service.icd.pb.Where
+	(*BinaryBaseField)(nil),                 // 11: service.icd.pb.BinaryBaseField
+	(*IdentifierCanPayload)(nil),            // 12: service.icd.pb.IdentifierCanPayload
+	(*IdentifierFieldPayload)(nil),          // 13: service.icd.pb.IdentifierFieldPayload
+	(*BinaryFieldFloatPayload)(nil),         // 14: service.icd.pb.BinaryFieldFloatPayload
+	(*BinaryFieldIntegerPayload)(nil),       // 15: service.icd.pb.BinaryFieldIntegerPayload
+	(*BinaryFieldUnsignedPayload)(nil),      // 16: service.icd.pb.BinaryFieldUnsignedPayload
+	(*TextFieldDelimitedPayload)(nil),       // 17: service.icd.pb.TextFieldDelimitedPayload
+	(*TextFieldTaggedPayload)(nil),          // 18: service.icd.pb.TextFieldTaggedPayload
+	(*TimestampDefaultConstantPayload)(nil), // 19: service.icd.pb.TimestampDefaultConstantPayload
+	(*TimestampDefaultNowPayload)(nil),      // 20: service.icd.pb.TimestampDefaultNowPayload
+	(*UUIDDefaultConstantPayload)(nil),      // 21: service.icd.pb.UUIDDefaultConstantPayload
+	(*UUIDDefaultRandomPayload)(nil),        // 22: service.icd.pb.UUIDDefaultRandomPayload
+	(*JSONFieldFloatPayload)(nil),           // 23: service.icd.pb.JSONFieldFloatPayload
+	(*JSONFieldIntegerPayload)(nil),         // 24: service.icd.pb.JSONFieldIntegerPayload
+	(*JSONFieldUnsignedPayload)(nil),        // 25: service.icd.pb.JSONFieldUnsignedPayload
+	(*JSONFieldStringPayload)(nil),          // 26: service.icd.pb.JSONFieldStringPayload
+	(*JSONFieldBooleanPayload)(nil),         // 27: service.icd.pb.JSONFieldBooleanPayload
+	(*JSONFieldTimestampPayload)(nil),       // 28: service.icd.pb.JSONFieldTimestampPayload
+	(*JSONFieldJsonPayload)(nil),            // 29: service.icd.pb.JSONFieldJsonPayload
+	(*JSONFieldUuidPayload)(nil),            // 30: service.icd.pb.JSONFieldUuidPayload
+	(*JSONFieldBytesPayload)(nil),           // 31: service.icd.pb.JSONFieldBytesPayload
+	(*JSONMatchFloatPayload)(nil),           // 32: service.icd.pb.JSONMatchFloatPayload
+	(*JSONMatchIntegerPayload)(nil),         // 33: service.icd.pb.JSONMatchIntegerPayload
+	(*JSONMatchUnsignedPayload)(nil),        // 34: service.icd.pb.JSONMatchUnsignedPayload
+	(*JSONMatchStringPayload)(nil),          // 35: service.icd.pb.JSONMatchStringPayload
+	(*JSONMatchBooleanPayload)(nil),         // 36: service.icd.pb.JSONMatchBooleanPayload
+	(*JSONMatchPresentPayload)(nil),         // 37: service.icd.pb.JSONMatchPresentPayload
+	(*PayloadBinaryPayload)(nil),            // 38: service.icd.pb.PayloadBinaryPayload
+	(*PayloadTextPayload)(nil),              // 39: service.icd.pb.PayloadTextPayload
+	(*PayloadJsonPayload)(nil),              // 40: service.icd.pb.PayloadJsonPayload
+	(*Identifier)(nil),                      // 41: service.icd.pb.Identifier
+	(*BinaryField)(nil),                     // 42: service.icd.pb.BinaryField
+	(*TextField)(nil),                       // 43: service.icd.pb.TextField
+	(*TimestampDefault)(nil),                // 44: service.icd.pb.TimestampDefault
+	(*UUIDDefault)(nil),                     // 45: service.icd.pb.UUIDDefault
+	(*JSONField)(nil),                       // 46: service.icd.pb.JSONField
+	(*JSONMatch)(nil),                       // 47: service.icd.pb.JSONMatch
+	(*Payload)(nil),                         // 48: service.icd.pb.Payload
+	(*pb.FloatEntry)(nil),                   // 49: x.payload.pb.FloatEntry
+	(*pb.IntegerEntry)(nil),                 // 50: x.payload.pb.IntegerEntry
+	(*pb.UnsignedEntry)(nil),                // 51: x.payload.pb.UnsignedEntry
+	(*pb.StringEntry)(nil),                  // 52: x.payload.pb.StringEntry
+	(*pb.BooleanEntry)(nil),                 // 53: x.payload.pb.BooleanEntry
+	(pb.TimeFormat)(0),                      // 54: x.payload.pb.TimeFormat
 }
 var file_core_pkg_service_icd_pb_icd_proto_depIdxs = []int32{
-	0,  // 0: service.icd.pb.BinaryField.byte_order:type_name -> service.icd.pb.ByteOrder
-	37, // 1: service.icd.pb.BinaryField.kind:type_name -> x.payload.pb.Kind
-	36, // 2: service.icd.pb.Message.payload:type_name -> service.icd.pb.Payload
-	5,  // 3: service.icd.pb.ICD.messages:type_name -> service.icd.pb.Message
-	10, // 4: service.icd.pb.WhereList.values:type_name -> service.icd.pb.Where
-	8,  // 5: service.icd.pb.UuidSet.in:type_name -> service.icd.pb.UuidList
-	7,  // 6: service.icd.pb.Where.and:type_name -> service.icd.pb.WhereList
-	7,  // 7: service.icd.pb.Where.or:type_name -> service.icd.pb.WhereList
-	10, // 8: service.icd.pb.Where.not:type_name -> service.icd.pb.Where
-	9,  // 9: service.icd.pb.Where.key:type_name -> service.icd.pb.UuidSet
-	38, // 10: service.icd.pb.JSONFieldFloatPayload.enum_values:type_name -> x.payload.pb.FloatEntry
-	39, // 11: service.icd.pb.JSONFieldIntegerPayload.enum_values:type_name -> x.payload.pb.IntegerEntry
-	40, // 12: service.icd.pb.JSONFieldUnsignedPayload.enum_values:type_name -> x.payload.pb.UnsignedEntry
-	41, // 13: service.icd.pb.JSONFieldStringPayload.enum_values:type_name -> x.payload.pb.StringEntry
-	42, // 14: service.icd.pb.JSONFieldBooleanPayload.enum_values:type_name -> x.payload.pb.BooleanEntry
-	43, // 15: service.icd.pb.JSONFieldTimestampPayload.time_format:type_name -> x.payload.pb.TimeFormat
-	32, // 16: service.icd.pb.PayloadBinaryPayload.identifier:type_name -> service.icd.pb.Identifier
-	2,  // 17: service.icd.pb.PayloadBinaryPayload.fields:type_name -> service.icd.pb.BinaryField
-	33, // 18: service.icd.pb.PayloadTextPayload.fields:type_name -> service.icd.pb.TextField
-	35, // 19: service.icd.pb.PayloadJsonPayload.match:type_name -> service.icd.pb.JSONMatch
-	34, // 20: service.icd.pb.PayloadJsonPayload.fields:type_name -> service.icd.pb.JSONField
-	11, // 21: service.icd.pb.Identifier.can:type_name -> service.icd.pb.IdentifierCanPayload
-	12, // 22: service.icd.pb.Identifier.field:type_name -> service.icd.pb.IdentifierFieldPayload
-	1,  // 23: service.icd.pb.TextField.base_field:type_name -> service.icd.pb.BaseField
-	13, // 24: service.icd.pb.TextField.delimited:type_name -> service.icd.pb.TextFieldDelimitedPayload
-	14, // 25: service.icd.pb.TextField.tagged:type_name -> service.icd.pb.TextFieldTaggedPayload
-	3,  // 26: service.icd.pb.JSONField.json_base_field:type_name -> service.icd.pb.JSONBaseField
-	15, // 27: service.icd.pb.JSONField.float:type_name -> service.icd.pb.JSONFieldFloatPayload
-	16, // 28: service.icd.pb.JSONField.integer:type_name -> service.icd.pb.JSONFieldIntegerPayload
-	17, // 29: service.icd.pb.JSONField.unsigned:type_name -> service.icd.pb.JSONFieldUnsignedPayload
-	18, // 30: service.icd.pb.JSONField.string:type_name -> service.icd.pb.JSONFieldStringPayload
-	19, // 31: service.icd.pb.JSONField.boolean:type_name -> service.icd.pb.JSONFieldBooleanPayload
-	20, // 32: service.icd.pb.JSONField.timestamp:type_name -> service.icd.pb.JSONFieldTimestampPayload
-	21, // 33: service.icd.pb.JSONField.json:type_name -> service.icd.pb.JSONFieldJsonPayload
-	22, // 34: service.icd.pb.JSONField.uuid:type_name -> service.icd.pb.JSONFieldUuidPayload
-	23, // 35: service.icd.pb.JSONField.bytes:type_name -> service.icd.pb.JSONFieldBytesPayload
-	4,  // 36: service.icd.pb.JSONMatch.json_base_match:type_name -> service.icd.pb.JSONBaseMatch
-	24, // 37: service.icd.pb.JSONMatch.float:type_name -> service.icd.pb.JSONMatchFloatPayload
-	25, // 38: service.icd.pb.JSONMatch.integer:type_name -> service.icd.pb.JSONMatchIntegerPayload
-	26, // 39: service.icd.pb.JSONMatch.unsigned:type_name -> service.icd.pb.JSONMatchUnsignedPayload
-	27, // 40: service.icd.pb.JSONMatch.string:type_name -> service.icd.pb.JSONMatchStringPayload
-	28, // 41: service.icd.pb.JSONMatch.boolean:type_name -> service.icd.pb.JSONMatchBooleanPayload
-	29, // 42: service.icd.pb.Payload.binary:type_name -> service.icd.pb.PayloadBinaryPayload
-	30, // 43: service.icd.pb.Payload.text:type_name -> service.icd.pb.PayloadTextPayload
-	31, // 44: service.icd.pb.Payload.json:type_name -> service.icd.pb.PayloadJsonPayload
-	45, // [45:45] is the sub-list for method output_type
-	45, // [45:45] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	48, // 0: service.icd.pb.Message.payload:type_name -> service.icd.pb.Payload
+	5,  // 1: service.icd.pb.ICD.messages:type_name -> service.icd.pb.Message
+	10, // 2: service.icd.pb.WhereList.values:type_name -> service.icd.pb.Where
+	8,  // 3: service.icd.pb.UuidSet.in:type_name -> service.icd.pb.UuidList
+	7,  // 4: service.icd.pb.Where.and:type_name -> service.icd.pb.WhereList
+	7,  // 5: service.icd.pb.Where.or:type_name -> service.icd.pb.WhereList
+	10, // 6: service.icd.pb.Where.not:type_name -> service.icd.pb.Where
+	9,  // 7: service.icd.pb.Where.key:type_name -> service.icd.pb.UuidSet
+	0,  // 8: service.icd.pb.BinaryBaseField.byte_order:type_name -> service.icd.pb.ByteOrder
+	49, // 9: service.icd.pb.JSONFieldFloatPayload.enum_values:type_name -> x.payload.pb.FloatEntry
+	50, // 10: service.icd.pb.JSONFieldIntegerPayload.enum_values:type_name -> x.payload.pb.IntegerEntry
+	51, // 11: service.icd.pb.JSONFieldUnsignedPayload.enum_values:type_name -> x.payload.pb.UnsignedEntry
+	52, // 12: service.icd.pb.JSONFieldStringPayload.enum_values:type_name -> x.payload.pb.StringEntry
+	53, // 13: service.icd.pb.JSONFieldBooleanPayload.enum_values:type_name -> x.payload.pb.BooleanEntry
+	54, // 14: service.icd.pb.JSONFieldTimestampPayload.time_format:type_name -> x.payload.pb.TimeFormat
+	44, // 15: service.icd.pb.JSONFieldTimestampPayload.default:type_name -> service.icd.pb.TimestampDefault
+	45, // 16: service.icd.pb.JSONFieldUuidPayload.default:type_name -> service.icd.pb.UUIDDefault
+	41, // 17: service.icd.pb.PayloadBinaryPayload.identifier:type_name -> service.icd.pb.Identifier
+	42, // 18: service.icd.pb.PayloadBinaryPayload.fields:type_name -> service.icd.pb.BinaryField
+	43, // 19: service.icd.pb.PayloadTextPayload.fields:type_name -> service.icd.pb.TextField
+	47, // 20: service.icd.pb.PayloadJsonPayload.match:type_name -> service.icd.pb.JSONMatch
+	46, // 21: service.icd.pb.PayloadJsonPayload.fields:type_name -> service.icd.pb.JSONField
+	12, // 22: service.icd.pb.Identifier.can:type_name -> service.icd.pb.IdentifierCanPayload
+	13, // 23: service.icd.pb.Identifier.field:type_name -> service.icd.pb.IdentifierFieldPayload
+	11, // 24: service.icd.pb.BinaryField.binary_base_field:type_name -> service.icd.pb.BinaryBaseField
+	14, // 25: service.icd.pb.BinaryField.float:type_name -> service.icd.pb.BinaryFieldFloatPayload
+	15, // 26: service.icd.pb.BinaryField.integer:type_name -> service.icd.pb.BinaryFieldIntegerPayload
+	16, // 27: service.icd.pb.BinaryField.unsigned:type_name -> service.icd.pb.BinaryFieldUnsignedPayload
+	2,  // 28: service.icd.pb.TextField.text_base_field:type_name -> service.icd.pb.TextBaseField
+	17, // 29: service.icd.pb.TextField.delimited:type_name -> service.icd.pb.TextFieldDelimitedPayload
+	18, // 30: service.icd.pb.TextField.tagged:type_name -> service.icd.pb.TextFieldTaggedPayload
+	19, // 31: service.icd.pb.TimestampDefault.constant:type_name -> service.icd.pb.TimestampDefaultConstantPayload
+	20, // 32: service.icd.pb.TimestampDefault.now:type_name -> service.icd.pb.TimestampDefaultNowPayload
+	21, // 33: service.icd.pb.UUIDDefault.constant:type_name -> service.icd.pb.UUIDDefaultConstantPayload
+	22, // 34: service.icd.pb.UUIDDefault.random:type_name -> service.icd.pb.UUIDDefaultRandomPayload
+	3,  // 35: service.icd.pb.JSONField.json_base_field:type_name -> service.icd.pb.JSONBaseField
+	23, // 36: service.icd.pb.JSONField.float:type_name -> service.icd.pb.JSONFieldFloatPayload
+	24, // 37: service.icd.pb.JSONField.integer:type_name -> service.icd.pb.JSONFieldIntegerPayload
+	25, // 38: service.icd.pb.JSONField.unsigned:type_name -> service.icd.pb.JSONFieldUnsignedPayload
+	26, // 39: service.icd.pb.JSONField.string:type_name -> service.icd.pb.JSONFieldStringPayload
+	27, // 40: service.icd.pb.JSONField.boolean:type_name -> service.icd.pb.JSONFieldBooleanPayload
+	28, // 41: service.icd.pb.JSONField.timestamp:type_name -> service.icd.pb.JSONFieldTimestampPayload
+	29, // 42: service.icd.pb.JSONField.json:type_name -> service.icd.pb.JSONFieldJsonPayload
+	30, // 43: service.icd.pb.JSONField.uuid:type_name -> service.icd.pb.JSONFieldUuidPayload
+	31, // 44: service.icd.pb.JSONField.bytes:type_name -> service.icd.pb.JSONFieldBytesPayload
+	4,  // 45: service.icd.pb.JSONMatch.json_base_match:type_name -> service.icd.pb.JSONBaseMatch
+	32, // 46: service.icd.pb.JSONMatch.float:type_name -> service.icd.pb.JSONMatchFloatPayload
+	33, // 47: service.icd.pb.JSONMatch.integer:type_name -> service.icd.pb.JSONMatchIntegerPayload
+	34, // 48: service.icd.pb.JSONMatch.unsigned:type_name -> service.icd.pb.JSONMatchUnsignedPayload
+	35, // 49: service.icd.pb.JSONMatch.string:type_name -> service.icd.pb.JSONMatchStringPayload
+	36, // 50: service.icd.pb.JSONMatch.boolean:type_name -> service.icd.pb.JSONMatchBooleanPayload
+	37, // 51: service.icd.pb.JSONMatch.present:type_name -> service.icd.pb.JSONMatchPresentPayload
+	38, // 52: service.icd.pb.Payload.binary:type_name -> service.icd.pb.PayloadBinaryPayload
+	39, // 53: service.icd.pb.Payload.text:type_name -> service.icd.pb.PayloadTextPayload
+	40, // 54: service.icd.pb.Payload.json:type_name -> service.icd.pb.PayloadJsonPayload
+	55, // [55:55] is the sub-list for method output_type
+	55, // [55:55] is the sub-list for method input_type
+	55, // [55:55] is the sub-list for extension type_name
+	55, // [55:55] is the sub-list for extension extendee
+	0,  // [0:55] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_icd_pb_icd_proto_init() }
@@ -2841,26 +3690,47 @@ func file_core_pkg_service_icd_pb_icd_proto_init() {
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[2].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[8].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[9].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[10].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[11].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[13].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[14].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[15].OneofWrappers = []any{}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[16].OneofWrappers = []any{}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[17].OneofWrappers = []any{}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[18].OneofWrappers = []any{}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[19].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[22].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[23].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[24].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[25].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[26].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[27].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[28].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[29].OneofWrappers = []any{}
 	file_core_pkg_service_icd_pb_icd_proto_msgTypes[30].OneofWrappers = []any{}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[31].OneofWrappers = []any{
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[37].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[39].OneofWrappers = []any{}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[40].OneofWrappers = []any{
 		(*Identifier_Can)(nil),
 		(*Identifier_Field)(nil),
 	}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[32].OneofWrappers = []any{
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[41].OneofWrappers = []any{
+		(*BinaryField_Float)(nil),
+		(*BinaryField_Integer)(nil),
+		(*BinaryField_Unsigned)(nil),
+	}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[42].OneofWrappers = []any{
 		(*TextField_Delimited)(nil),
 		(*TextField_Tagged)(nil),
 	}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[33].OneofWrappers = []any{
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[43].OneofWrappers = []any{
+		(*TimestampDefault_Constant)(nil),
+		(*TimestampDefault_Now)(nil),
+	}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[44].OneofWrappers = []any{
+		(*UUIDDefault_Constant)(nil),
+		(*UUIDDefault_Random)(nil),
+	}
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[45].OneofWrappers = []any{
 		(*JSONField_Float)(nil),
 		(*JSONField_Integer)(nil),
 		(*JSONField_Unsigned)(nil),
@@ -2871,14 +3741,15 @@ func file_core_pkg_service_icd_pb_icd_proto_init() {
 		(*JSONField_Uuid)(nil),
 		(*JSONField_Bytes)(nil),
 	}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[34].OneofWrappers = []any{
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[46].OneofWrappers = []any{
 		(*JSONMatch_Float)(nil),
 		(*JSONMatch_Integer)(nil),
 		(*JSONMatch_Unsigned)(nil),
 		(*JSONMatch_String_)(nil),
 		(*JSONMatch_Boolean)(nil),
+		(*JSONMatch_Present)(nil),
 	}
-	file_core_pkg_service_icd_pb_icd_proto_msgTypes[35].OneofWrappers = []any{
+	file_core_pkg_service_icd_pb_icd_proto_msgTypes[47].OneofWrappers = []any{
 		(*Payload_Binary)(nil),
 		(*Payload_Text)(nil),
 		(*Payload_Json)(nil),
@@ -2889,7 +3760,7 @@ func file_core_pkg_service_icd_pb_icd_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_icd_pb_icd_proto_rawDesc), len(file_core_pkg_service_icd_pb_icd_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   36,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

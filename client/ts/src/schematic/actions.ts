@@ -148,12 +148,7 @@ const handlers: Handlers = {
   ...actions.createPathHandlers(applyPath),
 };
 
-const reduce = createReduceAll(handlers);
-
-// The handlers put the objects of an action into the state, where a later action in
-// the batch edits them in place. A copy keeps the caller's actions unchanged.
-export const reduceAll = (state: Schematic, actions: Action[]) =>
-  reduce(state, structuredClone(actions));
+export const reduceAll = createReduceAll(handlers);
 
 export interface SetChangedArgs {
   /** The key of the node or edge. */

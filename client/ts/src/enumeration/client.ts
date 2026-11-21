@@ -163,8 +163,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached enumeration and sends them to the Core. Returns false
-   * without side effects when the enumeration is not cached.
+   * Applies actions to the cached enumeration and sends them to the Core.
+   * @throws {NotCachedError} if the enumeration is not cached, before any change.
    * @throws {Error} if the enumeration cannot hold an action, before any send.
    * @throws {Error} if the send fails, after the cached enumeration drops the actions.
    */
@@ -172,7 +172,10 @@ export class Client extends query.Retriever<
     return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
-  /** Stages actions that commit atomically as one dispatch. */
+  /**
+   * Stages actions that commit atomically as one dispatch.
+   * @throws {NotCachedError} if the document is not cached.
+   */
   beginTransaction(key: Key): actions.Transaction<Action> {
     return this.dispatcher.transaction(key);
   }

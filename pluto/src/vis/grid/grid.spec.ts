@@ -101,6 +101,26 @@ describe("grid", () => {
         },
         expected: { x: 10, y: 80 },
       },
+      {
+        name: "Two Y-Axes on Right - Closest to Visualization",
+        container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
+        key: "y-axis",
+        grid: {
+          "y-axis": { key: "y-axis", loc: "right", order: 0, size: 10 },
+          "y-axis-2": { key: "y-axis-2", loc: "right", order: 1, size: 10 },
+        },
+        expected: { x: 80, y: 0 },
+      },
+      {
+        name: "Two Y-Axes on Right - Farthest from Visualization",
+        container: box.construct({ x: 0, y: 0 }, { x: 100, y: 100 }),
+        key: "y-axis",
+        grid: {
+          "y-axis": { key: "y-axis", loc: "right", order: 1, size: 10 },
+          "y-axis-2": { key: "y-axis-2", loc: "right", order: 0, size: 10 },
+        },
+        expected: { x: 90, y: 0 },
+      },
     ];
     SPECS.forEach(({ key, name, grid: grid_, container, expected }) => {
       it(name, () => {

@@ -17,7 +17,10 @@ import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries
 export interface SimpleProps
   extends
     Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
-    Pick<EntriesProps, "onColorChange" | "onLabelChange" | "onVisibleChange"> {
+    Pick<
+      EntriesProps,
+      "onColorChange" | "onLabelChange" | "onVisibleChange" | "onHoverChange"
+    > {
   data?: optional.Optional<EntryData, "visible">[];
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
@@ -30,6 +33,7 @@ export const Simple = ({
   onColorChange,
   onLabelChange,
   onVisibleChange,
+  onHoverChange,
   position,
   onPositionChange,
   allowEntryVisibleChange = true,
@@ -52,6 +56,7 @@ export const Simple = ({
         onColorChange={onColorChange}
         onLabelChange={onLabelChange}
         onVisibleChange={onVisibleChange}
+        onHoverChange={onHoverChange}
         colorPickerVisible={pickerVisible}
         onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowEntryVisibleChange}

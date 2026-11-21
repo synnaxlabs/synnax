@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, UnexpectedError } from "@synnaxlabs/client";
-import { Color } from "@synnaxlabs/lyra/color";
+import { type color, label, UnexpectedError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +16,8 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Label } from "@synnaxlabs/pluto";
-import type { color } from "@synnaxlabs/x";
+import { Access, Color, Flux, Label } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -34,7 +33,7 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
   const { itemKey } = props;
   const { form } = Label.useForm({ query: { key: itemKey } });
   const name = Form.useField<string>(path.name, { ctx: form });
-  const swatch = Form.useField<color.Crude, color.Color>(path.color, { ctx: form });
+  const swatch = Form.useField<color.Ref>(path.color, { ctx: form });
   const canUpdate = Access.useUpdateGranted(label.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   return (
@@ -69,9 +68,15 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
 };
 
 const CreateLabel = (): ReactElement => {
-  const { created } = PlatformSettings.useCreate();
+  const { creating, created } = PlatformSettings.useCreate();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
+    beforeSave: async ({ set }) => {
+      const key = uuid.create();
+      set(path.key, key);
+      creating(key);
+      return true;
+    },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");

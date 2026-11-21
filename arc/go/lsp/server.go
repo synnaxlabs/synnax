@@ -106,6 +106,11 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.NewRoot = override.Nil(c.NewRoot, other.NewRoot)
 	c.OnRename = override.Nil(c.OnRename, other.OnRename)
+	c.AllowDashedNames = override.If(
+		c.AllowDashedNames,
+		other.AllowDashedNames,
+		other.AllowDashedNames,
+	)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)
@@ -183,6 +188,34 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 		},
 	}, nil
+}
+
+func (s *Server) parserConfig() parser.Config {
+	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+}
+
+// wordChars marks the bytes of line that belong to a word. With dashed names on, a '-'
+// joins a name, as in the lexer, unless it starts "->" or "-=". A run of only digits
+// lexes as a number, so a '-' after it is a minus.
+func (s *Server) wordChars(line string) []bool {
+	marks := lsp.DefaultWordChars(line)
+	if !s.cfg.AllowDashedNames {
+		return marks
+	}
+	inName := false
+	for i := range len(line) {
+		c := line[i]
+		switch {
+		case marks[i]:
+			inName = inName || c < '0' || c > '9'
+		case c == '-' && inName &&
+			(i+1 == len(line) || (line[i+1] != '>' && line[i+1] != '=')):
+			marks[i] = true
+		default:
+			inName = false
+		}
+	}
+	return marks
 }
 
 // SetClient sets the LSP client for sending notifications.
@@ -302,10 +335,11 @@ func (s *Server) DidOpen(
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	doc := &document{
-		URI:      docURI,
-		Version:  params.TextDocument.Version,
-		Content:  params.TextDocument.Text,
-		metadata: metadata,
+		URI:       docURI,
+		Version:   params.TextDocument.Version,
+		Content:   params.TextDocument.Text,
+		metadata:  metadata,
+		wordChars: s.wordChars,
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{
@@ -491,7 +525,7 @@ func (s *Server) analyze(
 		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 	})
 	s.cfg.L.Debug("analyzing program")
-	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
+	cfg := s.parserConfig()
 
 	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
