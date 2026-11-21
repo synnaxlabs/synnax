@@ -107,18 +107,15 @@ export const renderModalHook = <T,>(
 };
 
 /**
- * Presses and releases Escape as a browser does: on the focused element, then, unless
- * the page prevented the key, as a cancel request to the modal on top.
+ * Presses Escape through the browser driver. A native modal dialog sees only a real key
+ * press, which the browser sends from wherever the focus is.
  */
-export const pressEscape = (): void => {
-  const target = document.activeElement ?? document.body;
-  const unprevented = fireEvent.keyDown(target, { code: "Escape", key: "Escape" });
-  const modals = document.querySelectorAll("dialog:modal");
-  const top = modals[modals.length - 1];
-  const cancel = new Event("cancel", { cancelable: true });
-  if (unprevented && top instanceof HTMLDialogElement && fireEvent(top, cancel))
-    top.close();
-  fireEvent.keyUp(target, { code: "Escape", key: "Escape" });
+export const pressEscape = async (): Promise<void> => {
+  // jsdom specs import this file too, and vitest/browser loads only in a browser.
+  const { userEvent } = await import("vitest/browser");
+  await act(async () => {
+    await userEvent.keyboard("{Escape}");
+  });
 };
 
 /**
