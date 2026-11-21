@@ -59,8 +59,14 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
         count={count}
       />
     );
-  const index = PChannel.getCachedIndex(client, ch.payload);
-  return <PChannel.HaulPreview channel={ch.payload} index={index} count={count} />;
+  return (
+    <PChannel.HaulPreview
+      channel={ch.payload}
+      index={PChannel.getCachedIndex(client, ch.payload)}
+      calculated={PChannel.getCachedIsOutput(client, ch.payload)}
+      count={count}
+    />
+  );
 };
 
 const useDelete = Tree.createUseDelete({

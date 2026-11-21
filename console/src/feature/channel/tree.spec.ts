@@ -140,6 +140,16 @@ describe("channel/tree", () => {
       expect(factsOf(ch)).toBe(`float64·${index.name}`);
     });
 
+    it("previews a calculated channel as calculated once the cache knows it", async () => {
+      const calc = await client.calculations.create({
+        name: uniqueName("calc"),
+        expression: "return 1",
+      });
+      const [output] = await client.channels.retrieve([calc.output]);
+      await client.calculations.outputs.retrieve([calc.output]);
+      expect(factsOf(output)).toBe("int64·Calculated");
+    });
+
     it("previews a channel missing from the cache by its type name", () => {
       expect(factsOf({ key: 2 ** 20, name: "uncached" })).toBe("Channel");
     });

@@ -144,12 +144,14 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     channel: Channel.useDeleted(keyOf("channel")),
     commandChannel: Channel.useDeleted(keyOf("commandChannel")),
   };
+  // A zero key and a null query hold the fetches until the delay passes, so mouse
+  // sweeps fire nothing.
+  const outputKeyOf = (field: Field): number => (visible ? keyOf(field) : 0);
   const calculated: Partial<Record<Field, boolean>> = {
-    stateChannel: Calculation.useIsOutput(keyOf("stateChannel")),
-    channel: Calculation.useIsOutput(keyOf("channel")),
-    commandChannel: Calculation.useIsOutput(keyOf("commandChannel")),
+    stateChannel: Calculation.useIsOutput(outputKeyOf("stateChannel")),
+    channel: Calculation.useIsOutput(outputKeyOf("channel")),
+    commandChannel: Calculation.useIsOutput(outputKeyOf("commandChannel")),
   };
-  // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
   );

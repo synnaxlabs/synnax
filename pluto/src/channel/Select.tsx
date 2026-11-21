@@ -16,11 +16,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, type ReactNode } from "react";
 
-import { useIsOutput } from "@/calculation/queries";
 import { getCachedIndex, getCachedIsOutput, HaulPreview } from "@/channel/HaulPreview";
 import { KindIcon } from "@/channel/KindIcon";
 import { type ListQuery, useList } from "@/channel/queries";
-import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { type Flux } from "@/flux";
@@ -31,10 +29,9 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
   const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-  const Icon = resolveIcon(item?.payload, useIsOutput(itemKey));
   return (
     <Select.Item itemKey={itemKey} {...rest}>
-      <Icon />
+      {item == null ? <Icon.Channel /> : <KindIcon channel={item.payload} />}
       {item?.name}
     </Select.Item>
   );

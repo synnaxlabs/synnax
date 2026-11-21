@@ -36,7 +36,11 @@ const factsOf = (container: HTMLElement): string | null | undefined =>
 describe("Channel.HaulPreview", () => {
   it("should show the name, the data type, and the index", () => {
     const { container } = render(
-      <Channel.HaulPreview channel={createPayload({ index: 1 })} index={TIME} />,
+      <Channel.HaulPreview
+        channel={createPayload({ index: 1 })}
+        index={TIME}
+        calculated={false}
+      />,
     );
     expect(screen.getByText("pressure")).toBeDefined();
     expect(factsOf(container)).toBe("float64·time");
@@ -44,13 +48,15 @@ describe("Channel.HaulPreview", () => {
 
   it("should show the data type alone when the index is not given", () => {
     const { container } = render(
-      <Channel.HaulPreview channel={createPayload({ index: 1 })} />,
+      <Channel.HaulPreview channel={createPayload({ index: 1 })} calculated={false} />,
     );
     expect(factsOf(container)).toBe("float64");
   });
 
   it("should name an index channel as an index", () => {
-    const { container } = render(<Channel.HaulPreview channel={TIME} />);
+    const { container } = render(
+      <Channel.HaulPreview channel={TIME} calculated={false} />,
+    );
     expect(factsOf(container)).toBe("Timestamp·Index");
   });
 
@@ -62,12 +68,16 @@ describe("Channel.HaulPreview", () => {
 
   it("should name a virtual channel as virtual", () => {
     const virtual = createPayload({ virtual: true, dataType: DataType.FLOAT32 });
-    const { container } = render(<Channel.HaulPreview channel={virtual} />);
+    const { container } = render(
+      <Channel.HaulPreview channel={virtual} calculated={undefined} />,
+    );
     expect(factsOf(container)).toBe("float32·Virtual");
   });
 
   it("should stack with a count when the drag carries many channels", () => {
-    const { container } = render(<Channel.HaulPreview channel={TIME} count={4} />);
+    const { container } = render(
+      <Channel.HaulPreview channel={TIME} count={4} calculated={false} />,
+    );
     expect(container.querySelector(".lyra-haul-preview__count")?.textContent).toBe("4");
   });
 });
@@ -95,5 +105,30 @@ describe("Channel.getCachedIndex", () => {
 
   it("should return nothing without a client", () => {
     expect(Channel.getCachedIndex(null, createPayload({ index: 1 }))).toBeUndefined();
+  });
+});
+
+describe("Channel.getCachedIsOutput", () => {
+  const client = createTestClient();
+
+  it("should tell an output from a plain channel once the cache holds the answers", async () => {
+    const calc = await client.calculations.create({
+      name: id.create(),
+      expression: "return 2",
+    });
+    const plain = await client.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const [output] = await client.channels.retrieve([calc.output]);
+    expect(Channel.getCachedIsOutput(client, plain.payload)).toBeUndefined();
+    await client.calculations.outputs.retrieve([plain.key, calc.output]);
+    expect(Channel.getCachedIsOutput(client, output.payload)).toBe(true);
+    expect(Channel.getCachedIsOutput(client, plain.payload)).toBe(false);
+  });
+
+  it("should return nothing without a client", () => {
+    expect(Channel.getCachedIsOutput(null, createPayload({}))).toBeUndefined();
   });
 });

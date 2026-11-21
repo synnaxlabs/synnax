@@ -22,7 +22,7 @@ export interface HaulPreviewProps {
   /** How many items the drag carries. */
   count?: number;
   /** Whether a calculation writes the channel, or undefined when it is not known. */
-  calculated?: boolean;
+  calculated: boolean | undefined;
 }
 
 const resolveKind = (

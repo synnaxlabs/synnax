@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
-import { useIsOutput } from "@/calculation/queries";
+import { Calculation } from "@/calculation";
 import { resolveIcon } from "@/channel/resolveIcon";
 
 export interface KindIconProps extends Icon.IconProps {
@@ -20,6 +20,6 @@ export interface KindIconProps extends Icon.IconProps {
 
 /** The icon of a channel. It shows a calculation icon when a calculation writes it. */
 export const KindIcon = ({ channel: ch, ...rest }: KindIconProps): ReactElement => {
-  const Resolved = resolveIcon(ch, useIsOutput(ch.key));
+  const Resolved = resolveIcon(ch, Calculation.useIsOutput(ch.key));
   return <Resolved {...rest} />;
 };

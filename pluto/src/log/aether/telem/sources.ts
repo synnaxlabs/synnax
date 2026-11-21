@@ -564,8 +564,10 @@ export class StreamMultiChannelLog
       // The lookups of a tick share one request for the outputs.
       const results = await Promise.allSettled(
         missing.map(async (k) => {
-          const ch = await client.channels.retrieve(k);
-          const [output] = await client.calculations.outputs.retrieve([ch.key]);
+          const [ch, [output]] = await Promise.all([
+            client.channels.retrieve(k),
+            client.calculations.outputs.retrieve([k]),
+          ]);
           return toMeta(ch, output.calculation != null);
         }),
       );
