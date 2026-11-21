@@ -187,36 +187,6 @@ var _ = Describe("Old API breaker d", func() {
 		})
 	})
 
-	Describe("Status", func() {
-		It("Should compose the status with the channel as its owner", func(
-			ctx SpecContext,
-		) {
-			input := createChannel(ctx, telem.Float32T)
-			ch := create(ctx, calculated(input))
-			// The graph writes the error status once the input is gone.
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Delete(ctx, input.Key(), false)
-			})).To(Succeed())
-			var st *apichannel.Status
-			Eventually(func(g Gomega) {
-				res, err := retrieveChannels(
-					AuthedCtx(ctx, u),
-					apichannel.RetrieveRequest{
-						Where: &channel.Where{
-							Key: &filter.Set[channel.Key]{Eq: &ch.Key},
-						},
-						IncludeStatus: true,
-					},
-				)
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(res.Channels).To(HaveLen(1))
-				g.Expect(res.Channels[0].Status).ToNot(BeNil())
-				st = res.Channels[0].Status
-			}).Should(Succeed())
-			Expect(st.Owner).To(Equal(new(channel.ResourceID(ch.Key))))
-		})
-	})
-
 	Describe("Access", func() {
 		var (
 			input channel.Channel

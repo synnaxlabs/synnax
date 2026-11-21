@@ -257,22 +257,6 @@ func (s *Service) Create(
 	return CreateResponse{Channels: s.translateForward(stored, shown)}, nil
 }
 
-// statusOwners returns the owner of the status of each of channels: the calculation
-// that writes it, or the channel itself.
-func statusOwners(
-	channels []channel.Channel,
-	calcs map[channel.Key]calculation.Calculation,
-) []resource.ID {
-	owners := make([]resource.ID, len(channels))
-	for i, ch := range channels {
-		owners[i] = channel.ResourceID(ch.Key())
-		if c, ok := calcs[ch.Key()]; ok {
-			owners[i] = calculation.ResourceID(c.Key)
-		}
-	}
-	return owners
-}
-
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the channels that the top level of Where
@@ -313,18 +297,15 @@ func (s *Service) Retrieve(
 	}
 	res := RetrieveResponse{Channels: s.translateForward(resChannels, shown)}
 	if req.IncludeStatus {
-		// A hidden calculation shows no status: its status names what it reads.
-		owners := statusOwners(resChannels, shown)
-		statuses, err := s.status.Join[struct{}](ctx, snap, owners)
+		statuses, err := s.status.Join[struct{}](
+			ctx,
+			snap,
+			channel.ResourceIDsFromChannels(resChannels),
+		)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
 		for i, st := range statuses {
-			// A v0.62 client knows no calculation owner, so the old API names the
-			// channel.
-			if st != nil {
-				st.Owner = new(channel.ResourceID(resChannels[i].Key()))
-			}
 			res.Channels[i].Status = st
 		}
 	}
