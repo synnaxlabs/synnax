@@ -123,7 +123,9 @@ func (s *Service) Inputs(
 	return inputs.Unique(), nil
 }
 
-// pendingOf returns the stored calculations that write the channels with keys.
+// pendingOf returns an unsaved form of the calculation that writes each of keys, as
+// snap sees it. The output of each holds only its key, which is all that a walk of the
+// reads needs.
 func (s *Service) pendingOf(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -133,25 +135,16 @@ func (s *Service) pendingOf(
 	if err != nil || len(calcs) == 0 {
 		return nil, err
 	}
-	outputs := make(channel.Keys, 0, len(calcs))
-	for k := range calcs {
-		outputs = append(outputs, k)
-	}
-	var channels []channel.Channel
-	if err = s.channels.NewRetrieve().
-		Where(channel.MatchKeys(outputs...)).
-		Entries(&channels).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	level := make([]Unsaved, len(channels))
-	for i, ch := range channels {
-		c := calcs[ch.Key()]
-		level[i] = Unsaved{
-			Output:     ch,
+	level := make([]Unsaved, 0, len(calcs))
+	for output, c := range calcs {
+		level = append(level, Unsaved{
+			Output: channel.Channel{
+				Leaseholder: output.Lease(),
+				LocalKey:    output.LocalKey(),
+			},
 			Expression: c.Expression,
 			Operations: c.Operations,
-		}
+		})
 	}
 	return level, nil
 }

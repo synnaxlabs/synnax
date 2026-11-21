@@ -11,7 +11,8 @@ package calculation
 
 import (
 	"context"
-	"reflect"
+	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -444,11 +445,48 @@ func groupEquals(mods []compiler.Module, g *group) bool {
 	}
 	for i, m := range mods {
 		if !m.Channel.Equals(g.Calculators[i].Channel(), "Name") ||
-			!reflect.DeepEqual(m.Calculation, g.Calculators[i].Calculation()) {
+			!sameCalculation(m.Calculation, g.Calculators[i].Calculation()) {
 			return false
 		}
 	}
 	return true
+}
+
+// sameCalculation reports whether a and b compute the same samples into the same
+// output.
+func sameCalculation(a, b calculation.Calculation) bool {
+	return a.Key == b.Key &&
+		a.Output == b.Output &&
+		a.Expression == b.Expression &&
+		samePointee(a.Primary, b.Primary) &&
+		slices.EqualFunc(a.Operations, b.Operations, sameOperation)
+}
+
+func sameOperation(a, b calculation.Operation) bool {
+	switch av := a.Variant.(type) {
+	case calculation.MinOperation:
+		bv, ok := b.Variant.(calculation.MinOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.MaxOperation:
+		bv, ok := b.Variant.(calculation.MaxOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.AvgOperation:
+		bv, ok := b.Variant.(calculation.AvgOperation)
+		return ok && sameWindow(av.Window, bv.Window)
+	case calculation.DerivativeOperation:
+		_, ok := b.Variant.(calculation.DerivativeOperation)
+		return ok
+	default:
+		panic(fmt.Sprintf("operation of unknown type %T", a.Variant))
+	}
+}
+
+func sameWindow(a, b calculation.Window) bool {
+	return a.Duration == b.Duration && samePointee(a.Reset, b.Reset)
+}
+
+func samePointee[T comparable](a, b *T) bool {
+	return a == b || (a != nil && b != nil && *a == *b)
 }
 
 func (s *Service) updateGroup(

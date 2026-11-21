@@ -1470,12 +1470,14 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should write only reports that change the stored status",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "rt_change_dep")
 				calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name: "rt_change", DataType: telem.Int64T,
 					Expression: "return rt_change_dep + 1",
 				}))
+				// The graph opens over the calculation, so no change of its creation
+				// clears a status that the spec reports.
+				g := openGraph(ctx)
 				report := func(variant status.Variant, at telem.TimeStamp) {
 					GinkgoHelper()
 					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
