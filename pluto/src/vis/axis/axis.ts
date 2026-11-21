@@ -37,6 +37,8 @@ export type ParsedAxisState = z.infer<typeof axisStateZ>;
 
 export interface AxisProps extends Omit<TickFactoryRenderParams, "size"> {
   plot: box.Box;
+  /** The region that holds the plot and its axes. No label draws past it. */
+  container: box.Box;
   position: xy.XY;
   size: number;
   /** The decimal positions across the axis of open breaks, which draw a faint mark. */

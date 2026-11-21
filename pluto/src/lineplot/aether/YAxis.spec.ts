@@ -697,6 +697,18 @@ describe("XAxis", () => {
       expect(after[1]).toBeCloseTo(before[1], -3);
     });
 
+    it("should keep a selection that ends at a seam on its side of the break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const before = x.layout(props());
+      const selection = view(0.25, before.segments[1].position.lower);
+      const req = { ...request(toggle(SEAM_X)), selection };
+      const change = x.breaks(props(), req, PLOT);
+      expect(change).not.toBeNull();
+      const after = x.layout(props(change!.openBreaks));
+      const upper = after.reverseHome(box.right(change!.selection));
+      expect(upper).toBeCloseTo(before.segments[0].bounds.upper, -3);
+    });
+
     it("should map the selection and the held views through time", () => {
       const x = mount(WINDOWS, { type: "time" });
       const selection = view(0.1, 0.2);
