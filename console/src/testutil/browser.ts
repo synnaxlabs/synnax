@@ -17,11 +17,14 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
+import { traceResizeLoops } from "@/testutil/resizeLoop";
+
 // A browser reports a ResizeObserver whose callback resizes what it observes, and
 // Vitest logs that report. The browser delivers the rest in the next frame.
 failOnConsoleOutput({
   ignore: [/^Error: ResizeObserver loop completed with undelivered notifications\.$/],
 });
+traceResizeLoops();
 setupBrowser();
 // The Console sets its theme on the document root, where drawings such as the Nebula
 // backdrop read their colors.
