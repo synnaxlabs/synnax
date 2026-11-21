@@ -935,10 +935,10 @@ file while a backup from a release older than the first that writes segments exi
 
 Owed: the files of `core/v0.62.0`, the newest stable release, which are those of
 `core/v0.61.4` unchanged (`meta.json` at `Version3`, 26-byte pointers, `counter.domain`,
-raw data files), the writer wire fields, and writers behind a live writer and the
-`EndDomain` command, both first shipped in `core/v0.61.0`. The old binary opens only
-numbered `.domain` names (`cesium/internal/domain/file_controller.go:100-121`) and skips
-a directory name that is not a key (`cesium/open.go:69-78`).
+raw data files). No client of `core/v0.62.0` is owed (founder, 2026-11-21). The old
+binary opens only numbered `.domain` names
+(`cesium/internal/domain/file_controller.go:100-121`) and skips a directory name that is
+not a key (`cesium/open.go:69-78`).
 
 ## 10 The three hazards of a clock per segment
 
