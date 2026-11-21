@@ -827,6 +827,24 @@ describe("LinePlot", () => {
       expect(getBreakChange.mock.calls[0][0].selection).toEqual(box.ZERO);
     });
 
+    it("should map no selection after a click dismisses it", async () => {
+      const { result, getBreakChange } = await renderFrame();
+      act(() => result.current.setViewport(select(SELECTION)));
+      getBreakChange.mockReturnValueOnce(null);
+      act(() =>
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "click",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      await waitFor(() => expect(getBreakChange).toHaveBeenCalledTimes(1));
+      act(() => result.current.toggleBreak(120, "axis"));
+      await waitFor(() => expect(getBreakChange).toHaveBeenCalledTimes(2));
+      expect(getBreakChange.mock.calls[1][0].selection).toEqual(box.ZERO);
+    });
+
     it("should keep a selection made while a break change loads", async () => {
       const { result, getBreakChange, selected } = await renderFrame();
       act(() => result.current.setViewport(select(SELECTION)));
