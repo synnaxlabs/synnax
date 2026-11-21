@@ -163,28 +163,34 @@ type carried struct {
 	dropping bool
 }
 
+// find looks up the steps in progress of key and its clock.
+func (st *carried) find(c *core, key, clock uint32) {
+	*st = carried{
+		key:     key,
+		clock:   clock,
+		found:   true,
+		pending: c.channels[key].pending(),
+	}
+	if clock == key {
+		return
+	}
+	if ch := c.channels[clock]; ch != nil {
+		for _, cl := range ch.claims {
+			if cl.w == nil {
+				st.deletes = append(st.deletes, cl)
+			}
+		}
+	}
+	_, st.dropping = c.dropUsers[clock]
+}
+
 // carry hands seg, which a part now holds, to each step in progress that took its part
 // records before seg was tagged: a delete or a Drop of the clock of seg, and the
 // durable apply of the commits of the key of seg that are not durable. Each would miss
 // seg otherwise, since its checks skip tagged segments.
 func (st *carried) carry(c *core, seg *segState) {
 	if !st.found || st.key != seg.key || st.clock != seg.vis.Clock {
-		*st = carried{
-			key:     seg.key,
-			clock:   seg.vis.Clock,
-			found:   true,
-			pending: c.channels[seg.key].pending(),
-		}
-		if st.clock != st.key {
-			if ch := c.channels[st.clock]; ch != nil {
-				for _, cl := range ch.claims {
-					if cl.w == nil {
-						st.deletes = append(st.deletes, cl)
-					}
-				}
-			}
-			_, st.dropping = c.dropUsers[st.clock]
-		}
+		st.find(c, seg.key, seg.vis.Clock)
 	}
 	user := User{Key: seg.key, Segment: seg.vis}
 	for _, cl := range st.deletes {
