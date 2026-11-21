@@ -225,7 +225,7 @@ var _ = Describe("Delete", Ordered, func() {
 			plot := createPlot(ctx, ch.Key())
 			sch := createSchematic(ctx, ch.Key())
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{}, ch.Key()))
-			Expect(applied).To(Equal(impact.Plan{}))
+			Expect(applied).To(Equal(impact.Plan{Change: deleteOf(ch.Key())}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().

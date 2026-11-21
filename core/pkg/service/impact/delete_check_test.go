@@ -73,7 +73,9 @@ var _ = Describe("Delete checks", func() {
 			Expect(MustSucceed(layer.Channel.NewRetrieve().
 				Where(channel.MatchKeys(calc.Index())).
 				Exists(ctx, db))).To(BeFalse())
-			Expect(applied).To(Equal(impact.Plan{}))
+			Expect(applied).To(Equal(impact.Plan{Change: impact.Change{
+				Variant: impact.DeleteChannelsChange{Keys: []channel.Key{calc.Key()}},
+			}}))
 			var stored lineplot.LinePlot
 			Expect(layer.LinePlot.NewRetrieve().
 				Where(lineplot.MatchKeys(plot.Key)).
