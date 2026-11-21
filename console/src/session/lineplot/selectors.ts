@@ -85,3 +85,8 @@ const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
   selectState(params).annotations.visible;
 
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
+
+const selectOpenBreaks = (params: KeyedSelectorParams): number[] =>
+  selectState(params).breaks.open;
+
+export const useSelectOpenBreaks = createSelector(selectOpenBreaks);

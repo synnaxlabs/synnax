@@ -90,6 +90,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
+  const openBreaks = Session.LinePlot.useSelectOpenBreaks({ key });
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -100,7 +101,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
       const resolved = windows.map((w) => resolveWindow(w, end));
       const timeRanges = FLAGS.breaks
-        ? LinePlot.shownSpans(resolved, end)
+        ? LinePlot.shownSpans(resolved, end, openBreaks)
         : [TimeRange.merge(...resolved)];
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
