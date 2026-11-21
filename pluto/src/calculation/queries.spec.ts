@@ -10,6 +10,7 @@
 import { calculation, DataType } from "@synnaxlabs/client";
 import {
   createTestClient,
+  holdFailures,
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -139,7 +140,8 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.stored.status?.variant).toBe("error"));
       expect(result.current.stored.status?.message).toEqual("Failed to load channels");
       expect(result.current.stored.status?.description).toContain(
-        "Synnax could not check which channels a calculation writes.",
+        "Synnax could not check which channels a calculation writes. Check the " +
+          "connection to the Core, then open the picker again.",
       );
       expect(result.current.stored.status?.description).toContain(
         "calculations unavailable",
@@ -162,6 +164,30 @@ describe("queries", () => {
       release();
       await waitFor(() => expect(result.current.stored.filter(first)).toBe(true));
       await waitFor(() => expect(result.current.stored.status).toBeUndefined());
+    });
+
+    it("should report no failure that lands after the picker closes", async () => {
+      const plain = await createPlain();
+      const { release } = holdFailures(
+        client,
+        LOOKUP,
+        new Error("calculations unavailable"),
+      );
+      const { result, rerender } = renderHook(
+        ({ open }) => ({
+          stored: Calculation.useNonOutputFilter({ open }),
+          reported: Status.useNotifications().statuses,
+        }),
+        { wrapper, initialProps: { open: true } },
+      );
+      result.current.stored.filter(plain);
+      await waitFor(() =>
+        expect(result.current.stored.status?.variant).toBe("loading"),
+      );
+      rerender({ open: false });
+      release();
+      await waitFor(() => expect(result.current.stored.status?.variant).toBe("error"));
+      expect(result.current.reported).toEqual([]);
     });
 
     it("should report no failure while closed, and still show it", async () => {

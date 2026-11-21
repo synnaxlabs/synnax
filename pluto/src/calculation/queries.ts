@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type destructor } from "@synnaxlabs/x";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -117,15 +117,16 @@ type Outputs = calculation.Client["outputs"];
 const LOOKUP_FAILED = "Failed to load channels";
 
 const LOOKUP_FAILED_REASON =
-  "Synnax could not check which channels a calculation writes.";
+  "Synnax could not check which channels a calculation writes. Check the connection " +
+  "to the Core, then open the picker again.";
 
 const LOOKING_UP = status.create({
   variant: "loading",
   message: "Finding calculated channels",
 });
 
-// Reports a failed lookup, and returns whether it did.
-type Report = (failure: status.Status) => boolean;
+// Reports a failed lookup.
+type Report = (failure: status.Status) => void;
 
 interface Lookups {
   /**
@@ -133,6 +134,8 @@ interface Lookups {
    * The reads of a tick form one pass over the list, and its lookups one request.
    */
   read: (outputs: Outputs, report: Report, key: channel.Key, answered: boolean) => void;
+  /** Sets whether the picker's list is open, which a failure is reported only while. */
+  setOpen: (open: boolean) => void;
   subscribe: (onChange: () => void) => destructor.Destructor;
   /**
    * Loading while a lookup runs, else the failure of the last one. Undefined when the
@@ -155,6 +158,7 @@ const createLookups = (): Lookups => {
   let failure: status.Status | undefined;
   // A failure episode, which a lookup that answers ends, is reported once.
   let reported = false;
+  let open = false;
   let pass: Set<channel.Key> | undefined;
   let unanswered = new Set<channel.Key>();
   const notify = () => listeners.forEach((onChange) => onChange());
@@ -168,7 +172,10 @@ const createLookups = (): Lookups => {
       reported = false;
     } catch (e) {
       failure = failureOf(e);
-      if (!reported) reported = report(failure);
+      if (!reported && open) {
+        report(failure);
+        reported = true;
+      }
     }
     keys.forEach((key) => looking.delete(key));
     running--;
@@ -191,6 +198,9 @@ const createLookups = (): Lookups => {
       looking.add(key);
       if (queued.size === 0) queueMicrotask(() => void run(outputs, report));
       queued.add(key);
+    },
+    setOpen: (next) => {
+      open = next;
     },
     subscribe: (onChange) => {
       listeners.add(onChange);
@@ -258,12 +268,10 @@ export const useNonOutputFilter = ({
     () => outputs?.version() ?? 0,
   );
   const lookupStatus = useSyncExternalStore(lookups.subscribe, lookups.status);
-  const report: Report = (failure) => {
-    if (open) addStatus(failure);
-    return open;
-  };
+  // A lookup can fail after the list closes, so it reads whether the list is open then.
+  useEffect(() => lookups.setOpen(open), [lookups, open]);
   const read = (key: channel.Key, answered: boolean) => {
-    if (outputs != null) lookups.read(outputs, report, key, answered);
+    if (outputs != null) lookups.read(outputs, addStatus, key, answered);
   };
   return {
     filter: createNonOutputFilter(outputs, version, read),
