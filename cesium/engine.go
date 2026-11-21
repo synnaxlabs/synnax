@@ -168,20 +168,17 @@ func (e *engine) create(o *options, r *recovery, old bool) (*state.Snapshot, err
 	return snapshot, log.Prepare(o.fs, 2, log.FileSize)
 }
 
-// commit writes head 1 of snapshot over the file of log 1, whose header the log writes
-// at its start.
+// commit writes head 1 of snapshot, and the parts of its sealed segments, over the file
+// of log 1, whose header the log writes at its start.
 func commit(o *options, r *recovery, snapshot *state.Snapshot) error {
 	if err := log.Prepare(o.fs, 1, log.FileSize); err != nil {
 		return err
 	}
-	if err := checkpoint.Write(
-		o.fs,
-		1,
-		checkpoint.Encode(r.db, 1, snapshot),
-	); err != nil {
+	parts, err := checkpoint.Create(o.fs, r.db, snapshot, 0)
+	if err != nil {
 		return err
 	}
-	r.head = checkpoint.Header{DB: r.db, Generation: 1}
+	r.parts, r.head = parts, checkpoint.Header{DB: r.db, Generation: 1}
 	r.heads, r.logs = []uint64{1}, []uint64{1}
 	return nil
 }
