@@ -32,16 +32,17 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		svc *slave.Service
-		tx  gorp.Tx
-		m   master.Master
+		svc     *slave.Service
+		rackSvc *rack.Service
+		tx      gorp.Tx
+		m       master.Master
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
@@ -110,6 +111,21 @@ var _ = Describe("Service", func() {
 				Entries(&got).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(ConsistOf(HaveField("Key", s.Key)))
+		})
+	})
+
+	Describe("Rack", func() {
+		It("Should refuse to delete a rack that holds a slave", func(ctx SpecContext) {
+			r := rack.Rack{Name: "Bench"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			s := create(ctx, 1007)
+			s.Rack = r.Key
+			Expect(gorp.NewCreate[slave.Key, slave.Slave]().Entry(&s).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, r.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("because ethercat_slave")),
+			))
 		})
 	})
 
