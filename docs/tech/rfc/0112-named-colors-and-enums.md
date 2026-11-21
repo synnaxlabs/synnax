@@ -259,8 +259,8 @@ lists their users and replaces them.
 
 - **Limits**: Value ranges that mean one state belong to the `limit` type.
 - **Symbol consolidation**: RFC 0114. The cutover ships with its node migration.
-- **Channel enumerations**: A channel that names an enumeration waits for its own
-  design, with channel units and limits.
+- **Channel enumerations**: A channel does not name an enumeration. Only symbols and
+  nodes do.
 
 ## 6 Implementation phases
 
