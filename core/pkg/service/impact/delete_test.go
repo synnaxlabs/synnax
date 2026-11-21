@@ -10,6 +10,8 @@
 package impact_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -28,6 +30,7 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -304,5 +307,117 @@ var _ = Describe("Delete", Ordered, func() {
 			MatchError(ContainSubstring("entry "+id+" cannot take delete")),
 		))
 		Expect(exists(ctx, ch.Key())).To(BeTrue())
+	})
+
+	Describe("Plan and token", func() {
+		plan := func(
+			ctx SpecContext,
+			visible func(resource.ID) bool,
+			keys ...channel.Key,
+		) impact.Plan {
+			GinkgoHelper()
+			return MustSucceed(layer.Impact.Plan(
+				ctx,
+				db,
+				deleteOf(keys...),
+				impact.PlanOptions{Visible: visible},
+			))
+		}
+		hide := func(hidden ...resource.ID) func(resource.ID) bool {
+			return func(r resource.ID) bool { return !slices.Contains(hidden, r) }
+		}
+
+		It("Should give one state one token and a new holder a new token", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			first := plan(ctx, nil, ch.Key())
+			Expect(first.Token).To(HaveLen(32))
+			Expect(plan(ctx, nil, ch.Key()).Token).To(Equal(first.Token))
+			createPlot(ctx, ch.Key())
+			Expect(plan(ctx, nil, ch.Key()).Token).ToNot(Equal(first.Token))
+		})
+
+		It("Should refuse a stale token with the new plan and write nothing", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			stale := plan(ctx, nil, ch.Key())
+			plot := createPlot(ctx, ch.Key())
+			_, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, ch.Key())
+			Expect(err).To(MatchError(impact.ErrPlanChanged))
+			changed, ok := errors.AsType[impact.PlanChangedError](err)
+			Expect(ok).To(BeTrue())
+			Expect(changed.Plan.Entries).To(Equal([]impact.Entry{
+				entry(lineplot.ResourceID(plot.Key), impact.EffectDetach),
+			}))
+			Expect(changed.Plan.Token).To(Equal(plan(ctx, nil, ch.Key()).Token))
+			Expect(exists(ctx, ch.Key())).To(BeTrue())
+		})
+
+		It("Should plan and apply a current token with no picks", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			plot := createPlot(ctx, ch.Key())
+			current := plan(ctx, nil, ch.Key())
+			applied := MustSucceed(apply(
+				ctx,
+				impact.ApplyOptions{Token: current.Token},
+				ch.Key(),
+			))
+			Expect(applied.Entries).To(Equal([]impact.Entry{
+				entry(lineplot.ResourceID(plot.Key), impact.EffectDetach),
+			}))
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
+		})
+
+		It("Should count an entry the caller cannot see and keep it in the token", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			plot := createPlot(ctx, ch.Key())
+			full := plan(ctx, nil, ch.Key())
+			seen := plan(ctx, hide(lineplot.ResourceID(plot.Key)), ch.Key())
+			Expect(seen.Entries).To(BeEmpty())
+			Expect(seen.Hidden).To(Equal(uint32(1)))
+			Expect(seen.Token).To(Equal(full.Token))
+		})
+
+		It("Should apply one hidden pick to every hidden entry that allows it", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			a, b := createTask(ctx, ch.Key()), createTask(ctx, ch.Key())
+			visible := hide(task.ResourceID(a.Key), task.ResourceID(b.Key))
+			applied := MustSucceed(apply(ctx, impact.ApplyOptions{
+				Hidden:  new(impact.ChoiceDelete),
+				Visible: visible,
+			}, ch.Key()))
+			Expect(applied.Entries).To(BeEmpty())
+			Expect(applied.Hidden).To(Equal(uint32(2)))
+			Expect(exists(ctx, ch.Key())).To(BeFalse())
+			for _, k := range []task.Key{a.Key, b.Key} {
+				Expect(layer.Task.NewRetrieve().
+					Where(task.MatchKeys(k)).
+					Exists(ctx, db)).To(BeFalse())
+			}
+		})
+
+		It("Should refuse a pick that names an entry the caller cannot see", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx, channel.Channel{})
+			tsk := createTask(ctx, ch.Key())
+			id := task.ResourceID(tsk.Key)
+			Expect(apply(ctx, impact.ApplyOptions{
+				Picks:   map[string]impact.Choice{id.String(): impact.ChoiceDelete},
+				Visible: hide(id),
+			}, ch.Key())).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("no entry is "+id.String())),
+			))
+			Expect(exists(ctx, ch.Key())).To(BeTrue())
+		})
 	})
 })
