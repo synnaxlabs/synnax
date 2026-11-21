@@ -20,9 +20,11 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
@@ -84,6 +86,56 @@ var _ = Describe("Calculation status checks", func() {
 		Expect(got.Expression).To(BeEmpty())
 		Expect(got.Status).To(BeNil())
 	})
+
+	It("Should join no status for a calculation whose input the subject cannot read",
+		func(ctx SpecContext) {
+			owner := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
+				user.User{Name: "status-input-owner-" + uuid.New().String()}))
+			grantOn(ctx, owner.ResourceID(), access.AllActions,
+				resource.ID{Type: resource.TypeChannel},
+				resource.ID{Type: resource.TypeCalculation},
+				resource.ID{Type: resource.TypeFramer},
+			)
+			input := createChannel(ctx, telem.Float32T)
+			ch := MustSucceed(createChannels(
+				AuthedCtx(ctx, owner),
+				apichannel.CreateRequest{Channels: []apichannel.Channel{{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: fmt.Sprintf("return %s * 2", input.Name),
+				}}},
+			)).Channels[0]
+			calcs := MustSucceed(layer.Calculation.Outputs(ctx, db, ch.Key))
+			// A runtime error names what the calculation reads.
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &apichannel.Status{
+					Owner:       new(calculation.ResourceID(calcs[ch.Key].Key)),
+					Name:        ch.Name,
+					Variant:     status.VariantError,
+					Message:     "Failed to run calculation",
+					Description: "cannot read " + input.Name,
+					Time:        telem.Now(),
+				})
+			})).To(Succeed())
+			reader := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
+				user.User{Name: "status-input-reader-" + uuid.New().String()}))
+			grantOn(ctx, reader.ResourceID(), []access.Action{access.ActionRetrieve},
+				channel.ResourceID(ch.Key),
+				resource.ID{Type: resource.TypeCalculation},
+			)
+			res := MustSucceed(retrieveChannels(AuthedCtx(ctx, reader),
+				apichannel.RetrieveRequest{
+					Where: &channel.Where{
+						Key: &filter.Set[channel.Key]{Eq: &ch.Key},
+					},
+					IncludeStatus: true,
+				}))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(res.Channels[0].Expression).To(BeEmpty())
+			Expect(res.Channels[0].Status).To(BeNil())
+		},
+	)
 
 	// A8: the old API shows the output of a hidden calculation as a plain virtual
 	// channel, so its virtual filter must match that output for the same subject.

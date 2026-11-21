@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -237,22 +238,21 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	enforcer := s.access.NewEnforcer(tx)
-	created, err := s.translateForward(
-		stored,
-		calcs,
-		func(ids []resource.ID) (bool, error) {
-			err := enforcer.Enforce(ctx, access.Request{
-				Subject: auth.GetSubject(ctx),
-				Action:  access.ActionRetrieve,
-				Objects: ids,
-			})
-			if errors.Is(err, access.ErrDenied) {
-				return false, nil
-			}
-			return err == nil, err
-		},
-	)
-	return CreateResponse{Channels: created}, err
+	shown, err := s.shown(calcs, func(ids []resource.ID) (bool, error) {
+		err := enforcer.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: ids,
+		})
+		if errors.Is(err, access.ErrDenied) {
+			return false, nil
+		}
+		return err == nil, err
+	})
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{Channels: s.translateForward(stored, shown)}, nil
 }
 
 // statusOwners returns the owner of the status of each of channels: the calculation
@@ -302,21 +302,14 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	translated, err := s.translateForward(
-		resChannels,
-		calcs,
-		func(ids []resource.ID) (bool, error) {
-			return !slices.ContainsFunc(ids, func(id resource.ID) bool {
-				return !snap.Allowed(id)
-			}), nil
-		},
-	)
+	shown, err := s.shown(calcs, allowedIn(snap))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	res := RetrieveResponse{Channels: translated}
+	res := RetrieveResponse{Channels: s.translateForward(resChannels, shown)}
 	if req.IncludeStatus {
-		owners := statusOwners(resChannels, calcs)
+		// A hidden calculation shows no status: its status names what it reads.
+		owners := statusOwners(resChannels, shown)
 		statuses, err := s.status.Join[struct{}](ctx, snap, owners)
 		if err != nil {
 			return RetrieveResponse{}, err
@@ -386,7 +379,7 @@ func (s *Service) retrieve(
 	req RetrieveRequest,
 ) ([]channel.Channel, error) {
 	if req.Where != nil && hasVirtual(*req.Where) {
-		outputs, err := s.allOutputs(ctx, snap)
+		outputs, err := s.shownOutputs(ctx, snap)
 		if err != nil {
 			return nil, err
 		}
@@ -413,18 +406,22 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// allOutputs returns the output of every calculation, as snap sees them.
-func (s *Service) allOutputs(
+// shownOutputs returns the output of every calculation that the subject of snap can
+// read in full. It decodes each record, since the check reads the record's links.
+func (s *Service) shownOutputs(
 	ctx context.Context,
-	snap gorp.Snapshot,
+	snap bind.Snapshot,
 ) ([]channel.Key, error) {
 	var calcs []calculation.Calculation
 	if err := s.calculations.NewRetrieve().Entries(&calcs).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
-	return lo.Map(calcs, func(c calculation.Calculation, _ int) channel.Key {
-		return c.Output
-	}), nil
+	byOutput := make(map[channel.Key]calculation.Calculation, len(calcs))
+	for _, c := range calcs {
+		byOutput[c.Output] = c
+	}
+	shown, err := s.shown(byOutput, allowedIn(snap))
+	return slices.Collect(maps.Keys(shown)), err
 }
 
 // hasVirtual reports whether w or a child of w filters on virtual.
@@ -477,30 +474,16 @@ func namesByName(where *channel.Where) bool {
 }
 
 // translateForward returns the old API form of channels, with the expression and
-// operations of the calculation in calcs that writes each one. A calculation that
-// readable denies, given the record and every channel it links, shows an empty
-// expression and no operations. A calculation with no operations shows one none
-// operation, as v0.62 did.
+// operations of the calculation in shown that writes each one. A calculation with no
+// operations shows one none operation, as v0.62 did.
 func (s *Service) translateForward(
 	channels []channel.Channel,
-	calcs map[channel.Key]calculation.Calculation,
-	readable func(ids []resource.ID) (bool, error),
-) ([]Channel, error) {
+	shown map[channel.Key]calculation.Calculation,
+) []Channel {
 	translated := translateChannelsForward(channels, s.internal.IsBuiltIn)
 	for i := range translated {
-		c, ok := calcs[translated[i].Key]
+		c, ok := shown[translated[i].Key]
 		if !ok {
-			continue
-		}
-		ids := append(
-			[]resource.ID{calculation.ResourceID(c.Key)},
-			s.calculations.Channels(c)...,
-		)
-		visible, err := readable(ids)
-		if err != nil {
-			return nil, err
-		}
-		if !visible {
 			continue
 		}
 		translated[i].Expression = c.Expression
@@ -511,7 +494,41 @@ func (s *Service) translateForward(
 			}
 		}
 	}
-	return translated, nil
+	return translated
+}
+
+// shown returns the calculations of calcs that readable allows, given the record and
+// every channel it links. The old API shows the output of any other calculation as a
+// plain virtual channel.
+func (s *Service) shown(
+	calcs map[channel.Key]calculation.Calculation,
+	readable func(ids []resource.ID) (bool, error),
+) (map[channel.Key]calculation.Calculation, error) {
+	shown := make(map[channel.Key]calculation.Calculation, len(calcs))
+	for output, c := range calcs {
+		ids := append(
+			[]resource.ID{calculation.ResourceID(c.Key)},
+			s.calculations.Channels(c)...,
+		)
+		ok, err := readable(ids)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			shown[output] = c
+		}
+	}
+	return shown, nil
+}
+
+// allowedIn returns a check of whether the subject of snap can retrieve every one of
+// ids.
+func allowedIn(snap bind.Snapshot) func(ids []resource.ID) (bool, error) {
+	return func(ids []resource.ID) (bool, error) {
+		return !slices.ContainsFunc(ids, func(id resource.ID) bool {
+			return !snap.Allowed(id)
+		}), nil
+	}
 }
 
 func translateChannelsForward(
