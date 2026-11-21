@@ -25,6 +25,7 @@ import { page, userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import type { Component } from "@/component";
 import { renderProp } from "@/component/renderProp";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { Icon } from "@/icon";
@@ -819,8 +820,12 @@ describe("Select", () => {
         </Select.Simple>,
       );
       await userEvent.click(page.getByRole("button", { name: /^Level/ }));
-      const dialog = page.getByRole("dialog").element();
-      expect(computed(dialog, "background-color")).toBe(
+      const surface = page
+        .getByRole("dialog")
+        .element()
+        .querySelector(`.${CSS.BE("dialog", "dialog")}`);
+      assert(surface != null);
+      expect(computed(surface, "background-color")).toBe(
         resolve("color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent)"),
       );
     });
