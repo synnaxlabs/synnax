@@ -130,11 +130,8 @@ var _ = Describe("Stored key breaker 2", func() {
 
 	reopen := func(ctx context.Context) {
 		GinkgoHelper()
-		svc, err := metrics.OpenService(ctx, cfg)
-		if svc != nil {
-			DeferCleanup(svc.Close)
-		}
-		Expect(err).ToNot(HaveOccurred())
+		svc := MustSucceed(metrics.OpenService(ctx, cfg))
+		DeferCleanup(svc.Close)
 	}
 
 	It("Should not take a user's channel by name when the channel of a stored key "+

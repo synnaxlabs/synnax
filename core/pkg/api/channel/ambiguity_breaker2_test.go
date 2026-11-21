@@ -97,14 +97,13 @@ var _ = Describe("Ambiguity breaker 2", func() {
 			[]access.Action{access.ActionRetrieve, access.ActionUpdate},
 			calc.ResourceID(),
 		)
-		_, err := dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
 			Key: calc.Key(),
 			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
 				Path:  []string{"expression"},
 				Value: "return " + name,
 			})},
-		})
-		Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf(
+		})).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
 			"'%s.%s', and 1 more you cannot see",
 			shown.Name,
 			name,
