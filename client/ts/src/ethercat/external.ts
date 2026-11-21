@@ -9,4 +9,5 @@
 
 export * from "@/ethercat/entry";
 export { ethercatMaster as master } from "@/ethercat/master";
+export { ethercatSlave as slave } from "@/ethercat/slave";
 export * from "@/ethercat/types.gen";
