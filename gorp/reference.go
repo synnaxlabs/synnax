@@ -691,9 +691,6 @@ func (r *reference[K, E, T]) dependentsOf(
 	snap Snapshot,
 	target Target,
 ) ([]string, error) {
-	if err := checkOpen(snap); err != nil {
-		return nil, err
-	}
 	if r.store.Empty(scopeOf(snap)) {
 		return nil, nil
 	}
@@ -712,6 +709,7 @@ func (r *reference[K, E, T]) dependentsOf(
 	for i, k := range keys[0] {
 		out[i] = FormatKey(k)
 	}
+	slices.Sort(out)
 	return out, nil
 }
 

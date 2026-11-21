@@ -255,17 +255,14 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 				}
 			})
 			id := task.ResourceID(tsk.Key).String()
-			_, err := layer.Impact.Apply(
+			Expect(layer.Impact.Apply(
 				ctx,
 				db,
 				deleteOf(builtIn),
 				impact.ApplyOptions{
 					Picks: map[string]impact.Choice{id: impact.ChoiceDelete},
 				},
-			)
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("can't delete built-in channel")))
+			)).Error().To(MatchError(ContainSubstring("can't delete built-in channel")))
 			Expect(exists(ctx, builtIn)).To(BeTrue())
 			Expect(taskExists(ctx, tsk.Key)).To(BeTrue())
 		})
