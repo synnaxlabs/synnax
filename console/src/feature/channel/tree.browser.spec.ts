@@ -309,7 +309,6 @@ describe("channel/tree", () => {
         expression: "return 1",
       });
       const host = hostChannels(calc);
-      // Monaco cannot run in jsdom, so the expression editor's boundary catches.
       await renderChannelTree(host, () => {});
       await openTreeRowContextMenu(calc.name);
       const edit = await screen.findByText("Edit calculation");

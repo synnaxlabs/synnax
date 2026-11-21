@@ -76,7 +76,6 @@ describe("channel/Toolbar", () => {
   });
 
   it("opens the create calculated channel modal from the toolbar action", async () => {
-    // Monaco cannot run in jsdom, so the expression editor's boundary catches.
     await renderChannelToolbar(() => {});
     const button = await waitFor(() =>
       getIconButton(document.body, "calculated-channel-create"),
