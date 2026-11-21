@@ -846,9 +846,9 @@ describe("wrapForm", () => {
           throw new Error("start button is disabled");
         return b;
       });
+      if (signal.aborted) return;
       // The command wait starts on real timers, so it still times out by itself.
       const sent = awaitCommand(streamer, draft.key);
-      if (signal.aborted) return;
       // Only the start's reply timer runs on the fake clock. vi.waitFor moves the
       // clock with each check, so no wait depends on how fast a busy runner ticks.
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
