@@ -26,11 +26,13 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
 #include "driver/opcua/types/types.h"
+#include "driver/secret/secret.h"
 
 namespace driver::opcua::connection {
 /// @brief how often a task tries again to read what failed while its connection stays
@@ -47,19 +49,26 @@ struct Config {
     std::string endpoint;
     /// @brief the username to use for authentication. Optional.
     std::string username;
-    /// @brief the password to use for authentication. Optional.
+    /// @brief the key of the secret that holds the password. Nil for no password.
+    x::uuid::UUID password_secret;
+    /// @brief the password to use for authentication, which read_password fills in
+    /// from password_secret. Optional.
     std::string password;
     /// @brief the security mode.
     std::string security_mode = "None";
     /// @brief the security policy.
     std::string security_policy = "None";
-    /// @brief the path of a client certificate on the Driver's computer. Empty, with
-    /// an empty client_private_key, selects the Driver certificate.
-    std::string client_cert;
-    /// @brief the path of the private key for client_cert on the Driver's computer.
-    std::string client_private_key;
-    /// @brief the trusted server certificate. Empty trusts no certificate, unless
-    /// the connection trusts the first one it receives.
+    /// @brief the key of the certificate that the client presents. Nil selects the
+    /// Driver certificate.
+    x::uuid::UUID client_certificate_item;
+    /// @brief the certificate and private key of client_certificate_item, which
+    /// read_certificates fills in.
+    std::optional<certificate::Identity> client_identity;
+    /// @brief the key of the trusted server certificate. Nil trusts no certificate,
+    /// unless the connection trusts the first one it receives.
+    x::uuid::UUID server_certificate_item;
+    /// @brief the trusted server certificate, which read_certificates fills in from
+    /// server_certificate_item.
     std::optional<x::x509::Certificate> server_certificate;
     /// @brief whether the connection accepts any server certificate.
     bool certificate_validation_disabled = false;
@@ -76,11 +85,8 @@ struct Config {
     explicit Config(x::json::Parser parser):
         endpoint(parser.field<std::string>("endpoint")),
         username(parser.field<std::string>("username", "")),
-        password(parser.field<std::string>("password", "")),
         security_mode(parser.field<std::string>("security_mode", "None")),
         security_policy(parser.field<std::string>("security_policy", "None")),
-        client_cert(parser.field<std::string>("client_certificate", "")),
-        client_private_key(parser.field<std::string>("client_private_key", "")),
         certificate_validation_disabled(
             parser.field<bool>("certificate_validation_disabled", false)
         ),
@@ -89,27 +95,63 @@ struct Config {
         ),
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
         client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {
-        const auto server = parser.field<std::string>("server_certificate", "");
-        // A value that is not PEM is a path from an earlier release, which had no
-        // effect.
-        if (!x::x509::Certificate::is_pem(server)) return;
-        auto [cert, err] = x::x509::Certificate::parse(server);
-        if (err) {
-            parser.field_err("server_certificate", err.data);
-            return;
-        }
-        this->server_certificate = std::move(cert);
+        this->password_secret = parse_item(parser, "password", "secret");
+        this->client_certificate_item = parse_item(
+            parser,
+            "client_certificate",
+            "certificate"
+        );
+        this->server_certificate_item = parse_item(
+            parser,
+            "server_certificate",
+            "certificate"
+        );
     }
 
     /// @returns true if the connection signs or encrypts its messages.
     [[nodiscard]] bool secured() const { return this->security_policy != "None"; }
 
-    /// @returns true if the connection presents certificate files instead of the
-    /// Driver certificate.
-    [[nodiscard]] bool uses_files() const {
-        return !this->client_cert.empty() || !this->client_private_key.empty();
+    /// @returns true if the connection presents its own client certificate instead
+    /// of the Driver certificate. An unsecured connection presents no certificate.
+    [[nodiscard]] bool uses_client_certificate() const {
+        return this->secured() && !this->client_certificate_item.is_nil();
+    }
+
+private:
+    /// @returns the key in the field, or nil when the field is empty.
+    static x::uuid::UUID parse_item(
+        x::json::Parser &parser,
+        const std::string &field,
+        const std::string &item
+    ) {
+        const auto value = parser.field<std::string>(field, "");
+        if (value.empty()) return {};
+        auto [key, err] = x::uuid::UUID::parse(value);
+        if (err) parser.field_err(field, "must be the key of a " + item);
+        return key;
     }
 };
+
+/// @brief reads the password of cfg from the secret that it names, when it names one.
+/// @param grant a spent grant, as for secret::Reader::read.
+/// @returns the error of the read.
+[[nodiscard]] x::errors::Error read_password(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant = std::nullopt
+);
+
+/// @brief reads the client and server certificates of cfg from the items that it
+/// names, when it names them. It reads no private key of the server certificate.
+/// @param grant a spent grant, as for secret::Reader::read_certificate. It applies to
+/// the client certificate only, since the server certificate is public.
+/// @returns errors::CLIENT_CERTIFICATE_INVALID if the client certificate cannot be
+/// parsed, has no private key, or its key does not match it, or the error of a read.
+[[nodiscard]] x::errors::Error read_certificates(
+    Config &cfg,
+    const secret::Reader &reader,
+    const std::optional<synnax::secret::Grant> &grant = std::nullopt
+);
 
 /// @brief the security inputs of a connection that do not come from its Config.
 struct Security {
@@ -124,10 +166,11 @@ struct Security {
     x::telem::NowFunc now = x::telem::TimeStamp::now;
 };
 
-/// @brief resolves the client identity for the configuration: its certificate files,
-/// or the current Driver certificate. Leaves the identity empty for an unsecured
-/// configuration.
-/// @returns errors::CLIENT_CERTIFICATE_INVALID if the files cannot be read, or
+/// @brief resolves the client identity for the configuration: the identity that
+/// read_certificates read, or the current Driver certificate. Leaves the identity
+/// empty for an unsecured configuration.
+/// @returns errors::CLIENT_CERTIFICATE_INVALID if the configuration names a client
+/// certificate that read_certificates did not read, or
 /// errors::DRIVER_CERTIFICATE_FAILED if the Driver certificate cannot be loaded.
 std::pair<Security, x::errors::Error>
 resolve_security(const Config &cfg, certificate::Store &store);

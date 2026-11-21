@@ -19,11 +19,10 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
-  Pick<
-    schematic.TankNodeConfig,
-    "dimensions" | "borderRadius" | "strokeColor" | "fillColor"
-  >
+  Pick<schematic.TankNodeConfig, "dimensions" | "borderRadius">
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
   boxBorderRadius?: number;
   strokeWidth?: number;

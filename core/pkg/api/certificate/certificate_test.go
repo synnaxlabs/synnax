@@ -10,14 +10,6 @@
 package certificate_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
-	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,9 +19,13 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -46,32 +42,21 @@ var (
 	creates         = []access.Action{access.ActionCreate}
 )
 
-// newPair returns a PEM certificate and its PEM private key.
-func newPair() (string, string) {
-	GinkgoHelper()
-	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "plant"},
-		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
-	}
-	der := MustSucceed(
-		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
-	)
-	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
-	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
-		string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))
-}
-
 func whereKeys(keys ...certificate.Key) apicertificate.RetrieveRequest {
 	return apicertificate.RetrieveRequest{
 		Where: &certificate.Where{Key: &filter.Set[certificate.Key]{In: keys}},
 	}
 }
 
+func whereKeysWithUses(keys ...certificate.Key) apicertificate.RetrieveRequest {
+	req := whereKeys(keys...)
+	req.IncludeUses = true
+	return req
+}
+
 func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 	GinkgoHelper()
-	certPEM, _ := newPair()
+	certPEM, _ := certtestutil.NewPair()
 	c := certificate.Certificate{Variant: certificate.StoredCertificate{
 		Base: certificate.Base{Name: name},
 		Pem:  certPEM,
@@ -84,7 +69,7 @@ func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 
 func createCertificateWithKey(ctx SpecContext, name string) certificate.Certificate {
 	GinkgoHelper()
-	certPEM, keyPEM := newPair()
+	certPEM, keyPEM := certtestutil.NewPair()
 	c := certificate.Certificate{Variant: certificate.StoredCertificate{
 		Base: certificate.Base{Name: name},
 		Pem:  certPEM,
@@ -149,7 +134,7 @@ var _ = Describe("Service", func() {
 					secretType,
 					statusType,
 				)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,
@@ -201,7 +186,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				Expect(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,
@@ -433,6 +418,62 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key))).
 				Error().To(MatchError(access.ErrDenied))
 		})
+		Describe("IncludeUses", func() {
+			var (
+				u   user.User
+				c   certificate.Certificate
+				dev device.Device
+			)
+			BeforeEach(func(ctx SpecContext) {
+				u = createUser(ctx)
+				grant(ctx, u.ResourceID(), retrieves, certificateType)
+				c = createCertificate(ctx, "Plant")
+				dev = device.Device{
+					Key:      uuid.New().String(),
+					Rack:     svc.Rack.EmbeddedKey,
+					Location: "opc.tcp://plc:4840",
+					Make:     "opc",
+					Model:    "OPC UA",
+					Name:     "PLC",
+					Properties: msgpack.EncodedJSON{"connection": map[string]any{
+						"server_certificate": c.Base().Key.String(),
+					}},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Device.NewWriter(tx).Create(ctx, &dev)
+				})).To(Succeed())
+			})
+			It("Should return the resources that use each certificate",
+				func(ctx SpecContext) {
+					grant(ctx, u.ResourceID(), retrieves, device.ResourceID(dev.Key))
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).
+						To(Equal([]resource.ID{device.ResourceID(dev.Key)}))
+				},
+			)
+			It("Should leave out the uses that the caller cannot read",
+				func(ctx SpecContext) {
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).To(Equal([]resource.ID{}))
+				},
+			)
+			It("Should leave uses nil when the request does not ask for them",
+				func(ctx SpecContext) {
+					grant(ctx, u.ResourceID(), retrieves, device.ResourceID(dev.Key))
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).To(BeNil())
+				},
+			)
+		})
 		It(
 			"Should leave out the certificates a user cannot retrieve",
 			func(ctx SpecContext) {
@@ -575,7 +616,7 @@ var _ = Describe("Service", func() {
 					secretType,
 					statusType,
 				)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				res := MustSucceed(set(AuthedCtx(ctx, owner),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,

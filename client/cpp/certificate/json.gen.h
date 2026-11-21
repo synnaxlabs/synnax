@@ -18,6 +18,7 @@
 
 #include "client/cpp/certificate/types.gen.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/secret/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
@@ -51,6 +52,9 @@ inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.required_field<std::string>("name"),
+        .uses = parser.field<std::optional<std::vector<::synnax::resource::ID>>>(
+            "uses"
+        ),
     };
 }
 
@@ -58,6 +62,7 @@ inline x::json::json Base::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    if (this->uses.has_value()) j["uses"] = x::json::to_array(*this->uses);
     return j;
 }
 
@@ -120,6 +125,7 @@ inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
         .order = parser.field<std::optional<Order>>("order"),
         .after = parser.field<std::optional<Cursor>>("after"),
         .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .include_uses = parser.field<bool>("include_uses", false),
     };
 }
 
@@ -130,6 +136,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     if (this->order.has_value()) j["order"] = this->order->to_json();
     if (this->after.has_value()) j["after"] = this->after->to_json();
     if (this->limit.has_value()) j["limit"] = *this->limit;
+    j["include_uses"] = this->include_uses;
     return j;
 }
 

@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <filesystem>
 #include <string>
 #include <utility>
 
@@ -45,11 +44,12 @@ struct Identity {
     /// @brief the PEM or DER encoded private key.
     std::string private_key;
 
-    /// @brief reads an identity from a certificate file and a private key file.
-    /// @returns errors::CLIENT_CERTIFICATE_INVALID if a file cannot be read, the key
-    /// needs a password, or the key does not match the certificate.
+    /// @brief reads an identity from a PEM or DER certificate and its private key.
+    /// @returns errors::CLIENT_CERTIFICATE_INVALID if the certificate cannot be read,
+    /// the key is empty or needs a password, or the key does not match the
+    /// certificate.
     static std::pair<Identity, x::errors::Error>
-    load(const std::filesystem::path &certificate, const std::filesystem::path &key);
+    parse(const std::string &certificate, const std::string &private_key);
 };
 
 /// @brief makes a self-signed RSA 2048 identity for an OPC UA application.

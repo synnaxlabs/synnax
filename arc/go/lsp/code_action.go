@@ -39,6 +39,7 @@ type codeActionSnapshot struct {
 	Diagnostics diagnostics.Diagnostics
 	Tokens      []antlr.Token
 	IsBlock     bool
+	Config      parser.Config
 }
 
 // CodeAction returns quick-fix actions for the diagnostics that intersect the requested
@@ -62,12 +63,14 @@ func (s *Server) CodeAction(
 	}
 	isBlock := doc.isBlock()
 	s.mu.RUnlock()
+	cfg := s.parserConfig()
 	snap := codeActionSnapshot{
 		URI:         doc.URI,
 		Content:     content,
 		Symbols:     symbols,
 		Diagnostics: analyzed,
-		Tokens:      tokenizeContent(content),
+		Tokens:      tokenizeContent(content, cfg),
+		Config:      cfg,
 		IsBlock:     isBlock,
 	}
 	var (
@@ -148,7 +151,7 @@ func analyzedQuickFixes(
 
 // hoistDeclarationsQuickFix builds the action that applies the formatter's hoists.
 func hoistDeclarationsQuickFix(snap codeActionSnapshot) *protocol.CodeAction {
-	moves := formatter.DeclarationHoists(snap.Content)
+	moves := formatter.DeclarationHoists(snap.Content, snap.Config)
 	if len(moves) == 0 {
 		return nil
 	}
@@ -254,7 +257,12 @@ func missingImportQuickFixes(
 	}
 	var actions []protocol.CommandOrCodeAction
 	for _, path := range paths {
-		edits := buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, path)
+		edits := buildAutoImportEditFromSnapshot(
+			snap.Content,
+			snap.Symbols,
+			path,
+			snap.Config,
+		)
 		if len(edits) == 0 {
 			continue
 		}

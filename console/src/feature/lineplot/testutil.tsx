@@ -10,9 +10,10 @@
 import { lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { ClockProvider } from "@synnaxlabs/lyra/hooks";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import type { aether } from "@synnaxlabs/pluto/ether";
-import { id } from "@synnaxlabs/x";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
@@ -75,6 +76,8 @@ export interface RenderLinePlotOptions {
   as?: Client;
   /** Extra Aether components, for a component that needs the worker. */
   additionalRegistry?: aether.ComponentRegistry;
+  /** The fixed time the component reads as now; defaults to the real clock. */
+  now?: TimeStamp;
 }
 
 /** Opens the picker of the first color swatch in container and picks a named color. */
@@ -121,6 +124,8 @@ export const renderLinePlot = async (
   options: RenderLinePlotOptions = {},
 ) => {
   const { key, wrapper: Wrapper, store } = await createLinePlotWrapper(options);
+  const { now } = options;
+  const clock = () => now ?? TimeStamp.now();
   const { panelKey, tabKey } = await createResourceTab(
     client,
     lineplot.resourceID(key),
@@ -133,7 +138,9 @@ export const renderLinePlot = async (
     result = render(
       <PlutoPanel.Scope.Provider value={panelKey}>
         <PlutoPanel.TabScope.Provider value={tabKey}>
-          <Component />
+          <ClockProvider value={clock}>
+            <Component />
+          </ClockProvider>
           <Modals.Stack />
         </PlutoPanel.TabScope.Provider>
       </PlutoPanel.Scope.Provider>,

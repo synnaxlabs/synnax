@@ -156,7 +156,9 @@ class DeviceSim(Simulator):
         asyncio.run(self._run_server())
 
     @staticmethod
-    def create_device(rack_key: int) -> sy.device.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> sy.device.Device:
+        """Returns the device of the sim on a rack. The client sets any secrets that
+        the device uses."""
         raise NotImplementedError
 
     @abstractmethod

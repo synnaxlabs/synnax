@@ -17,7 +17,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, uuid } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
-import { License } from "@/platform/license";
+import { Portal } from "@/platform/portal";
 
 // The Console asks the portal for the license key often at first, while the user is
 // likely on the portal, then slowly while it waits on someone the link was sent to.
@@ -49,17 +49,18 @@ export const Handoff = ({
   variant = "filled",
 }: HandoffProps): ReactElement => {
   const client = Synnax.use();
+  const portal = Portal.use();
   const [code] = useState(uuid.create);
   const [state, setState] = useState<State>({ variant: "idle" });
   const waiting = state.variant === "waiting";
-  const url = License.activateURL({ fingerprint, handoff: code });
+  const url = portal.activateURL({ fingerprint, handoff: code });
   useEffect(() => {
     if (!waiting || client == null) return;
     const controller = new AbortController();
     const poll = async (): Promise<void> => {
       let key: string | null;
       try {
-        key = await License.receive(code, controller.signal);
+        key = await portal.receive(code, controller.signal);
       } catch (e) {
         if (controller.signal.aborted) return;
         // An unreachable portal is normal on a machine with no internet access. The
@@ -99,7 +100,7 @@ export const Handoff = ({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [waiting, client, code]);
+  }, [waiting, client, portal, code]);
   const wait = (): void => setState({ variant: "waiting" });
   let line: ReactElement;
   switch (state.variant) {

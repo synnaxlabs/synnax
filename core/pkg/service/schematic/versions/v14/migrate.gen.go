@@ -26,11 +26,17 @@ func autoMigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, er
 	if err != nil {
 		return Schematic{}, err
 	}
+	edges, err := lo.MapErr(old.Edges, func(v v13.Edge, _ int) (Edge, error) {
+		return MigrateEdge(ctx, v)
+	})
+	if err != nil {
+		return Schematic{}, err
+	}
 	return Schematic{
 		Key:     old.Key,
 		Name:    old.Name,
 		Nodes:   nodes,
-		Edges:   old.Edges,
+		Edges:   edges,
 		Group:   old.Group,
 		Project: old.Project,
 	}, nil
@@ -50,7 +56,20 @@ func autoMigrateNode(ctx context.Context, old v13.Node) (Node, error) {
 	}, nil
 }
 
-func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, error) {
+func autoMigrateEdge(ctx context.Context, old v13.Edge) (Edge, error) {
+	config, err := autoMigrateEdgeConfig(ctx, old.Config)
+	if err != nil {
+		return Edge{}, err
+	}
+	return Edge{
+		Key:    old.Key,
+		Source: old.Source,
+		Target: old.Target,
+		Config: config,
+	}, nil
+}
+
+func autoMigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	switch variant := old.Variant.(type) {
 	case nil:
 		return NodeConfig{}, nil
@@ -157,8 +176,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 	case v13.BoxNodeConfig:
 		return NodeConfig{Variant: BoxNodeConfig{
 			LabeledConfig: variant.LabeledConfig,
-			StrokeColor:   variant.StrokeColor,
-			FillColor:     variant.FillColor,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
 			StrokeWidth:   variant.StrokeWidth,
@@ -170,15 +187,12 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			OnClickDelay:   variant.OnClickDelay,
 			CommandChannel: variant.CommandChannel,
 			Mode:           variant.Mode,
-			FillColor:      variant.FillColor,
 			Control:        variant.Control,
 		}}, nil
 	case v13.CircleNodeConfig:
 		return NodeConfig{Variant: CircleNodeConfig{
 			LabeledConfig: variant.LabeledConfig,
 			Radius:        variant.Radius,
-			StrokeColor:   variant.StrokeColor,
-			FillColor:     variant.FillColor,
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v13.GaugeNodeConfig:
@@ -187,7 +201,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			NumericTelemConfig: variant.NumericTelemConfig,
 			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
-			StrokeColor:        variant.StrokeColor,
 			Bounds:             variant.Bounds,
 			BarWidth:           variant.BarWidth,
 			Location:           variant.Location,
@@ -202,7 +215,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
 			Dimensions:      variant.Dimensions,
-			FillColor:       variant.FillColor,
 			Disabled:        variant.Disabled,
 			InlineSize:      variant.InlineSize,
 			OnClickDelay:    variant.OnClickDelay,
@@ -220,7 +232,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 		}}, nil
 	case v13.LineNodeConfig:
 		return NodeConfig{Variant: LineNodeConfig{
-			StrokeColor: variant.StrokeColor,
 			Start:       variant.Start,
 			End:         variant.End,
 			StrokeWidth: variant.StrokeWidth,
@@ -228,7 +239,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 	case v13.OffPageReferenceNodeConfig:
 		return NodeConfig{Variant: OffPageReferenceNodeConfig{
 			LabeledConfig:                 variant.LabeledConfig,
-			FillColor:                     variant.FillColor,
 			Page:                          variant.Page,
 			DoubleClickNavigationDisabled: variant.DoubleClickNavigationDisabled,
 		}}, nil
@@ -239,8 +249,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			SideLength:    variant.SideLength,
 			Rotation:      variant.Rotation,
 			BorderRadius:  variant.BorderRadius,
-			StrokeColor:   variant.StrokeColor,
-			FillColor:     variant.FillColor,
 			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v13.SelectNodeConfig:
@@ -250,7 +258,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			Size:            variant.Size,
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
-			FillColor:       variant.FillColor,
 			InlineSize:      variant.InlineSize,
 			Options:         variant.Options,
 			Disabled:        variant.Disabled,
@@ -258,9 +265,13 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			Control:         variant.Control,
 		}}, nil
 	case v13.ScaleNodeConfig:
+		scaleIndicatorConfig, err := MigrateScaleIndicatorConfig(ctx, variant.ScaleIndicatorConfig)
+		if err != nil {
+			return NodeConfig{}, err
+		}
 		return NodeConfig{Variant: ScaleNodeConfig{
 			LabeledConfig:        variant.LabeledConfig,
-			ScaleIndicatorConfig: variant.ScaleIndicatorConfig,
+			ScaleIndicatorConfig: scaleIndicatorConfig,
 			Position:             variant.Position,
 			Dimensions:           variant.Dimensions,
 		}}, nil
@@ -272,7 +283,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			CommandChannel:  variant.CommandChannel,
 			StateChannel:    variant.StateChannel,
 			Dimensions:      variant.Dimensions,
-			FillColor:       variant.FillColor,
 			Units:           variant.Units,
 			Disabled:        variant.Disabled,
 			InlineSize:      variant.InlineSize,
@@ -284,7 +294,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: variant.StalenessConfig,
 			Channel:         variant.Channel,
-			StrokeColor:     variant.StrokeColor,
 			InlineSize:      variant.InlineSize,
 			Options:         variant.Options,
 			Size:            variant.Size,
@@ -293,8 +302,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 		return NodeConfig{Variant: StringDisplayNodeConfig{
 			LabeledConfig:   variant.LabeledConfig,
 			StalenessConfig: variant.StalenessConfig,
-			StrokeColor:     variant.StrokeColor,
-			TextColor:       variant.TextColor,
 			Tooltip:         variant.Tooltip,
 			InlineSize:      variant.InlineSize,
 			Channel:         variant.Channel,
@@ -307,7 +314,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 	case v13.TextBoxNodeConfig:
 		return NodeConfig{Variant: TextBoxNodeConfig{
 			LabeledConfig:   variant.LabeledConfig,
-			TextColor:       variant.TextColor,
 			InlineSize:      variant.InlineSize,
 			Align:           variant.Align,
 			AutoFitDisabled: variant.AutoFitDisabled,
@@ -320,9 +326,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			NumericTelemConfig: variant.NumericTelemConfig,
 			StalenessConfig:    variant.StalenessConfig,
 			Position:           variant.Position,
-			StrokeColor:        variant.StrokeColor,
-			TextColor:          variant.TextColor,
-			FillColor:          variant.FillColor,
 			Tooltip:            variant.Tooltip,
 			Redline:            variant.Redline,
 			Units:              variant.Units,
@@ -561,8 +564,6 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			ScaledConfig:  variant.ScaledConfig,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
-			StrokeColor:   variant.StrokeColor,
-			FillColor:     variant.FillColor,
 		}}, nil
 	case v13.TankNodeConfig:
 		return NodeConfig{Variant: TankNodeConfig{
@@ -574,16 +575,11 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 			StalenessTimeout: variant.StalenessTimeout,
 			StalenessColor:   variant.StalenessColor,
 			Bounds:           variant.Bounds,
-			LevelColor:       variant.LevelColor,
-			AxisColor:        variant.AxisColor,
-			TextColor:        variant.TextColor,
 			Units:            variant.Units,
 			LevelHidden:      variant.LevelHidden,
 			CaretSide:        variant.CaretSide,
 			Level:            variant.Level,
 			Position:         variant.Position,
-			StrokeColor:      variant.StrokeColor,
-			FillColor:        variant.FillColor,
 			Dimensions:       variant.Dimensions,
 			BorderRadius:     variant.BorderRadius,
 			CaretVisible:     variant.CaretVisible,
@@ -614,4 +610,91 @@ func autoMigrateNodeConfig(_ context.Context, old v13.NodeConfig) (NodeConfig, e
 	default:
 		return NodeConfig{}, errors.Newf("unknown NodeConfig variant %T", variant)
 	}
+}
+
+func autoMigrateEdgeConfig(ctx context.Context, old v13.EdgeConfig) (EdgeConfig, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return EdgeConfig{}, nil
+	case v13.PipeEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: PipeEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.ElectricEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: ElectricEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.SecondaryEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: SecondaryEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.JacketedEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: JacketedEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.HydraulicEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: HydraulicEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.PneumaticEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: PneumaticEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	case v13.DataEdgeConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return EdgeConfig{}, err
+		}
+		return EdgeConfig{Variant: DataEdgeConfig{
+			SegmentedEdgeConfig: segmentedEdgeConfig,
+		}}, nil
+	default:
+		return EdgeConfig{}, errors.Newf("unknown EdgeConfig variant %T", variant)
+	}
+}
+
+func autoMigrateScaleIndicatorConfig(_ context.Context, old v13.ScaleIndicatorConfig) (ScaleIndicatorConfig, error) {
+	return ScaleIndicatorConfig{
+		NumericTelemConfig: old.NumericTelemConfig,
+		StalenessConfig:    old.StalenessConfig,
+		Bounds:             old.Bounds,
+		Units:              old.Units,
+		LevelHidden:        old.LevelHidden,
+		CaretHidden:        old.CaretHidden,
+		ScaleHidden:        old.ScaleHidden,
+		Side:               old.Side,
+		CaretSide:          old.CaretSide,
+		Level:              old.Level,
+	}, nil
+}
+
+func autoMigrateSegmentedEdgeConfig(_ context.Context, old v13.SegmentedEdgeConfig) (SegmentedEdgeConfig, error) {
+	return SegmentedEdgeConfig{
+		Segments:    old.Segments,
+		StrokeWidth: old.StrokeWidth,
+	}, nil
 }

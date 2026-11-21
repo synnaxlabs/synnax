@@ -27,36 +27,3 @@ export const openDiscover = async (
   await session.zoom(dialog);
   return dialog;
 };
-
-/** pickValues checks the values with the given names in the pane of the dialog. */
-export const pickValues = async (
-  session: capture.CaptureSession,
-  dialog: Locator,
-  names: string[],
-): Promise<void> => {
-  for (const name of names) {
-    const check = dialog.getByRole("checkbox", { name: `Record ${name}`, exact: true });
-    await session.waitFor(check);
-    await session.hold(400);
-    await session.click(check);
-  }
-  await session.hold(800);
-};
-
-/** submitDiscover clicks the button that adds the picks, then frames the task form. */
-export const submitDiscover = async (
-  session: capture.CaptureSession,
-  dialog: Locator,
-  form: Locator,
-  label: string,
-): Promise<void> => {
-  await session.click(dialog.getByRole("button", { name: label, exact: true }));
-  session.endZoom();
-  await session.waitForHidden(dialog);
-  await capture.zoomCenter(
-    session,
-    form.locator(".console-task-channel-form-container"),
-    1.35,
-  );
-  await session.hold(800);
-};

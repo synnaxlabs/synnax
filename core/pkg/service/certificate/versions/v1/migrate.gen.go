@@ -18,20 +18,28 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func autoMigrateCertificate(_ context.Context, old v0.Certificate) (Certificate, error) {
+func autoMigrateCertificate(ctx context.Context, old v0.Certificate) (Certificate, error) {
 	switch variant := old.Variant.(type) {
 	case nil:
 		return Certificate{}, nil
 	case v0.StoredCertificate:
+		base, err := MigrateBase(ctx, variant.Base)
+		if err != nil {
+			return Certificate{}, err
+		}
 		return Certificate{Variant: StoredCertificate{
-			Base:       variant.Base,
+			Base:       base,
 			Pem:        variant.Pem,
 			PrivateKey: variant.PrivateKey,
 			Details:    variant.Details,
 		}}, nil
 	case v0.FileCertificate:
+		base, err := MigrateBase(ctx, variant.Base)
+		if err != nil {
+			return Certificate{}, err
+		}
 		return Certificate{Variant: FileCertificate{
-			Base:            variant.Base,
+			Base:            base,
 			CertificatePath: variant.CertificatePath,
 			PrivateKeyFile:  variant.PrivateKeyFile,
 			Details:         variant.Details,
@@ -39,4 +47,11 @@ func autoMigrateCertificate(_ context.Context, old v0.Certificate) (Certificate,
 	default:
 		return Certificate{}, errors.Newf("unknown Certificate variant %T", variant)
 	}
+}
+
+func autoMigrateBase(_ context.Context, old v0.Base) (Base, error) {
+	return Base{
+		Key:  old.Key,
+		Name: old.Name,
+	}, nil
 }

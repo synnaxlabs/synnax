@@ -36,6 +36,7 @@ jobs:
   auto-merge:
     name: Set auto-merge
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Create an App token
         id: token

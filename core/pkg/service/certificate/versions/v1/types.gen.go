@@ -17,6 +17,7 @@ import (
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -29,7 +30,23 @@ type Key = v0.Key
 type Details = v0.Details
 
 // Base carries the fields shared by every certificate.
-type Base = v0.Base
+type Base struct {
+	// Key is the unique identifier for this certificate.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the certificate.
+	Name string `json:"name" msgpack:"name"`
+	// Uses are the resources that use the certificate and that the caller can read,
+	// filled only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	return v.Error()
+}
 
 // CertificateVariant is implemented by every Certificate variant.
 type CertificateVariant interface {

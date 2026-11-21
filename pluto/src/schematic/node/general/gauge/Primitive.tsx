@@ -19,8 +19,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.GaugeNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor"
 > {
+  strokeColor?: color.Crude;
   className?: string;
 }
 
