@@ -270,21 +270,21 @@ interaction, and the release.
 - **Phase 6: Release.** The docs page, removal of the flag, and the toggle that hides
   and shows the breaks.
 
-Phases 4 to 5c hide behind a `breaks` flag in `console/src/flags.ts`, which the Console
+Phases 4 to 5c hide behind a `breaks` flag in `console/src/flags`, which the Console
 passes to Pluto as a prop. Console phases add their rules to `docs/claude/ux.md`. Phases
 2 to 5 change `line.ts` and `axis.ts`, as RFC 0116 phase 2 does, and phase 3 bounds its
-relative traces. Phase 2 stacks on RFC 0116 phase 2 and does not wait for it to merge.
+relative traces.
 
-| Phase | Scope                                              | Touches                                                                                                                 | Depends on |
-| ----- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`                 | -          |
-| 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                       | -          |
-| 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`        | 2          |
-| 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags.ts` | 3          |
-| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                      | 4          |
-| 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                              | 5a         |
-| 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                             | 1, 5b      |
-| 6     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 5c         |
+| Phase | Scope                                              | Touches                                                                                                              | Depends on |
+| ----- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`              | -          |
+| 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                    | -          |
+| 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`     | 2          |
+| 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags` | 3          |
+| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                   | 4          |
+| 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                           | 5a         |
+| 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                          | 1, 5b      |
+| 6     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 5c         |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
