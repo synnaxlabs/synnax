@@ -1243,6 +1243,7 @@ func channelPolicies() impact.Policies {
 			{Table: "channel", Name: "index"}:                          keep,
 			{Table: "channel", Name: "rewires.from"}:                   keep,
 			{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+			{Table: "status", Name: "owner"}:                           keep,
 		},
 		KeptTables: func(table string) bool {
 			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})

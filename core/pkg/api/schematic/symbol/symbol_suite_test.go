@@ -253,6 +253,7 @@ func suitePolicies() impact.Policies {
 		{Table: "channel", Name: "index"}:                          keep,
 		{Table: "channel", Name: "rewires.from"}:                   keep,
 		{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+		{Table: "status", Name: "owner"}:                           keep,
 		{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
 		{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
 		{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,

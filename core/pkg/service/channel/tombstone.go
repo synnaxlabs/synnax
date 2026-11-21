@@ -136,9 +136,9 @@ func withGap(rewires []Rewire, now telem.TimeStamp) []Rewire {
 	return append(out, Rewire{At: at})
 }
 
-// takeLists sets the rewires of each new channel of channels, one with no local key, to
-// the list of the tombstone at its path, or to none, since a create sets no list. It
-// returns the keys of those tombstones, by the position of their channel.
+// takeLists sets the rewires of each new channel of channels, one with no local key,
+// that takes the path of a tombstone to the list of that tombstone. It returns the keys
+// of those tombstones, by the position of their channel.
 func (w Writer) takeLists(
 	ctx context.Context,
 	channels []Channel,
@@ -153,10 +153,10 @@ func (w Writer) takeLists(
 		if err != nil {
 			return nil, err
 		}
-		c.Rewires = t.Rewires
 		if !ok {
 			continue
 		}
+		c.Rewires = t.Rewires
 		if dead == nil {
 			dead = make(map[int]Key)
 		}

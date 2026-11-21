@@ -89,7 +89,11 @@ var _ = Describe("Held break r2", func() {
 			Expect(symbols.NewCreate().
 				Entry(&r2Symbol{Key: "s", Node: 2}).
 				Exec(ctx, db)).To(Succeed())
-			var called []uint32
+			type call struct {
+				key  uint32
+				held int
+			}
+			var called []call
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				d := nodes.NewDelete().
 					Where(gorp.MatchKeys[uint32, r2Node](1)).
@@ -97,9 +101,9 @@ var _ = Describe("Held break r2", func() {
 						_ context.Context,
 						_ gorp.Tx,
 						n r2Node,
-						_ []gorp.Dependent,
+						held []gorp.Dependent,
 					) error {
-						called = append(called, n.Key)
+						called = append(called, call{key: n.Key, held: len(held)})
 						return nil
 					})
 				if planned {
@@ -108,8 +112,8 @@ var _ = Describe("Held break r2", func() {
 				return d.Exec(ctx, tx)
 			})).To(Succeed())
 			Expect(nodes.NewRetrieve().Count(ctx, db)).To(Equal(0))
-			Expect(called).To(Equal([]uint32{2}),
-				"node 2 was removed by the cascade and symbol s holds it")
+			Expect(called).To(Equal([]call{{key: 1}, {key: 2, held: 1}}),
+				"the delete asks for node 1, and its cascade removes node 2, which s holds")
 		},
 		Entry("walking the references", false),
 		Entry("from a plan", true),
