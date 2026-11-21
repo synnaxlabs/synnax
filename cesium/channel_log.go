@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
+	"golang.org/x/sync/errgroup"
 )
 
 // channelFile is the name of the file in each channel directory of the pointer log
@@ -87,34 +88,57 @@ func channelSum(db uint64, key ChannelKey, b []byte) uint32 {
 }
 
 // loadChannels reads the channel list of the pointer log layout from the channel file
-// of each channel directory. A file that fails its check twice is a cut-short create
-// when the key holds no segment, and loadChannels returns its key as torn. On a key
-// with segments, it refuses with an error that wraps place.ErrCorrupt.
+// of each channel directory, syncWidth files at a time. A file that fails its check
+// twice is a cut-short create when the key holds no segment, and loadChannels returns
+// its key as torn. On a key with segments, it refuses with an error that wraps
+// place.ErrCorrupt.
 func (db *DB) loadChannels() (channels map[ChannelKey]Channel, torn set.Set[ChannelKey], err error) {
 	infos, err := db.fs.List("")
 	if err != nil {
 		return nil, nil, err
 	}
-	channels, torn = make(map[ChannelKey]Channel), set.New[ChannelKey]()
+	var keys []ChannelKey
 	for _, info := range infos {
-		key, err := strconv.ParseUint(info.Name(), 10, 32)
-		if err != nil || !info.IsDir() {
-			continue
+		if key, err := strconv.ParseUint(
+			info.Name(),
+			10,
+			32,
+		); err == nil &&
+			info.IsDir() {
+			keys = append(keys, ChannelKey(key))
 		}
-		ch, ok, err := db.readChannel(ChannelKey(key))
+	}
+	var (
+		chs  = make([]Channel, len(keys))
+		oks  = make([]bool, len(keys))
+		errs = make([]error, len(keys))
+		g    errgroup.Group
+	)
+	g.SetLimit(syncWidth)
+	for i, key := range keys {
+		g.Go(func() error {
+			chs[i], oks[i], errs[i] = db.readChannel(key)
+			return nil
+		})
+	}
+	if err = g.Wait(); err != nil {
+		return nil, nil, err
+	}
+	channels, torn = make(map[ChannelKey]Channel, len(keys)), set.New[ChannelKey]()
+	for i, key := range keys {
 		switch {
-		case err != nil:
-			return nil, nil, err
-		case ok:
-			channels[ch.Key] = ch
-		case db.engine.stored.Contains(ChannelKey(key)):
+		case errs[i] != nil:
+			return nil, nil, errs[i]
+		case oks[i]:
+			channels[chs[i].Key] = chs[i]
+		case db.engine.stored.Contains(key):
 			return nil, nil, errors.Wrapf(
 				place.ErrCorrupt,
 				"the channel file of key %d fails its check",
 				key,
 			)
 		default:
-			torn.Add(ChannelKey(key))
+			torn.Add(key)
 		}
 	}
 	return channels, torn, nil

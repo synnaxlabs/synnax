@@ -35,56 +35,75 @@ type clock struct {
 // count returns the number of stamps of pointer k.
 func (c *clock) count(k int) uint32 { return c.ptrs[k].size / stampSize }
 
-// index gives each pointer of index ch the next alignment number, reads its first and
-// last stamp, and adds it. The stamp reads go in file-offset order within each old
-// file.
-func (r *reader) index(ch channel.Channel) error {
-	ptrs := r.ptrs[ch.Key]
-	c := &clock{
-		key:   ch.Key,
-		ptrs:  ptrs,
-		first: make([]telem.TimeStamp, len(ptrs)),
-		last:  make([]telem.TimeStamp, len(ptrs)),
+// indexes reads the first and last stamp of each pointer of each index, readWidth
+// indexes at a time. Then it gives each pointer the next alignment number, in rising
+// order of key and then of time, and adds it.
+func (r *reader) indexes() error {
+	var clocks []*clock
+	for _, ch := range r.channels {
+		if ch.IsIndex {
+			ptrs := r.ptrs[ch.Key]
+			c := &clock{
+				key:   ch.Key,
+				ptrs:  ptrs,
+				first: make([]telem.TimeStamp, len(ptrs)),
+				last:  make([]telem.TimeStamp, len(ptrs)),
+			}
+			r.clocks[ch.Key], clocks = c, append(clocks, c)
+		}
 	}
-	r.clocks[ch.Key] = c
-	order := make([]int, len(ptrs))
+	if err := each(len(clocks), func(i int) error {
+		h := &handle{fs: r.FS}
+		return errors.Join(h.bounds(clocks[i]), h.close())
+	}); err != nil {
+		return err
+	}
+	for _, c := range clocks {
+		for k, p := range c.ptrs {
+			c.nums = append(c.nums, uint32(r.next))
+			r.add(c.key, p.file, state.Pointer{
+				First:     c.first[k],
+				Last:      c.last[k],
+				Alignment: telem.NewAlignment(uint32(r.next), 0),
+				Offset:    p.offset,
+				Length:    p.size,
+				Samples:   c.count(k),
+			})
+			r.next++
+		}
+	}
+	return nil
+}
+
+// bounds reads the first and last stamp of each pointer of c, in file-offset order
+// within each old file.
+func (h *handle) bounds(c *clock) error {
+	order := make([]int, len(c.ptrs))
 	for k := range order {
 		order[k] = k
 	}
 	slices.SortFunc(order, func(a, b int) int {
 		return cmp.Or(
-			cmp.Compare(ptrs[a].file, ptrs[b].file),
-			cmp.Compare(ptrs[a].offset, ptrs[b].offset),
+			cmp.Compare(c.ptrs[a].file, c.ptrs[b].file),
+			cmp.Compare(c.ptrs[a].offset, c.ptrs[b].offset),
 		)
 	})
 	var err error
 	for _, k := range order {
-		if c.first[k], err = r.stamp(c, k, 0); err != nil {
+		if c.first[k], err = h.stamp(c, k, 0); err != nil {
 			return err
 		}
-		if c.last[k], err = r.stamp(c, k, c.count(k)-1); err != nil {
+		if c.last[k], err = h.stamp(c, k, c.count(k)-1); err != nil {
 			return err
 		}
-	}
-	for k, p := range ptrs {
-		c.nums = append(c.nums, uint32(r.next))
-		r.add(ch.Key, p.file, state.Pointer{
-			First:     c.first[k],
-			Last:      c.last[k],
-			Alignment: telem.NewAlignment(uint32(r.next), 0),
-			Offset:    p.offset,
-			Length:    p.size,
-			Samples:   c.count(k),
-		})
-		r.next++
 	}
 	return nil
 }
 
 // stamp reads the stamp at position pos of pointer k of c.
-func (r *reader) stamp(c *clock, k int, pos uint32) (telem.TimeStamp, error) {
+func (h *handle) stamp(c *clock, k int, pos uint32) (telem.TimeStamp, error) {
 	p := c.ptrs[k]
-	b, err := r.agreed(
+	b, err := h.agreed(
 		fileName(c.key, p.file),
 		int64(p.offset)+int64(pos)*stampSize,
 		stampSize,
@@ -97,7 +116,7 @@ func (r *reader) stamp(c *clock, k int, pos uint32) (telem.TimeStamp, error) {
 
 // search returns the first position from lo in pointer k of c whose stamp is at least
 // t, and that stamp. The last stamp of k must be at least t.
-func (r *reader) search(
+func (h *handle) search(
 	c *clock,
 	k int,
 	lo uint32,
@@ -106,7 +125,7 @@ func (r *reader) search(
 	hi, at := c.count(k)-1, c.last[k]
 	for lo < hi {
 		mid := lo + (hi-lo)/2
-		s, err := r.stamp(c, k, mid)
+		s, err := h.stamp(c, k, mid)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -119,12 +138,40 @@ func (r *reader) search(
 	return hi, at, nil
 }
 
-// data adds the pointers of data key ch, each split at the start of each index pointer
-// that it crosses.
-func (r *reader) data(ch channel.Channel) error {
-	c := r.clocks[ch.Index]
+// datas splits the pointers of each data key, readWidth keys at a time, and adds the
+// pieces.
+func (r *reader) datas() error {
+	var chs []channel.Channel
+	for _, ch := range r.channels {
+		if !ch.IsIndex {
+			chs = append(chs, ch)
+		}
+	}
+	pieces := make([]map[uint16][]state.Pointer, len(chs))
+	if err := each(len(chs), func(i int) (err error) {
+		h := &handle{fs: r.FS}
+		pieces[i], err = h.data(chs[i], r.clocks[chs[i].Index], r.ptrs[chs[i].Key])
+		return errors.Join(err, h.close())
+	}); err != nil {
+		return err
+	}
+	for i, ch := range chs {
+		if len(pieces[i]) > 0 {
+			r.segs[ch.Key] = pieces[i]
+		}
+	}
+	return nil
+}
+
+// data returns the pieces of ptrs, the pointers of data key ch, by old file number:
+// each pointer split at the start of each pointer of c that it crosses.
+func (h *handle) data(
+	ch channel.Channel,
+	c *clock,
+	ptrs []pointer,
+) (map[uint16][]state.Pointer, error) {
 	if c == nil {
-		return errors.Newf(
+		return nil, errors.Newf(
 			"key %d is timed by key %d, which is no index of the old layout",
 			ch.Key,
 			ch.Index,
@@ -134,21 +181,29 @@ func (r *reader) data(ch channel.Channel) error {
 	if !ch.DataType.IsVariable() {
 		density = ch.DataType.Density()
 	}
-	for _, d := range r.ptrs[ch.Key] {
-		if err := r.split(ch.Key, density, c, d); err != nil {
-			return err
+	pieces := make(map[uint16][]state.Pointer)
+	for _, d := range ptrs {
+		if err := h.split(pieces, ch.Key, density, c, d); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return pieces, nil
 }
 
-// split adds the pieces of data pointer d of key, one for each pointer of c whose
-// stamps time its samples. Sample i of d takes stamp i of c from the first stamp at or
+// split adds to pieces the pieces of data pointer d of key, one for each pointer of c
+// whose stamps time its samples. Sample i of d takes stamp i of c from the first stamp
+// at or
 // after the start of d, and every stamp it takes is before the end of d. A density of
 // zero is a variable type.
-func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) error {
+func (h *handle) split(
+	pieces map[uint16][]state.Pointer,
+	key uint32,
+	density telem.Density,
+	c *clock,
+	d pointer,
+) error {
 	name, off, end := fileName(key, d.file), d.offset, d.offset+d.size
-	k, pos, first, err := r.start(c, d)
+	k, pos, first, err := h.start(c, d)
 	if err != nil {
 		return err
 	}
@@ -156,7 +211,7 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 		if k == len(c.ptrs) {
 			return noStamps(name, off, end, c.key)
 		}
-		n, final, err := r.take(c, k, pos, d, density, off)
+		n, final, err := h.take(c, k, pos, d, density, off)
 		if err != nil {
 			return err
 		}
@@ -165,7 +220,7 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 		}
 		last := c.last[k]
 		if pos+n < c.count(k) {
-			if last, err = r.stamp(c, k, pos+n-1); err != nil {
+			if last, err = h.stamp(c, k, pos+n-1); err != nil {
 				return err
 			}
 		}
@@ -174,11 +229,11 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 		case density == 0 && final:
 			length = end - off
 		case density == 0:
-			if length, err = r.walk(name, off, end, n); err != nil {
+			if length, err = h.walk(name, off, end, n); err != nil {
 				return err
 			}
 		}
-		r.add(key, d.file, state.Pointer{
+		pieces[d.file] = append(pieces[d.file], state.Pointer{
 			First:     first,
 			Last:      last,
 			Alignment: telem.NewAlignment(c.nums[k], pos),
@@ -197,7 +252,7 @@ func (r *reader) split(key uint32, density telem.Density, c *clock, d pointer) e
 // take returns how many stamps of pointer k of c, from position pos, time the samples
 // of d from stream offset off. final is true when the samples of a variable type end in
 // k.
-func (r *reader) take(
+func (h *handle) take(
 	c *clock,
 	k int,
 	pos uint32,
@@ -208,12 +263,12 @@ func (r *reader) take(
 	n, end := c.count(k)-pos, d.offset+d.size
 	switch {
 	case density != 0 && c.last[k] >= d.end:
-		n, err := r.below(c, k, pos, min(n, (end-off)/uint32(density)), d.end)
+		n, err := h.below(c, k, pos, min(n, (end-off)/uint32(density)), d.end)
 		return n, false, err
 	case density != 0:
 		return min(n, (end-off)/uint32(density)), false, nil
 	case c.last[k] >= d.end:
-		e, _, err := r.search(c, k, pos, d.end)
+		e, _, err := h.search(c, k, pos, d.end)
 		return e - pos, true, err
 	}
 	return n, k+1 == len(c.ptrs) || c.first[k+1] >= d.end, nil
@@ -221,23 +276,23 @@ func (r *reader) take(
 
 // below returns how many of the n stamps from position pos of pointer k of c are before
 // t. It reads one stamp when all of them are, and searches otherwise.
-func (r *reader) below(
+func (h *handle) below(
 	c *clock,
 	k int,
 	pos, n uint32,
 	t telem.TimeStamp,
 ) (uint32, error) {
-	last, err := r.stamp(c, k, pos+n-1)
+	last, err := h.stamp(c, k, pos+n-1)
 	if err != nil || last < t {
 		return n, err
 	}
-	e, _, err := r.search(c, k, pos, t)
+	e, _, err := h.search(c, k, pos, t)
 	return e - pos, err
 }
 
 // start returns the pointer k of c and the position in it of the first stamp at or
 // after the start of d, and that stamp. k is len(c.ptrs) when c holds no such stamp.
-func (r *reader) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error) {
+func (h *handle) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error) {
 	k, _ := slices.BinarySearch(c.last, d.start)
 	switch {
 	case k == len(c.ptrs):
@@ -245,7 +300,7 @@ func (r *reader) start(c *clock, d pointer) (int, uint32, telem.TimeStamp, error
 	case c.first[k] >= d.start:
 		return k, 0, c.first[k], nil
 	}
-	pos, first, err := r.search(c, k, 1, d.start)
+	pos, first, err := h.search(c, k, 1, d.start)
 	return k, pos, first, err
 }
 
@@ -266,7 +321,7 @@ const walkChunk = 1 << 20
 
 // walk returns the bytes of the n variable-type samples at off of the file name, from
 // their length prefixes. It returns an error when the samples pass end.
-func (r *reader) walk(name string, off, end, n uint32) (uint32, error) {
+func (h *handle) walk(name string, off, end, n uint32) (uint32, error) {
 	at := int64(off)
 	for left := n; left > 0; {
 		if int64(end)-at < 4 {
@@ -278,7 +333,7 @@ func (r *reader) walk(name string, off, end, n uint32) (uint32, error) {
 				end,
 			)
 		}
-		b, err := r.agreed(name, at, int(min(walkChunk, int64(end)-at)))
+		b, err := h.agreed(name, at, int(min(walkChunk, int64(end)-at)))
 		if err != nil {
 			return 0, err
 		}

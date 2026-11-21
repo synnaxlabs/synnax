@@ -64,11 +64,7 @@ func Read(cfg Config) (*state.Snapshot, []channel.Channel, error) {
 		segs:   make(map[uint32]map[uint16][]state.Pointer),
 		next:   1,
 	}
-	err := r.read()
-	if r.open != nil {
-		err = errors.Join(err, r.open.Close())
-	}
-	if err != nil {
+	if err := r.read(); err != nil {
 		return nil, nil, err
 	}
 	return r.snapshot(), r.channels, nil
@@ -85,9 +81,6 @@ type reader struct {
 	segs map[uint32]map[uint16][]state.Pointer
 	// next is the next alignment number.
 	next uint64
-	// open is the file of the last read, and openName its name.
-	open     xfs.File
-	openName string
 }
 
 // read reads the channels, then numbers the stretches of each index, then splits the
@@ -96,12 +89,8 @@ func (r *reader) read() error {
 	if err := r.list(); err != nil {
 		return err
 	}
-	for _, ch := range r.channels {
-		if ch.IsIndex {
-			if err := r.index(ch); err != nil {
-				return err
-			}
-		}
+	if err := r.indexes(); err != nil {
+		return err
 	}
 	if r.next > uint64(telem.LeadingDomain) {
 		return errors.Newf(
@@ -110,11 +99,27 @@ func (r *reader) read() error {
 			telem.LeadingDomain-1,
 		)
 	}
-	for _, ch := range r.channels {
-		if !ch.IsIndex {
-			if err := r.data(ch); err != nil {
-				return err
-			}
+	return r.datas()
+}
+
+// each runs f for each index below n, readWidth at a time, and returns the error of the
+// lowest index that failed.
+func each(n int, f func(i int) error) error {
+	errs := make([]error, n)
+	var g errgroup.Group
+	g.SetLimit(readWidth)
+	for i := range n {
+		g.Go(func() error {
+			errs[i] = f(i)
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	for _, err := range errs {
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -132,7 +137,6 @@ type dir struct {
 	// meta.json.
 	kept, missing bool
 	ptrs          []pointer
-	err           error
 }
 
 // list reads the channel and the old pointers of each directory that a key names,
@@ -153,21 +157,14 @@ func (r *reader) list() error {
 			dirs = append(dirs, dir{key: uint32(key)})
 		}
 	}
-	var g errgroup.Group
-	g.SetLimit(readWidth)
-	for i := range dirs {
-		g.Go(func() error {
-			r.readDir(&dirs[i])
-			return nil
-		})
-	}
-	if err = g.Wait(); err != nil {
+	if err = each(
+		len(dirs),
+		func(i int) error { return r.readDir(&dirs[i]) },
+	); err != nil {
 		return err
 	}
 	for _, d := range dirs {
 		switch {
-		case d.err != nil:
-			return d.err
 		case d.missing:
 			r.L.Warn(
 				"skipped a channel directory with no meta.json",
@@ -184,14 +181,14 @@ func (r *reader) list() error {
 }
 
 // readDir reads the channel of d and its old pointers.
-func (r *reader) readDir(d *dir) {
+func (r *reader) readDir(d *dir) (err error) {
 	name := path.Join(strconv.FormatUint(uint64(d.key), 10), meta.File)
 	ok, err := r.FS.Exists(name)
-	if d.missing, d.err = !ok, err; !ok || err != nil {
-		return
+	if d.missing = !ok; !ok || err != nil {
+		return err
 	}
-	if d.ch, d.kept, d.err = r.channel(d.key, name); !d.kept || d.err != nil {
-		return
+	if d.ch, d.kept, err = r.channel(d.key, name); !d.kept || err != nil {
+		return err
 	}
 	var density telem.Density
 	switch {
@@ -200,7 +197,8 @@ func (r *reader) readDir(d *dir) {
 	case !d.ch.DataType.IsVariable():
 		density = d.ch.DataType.Density()
 	}
-	d.ptrs, d.err = r.pointers(d.key, density)
+	d.ptrs, err = r.pointers(d.key, density)
+	return err
 }
 
 // channel decodes the meta.json file name of key and migrates it as the old open does.
@@ -351,23 +349,37 @@ func (r *reader) readFile(name string) ([]byte, error) {
 	return b, errors.Join(err, f.Close())
 }
 
-// agreed returns n bytes at off of the file name as agreed does, from a handle that r
-// keeps open until the next file.
-func (r *reader) agreed(name string, off int64, n int) ([]byte, error) {
-	if r.openName != name {
-		if r.open != nil {
-			if err := r.open.Close(); err != nil {
-				return nil, err
-			}
-			r.open = nil
+// handle reads old files of fs, and keeps the last file it read open until the next one
+// or close. A handle serves one goroutine.
+type handle struct {
+	fs   xfs.FS
+	f    xfs.File
+	name string
+}
+
+// agreed returns n bytes at off of the file name as agreed does.
+func (h *handle) agreed(name string, off int64, n int) ([]byte, error) {
+	if h.name != name {
+		if err := h.close(); err != nil {
+			return nil, err
 		}
-		f, err := r.FS.Open(name, os.O_RDONLY)
+		f, err := h.fs.Open(name, os.O_RDONLY)
 		if err != nil {
 			return nil, err
 		}
-		r.open, r.openName = f, name
+		h.f, h.name = f, name
 	}
-	return agreed(r.open, name, off, n)
+	return agreed(h.f, name, off, n)
+}
+
+// close closes the file that h keeps open.
+func (h *handle) close() error {
+	if h.f == nil {
+		return nil
+	}
+	f := h.f
+	h.f, h.name = nil, ""
+	return f.Close()
 }
 
 // agreed reads n bytes at off of f, the file name, and returns them once two reads

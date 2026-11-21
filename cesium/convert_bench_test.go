@@ -34,7 +34,8 @@ import (
 // CESIUM_BENCH_DIR when it is set, so that a run after a page cache drop reads it cold.
 // Each iteration first removes, untimed, what the conversion before it wrote. It
 // reports the terms of the conversion target: the bytes of the old metadata files, the
-// old data files, the stamp reads, the bytes of head 1, and the size of one log file.
+// old data files, the stamp reads, the bytes of head 1, and the bytes of both log
+// files.
 func BenchmarkConvert(b *testing.B) {
 	for _, size := range []struct{ keys, files int }{
 		{100, 1}, {100, 16}, {1_000, 1}, {1_000, 16}, {10_000, 1},
@@ -44,7 +45,7 @@ func BenchmarkConvert(b *testing.B) {
 			root := convertFixture(b, keys, files)
 			meta, old := oldTerms(b, root)
 			fs := &stampCounter{FS: root, reads: set.New[stampRead]()}
-			var head, logFile int64
+			var head, logs int64
 			for b.Loop() {
 				b.StopTimer()
 				undoConversion(b, root)
@@ -63,18 +64,15 @@ func BenchmarkConvert(b *testing.B) {
 				if err = db.Close(); err != nil {
 					b.Fatal(err)
 				}
-				head, logFile = fileSize(b, root, checkpoint.Name(1)), fileSize(
-					b,
-					root,
-					log.Name(1),
-				)
+				head = fileSize(b, root, checkpoint.Name(1))
+				logs = fileSize(b, root, log.Name(1)) + fileSize(b, root, log.Name(2))
 				b.StartTimer()
 			}
 			b.ReportMetric(float64(meta), "meta-B")
 			b.ReportMetric(float64(old), "old-files")
 			b.ReportMetric(float64(fs.count()), "stamp-reads")
 			b.ReportMetric(float64(head), "head-B")
-			b.ReportMetric(float64(logFile), "log-file-B")
+			b.ReportMetric(float64(logs), "logs-B")
 		})
 	}
 }
