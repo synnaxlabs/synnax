@@ -47,6 +47,7 @@ var _ = Describe("Pointer log roll breaker", func() {
 		)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    2,
 		}))
 		// Sample i has stamp 2(i + 1) and value i mod 251. The clock's segment reaches
@@ -117,13 +118,20 @@ var _ = Describe("Pointer log seek breaker", func() {
 					Key: data, Name: "data", Index: idx, DataType: telem.Int64T,
 				},
 			)).To(Succeed())
-			Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Clock:    idx,
+				Start:    10 * telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11),
 					telem.NewSeriesV[int64](10, 11),
 				},
-			))).To(Succeed())
+			), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
 			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 				Channels: []cesium.ChannelKey{data},
 				Bounds:   telem.TimeRangeMax,
