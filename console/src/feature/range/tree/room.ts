@@ -98,22 +98,28 @@ export const useLabelsRoom = (): RefCallback<HTMLElement> => {
     // Fitting as each item first lays out reads widths with no extra layout.
     resize.observe(list);
     const observed = new WeakSet<Element>();
-    const observe = (): void =>
+    let frame = 0;
+    const observe = (): void => {
+      frame = 0;
       list.querySelectorAll(ITEM).forEach((item) => {
         if (observed.has(item)) return;
         observed.add(item);
         resize.observe(item);
       });
+    };
     // A name or a parent's path that loads or changes leaves the items' widths as they
     // were, so only the content tells.
     const mutations = new MutationObserver((records) => {
       if (!records.some(changesRoom)) return;
-      observe();
+      // Items can mount while the browser delivers resizes, which skips an observation
+      // made then and reports a loop error. New items wait for the next frame.
+      if (frame === 0) frame = requestAnimationFrame(observe);
       fit(list);
     });
     mutations.observe(list, { childList: true, subtree: true, characterData: true });
     observe();
     return () => {
+      cancelAnimationFrame(frame);
       resize.disconnect();
       mutations.disconnect();
     };
