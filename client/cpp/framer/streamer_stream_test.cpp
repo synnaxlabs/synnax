@@ -77,6 +77,34 @@ Client frames_then_end_client(const int frames, const x::errors::Error &status) 
         channel::Client()
     };
 }
+
+/// @brief answers the open, then sends a missed marker and one frame.
+class MissedThenFrameStream final : public StreamerStream {
+    int received = 0;
+
+public:
+    std::pair<grpc::framer::StreamerResponse, x::errors::Error> receive() override {
+        grpc::framer::StreamerResponse res;
+        if (this->received++ == 1) res.set_missed(true);
+        return {res, x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::StreamerRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {}
+};
+
+class MissedThenFrameClient final : public StreamerClient {
+public:
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<StreamerStream>, x::errors::Error>
+    stream(const std::string &) override {
+        return {std::make_unique<MissedThenFrameStream>(), x::errors::NIL};
+    }
+};
 }
 
 /// @brief it should return the error the stream ends with when frames are still in
@@ -93,5 +121,21 @@ TEST(StreamerStream, CloseIgnoresEOFAfterInFlightFrames) {
     const auto client = frames_then_end_client(2, freighter::ERR_EOF);
     const auto streamer = ASSERT_NIL_P(client.open_streamer(StreamerConfig{}));
     ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should call on_missed for a missed marker and return the next frame.
+TEST(StreamerStream, ReadCallsOnMissed) {
+    const Client client{
+        std::make_unique<MissedThenFrameClient>(),
+        nullptr,
+        channel::Client()
+    };
+    int missed = 0;
+    auto streamer = ASSERT_NIL_P(
+        client.open_streamer(StreamerConfig{.on_missed = [&missed] { ++missed; }})
+    );
+    const auto frame = ASSERT_NIL_P(streamer.read());
+    ASSERT_TRUE(frame.empty());
+    ASSERT_EQ(missed, 1);
 }
 }
