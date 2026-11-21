@@ -204,7 +204,7 @@ var _ = Describe("Pointer log recovery breaker", func() {
 	) {
 		disk := MustSucceed(fault.New(fault.Config{}))
 		var image *fault.FS
-		hooked := brkHookFS{FS: disk, suffix: "meta.json", after: func() {
+		hooked := brkHookFS{FS: disk, suffix: "channel", after: func() {
 			if image == nil {
 				// The create's names reach the disk, and its bytes do not.
 				image = MustSucceed(disk.Crash(fault.CrashConfig{EntrySurvivalRate: 1}))
