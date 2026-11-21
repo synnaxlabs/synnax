@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -87,10 +86,10 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the metadata file and the directory of key, when they exist.
+// removeLogDir removes the channel file and the directory of key, when they exist.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
-	for _, name := range []string{path.Join(dir, meta.File), dir} {
+	for _, name := range []string{path.Join(dir, channelFile), dir} {
 		if err := db.fs.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -143,8 +142,12 @@ func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) b
 }
 
 // decideLog decides the fate of each key of the pointer log layout against records, as
-// decide does on the old layout, and returns the keys it keeps. The caller holds db.mu.
+// decide does on the old layout, and returns the keys it keeps. It removes the
+// directory of each torn key outside records. The caller holds db.mu.
 func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error) {
+	if err := db.removeTorn(records); err != nil {
+		return nil, err
+	}
 	snapshot, err := db.engine.state.Snapshot()
 	if err != nil {
 		return nil, err
@@ -193,6 +196,21 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 		return nil, err
 	}
 	return kept, db.dropLog(drop)
+}
+
+// removeTorn removes the directory of each torn key outside records. The caller holds
+// db.mu.
+func (db *DB) removeTorn(records set.Set[ChannelKey]) error {
+	for k := range db.mu.torn {
+		if records.Contains(k) {
+			continue
+		}
+		if err := db.removeLogDir(k); err != nil {
+			return err
+		}
+		db.mu.torn.Remove(k)
+	}
+	return nil
 }
 
 // usedLogIndexes returns the indexes outside records that a channel in records or in

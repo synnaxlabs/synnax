@@ -61,6 +61,12 @@ type engine struct {
 	// unstored gives out the alignment numbers of unstored writers, from
 	// telem.LeadingDomain.
 	unstored *telem.AlignmentCounter
+	// failed is closed with failure, the first fatal error of a caller, which ends Run.
+	failed  chan struct{}
+	failure error
+	failing sync.Once
+	// stored holds the keys that held a segment when recovery ended.
+	stored   set.Set[ChannelKey]
 	shutdown sync.Once
 	closeErr error
 	// keys holds the key of each segment that the state may give back as dead, so that
@@ -94,6 +100,7 @@ func openEngine(o *options) (*engine, error) {
 		fs:       o.fs,
 		exec:     o.executor,
 		ready:    make(chan struct{}),
+		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.keys.of = make(map[uint64]ChannelKey)
@@ -103,6 +110,10 @@ func openEngine(o *options) (*engine, error) {
 		}
 	}
 	e.db, e.head = r.db, r.head.Generation
+	e.stored = set.New[ChannelKey]()
+	for _, ch := range snapshot.Channels {
+		e.stored.Add(ch.Key)
+	}
 	if e.state, err = state.Open(state.Config{
 		Versions: set.New[uint16](segmentVersion),
 		Version:  segmentVersion,
@@ -161,7 +172,7 @@ func (e *engine) create(o *options, r *recovery) (*state.Snapshot, error) {
 // recover replays the logs into the state, writes again what recovery read, logs a
 // Restart after an unclean stop, and opens the log where recovery left it.
 func (e *engine) recover(r *recovery) (err error) {
-	if err = r.replay(e.state.Replay); err != nil {
+	if err = r.replay(e.replay); err != nil {
 		return err
 	}
 	if err = r.rewrite(); err != nil {
@@ -302,9 +313,33 @@ func (e *engine) run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 		case <-owners.Done():
+		case <-e.failed:
+			err = e.failure
 		}
 	}
 	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
+}
+
+// fail ends Run with err, when no fatal error ended it first.
+func (e *engine) fail(err error) {
+	e.failing.Do(func() {
+		e.failure = err
+		close(e.failed)
+	})
+}
+
+// replay applies the records of one recovered entry to the state, and keeps stored
+// current.
+func (e *engine) replay(sequence uint64, records []log.Record) error {
+	for _, r := range records {
+		switch r := r.(type) {
+		case *log.Create:
+			e.stored.Add(r.Key)
+		case *log.Drop:
+			e.stored.Remove(r.Key)
+		}
+	}
+	return e.state.Replay(sequence, records)
 }
 
 // close closes the owners once.
@@ -320,9 +355,9 @@ func segmentName(key ChannelKey, id uint64) string {
 	return fmt.Sprintf("%d/%016x.seg", key, id)
 }
 
-// orphans removes each segment and check file of a channel directory that snapshot
-// does not name, and cuts each named segment file to its committed length. In the root,
-// it keeps what a switch keeps.
+// orphans removes each segment and check file of a channel directory that snapshot does
+// not name, and cuts each named segment file to its committed length. In the root, it
+// keeps what a switch keeps.
 func (e *engine) orphans(snapshot *state.Snapshot) error {
 	named := make(map[string]state.Segment)
 	for _, ch := range snapshot.Channels {

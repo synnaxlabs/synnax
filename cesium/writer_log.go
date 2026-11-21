@@ -285,8 +285,8 @@ func (w *logWriter) validate(fr Frame) (telem.Series, int64, error) {
 	return clock, n, nil
 }
 
-// missingError returns the error for a frame of the current write that leaves out a
-// key of w.
+// missingError returns the error for a frame of the current write that leaves out a key
+// of w.
 func (w *logWriter) missingError() error {
 	data := make([]Channel, 0, len(w.keys)-1)
 	for _, lk := range w.keys[1:] {
@@ -477,6 +477,9 @@ func (w *logWriter) sync() error {
 		}
 	}
 	err := w.e.budget.Sync(handles)
+	if errors.Is(err, segment.ErrDirSync) {
+		w.e.fail(err)
+	}
 	if err != nil {
 		seals, takeErr := w.st.TakeBack()
 		w.entry.Reset()
