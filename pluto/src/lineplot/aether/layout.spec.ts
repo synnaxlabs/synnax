@@ -175,9 +175,15 @@ describe("spans", () => {
       expect(s.get("1")).toEqual(s.get("2"));
     });
 
-    it("should leave the end of a growing window open, past a fixed margin", () => {
+    it("should leave the end of a growing window open", () => {
       const s = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
-      expect(s.get("1")).toEqual({ lower: -SECOND, upper: Infinity });
+      expect(s.get("1")).toEqual({ lower: -3 * SECOND, upper: Infinity });
+    });
+
+    it("should keep the margin before a growing window when it ends", () => {
+      const growing = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
+      const ended = spans([trace("1", 0, MINUTE)], "relative");
+      expect(growing.get("1")?.lower).toEqual(ended.get("1")?.lower);
     });
   });
 

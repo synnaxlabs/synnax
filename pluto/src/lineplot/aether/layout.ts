@@ -156,12 +156,13 @@ export const spans = (traces: Trace[], type: TickType): Map<string, bounds.Bound
   return result;
 };
 
-const relativeSpan = ({ bounds: b, edge }: Trace): bounds.Bounds => {
-  if (edge == null) return { lower: b.lower - margin(b), upper: b.upper + margin(b) };
-  // A growing window keeps its start, so the floor keeps its span from moving.
-  const lower = edge === "growing" ? MARGIN_FLOOR : margin(b);
-  return { lower: b.lower - lower, upper: Infinity };
-};
+// relativeSpan returns the window of a trace with a margin on each side. A window with
+// a live edge has no end yet. The margin before a window grows with it, so a range that
+// ends keeps its span.
+const relativeSpan = ({ bounds: b, edge }: Trace): bounds.Bounds => ({
+  lower: b.lower - margin(b),
+  upper: edge == null ? b.upper + margin(b) : Infinity,
+});
 
 // split gives each trace the time of its window that no trace before it takes. Rolling
 // windows go first, then fixed windows, each in order of start. A rolling window ends
