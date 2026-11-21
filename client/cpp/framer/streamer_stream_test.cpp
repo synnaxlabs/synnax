@@ -78,18 +78,24 @@ Client frames_then_end_client(const int frames, const x::errors::Error &status) 
     };
 }
 
-/// @brief answers the open, then sends a missed marker and one frame.
+/// @brief answers the open, then sends a missed marker and one frame. Records whether
+/// the open request asked for missed markers.
 class MissedThenFrameStream final : public StreamerStream {
     int received = 0;
+    std::shared_ptr<bool> requested;
 
 public:
+    explicit MissedThenFrameStream(std::shared_ptr<bool> requested):
+        requested(std::move(requested)) {}
+
     std::pair<grpc::framer::StreamerResponse, x::errors::Error> receive() override {
         grpc::framer::StreamerResponse res;
         if (this->received++ == 1) res.set_missed(true);
         return {res, x::errors::NIL};
     }
 
-    x::errors::Error send(grpc::framer::StreamerRequest &) const override {
+    x::errors::Error send(grpc::framer::StreamerRequest &req) const override {
+        *this->requested = req.missed_requested();
         return x::errors::NIL;
     }
 
@@ -97,12 +103,20 @@ public:
 };
 
 class MissedThenFrameClient final : public StreamerClient {
+    std::shared_ptr<bool> requested;
+
 public:
+    explicit MissedThenFrameClient(std::shared_ptr<bool> requested):
+        requested(std::move(requested)) {}
+
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<std::unique_ptr<StreamerStream>, x::errors::Error>
     stream(const std::string &) override {
-        return {std::make_unique<MissedThenFrameStream>(), x::errors::NIL};
+        return {
+            std::make_unique<MissedThenFrameStream>(this->requested),
+            x::errors::NIL
+        };
     }
 };
 }
@@ -125,8 +139,9 @@ TEST(StreamerStream, CloseIgnoresEOFAfterInFlightFrames) {
 
 /// @brief it should call on_missed for a missed marker and return the next frame.
 TEST(StreamerStream, ReadCallsOnMissed) {
+    const auto requested = std::make_shared<bool>(false);
     const Client client{
-        std::make_unique<MissedThenFrameClient>(),
+        std::make_unique<MissedThenFrameClient>(requested),
         nullptr,
         channel::Client()
     };
@@ -135,6 +150,7 @@ TEST(StreamerStream, ReadCallsOnMissed) {
         client.open_streamer(StreamerConfig{.on_missed = [&missed] { ++missed; }})
     );
     const auto frame = ASSERT_NIL_P(streamer.read());
+    ASSERT_TRUE(*requested);
     ASSERT_TRUE(frame.empty());
     ASSERT_EQ(missed, 1);
 }

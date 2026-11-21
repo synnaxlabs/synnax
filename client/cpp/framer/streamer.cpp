@@ -20,6 +20,7 @@ void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
         this->exclude_groups.begin(),
         this->exclude_groups.end()
     );
+    f.set_missed_requested(static_cast<bool>(this->on_missed));
 }
 
 std::pair<Streamer, x::errors::Error>
