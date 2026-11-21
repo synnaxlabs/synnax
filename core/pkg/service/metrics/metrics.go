@@ -82,8 +82,7 @@ func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []me
 }
 
 // createCalculatedMetrics creates, in the group with key g, each calculated metric
-// whose
-// output does not exist yet.
+// whose output does not exist yet.
 func createCalculatedMetrics(
 	ctx context.Context,
 	tx gorp.Tx,

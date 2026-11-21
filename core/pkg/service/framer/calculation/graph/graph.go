@@ -1030,8 +1030,7 @@ func (g *Graph) CalculatedKeys() set.Set[channel.Key] {
 }
 
 // Requests returns the number of requests that the graph holds for the calculated
-// channel
-// with the given key.
+// channel with the given key.
 func (g *Graph) Requests(key channel.Key) int {
 	if info, ok := g.channels[key]; ok {
 		return info.explicitCount

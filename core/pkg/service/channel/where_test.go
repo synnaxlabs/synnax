@@ -116,8 +116,7 @@ var _ = Describe("Where", Ordered, func() {
 			v.Cases,
 			func(c vectors.Case[channel.Where], _ int) (TableEntry, bool) {
 				// The channel API gives virtual the meaning these cases hold, in which
-				// the
-				// output of a calculation is not virtual, so its specs run them.
+				// the output of a calculation is not virtual, so its specs run them.
 				return Entry(c.Name, c), !usesVirtual(c.Where)
 			},
 		),

@@ -54,8 +54,7 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 type createOptions struct {
 	retrieveIfNameExists bool
 	// freeIndex is true when the create gives each virtual, free channel with no index
-	// a
-	// free index of its own.
+	// a free index of its own.
 	freeIndex bool
 	// builtIn is true when Declare creates the channels, which the channel limit does
 	// not count.
@@ -69,8 +68,7 @@ func (o createOptions) limited(ch Channel) bool { return !o.builtIn && !ch.Virtu
 type CreateOption func(*createOptions)
 
 // FreeIndex returns a CreateOption that gives each virtual, free channel with no index
-// a
-// free index named for it, adopting a free index of that name that a deleted channel
+// a free index named for it, adopting a free index of that name that a deleted channel
 // left.
 func FreeIndex() CreateOption {
 	return func(o *createOptions) { o.freeIndex = true }

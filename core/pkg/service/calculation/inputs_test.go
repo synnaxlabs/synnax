@@ -60,8 +60,7 @@ var _ = Describe("Service", func() {
 		}))
 	})
 	// createChannel creates ch, and the calculation of expression and ops that writes
-	// it
-	// when expression is not empty.
+	// it when expression is not empty.
 	createChannel := func(
 		ctx SpecContext,
 		ch *channel.Channel,

@@ -434,6 +434,7 @@ var _ = Describe("Writer", func() {
 							ctx,
 							&calcCh2,
 							channel.RetrieveIfNameExists(),
+							channel.FreeIndex(),
 						)
 					})).To(Succeed())
 
@@ -546,7 +547,7 @@ var _ = Describe("Writer", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for a free channel",
+								"cannot serve as the index for a calculated channel",
 							),
 						),
 					))
@@ -616,12 +617,13 @@ var _ = Describe("Writer", func() {
 							ctx,
 							&calcCh,
 							channel.RetrieveIfNameExists(),
+							channel.FreeIndex(),
 						)
 					})).To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for a free channel",
+								"cannot serve as the index for a calculated channel",
 							),
 						),
 					))
@@ -648,7 +650,7 @@ var _ = Describe("Writer", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for free channel",
+								"cannot serve as the index for calculated channel",
 							),
 						),
 					))
@@ -679,7 +681,7 @@ var _ = Describe("Writer", func() {
 						MatchError(validate.ErrValidation),
 						MatchError(
 							ContainSubstring(
-								"cannot serve as the index for free channel",
+								"cannot serve as the index for calculated channel",
 							),
 						),
 					))
