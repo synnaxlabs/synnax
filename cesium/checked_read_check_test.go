@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,7 +34,7 @@ type flipOnceFS struct {
 	dir      string
 	flipping *atomic.Bool
 	mu       *sync.Mutex
-	read     map[string]bool
+	read     set.Set[string]
 }
 
 func (f flipOnceFS) Open(name string, flag int) (xfs.File, error) {
@@ -67,8 +68,8 @@ func (f flipOnceFile) ReadAt(p []byte, off int64) (int, error) {
 	f.fs.mu.Lock()
 	defer f.fs.mu.Unlock()
 	at := f.name + "@" + string(binary.LittleEndian.AppendUint64(nil, uint64(off)))
-	if !f.fs.read[at] {
-		f.fs.read[at] = true
+	if !f.fs.read.Contains(at) {
+		f.fs.read.Add(at)
 		p[n/2] ^= 1
 	}
 	return n, err
@@ -82,7 +83,7 @@ var _ = Describe("Checked read check", func() {
 			FS:       xfs.NewMem(),
 			flipping: flipping,
 			mu:       &sync.Mutex{},
-			read:     map[string]bool{},
+			read:     set.New[string](),
 		}
 		db := MustOpen(cesium.Open(
 			ctx,
