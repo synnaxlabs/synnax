@@ -122,5 +122,28 @@ describe("Channel select", () => {
       c.rerender(<Channel.SelectMultiple {...props} />);
       await waitFor(() => expect(c.queryByText(failure.message)).toBeNull());
     });
+
+    it("should show the list's empty state over a caller's status when it holds no records", async () => {
+      const failure = status.create({
+        variant: "error",
+        message: "Failed to load channels",
+      });
+      const term = id.create();
+      const c = render(
+        <Channel.SelectMultiple
+          value={[]}
+          onChange={vi.fn()}
+          filter={() => false}
+          status={failure}
+        />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(c.getAllByRole("button")[0]);
+      fireEvent.change(await c.findByPlaceholderText(/search/i), {
+        target: { value: term },
+      });
+      expect(await c.findByText(new RegExp(term))).toBeTruthy();
+      expect(c.queryByText(failure.message)).toBeNull();
+    });
   });
 });

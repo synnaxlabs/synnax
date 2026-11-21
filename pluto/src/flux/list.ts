@@ -93,6 +93,8 @@ export type UseListReturn<K extends record.Key, E extends record.Keyed<K>> = Omi
   answered: boolean;
   /** Whether the list holds every record that matches. */
   complete: boolean;
+  /** How many records the list holds before its filter hides any. */
+  total: number;
   /** Reads a record of the list, or any other record of the domain that is cached. */
   getItem: GetItem<K, E>;
   /**
@@ -304,6 +306,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     data,
     answered: window != null,
     complete: window != null && window.end == null,
+    total: records?.length ?? 0,
     getItem,
     subscribe,
     more,

@@ -47,8 +47,8 @@ export interface SelectMultipleProps
     >,
     Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {
   /**
-   * Shown in place of the list's status while set, such as the status of the lookups
-   * a filter makes.
+   * Shown in place of the list's status while set and the list holds records, such as
+   * the status of the lookups a filter makes.
    */
   status?: Select.MultipleProps<channel.Key, channel.Channel | undefined>["status"];
 }
@@ -101,7 +101,7 @@ export const SelectMultiple = ({
       haulType={HAUL_TYPE}
       onFetchMore={more}
       onSearch={search}
-      status={status ?? list.status}
+      status={status != null && list.total > 0 ? status : list.status}
       icon={<Icon.Channel />}
       triggerProps={withDefaults(client, triggerProps)}
       {...rest}
