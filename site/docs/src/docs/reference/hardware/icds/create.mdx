@@ -151,10 +151,11 @@ for (const { path, error } of await client.icds.check(oven))
 
 </Client.Tabs>
 
-Each problem is a path error. Its `path` lists the keys to the bad value, such as
-`["messages", "0", "name"]`, and is empty for a problem with the whole ICD. Its `error`
-says what is wrong. The [problems](/reference/hardware/icds/reference#problems) in the
-reference say how to fix each one.
+Each problem has a `path`, the keys to the bad value such as
+`["messages", "0", "name"]`, and an `error` that says what is wrong. The path is empty
+for a problem with the whole ICD. The
+[problems](/reference/hardware/icds/reference#problems) in the reference say how to fix
+each one.
 
 <Divider.Divider x />
 

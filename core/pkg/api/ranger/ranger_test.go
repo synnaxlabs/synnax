@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -479,7 +480,7 @@ var _ = Describe("Create", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			u = createUser(ctx)
-			l = label.Label{Name: "Labeled"}
+			l = label.Label{Name: "Labeled", Color: labelColor}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Label.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())
@@ -688,7 +689,13 @@ var _ = Describe("Retrieve", func() {
 	})
 
 	It("Should retrieve the ranges that hold any of the labels", func(ctx SpecContext) {
-		a, b := label.Label{Name: "A"}, label.Label{Name: "B"}
+		a, b := label.Label{
+			Name:  "A",
+			Color: labelColor,
+		}, label.Label{
+			Name:  "B",
+			Color: labelColor,
+		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Label.NewWriter(tx).Create(ctx, &a)
 		})).To(Succeed())
@@ -873,3 +880,6 @@ var _ = Describe("Retrieve", func() {
 		)
 	})
 })
+
+// labelColor is the color of the labels that the specs create.
+var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}
