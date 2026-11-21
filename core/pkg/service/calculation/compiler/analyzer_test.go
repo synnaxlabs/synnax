@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package compiler_test
 
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +20,8 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/query"
@@ -45,7 +46,7 @@ type formula struct {
 	Leaseholder node.Key
 	LocalKey    channel.LocalKey
 	Expression  string
-	Operations  []channel.Operation
+	Operations  []calculation.Operation
 }
 
 func (f formula) output() channel.Channel {
@@ -63,20 +64,22 @@ func (f formula) Key() channel.Key { return f.output().Key() }
 // its output.
 func analyze(
 	ctx context.Context,
-	a *channel.CalculationAnalyzer,
+	a *compiler.Analyzer,
 	c formula,
-) (channel.CalculationAnalysisResult, error) {
-	derivative := slices.ContainsFunc(c.Operations, func(op channel.Operation) bool {
-		return op.Type == channel.OperationTypeDerivative
-	})
-	return a.AnalyzeExpression(ctx, c.output(), c.Expression, derivative)
+) (compiler.AnalysisResult, error) {
+	return a.AnalyzeExpression(
+		ctx,
+		c.output(),
+		c.Expression,
+		compiler.HasDerivative(c.Operations),
+	)
 }
 
 var _ = Describe("Analyze", func() {
 	It("Should return the error of a failed read instead of diagnostics", func(
 		ctx SpecContext,
 	) {
-		a := channel.NewCalculationAnalyzer(failingResolver{})
+		a := compiler.NewAnalyzer(failingResolver{})
 		res, err := analyze(ctx, a, formula{
 			Name:       "calc",
 			Expression: "return sensor + 1",
@@ -89,7 +92,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should infer the correct type for integer literal expressions",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1 + 2"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Int64T))
@@ -99,7 +102,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should infer the correct type for float literal expressions",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1.0 + 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -117,7 +120,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float32T))
@@ -135,7 +138,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor + 1"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Int64T))
@@ -159,7 +162,7 @@ var _ = Describe("Analyze", func() {
 						ID:   20,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return a + b"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -177,7 +180,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(
+				a := compiler.NewAnalyzer(
 					r,
 					parser.Config{AllowDashedNames: true},
 				)
@@ -192,7 +195,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should return no deps for a pure literal expression",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return 1 + 2"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(BeEmpty())
@@ -210,7 +213,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return sensor * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(ConsistOf(channel.Key(10)))
@@ -234,7 +237,7 @@ var _ = Describe("Analyze", func() {
 						ID:   20,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return a + b"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.Deps).To(ConsistOf(channel.Key(10), channel.Key(20)))
@@ -252,7 +255,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{
 					Name:       "calc",
 					Expression: "return sensor + sensor",
@@ -265,7 +268,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should resolve deps from the temp cache for previously analyzed channels",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				first := formula{
 					Name:        "first",
 					Expression:  "return 1.0",
@@ -287,7 +290,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should resolve a previously analyzed channel by name",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				sensor := formula{
 					Name:        "sensor",
 					Expression:  "return 1.0",
@@ -309,7 +312,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should cache multiple channels and resolve a chain of dependencies",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				first := formula{
 					Name:        "first",
 					Expression:  "return 1.0",
@@ -346,7 +349,7 @@ var _ = Describe("Analyze", func() {
 						ID:   10,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				MustSucceed(analyze(ctx, a, formula{
 					Name:       "sensor",
 					Expression: "return 1",
@@ -362,7 +365,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should still resolve by name when the channel has key 0",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				sensor := formula{
 					Name:       "sensor",
 					Expression: "return 1.0",
@@ -380,7 +383,7 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Error Handling", func() {
 		It("Should return an error for invalid syntax", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
+			a := compiler.NewAnalyzer(StaticResolver{})
 			ch := formula{Name: "calc", Expression: "return {{invalid"}
 			Expect(
 				analyze(ctx, a, ch),
@@ -391,7 +394,7 @@ var _ = Describe("Analyze", func() {
 		It(
 			"Should return an error for an undefined channel reference",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				ch := formula{
 					Name:       "calc",
 					Expression: "return nonexistent + 1",
@@ -406,9 +409,9 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
-			"Should return zero CalculationAnalysisResult on parse error",
+			"Should return zero AnalysisResult on parse error",
 			func(ctx SpecContext) {
-				a := channel.NewCalculationAnalyzer(StaticResolver{})
+				a := compiler.NewAnalyzer(StaticResolver{})
 				ch := formula{Name: "calc", Expression: "return {{invalid"}
 				Expect(analyze(ctx, a, ch)).Error().
 					To(MatchError(ContainSubstring("extraneous input")))
@@ -416,7 +419,7 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {
-			a := channel.NewCalculationAnalyzer(StaticResolver{})
+			a := compiler.NewAnalyzer(StaticResolver{})
 			ch := formula{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := analyze(ctx, a, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
@@ -428,7 +431,7 @@ var _ = Describe("Analyze", func() {
 	Describe("Derivative Operation Type Override", func() {
 		DescribeTable(
 			"Should infer the DataType from the operations",
-			func(ctx SpecContext, ops []channel.Operation, expected telem.DataType) {
+			func(ctx SpecContext, ops []calculation.Operation, expected telem.DataType) {
 				r := StaticResolver{
 					{
 						Name: "sensor",
@@ -437,7 +440,7 @@ var _ = Describe("Analyze", func() {
 						ID:   1,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{
 					Name:       "calc",
 					Expression: "return sensor",
@@ -449,28 +452,28 @@ var _ = Describe("Analyze", func() {
 			},
 			Entry(
 				"derivative",
-				[]channel.Operation{{Type: channel.OperationTypeDerivative}},
+				[]calculation.Operation{{Variant: calculation.DerivativeOperation{}}},
 				telem.Float64T,
 			),
 			Entry(
-				"derivative then none",
-				[]channel.Operation{
-					{Type: channel.OperationTypeDerivative},
-					{Type: channel.OperationTypeNone},
+				"derivative then max",
+				[]calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
+					{Variant: calculation.MaxOperation{}},
 				},
 				telem.Float64T,
 			),
 			Entry(
 				"derivative then avg",
-				[]channel.Operation{
-					{Type: channel.OperationTypeDerivative},
-					{Type: channel.OperationTypeAvg},
+				[]calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
+					{Variant: calculation.AvgOperation{}},
 				},
 				telem.Float64T,
 			),
 			Entry(
 				"avg",
-				[]channel.Operation{{Type: channel.OperationTypeAvg}},
+				[]calculation.Operation{{Variant: calculation.AvgOperation{}}},
 				telem.Int32T,
 			),
 		)
@@ -488,7 +491,7 @@ var _ = Describe("Analyze", func() {
 						ID:   100,
 					},
 				}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				ch := formula{Name: "calc", Expression: "return external * 2.0"}
 				res := MustSucceed(analyze(ctx, a, ch))
 				Expect(res.ChanDataType).To(Equal(telem.Float64T))
@@ -500,7 +503,7 @@ var _ = Describe("Analyze", func() {
 			"Should never report an analyzed channel without a data type",
 			func(ctx SpecContext, found int) {
 				r := &disappearingResolver{found: found}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				res, err := analyze(ctx, a, formula{
 					Name:       "calc",
 					Expression: "return 100 / base",
@@ -516,7 +519,7 @@ var _ = Describe("Analyze", func() {
 			"Should resolve a dependency the same way throughout one analysis",
 			func(ctx SpecContext) {
 				r := &disappearingResolver{found: 1}
-				a := channel.NewCalculationAnalyzer(r)
+				a := compiler.NewAnalyzer(r)
 				res := MustSucceed(analyze(ctx, a, formula{
 					Name:       "calc",
 					Expression: "return 100 / base",

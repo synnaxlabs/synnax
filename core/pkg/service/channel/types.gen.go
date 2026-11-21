@@ -33,28 +33,6 @@ type LocalKey = versions.LocalKey
 // unique across channels.
 type Name = versions.Name
 
-// OperationType is the type of aggregation operation to apply to channel data over
-// time.
-type OperationType = versions.OperationType
-
-const (
-	// OperationTypeMin keeps the lowest sample since the last reset.
-	OperationTypeMin OperationType = versions.OperationTypeMin
-	// OperationTypeMax keeps the highest sample since the last reset.
-	OperationTypeMax OperationType = versions.OperationTypeMax
-	// OperationTypeAvg keeps the mean of the samples since the last reset.
-	OperationTypeAvg OperationType = versions.OperationTypeAvg
-	// OperationTypeNone applies no aggregation.
-	OperationTypeNone OperationType = versions.OperationTypeNone
-	// OperationTypeDerivative computes the rate of change of the samples.
-	OperationTypeDerivative OperationType = versions.OperationTypeDerivative
-)
-
-// Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, average, or derivative values over a time duration or triggered
-// by a reset channel.
-type Operation = versions.Operation
-
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.

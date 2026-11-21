@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -58,7 +58,7 @@ type Writer struct {
 	editedModules       *gorp.Attachment[Key]
 	pathChanges         *gorp.Attachment[struct{}]
 	rebuild             func(
-		context.Context, gorp.Snapshot, *channel.Lookups, Key,
+		context.Context, gorp.Snapshot, *resolver.Lookups, Key,
 	) (Build, error)
 	hashModules func(
 		context.Context, gorp.Snapshot, []string,
@@ -312,7 +312,7 @@ func (w Writer) updatedTask(
 // that b made gives another answer in w.tx, current schedules a resync of the Arc.
 func (w Writer) current(ctx context.Context, b Build, key Key) (Build, error) {
 	if b.lookups == nil {
-		return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
+		return w.rebuild(ctx, w.tx, &resolver.Lookups{}, key)
 	}
 	same, err := b.lookups.Unchanged(ctx, w.tx)
 	if err != nil {

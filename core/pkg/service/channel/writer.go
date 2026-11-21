@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -124,7 +123,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	if next.Name != prev.Name {
 		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
-			return nil, err
+			return nil, withoutPosition(err)
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
@@ -174,18 +173,41 @@ func dataTypeAction(dt telem.DataType) Action {
 	return NewSetAction(SetPayload{Path: []string{"data_type"}, Value: dt})
 }
 
+// BatchError is the error of the channel at position At of the channels that a Writer
+// method takes.
+type BatchError struct {
+	// At is the position of the channel.
+	At int
+	// Err is the error of the channel.
+	Err error
+}
+
+// Error implements error.
+func (e BatchError) Error() string { return fmt.Sprintf("%d: %v", e.At, e.Err) }
+
+// Unwrap returns Err.
+func (e BatchError) Unwrap() error { return e.Err }
+
+// withoutPosition returns the error of the one channel of a batch that err fails.
+func withoutPosition(err error) error {
+	if b, ok := errors.AsType[BatchError](err); ok {
+		return b.Err
+	}
+	return err
+}
+
 // Create creates a single channel, as CreateMany does.
 func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) error {
 	channels := []Channel{*c}
 	if err := w.CreateMany(ctx, &channels, opts...); err != nil {
-		return err
+		return withoutPosition(err)
 	}
 	*c = channels[0]
 	return nil
 }
 
-// CreateMany creates multiple channels, and the Core assigns the key of each. A failed
-// channel's error holds its position in channels.
+// CreateMany creates multiple channels, and the Core assigns the key of each. The error
+// of a failed channel is a BatchError at its position in channels.
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
@@ -324,12 +346,15 @@ func (w Writer) usedIndexes(
 func (w Writer) Rename(
 	ctx context.Context, key Key, newName string, allowInternal bool,
 ) error {
-	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal)
+	return withoutPosition(
+		w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal),
+	)
 }
 
 // RenameMany renames the channels with the given keys to the corresponding entries in
 // newNames, which must be parallel to keys, and attaches a rename action for each one.
-// Unless allowInternal is true, renaming any internal channel returns an error.
+// Unless allowInternal is true, renaming any internal channel returns an error. The
+// error of a name that is not valid is a BatchError at its position in keys.
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
@@ -402,7 +427,7 @@ func (w Writer) validateCreate(
 ) error {
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
-			return validate.PathedError(err, strconv.Itoa(i))
+			return BatchError{At: i, Err: err}
 		}
 		if err := group.CheckMember(
 			ctx,
@@ -411,7 +436,7 @@ func (w Writer) validateCreate(
 			resource.TypeChannel,
 			nil,
 		); err != nil {
-			return validate.PathedError(err, strconv.Itoa(i))
+			return BatchError{At: i, Err: err}
 		}
 	}
 	if !*w.svc.cfg.ValidateNames {
@@ -792,12 +817,12 @@ func (w Writer) validateChannelNames(
 		if existingCh.Key() == keys[i] {
 			continue
 		}
-		return validate.PathedError(
+		return BatchError{At: i, Err: validate.PathedError(
 			errors.Wrapf(
 				validate.ErrValidation, "channel with name '%s' already exists", name,
 			),
-			fmt.Sprintf("[%d].name", i),
-		)
+			"name",
+		)}
 	}
 	return nil
 }
@@ -807,27 +832,27 @@ func (w Writer) validateChannelNames(
 func validateNameSyntax(names []string) error {
 	for i, name := range names {
 		if name != "" && !validate.IsIdentifier(name) {
-			return validate.PathedError(
+			return BatchError{At: i, Err: validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
 					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
 					name,
 				),
-				fmt.Sprintf("[%d]", i), "name",
-			)
+				"name",
+			)}
 		}
 	}
 	namesSeen := make(set.Set[string], len(names))
 	for i, name := range names {
 		if namesSeen.Contains(name) {
-			return validate.PathedError(
+			return BatchError{At: i, Err: validate.PathedError(
 				errors.Wrapf(
 					validate.ErrValidation,
 					"duplicate channel name '%s' in request",
 					name,
 				),
-				fmt.Sprintf("[%d].name", i),
-			)
+				"name",
+			)}
 		}
 		namesSeen.Add(name)
 	}

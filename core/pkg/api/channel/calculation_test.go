@@ -64,7 +64,7 @@ var _ = Describe("Calculation records", func() {
 			Exec(ctx, db)).To(Succeed())
 		return out
 	}
-	calculated := func(input channel.Channel, ops ...channel.Operation) apichannel.Channel {
+	calculated := func(input channel.Channel, ops ...apichannel.Operation) apichannel.Channel {
 		return apichannel.Channel{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
@@ -122,6 +122,12 @@ var _ = Describe("Calculation records", func() {
 		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
 		unnamed.Expression = "return 2"
 		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
+		badName := apichannel.Channel{
+			Name:     "bad name",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(pathOf(calculated(input), badName)).To(Equal([]string{"1", "name"}))
 	})
 
 	It("Should write the record of a calculated channel", func(ctx SpecContext) {
@@ -130,13 +136,13 @@ var _ = Describe("Calculation records", func() {
 		ch := create(ctx, apichannel.CreateRequest{Channels: []apichannel.Channel{
 			calculated(
 				input,
-				channel.Operation{
-					Type:     channel.OperationTypeAvg,
+				apichannel.Operation{
+					Type:     apichannel.OperationTypeAvg,
 					Duration: telem.Second,
 				},
-				channel.Operation{Type: channel.OperationTypeNone},
-				channel.Operation{
-					Type:         channel.OperationTypeMax,
+				apichannel.Operation{Type: apichannel.OperationTypeNone},
+				apichannel.Operation{
+					Type:         apichannel.OperationTypeMax,
 					ResetChannel: reset.Key(),
 				},
 			),
@@ -196,5 +202,67 @@ var _ = Describe("Calculation records", func() {
 		records := recordsOf(ctx, ch.Key)
 		Expect(records).To(HaveLen(1))
 		Expect(records[0].Expression).To(Equal(expression))
+	})
+
+	It("Should update the record when a dispatch sets the operations", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		ch := create(ctx, apichannel.CreateRequest{
+			Channels: []apichannel.Channel{calculated(input)},
+		})
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: ch.Key,
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path: []string{"operations"},
+				Value: []apichannel.Operation{
+					{Type: apichannel.OperationTypeMax, Duration: telem.Second},
+					{Type: apichannel.OperationTypeDerivative},
+				},
+			})},
+		})).Error().To(Succeed())
+		Expect(recordsOf(ctx, ch.Key)).To(ConsistOf(HaveField(
+			"Operations",
+			[]calculation.Operation{
+				{Variant: calculation.MaxOperation{
+					Window: calculation.Window{Duration: telem.Second},
+				}},
+				{Variant: calculation.DerivativeOperation{}},
+			},
+		)))
+	})
+
+	It("Should return a set of the data type that a dispatch changes", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		wide := createChannel(ctx, telem.Int64T)
+		ch := create(ctx, apichannel.CreateRequest{
+			Channels: []apichannel.Channel{calculated(input)},
+		})
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: ch.Key,
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path:  []string{"expression"},
+				Value: fmt.Sprintf("return %s * 2", wide.Name),
+			})},
+		}))
+		Expect(res.Actions).To(ConsistOf(channel.NewSetAction(channel.SetPayload{
+			Path:  []string{"data_type"},
+			Value: telem.Int64T,
+		})))
+	})
+
+	It("Should refuse a dispatch of the expression of a plain channel", func(
+		ctx SpecContext,
+	) {
+		plain := createChannel(ctx, telem.Float32T)
+		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+			Key: plain.Key(),
+			Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+				Path:  []string{"expression"},
+				Value: "return 3",
+			})},
+		})).Error().To(MatchError(validate.ErrValidation))
 	})
 })

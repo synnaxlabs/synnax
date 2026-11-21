@@ -38,6 +38,7 @@ type benchEnv struct {
 }
 
 func openBenchEnv(b *testing.B) benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
@@ -74,6 +75,7 @@ func openBenchEnv(b *testing.B) benchEnv {
 }
 
 func (e benchEnv) openGraph(b *testing.B) *graph.Graph {
+	b.Helper()
 	return lo.Must(graph.Open(b.Context(), graph.Config{
 		DB:          e.db,
 		Channel:     e.channels,

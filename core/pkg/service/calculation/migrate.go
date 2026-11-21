@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	channelv2 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -79,10 +80,7 @@ func (s *Service) Migration(
 			for i, st := range staged {
 				owners[i] = channel.ResourceID(st.output)
 				output := byKey[st.output]
-				c, dropped, err := migratedCalculation(st, issuedAtOpen)
-				if err != nil {
-					return err
-				}
+				c, dropped := migratedCalculation(st, issuedAtOpen)
 				if err = s.table.NewCreate().Entry(&c).Exec(ctx, tx); err != nil {
 					return err
 				}
@@ -102,23 +100,41 @@ func (s *Service) Migration(
 	)
 }
 
-// storedOperations returns the operations of ops that have a type, with each reset
-// channel that the Core never issued cleared, and whether it dropped any.
-func storedOperations(
-	ops []channel.Operation,
+// migratedOperations returns the record form of the staged operations ops. It drops a
+// none operation and an operation with no type, and clears each reset channel that the
+// Core never issued. It reports whether it dropped an operation with no type.
+func migratedOperations(
+	ops []channelv1.Operation,
 	issuedAtOpen func(channel.Key) bool,
-) ([]channel.Operation, bool) {
-	kept := make([]channel.Operation, 0, len(ops))
+) ([]Operation, bool) {
+	var (
+		out     = make([]Operation, 0, len(ops))
+		dropped bool
+	)
 	for _, op := range ops {
-		if !op.Type.IsValid() {
+		w := Window{Duration: op.Duration}
+		if op.ResetChannel != 0 && issuedAtOpen(op.ResetChannel) {
+			w.Reset = new(op.ResetChannel)
+		}
+		var variant OperationVariant
+		switch op.Type {
+		case channelv1.OperationTypeMin:
+			variant = MinOperation{Window: w}
+		case channelv1.OperationTypeMax:
+			variant = MaxOperation{Window: w}
+		case channelv1.OperationTypeAvg:
+			variant = AvgOperation{Window: w}
+		case channelv1.OperationTypeDerivative:
+			variant = DerivativeOperation{}
+		case channelv1.OperationTypeNone:
+			continue
+		default:
+			dropped = true
 			continue
 		}
-		if op.ResetChannel != 0 && !issuedAtOpen(op.ResetChannel) {
-			op.ResetChannel = 0
-		}
-		kept = append(kept, op)
+		out = append(out, Operation{Variant: variant})
 	}
-	return kept, len(kept) < len(ops)
+	return out, dropped
 }
 
 // droppedStatus returns the warning that the upgrade dropped operations of the channel
@@ -174,16 +190,12 @@ func scanStaged(tx gorp.Tx) (out []staged, err error) {
 func migratedCalculation(
 	st staged,
 	issuedAtOpen func(channel.Key) bool,
-) (Calculation, bool, error) {
-	kept, dropped := storedOperations(st.Operations, issuedAtOpen)
-	ops, err := FromChannelOperations(kept)
-	if err != nil {
-		return Calculation{}, false, err
-	}
+) (Calculation, bool) {
+	ops, dropped := migratedOperations(st.Operations, issuedAtOpen)
 	return Calculation{
 		Key:        migratedKey(st.output),
 		Output:     st.output,
 		Expression: st.Expression,
 		Operations: ops,
-	}, dropped, nil
+	}, dropped
 }

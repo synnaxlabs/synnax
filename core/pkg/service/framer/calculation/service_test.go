@@ -29,6 +29,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -924,9 +925,10 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
 					Expression: "return " + base.Name,
-					Operations: []channel.Operation{{
-						Type:         channel.OperationTypeMax,
-						ResetChannel: sig.Key(),
+					Operations: []calcsvc.Operation{{
+						Variant: calcsvc.MaxOperation{
+							Window: calcsvc.Window{Reset: new(sig.Key())},
+						},
 					}},
 				}))
 				expectReset(
@@ -958,9 +960,10 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
 					Expression: "return " + base.Name,
-					Operations: []channel.Operation{{
-						Type:         channel.OperationTypeMax,
-						ResetChannel: resetCalc.Key(),
+					Operations: []calcsvc.Operation{{
+						Variant: calcsvc.MaxOperation{
+							Window: calcsvc.Window{Reset: new(resetCalc.Key())},
+						},
 					}},
 				}))
 				expectReset(
@@ -1648,7 +1651,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
 						changes.Add(-1) >= 0 {
 						changed <- struct{}{}
-						return compiler.Module{}, channel.ErrLookupsChanged
+						return compiler.Module{}, resolver.ErrLookupsChanged
 					}
 					return compiler.Compile(ctx, db, cfgs...)
 				},
@@ -1832,7 +1835,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(creator.Apply(
 					ctx,
 					calc.Key(),
-					channel.NewSetAction(channel.SetPayload{
+					calcsvc.NewSetAction(calcsvc.SetPayload{
 						Path:  []string{"expression"},
 						Value: fmt.Sprintf("return %s * 3", bases[0].Name),
 					}),
@@ -1886,7 +1889,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(creator.Apply(
 				ctx,
 				calcs[0].Key(),
-				channel.NewSetAction(channel.SetPayload{
+				calcsvc.NewSetAction(calcsvc.SetPayload{
 					Path:  []string{"expression"},
 					Value: fmt.Sprintf("return %s * 3", bases[0].Name),
 				}),
@@ -1949,7 +1952,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(creator.Apply(
 				ctx,
 				calcCh.Key(),
-				channel.NewSetAction(channel.SetPayload{
+				calcsvc.NewSetAction(calcsvc.SetPayload{
 					Path:  []string{"expression"},
 					Value: fmt.Sprintf("return %s * 3", baseCh.Name),
 				}),
@@ -2018,7 +2021,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(creator.Apply(
 				ctx,
 				calcs[0].Key(),
-				channel.NewSetAction(channel.SetPayload{
+				calcsvc.NewSetAction(calcsvc.SetPayload{
 					Path:  []string{"expression"},
 					Value: fmt.Sprintf("return %s * 3", baseCh2.Name),
 				}),

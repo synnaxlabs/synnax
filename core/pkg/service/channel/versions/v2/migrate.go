@@ -30,7 +30,7 @@ type StagedCalculation struct {
 	// Expression is the expression of the channel.
 	Expression string `json:"expression"`
 	// Operations are the operations of the channel.
-	Operations []Operation `json:"operations"`
+	Operations []v1.Operation `json:"operations"`
 }
 
 // StageCalculations copies the expression and operations of each stored channel that

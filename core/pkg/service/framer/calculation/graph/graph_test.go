@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -93,8 +94,8 @@ func rename(ctx context.Context, key channel.Key, name string) {
 // setExpression applies a set of expr to the expression of ch, then reads ch back.
 func setExpression(ctx context.Context, ch *channel.Channel, expr string) {
 	GinkgoHelper()
-	Expect(creator.Apply(ctx, ch.Key(), channel.NewSetAction(
-		channel.SetPayload{Path: []string{"expression"}, Value: expr},
+	Expect(creator.Apply(ctx, ch.Key(), calculation.NewSetAction(
+		calculation.SetPayload{Path: []string{"expression"}, Value: expr},
 	))).To(Succeed())
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(ch.Key())).
@@ -1347,7 +1348,7 @@ var _ = Describe("Graph", func() {
 					) (compiler.Module, error) {
 						compiled = append(compiled, cfgs[0].Channel.Key())
 						if cfgs[0].Channel.Key() == failing {
-							return compiler.Module{}, channel.ErrLookupsChanged
+							return compiler.Module{}, resolver.ErrLookupsChanged
 						}
 						return compiler.Compile(ctx, db, cfgs...)
 					},
@@ -1384,7 +1385,7 @@ var _ = Describe("Graph", func() {
 				setExpression(ctx, &parent, "return f32(rollback_raw)")
 				failing = child.Key()
 				Expect(update(ctx, g, parent)).
-					To(MatchError(channel.ErrLookupsChanged))
+					To(MatchError(resolver.ErrLookupsChanged))
 				Expect(dataTypes()).To(Equal(before))
 
 				failing, compiled = 0, nil
@@ -1431,7 +1432,7 @@ var _ = Describe("Graph", func() {
 						cfgs ...compiler.Config,
 					) (compiler.Module, error) {
 						if cfgs[0].Channel.Key() == failing {
-							return compiler.Module{}, channel.ErrLookupsChanged
+							return compiler.Module{}, resolver.ErrLookupsChanged
 						}
 						return compiler.Compile(ctx, db, cfgs...)
 					},
@@ -1467,7 +1468,7 @@ var _ = Describe("Graph", func() {
 
 				for _, dep := range deps {
 					failing = dep.Key()
-					Expect(add(ctx, g, sum)).To(MatchError(channel.ErrLookupsChanged))
+					Expect(add(ctx, g, sum)).To(MatchError(resolver.ErrLookupsChanged))
 					Expect(g.CalculatedKeys()).To(BeEmpty())
 				}
 				failing = 0
@@ -1647,7 +1648,7 @@ var _ = Describe("Graph", func() {
 				Expect(failures.Len()).To(Equal(logged))
 			},
 			Entry("a compile failure", errors.New("bad expression"), 1),
-			Entry("changed lookups", channel.ErrLookupsChanged, 0),
+			Entry("changed lookups", resolver.ErrLookupsChanged, 0),
 		)
 	})
 })

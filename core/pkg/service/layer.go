@@ -33,6 +33,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -956,7 +957,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
 		Parser: parser.Config{
-			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+			AllowDashedNames: resolver.AllowDashedNames(l.Channel),
 		},
 	})
 	if !ok(err, arcTable) {

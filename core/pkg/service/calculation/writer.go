@@ -12,7 +12,6 @@ package calculation
 import (
 	"context"
 	"slices"
-	"strconv"
 	"strings"
 	"uuid"
 
@@ -113,7 +112,10 @@ func (w Writer) CreateOutput(
 	if err = w.channels.NewWriter(w.tx).
 		WithDispatchKey(w.dispatchKey).
 		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
-		return nil, reindex(err, func(int) []string { return nil })
+		if b, ok := errors.AsType[channel.BatchError](err); ok {
+			err = b.Err
+		}
+		return nil, err
 	}
 	c.Output = created[0].Key()
 	return created, w.Create(ctx, c)
@@ -263,7 +265,7 @@ func (w Writer) compile(
 	}), "operations"); err != nil {
 		return err
 	}
-	c.Reads = sortedReads(result.Deps)
+	c.Reads = result.Deps
 	return nil
 }
 
@@ -272,7 +274,7 @@ func (w Writer) compile(
 // through other calculations.
 func (w Writer) checkCycle(
 	ctx context.Context,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 	output channel.Channel,
 	deps channel.Keys,
 ) error {
@@ -340,19 +342,20 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 	), "expression")
 }
 
-func (w Writer) newAnalyzer() *channel.CalculationAnalyzer { return w.svc.newAnalyzer(w.tx) }
+func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
 
-// SetReads stores reads as the reads of c, as a compile found them, and broadcasts a
-// set of them. It writes nothing when c already holds them.
+// SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
+// set
+// of them. It writes nothing when c already holds the same channels.
 func (w Writer) SetReads(
 	ctx context.Context,
 	c Calculation,
 	reads []channel.Key,
 ) error {
-	reads = sortedReads(reads)
-	if slices.Equal(reads, c.Reads) {
+	if sameKeys(reads, c.Reads) {
 		return nil
 	}
+	reads = slices.Sorted(slices.Values(lo.Uniq(reads)))
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Calculation](c.Key)).
 		Change(func(_ gorp.Context, stored Calculation) Calculation {
@@ -369,11 +372,6 @@ func (w Writer) SetReads(
 	return nil
 }
 
-// sortedReads returns reads in order, each once, as a record holds them.
-func sortedReads(reads []channel.Key) []channel.Key {
-	return slices.Sorted(slices.Values(lo.Uniq(reads)))
-}
-
 // Delete deletes the calculations with the given keys. A key with no calculation is not
 // an error. The output of each one stays as a channel with no producer.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
@@ -382,50 +380,18 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
-// storedChannels returns the stored channels that have the name or key of a channel in
-// channels.
-func (w Writer) storedChannels(
-	ctx context.Context,
-	channels []channel.Channel,
-) ([]channel.Channel, error) {
-	var byName []channel.Channel
-	if err := w.channels.NewRetrieve().
-		Where(channel.MatchNames(channel.Names(channels)...)).
-		Entries(&byName).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	var keys []channel.Key
-	for _, ch := range channels {
-		if ch.LocalKey != 0 {
-			keys = append(keys, ch.Key())
+// sameKeys reports whether a and b hold the same keys, in any order and with any
+// repeats, without allocating.
+func sameKeys(a, b []channel.Key) bool {
+	for _, k := range a {
+		if !slices.Contains(b, k) {
+			return false
 		}
 	}
-	if len(keys) == 0 {
-		return byName, nil
+	for _, k := range b {
+		if !slices.Contains(a, k) {
+			return false
+		}
 	}
-	var byKey []channel.Channel
-	if err := w.channels.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		SkipMissingKeys().
-		Entries(&byKey).
-		Exec(ctx, w.tx); err != nil {
-		return nil, err
-	}
-	return slices.Concat(byName, byKey), nil
-}
-
-// reindex replaces the position p that leads the path of err, an error from
-// channel.Writer.CreateMany, with at(p).
-func reindex(err error, at func(p int) []string) error {
-	pathErr, ok := errors.AsType[validate.PathError](err)
-	if !ok || len(pathErr.Path) == 0 {
-		return err
-	}
-	p, convErr := strconv.Atoi(pathErr.Path[0])
-	if convErr != nil {
-		return err
-	}
-	pathErr.Path = slices.Concat(at(p), pathErr.Path[1:])
-	return pathErr
+	return true
 }

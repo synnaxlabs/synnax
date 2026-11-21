@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -936,12 +937,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
 			Expression: "return " + base[0].Name,
-			Operations: []channel.Operation{
-				{
-					Type:     "avg",
-					Duration: 6 * telem.Second,
+			Operations: []calculation.Operation{{
+				Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 6 * telem.Second},
 				},
-			},
+			}},
 		})
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -1000,9 +1000,11 @@ var _ = Describe("Calculator", Ordered, func() {
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
 					Expression: "return " + base[0].Name,
-					Operations: []channel.Operation{
-						{Type: "max", ResetChannel: reset.Key()},
-					},
+					Operations: []calculation.Operation{{
+						Variant: calculation.MaxOperation{
+							Window: calculation.Window{Reset: new(reset.Key())},
+						},
+					}},
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).
@@ -1033,8 +1035,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
 				Expression: "return " + base[0].Name,
-				Operations: []channel.Operation{
-					{Type: "derivative"},
+				Operations: []calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
 				},
 			})
 			d := telem.NewSeriesV[int64](10, 20, 40)
@@ -1084,15 +1086,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
 			Expression: "return " + base[0].Name,
-			Operations: []channel.Operation{
-				{
-					Type:     "avg",
-					Duration: 3 * telem.Second,
-				},
-				{
-					Type:     "avg",
-					Duration: 6 * telem.Second,
-				},
+			Operations: []calculation.Operation{
+				{Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 3 * telem.Second},
+				}},
+				{Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 6 * telem.Second},
+				}},
 			},
 		})
 
@@ -1415,7 +1415,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
+				compiler.NewAnalyzer(resolver.New(channelSvc, db)).
 					AnalyzeExpression(
 						ctx,
 						channel.Channel{Name: calc.Name, Virtual: true},

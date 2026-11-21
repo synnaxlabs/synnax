@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
@@ -41,37 +40,6 @@ var _ = Describe("Service", func() {
 				Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())
 			},
 		)
-	})
-
-	Describe("NewArcSymbolResolver", func() {
-		It(
-			"Should resolve a channel created through the service by name",
-			func(ctx SpecContext) {
-				ch := channel.Channel{
-					Name:     "arc_resolver_by_name",
-					DataType: telem.Float32T,
-					Virtual:  true,
-				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &ch)
-				})).To(Succeed())
-				sym := MustSucceed(svc.NewArcSymbolResolver(db).Resolve(ctx, ch.Name))
-				Expect(sym.Name).To(Equal(ch.Name))
-				Expect(sym.ID).To(Equal(int(ch.Key())))
-			},
-		)
-		It("Should fuzzy-search channels by name", func(ctx SpecContext) {
-			ch := channel.Channel{
-				Name:     "catalina",
-				DataType: telem.Float32T,
-				Virtual:  true,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &ch)
-			})).To(Succeed())
-			Expect(svc.NewArcSymbolResolver(db).Search(ctx, ch.Name)).
-				To(ContainElement(HaveField("Name", ch.Name)))
-		})
 	})
 
 	Describe("NewRetrieve", func() {

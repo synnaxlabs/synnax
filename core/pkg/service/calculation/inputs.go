@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -55,10 +56,10 @@ type Unsaved struct {
 }
 
 // newAnalyzer returns an analyzer that resolves channels through snap.
-func (s *Service) newAnalyzer(snap gorp.Snapshot) *channel.CalculationAnalyzer {
-	return channel.NewCalculationAnalyzer(
-		s.channels.NewArcSymbolResolver(snap),
-		parser.Config{AllowDashedNames: !s.channels.ShouldValidateNames()},
+func (s *Service) newAnalyzer(snap gorp.Snapshot) *compiler.Analyzer {
+	return compiler.NewAnalyzer(
+		resolver.New(s.channels, snap),
+		parser.Config{AllowDashedNames: resolver.AllowDashedNames(s.channels)},
 	)
 }
 
@@ -154,7 +155,7 @@ func (s *Service) pendingOf(
 // resolved.
 func calculationReads(
 	ctx context.Context,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 	u Unsaved,
 ) (channel.Keys, error) {
 	result, err := analyzer.AnalyzeExpression(
