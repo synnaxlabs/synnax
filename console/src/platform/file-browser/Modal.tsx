@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
@@ -31,6 +32,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useDispatch } from "react-redux";
 
 import { CSS } from "@/platform/css";
 import {
@@ -46,8 +48,10 @@ import {
 } from "@/platform/file-browser/Entries";
 import type { Entry, Listing } from "@/platform/file-browser/list";
 import {
+  basenameOf,
   dirnameOf,
   expandHome,
+  hidden,
   normalize,
   withSeparator,
 } from "@/platform/file-browser/path";
@@ -57,6 +61,7 @@ import { useSession } from "@/platform/file-browser/Provider";
 import type { Session, Snapshot } from "@/platform/file-browser/session";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+import { FileBrowser } from "@/session/file-browser";
 
 const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
@@ -97,10 +102,13 @@ export interface ModalParams {
   rack: rack.Key;
   /**
    * A file whose folder the modal opens first, with the file selected. Without it, or
-   * when it is not absolute, the home folder opens.
+   * when it is not absolute, the folder of the last file picked on the rack opens, or
+   * else the home folder.
    */
   path?: string;
 }
+
+const HIDDEN_FILES_TRIGGER: PTriggers.Trigger = ["Control", "Shift", "Period"];
 
 const Content = ({
   close,
@@ -111,14 +119,19 @@ const Content = ({
   const snapshot = useSnapshot(session);
   const now = useNow(nextMinute);
   const rackResult = Rack.useResult({ key: rack });
+  const dispatch = useDispatch();
+  const recent = FileBrowser.useSelectRecent(rack);
   const startFile = normalize(start.trim());
   const [history, setHistory] = useState<History>(() => ({
-    stack: [dirnameOf(startFile)],
+    stack: [startFile === "" ? (recent[0] ?? "") : dirnameOf(startFile)],
     index: 0,
   }));
   const [selected, setSelected] = useState<string | null>(() =>
     startFile === "" ? null : startFile,
   );
+  const [hiddenShown, setHiddenShown] = useState(() => hidden(basenameOf(startFile)));
+  // Each navigation clears the filter, so it never hides the entry that opens selected.
+  const [query, setQuery] = useState("");
   const [type, setType] = useState<TypeFilter>("certificates");
   const [sort, setSort] = useState<Sort>({ key: "name", ascending: true });
   const [shownPath, setShownPath] = useState<string | null>(null);
@@ -126,6 +139,7 @@ const Content = ({
   const [editing, setEditing] = useState<string | null>(null);
   const holderRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
   // Each navigation counts, so a typed path that resolves late does not undo a later
   // one.
   const navigations = useRef(0);
@@ -153,11 +167,17 @@ const Content = ({
 
   // Each visit lists the folder again, and the places while they have no listing. The
   // snapshot shows the result or the failure. Try again sends new requests, as one in
-  // flight can carry an answer from before the click.
+  // flight can carry an answer from before the click. A start folder from Recent that
+  // fails gives way to the home folder.
   const relist = (fresh: boolean = false): void => {
     if (path !== "" && !snapshot.listings.has(""))
       session?.list("", fresh).catch(() => {});
-    session?.list(path, fresh).catch(() => {});
+    session?.list(path, fresh).catch(() => {
+      if (startFile !== "" || path === "" || path === home) return;
+      setHistory((h) =>
+        h.stack.length === 1 && h.stack[0] === path ? { stack: [""], index: 0 } : h,
+      );
+    });
   };
   useEffect(() => relist(), [session, path]);
 
@@ -175,24 +195,33 @@ const Content = ({
   const failure = snapshot.failures.get(path);
   // While a folder loads or fails, the dimmed last folder offers no file to pick.
   const current = !stale && failure == null;
-  const entries: KeyedEntry[] =
-    shown == null
-      ? []
-      : sortEntries(shown.entries, sort).map((e) => ({ ...e, key: e.path }));
+  const visible = shown?.entries.filter((e) => hiddenShown || !hidden(e.name)) ?? [];
+  const folded = query.toLowerCase();
+  const matched = visible.filter((e) => e.name.toLowerCase().includes(folded));
+  const entries: KeyedEntry[] = sortEntries(matched, sort).map((e) => ({
+    ...e,
+    key: e.path,
+  }));
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
 
+  // A hidden entry to select shows the hidden entries, so it is in the list.
+  const select = (key: string | null): void => {
+    setSelected(key);
+    if (key != null && hidden(basenameOf(key))) setHiddenShown(true);
+  };
   // A folder opens with the entry selected, such as the folder the user came up from.
   const countNavigation = (): void => {
     navigations.current++;
     setResolving(false);
+    setQuery("");
   };
-  const go = (to: string, select: string | null = null): void => {
+  const go = (to: string, entry: string | null = null): void => {
     countNavigation();
     if (to === path) {
-      if (select != null) setSelected(select);
+      if (entry != null) select(entry);
       return;
     }
-    setSelected(select);
+    select(entry);
     setHistory((h) => ({
       stack: [...h.stack.slice(0, h.index + 1), to],
       index: h.index + 1,
@@ -201,7 +230,8 @@ const Content = ({
   const back = (): void => {
     if (history.index === 0) return;
     countNavigation();
-    setSelected(path);
+    // The folder left is selected only in its parent.
+    select(dirnameOf(path) === history.stack[history.index - 1] ? path : null);
     setHistory((h) => ({ ...h, index: h.index - 1 }));
   };
   const forward = (): void => {
@@ -215,9 +245,13 @@ const Content = ({
   const up = (): void => {
     if (canGoUp) go(parent, path);
   };
+  const pick = (entry: Entry): void => {
+    dispatch(FileBrowser.addRecent({ rack, folder: dirnameOf(entry.path) }));
+    close(entry);
+  };
   const open = (entry: Entry): void => {
     if (entry.kind === "directory") go(entry.path);
-    else if (current && pickable(entry, typeFilter)) close(entry);
+    else if (current && pickable(entry, typeFilter)) pick(entry);
   };
   const listAhead = (folder: string): void => session?.prefetch(folder);
   // A folder the user points at lists in the background, so it often opens at once.
@@ -284,18 +318,45 @@ const Content = ({
     if (editing != null) return;
     const mod = e.metaKey || e.ctrlKey;
     const key = e.key.toLowerCase();
-    if ((e.ctrlKey && key === "l") || (mod && e.shiftKey && key === "g")) {
+    // The filter keeps the arrow keys that move its caret.
+    const inInput = e.target instanceof HTMLInputElement;
+    if (e.key === "Escape" && query !== "") {
+      // The filter clears first, so the dialog stays open.
+      e.preventDefault();
+      e.stopPropagation();
+      setQuery("");
+    } else if ((e.ctrlKey && key === "l") || (mod && e.shiftKey && key === "g")) {
       e.preventDefault();
       setEditing(withSeparator(path));
-    } else if ((e.altKey && e.key === "ArrowLeft") || (e.metaKey && e.key === "[")) {
+    } else if (
+      (!inInput && e.altKey && e.key === "ArrowLeft") ||
+      (e.metaKey && e.key === "[")
+    ) {
       e.preventDefault();
       back();
-    } else if ((e.altKey && e.key === "ArrowRight") || (e.metaKey && e.key === "]")) {
+    } else if (
+      (!inInput && e.altKey && e.key === "ArrowRight") ||
+      (e.metaKey && e.key === "]")
+    ) {
       e.preventDefault();
       forward();
-    } else if ((e.altKey || e.metaKey) && e.key === "ArrowUp") {
+    } else if (!inInput && (e.altKey || e.metaKey) && e.key === "ArrowUp") {
       e.preventDefault();
       up();
+    } else if (mod && key === "f") {
+      e.preventDefault();
+      filterRef.current?.focus();
+    } else if (mod && e.shiftKey && e.code === "Period") {
+      e.preventDefault();
+      setHiddenShown((shown) => !shown);
+    }
+  };
+  const handleFilterKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
+    // The filter keeps the focus while Escape clears it.
+    if (e.key === "Escape" && query !== "") e.preventDefault();
+    else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      focusList();
     }
   };
 
@@ -350,6 +411,41 @@ const Content = ({
         </Text.Text>
       </State>
     );
+  else if (matched.length === 0 && query !== "")
+    body = (
+      <State>
+        <Text.Text level="small" color={8}>
+          {`No files match "${query}"`}
+        </Text.Text>
+        <Button.Button
+          variant="text"
+          size="small"
+          textColor={9}
+          onClick={() => {
+            setQuery("");
+            filterRef.current?.focus();
+          }}
+        >
+          Clear filter
+        </Button.Button>
+      </State>
+    );
+  else if (!stale && visible.length === 0)
+    body = (
+      <State>
+        <Text.Text level="small" color={8}>
+          This folder has only hidden files
+        </Text.Text>
+        <Button.Button
+          variant="text"
+          size="small"
+          textColor={9}
+          onClick={() => setHiddenShown(true)}
+        >
+          Show hidden files
+        </Button.Button>
+      </State>
+    );
   else
     body = (
       <Entries
@@ -368,23 +464,23 @@ const Content = ({
 
   let summary = "";
   if (shown != null && !stale && failure == null) {
-    const count = plural(shown.entries.length, "item", "items");
-    summary = shown.truncated ? `Shows the first ${count}.` : count;
+    // A cut folder names the count that the Driver listed, hidden entries included.
+    const listed = plural(shown.entries.length, "item", "items");
+    const count = plural(visible.length, "item", "items");
+    const matches = plural(matched.length, "match", "matches");
+    if (query === "") summary = shown.truncated ? `Shows the first ${listed}.` : count;
+    else if (shown.truncated)
+      summary = `${matches}. The filter searched only the first ${listed}.`;
+    else summary = `${matched.length.toLocaleString()} of ${count}`;
   }
   const rackName = rackResult.variant === "success" ? rackResult.data.name : null;
   return (
-    <Modal.Frame className={CSS.BE("file-browser", "frame")}>
+    <Modal.Frame className={CSS.BE("file-browser", "frame")} onKeyDown={handleKeyDown}>
       <Modal.Header icon={<Icon.Folder />}>
         {rackName == null ? "Browse files" : ["Browse files", rackName]}
       </Modal.Header>
-      <Flex.Box
-        x
-        grow
-        empty
-        className={CSS.BE("file-browser", "body")}
-        onKeyDown={handleKeyDown}
-      >
-        <Places places={places} path={path} onGo={go} />
+      <Flex.Box x grow empty className={CSS.BE("file-browser", "body")}>
+        <Places places={places} recent={recent} path={path} onGo={go} />
         <Select.Frame<string, KeyedEntry>
           data={data}
           getItem={getItem}
@@ -458,6 +554,34 @@ const Content = ({
                   onGo={go}
                   onSubmit={(text) => void goTyped(text)}
                 />
+                <Input.Text
+                  ref={filterRef}
+                  value={query}
+                  onChange={setQuery}
+                  size="small"
+                  aria-label="Filter"
+                  placeholder="Filter"
+                  className={CSS.BE("file-browser", "filter")}
+                  startContent={<Icon.Search />}
+                  spellCheck={false}
+                  autoComplete="off"
+                  onKeyDown={handleFilterKeyDown}
+                />
+                <Button.Button
+                  variant="text"
+                  size="small"
+                  textColor={hiddenShown ? 11 : 9}
+                  tooltip={
+                    <PTriggers.Text trigger={HIDDEN_FILES_TRIGGER} level="small">
+                      {hiddenShown ? "Hide hidden files" : "Show hidden files"}
+                    </PTriggers.Text>
+                  }
+                  aria-label="Hidden files"
+                  aria-pressed={hiddenShown}
+                  onClick={() => setHiddenShown((shown) => !shown)}
+                >
+                  {hiddenShown ? <Icon.Visible /> : <Icon.Hidden />}
+                </Button.Button>
                 {((loading && stale) || resolving) && (
                   <Progress.Progress
                     thin
@@ -511,7 +635,7 @@ const Content = ({
             variant="filled"
             disabled={picked == null}
             onClick={() => {
-              if (picked != null) close(picked);
+              if (picked != null) pick(picked);
             }}
             trigger={Triggers.SAVE}
             triggerIndicator

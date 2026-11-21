@@ -27,6 +27,7 @@ import type { Entry, Listing } from "@/platform/file-browser/list";
 import {
   dirnameOf,
   expandHome,
+  hidden,
   normalize,
   segmentsOf,
   separatorOf,
@@ -144,7 +145,7 @@ const Field = ({
       : sortEntries(
           listing.entries.filter(
             (e) =>
-              (!e.name.startsWith(".") || typed.startsWith(".")) &&
+              (!hidden(e.name) || hidden(typed)) &&
               e.name.toLowerCase().startsWith(typed) &&
               (e.name !== prefix || e.kind === "directory"),
           ),

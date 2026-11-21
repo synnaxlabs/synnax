@@ -70,6 +70,15 @@ export const withSeparator = (path: string): string => {
   return path.endsWith(sep) ? path : `${path}${sep}`;
 };
 
+/** @returns the last name in the path, or the path itself for a root. */
+export const basenameOf = (path: string): string => {
+  const name = path.slice(path.lastIndexOf(separatorOf(path)) + 1);
+  return name === "" ? path : name;
+};
+
+/** @returns whether a name is hidden, as a name that starts with a dot is. */
+export const hidden = (name: string): boolean => name.startsWith(".");
+
 /** @returns the text with a leading ~ replaced by the home folder, once it is known. */
 export const expandHome = (text: string, home: string | undefined): string =>
   home != null && text.startsWith("~") ? `${home}${text.slice(1)}` : text;
