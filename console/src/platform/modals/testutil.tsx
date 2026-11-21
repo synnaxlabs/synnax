@@ -106,10 +106,14 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
-/** Presses and releases Escape on the window, where the trigger provider listens. */
+/**
+ * Presses and releases Escape on the focused element, as a browser does. A modal holds
+ * the focus while open, so the key reaches the modal on top.
+ */
 export const pressEscape = (): void => {
-  fireEvent.keyDown(window, { code: "Escape" });
-  fireEvent.keyUp(window, { code: "Escape" });
+  const target = document.activeElement ?? document.body;
+  fireEvent.keyDown(target, { code: "Escape" });
+  fireEvent.keyUp(target, { code: "Escape" });
 };
 
 /**
