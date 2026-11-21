@@ -204,7 +204,7 @@ is dropped. A plot with no breaks keeps today's axis.
   breaks it saved. A reload then shows the same times.
 - A toggle in the plot controls hides and shows the breaks. Hidden breaks lay out the
   plot in true time as one segment, which shows a range that sits inside a gap. The
-  toggle resets the zoom, and it shows while the plot has breaks or hides them.
+  toggle resets the zoom, and it shows while the plot has a break, shown or hidden.
 
 ### 4.6 Tooltip, measure, and selection
 
