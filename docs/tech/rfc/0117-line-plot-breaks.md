@@ -272,7 +272,7 @@ relative traces. Phase 2 stacks on RFC 0116 phase 2 and does not wait for it to 
 | 2     | Map line plot x time through one layout            | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `console/src/feature/lineplot`                                       | -          |
 | 3     | Bound each line plot trace to its span             | `client/ts/src/framer/cache`, `pluto/src/lineplot/aether`, `pluto/src/vis/line/aether`, `pluto/src/telem/aether`        | 2          |
 | 4     | Collapse gaps between line plot ranges into breaks | `pluto/src/lineplot`, `pluto/src/vis/line/aether`, `pluto/src/vis/axis`, `pluto/src/vis/render`, `console/src/flags.ts` | 3          |
-| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `console/src/feature/lineplot`                                              | 4          |
+| 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                      | 4          |
 | 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                              | 5a         |
 | 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                             | 1, 5b      |
 | 6     | Document line plot breaks and remove their flag    | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`, `pluto/src/lineplot`                                  | 5c         |
