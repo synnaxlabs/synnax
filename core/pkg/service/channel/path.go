@@ -11,7 +11,7 @@ package channel
 
 import (
 	"context"
-	"slices"
+	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
@@ -183,26 +183,25 @@ func Paths(
 	return paths, nil
 }
 
-// ambiguousName returns a validation error for name, which every one of holders holds,
-// that names the path of each holder as seen by snap.
-func ambiguousName(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	name string,
-	holders []Channel,
-) error {
-	paths, err := Paths(ctx, snap, holders)
-	if err != nil {
-		return err
-	}
-	texts := PathTexts(paths)
-	slices.Sort(texts)
-	return validate.Errorf(
-		"%d channels are named '%s': %s. Name one by its path",
-		len(holders),
-		name,
-		strings.Join(texts, ", "),
-	)
+// AmbiguousNameError is the error of a name that several channels hold. It matches
+// validate.ErrValidation and names no path, since the caller decides which folders the
+// subject of a request can see.
+type AmbiguousNameError struct {
+	// Name is the name, and Holders are the keys of the channels that hold it.
+	Name    string
+	Holders Keys
+}
+
+// Error implements error.
+func (e AmbiguousNameError) Error() string {
+	return fmt.Sprintf("%d channels are named '%s'", len(e.Holders), e.Name)
+}
+
+// Is reports whether target is validate.ErrValidation.
+func (AmbiguousNameError) Is(
+	target error,
+) bool {
+	return target == validate.ErrValidation
 }
 
 // holdersByName returns the channels of channels that hold each name of names after

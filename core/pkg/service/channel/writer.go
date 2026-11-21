@@ -289,7 +289,10 @@ func (w Writer) DeleteManyByNames(
 	}
 	for i, holders := range holdersByName(names, res) {
 		if len(holders) > 1 {
-			return ambiguousName(ctx, w.tx, names[i], holders)
+			return AmbiguousNameError{
+				Name:    names[i],
+				Holders: KeysFromChannels(holders),
+			}
 		}
 	}
 	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
@@ -572,9 +575,8 @@ func (w Writer) resetStoredNames(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	exact, normalized := make(map[string][]Channel), make(map[string][]Channel)
+	normalized := make(map[string][]Channel)
 	for _, e := range existing {
-		exact[e.Name] = append(exact[e.Name], e)
 		n := validate.NormalizeName(e.Name)
 		normalized[n] = append(normalized[n], e)
 	}
@@ -582,10 +584,7 @@ func (w Writer) resetStoredNames(
 		if reset.Contains(i) {
 			continue
 		}
-		holders := exact[ch.Name]
-		if len(holders) == 0 {
-			holders = normalized[normal[i]]
-		}
+		holders := normalized[normal[i]]
 		if ch.Group != nil {
 			inGroup := lo.Filter(holders, func(e Channel, _ int) bool {
 				return sameGroup(e.Group, ch.Group)
@@ -594,13 +593,21 @@ func (w Writer) resetStoredNames(
 				holders = inGroup
 			}
 		}
+		if exact := lo.Filter(holders, func(e Channel, _ int) bool {
+			return e.Name == ch.Name
+		}); len(exact) > 0 {
+			holders = exact
+		}
 		switch len(holders) {
 		case 0:
 		case 1:
 			channels[i] = holders[0]
 			reset = addPosition(reset, i)
 		default:
-			return nil, ambiguousName(ctx, w.tx, ch.Name, holders)
+			return nil, AmbiguousNameError{
+				Name:    ch.Name,
+				Holders: KeysFromChannels(holders),
+			}
 		}
 	}
 	return reset, nil

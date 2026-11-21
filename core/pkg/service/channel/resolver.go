@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -92,7 +93,7 @@ func (r *symbolResolver) Resolve(
 		}
 		return sym, nil
 	default:
-		return nil, ambiguousName(ctx, r.snap, name, chs)
+		return nil, AmbiguousNameError{Name: name, Holders: KeysFromChannels(chs)}
 	}
 }
 
@@ -147,9 +148,17 @@ type resolution struct {
 }
 
 // same reports whether a second lookup, which returned sym and err, gives the answer of
-// res: the same symbol ID, type, and name, or not found both times. It returns err when
-// the second lookup fails for another reason.
+// res: the same symbol ID, type, and name, not found both times, or the same holders of
+// an ambiguous name. It returns err when the second lookup fails for another reason.
 func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
+	// A name that several channels hold is an answer, the same only for the same
+	// holders.
+	ambiguous, isAmbiguous := errors.AsType[AmbiguousNameError](err)
+	first, wasAmbiguous := errors.AsType[AmbiguousNameError](res.err)
+	if isAmbiguous || wasAmbiguous {
+		return isAmbiguous && wasAmbiguous &&
+			set.New(ambiguous.Holders...).Equal(set.New(first.Holders...)), nil
+	}
 	notFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !notFound {
 		return false, err
