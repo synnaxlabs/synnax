@@ -427,6 +427,26 @@ describe("LinePlot", () => {
       update({ enableTooltip: false });
       await waitFor(() => expect(onHoveredChange).toHaveBeenLastCalledWith(null));
     });
+
+    it("should report no ranges once the x axis turns relative", async () => {
+      const onHasAnnotationsChange = vi.fn();
+      const update = await renderTraces({
+        relativeDisabled: true,
+        rangeProviderProps: { onHasAnnotationsChange },
+      });
+      // The test plot draws no strip, so the spec sets the count that a draw sets.
+      const [provider] = components().filter(
+        (c): c is range.Provider => c instanceof range.Provider,
+      );
+      act(() => provider.setState((s) => ({ ...s, count: 1 })));
+      await waitFor(() =>
+        expect(onHasAnnotationsChange).toHaveBeenLastCalledWith(true),
+      );
+      update({ relativeDisabled: false });
+      await waitFor(() =>
+        expect(onHasAnnotationsChange).toHaveBeenLastCalledWith(false),
+      );
+    });
   });
 
   describe("loading message", () => {
