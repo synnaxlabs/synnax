@@ -152,11 +152,12 @@ func benchDir(b *testing.B) string {
 	return b.TempDir()
 }
 
-// floorReadFile opens the file of floorFileSize in benchDir that the read floors read,
-// and writes and syncs it first when it does not exist.
-func floorReadFile(b *testing.B) *os.File {
+// floorReadFile opens the file base of floorFileSize in benchDir, and writes and syncs
+// it first when it does not exist. Each read floor reads its own file, so one floor
+// never warms the file of the next.
+func floorReadFile(b *testing.B, base string) *os.File {
 	b.Helper()
-	name := filepath.Join(benchDir(b), "floor-read")
+	name := filepath.Join(benchDir(b), base)
 	if info, err := os.Stat(name); err != nil || info.Size() != floorFileSize {
 		f, err := os.Create(filepath.Clean(name))
 		if err != nil {
@@ -190,7 +191,7 @@ func floorReadFile(b *testing.B) *os.File {
 // BenchmarkFloorRead reads a file of floorFileSize in 1 MiB blocks, per iteration. The
 // first iteration after a page cache drop gives F_read.
 func BenchmarkFloorRead(b *testing.B) {
-	f := floorReadFile(b)
+	f := floorReadFile(b, "floor-read")
 	block := make([]byte, mib)
 	b.SetBytes(floorFileSize)
 	for b.Loop() {
@@ -207,7 +208,7 @@ func BenchmarkFloorRead(b *testing.B) {
 // drop it gives F_page.
 func BenchmarkFloorReadPage(b *testing.B) {
 	const pages = floorFileSize / (4 * kib)
-	f := floorReadFile(b)
+	f := floorReadFile(b, "floor-page")
 	order := rand.New(rand.NewPCG(1, 2)).Perm(pages)
 	page := make([]byte, 4*kib)
 	b.SetBytes(4 * kib)
