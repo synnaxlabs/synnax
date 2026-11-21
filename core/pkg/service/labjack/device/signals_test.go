@@ -41,6 +41,7 @@ var _ = Describe("Signals", Ordered, func() {
 		channelSvc *channel.Service
 		framerSvc  *framer.Service
 		rackSvc    *rack.Service
+		svc        *device.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -79,8 +80,9 @@ var _ = Describe("Signals", Ordered, func() {
 			Channel: channelSvc,
 			Framer:  node.Framer,
 		}))
-		MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:      node.DB,
+			Status:  stat,
 			Signals: sigs,
 		}))
 		MustOpen(sigs.Start(ctx))
@@ -117,14 +119,13 @@ var _ = Describe("Signals", Ordered, func() {
 		sets := openStreamer(ctx, "sy_labjack_device_set")
 		deletes := openStreamer(ctx, "sy_labjack_device_delete")
 		d := device.Device{Variant: device.T7Device{Base: device.Base{
-			Key:        uuid.New(),
 			Rack:       rackSvc.EmbeddedKey,
 			Name:       "T7-0001",
 			Serial:     470010001,
 			Connection: device.ConnectionUSB,
 		}}}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)
+			return svc.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(sets.Outlet(), 5*time.Second).Should(Receive(&res))
@@ -136,9 +137,7 @@ var _ = Describe("Signals", Ordered, func() {
 		}
 		Expect(written.Key).To(Equal(d.Base().Key))
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewDelete[device.Key, device.Device]().
-				Where(gorp.MatchKeys[device.Key, device.Device](d.Base().Key)).
-				Exec(ctx, tx)
+			return svc.NewWriter(tx).Delete(ctx, d.Base().Key)
 		})).To(Succeed())
 		Eventually(deletes.Outlet(), 5*time.Second).Should(Receive(&res))
 		var removed []uuid.UUID

@@ -257,7 +257,10 @@ type Transport struct {
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 
 	// LABJACK DEVICE
+	LabJackDeviceCreate   freighter.UnaryServer[labjackdevice.CreateRequest, labjackdevice.CreateResponse]
 	LabJackDeviceRetrieve freighter.UnaryServer[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse]
+	LabJackDeviceUpdate   freighter.UnaryServer[labjackdevice.UpdateRequest, struct{}]
+	LabJackDeviceDelete   freighter.UnaryServer[labjackdevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -574,7 +577,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisDelete,
 
 		// LABJACK DEVICE
+		t.LabJackDeviceCreate,
 		t.LabJackDeviceRetrieve,
+		t.LabJackDeviceUpdate,
+		t.LabJackDeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -850,7 +856,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
 	// LABJACK DEVICE
+	t.LabJackDeviceCreate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Create))
 	t.LabJackDeviceRetrieve.BindHandler(bind.Read(l.binder, l.LabJackDevice.Retrieve))
+	t.LabJackDeviceUpdate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Update))
+	t.LabJackDeviceDelete.BindHandler(bind.Write(l.binder, l.LabJackDevice.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))

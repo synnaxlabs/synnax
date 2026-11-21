@@ -60,7 +60,10 @@ var _ = Describe("Where", Ordered, func() {
 				racktestutil.CreateDriverRole(ctx, whereDB, roleSvc),
 			),
 		}))
-		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{DB: whereDB}))
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+			DB:     whereDB,
+			Status: stat,
+		}))
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
 			_ string,
 			d device.Device,
@@ -75,8 +78,7 @@ var _ = Describe("Where", Ordered, func() {
 		}
 		for _, d := range v.Records {
 			Expect(whereDB.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewCreate[device.Key, device.Device]().Entry(&d).
-					Exec(ctx, tx)
+				return svc.NewWriter(tx).Create(ctx, &d)
 			})).To(Succeed())
 		}
 	})

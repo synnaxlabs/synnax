@@ -614,9 +614,21 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// LABJACK DEVICE
+		LabJackDeviceCreate: unary[labjackdevice.CreateRequest, labjackdevice.CreateResponse](
+			router,
+			"/api/v1/labjack/device/create",
+		),
 		LabJackDeviceRetrieve: unary[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse](
 			router,
 			"/api/v1/labjack/device/retrieve",
+		),
+		LabJackDeviceUpdate: unary[labjackdevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/labjack/device/update",
+		),
+		LabJackDeviceDelete: unary[labjackdevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/labjack/device/delete",
 		),
 
 		// ACCESS
