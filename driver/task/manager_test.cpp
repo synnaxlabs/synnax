@@ -4706,4 +4706,75 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
     ASSERT_FALSE(states->is_authorized(data_ch.key, {"other", "other-3"}));
     ASSERT_NIL(writer.close());
 }
+
+/// @brief it should keep the control state mirror and end the run when the read of
+/// control state after a missed marker fails, so the mirror never passes every writer.
+TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_fail_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("missed_fail_data"),
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
+    const x::control::Subject writer_sub{"held_writer", "hw-1"};
+    const x::control::Subject other_sub{"other", "other-4"};
+    // Opened before the manager starts, so the initial read puts it in the mirror.
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        synnax::framer::WriterConfig{
+            .channels = {index_ch.key, data_ch.key},
+            .start = x::telem::TimeStamp::now(),
+            .authorities = {200},
+            .subject = writer_sub,
+        }
+    ));
+    pipe = std::make_unique<CorePipe>(test_client_config().port);
+    auto conn = test_client_config();
+    conn.host = "127.0.0.1";
+    conn.port = pipe->port;
+    const auto managed = std::make_shared<synnax::Synnax>(conn);
+    const auto stream = std::make_shared<ScriptedStream>();
+    managed->telem = synnax::framer::Client(
+        std::make_unique<ScriptedStreamerClient>(stream),
+        nullptr,
+        managed->channels
+    );
+    // The open ack.
+    stream->push({});
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
+    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    std::promise<void> started;
+    std::promise<x::errors::Error> ended;
+    thread = std::thread([&] {
+        ended.set_value(manager->run([&] { started.set_value(); }));
+    });
+    ASSERT_EQ(
+        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    const auto states = f->captured_ctx->control_states();
+    ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
+    pipe->pause();
+    grpc::framer::StreamerResponse missed;
+    missed.set_missed(true);
+    stream->push(missed);
+    auto end = ended.get_future();
+    ASSERT_EQ(
+        end.wait_for((10 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
+    // The run ends with the failed read.
+    ASSERT_TRUE(static_cast<bool>(end.get()));
+    ASSERT_FALSE(states->is_authorized(data_ch.key, other_sub));
+    ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
+    pipe->resume();
+    ASSERT_NIL(writer.close());
+}
 }

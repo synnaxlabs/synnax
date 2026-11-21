@@ -566,6 +566,9 @@ private:
     /// @brief replaces the control state mirror with the cluster's current state.
     /// Best-effort: a failed read is logged and leaves the mirror empty.
     void retrieve_initial_control_states();
+    /// @brief replaces the control state mirror with the cluster's current state.
+    /// @returns the error of a failed read, which leaves the mirror as it was.
+    x::errors::Error read_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
     /// @brief removes the tasks the Core no longer has and deploys each task it has.

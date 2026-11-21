@@ -273,12 +273,13 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
                             "behind. Reading the tasks, control state, and rack name "
                             "again.";
-            // A failed sync ends the run, and the next run syncs again.
-            if (sync_err = this->sync_tasks(true); sync_err) break;
-            // Read after the drop, so transfers that the stream delivers next apply on
-            // top, as at the start of a run.
-            this->retrieve_initial_control_states();
+            // The bus filters local writes with the control mirror, so it is read
+            // first. A failed read ends the run and keeps the mirror, since an empty
+            // one passes every writer. The next run reads it again. Transfers that the
+            // stream delivers after a read apply on top.
+            if (sync_err = this->read_control_states(); sync_err) break;
             this->retrieve_rack_name();
+            if (sync_err = this->sync_tasks(true); sync_err) break;
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};
@@ -288,17 +289,21 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     return c_err;
 }
 
-void Manager::retrieve_initial_control_states() {
+x::errors::Error Manager::read_control_states() {
     auto [states, err] = this->ctx->client->control.retrieve();
-    if (err) {
+    if (err) return err;
+    this->control_states->set(states);
+    return x::errors::NIL;
+}
+
+void Manager::retrieve_initial_control_states() {
+    if (const auto err = this->read_control_states()) {
         // The mirror of an earlier run may hold control that ended during an outage.
         // An empty mirror treats every channel as uncontrolled, the Core arbitrates
         // every write, and transfers on the stream fill the mirror again.
         LOG(WARNING) << "failed to retrieve initial control state: " << err;
         this->control_states->set({});
-        return;
     }
-    this->control_states->set(states);
 }
 
 void Manager::retrieve_rack_name() {
