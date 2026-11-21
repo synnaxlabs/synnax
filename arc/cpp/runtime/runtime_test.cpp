@@ -723,4 +723,96 @@ TEST(MockLoopTest, WakeReasonIsConfigurable) {
 
     breaker.stop();
 }
+
+/// @brief Mock node that writes one sample to a channel on each of its first runs.
+struct WriteNode final : public node::Node {
+    state::Node state;
+    /// @brief how many runs write a sample.
+    int writes;
+    /// @brief when set, each run calls its `spin` function.
+    std::shared_ptr<wasm::Module> mod;
+    int runs = 0;
+
+    WriteNode(state::Node &&state, const int writes, std::shared_ptr<wasm::Module> mod):
+        state(std::move(state)), writes(writes), mod(std::move(mod)) {}
+
+    x::errors::Error next(node::Context &ctx) override {
+        ctx.mark_self_changed();
+        if (this->mod != nullptr) {
+            auto [spin, err] = this->mod->func("spin");
+            if (err) return err;
+            std::vector<wasm::Module::Function::Result> results;
+            std::ignore = spin.call({}, results);
+        }
+        if (this->runs++ >= this->writes) return x::errors::NIL;
+        this->state.write_series(
+            1,
+            x::mem::make_local_shared<x::telem::Series>(1.0),
+            x::mem::make_local_shared<x::telem::Series>(ctx.cycle.now)
+        );
+        return x::errors::NIL;
+    }
+
+    void reset(node::Context &) override {}
+
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
+};
+
+/// @brief a runtime that is never started, with a WriteNode as its only node.
+struct ComputeFixture {
+    std::shared_ptr<Runtime> runtime;
+    WriteNode *node;
+
+    /// @param spin true when each run of the node uses the whole loop budget.
+    static ComputeFixture create(const int writes, const bool spin = false) {
+        auto prog = arc::ir::testutil::Builder()
+                        .node("write")
+                        .strata({{"write"}})
+                        .build();
+        auto state = std::make_shared<state::State>(state::Config{
+            .ir = prog,
+            .channels = {{.key = 1, .data_type = x::telem::FLOAT64_T}},
+        });
+        auto [node_state, err] = state->node("write");
+        if (err) throw std::runtime_error(err.message());
+        auto mod = spin ? testutil::spin_module() : testutil::empty_module();
+        auto write_node = std::make_unique<WriteNode>(
+            std::move(node_state),
+            writes,
+            spin ? mod : nullptr
+        );
+        auto *node_ptr = write_node.get();
+        std::unordered_map<std::string, std::unique_ptr<node::Node>> node_impls;
+        node_impls["write"] = std::move(write_node);
+        auto rt = std::make_shared<Runtime>(
+            Config{},
+            mod,
+            state,
+            std::make_unique<scheduler::Scheduler>(prog, node_impls),
+            std::make_unique<testutil::MockLoop>(),
+            make_time_module(),
+            std::vector<arc::types::ChannelKey>{},
+            std::vector<arc::types::ChannelKey>{1}
+        );
+        return {rt, node_ptr};
+    }
+};
+
+/// @brief it should run cycles until one writes nothing, and return every write.
+TEST(RuntimeComputeTest, RunsUntilACycleWritesNothing) {
+    auto [runtime, node] = ComputeFixture::create(3);
+    const auto out = runtime->compute(x::telem::Frame{});
+    EXPECT_EQ(out.size(), 3);
+    EXPECT_EQ(node->runs, 4);
+}
+
+/// @brief it should end a computation whose cycle uses its whole loop budget, and run
+/// again on the next call.
+TEST(RuntimeComputeTest, LoopBudgetEndsTheComputation) {
+    auto [runtime, node] = ComputeFixture::create(3, true);
+    EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
+    EXPECT_EQ(node->runs, 1);
+    EXPECT_TRUE(runtime->compute(x::telem::Frame{}).empty());
+    EXPECT_EQ(node->runs, 2);
+}
 }
