@@ -644,7 +644,7 @@ from closed frames.
 
 Dependencies on other RFCs:
 
-- Phase 2 carries code moves that RFC 0116 Phases 3 and 26 and RFC 0118 Phase 5 (the
+- Phase 2 carries code moves that RFC 0116 Phases 3 and 25 and RFC 0118 Phase 5 (the
   move of Cesium sessions to the framer) need.
 - Phases 5 and 6 follow RFC 0116 Phase 3 (the calculation record), which also stops the
   Core from reading node bits, so Phase 6 can give clock keys their own range.
