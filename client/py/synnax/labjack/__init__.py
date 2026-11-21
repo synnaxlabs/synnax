@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.labjack import device
 from synnax.labjack.types import (
     MAKE,
     SUPPORTED_MODELS,
@@ -71,4 +72,5 @@ __all__ = [
     "WriteChannel",
     "WriteConfig",
     "WriteTask",
+    "device",
 ]
