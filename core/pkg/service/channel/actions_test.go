@@ -81,11 +81,7 @@ var _ = Describe("Actions", Ordered, func() {
 		)
 	}
 	index := channel.Channel{DataType: telem.TimestampT, IsIndex: true}
-	calculated := channel.Channel{
-		DataType:   telem.Float64T,
-		Expression: "return 1 + 1",
-		Virtual:    true,
-	}
+	virtual := channel.Channel{DataType: telem.Float64T, Virtual: true}
 
 	It("Should attach a create that holds the stored channel", func(ctx SpecContext) {
 		ch := create(ctx, index)
@@ -100,14 +96,14 @@ var _ = Describe("Actions", Ordered, func() {
 	})
 
 	It(
-		"Should not attach a create when it retrieves a calculated channel by name",
+		"Should not attach a create when it retrieves a channel by name",
 		func(ctx SpecContext) {
-			ch := create(ctx, calculated)
+			ch := create(ctx, virtual)
 			recorded := len(rec.Snapshot())
 			chs := []channel.Channel{{
-				Name:       ch.Name,
-				DataType:   telem.Float64T,
-				Expression: "return 1 + 1",
+				Name:     ch.Name,
+				DataType: telem.Float64T,
+				Virtual:  true,
 			}}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).
@@ -162,32 +158,6 @@ var _ = Describe("Actions", Ordered, func() {
 		}))
 	})
 
-	It("Should infer the data type of an edited expression", func(ctx SpecContext) {
-		ch := create(ctx, calculated)
-		edit := set("expression", "return 1.5 * 2.0")
-		computed := MustSucceed(apply(ctx, ch.Key(), edit))
-		Expect(computed).To(Equal([]channel.Action{set("data_type", telem.Float64T)}))
-		stored := retrieve(ctx, ch.Key())
-		Expect(stored.Expression).To(Equal("return 1.5 * 2.0"))
-		Expect(stored.DataType).To(Equal(telem.Float64T))
-		frames := rec.Snapshot()
-		Expect(frames[len(frames)-1].Actions).To(Equal(append(
-			[]channel.Action{edit},
-			computed...,
-		)))
-	})
-
-	It("Should refuse an expression for a channel that is not calculated", func(
-		ctx SpecContext,
-	) {
-		ch := create(ctx, index)
-		Expect(apply(ctx, ch.Key(), set("expression", "return 1"))).
-			Error().To(MatchError(ContainSubstring(
-			"only a calculated channel can change its expression or operations",
-		)))
-		Expect(retrieve(ctx, ch.Key()).Expression).To(BeEmpty())
-	})
-
 	DescribeTable("Should refuse a path outside the editable fields", func(
 		ctx SpecContext,
 		path string,
@@ -202,6 +172,8 @@ var _ = Describe("Actions", Ordered, func() {
 		Entry("data_type", "data_type", "float64"),
 		Entry("is_index", "is_index", false),
 		Entry("virtual", "virtual", true),
+		Entry("expression", "expression", "return 1"),
+		Entry("operations", "operations", []any{}),
 	)
 
 	It("Should reject a create", func(ctx SpecContext) {
@@ -218,7 +190,7 @@ var _ = Describe("Actions", Ordered, func() {
 	It("Should attach a set of a data type that the Core changes", func(
 		ctx SpecContext,
 	) {
-		ch := create(ctx, calculated)
+		ch := create(ctx, virtual)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).ChangeDataType(ctx, ch.Key(), telem.Int32T)
 		})).To(Succeed())

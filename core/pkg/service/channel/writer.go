@@ -103,10 +103,10 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 }
 
 // Apply applies the actions to the channel with the given key and attaches them to the
-// transaction of w. An edit of the expression or operations infers the data type again,
-// and Apply attaches and returns a set of a changed data type. A rename reaches storage
-// when the transaction commits. Apply returns an error wrapping validate.ErrValidation
-// for an invalid action or result, and query.ErrNotFound when no channel has the key.
+// transaction of w, with any actions it computes, which it returns. A rename reaches
+// storage when the transaction commits. Apply returns an error wrapping
+// validate.ErrValidation for an invalid action or result, and query.ErrNotFound when no
+// channel has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var prev Channel
 	if err := w.svc.table.NewRetrieve().
@@ -124,21 +124,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	}
 	if err = w.checkGroup(ctx, prev, next); err != nil {
 		return nil, err
-	}
-	if next.Expression != prev.Expression ||
-		!slices.Equal(next.Operations, prev.Operations) {
-		if !prev.IsCalculated() || !next.IsCalculated() {
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only a calculated channel can change its expression or operations, "+
-					"and its expression cannot be empty",
-			)
-		}
-		result, err := w.analyzer.analyze(ctx, next)
-		if err != nil {
-			return nil, err
-		}
-		next.DataType = result.ChanDataType
 	}
 	if next.Name != prev.Name {
 		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
