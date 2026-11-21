@@ -195,6 +195,8 @@ func (c *Checkpointer) run() {
 // removes the parts of the attempt and keeps the index of the last head.
 func (c *Checkpointer) write(h head) error {
 	pl := c.plan(h.snapshot)
+	// The identities of a failed attempt stay used: its parts may stay on disk.
+	defer func() { c.index.limit = max(c.index.limit, pl.index.limit) }()
 	var written []uint64
 	for _, w := range pl.writes {
 		p, err := writePart(c.cfg.FS, c.cfg.DB, w.id, h.generation, w.channels)
