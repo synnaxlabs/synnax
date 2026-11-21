@@ -471,6 +471,15 @@ describe("shownSpans", () => {
     expect(ns(shown[0].end)).toEqual(101 * HOUR);
   });
 
+  it("should lay out a window that ends after the newest sample as running", () => {
+    // A fixed margin of 5% of eight hours would join the two windows.
+    const planned = new TimeRange(1.25 * HOUR, 9.25 * HOUR);
+    const shown = shownSpans([window(0, 1), planned], new TimeStamp(2 * HOUR));
+    expect(shown).toHaveLength(2);
+    expect(ns(shown[1].start)).toEqual(1.25 * HOUR - Number(TimeSpan.SECOND.valueOf()));
+    expect(shown[1].end).toEqual(planned.end);
+  });
+
   it("should list the spans in time order", () => {
     const shown = shownSpans([window(100, 1), window(0, 1)], NOW);
     expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
