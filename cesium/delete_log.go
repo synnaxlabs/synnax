@@ -167,17 +167,29 @@ func (e *engine) cutAt(
 
 // stamps returns the stamps that clock holds for the samples of pointer p of a key it
 // times: from the segments of clock that the state holds, and from the records of its
-// parts that reach the time range of p.
-func (e *engine) stamps(clock ChannelKey, p state.Pointer) ([]telem.TimeStamp, error) {
-	out := make([]telem.TimeStamp, p.Samples)
-	from, found := p.Alignment.SampleIndex(), uint32(0)
-	ch := e.state.Channel(clock)
+// parts that reach the time range of p, both read from one Channel.
+func (e *engine) stamps(
+	clock ChannelKey,
+	p state.Pointer,
+) (out []telem.TimeStamp, err error) {
+	ch, h, err, unlinkErr := e.load(clock, held{})
+	defer func() { err = errors.Join(err, unlinkErr, e.unpin(h)) }()
+	if err != nil {
+		return nil, err
+	}
 	if ch == nil {
 		return nil, errors.Newf("clock %d holds no stamps", clock)
 	}
-	pre, err := e.records(clock, p.First, p.Last)
-	if err != nil {
-		return nil, err
+	pre := state.Preload{Key: clock}
+	for _, part := range h.parts {
+		if part.First > p.Last || p.First > part.Last {
+			continue
+		}
+		r, err := e.cache.Records(part, clock)
+		if err != nil {
+			return nil, err
+		}
+		addLive(&pre, ch.Parts, part, r, p.First, p.Last)
 	}
 	segs := pre.Segments
 	for _, seg := range ch.Segments {
@@ -185,6 +197,8 @@ func (e *engine) stamps(clock ChannelKey, p state.Pointer) ([]telem.TimeStamp, e
 			segs = append(segs, seg)
 		}
 	}
+	out = make([]telem.TimeStamp, p.Samples)
+	from, found := p.Alignment.SampleIndex(), uint32(0)
 	var b []byte
 	for _, seg := range segs {
 		for _, q := range seg.Pointers {
