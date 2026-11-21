@@ -935,16 +935,22 @@ says why in a sentence, then gives the raw error.
   above and below. A 1 px line with no space was too heavy.
 - In relative time, each range name sits above its channels. The range name is weight
   500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
-  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
-  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
-  swatch on each channel (one color again and again), a guide or bar in the range color,
-  an axis at the end of the channel, and an axis icon (a small box at text size).
+  When the lines use more than one axis, each channel starts with its axis ("Y1") under
+  the swatch, in the style of the axis names of the absolute legend and the Data tab:
+  weight 500 in gray l9. With one axis, the label adds nothing. Rejected: a swatch on
+  each channel (one color again and again), a guide or bar in the range color, an axis
+  at the end of the channel, and an axis icon (a small box at text size).
 - The eyes take no room at rest. On hover the legend grows to the right as they fade in,
   so no text moves.
 - Option or Alt click on an eye shows only that item, and a second one restores what was
   hidden before. A channel hidden in all ranges shows again only in the range whose eye
-  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
-  rolling window is named as its saved range is, such as "Rolling 5min".
+  the user clicks. A rolling window is named as its saved range is, such as "Rolling
+  5min".
+- A range's T0 badge sits at the right edge, before its eye, so the badges of all ranges
+  line up.
+- Show all is a plot menu item, shown when an item is hidden. Rejected: a "Show all (N
+  hidden)" button at the end of the legend, which took a line for an action the menu
+  already has.
 
 ### Plot hover and tooltip
 

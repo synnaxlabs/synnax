@@ -46,6 +46,7 @@ import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import {
   countHidden,
   inScope,
+  isLineHidden,
   type Item,
   NONE_HIDDEN,
   type Scope,
@@ -107,6 +108,7 @@ interface Compare {
   onItemVisibleChange: (item: Item, visible: boolean) => void;
   onShowOnly: (item: Item) => void;
   hidden: Session.LinePlot.Hidden;
+  scope: Scope;
   /** The key of the range the plot is zoomed to, if any. */
   zoomed: string | null;
   onShowAll: () => void;
@@ -130,6 +132,7 @@ const CompareMenuItems = ({
     onItemVisibleChange,
     onShowOnly,
     hidden,
+    scope,
     zoomed,
     onShowAll,
   },
@@ -170,7 +173,7 @@ const CompareMenuItems = ({
   const shown = timeRange.boundBy(new TimeRange(TimeStamp.ZERO, TimeStamp.now()));
   const zoomable = !shown.span.isZero;
   const t0Editable = editable && isKey;
-  const lineHidden = target != null && hidden.lines.includes(target.line);
+  const lineHidden = target != null && isLineHidden(hidden, target.line, scope);
   const handleSetT0 = () =>
     handleError(async () => {
       const t0 = await setT0Modal({
@@ -511,6 +514,7 @@ const Internal = (): ReactElement => {
               onItemVisibleChange: handleItemVisibleChange,
               onShowOnly: handleShowOnly,
               hidden,
+              scope,
               zoomed,
               onShowAll: handleShowAll,
             }

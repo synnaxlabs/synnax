@@ -127,11 +127,18 @@ export const setItemVisible = (
           ? showTrace(hidden, item.line, item.range, scope)
           : { ...hidden, traces: withKey(hidden.traces, LinePlot.traceKey(item)) },
       };
-    case "line":
+    case "line": {
+      // The line's own key covers its traces, so a change in all ranges drops them.
+      const traces = new Set(tracesOf([item.line], scope.ranges));
       return {
         ...state,
-        hidden: { ...hidden, lines: set(hidden.lines, item.line, !visible) },
+        hidden: {
+          ...hidden,
+          lines: set(hidden.lines, item.line, !visible),
+          traces: hidden.traces.filter((t) => !traces.has(t)),
+        },
       };
+    }
   }
 };
 
@@ -152,6 +159,16 @@ export const toggleSolo = (state: Visibility, item: Item, scope: Scope): Visibil
   state.solo?.item === itemKey(item)
     ? { hidden: inScope(state.solo.restore, scope), solo: null }
     : showOnly(state, item, scope);
+
+/** @returns whether line is hidden in every range of scope. */
+export const isLineHidden = (
+  hidden: Hidden,
+  line: string,
+  { ranges }: Scope,
+): boolean =>
+  hidden.lines.includes(line) ||
+  (ranges.length > 0 &&
+    tracesOf([line], ranges).every((t) => hidden.traces.includes(t)));
 
 /** @returns the number of items hidden. */
 export const countHidden = ({ lines, ranges, traces }: Hidden): number =>
