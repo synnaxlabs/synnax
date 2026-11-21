@@ -196,6 +196,11 @@ const createDriver = async (
   let hydrates = 0;
   const next = vi.fn((action: unknown) => action);
   const dispatched = vi.fn((action: unknown) => {
+    // The swap's end rides back through the chain, as it would in the redux store.
+    if (Persist.endSwap.match(action)) {
+      run(action);
+      return;
+    }
     if (!Persist.hydrate.match(action)) return;
     hydrates++;
     state = { ...state, ...(action.payload as Partial<MockState>) };
@@ -1074,6 +1079,43 @@ describe("Persist.middleware", () => {
     await vi.waitFor(() =>
       expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
     );
+  });
+
+  it("should save again once a failed swap ends", async () => {
+    const store = new CountingKV();
+    let readFailed = false;
+    const failing: Persist.SugaredKV = {
+      get: async <V>(key: string): Promise<V | null> => {
+        if (!readFailed && key.startsWith("core.c2.")) {
+          readFailed = true;
+          throw new Error("read failed");
+        }
+        return await store.get<V>(key);
+      },
+      set: async (key, value) => await store.set(key, value),
+      setMany: async (entries) => await store.setMany(entries),
+      delete: async (key) => await store.delete(key),
+      deleteMany: async (keys) => await store.deleteMany(keys),
+      length: async () => await store.length(),
+      keys: async () => await store.keys(),
+      clear: async () => await store.clear(),
+    };
+    const driver = await createDriver(store, {
+      onError: vi.fn(),
+      openKV: () => failing,
+      debounceInterval: TimeSpan.hours(1),
+    });
+    await enter(driver, CTX);
+    driver.dispatch(
+      { type: "Core/select" },
+      { ...driver.getState(), core: { selected: "c2" }, project: {} },
+    );
+    await vi.waitFor(() =>
+      expect(driver.dispatched).toHaveBeenCalledWith(Persist.endSwap()),
+    );
+    const written = store.writes.length;
+    await commit(driver, "after-failed-swap");
+    expect(store.writes.length).toBeGreaterThan(written);
   });
 
   it("should mark the swap window with beginSwap before hydrate", async () => {
