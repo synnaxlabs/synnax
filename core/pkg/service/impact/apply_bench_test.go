@@ -93,20 +93,38 @@ func createApplyHolders(
 // a pick that deletes the task, against today's two steps: delete the task, then the
 // channel. Each run uses a transaction that it then discards. The pick target is at
 // most 1.10 x today.
-func BenchmarkApply(b *testing.B) {
-	gomega.RegisterTestingT(b)
-	ctx := b.Context()
-	node := testutil.OpenNode(ctx)
-	layer, err := svctestutil.OpenLayer(ctx, node)
+// openApplyBench opens a node and a service layer that close when b ends.
+func openApplyBench(b *testing.B) (*service.Layer, *gorp.DB) {
+	b.Helper()
+	node := testutil.OpenNode(b.Context())
+	layer, err := svctestutil.OpenLayer(b.Context(), node)
 	if err != nil {
 		b.Fatalf("failed to open the layer: %v", err)
 	}
-	defer func() {
+	b.Cleanup(func() {
 		if err := errors.Join(layer.Close(), node.Close()); err != nil {
 			b.Errorf("failed to close: %v", err)
 		}
-	}()
-	db := node.DB
+	})
+	return layer, node.DB
+}
+
+// runApply runs op in a transaction b.N times, closing each transaction unwritten.
+func runApply(b *testing.B, db *gorp.DB, op func(tx gorp.Tx) error) {
+	b.Helper()
+	b.ReportAllocs()
+	for range b.N {
+		tx := db.OpenTx()
+		if err := errors.Join(op(tx), tx.Close()); err != nil {
+			b.Fatalf("failed to delete: %v", err)
+		}
+	}
+}
+
+func BenchmarkApply(b *testing.B) {
+	gomega.RegisterTestingT(b)
+	ctx := b.Context()
+	layer, db := openApplyBench(b)
 	ch, tsk := createApplyHolders(b, layer, db)
 	change := impact.Change{
 		Variant: impact.DeleteChannelsChange{Keys: channel.Keys{ch}},
@@ -114,18 +132,8 @@ func BenchmarkApply(b *testing.B) {
 	picks := map[string]impact.Choice{
 		task.ResourceID(tsk).String(): impact.ChoiceDelete,
 	}
-	run := func(b *testing.B, op func(tx gorp.Tx) error) {
-		b.Helper()
-		b.ReportAllocs()
-		for range b.N {
-			tx := db.OpenTx()
-			if err := errors.Join(op(tx), tx.Close()); err != nil {
-				b.Fatalf("failed to delete: %v", err)
-			}
-		}
-	}
 	b.Run("today", func(b *testing.B) {
-		run(b, func(tx gorp.Tx) error {
+		runApply(b, db, func(tx gorp.Tx) error {
 			if err := layer.Task.NewWriter(tx).Delete(ctx, tsk, false); err != nil {
 				return err
 			}
@@ -133,7 +141,7 @@ func BenchmarkApply(b *testing.B) {
 		})
 	})
 	b.Run("picks", func(b *testing.B) {
-		run(b, func(tx gorp.Tx) error {
+		runApply(b, db, func(tx gorp.Tx) error {
 			_, err := layer.Impact.Apply(
 				ctx,
 				tx,
@@ -145,7 +153,7 @@ func BenchmarkApply(b *testing.B) {
 	})
 	visible := func(resource.ID) bool { return true }
 	b.Run("plan", func(b *testing.B) {
-		run(b, func(tx gorp.Tx) error {
+		runApply(b, db, func(tx gorp.Tx) error {
 			_, err := layer.Impact.Plan(
 				ctx,
 				tx,
@@ -160,7 +168,7 @@ func BenchmarkApply(b *testing.B) {
 		b.Fatalf("failed to plan: %v", err)
 	}
 	b.Run("token", func(b *testing.B) {
-		run(b, func(tx gorp.Tx) error {
+		runApply(b, db, func(tx gorp.Tx) error {
 			_, err := layer.Impact.Apply(ctx, tx, change, impact.ApplyOptions{
 				Token:   planned.Token,
 				Picks:   picks,
