@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.icd.client import Client, Problem
+from synnax.icd.client import Client
 from synnax.icd.types_gen import (
     ICD,
     TYPE_RESOURCE_ID,
@@ -87,7 +87,6 @@ __all__ = [
     "MessageKey",
     "Payload",
     "PresentJSONMatch",
-    "Problem",
     "ReadBinding",
     "ReadMessage",
     "StringJSONField",
