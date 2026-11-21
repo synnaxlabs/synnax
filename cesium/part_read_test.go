@@ -26,9 +26,24 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// switchIntends is how many Intends pass three quarters of a log, so the next one
-// switches it.
-const switchIntends = 12_400
+// switchLog appends Intends of many keys to db until the log switches to generation 2,
+// whose head the checkpointer then writes on fs. It returns false when the log does not
+// switch within a bound of Intends.
+func switchLog(db *cesium.DB, fs xfs.FS) (bool, error) {
+	keys := make([]cesium.ChannelKey, 1_000)
+	for i := range keys {
+		keys[i] = cesium.ChannelKey(1_000_000 + i)
+	}
+	for range 100_000 {
+		if done, err := fs.Exists(checkpoint.Name(2)); err != nil || done {
+			return done, err
+		}
+		if err := db.Intend(keys); err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
 
 // partedDB opens a database of the pointer log layout on fs whose switch writes every
 // sealed segment to a part.
@@ -49,7 +64,7 @@ func writeParted(
 	ctx context.Context,
 	db *cesium.DB,
 	fs xfs.FS,
-	idx, data, filler cesium.ChannelKey,
+	idx, data cesium.ChannelKey,
 	writers, samples int,
 ) []int64 {
 	GinkgoHelper()
@@ -73,12 +88,12 @@ func writeParted(
 		MustSucceed2(writer.Commit(ctx, nil))
 		Expect(writer.Close()).To(Succeed())
 	}
-	for range switchIntends {
-		Expect(db.Intend([]cesium.ChannelKey{filler})).To(Succeed())
-	}
-	Eventually(func() bool {
-		return MustSucceed(fs.Exists(checkpoint.Name(2))) && partFile(fs) != ""
-	}).WithTimeout(30 * time.Second).Should(BeTrue())
+	Expect(switchLog(db, fs)).To(BeTrue())
+	Eventually(func() error {
+		_, _, err := checkpoint.Read(fs, 2)
+		return err
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+	Expect(partFile(fs)).ToNot(BeEmpty())
 	return values
 }
 
@@ -110,7 +125,7 @@ var _ = Describe("Reads through parts", func() {
 		fs := xfs.NewMem()
 		db := partedDB(ctx, fs)
 		stop := StartRun(db.Run)
-		idx, data, filler := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -120,11 +135,8 @@ var _ = Describe("Reads through parts", func() {
 				DataType: telem.TimestampT,
 			},
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
-			cesium.Channel{
-				Key: filler, Name: "filler", IsIndex: true, DataType: telem.TimestampT,
-			},
 		)).To(Succeed())
-		values := writeParted(ctx, db, fs, idx, data, filler, 3, 10)
+		values := writeParted(ctx, db, fs, idx, data, 3, 10)
 		stop()
 		Expect(db.Close()).To(Succeed())
 

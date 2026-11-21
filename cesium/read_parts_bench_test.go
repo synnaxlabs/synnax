@@ -59,16 +59,16 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 	for s := range stretches {
 		writePartsStretch(b, ctx, db, keys, s*samples, samples)
 	}
-	for range switchIntends {
-		if err := db.Intend([]cesium.ChannelKey{3}); err != nil {
-			b.Fatal(err)
-		}
+	if switched, err := switchLog(db, fs); err != nil || !switched {
+		b.Fatalf("log did not switch: %v", err)
 	}
-	for exists := false; !exists; time.Sleep(10 * time.Millisecond) {
-		var err error
-		if exists, err = fs.Exists(checkpoint.Name(2)); err != nil {
-			b.Fatal(err)
+	// The checkpointer writes the parts before the head, and Exists sees head 2 once
+	// it is created, so wait for the head to read whole.
+	for {
+		if _, _, err := checkpoint.Read(fs, 2); err == nil {
+			break
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	stop()
 	db, stop = runPartsDB(b, ctx, fs, size)
