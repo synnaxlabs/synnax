@@ -216,6 +216,15 @@ export const useActiveKey = (): panel.Key | null => {
   return scoped ?? selected ?? null;
 };
 
+const allowed = (
+  owned: boolean,
+  granted: Flux.Result<boolean>,
+): boolean | undefined => {
+  if (owned || granted.data === true) return true;
+  if (granted.variant === "loading" && granted.data == null) return undefined;
+  return false;
+};
+
 /**
  * Reports whether this window can open a tab, or undefined while the grant that decides
  * it loads. A tab landing in a panel that exists is an update on it, which the owner of
@@ -230,18 +239,19 @@ export const useCanOpenTab = (): boolean | undefined => {
       ? { objects: panel.resourceID(key), action: "update" }
       : { objects: panel.TYPE_RESOURCE_ID, action: "create" },
   );
-  if (owned || granted.data === true) return true;
-  if (granted.variant === "loading" && granted.data == null) return undefined;
-  return false;
+  return allowed(owned, granted);
 };
 
-/** Reports whether this window can restructure the panel it is acting on. */
-export const useCanEditActive = (): boolean => {
+/**
+ * Reports whether this window can restructure the panel it is acting on, or undefined
+ * while the grant that decides it loads.
+ */
+export const useCanEditActive = (): boolean | undefined => {
   const key = useActiveKey();
   const owned = Panel.useOwned({ key });
-  const granted = Access.useGranted({
+  const granted = Access.useResultGranted({
     objects: key != null ? panel.resourceID(key) : panel.TYPE_RESOURCE_ID,
     action: "update",
   });
-  return owned || granted;
+  return allowed(owned, granted);
 };
