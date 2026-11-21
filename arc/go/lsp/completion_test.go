@@ -923,6 +923,29 @@ var _ = Describe("Completion", func() {
 		Expect(HasCompletion(completions.Items, "press-1")).To(BeTrue())
 	})
 
+	It("should complete a partly typed dashed name", func(ctx SpecContext) {
+		channels := []symbol.Symbol{{
+			Name: "ox-pt-1",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   1,
+		}, {
+			Name: "pt-2",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   2,
+		}}
+		server = MustSucceed(lsp.New(lsp.Config{
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			AllowDashedNames: true,
+		}))
+		server.SetClient(&MockClient{})
+		OpenArcDocument(server, ctx, docURI, "func f() {\n    x := ox-p\n}")
+		completions := Completion(server, ctx, docURI, 1, 13)
+		Expect(HasCompletion(completions.Items, "ox-pt-1")).To(BeTrue())
+		Expect(HasCompletion(completions.Items, "pt-2")).To(BeFalse())
+	})
+
 	Describe("Loop Keyword Completion", func() {
 		It(
 			"should show for keyword at statement start inside func body",

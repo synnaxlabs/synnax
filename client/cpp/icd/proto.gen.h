@@ -241,6 +241,7 @@ Message::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_payload() = v;
     }
+    if (this->cycle_time.has_value()) pb.set_cycle_time(this->cycle_time->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -258,6 +259,8 @@ Message::from_proto(const ::service::icd::pb::Message &pb) {
         if (err) return {{}, err};
         cpp.payload = v;
     }
+    if (pb.has_cycle_time())
+        cpp.cycle_time = ::x::telem::TimeSpan::from_proto(pb.cycle_time());
     return {cpp, x::errors::NIL};
 }
 

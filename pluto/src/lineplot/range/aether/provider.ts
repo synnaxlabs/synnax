@@ -70,6 +70,8 @@ export interface ProviderProps {
   newest?: TimeStamp;
   /** Draws that the plot runs after every axis draws. The strip adds its tooltip. */
   raised: Array<() => void>;
+  /** The current time. Defaults to the system clock. */
+  now?: TimeStamp;
 }
 
 /**
@@ -145,7 +147,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    const { layout: xLayout, region, timeRange, newest, raised } = props;
+    const {
+      layout: xLayout,
+      region,
+      timeRange,
+      newest,
+      raised,
+      now = TimeStamp.now(),
+    } = props;
     const { internal: i } = this;
     // Each segment fetches its own time, so the strip never asks for a collapsed gap.
     const pieces =
@@ -168,7 +177,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         limit: FETCH_LIMIT,
       });
     const { draw } = i;
-    const now = TimeStamp.now();
     const fetched = i.retrieve.value ?? [];
     const inView = fetched.filter((r) =>
       pieces.some(
