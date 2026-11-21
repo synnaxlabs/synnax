@@ -389,16 +389,19 @@ const RETRY_BASE = TimeSpan.milliseconds(250);
 
 /**
  * Repeats a fetch the Core was unreachable for, failing once the attempts run out or
- * the Core answers with something other than a dead connection.
+ * the Core answers with something other than a dead connection. Call it after the first
+ * attempt fails with a connection error.
+ *
+ * @param name - The name of what the fetch retrieves, for the error it throws.
  */
-const retryUnreachableFetch = <Query extends query.Params, Data extends query.Data>(
-  params: RetrieveParams<Query>,
-  { name, retrieve }: Pick<CreateRetrieveParams<Query, Data>, "name" | "retrieve">,
+export const retryUnreachableFetch = <Data>(
+  name: string,
+  fetch: () => Promise<Data>,
 ): Promise<Data> => {
   const attempt = async (n: number): Promise<Data> => {
     await sleep.sleep(RETRY_BASE.milliseconds * 2 ** (n - 1));
     try {
-      return await retrieve(params);
+      return await fetch();
     } catch (cause) {
       if (n < UNREACHABLE_RETRIES && isConnectionError(cause))
         return await attempt(n + 1);
@@ -442,7 +445,7 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
     )
       return waitForCreation(params, { name, error, onChange, getCached });
     if (retryUnreachable && isConnectionError(cause))
-      return retryUnreachableFetch(params, { name, retrieve });
+      return retryUnreachableFetch(name, async () => await retrieve(params));
     // Every other failure settles.
     return null;
   },
