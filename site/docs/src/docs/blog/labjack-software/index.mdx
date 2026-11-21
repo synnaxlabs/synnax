@@ -60,18 +60,19 @@ we'll call out the differences along the way.
 
 - A LabJack T4, T7, or T8, connected over USB or Ethernet. The T7-Pro also works over
   Wi-Fi.
-- A type K thermocouple. A T4 can't read thermocouples, so grab any other analog sensor
-  instead.
+- A type K thermocouple. The T4 has no thermocouple support, so use any other analog
+  sensor with it instead.
 - A Mac with Apple silicon, or a Windows PC.
 - [Synnax Desktop](/reference/get-started/install-desktop).
 
-Any T-Series device works. The main difference is how each one handles thermocouples:
+The steps are the same on any T-Series device. The models differ in how they read
+thermocouples:
 
-| Model | Thermocouples | How the task reads them                          |
-| ----- | ------------- | ------------------------------------------------ |
-| T4    | No            | Read other sensors as analog inputs              |
-| T7    | Yes           | One sample at a time, great for slow signals     |
-| T8    | Yes           | As a stream, at up to 250 Hz, on isolated inputs |
+| Model | Thermocouples | How the task reads them                                    |
+| ----- | ------------- | ---------------------------------------------------------- |
+| T4    | No            | Other sensors, as analog inputs                            |
+| T7    | Yes           | Polled, since the T7 can't stream its cold-junction sensor |
+| T8    | Yes           | Streamed at 250 Hz or less, on isolated inputs             |
 
 <Divider.Divider x />
 
@@ -95,7 +96,7 @@ instead.
 2. [Install Synnax Desktop](/reference/get-started/install-desktop) and open it.
 3. Select **New project**, give it a name, and select **Create**.
 
-That's all the setup there is. Desktop runs everything you need right on your computer:
+Desktop runs the Driver, the Core, and the Console together on your computer:
 
 <Diagram.Block
   title="Inside Synnax Desktop: the Driver reads the LabJack, the Core stores every sample, and the Console plots it live."
@@ -140,14 +141,14 @@ That's all the setup there is. Desktop runs everything you need right on your co
 
 ## <Step step={3} level="h2">Connect the LabJack</Step>
 
-You don't need to type in an IP address or a serial number. Desktop looks for LabJack
-devices every few seconds and finds yours on its own. One on Ethernet can take up to a
-minute to show up.
+The Driver finds LabJack devices on its own by scanning through LJM: over USB every 5
+seconds, and over Ethernet and Wi-Fi every 50 seconds. A networked device can take up to
+a minute to appear.
 
 1. Open the **Devices** <Icon.Device /> toolbar from the bar on the left.
-2. Select **Connect device** <Icon.Add />, then select **LabJack hardware**. You'll see
-   every LabJack that Desktop found. Yours is named after the model and the last four
-   digits of its serial number, like `LJM_dtT7-7383`.
+2. Select **Connect device** <Icon.Add />, then select **LabJack hardware**. The list
+   shows every LabJack that the scans found, each named after its model and the last
+   four digits of its serial number, like `LJM_dtT7-7383`.
 3. Select **Configure** next to your T7.
 4. Give it a **Name**, like `Lab T7`, and an **Identifier**, like `t7`. The identifier
    goes in front of every channel on the device, so your thermocouple channel will be
@@ -160,21 +161,21 @@ minute to show up.
   label="Connect a LabJack T7 from the Devices toolbar and create a read task"
 />
 
-Don't see your device? Close Kipling and any other LabJack programs. They hold on to the
-device, so Desktop can't reach it.
+Don't see your device, or can't connect to it? Over USB, only one program can open a
+LabJack at a time. Close Kipling and any other LabJack software, then wait for the next
+scan.
 
 <Divider.Divider x />
 
 ## <Step step={4} level="h2">Read the thermocouple</Step>
 
-The read task opens with one channel on `AIN0`, ready to go. A few clicks turn it into a
-thermocouple:
+The new read task has one analog input channel, on `AIN0`. To read it as a thermocouple:
 
-1. Set **Channel type** to **Thermocouple**. The defaults already fit a type K, and
-   cold-junction compensation uses the temperature sensor built into the device.
+1. Set **Channel type** to **Thermocouple**. The thermocouple type defaults to K, and
+   cold-junction compensation defaults to the device's internal temperature sensor.
 2. Set **Temperature units** to **Celsius**.
 3. Select the start <Icon.Play /> button. The status changes to "Started task", and the
-   T7 samples at 10 Hz.
+   task samples `AIN0` at 10 Hz.
 
 <Video
   id="blog/labjack-software/read"
@@ -191,7 +192,8 @@ instead of degrees.
 
 1. At the top right of the task, select **Plot channels** <Icon.LinePlot />. A line plot
    of `t7_AIN0` opens, showing the last 30 seconds.
-2. Hold the thermocouple in your hand, and watch the line climb.
+2. Hold the thermocouple's junction, the welded tip, in your hand. The reading climbs
+   several degrees within 30 seconds.
 
 <Video
   id="blog/labjack-software/plot"
@@ -199,14 +201,15 @@ instead of degrees.
   label="A live plot of the thermocouple climbing as a hand warms it"
 />
 
-Every new sample shows up on the plot the moment the T7 reads it.
+The task sends its samples to the Core at the 5 Hz stream rate, two per channel each
+time, so the plot updates five times a second.
 
 <Divider.Divider x />
 
 ## <Step step={6} level="h2">Record and export</Step>
 
-Here's the best part: there's no separate logging step. **Data saving** is on by
-default, so Synnax records every sample the task reads. When you want the data out:
+**Data saving** is on by default, so the Core stores every sample the task reads, and
+there's no separate logging step. To export a span of it as a CSV:
 
 1. Hold **Alt** (**Option** on macOS) and drag across the plot to select a region.
 2. Right-click the selection and select **Download region as CSV** <Icon.CSV />.
@@ -217,20 +220,20 @@ default, so Synnax records every sample the task reads. When you want the data o
   label="Select a region of the plot and download it as a CSV"
 />
 
-Want to come back to this test later? Select **Create range from selection** instead. A
-[range](/reference/ranges) gives the test a name, so you can find it and plot it again
-any time.
+To find this test again later, select **Create range from selection** instead. A
+[range](/reference/ranges) is a named span of time, so you can search for it and plot
+its data again.
 
 <Divider.Divider x />
 
 ## Next steps
 
-You've got live data and a CSV. From here, the same project grows with your test stand:
+From here, you can build on the same project:
 
 - [Schematics](/reference/visualize/schematics) -> build operator screens with live
   values and buttons.
 - [Alarms](/reference/alarms) -> get notified when a reading goes out of bounds.
-- [LabJack write tasks](/reference/hardware/labjack/write-task) -> control the LabJack's
-  outputs, with no code.
+- [LabJack write tasks](/reference/hardware/labjack/write-task) -> drive the LabJack's
+  analog outputs and digital output lines.
 - [LabJack read tasks](/reference/hardware/labjack/read-task) -> every read task option,
   in detail.
