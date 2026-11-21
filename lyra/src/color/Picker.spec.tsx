@@ -8,12 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Menu } from "@/menu";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
@@ -496,11 +503,244 @@ describe("Picker", () => {
         expect(c.queryByText("Ocean")).toBeNull();
       });
 
-      it("should return to the linked color when the pointer leaves", () => {
+      it("should keep the hovered color while the pointer stays in the palette", () => {
         const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
         fireEvent.pointerEnter(c.getByLabelText("Moss"));
-        fireEvent.pointerLeave(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByRole("group", { name: "Series" }),
+        });
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should return to the linked color when the pointer leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Series" }));
         expect(c.getByText("Ocean")).toBeTruthy();
+      });
+
+      it("should name a color that takes the keyboard focus", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should keep the focused color after the pointer leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Series" }));
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should keep the hovered color after the focus leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.blur(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByLabelText("Alarm"),
+        });
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should return to the linked color when the focus leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.blur(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByLabelText("Alarm"),
+        });
+        expect(c.getByText("Ocean")).toBeTruthy();
+      });
+    });
+
+    describe("slots", () => {
+      const PaletteEnd = (): ReactElement => {
+        const { palette } = Color.usePalette();
+        return <span>{`end of ${palette.name}`}</span>;
+      };
+
+      const SwatchMenu = (): ReactElement => {
+        const { palette, swatch } = Color.usePalette();
+        return <span>{`menu for ${swatch?.name} in ${palette.name}`}</span>;
+      };
+
+      const ViewOpener = (): ReactElement => {
+        const { value, openView } = Color.usePicker();
+        return (
+          <button onClick={() => openView("Edit color", <span>view body</span>)}>
+            {`open from ${color.hex(value)}`}
+          </button>
+        );
+      };
+
+      const EditMenu = (): ReactElement => {
+        const { openView } = Color.usePicker();
+        return (
+          <Menu.Menu onChange={() => openView("Edit color", <span>view body</span>)}>
+            <Menu.Item itemKey="edit">Edit</Menu.Item>
+          </Menu.Menu>
+        );
+      };
+
+      const renderSlots = (
+        library: Partial<Color.Library>,
+        props: Partial<Color.PickerProps> = {},
+      ): RenderResult =>
+        render(
+          <Color.Picker
+            value={undefined}
+            onChange={vi.fn()}
+            library={{ palettes: PALETTES, onNamedChange: vi.fn(), ...library }}
+            {...props}
+          />,
+          { wrapper: Wrapper },
+        );
+
+      it("should end each palette with paletteEnd, given that palette", () => {
+        const c = renderSlots({ paletteEnd: <PaletteEnd /> });
+        const series = c.getByRole("group", { name: "Series" });
+        const status = c.getByRole("group", { name: "Status" });
+        expect(within(series).getByText("end of Series")).toBeTruthy();
+        expect(within(status).getByText("end of Status")).toBeTruthy();
+      });
+
+      it("should show a palette with no colors only while it has a paletteEnd", () => {
+        const palettes = [...PALETTES, { key: "empty", name: "Empty", colors: [] }];
+        const without = renderSlots({ palettes });
+        expect(without.queryByRole("group", { name: "Empty" })).toBeNull();
+        without.unmount();
+        const c = renderSlots({ palettes, paletteEnd: <PaletteEnd /> });
+        expect(c.getByText("end of Empty")).toBeTruthy();
+        search(c, "ocean");
+        expect(c.queryByRole("group", { name: "Empty" })).toBeNull();
+      });
+
+      it("should open swatchMenu on a right click, given its swatch", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByRole("menu")).toBeTruthy();
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should name the swatch of an open menu in the palette title", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByText("Alarm")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a press of Shift+F10", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        const opened = fireEvent.keyDown(alarm, {
+          key: "F10",
+          code: "F10",
+          shiftKey: true,
+        });
+        expect(opened).toBe(false);
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a release of the Menu key", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const moss = c.getByLabelText("Moss");
+        const key = { key: "ContextMenu", code: "ContextMenu" };
+        expect(fireEvent.keyDown(moss, key)).toBe(false);
+        expect(c.queryByRole("menu")).toBeNull();
+        fireEvent.keyUp(moss, key);
+        expect(c.getByText("menu for Moss in Series")).toBeTruthy();
+      });
+
+      it("should leave a right click to the platform without swatchMenu", () => {
+        const c = renderSlots({});
+        expect(fireEvent.contextMenu(c.getByLabelText("Alarm"))).toBe(true);
+        expect(c.queryByRole("menu")).toBeNull();
+      });
+
+      it("should end the palettes with the footer", () => {
+        const c = renderSlots({ footer: <span>Create palette</span> });
+        expect(c.getByText("Create palette")).toBeTruthy();
+      });
+
+      it("should give slots the fallback while the value is absent", () => {
+        const c = renderSlots({ footer: <ViewOpener /> }, { fallback: "#123456" });
+        expect(c.getByText("open from #123456")).toBeTruthy();
+      });
+
+      it("should keep the search under a view", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        search(c, "o");
+        fireEvent.click(c.getByText("open from #3e8bff"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("o");
+      });
+
+      it("should show a view in place of the tabs until Back", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        const viewing = CSS.BM("color-picker", "viewing");
+        const picker = c
+          .getByRole("group", { name: "Series" })
+          .closest(`.${CSS.BM("color-picker", "tabbed")}`);
+        fireEvent.click(c.getByText("open from #3e8bff"));
+        expect(c.getByText("Edit color")).toBeTruthy();
+        expect(c.getByText("view body")).toBeTruthy();
+        expect(picker?.classList.contains(viewing)).toBe(true);
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(c.queryByText("view body")).toBeNull();
+        expect(picker?.classList.contains(viewing)).toBe(false);
+      });
+
+      it("should focus the picker after Back when the opener is gone", () => {
+        const RemovableOpener = (): ReactElement | null => {
+          const [present, setPresent] = useState(true);
+          const { openView } = Color.usePicker();
+          if (!present) return null;
+          const remove = <button onClick={() => setPresent(false)}>remove</button>;
+          return <button onClick={() => openView("Edit color", remove)}>open</button>;
+        };
+        const c = renderSlots(
+          { named: "ocean", footer: <RemovableOpener /> },
+          { value: "#3e8bff" },
+        );
+        const open = c.getByText("open");
+        open.focus();
+        fireEvent.click(open);
+        fireEvent.click(c.getByText("remove"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(
+          c.getByRole("group", { name: "Series" }).closest(`.${CSS.B("color-picker")}`),
+        );
+      });
+
+      it("should focus Back in a view, then the opener after Back", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        const open = c.getByText("open from #3e8bff");
+        open.focus();
+        fireEvent.click(open);
+        expect(document.activeElement).toBe(c.getByLabelText("Back"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(open);
+      });
+
+      it("should focus the swatch after Back from a view its menu opened", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <EditMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        act(() => alarm.focus());
+        fireEvent.contextMenu(alarm);
+        fireEvent.click(c.getByRole("menuitem", { name: "Edit" }));
+        expect(c.queryByRole("menu")).toBeNull();
+        expect(document.activeElement).toBe(c.getByLabelText("Back"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(alarm);
       });
     });
 

@@ -28,6 +28,9 @@
         min-height: 0;
         padding: 0;
 
+        /* The picker takes the focus, with no ring, when its view opener is gone. */
+        outline: none;
+
         & > * {
             flex-shrink: 0;
         }
@@ -64,8 +67,15 @@
             overflow-y: auto;
         }
 
+        /* The tabs stay mounted under a view, so Back finds them as they were. */
+        &.lyra-color-picker--viewing
+            > :not(.lyra-color-picker__view-header, .lyra-color-picker__view) {
+            display: none;
+        }
+
         & > .lyra-color-picker__palettes,
-        & > .lyra-color-picker__custom {
+        & > .lyra-color-picker__custom,
+        & > .lyra-color-picker__view {
             padding: var(--pluto-color-picker-inset);
         }
 
@@ -77,11 +87,13 @@
             );
             gap: var(--pluto-color-picker-gap);
 
-            & .lyra-color-swatch.lyra-btn {
+            /* Any button in a palette grid, slotted ones too, takes a swatch cell. */
+            & > .lyra-btn {
                 width: 100%;
                 min-width: 0;
                 height: auto;
                 min-height: 0;
+                padding: 0;
                 aspect-ratio: 1;
             }
 

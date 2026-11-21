@@ -19,6 +19,7 @@ import { type KeyboardEvent, useEffect, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
+import { openContextMenu } from "@/menu/keyboard";
 import { useRegistryContext } from "@/select/registry";
 import {
   type Cursor,
@@ -135,16 +136,7 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     );
   const contextMenu = (key: K) => {
     const element = getElement(key);
-    if (element == null) return;
-    const { left, bottom } = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: left,
-        clientY: bottom,
-      }),
-    );
+    if (element != null) openContextMenu(element);
   };
   return {
     getOrder,

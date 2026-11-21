@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { ReactElement, ReactNode } from "react";
 import { assert, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
+import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -21,7 +25,11 @@ const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
   light: `#${(i * 20).toString(16).padStart(2, "0")}8040`,
 }));
 
-const renderLibrary = async (value?: string): Promise<HTMLElement> => {
+const renderLibrary = async (
+  value?: string,
+  paletteEnd?: ReactNode,
+  swatchMenu?: ReactNode,
+): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
       <Color.Picker
@@ -30,6 +38,8 @@ const renderLibrary = async (value?: string): Promise<HTMLElement> => {
         library={{
           palettes: [{ key: "p", name: "Palette", colors: COLORS }],
           onNamedChange: () => {},
+          paletteEnd,
+          swatchMenu,
         }}
       />
     </Triggers.Provider>,
@@ -51,12 +61,78 @@ const swatchRect = (i: number): DOMRect =>
     .element()
     .getBoundingClientRect();
 
+const ViewOpener = (): ReactElement => {
+  const { openView } = Color.usePicker();
+  return (
+    <Button.Button
+      onClick={(e) => openView("Edit color", <span>view body</span>, e.currentTarget)}
+    >
+      open
+    </Button.Button>
+  );
+};
+
+const SwatchMenu = (): ReactElement | null => {
+  const { swatch } = Color.usePalette();
+  const { openView } = Color.usePicker();
+  if (swatch == null) return null;
+  return (
+    <Menu.Menu>
+      <Menu.Item
+        itemKey="edit"
+        onClick={() => openView("Edit color", <span>{`editing ${swatch.name}`}</span>)}
+      >
+        Edit
+      </Menu.Item>
+    </Menu.Menu>
+  );
+};
+
 describe("Picker", () => {
   describe("library", () => {
     it("should draw square swatches", async () => {
       await renderLibrary();
       const s = swatchRect(0);
       expect(s.width).toBeCloseTo(s.height, 0);
+    });
+
+    it("should size a slotted button as a swatch", async () => {
+      await renderLibrary(
+        undefined,
+        <Button.Button variant="outlined" square aria-label="Add">
+          <Icon.Add />
+        </Button.Button>,
+      );
+      const add = page.getByRole("button", { name: "Add" }).element();
+      const s = swatchRect(0);
+      expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
+      expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
+    });
+
+    it("should focus a clicked slot button after Back", async () => {
+      await renderLibrary(undefined, <ViewOpener />);
+      const open = page.getByRole("button", { name: "open" });
+      await userEvent.click(open);
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      expect(document.activeElement).toBe(open.element());
+    });
+
+    it("should focus a right-clicked swatch after an item opens a view and Back", async () => {
+      await renderLibrary(undefined, undefined, <SwatchMenu />);
+      const swatch = page.getByRole("button", { name: "Color 2", exact: true });
+      await userEvent.click(swatch, { button: "right" });
+      await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
+      await expect.element(page.getByText("editing Color 2")).toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Back" }));
+      expect(document.activeElement).toBe(swatch.element());
+    });
+
+    it("should draw no focus ring around the picker", async () => {
+      const picker = await renderLibrary();
+      await userEvent.keyboard("{Tab}");
+      picker.focus();
+      expect(picker.matches(":focus-visible")).toBe(true);
+      expect(getComputedStyle(picker).outlineStyle).toBe("none");
     });
 
     it("should space the swatches equally across and down", async () => {
