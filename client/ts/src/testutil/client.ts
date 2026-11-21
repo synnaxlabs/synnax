@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Middleware } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterAll, onTestFinished, TestRunner, vi } from "vitest";
 
@@ -141,6 +142,30 @@ export const holdRequests = (
     spy.mockRestore();
   });
   return { release: () => released.resolve() };
+};
+
+export interface RequestHold {
+  /** Holds each request whose target matches. Give it to the client as middleware. */
+  middleware: Middleware;
+  /** Sends the held requests on to the Core, and stops holding later ones. */
+  release: () => void;
+}
+
+/**
+ * Creates a hold on each request whose target the predicate matches. A client built
+ * with the hold's middleware sends those requests on only after release is called.
+ */
+export const createRequestHold = (
+  matches: (target: string) => boolean,
+): RequestHold => {
+  const released = Promise.withResolvers<void>();
+  return {
+    middleware: async (ctx, next) => {
+      if (matches(ctx.target)) await released.promise;
+      return await next(ctx);
+    },
+    release: () => released.resolve(),
+  };
 };
 
 /** Rejects with error each request for which matches is true. Sends the others on. */

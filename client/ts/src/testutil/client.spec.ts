@@ -13,7 +13,12 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type Synnax from "@/client";
 import { AuthError } from "@/errors";
-import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
+import {
+  createRequestHold,
+  createTestClient,
+  holdRequests,
+  rejectRequests,
+} from "@/testutil/client";
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {
@@ -78,6 +83,21 @@ describe("holdRequests", () => {
     release();
     await expect(retrieving).resolves.toEqual([]);
     expect(reachedCore()).toBe(true);
+  });
+});
+
+describe("createRequestHold", () => {
+  it("should hold a matching request until released and send the others", async () => {
+    const hold = createRequestHold((target) => target.endsWith("/channel/retrieve"));
+    const client = createTestClient({ middleware: [hold.middleware] });
+    let settled = false;
+    const retrieving = client.channels
+      .retrieve(["no-such-channel"])
+      .finally(() => (settled = true));
+    await expect(client.ranges.retrieve({ searchTerm: "rng" })).resolves.toBeDefined();
+    expect(settled).toBe(false);
+    hold.release();
+    await expect(retrieving).resolves.toEqual([]);
   });
 });
 

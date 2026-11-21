@@ -12,6 +12,7 @@ import { array, id } from "@synnaxlabs/x";
 import type { policy } from "@/access/policy";
 import type { role } from "@/access/role";
 import type Synnax from "@/client";
+import type { SynnaxParams } from "@/client";
 import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createFileTestClient, createTestClient } from "@/testutil/client";
 import { user } from "@/user";
@@ -72,18 +73,22 @@ export type TestPolicy = Omit<policy.New, "role">;
  * policy cannot express.
  * @param onInternalError - Receives every internal error of the new client, denials
  * included. Omit it to tolerate denials.
+ * @param params - Further parameters of the new client.
  */
 export const createTestClientWithPolicy = async (
   client: Synnax,
   pol: TestPolicy | TestPolicy[],
   onInternalError?: (err: Error) => void,
+  params?: Partial<SynnaxParams>,
 ) => {
   const r = await createEmptyRole(client);
   await client.access.policies.create(
     array.toArray(pol).map((p) => ({ ...p, role: r.key })),
   );
   const u = await createUser(client, r.key);
-  return await connectAs(u.username, u.key, onInternalError);
+  return await connectAs(u.username, u.key, onInternalError, (p) =>
+    createTestClient({ ...params, ...p }),
+  );
 };
 
 /** The roles the Core provisions on startup. */
