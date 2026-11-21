@@ -19,6 +19,8 @@
 
 #include "client/cpp/certificate/json.gen.h"
 #include "client/cpp/certificate/types.gen.h"
+#include "client/cpp/resource/proto.gen.h"
+#include "client/cpp/resource/types.gen.h"
 #include "client/cpp/secret/json.gen.h"
 #include "client/cpp/secret/proto.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -164,6 +166,14 @@ Base::to_proto() const {
     ::service::certificate::pb::Base pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
+    if (this->uses.has_value()) {
+        auto *wrapper = pb.mutable_uses();
+        for (const auto &item: *this->uses) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -176,6 +186,14 @@ Base::from_proto(const ::service::certificate::pb::Base &pb) {
         cpp.key = v;
     }
     cpp.name = pb.name();
+    if (pb.has_uses()) {
+        cpp.uses.emplace();
+        if (auto err = x::pb::from_proto_repeated<::synnax::resource::ID>(
+                *cpp.uses,
+                pb.uses().values()
+            ))
+            return {{}, err};
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -331,6 +349,7 @@ RetrieveRequest::to_proto() const {
         *pb.mutable_after() = v;
     }
     if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_include_uses(this->include_uses);
     return {pb, x::errors::NIL};
 }
 
@@ -354,6 +373,7 @@ RetrieveRequest::from_proto(const ::api::certificate::pb::RetrieveRequest &pb) {
         cpp.after = v;
     }
     if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.include_uses = pb.include_uses();
     return {cpp, x::errors::NIL};
 }
 

@@ -18,13 +18,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v14"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -34,6 +35,13 @@ import (
 )
 
 var (
+	fullyPopulatedSegmentedEdgeConfig = v14.SegmentedEdgeConfig{
+		StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+		}}),
+		Segments:    []v14.Segment{{Direction: spatial.Direction("x"), Length: 5.5}},
+		StrokeWidth: 7,
+	}
 	fullyPopulatedStaticSymbolConfig = v14.StaticSymbolConfig{
 		Label: v14.LabelConfig{
 			Label:         "test_2",
@@ -45,7 +53,7 @@ var (
 		},
 		Orientation: spatial.OuterLocation("top"),
 		Scale:       9.5,
-		StrokeColor: new(color.Color{
+		StrokeColor: new(xcolor.Color{
 			R: 12,
 			G: 13,
 			B: 14,
@@ -64,7 +72,7 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: telem.TimeSpan(11),
-		StalenessColor: new(color.Color{
+		StalenessColor: new(xcolor.Color{
 			R: 13,
 			G: 14,
 			B: 15,
@@ -80,7 +88,7 @@ var (
 			Orientation:     spatial.Location("top"),
 		},
 		OnClickDelay: telem.TimeSpan(25),
-		StrokeColor: new(color.Color{
+		StrokeColor: new(xcolor.Color{
 			R: 27,
 			G: 28,
 			B: 29,
@@ -106,7 +114,7 @@ var (
 	}
 	fullyPopulatedStalenessConfig = v14.StalenessConfig{
 		StalenessTimeout: telem.TimeSpan(2),
-		StalenessColor: new(color.Color{
+		StalenessColor: new(xcolor.Color{
 			R: 4,
 			G: 5,
 			B: 6,
@@ -120,35 +128,26 @@ var (
 		Precision:        new(uint8(4)),
 		Notation:         notation.Notation("standard"),
 		StalenessTimeout: telem.TimeSpan(6),
-		StalenessColor: new(color.Color{
+		StalenessColor: new(xcolor.Color{
 			R: 8,
 			G: 9,
 			B: 10,
 			A: 11,
 		}),
 		Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-		LevelColor: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 19,
-		}),
-		AxisColor: new(color.Color{
-			R: 21,
-			G: 22,
-			B: 23,
-			A: 24,
-		}),
-		TextColor: new(color.Color{
-			R: 26,
-			G: 27,
-			B: 28,
-			A: 29,
-		}),
-		Units:       "test_29",
-		LevelHidden: false,
-		CaretHidden: true,
-		ScaleHidden: false,
+		LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+		}}),
+		AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+		}}),
+		TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+			Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+		}}),
+		Units:       "test_20",
+		LevelHidden: true,
+		CaretHidden: false,
+		ScaleHidden: true,
 		Side:        spatial.OuterLocation("top"),
 		CaretSide:   spatial.OuterLocation("top"),
 		Level:       text.Level("h1"),
@@ -166,7 +165,7 @@ var (
 		Scale:       9.5,
 		Enabled:     false,
 		Clickable:   true,
-		StrokeColor: new(color.Color{
+		StrokeColor: new(xcolor.Color{
 			R: 14,
 			G: 15,
 			B: 16,
@@ -185,7 +184,7 @@ var (
 		Orientation:      spatial.OuterLocation("top"),
 		Scale:            9.5,
 		StalenessTimeout: telem.TimeSpan(11),
-		StalenessColor: new(color.Color{
+		StalenessColor: new(xcolor.Color{
 			R: 13,
 			G: 14,
 			B: 15,
@@ -205,6 +204,57 @@ var (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Edge", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.Edge) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.Edge
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v14.Edge{
+				Key:    "test_1",
+				Source: v14.Handle{Node: "test_3", Param: "test_4"},
+				Target: v14.Handle{Node: "test_6", Param: "test_7"},
+				Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+			}),
+			Entry("zero values", v14.Edge{
+				Key:    "",
+				Source: v14.Handle{Node: "", Param: ""},
+				Target: v14.Handle{Node: "", Param: ""},
+				Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{
+					SegmentedEdgeConfig: v14.SegmentedEdgeConfig{
+						StrokeColor: nil,
+						Segments:    []v14.Segment{},
+						StrokeWidth: 0,
+					},
+				}},
+			}),
+		)
+	})
+	Describe("EdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.EdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.EdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("pipe variant", v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("electric variant", v14.EdgeConfig{Variant: v14.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("secondary variant", v14.EdgeConfig{Variant: v14.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("jacketed variant", v14.EdgeConfig{Variant: v14.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("hydraulic variant", v14.EdgeConfig{Variant: v14.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("pneumatic variant", v14.EdgeConfig{Variant: v14.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("data variant", v14.EdgeConfig{Variant: v14.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+		)
+	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v14.Node) {
@@ -312,21 +362,15 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("box variant", v14.NodeConfig{Variant: v14.BoxNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				FillColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-				BorderRadius: new(uint16(15)),
-				StrokeWidth:  new(uint8(16)),
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				}}),
+				Dimensions:   spatial.Dimensions{Width: 6.5, Height: 7.5},
+				BorderRadius: new(uint16(9)),
+				StrokeWidth:  new(uint8(10)),
 			}}),
 			Entry("button variant", v14.NodeConfig{Variant: v14.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
@@ -334,55 +378,43 @@ var _ = Describe("Codec", func() {
 				OnClickDelay:   telem.TimeSpan(3),
 				CommandChannel: channel.Key(4),
 				Mode:           v14.ButtonMode("fire"),
-				FillColor: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				}}),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(12)),
-					Hidden:          false,
-					ChipHidden:      true,
-					IndicatorHidden: false,
+					Authority:       new(uint8(9)),
+					Hidden:          true,
+					ChipHidden:      false,
+					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
 			Entry("circle variant", v14.NodeConfig{Variant: v14.CircleNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				Radius:        2,
-				StrokeColor: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				StrokeWidth: new(uint8(13)),
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				}}),
+				StrokeWidth: new(uint8(7)),
 			}}),
 			Entry("gauge variant", v14.NodeConfig{Variant: v14.GaugeNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           spatial.XY{X: 2.5, Y: 3.5},
-				StrokeColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-				BarWidth: 13,
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				}}),
+				Bounds:   spatial.Bounds{Lower: 7.5, Upper: 8.5},
+				BarWidth: 10,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
 				},
-				Units: "test_16",
+				Units: "test_13",
 				Level: text.Level("h1"),
 			}}),
 			Entry("input variant", v14.NodeConfig{Variant: v14.InputNodeConfig{
@@ -392,20 +424,17 @@ var _ = Describe("Codec", func() {
 				CommandChannel:  channel.Key(3),
 				StateChannel:    channel.Key(4),
 				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				Disabled:     false,
-				InlineSize:   14,
-				OnClickDelay: telem.TimeSpan(15),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				}}),
+				Disabled:     true,
+				InlineSize:   11,
+				OnClickDelay: telem.TimeSpan(12),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(17)),
-					Hidden:          true,
-					ChipHidden:      false,
-					IndicatorHidden: true,
+					Authority:       new(uint8(14)),
+					Hidden:          false,
+					ChipHidden:      true,
+					IndicatorHidden: false,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -415,13 +444,13 @@ var _ = Describe("Codec", func() {
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         channel.Key(2),
 				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-				StrokeColor: new(color.Color{
+				StrokeColor: new(xcolor.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 10,
 				}),
-				OnColor: new(color.Color{
+				OnColor: new(xcolor.Color{
 					R: 12,
 					G: 13,
 					B: 14,
@@ -429,26 +458,20 @@ var _ = Describe("Codec", func() {
 				}),
 			}}),
 			Entry("line variant", v14.NodeConfig{Variant: v14.LineNodeConfig{
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				Start:       spatial.XY{X: 7.5, Y: 8.5},
-				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 13,
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				Start:       spatial.XY{X: 4.5, Y: 5.5},
+				End:         spatial.XY{X: 7.5, Y: 8.5},
+				StrokeWidth: 10,
 			}}),
 			Entry("off_page_reference variant", v14.NodeConfig{Variant: v14.OffPageReferenceNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				FillColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				Page:                          v14.Page{Type: v14.PageType("schematic"), Key: "test_8"},
-				DoubleClickNavigationDisabled: true,
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				Page:                          v14.Page{Type: v14.PageType("schematic"), Key: "test_5"},
+				DoubleClickNavigationDisabled: false,
 			}}),
 			Entry("polygon variant", v14.NodeConfig{Variant: v14.PolygonNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -456,19 +479,13 @@ var _ = Describe("Codec", func() {
 				SideLength:    3,
 				Rotation:      3.5,
 				BorderRadius:  5,
-				StrokeColor: new(color.Color{
-					R: 7,
-					G: 8,
-					B: 9,
-					A: 10,
-				}),
-				FillColor: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 15,
-				}),
-				StrokeWidth: new(uint8(16)),
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				}}),
+				StrokeWidth: new(uint8(10)),
 			}}),
 			Entry("select variant", v14.NodeConfig{Variant: v14.SelectNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -476,34 +493,31 @@ var _ = Describe("Codec", func() {
 				Size:            v14.ComponentSize("tiny"),
 				CommandChannel:  channel.Key(3),
 				StateChannel:    channel.Key(4),
-				FillColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				InlineSize: 10,
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				}}),
+				InlineSize: 7,
 				Options: []v14.StateMapping{
 					{
-						Key:   "test_11",
-						Name:  "test_12",
-						Value: 13.5,
-						Color: new(color.Color{
-							R: 16,
-							G: 17,
-							B: 18,
-							A: 19,
+						Key:   "test_8",
+						Name:  "test_9",
+						Value: 10.5,
+						Color: new(xcolor.Color{
+							R: 13,
+							G: 14,
+							B: 15,
+							A: 16,
 						}),
 					},
 				},
-				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-				Disabled:     false,
-				OnClickDelay: telem.TimeSpan(22),
+				Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
+				Disabled:     true,
+				OnClickDelay: telem.TimeSpan(19),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(24)),
-					Hidden:          false,
-					ChipHidden:      true,
-					IndicatorHidden: false,
+					Authority:       new(uint8(21)),
+					Hidden:          true,
+					ChipHidden:      false,
+					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -520,21 +534,18 @@ var _ = Describe("Codec", func() {
 				CommandChannel:  channel.Key(3),
 				StateChannel:    channel.Key(4),
 				Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
-				FillColor: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				Units:        "test_12",
-				Disabled:     true,
-				InlineSize:   15,
-				OnClickDelay: telem.TimeSpan(16),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+				}}),
+				Units:        "test_9",
+				Disabled:     false,
+				InlineSize:   12,
+				OnClickDelay: telem.TimeSpan(13),
 				Control: v14.ControlStateConfig{
-					Authority:       new(uint8(18)),
-					Hidden:          false,
-					ChipHidden:      true,
-					IndicatorHidden: false,
+					Authority:       new(uint8(15)),
+					Hidden:          true,
+					ChipHidden:      false,
+					IndicatorHidden: true,
 					Orientation:     spatial.Location("top"),
 				},
 			}}),
@@ -542,101 +553,80 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         channel.Key(2),
-				StrokeColor: new(color.Color{
-					R: 4,
-					G: 5,
-					B: 6,
-					A: 7,
-				}),
-				InlineSize: 8,
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+				}}),
+				InlineSize: 5,
 				Options: []v14.StateMapping{
 					{
-						Key:   "test_9",
-						Name:  "test_10",
-						Value: 11.5,
-						Color: new(color.Color{
-							R: 14,
-							G: 15,
-							B: 16,
-							A: 17,
+						Key:   "test_6",
+						Name:  "test_7",
+						Value: 8.5,
+						Color: new(xcolor.Color{
+							R: 11,
+							G: 12,
+							B: 13,
+							A: 14,
 						}),
 					},
 				},
-				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+				Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
 				Size:        v14.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v14.NodeConfig{Variant: v14.StringDisplayNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
-				StrokeColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				TextColor: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				Tooltip:    []string{"test_11"},
-				InlineSize: 13,
-				Channel:    channel.Key(14),
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				}}),
+				Tooltip:    []string{"test_5"},
+				InlineSize: 7,
+				Channel:    channel.Key(8),
 				Level:      text.Level("h1"),
 			}}),
 			Entry("switch variant", v14.NodeConfig{Variant: v14.SwitchNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("text_box variant", v14.NodeConfig{Variant: v14.TextBoxNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
-				TextColor: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 6,
-				}),
-				InlineSize:      7,
+				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				InlineSize:      4,
 				Align:           v14.FlexAlignment("start"),
-				AutoFitDisabled: false,
+				AutoFitDisabled: true,
 				Level:           text.Level("h1"),
-				Value:           "test_10",
+				Value:           "test_7",
 			}}),
 			Entry("value variant", v14.NodeConfig{Variant: v14.ValueNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
 				NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 				StalenessConfig:    fullyPopulatedStalenessConfig,
 				Position:           spatial.XY{X: 2.5, Y: 3.5},
-				StrokeColor: new(color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 9,
-				}),
-				TextColor: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 14,
-				}),
-				FillColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 19,
-				}),
-				Tooltip: []string{"test_19"},
-				Redline: color.Scale{
-					Bands: []color.Band{
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				}}),
+				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+				}}),
+				Tooltip: []string{"test_10"},
+				Redline: xcolor.Scale{
+					Bands: []xcolor.Band{
 						{
-							Key:       "test_22",
-							Threshold: 23.5,
-							Color:     color.Color{},
-							Flashing:  true,
+							Key:       "test_13",
+							Threshold: 14.5,
+							Color:     xcolor.Color{},
+							Flashing:  false,
 						},
 					},
-					Smooth: false,
+					Smooth: true,
 				},
-				Units:      "test_27",
-				InlineSize: 29,
+				Units:      "test_18",
+				InlineSize: 20,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -784,18 +774,12 @@ var _ = Describe("Codec", func() {
 					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 				}),
-				StrokeColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 22,
-				}),
-				FillColor: new(color.Color{
-					R: 24,
-					G: 25,
-					B: 26,
-					A: 27,
-				}),
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
+				}}),
 			}}),
 			Entry("tank variant", v14.NodeConfig{Variant: v14.TankNodeConfig{
 				LabeledConfig:    fullyPopulatedLabeledConfig,
@@ -804,57 +788,42 @@ var _ = Describe("Codec", func() {
 				Precision:        new(uint8(4)),
 				Notation:         notation.Notation("standard"),
 				StalenessTimeout: telem.TimeSpan(6),
-				StalenessColor: new(color.Color{
+				StalenessColor: new(xcolor.Color{
 					R: 8,
 					G: 9,
 					B: 10,
 					A: 11,
 				}),
 				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-				LevelColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 19,
-				}),
-				AxisColor: new(color.Color{
-					R: 21,
-					G: 22,
-					B: 23,
-					A: 24,
-				}),
-				TextColor: new(color.Color{
-					R: 26,
-					G: 27,
-					B: 28,
-					A: 29,
-				}),
-				Units:       "test_29",
-				LevelHidden: false,
+				LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+				}}),
+				AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+				}}),
+				TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+				}}),
+				Units:       "test_20",
+				LevelHidden: true,
 				CaretSide:   spatial.OuterLocation("top"),
 				Level:       text.Level("h1"),
-				Position:    spatial.XY{X: 34.5, Y: 35.5},
-				StrokeColor: new(color.Color{
-					R: 38,
-					G: 39,
-					B: 40,
-					A: 41,
-				}),
-				FillColor: new(color.Color{
-					R: 43,
-					G: 44,
-					B: 45,
-					A: 46,
-				}),
-				Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
+				Position:    spatial.XY{X: 25.5, Y: 26.5},
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"),
+				}}),
+				FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+				}}),
+				Dimensions: spatial.Dimensions{Width: 32.5, Height: 33.5},
 				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
-					TopRight:    spatial.XY{X: 54.5, Y: 55.5},
-					BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
-					BottomRight: spatial.XY{X: 60.5, Y: 61.5},
+					TopLeft:     spatial.XY{X: 36.5, Y: 37.5},
+					TopRight:    spatial.XY{X: 39.5, Y: 40.5},
+					BottomLeft:  spatial.XY{X: 42.5, Y: 43.5},
+					BottomRight: spatial.XY{X: 45.5, Y: 46.5},
 				}),
-				CaretVisible: false,
-				ScaleVisible: true,
+				CaretVisible: true,
+				ScaleVisible: false,
 				Side:         spatial.OuterLocation("top"),
 			}}),
 			Entry("t_junction variant", v14.NodeConfig{Variant: v14.TJunctionNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -870,8 +839,8 @@ var _ = Describe("Codec", func() {
 								Key:         "test_6",
 								Name:        "test_7",
 								Selectors:   []string{"test_8"},
-								StrokeColor: new(color.Color{}),
-								FillColor:   new(color.Color{}),
+								StrokeColor: new(xcolor.Color{}),
+								FillColor:   new(xcolor.Color{}),
 							},
 						},
 					},
@@ -890,14 +859,47 @@ var _ = Describe("Codec", func() {
 								Key:         "test_6",
 								Name:        "test_7",
 								Selectors:   []string{"test_8"},
-								StrokeColor: new(color.Color{}),
-								FillColor:   new(color.Color{}),
+								StrokeColor: new(xcolor.Color{}),
+								FillColor:   new(xcolor.Color{}),
 							},
 						},
 					},
 				},
 			}}),
 			Entry("group_box variant", v14.NodeConfig{Variant: v14.GroupBoxNodeConfig{Locked: true}}),
+		)
+	})
+	Describe("ScaleIndicatorConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.ScaleIndicatorConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.ScaleIndicatorConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedScaleIndicatorConfig),
+			Entry("zero values", v14.ScaleIndicatorConfig{
+				Channel:          channel.Key(0),
+				RollingAverage:   0,
+				Precision:        nil,
+				Notation:         notation.Notation(""),
+				StalenessTimeout: telem.TimeSpan(0),
+				StalenessColor:   nil,
+				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
+				LevelColor:       nil,
+				AxisColor:        nil,
+				TextColor:        nil,
+				Units:            "",
+				LevelHidden:      false,
+				CaretHidden:      false,
+				ScaleHidden:      false,
+				Side:             spatial.OuterLocation(""),
+				CaretSide:        spatial.OuterLocation(""),
+				Level:            text.Level(""),
+			}),
 		)
 	})
 	Describe("Schematic", func() {
@@ -928,17 +930,11 @@ var _ = Describe("Codec", func() {
 						Key:    "test_12",
 						Source: v14.Handle{Node: "test_14", Param: "test_15"},
 						Target: v14.Handle{Node: "test_17", Param: "test_18"},
-						Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{
-							SegmentedEdgeConfig: v14.SegmentedEdgeConfig{
-								StrokeColor: new(color.Color{}),
-								Segments:    []v14.Segment{{}},
-								StrokeWidth: 23,
-							},
-						}},
+						Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 					},
 				},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567818"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 			}),
 			Entry("zero values", v14.Schematic{
 				Key:     uuid.Nil(),
@@ -958,7 +954,72 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("SegmentedEdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v14.SegmentedEdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v14.SegmentedEdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
+			Entry("zero values", v14.SegmentedEdgeConfig{
+				StrokeColor: nil,
+				Segments:    []v14.Segment{},
+				StrokeWidth: 0,
+			}),
+			Entry("empty collections", v14.SegmentedEdgeConfig{
+				StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				}}),
+				Segments:    []v14.Segment{},
+				StrokeWidth: 5,
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeEdge(b *testing.B) {
+	seed := v14.Edge{
+		Key:    "test_1",
+		Source: v14.Handle{Node: "test_3", Param: "test_4"},
+		Target: v14.Handle{Node: "test_6", Param: "test_7"},
+		Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
+	seed := v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.EdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	seed := v14.Node{
@@ -1000,6 +1061,23 @@ func BenchmarkEncodeDecodeNodeConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeScaleIndicatorConfig(b *testing.B) {
+	seed := fullyPopulatedScaleIndicatorConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.ScaleIndicatorConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	seed := v14.Schematic{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -1018,17 +1096,11 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Key:    "test_12",
 				Source: v14.Handle{Node: "test_14", Param: "test_15"},
 				Target: v14.Handle{Node: "test_17", Param: "test_18"},
-				Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{
-					SegmentedEdgeConfig: v14.SegmentedEdgeConfig{
-						StrokeColor: new(color.Color{}),
-						Segments:    []v14.Segment{{}},
-						StrokeWidth: 23,
-					},
-				}},
+				Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 			},
 		},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567818"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1043,6 +1115,157 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
+	seed := fullyPopulatedSegmentedEdgeConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v14.SegmentedEdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeEdge(f *testing.F) {
+	{
+		seed := v14.Edge{
+			Key:    "test_1",
+			Source: v14.Handle{Node: "test_3", Param: "test_4"},
+			Target: v14.Handle{Node: "test_6", Param: "test_7"},
+			Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.Edge{
+			Key:    "",
+			Source: v14.Handle{Node: "", Param: ""},
+			Target: v14.Handle{Node: "", Param: ""},
+			Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{
+				SegmentedEdgeConfig: v14.SegmentedEdgeConfig{
+					StrokeColor: nil,
+					Segments:    []v14.Segment{},
+					StrokeWidth: 0,
+				},
+			}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.Edge
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeEdgeConfig(f *testing.F) {
+	{
+		seed := v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.EdgeConfig{Variant: v14.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.EdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.EdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeNode(f *testing.F) {
@@ -1342,21 +1565,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v14.NodeConfig{Variant: v14.BoxNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			FillColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
-			BorderRadius: new(uint16(15)),
-			StrokeWidth:  new(uint8(16)),
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			}}),
+			Dimensions:   spatial.Dimensions{Width: 6.5, Height: 7.5},
+			BorderRadius: new(uint16(9)),
+			StrokeWidth:  new(uint8(10)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1371,17 +1588,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			OnClickDelay:   telem.TimeSpan(3),
 			CommandChannel: channel.Key(4),
 			Mode:           v14.ButtonMode("fire"),
-			FillColor: new(color.Color{
-				R: 7,
-				G: 8,
-				B: 9,
-				A: 10,
-			}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			}}),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(12)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
+				Authority:       new(uint8(9)),
+				Hidden:          true,
+				ChipHidden:      false,
+				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -1395,19 +1609,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v14.NodeConfig{Variant: v14.CircleNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			Radius:        2,
-			StrokeColor: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			StrokeWidth: new(uint8(13)),
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			}}),
+			StrokeWidth: new(uint8(7)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1421,19 +1629,16 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           spatial.XY{X: 2.5, Y: 3.5},
-			StrokeColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
-			BarWidth: 13,
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			}}),
+			Bounds:   spatial.Bounds{Lower: 7.5, Upper: 8.5},
+			BarWidth: 10,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
 			},
-			Units: "test_16",
+			Units: "test_13",
 			Level: text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -1450,20 +1655,17 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			CommandChannel:  channel.Key(3),
 			StateChannel:    channel.Key(4),
 			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			Disabled:     false,
-			InlineSize:   14,
-			OnClickDelay: telem.TimeSpan(15),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+			}}),
+			Disabled:     true,
+			InlineSize:   11,
+			OnClickDelay: telem.TimeSpan(12),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(17)),
-				Hidden:          true,
-				ChipHidden:      false,
-				IndicatorHidden: true,
+				Authority:       new(uint8(14)),
+				Hidden:          false,
+				ChipHidden:      true,
+				IndicatorHidden: false,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -1480,13 +1682,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         channel.Key(2),
 			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
-			StrokeColor: new(color.Color{
+			StrokeColor: new(xcolor.Color{
 				R: 7,
 				G: 8,
 				B: 9,
 				A: 10,
 			}),
-			OnColor: new(color.Color{
+			OnColor: new(xcolor.Color{
 				R: 12,
 				G: 13,
 				B: 14,
@@ -1501,15 +1703,12 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v14.NodeConfig{Variant: v14.LineNodeConfig{
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			Start:       spatial.XY{X: 7.5, Y: 8.5},
-			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 13,
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			Start:       spatial.XY{X: 4.5, Y: 5.5},
+			End:         spatial.XY{X: 7.5, Y: 8.5},
+			StrokeWidth: 10,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1520,14 +1719,11 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v14.NodeConfig{Variant: v14.OffPageReferenceNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			FillColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			Page:                          v14.Page{Type: v14.PageType("schematic"), Key: "test_8"},
-			DoubleClickNavigationDisabled: true,
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			Page:                          v14.Page{Type: v14.PageType("schematic"), Key: "test_5"},
+			DoubleClickNavigationDisabled: false,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1542,19 +1738,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			SideLength:    3,
 			Rotation:      3.5,
 			BorderRadius:  5,
-			StrokeColor: new(color.Color{
-				R: 7,
-				G: 8,
-				B: 9,
-				A: 10,
-			}),
-			FillColor: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 15,
-			}),
-			StrokeWidth: new(uint8(16)),
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+			}}),
+			StrokeWidth: new(uint8(10)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1569,34 +1759,31 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Size:            v14.ComponentSize("tiny"),
 			CommandChannel:  channel.Key(3),
 			StateChannel:    channel.Key(4),
-			FillColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			InlineSize: 10,
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			}}),
+			InlineSize: 7,
 			Options: []v14.StateMapping{
 				{
-					Key:   "test_11",
-					Name:  "test_12",
-					Value: 13.5,
-					Color: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 19,
+					Key:   "test_8",
+					Name:  "test_9",
+					Value: 10.5,
+					Color: new(xcolor.Color{
+						R: 13,
+						G: 14,
+						B: 15,
+						A: 16,
 					}),
 				},
 			},
-			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
-			Disabled:     false,
-			OnClickDelay: telem.TimeSpan(22),
+			Enumeration:  new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567810"))),
+			Disabled:     true,
+			OnClickDelay: telem.TimeSpan(19),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(24)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
+				Authority:       new(uint8(21)),
+				Hidden:          true,
+				ChipHidden:      false,
+				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -1627,21 +1814,18 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			CommandChannel:  channel.Key(3),
 			StateChannel:    channel.Key(4),
 			Dimensions:      spatial.Dimensions{Width: 5.5, Height: 6.5},
-			FillColor: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 12,
-			}),
-			Units:        "test_12",
-			Disabled:     true,
-			InlineSize:   15,
-			OnClickDelay: telem.TimeSpan(16),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+			}}),
+			Units:        "test_9",
+			Disabled:     false,
+			InlineSize:   12,
+			OnClickDelay: telem.TimeSpan(13),
 			Control: v14.ControlStateConfig{
-				Authority:       new(uint8(18)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
+				Authority:       new(uint8(15)),
+				Hidden:          true,
+				ChipHidden:      false,
+				IndicatorHidden: true,
 				Orientation:     spatial.Location("top"),
 			},
 		}}
@@ -1656,27 +1840,24 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         channel.Key(2),
-			StrokeColor: new(color.Color{
-				R: 4,
-				G: 5,
-				B: 6,
-				A: 7,
-			}),
-			InlineSize: 8,
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
+			}}),
+			InlineSize: 5,
 			Options: []v14.StateMapping{
 				{
-					Key:   "test_9",
-					Name:  "test_10",
-					Value: 11.5,
-					Color: new(color.Color{
-						R: 14,
-						G: 15,
-						B: 16,
-						A: 17,
+					Key:   "test_6",
+					Name:  "test_7",
+					Value: 8.5,
+					Color: new(xcolor.Color{
+						R: 11,
+						G: 12,
+						B: 13,
+						A: 14,
 					}),
 				},
 			},
-			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"))),
+			Enumeration: new(enumeration.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
 			Size:        v14.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)
@@ -1689,21 +1870,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v14.NodeConfig{Variant: v14.StringDisplayNodeConfig{
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
-			StrokeColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			TextColor: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			Tooltip:    []string{"test_11"},
-			InlineSize: 13,
-			Channel:    channel.Key(14),
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			}}),
+			Tooltip:    []string{"test_5"},
+			InlineSize: 7,
+			Channel:    channel.Key(8),
 			Level:      text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -1723,17 +1898,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v14.NodeConfig{Variant: v14.TextBoxNodeConfig{
 			LabeledConfig: fullyPopulatedLabeledConfig,
-			TextColor: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 6,
-			}),
-			InlineSize:      7,
+			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			InlineSize:      4,
 			Align:           v14.FlexAlignment("start"),
-			AutoFitDisabled: false,
+			AutoFitDisabled: true,
 			Level:           text.Level("h1"),
-			Value:           "test_10",
+			Value:           "test_7",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1747,38 +1919,29 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			NumericTelemConfig: fullyPopulatedNumericTelemConfig,
 			StalenessConfig:    fullyPopulatedStalenessConfig,
 			Position:           spatial.XY{X: 2.5, Y: 3.5},
-			StrokeColor: new(color.Color{
-				R: 6,
-				G: 7,
-				B: 8,
-				A: 9,
-			}),
-			TextColor: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 14,
-			}),
-			FillColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 19,
-			}),
-			Tooltip: []string{"test_19"},
-			Redline: color.Scale{
-				Bands: []color.Band{
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+			}}),
+			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+			}}),
+			Tooltip: []string{"test_10"},
+			Redline: xcolor.Scale{
+				Bands: []xcolor.Band{
 					{
-						Key:       "test_22",
-						Threshold: 23.5,
-						Color:     color.Color{},
-						Flashing:  true,
+						Key:       "test_13",
+						Threshold: 14.5,
+						Color:     xcolor.Color{},
+						Flashing:  false,
 					},
 				},
-				Smooth: false,
+				Smooth: true,
 			},
-			Units:      "test_27",
-			InlineSize: 29,
+			Units:      "test_18",
+			InlineSize: 20,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -2325,18 +2488,12 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
 				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
 			}),
-			StrokeColor: new(color.Color{
-				R: 19,
-				G: 20,
-				B: 21,
-				A: 22,
-			}),
-			FillColor: new(color.Color{
-				R: 24,
-				G: 25,
-				B: 26,
-				A: 27,
-			}),
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
+			}}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2352,57 +2509,42 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			Precision:        new(uint8(4)),
 			Notation:         notation.Notation("standard"),
 			StalenessTimeout: telem.TimeSpan(6),
-			StalenessColor: new(color.Color{
+			StalenessColor: new(xcolor.Color{
 				R: 8,
 				G: 9,
 				B: 10,
 				A: 11,
 			}),
 			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
-			LevelColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 19,
-			}),
-			AxisColor: new(color.Color{
-				R: 21,
-				G: 22,
-				B: 23,
-				A: 24,
-			}),
-			TextColor: new(color.Color{
-				R: 26,
-				G: 27,
-				B: 28,
-				A: 29,
-			}),
-			Units:       "test_29",
-			LevelHidden: false,
+			LevelColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+			}}),
+			AxisColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+			}}),
+			TextColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+			}}),
+			Units:       "test_20",
+			LevelHidden: true,
 			CaretSide:   spatial.OuterLocation("top"),
 			Level:       text.Level("h1"),
-			Position:    spatial.XY{X: 34.5, Y: 35.5},
-			StrokeColor: new(color.Color{
-				R: 38,
-				G: 39,
-				B: 40,
-				A: 41,
-			}),
-			FillColor: new(color.Color{
-				R: 43,
-				G: 44,
-				B: 45,
-				A: 46,
-			}),
-			Dimensions: spatial.Dimensions{Width: 47.5, Height: 48.5},
+			Position:    spatial.XY{X: 25.5, Y: 26.5},
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c"),
+			}}),
+			FillColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+			}}),
+			Dimensions: spatial.Dimensions{Width: 32.5, Height: 33.5},
 			BorderRadius: new(border.Radius{
-				TopLeft:     spatial.XY{X: 51.5, Y: 52.5},
-				TopRight:    spatial.XY{X: 54.5, Y: 55.5},
-				BottomLeft:  spatial.XY{X: 57.5, Y: 58.5},
-				BottomRight: spatial.XY{X: 60.5, Y: 61.5},
+				TopLeft:     spatial.XY{X: 36.5, Y: 37.5},
+				TopRight:    spatial.XY{X: 39.5, Y: 40.5},
+				BottomLeft:  spatial.XY{X: 42.5, Y: 43.5},
+				BottomRight: spatial.XY{X: 45.5, Y: 46.5},
 			}),
-			CaretVisible: false,
-			ScaleVisible: true,
+			CaretVisible: true,
+			ScaleVisible: false,
 			Side:         spatial.OuterLocation("top"),
 		}}
 		w := orc.NewWriter(0)
@@ -2432,8 +2574,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 							Key:         "test_6",
 							Name:        "test_7",
 							Selectors:   []string{"test_8"},
-							StrokeColor: new(color.Color{}),
-							FillColor:   new(color.Color{}),
+							StrokeColor: new(xcolor.Color{}),
+							FillColor:   new(xcolor.Color{}),
 						},
 					},
 				},
@@ -2459,8 +2601,8 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 							Key:         "test_6",
 							Name:        "test_7",
 							Selectors:   []string{"test_8"},
-							StrokeColor: new(color.Color{}),
-							FillColor:   new(color.Color{}),
+							StrokeColor: new(xcolor.Color{}),
+							FillColor:   new(xcolor.Color{}),
 						},
 					},
 				},
@@ -2502,6 +2644,63 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedScaleIndicatorConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.ScaleIndicatorConfig{
+			Channel:          channel.Key(0),
+			RollingAverage:   0,
+			Precision:        nil,
+			Notation:         notation.Notation(""),
+			StalenessTimeout: telem.TimeSpan(0),
+			StalenessColor:   nil,
+			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
+			LevelColor:       nil,
+			AxisColor:        nil,
+			TextColor:        nil,
+			Units:            "",
+			LevelHidden:      false,
+			CaretHidden:      false,
+			ScaleHidden:      false,
+			Side:             spatial.OuterLocation(""),
+			CaretSide:        spatial.OuterLocation(""),
+			Level:            text.Level(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.ScaleIndicatorConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.ScaleIndicatorConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeSchematic(f *testing.F) {
 	{
 		seed := v14.Schematic{
@@ -2521,17 +2720,11 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Key:    "test_12",
 					Source: v14.Handle{Node: "test_14", Param: "test_15"},
 					Target: v14.Handle{Node: "test_17", Param: "test_18"},
-					Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{
-						SegmentedEdgeConfig: v14.SegmentedEdgeConfig{
-							StrokeColor: new(color.Color{}),
-							Segments:    []v14.Segment{{}},
-							StrokeWidth: 23,
-						},
-					}},
+					Config: v14.EdgeConfig{Variant: v14.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}},
 				},
 			},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567818"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567815"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2581,6 +2774,63 @@ func FuzzDecodeSchematic(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v14.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedSegmentedEdgeConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.SegmentedEdgeConfig{
+			StrokeColor: nil,
+			Segments:    []v14.Segment{},
+			StrokeWidth: 0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v14.SegmentedEdgeConfig{
+			StrokeColor: new(servicecolor.Ref{Variant: servicecolor.NamedRef{
+				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+			}}),
+			Segments:    []v14.Segment{},
+			StrokeWidth: 5,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v14.SegmentedEdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v14.SegmentedEdgeConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

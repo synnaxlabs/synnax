@@ -28,15 +28,6 @@ on:
         description: "Pull request to review"
         type: number
         required: true
-      # The relay of a release branch cut from 0.62.0 or older still sends these two.
-      comment:
-        description: "Unused"
-        type: string
-        required: false
-      reply:
-        description: "Unused"
-        type: boolean
-        default: false
       head:
         description: "Commit to review, if not the head of the pull request"
         type: string
@@ -93,6 +84,7 @@ jobs:
       fork: ${{ steps.pr.outputs.fork }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr
@@ -375,6 +367,7 @@ jobs:
       'true' && !inputs.replay
     name: Unwatch the pull request
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -406,6 +399,7 @@ jobs:
       needs.start.outputs.carried != 'true'
     name: End the check run
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -440,8 +434,10 @@ jobs:
     name: Restore the summary
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       checks: read
       pull-requests: read
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr

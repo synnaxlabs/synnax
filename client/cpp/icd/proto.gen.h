@@ -241,6 +241,7 @@ Message::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_payload() = v;
     }
+    if (this->cycle_time.has_value()) pb.set_cycle_time(this->cycle_time->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -258,6 +259,8 @@ Message::from_proto(const ::service::icd::pb::Message &pb) {
         if (err) return {{}, err};
         cpp.payload = v;
     }
+    if (pb.has_cycle_time())
+        cpp.cycle_time = ::x::telem::TimeSpan::from_proto(pb.cycle_time());
     return {cpp, x::errors::NIL};
 }
 
@@ -742,6 +745,18 @@ BooleanJSONMatch::from_proto(const ::service::icd::pb::JSONMatchBooleanPayload &
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::icd::pb::JSONMatchPresentPayload, x::errors::Error>
+PresentJSONMatch::to_proto() const {
+    ::service::icd::pb::JSONMatchPresentPayload pb;
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<PresentJSONMatch, x::errors::Error>
+PresentJSONMatch::from_proto(const ::service::icd::pb::JSONMatchPresentPayload &pb) {
+    PresentJSONMatch cpp;
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::icd::pb::PayloadBinaryPayload, x::errors::Error>
 BinaryPayload::to_proto() const {
     ::service::icd::pb::PayloadBinaryPayload pb;
@@ -1090,6 +1105,8 @@ to_proto(const JSONMatch &value) {
                 *pb.mutable_string() = inner;
             else if constexpr (std::is_same_v<V, BooleanJSONMatch>)
                 *pb.mutable_boolean() = inner;
+            else if constexpr (std::is_same_v<V, PresentJSONMatch>)
+                *pb.mutable_present() = inner;
             return x::errors::NIL;
         },
         value
@@ -1142,6 +1159,16 @@ json_match_from_proto(const ::service::icd::pb::JSONMatch &pb) {
         }
         case ::service::icd::pb::JSONMatch::kBoolean: {
             auto [v, err] = BooleanJSONMatch::from_proto(pb.boolean());
+            if (err) return {{}, err};
+            {
+                auto [base, base_err] = JSONBaseMatch::from_proto(pb.json_base_match());
+                if (base_err) return {{}, base_err};
+                static_cast<JSONBaseMatch &>(v) = base;
+            }
+            return {v, x::errors::NIL};
+        }
+        case ::service::icd::pb::JSONMatch::kPresent: {
+            auto [v, err] = PresentJSONMatch::from_proto(pb.present());
             if (err) return {{}, err};
             {
                 auto [base, base_err] = JSONBaseMatch::from_proto(pb.json_base_match());

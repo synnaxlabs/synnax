@@ -597,27 +597,8 @@ func typeDefBaseToPython(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type. Collection elements are resolved via typeToPython, which
-	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
-	// special-cases distinct bases and would yield Any for a struct element.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return fmt.Sprintf("list[%s]", elemType)
-	}
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -969,13 +950,12 @@ func processField(
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: optionalInPython(field),
-		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
 		fd.Alias = wireName
 	}
 
-	baseType := typeToPython(field.Type, table, data)
+	fd.PyType = typeToPython(field.Type, table, data)
 	// The Core mints a key, so a client sends its zero value on create. An optional
 	// field is never required.
 	_, isKey := field.Domains["key"]
@@ -1012,31 +992,21 @@ func processField(
 	// A type never sends an excluded field, so it cannot require one.
 	excludedRequired := isExcluded && requiredInPython(field, table)
 
-	if fd.IsArray {
-		fd.PyType = fmt.Sprintf("list[%s]", baseType)
-	} else {
-		fd.PyType = baseType
-	}
-
 	// Optional (?) fields become T | None in Python (no pointer distinction). A field
 	// typed as an optional type parameter (e.g. details Details, where Details?) is
 	// likewise optional: an unspecialized struct may omit it. A required collection
 	// defaults an absent value to its empty form, so it is always present and
 	// iterable; the server omits a nil ("not loaded") collection from the wire, so
-	// the default is what fills it. CollectionKind sees through aliases and
-	// type-parameter constraints so an alias- or type-parameter-typed collection is
-	// defaulted too.
+	// the default is what fills it. A fixed-size array has no empty form, so it stays
+	// required. CollectionKind sees through aliases and type-parameter constraints so
+	// an alias- or type-parameter-typed collection is defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType += " | None"
-	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
-		if kind == "Array" {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-		} else {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
-		}
+	} else if factory, ok := emptyFactory(field.Type, table); ok {
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, factory)
 	}
 
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
@@ -1054,8 +1024,23 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		field.Type.TypeParam.Optional {
 		return false
 	}
-	_, isCollection := resolution.CollectionKind(field.Type, table)
-	return !isCollection
+	_, hasEmpty := emptyFactory(field.Type, table)
+	return !hasEmpty
+}
+
+// emptyFactory returns the factory of the empty value that a missing collection
+// defaults to. A fixed-size array has no empty value, so it has no factory.
+func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
+	kind, isCollection := resolution.CollectionKind(typeRef, table)
+	_, fixed := resolution.ArraySize(typeRef, table)
+	switch {
+	case !isCollection, fixed:
+		return "", false
+	case kind == "Array":
+		return "list", true
+	default:
+		return "dict", true
+	}
 }
 
 // optionalInPython reports whether field is optional in Python. `@py optional` makes a
@@ -1319,7 +1304,13 @@ func collectValidation(
 			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
-			if len(defaultVal.Elements) == 0 {
+			// Tuples are immutable, so they take a plain default.
+			if _, fixed := resolution.ArraySize(typeRef, table); fixed {
+				constraints = append(
+					constraints,
+					"default="+pyDefaultLiteral(typeRef, *defaultVal, table, data),
+				)
+			} else if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
 				constraints = append(
@@ -1400,7 +1391,13 @@ func pyDefaultLiteral(
 		for _, el := range val.Elements {
 			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
 		}
-		return "[" + strings.Join(parts, ", ") + "]"
+		if _, fixed := resolution.ArraySize(typeRef, table); !fixed {
+			return "[" + strings.Join(parts, ", ") + "]"
+		}
+		if len(parts) == 1 {
+			return "(" + parts[0] + ",)"
+		}
+		return "(" + strings.Join(parts, ", ") + ")"
 	case resolution.ValueKindStruct:
 		if kind, _ := resolution.CollectionKind(
 			typeRef,
@@ -1650,8 +1647,9 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// boundedArgToPython returns the Python type of a map key or value. A sized integer
-// carries its range in its type, since the bounds of a field do not reach into a dict.
+// boundedArgToPython returns the Python type of a map key, map value, or list element.
+// A sized integer carries its range in its type, since field bounds do not reach into a
+// collection.
 func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -1670,6 +1668,35 @@ func boundedArgToPython(
 		bounds.min,
 		bounds.max,
 	)
+}
+
+// collectionToPython returns the Python type of an array (list[...], or a Tuple when
+// fixed-size) or a map (dict[...]), and false when typeRef is neither.
+func collectionToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
+		), true
+	}
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) == 0 {
+		return "", false
+	}
+	elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+	if typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", elemType), true
+	}
+	data.imports.addTyping("Tuple")
+	elements := make([]string, *typeRef.ArraySize)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", ")), true
 }
 
 // importLocalHand imports name from typ's `@py include` module when typ is
@@ -1738,29 +1765,8 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type. The bare element type is returned (not list[...]); field
-	// processing wraps array-typed fields in list[...] itself off the element type,
-	// so wrapping here would double-wrap. Alias contexts that need list[...] use
-	// typeDefBaseToPython / typeRefToPythonAlias instead.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return elemType
-	}
-
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 
 	// Try to resolve the type
@@ -1853,19 +1859,8 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
-	// builtin generics that do not resolve to a struct, so handle them here rather
-	// than falling through to the scalar/struct path below.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
-		typeRef.ArraySize == nil {
-		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
-	}
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		return fmt.Sprintf(
-			"dict[%s, %s]",
-			boundedArgToPython(typeRef.TypeArgs[0], table, data),
-			boundedArgToPython(typeRef.TypeArgs[1], table, data),
-		)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -2281,7 +2276,6 @@ type fieldData struct {
 	PyType     string
 	Default    string
 	IsOptional bool
-	IsArray    bool
 }
 
 type enumData struct {

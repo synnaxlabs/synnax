@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { id, Series, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { id, Series, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { z } from "zod";
 
 import { framer } from "@/framer";
-import { NotFoundError, PathError } from "@/index";
+import { NotFoundError, PathError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { secret } from "@/secret";
@@ -36,6 +36,13 @@ const USES_CHANNEL = "sy_secret_uses_test";
 const usesOf = (key: secret.Key) => [{ type: "certificate", key }];
 
 const movedUsesOf = (key: secret.Key) => [{ type: "certificate", key: `${key}-moved` }];
+
+// Reads the time of the fake timers, so specs that drive the cache's grace leave the
+// global clock real for the connectivity checks of the live clients.
+const clock = (): TimeStamp => {
+  const mocked = vi.getMockedSystemTime();
+  return mocked == null ? TimeStamp.now() : new TimeStamp(mocked);
+};
 
 interface RetrieveRequest {
   where: { key: { eq?: secret.Key; in?: secret.Key[] } };
@@ -83,6 +90,7 @@ const createFakeSecrets = async ({ recordCap }: { recordCap?: number } = {}) => 
     breaker: { baseInterval: TimeSpan.milliseconds(1) },
     onError: () => {},
     recordCap,
+    clock,
   });
   onTestFinished(async () => await cache.close());
   const secrets = new secret.Client({ unary, cache, usesChannels: [USES_CHANNEL] });
@@ -469,7 +477,7 @@ describe("Secret", () => {
     });
 
     it("should refetch the uses of a secret for a new subscriber", async () => {
-      const client = createTestClient();
+      const client = createTestClient({ clock });
       await waitForStreamLive(client.connection);
       const c = await client.certificates.set({
         name: "Gap",
@@ -484,7 +492,7 @@ describe("Secret", () => {
       const before = await client.secrets.retrieve(q);
       expect(before.uses).toEqual([{ type: "certificate", key: c.key }]);
       vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        toFake: ["setTimeout", "clearTimeout"],
         shouldAdvanceTime: true,
       });
       try {
@@ -948,6 +956,46 @@ describe("Secret", () => {
       await expect(grant).rejects.toThrow(PathError);
       await expect(grant).rejects.toThrow(`is not on rack:${r.key}`);
     });
+
+    it("should grant a file certificate of the subject rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const c = await client.certificates.set({
+        name: "Grant certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: r.key,
+      });
+      const grant = await client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      expect(grant).toHaveLength(36);
+    });
+
+    it("should throw a ValidationError for a file certificate of another rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const other = await client.racks.create({ name: "Other rack" });
+      const c = await client.certificates.set({
+        name: "Other certificate",
+        source: "file",
+        certificatePath: "/etc/synnax/client.crt",
+        rack: other.key,
+      });
+      const grant = client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [],
+        certificates: [c.key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
+      });
+      await expect(grant).rejects.toThrow(ValidationError);
+      await expect(grant).rejects.toThrow(
+        `certificate "Other certificate" is a file of rack ${other.key}, not of rack:${r.key}`,
+      );
+    });
   });
 
   describe("record cap", () => {
@@ -988,7 +1036,7 @@ describe("Secret", () => {
 
     const useFakeTimers = (): void => {
       vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout", "Date", "Temporal"],
+        toFake: ["setTimeout", "clearTimeout"],
         shouldAdvanceTime: true,
       });
       onTestFinished(() => {

@@ -12,6 +12,7 @@ import { color, type destructor, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { color as aetherColor } from "@/color/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -36,17 +37,23 @@ export interface ColoredState extends control.State {
 }
 
 /**
- * Colors assigns each control subject a color, so that a reader can tell subjects
- * apart at a glance. Assignment is sequential over the visualization palette, which
- * keeps colors unique for as many subjects as the palette holds.
+ * Colors assigns each control subject a series color, so that a reader can tell
+ * subjects apart at a glance. A subject takes the first series color no other subject
+ * holds, and keeps it while it holds control. Two subjects share a color only when more
+ * subjects hold control than there are series colors. When a color frees up, or the
+ * series colors change, the later of two subjects that share a color moves to a free
+ * one.
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
   override schema = Colors.stateZ;
 
-  /** The color assigned to each control subject, keyed by subject key. */
-  private readonly assigned = new Map<string, color.Color>();
+  /**
+   * The number assigned to each control subject, keyed by subject key. A subject takes
+   * the series color at its number, wrapping around.
+   */
+  private readonly assigned = new Map<string, number>();
   /** User-specified color overrides from the legend UI. */
   private readonly overrides = new Map<string, color.Color>();
   private readonly obs = new observe.Observer<void>();
@@ -64,12 +71,14 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    const theme = theming.use(ctx);
-    i.palette = theme.colors.visualization.palettes.default;
-    i.defaultColor = theme.colors.gray.l9;
+    i.palette = aetherColor.useSeries(ctx);
+    i.defaultColor = theming.use(ctx).colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);
-    if (i.client != null && nextClient === i.client) return;
+    if (i.client != null && nextClient === i.client) {
+      this.settle(new Set(this.assigned.keys()));
+      return this.obs.notify();
+    }
     i.client = nextClient;
     this.disconnect?.();
     this.assigned.clear();
@@ -92,8 +101,12 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   /** The color of the given subject, or the default color when it has none. */
   get(subject: string): color.Color {
-    const { defaultColor } = this.internal;
-    return this.overrides.get(subject) ?? this.assigned.get(subject) ?? defaultColor;
+    const { defaultColor, palette } = this.internal;
+    const override = this.overrides.get(subject);
+    if (override != null) return override;
+    const n = this.assigned.get(subject);
+    if (n == null || palette.length === 0) return defaultColor;
+    return palette[n % palette.length];
   }
 
   setOverrides(overrides: Record<string, color.Color>): void {
@@ -117,18 +130,44 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
    * cached, so an unrelated subject elsewhere in the cluster never shifts them.
    */
   private assign(states: control.KeyedState[]): void {
-    const subjects = new Set(states.map((s) => s.subject.key));
-    this.assigned.forEach((_, key) => {
-      if (!subjects.has(key)) this.assigned.delete(key);
-    });
-    const taken = Array.from(this.assigned.values());
-    const { palette } = this.internal;
-    subjects.forEach((key) => {
-      if (this.assigned.has(key)) return;
-      const next = palette.find((c) => !taken.includes(c)) ?? palette[0];
-      this.assigned.set(key, next);
-      taken.push(next);
-    });
+    this.settle(new Set(states.map((s) => s.subject.key)));
     this.obs.notify();
+  }
+
+  /**
+   * Gives each of the subjects a number. A held number stays unless an earlier number
+   * holds its color and a color is free. A new subject takes the first free color, or
+   * the smallest free number when no color is free.
+   */
+  private settle(subjects: Set<string>): void {
+    const { length } = this.internal.palette;
+    const colors = new Set<number>();
+    const numbers = new Set<number>();
+    const take = (key: string, n: number): void => {
+      this.assigned.set(key, n);
+      numbers.add(n);
+      if (length > 0) colors.add(n % length);
+    };
+    const freeColor = (): number | undefined => {
+      for (let n = 0; n < length; n++) if (!colors.has(n)) return n;
+      return undefined;
+    };
+    const freeNumber = (): number => {
+      let n = 0;
+      while (numbers.has(n)) n++;
+      return n;
+    };
+    const held = [...this.assigned]
+      .filter(([key]) => subjects.has(key))
+      .sort(([, a], [, b]) => a - b);
+    this.assigned.clear();
+    const shared: Array<[string, number]> = [];
+    for (const [key, n] of held)
+      if (length > 0 && colors.has(n % length)) shared.push([key, n]);
+      else take(key, n);
+    shared.forEach(([key, n]) => take(key, freeColor() ?? n));
+    subjects.forEach((key) => {
+      if (!this.assigned.has(key)) take(key, freeColor() ?? freeNumber());
+    });
   }
 }

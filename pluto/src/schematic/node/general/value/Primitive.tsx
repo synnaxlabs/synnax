@@ -19,11 +19,9 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends PropsWithChildren<
-  Pick<
-    schematic.ValueNodeConfig,
-    "strokeColor" | "orientation" | "units" | "inlineSize"
-  >
+  Pick<schematic.ValueNodeConfig, "orientation" | "units" | "inlineSize">
 > {
+  strokeColor?: color.Crude;
   className?: string;
   dimensions?: dimensions.Dimensions;
   unitsLevel?: text.Level;

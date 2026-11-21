@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EOF, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
+  DataType,
   type Series,
   TimeRange,
   TimeSpan,
@@ -16,6 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, test, vi } from "vitest";
 
+import { channel } from "@/channel";
+import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
 import {
   createTestClient,
@@ -124,6 +128,43 @@ describe("Iterator", () => {
 
     expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
   });
+  describe("next after the Core closes the iterator with an error", () => {
+    const time = new channel.Channel({
+      key: 1,
+      name: "time",
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+
+    test("should throw the error the Core closed the iterator with", async () => {
+      const state = { opened: false };
+      const stream = {
+        send: () => {
+          if (state.opened) throw new EOF();
+        },
+        closeSend: () => {},
+        received: () => false,
+        receive: async () => {
+          if (state.opened) throw new ValidationError("invalid read");
+          state.opened = true;
+          return {
+            variant: framer.IteratorResponseVariant.Ack,
+            ack: true,
+            command: framer.IteratorCommand.Open,
+          };
+        },
+      };
+      const transport = { withCodec: () => transport, stream: async () => stream };
+      const iter = await framer.Iterator._open(
+        TimeRange.MAX,
+        [time.key],
+        async () => [time.payload],
+        transport as unknown as WebSocketClient,
+      );
+      await expect(iter.next(framer.AUTO_SPAN)).rejects.toThrow(ValidationError);
+    });
+  });
+
   describe("stride", () => {
     test("should keep every second sample under a factor of 2", async () => {
       const channels = await newIndexedPair(client);

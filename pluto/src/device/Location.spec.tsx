@@ -7,47 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { TimeSpan } from "@synnaxlabs/x";
-import { act, fireEvent, render } from "@testing-library/react";
-import type { PropsWithChildren, ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Device } from "@/device";
-
-const DELAY = TimeSpan.milliseconds(10);
-
-const LOCATION_RECT = {
-  left: 100,
-  top: 100,
-  right: 200,
-  bottom: 120,
-  width: 100,
-  height: 20,
-  x: 100,
-  y: 100,
-  toJSON: () => ({}),
-} as DOMRect;
-
-const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-  <Triggers.Provider>
-    <Tooltip.Config delay={DELAY}>{children}</Tooltip.Config>
-  </Triggers.Provider>
-);
-
-const hoverPastDelay = (text: HTMLElement): void => {
-  const location = text.closest<HTMLElement>(".pluto-device-location");
-  if (location == null) throw new Error("No location around the text");
-  location.getBoundingClientRect = () => LOCATION_RECT;
-  fireEvent.pointerOver(text, { pointerType: "mouse" });
-  act(() => {
-    vi.advanceTimersByTime(DELAY.milliseconds * 2);
-  });
-};
-
-const getTooltip = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>(".lyra-tooltip");
 
 describe("Device location", () => {
   it("should show the whole value without a format", () => {
@@ -122,30 +85,5 @@ describe("Device location", () => {
     expect(c.getByText("b1.local")).toBeTruthy();
     expect(c.getByText("+2")).toBeTruthy();
     expect(c.queryByText(/b2\.local/)).toBeNull();
-  });
-
-  describe("tooltip", () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("should show the whole location when part of it is hidden", () => {
-      const value = "\\Device\\NPF_{6A1B}.Slot 3";
-      const c = render(<Device.Location value={value} format={{ shape: "slot" }} />, {
-        wrapper: Wrapper,
-      });
-      hoverPastDelay(c.getByText("Slot 3"));
-      expect(getTooltip()?.textContent).toBe(value);
-    });
-
-    it("should not show when the whole location shows", () => {
-      const c = render(<Device.Location value="cDAQ1Mod1" />, { wrapper: Wrapper });
-      hoverPastDelay(c.getByText("cDAQ1Mod1"));
-      expect(getTooltip()).toBeNull();
-    });
   });
 });

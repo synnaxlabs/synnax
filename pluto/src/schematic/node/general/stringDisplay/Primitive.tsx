@@ -21,12 +21,10 @@ import { LEVEL_SIZES } from "@/schematic/node/common/size";
 
 interface RenderProps extends PropsWithChildren<
   Partial<
-    Pick<
-      schematic.StringDisplayNodeConfig,
-      "strokeColor" | "orientation" | "level" | "inlineSize"
-    >
+    Pick<schematic.StringDisplayNodeConfig, "orientation" | "level" | "inlineSize">
   >
 > {
+  strokeColor?: color.Crude;
   className?: string;
   /** contentRef receives the element the canvas draws the text into. */
   contentRef?: Ref<HTMLDivElement>;
