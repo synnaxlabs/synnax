@@ -41,7 +41,7 @@ type Config struct {
 	// Parts are the parts that the head of recovery names, or nil for a new database.
 	Parts *Index
 	// PartSize is the size of the sealed segment records in a head at which a switch
-	// moves them to a part. Zero means DefaultPartSize.
+	// moves them to a part. Zero means 8 MiB.
 	PartSize int
 }
 
@@ -93,7 +93,7 @@ func New(cfg Config) (*Checkpointer, error) {
 		c.index = &Index{}
 	}
 	if c.cfg.PartSize == 0 {
-		c.cfg.PartSize = DefaultPartSize
+		c.cfg.PartSize = defaultPartSize
 	}
 	c.step = c.run
 	return c, nil
@@ -208,7 +208,7 @@ func (c *Checkpointer) write(h head) error {
 // undo removes the parts of a failed switch, then syncs the root.
 func (c *Checkpointer) undo(written []uint64, err error) error {
 	for _, id := range written {
-		err = errors.Join(err, c.cfg.FS.Remove(PartName(id)))
+		err = errors.Join(err, c.cfg.FS.Remove(partName(id)))
 	}
 	return errors.Join(err, c.cfg.FS.SyncDir(""))
 }

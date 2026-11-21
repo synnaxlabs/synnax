@@ -88,11 +88,11 @@ func Read(fs xfs.FS, generation uint64) (Header, *state.Snapshot, error) {
 	}, nil
 }
 
-// ReadPart reads and checks the part p that a head names in the root fs of database db,
+// readPart reads and checks the part p that a head names in the root fs of database db,
 // as Read does a head. It returns the channels of the part, and an error that wraps
 // place.ErrCorrupt when the part is not the one that the head names.
-func ReadPart(fs xfs.FS, db uint64, p Part) ([]*state.Channel, error) {
-	h, bd, err := partFormat.read(fs, PartName(p.ID))
+func readPart(fs xfs.FS, db uint64, p Part) ([]*state.Channel, error) {
+	h, bd, err := partFormat.read(fs, partName(p.ID))
 	if errors.Is(err, ErrIncomplete) {
 		err = errors.Wrap(place.ErrCorrupt, err.Error())
 	}
@@ -237,7 +237,7 @@ func Clean(fs xfs.FS, live uint64) error {
 	}
 	for _, id := range slices.Sorted(maps.Keys(parts)) {
 		if !named.Contains(id) {
-			errs = append(errs, fs.Remove(PartName(id)))
+			errs = append(errs, fs.Remove(partName(id)))
 		}
 	}
 	for _, g := range slices.Sorted(maps.Keys(heads)) {

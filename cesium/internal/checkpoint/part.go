@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// PartName returns the file name of the part id.
-func PartName(id uint64) string { return fmt.Sprintf("%016x.part", id) }
+// partName returns the file name of the part id.
+func partName(id uint64) string { return fmt.Sprintf("%016x.part", id) }
 
 // encodePart returns the bytes of the part id that the switch of generation writes in
 // database db, which holds channels, and the record of it that a head holds.
@@ -54,5 +54,5 @@ func writePart(
 	channels []*state.Channel,
 ) (Part, error) {
 	b, p := encodePart(db, id, generation, channels)
-	return p, writeFile(fs, PartName(id), b)
+	return p, writeFile(fs, partName(id), b)
 }

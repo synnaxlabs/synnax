@@ -20,9 +20,9 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-// DefaultPartSize is the size of the sealed segment records in a head at which a switch
+// defaultPartSize is the size of the sealed segment records in a head at which a switch
 // moves them to a part.
-const DefaultPartSize = 8 << 20
+const defaultPartSize = 8 << 20
 
 // Index holds the parts that a head names, with the segment records of each. A switch
 // finds the dead and cut records of each part against it.
@@ -45,7 +45,7 @@ type indexed struct {
 func LoadParts(fs xfs.FS, db uint64, h Header) (*Index, error) {
 	x := &Index{limit: h.Limits.Parts}
 	for _, p := range h.Parts {
-		channels, err := ReadPart(fs, db, p)
+		channels, err := readPart(fs, db, p)
 		if errors.Is(err, os.ErrNotExist) {
 			err = errors.Wrapf(
 				place.ErrCorrupt,

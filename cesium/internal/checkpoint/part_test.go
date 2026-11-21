@@ -20,6 +20,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// partFile is the file name of part 1.
+const partFile = "0000000000000001.part"
+
 // sealed returns a sealed segment of clock 5 with one pointer at stamp.
 func sealed(id uint64, stamp telem.TimeStamp) state.Segment {
 	return state.Segment{
@@ -73,13 +76,22 @@ var _ = Describe("Parts", func() {
 		}
 		return out
 	}
-	partIDs := func(p checkpoint.Part) []uint64 {
+	// parted returns the live segments of the parts that h names.
+	parted := func(h checkpoint.Header) []state.Segment {
+		GinkgoHelper()
+		s := &state.Snapshot{}
+		MustSucceed(checkpoint.LoadParts(fs, db, h)).Merge(s)
+		var out []state.Segment
+		for _, ch := range s.Channels {
+			out = append(out, ch.Segments...)
+		}
+		return out
+	}
+	partedIDs := func(h checkpoint.Header) []uint64 {
 		GinkgoHelper()
 		var out []uint64
-		for _, ch := range MustSucceed(checkpoint.ReadPart(fs, db, p)) {
-			for _, seg := range ch.Segments {
-				out = append(out, seg.ID)
-			}
+		for _, seg := range parted(h) {
+			out = append(out, seg.ID)
 		}
 		return out
 	}
@@ -91,7 +103,7 @@ var _ = Describe("Parts", func() {
 		Expect(h.Parts[0].First).To(Equal(telem.TimeStamp(10)))
 		Expect(h.Parts[0].Last).To(Equal(telem.TimeStamp(30)))
 		Expect(h.Limits.Parts).To(Equal(uint64(2)))
-		Expect(partIDs(h.Parts[0])).To(Equal([]uint64{1, 2, 3}))
+		Expect(partedIDs(h)).To(Equal([]uint64{1, 2, 3}))
 		_, s := MustSucceed2(checkpoint.Read(fs, 2))
 		Expect(s.Channels).To(HaveLen(1))
 		Expect(s.Channels[0].Segments).To(HaveLen(1))
@@ -124,7 +136,7 @@ var _ = Describe("Parts", func() {
 			h := switchTo(3, withSealed(sealed(1, 10)))
 			Expect(ids(h)).To(Equal([]uint64{2}))
 			Expect(h.Parts[0].Dead).To(BeNil())
-			Expect(partIDs(h.Parts[0])).To(Equal([]uint64{1}))
+			Expect(partedIDs(h)).To(Equal([]uint64{1}))
 		})
 
 	It("Should write a part again under a new identity when a segment in it is cut",
@@ -134,8 +146,7 @@ var _ = Describe("Parts", func() {
 			cut.Pointers = nil
 			h := switchTo(3, withSealed(sealed(1, 10), cut, sealed(3, 30)))
 			Expect(ids(h)).To(Equal([]uint64{2}))
-			channels := MustSucceed(checkpoint.ReadPart(fs, db, h.Parts[0]))
-			Expect(channels[0].Segments[1].Pointers).To(BeEmpty())
+			Expect(parted(h)[1].Pointers).To(BeEmpty())
 		})
 
 	It("Should drop a part whose segments are all dead", func() {
@@ -146,7 +157,7 @@ var _ = Describe("Parts", func() {
 
 	It("Should refuse to load a part that the head names and the root lacks", func() {
 		h := switchTo(2, withSealed(sealed(1, 10)))
-		Expect(fs.Remove(checkpoint.PartName(1))).To(Succeed())
+		Expect(fs.Remove(partFile)).To(Succeed())
 		Expect(checkpoint.LoadParts(fs, db, h)).Error().To(And(
 			MatchError(place.ErrCorrupt),
 			MatchError(ContainSubstring("part 1 that head 2 names is missing")),
@@ -178,7 +189,7 @@ var _ = Describe("Part determinism", func() {
 			start(c)
 			c.Head(2, withSealed(sealed(1, 10), sealed(2, 20)))
 			Eventually(func() error { return readErr(fs, 2) }).Should(Succeed())
-			return fileBytes(fs, checkpoint.PartName(1))
+			return fileBytes(fs, partFile)
 		}
 		Expect(write()).To(Equal(write()))
 	})
