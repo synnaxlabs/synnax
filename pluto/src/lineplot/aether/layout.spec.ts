@@ -229,9 +229,15 @@ describe("spans", () => {
       expect(s.get("1")).toEqual(s.get("2"));
     });
 
-    it("should leave the end of a growing window open, past a fixed margin", () => {
+    it("should leave the end of a growing window open", () => {
       const s = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
-      expect(s.get("1")).toEqual({ lower: -SECOND, upper: Infinity });
+      expect(s.get("1")).toEqual({ lower: -3 * SECOND, upper: Infinity });
+    });
+
+    it("should keep the margin before a growing window when it ends", () => {
+      const growing = spans([trace("1", 0, MINUTE, { edge: "growing" })], "relative");
+      const ended = spans([trace("1", 0, MINUTE)], "relative");
+      expect(growing.get("1")?.lower).toEqual(ended.get("1")?.lower);
     });
   });
 
@@ -278,12 +284,21 @@ describe("collapse", () => {
     expect(s[1].upper).toBeCloseTo(112.1 * MIN);
   });
 
-  it("should give a growing window the floor before it and no margin after", () => {
+  it("should give a growing window a margin before it and none after", () => {
     const s = collapse(
       [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge: "growing" })],
       0,
     );
-    expect(s[1]).toEqual({ lower: 100 * MIN - SECOND, upper: 110 * MIN });
+    expect(s[1]).toEqual({ lower: 99.5 * MIN, upper: 110 * MIN });
+  });
+
+  it("should keep the margin before a growing window when it ends", () => {
+    const at = (edge?: "growing") =>
+      collapse(
+        [trace("1", 0, 10 * MIN), trace("2", 100 * MIN, 110 * MIN, { edge })],
+        0,
+      );
+    expect(at("growing")[1].lower).toEqual(at()[1].lower);
   });
 
   it("should give a rolling window a margin from its span before it", () => {
@@ -488,13 +503,15 @@ describe("shownSpans", () => {
     const at2 = new TimeStamp(2 * HOUR);
     const shown = shownSpans([window(0, 1), planned], at2, at2);
     expect(shown).toHaveLength(2);
-    expect(ns(shown[1].start)).toEqual(1.25 * HOUR - Number(TimeSpan.SECOND.valueOf()));
+    // A running window stops at the newest sample, so its margin is 5% of 45 minutes.
+    expect(ns(shown[1].start)).toBeCloseTo(1.25 * HOUR - 0.05 * 0.75 * HOUR, -3);
     expect(shown[1].end).toEqual(planned.end);
   });
 
   it("should lay out a window that ends before now in full", () => {
-    // The channels stopped before the second window ended. As a running window, its
-    // margin of 1 s would leave the gap between the windows out.
+    // The channels stopped before the second window ended. As a running window, it
+    // would stop at the newest sample, and its smaller margin would leave the gap
+    // between the windows out.
     const shown = shownSpans(
       [window(0, 1), window(1.08, 1)],
       new TimeStamp(3 * HOUR),
