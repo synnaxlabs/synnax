@@ -140,7 +140,7 @@ func (s *State) openWriter(w *Writer, pre []Preload) error {
 		if ch == nil {
 			continue
 		}
-		records, err := ch.preloadOf(pre)
+		records, err := s.core.preloadOf(ch, pre)
 		if err != nil {
 			return err
 		}
@@ -471,7 +471,7 @@ func (s *State) checkVisible(w *Writer, c *log.Commit, pre []Preload) error {
 			return err
 		}
 		ch := s.core.channels[seg.key]
-		records, err := ch.preloadOf(pre)
+		records, err := s.core.preloadOf(ch, pre)
 		if err != nil {
 			return err
 		}

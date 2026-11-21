@@ -80,7 +80,10 @@ func (e *engine) preload(
 	if ch == nil {
 		return state.Preload{Key: key}, nil
 	}
-	pre := state.Preload{Key: key, Generation: ch.Generation}
+	pre := state.Preload{Key: key, Generation: e.parts.Load().live.generation}
+	if ch.Oldest != 0 {
+		pre.Generation = ch.Generation
+	}
 	parts, err := e.partsOf(ch)
 	if err != nil || !reachesAny(parts, first, last) {
 		return pre, err
@@ -90,6 +93,9 @@ func (e *engine) preload(
 		return state.Preload{Key: key}, err
 	}
 	pre.Generation = ch.Generation
+	if ch.Oldest == 0 {
+		pre.Generation = e.parts.Load().live.generation
+	}
 	for _, p := range h.parts {
 		r, err := e.cache.Records(p, key)
 		if err != nil {

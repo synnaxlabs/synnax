@@ -72,6 +72,44 @@ type partLayout struct {
 	sums   []uint32
 	keys   []uint32
 	firsts []uint32
+	// clocks are the clock keys that data segments of the part name, in rising order.
+	clocks []uint32
+}
+
+// Timed is a segment record of a part that names a clock other than its key.
+type Timed struct {
+	Key uint32
+	// Index is the index of the record in the part, from which a dead bitmap counts.
+	Index   int
+	Segment state.Segment
+}
+
+// Timed returns the segment records of part p, of keys other than clock, that name
+// clock as their clock. It reads no record when p names no data segment of clock.
+func (c *Cache) Timed(p Part, clock uint32) ([]Timed, error) {
+	l, err := c.layout(p)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := slices.BinarySearch(l.clocks, clock); !ok {
+		return nil, nil
+	}
+	var timed []Timed
+	for _, key := range l.keys {
+		if key == clock {
+			continue
+		}
+		r, err := c.Records(p, key)
+		if err != nil {
+			return nil, err
+		}
+		for i, seg := range r.Segments {
+			if seg.Clock == clock {
+				timed = append(timed, Timed{Key: key, Index: r.First + i, Segment: seg})
+			}
+		}
+	}
+	return timed, nil
 }
 
 // NewCache returns a cache of the parts of database db in the root fs that holds at
@@ -216,7 +254,24 @@ func (c *Cache) loadLayout(p Part) (l *partLayout, err error) {
 	if l.secs, err = partFormat.sectionsOf(table, l.h); err != nil {
 		return nil, err
 	}
-	return l, c.loadChannels(f, l)
+	if err = c.loadChannels(f, l); err != nil {
+		return nil, err
+	}
+	return l, c.loadClocks(f, l)
+}
+
+// loadClocks reads the clock records of l.
+func (c *Cache) loadClocks(f xfs.File, l *partLayout) error {
+	cs := l.secs[sectionClocks]
+	b, err := c.read(f, l, cs.off, cs.off+cs.count*4)
+	if err != nil {
+		return err
+	}
+	l.clocks = make([]uint32, cs.count)
+	for i := range l.clocks {
+		l.clocks[i] = binary.LittleEndian.Uint32(b[4*i:])
+	}
+	return nil
 }
 
 // loadSums reads and checks the chunk table of l, whose header sector is sector.

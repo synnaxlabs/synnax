@@ -49,6 +49,9 @@ type core struct {
 	generation uint64
 	// dropped holds the kills of the keys that a Drop took out of the state.
 	dropped []Kill
+	// head is the generation of the head whose parts the state reads, which a preload
+	// must come from.
+	head uint64
 }
 
 func newCore(versions set.Set[uint16]) *core {

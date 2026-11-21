@@ -231,7 +231,7 @@ func (r *beginDeleteRequest) run(s *State) {
 			return
 		}
 	}
-	records, err := ch.preloadOf(r.pre)
+	records, err := s.core.preloadOf(ch, r.pre)
 	if err != nil {
 		r.d.done <- err
 		return

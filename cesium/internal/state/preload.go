@@ -25,27 +25,27 @@ var ErrStale = errors.New("preload from the parts of an older head")
 // before a step of the owner that needs them, since a step does no I/O.
 type Preload struct {
 	Key uint32
-	// Generation is the Generation of the Channel that the caller loaded the records
-	// for.
+	// Generation is the generation of the head whose parts hold the records.
 	Generation uint64
 	// Segments are the live records of the key in the parts of that Channel whose
 	// pointers reach the time range of the step, each tagged with its part.
 	Segments []Segment
 }
 
-// preloadOf returns the records of the preload of c in pre, which is in rising order of
-// key. It returns ErrStale for a preload from the parts of a head that c no longer
-// reads, and refuses a step with none when c has a part range.
-func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
-	i, found := search(pre, c.key)
+// preloadOf returns the records of the preload of ch in pre, which is in rising order
+// of
+// key. It returns ErrStale for a preload from the parts of a head before the last one
+// that c took, and refuses a step with none when ch has a part range.
+func (c *core) preloadOf(ch *chanState, pre []Preload) ([]Segment, error) {
+	i, found := search(pre, ch.key)
 	switch {
-	case !found && c.oldest == 0:
+	case !found && ch.oldest == 0:
 		return nil, nil
 	case !found:
-		return nil, refuse("no preload of key %d, which parts hold", c.key)
-	case pre[i].Generation != c.generation:
+		return nil, refuse("no preload of key %d, which parts hold", ch.key)
+	case pre[i].Generation != c.head:
 		return nil, errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
-			c.key, c.generation, pre[i].Generation)
+			ch.key, c.head, pre[i].Generation)
 	}
 	return pre[i].Segments, nil
 }

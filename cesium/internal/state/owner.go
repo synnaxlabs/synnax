@@ -111,7 +111,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 	if err := s.core.load(head, cfg.Generation); err != nil {
 		return nil, err
 	}
-	s.core.generation = cfg.Generation
+	s.core.generation, s.core.head = cfg.Generation, cfg.Generation
 	s.step = s.run
 	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
@@ -317,6 +317,7 @@ func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
 	r.swap()
+	s.core.head = r.generation
 	changed := set.New[uint32]()
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
