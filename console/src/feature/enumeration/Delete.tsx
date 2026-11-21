@@ -76,7 +76,7 @@ const Delete = ({
   const busy = removeVariant === "loading" || replaceVariant === "loading";
   Modals.useBusy(busy);
   const failed = removeVariant === "error" || replaceVariant === "error";
-  const res = held == null || failed ? live : held;
+  const res = held == null || (failed && live.variant !== "loading") ? live : held;
   const users = res.data?.uses ?? NO_USERS;
   const inUse = users.length > 0;
   const error = confirmed && replacement == null ? REPLACEMENT_REQUIRED : undefined;
