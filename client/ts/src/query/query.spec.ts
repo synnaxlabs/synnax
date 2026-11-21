@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AccessDeniedError,
   AuthError,
+  DisconnectedError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -1008,6 +1009,28 @@ describe("Answers", () => {
       );
       const stop = space.onChange(qA, () => {});
       await expect(space.retrieve(qA)).rejects.toThrow(NotFoundError);
+      expect(onError).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it("does not report a subscriber fetch that a closed table rejects", async () => {
+      const table = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => keys.map((key) => rec(key, 1)),
+      });
+      table.set(rec("a", 0));
+      const onError = vi.fn();
+      const space = coveringSpace(
+        table,
+        async (q) => {
+          await table.retrieve([q.k], { refresh: true });
+          return [q.k];
+        },
+        { onError },
+      );
+      const stop = space.onChange(qA, () => {});
+      table.close();
+      await expect(space.retrieve(qA)).rejects.toThrow(DisconnectedError);
       expect(onError).not.toHaveBeenCalled();
       stop();
     });
