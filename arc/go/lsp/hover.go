@@ -436,7 +436,10 @@ func (s *Server) extractDocComment(sym *symbol.Symbol) string {
 
 	symLine := start.GetLine()
 	source := start.GetInputStream()
-	tokens := tokenizeContentWithComments(source.GetText(0, source.Size()-1))
+	tokens := tokenizeContentWithComments(
+		source.GetText(0, source.Size()-1),
+		s.parserConfig(),
+	)
 	if len(tokens) == 0 {
 		return ""
 	}
