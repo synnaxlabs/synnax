@@ -73,9 +73,13 @@ var _ = Describe("SetReads checks", func() {
 			var sets [][]channel.Key
 			for _, s := range rec.Snapshot() {
 				for _, act := range s.Actions {
-					if act.Set != nil && slices.Equal(act.Set.Path, []string{"reads"}) {
-						sets = append(sets, act.Set.Value.([]channel.Key))
+					if act.Set == nil ||
+						!slices.Equal(act.Set.Path, []string{"reads"}) {
+						continue
 					}
+					keys, ok := act.Set.Value.([]channel.Key)
+					Expect(ok).To(BeTrue(), "a set of reads holds channel keys")
+					sets = append(sets, keys)
 				}
 			}
 			return sets
