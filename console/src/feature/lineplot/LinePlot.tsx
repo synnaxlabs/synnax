@@ -403,7 +403,7 @@ const Internal = (): ReactElement => {
   const hiddenCount = countHidden(hidden);
   const legendFooter =
     relative && hiddenCount > 0 ? (
-      <Button.Button variant="text" size="small" onClick={handleShowAll}>
+      <Button.Button variant="text" size="small" textColor={9} onClick={handleShowAll}>
         {`Show all (${hiddenCount} hidden)`}
       </Button.Button>
     ) : undefined;
