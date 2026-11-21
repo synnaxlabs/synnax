@@ -11,7 +11,6 @@ import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, within } from "@testing-library/react";
-import { beforeAll } from "vitest";
 
 import {
   MAKE,
@@ -22,6 +21,7 @@ import {
 import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
 import { awaitCommand } from "@/platform/task/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -100,12 +100,10 @@ export const openAddData = async () => {
   return within(await screen.findByRole("dialog"));
 };
 
-/**
- * Loads the module of the lazy read form before the specs of a file run. On a loaded
- * machine the load can use most of the timeout of the first spec that renders the form.
- * Call it once, at the top of a spec file.
- */
-export const preloadReadForm = (): void =>
-  beforeAll(async () => {
-    await import("@/feature/mqtt/task/Read");
-  });
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/mqtt/task/Read"),
+    async () => await import("@/feature/mqtt/task/Write"),
+    async () => await import("@/feature/mqtt/task/Edge"),
+  );

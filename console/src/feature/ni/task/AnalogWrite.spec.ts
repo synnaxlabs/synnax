@@ -18,6 +18,7 @@ import { NI } from "@/feature/ni";
 import {
   createHardware,
   createNIDevice,
+  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -29,6 +30,8 @@ import {
 import { findDialogTriggerByText, isSelectButtonSelected } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 type CreateChannelOverrides = Partial<NI.Task.AOChannel>;
 
