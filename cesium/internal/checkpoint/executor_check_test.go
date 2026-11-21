@@ -11,6 +11,7 @@ package checkpoint_test
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,6 +59,20 @@ func executor(oneAtATime bool) func(func()) {
 	return s.run
 }
 
+// runOwners runs each owner until the spec ends, and waits for them all to return at
+// its cleanup, before the cleanup of the executor that they share.
+func runOwners(runs ...func(context.Context) error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	for _, run := range runs {
+		wg.Go(func() { _ = run(ctx) })
+	}
+	DeferCleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+}
+
 var _ = Describe("Check: executor", func() {
 	DescribeTable("Should write the head of a switched log when the state owner and "+
 		"the checkpointer share an executor", func(oneAtATime bool) {
@@ -79,10 +94,7 @@ var _ = Describe("Check: executor", func() {
 			Prepared: func(uint64, error) {},
 			Executor: ex,
 		}))
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
-		go func() { _ = st.Run(ctx) }()
-		go func() { _ = cp.Run(ctx) }()
+		runOwners(st.Run, cp.Run)
 		Expect(st.Switch(2)).To(Succeed())
 		Eventually(func() error { return readErr(fs, 2) }).
 			WithTimeout(5 * time.Second).
@@ -98,7 +110,10 @@ var _ = Describe("Check: executor", func() {
 		ex := executor(oneAtATime)
 		Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
 		Expect(log.Prepare(fs, 2, logSize)).To(Succeed())
-		var l *log.Log
+		var (
+			l        *log.Log
+			switched = make(chan uint64, 1)
+		)
 		st := MustSucceed(state.Open(state.Config{
 			Versions: set.New[uint16](1),
 			Version:  1,
@@ -120,30 +135,17 @@ var _ = Describe("Check: executor", func() {
 			OnRefused: func(records []log.Record, err error) {
 				_ = st.Refused(records, err)
 			},
-			Switched:   func(g uint64) { _ = st.Switch(g) },
+			Switched: func(g uint64) {
+				_ = st.Switch(g)
+				switched <- g
+			},
 			DB:         db,
 			Generation: 1,
 			Sequence:   1,
 		}))
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
-		go func() { _ = st.Run(ctx) }()
-		go func() { _ = l.Run(ctx) }()
-		done := make(chan error, 1)
-		go func() {
-			for i := range uint32(12) {
-				var filler log.Entry
-				for k := range uint32(10_000) {
-					filler.Add(&log.Intent{Key: 1_000_000 + i*10_000 + k})
-				}
-				if _, err := l.Append(&filler).Wait(); err != nil {
-					done <- err
-					return
-				}
-			}
-			done <- nil
-		}()
-		Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		runOwners(st.Run, l.Run)
+		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
+		Expect(switched).To(Receive(Equal(uint64(2))))
 	},
 		Entry("that runs each job on a goroutine", false),
 		Entry("that runs one job at a time", true),
@@ -154,42 +156,52 @@ var _ = Describe("Check: executor", func() {
 		fs := xfs.NewMem()
 		ex := executor(oneAtATime)
 		Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-		var l *log.Log
+		var (
+			l        *log.Log
+			ready    = make(chan uint64, 1)
+			switched = make(chan uint64, 1)
+		)
 		cp := MustSucceed(checkpoint.New(checkpoint.Config{
-			FS:       fs,
-			DB:       db,
-			LogSize:  logSize,
-			Prepared: func(next uint64, err error) { l.Prepared(next, err) },
+			FS:      fs,
+			DB:      db,
+			LogSize: logSize,
+			Prepared: func(next uint64, err error) {
+				l.Prepared(next, err)
+				if err == nil {
+					ready <- next
+				}
+			},
 			Executor: ex,
 		}))
 		l = MustSucceed(log.Start(log.Config{
-			FS:         fs,
-			Executor:   ex,
-			OnDurable:  func(uint64, []log.Record) {},
-			Prepare:    cp.Prepare,
-			OnRefused:  func([]log.Record, error) {},
-			Switched:   func(g uint64) { cp.Head(g, &state.Snapshot{}) },
+			FS:        fs,
+			Executor:  ex,
+			OnDurable: func(uint64, []log.Record) {},
+			Prepare:   cp.Prepare,
+			OnRefused: func([]log.Record, error) {},
+			Switched: func(g uint64) {
+				cp.Head(g, &state.Snapshot{})
+				switched <- g
+			},
 			DB:         db,
 			Generation: 1,
 			Sequence:   1,
 		}))
-		ctx, cancel := context.WithCancel(context.Background())
-		DeferCleanup(cancel)
-		go func() { _ = l.Run(ctx) }()
-		// One entry past three quarters of the log: the log owner's step reaches the
-		// switch before the checkpointer's first step is on the executor.
-		var big log.Entry
-		for k := range uint32(100_000) {
-			big.Add(&log.Intent{Key: k + 1})
-		}
-		ack := make(chan error, 1)
-		go func() {
-			_, err := l.Append(&big).Wait()
-			ack <- err
-		}()
-		time.Sleep(200 * time.Millisecond)
-		go func() { _ = cp.Run(ctx) }()
-		Eventually(ack).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+		// The log passes three quarters before the checkpointer's first step is on the
+		// executor.
+		runOwners(l.Run)
+		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
+		runOwners(cp.Run)
+		Eventually(ready).WithTimeout(10 * time.Second).
+			Should(Receive(Equal(uint64(2))))
+		var e log.Entry
+		e.Add(&log.Intent{Key: 1})
+		MustSucceed(l.Append(&e).Wait())
+		Eventually(switched).WithTimeout(10 * time.Second).
+			Should(Receive(Equal(uint64(2))))
+		Eventually(func() error { return readErr(fs, 2) }).
+			WithTimeout(5 * time.Second).
+			Should(Succeed())
 	},
 		Entry("that runs each job on a goroutine", false),
 		Entry("that runs one job at a time", true),

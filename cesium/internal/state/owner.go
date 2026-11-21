@@ -120,8 +120,9 @@ func (s *State) Replay(sequence uint64, records []log.Record) error {
 }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
-// the owner on the executor each time requests are queued, until Close or until ctx is
-// done. It returns the error of ctx, or nil at Close.
+// the owner on the executor each time requests are queued, until Close, until ctx is
+// done, or until a step fails the state. It returns the error of ctx, the error that
+// failed the state, or nil at Close. A request that Run leaves queued gets the error.
 func (s *State) Run(ctx context.Context) error {
 	defer close(s.exit)
 	s.core.endReplay()
@@ -132,15 +133,34 @@ func (s *State) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			s.fail(ctx.Err())
-			s.failParked(s.Err())
+			s.drain()
 			return ctx.Err()
 		case <-s.wake:
 		}
 		s.cfg.Executor(s.step)
-		if <-s.stepped {
+		closed := <-s.stepped
+		if err := s.Err(); err != nil {
+			s.drain()
+			return err
+		}
+		if closed {
 			return nil
 		}
 	}
+}
+
+// drain fails the queued and the parked requests with the error of the failed state,
+// which refuses new ones.
+func (s *State) drain() {
+	err := s.Err()
+	s.mu.Lock()
+	queue := s.mu.queue
+	s.mu.queue = nil
+	s.mu.Unlock()
+	for _, r := range queue {
+		r.fail(err)
+	}
+	s.failParked(err)
 }
 
 // run is one step of the owner: it runs every queued request.

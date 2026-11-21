@@ -31,20 +31,20 @@ var _ domain.Source = logSource{}
 
 // OpenCursor implements domain.Source.
 func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds}
+	return domain.NewCursor(&logCursor{e: s.e, key: s.key, bounds: cfg.Bounds})
 }
 
-// logRange is one committed pointer of a key, with the segment that holds it.
+// logRange is one committed pointer of a key, with the segment that holds it. Its time
+// range starts at start, which is the end of the pointer before it when the pointer
+// goes on with that pointer's stretch in a new segment.
 type logRange struct {
-	seg state.Segment
-	ptr state.Pointer
+	seg   state.Segment
+	ptr   state.Pointer
+	start telem.TimeStamp
 }
 
 func (r logRange) timeRange() telem.TimeRange {
-	return telem.TimeRange{
-		Start: r.ptr.First,
-		End:   r.ptr.Last + 1,
-	}
+	return telem.TimeRange{Start: r.start, End: r.ptr.Last + 1}
 }
 
 // logCursor moves over the pointers of one key in time order. Each seek loads the
@@ -56,12 +56,12 @@ type logCursor struct {
 	ranges []logRange
 	pos    int
 	valid  bool
-	// cur is the range of the last valid move, which a move that fails keeps, as on
-	// the old layout.
+	// cur is the range of the last valid move, which a move that fails keeps, as on the
+	// old layout.
 	cur logRange
 }
 
-var _ domain.Cursor = (*logCursor)(nil)
+var _ domain.Ranges = (*logCursor)(nil)
 
 // load loads the visible pointers of the key in time order.
 func (c *logCursor) load() {
@@ -72,12 +72,18 @@ func (c *logCursor) load() {
 	}
 	for _, seg := range ch.Segments {
 		for _, ptr := range seg.Pointers {
-			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr})
+			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
 		}
 	}
 	slices.SortFunc(c.ranges, func(a, b logRange) int {
 		return cmp.Compare(a.ptr.First, b.ptr.First)
 	})
+	for i := 1; i < len(c.ranges); i++ {
+		prev, r := c.ranges[i-1].ptr, &c.ranges[i]
+		if prev.Alignment.AddSamples(prev.Samples) == r.ptr.Alignment {
+			r.start = prev.Last + 1
+		}
+	}
 }
 
 // at moves the cursor to position pos, which is valid when it holds a range that
@@ -91,35 +97,38 @@ func (c *logCursor) at(pos int) bool {
 	return c.valid
 }
 
-// SetBounds implements domain.Cursor.
+// SetBounds implements domain.Ranges.
 func (c *logCursor) SetBounds(bounds telem.TimeRange) {
 	c.bounds, c.valid = bounds, false
 }
 
-// SeekFirst implements domain.Cursor.
+// SeekFirst implements domain.Ranges.
 func (c *logCursor) SeekFirst(ctx context.Context) bool {
 	return c.SeekGE(ctx, c.bounds.Start)
 }
 
-// SeekLast implements domain.Cursor.
+// SeekLast implements domain.Ranges.
 func (c *logCursor) SeekLast(ctx context.Context) bool {
 	return c.SeekLE(ctx, c.bounds.End-1)
 }
 
-// SeekLE implements domain.Cursor.
+// SeekLE implements domain.Ranges.
 func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 	c.load()
 	pos, _ := slices.BinarySearchFunc(
 		c.ranges,
 		stamp,
 		func(r logRange, t telem.TimeStamp) int {
-			return cmp.Compare(r.ptr.First, t+1)
+			if r.start <= t {
+				return -1
+			}
+			return 1
 		},
 	)
 	return c.at(pos - 1)
 }
 
-// SeekGE implements domain.Cursor.
+// SeekGE implements domain.Ranges.
 func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 	c.load()
 	pos, _ := slices.BinarySearchFunc(
@@ -132,25 +141,25 @@ func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 	return c.at(pos)
 }
 
-// Next implements domain.Cursor.
+// Next implements domain.Ranges.
 func (c *logCursor) Next() bool { return c.valid && c.at(c.pos+1) }
 
-// Prev implements domain.Cursor.
+// Prev implements domain.Ranges.
 func (c *logCursor) Prev() bool { return c.valid && c.at(c.pos-1) }
 
-// Valid implements domain.Cursor.
+// Valid implements domain.Ranges.
 func (c *logCursor) Valid() bool { return c.valid }
 
-// TimeRange implements domain.Cursor.
+// TimeRange implements domain.Ranges.
 func (c *logCursor) TimeRange() telem.TimeRange { return c.cur.timeRange() }
 
-// Alignment implements domain.Cursor.
+// Alignment implements domain.Ranges.
 func (c *logCursor) Alignment() telem.Alignment { return c.cur.ptr.Alignment }
 
-// Size implements domain.Cursor.
+// Size implements domain.Ranges.
 func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 
-// OpenReader implements domain.Cursor.
+// OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	return &logReader{
@@ -161,7 +170,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	}, nil
 }
 
-// Close implements domain.Cursor.
+// Close implements domain.Ranges.
 func (c *logCursor) Close() error {
 	c.valid = false
 	return nil

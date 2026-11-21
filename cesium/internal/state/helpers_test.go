@@ -175,10 +175,11 @@ func run(s *state.State) {
 	DeferCleanup(func() {
 		if err := s.Err(); err != nil {
 			Expect(s.Close()).To(MatchError(err))
+			Eventually(ran).Should(Receive(MatchError(err)))
 		} else {
 			Expect(s.Close()).To(Succeed())
+			Eventually(ran).Should(Receive(BeNil()))
 		}
-		Eventually(ran).Should(Receive(BeNil()))
 		cancel()
 	})
 }

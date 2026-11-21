@@ -37,28 +37,35 @@ const minSize = 4 * DeleteReserve
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }
 
 // Prepare makes the file of the log of generation in fs: size zeros, synced, with its
-// entry in fs synced.
+// entry in fs synced. When a write or the sync fails, it removes the file, so a full
+// disk keeps no part of it.
 func Prepare(fs xfs.FS, generation uint64, size int64) error {
-	f, err := fs.Open(Name(generation), os.O_CREATE|os.O_RDWR|os.O_TRUNC)
+	name := Name(generation)
+	f, err := fs.Open(name, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
-	zeros := make([]byte, min(size, 1<<20))
-	for off := int64(0); off < size; off += int64(len(zeros)) {
-		if _, err = f.WriteAt(
-			zeros[:min(int64(len(zeros)), size-off)],
-			off,
-		); err != nil {
-			return errors.Join(err, f.Close())
-		}
-	}
-	if err = f.Sync(); err != nil {
-		return errors.Join(err, f.Close())
+	if err = zero(f, size); err != nil {
+		return errors.Join(err, f.Close(), fs.Remove(name))
 	}
 	if err = f.Close(); err != nil {
 		return err
 	}
 	return fs.SyncDir("")
+}
+
+// zero writes size zeros to f and syncs it.
+func zero(f xfs.File, size int64) error {
+	zeros := make([]byte, min(size, 1<<20))
+	for off := int64(0); off < size; off += int64(len(zeros)) {
+		if _, err := f.WriteAt(
+			zeros[:min(int64(len(zeros)), size-off)],
+			off,
+		); err != nil {
+			return err
+		}
+	}
+	return f.Sync()
 }
 
 // Config is the configuration of a log.
@@ -214,8 +221,8 @@ func newLog(cfg Config) (*Log, error) {
 	return l, nil
 }
 
-// openFile opens the file of the log of generation and returns its size, a whole
-// number of blocks of at least minSize.
+// openFile opens the file of the log of generation and returns its size, a whole number
+// of blocks of at least minSize.
 func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 	file, err := l.cfg.FS.Open(Name(generation), os.O_RDWR)
 	if err != nil {

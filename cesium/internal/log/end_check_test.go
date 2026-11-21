@@ -24,17 +24,18 @@ import (
 )
 
 var _ = Describe("Log end check", func() {
-	// frameEnd returns the frame end of an entry of n Drop records, the first frame of
-	// a
-	// log: the frame header, the entry header, and 16 bytes per record.
-	frameEnd := func(n int) int64 {
-		return log.FramesStart + log.FrameHeaderSize + 8 + 16*int64(n)
+	// drops returns the count of Drop records of an entry whose frame, the first of a
+	// log of logSize, ends gap bytes before the end of the file: the frame header, the
+	// entry header, and 16 bytes per record.
+	drops := func(gap int64) int {
+		return int((logSize - gap - log.FramesStart - log.FrameHeaderSize - 8) / 16)
 	}
 
 	DescribeTable(
 		"Should keep the log file at its size, with a clean last frame, after a delete "+
 			"near the end",
-		func(n int, full bool) {
+		func(gap int64, full bool) {
+			n := drops(gap)
 			var inner xfs.FS = xfs.NewMem()
 			if full {
 				inner = MustSucceed(fault.New(fault.Config{Capacity: logSize}))
@@ -78,16 +79,17 @@ var _ = Describe("Log end check", func() {
 			frames := walk(fileBytes(fs))
 			Expect(frames[len(frames)-1].Clean).To(BeTrue())
 		},
-		func(n int, full bool) string {
+		func(gap int64, full bool) string {
 			return fmt.Sprintf("frame end %d bytes before the file end, full disk %t",
-				logSize-frameEnd(n), full)
+				gap, full)
 		},
-		Entry(nil, 129_789, false),
-		Entry(nil, 130_045, false),
-		Entry(nil, 130_046, false),
-		Entry(nil, 130_301, false),
-		Entry(nil, 130_045, true),
-		Entry(nil, 130_301, true),
+		// Each gap leaves the frame on the 16-byte record grid.
+		Entry(nil, int64(12_296), false),
+		Entry(nil, int64(8_200), false),
+		Entry(nil, int64(8_184), false),
+		Entry(nil, int64(4_104), false),
+		Entry(nil, int64(8_200), true),
+		Entry(nil, int64(4_104), true),
 	)
 
 	It("Should refuse a skippable record whose body is not a multiple of 8 bytes",

@@ -365,20 +365,20 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								iter.TimeRange(),
 							).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 							Expect(iter.Size()).To(Equal(telem.Byte * 6))
-							Expect(iter.Position()).To(Equal(uint32(0)))
+							Expect(iter.Alignment().DomainIndex()).To(Equal(uint32(0)))
 							Expect(iter.Next()).To(BeTrue())
 							Expect(
 								iter.TimeRange(),
 							).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
 							Expect(iter.Next()).To(BeTrue())
-							Expect(iter.Position()).To(Equal(uint32(2)))
+							Expect(iter.Alignment().DomainIndex()).To(Equal(uint32(2)))
 							Expect(iter.Size()).To(Equal(telem.Byte * 6))
 							Expect(
 								iter.TimeRange(),
 							).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 							Expect(iter.Next()).To(BeFalse())
 							Expect(iter.Size()).To(Equal(telem.Byte * 6))
-							Expect(iter.Position()).To(Equal(uint32(2)))
+							Expect(iter.Alignment().DomainIndex()).To(Equal(uint32(2)))
 							Expect(iter.Close()).To(Succeed())
 						},
 					)
@@ -408,7 +408,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 							Expect(iter.Prev()).To(BeFalse())
 							Expect(iter.Size()).To(Equal(telem.Byte * 6))
-							Expect(iter.Position()).To(Equal(uint32(0)))
+							Expect(iter.Alignment().DomainIndex()).To(Equal(uint32(0)))
 							Expect(iter.Close()).To(Succeed())
 						},
 					)

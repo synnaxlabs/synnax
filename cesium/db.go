@@ -87,6 +87,9 @@ type DB struct {
 		// holds its channels that Sweep keeps.
 		channels       map[ChannelKey]Channel
 		hiddenChannels map[ChannelKey]Channel
+		// torn holds the keys of the pointer log layout whose channel file a cut-short
+		// create left, which Sweep removes.
+		torn set.Set[ChannelKey]
 		// virtualDirs holds the keys of the directories whose metadata names a virtual
 		// channel. A Core older than this Cesium wrote them, and an undo to it reads
 		// them, so Open leaves them in place.
@@ -210,8 +213,8 @@ func (db *DB) Close() error {
 		if ran {
 			return db.engine.close()
 		}
-		// The owners close only while they run, so a DB that never ran runs them with
-		// a done context, which closes them in order.
+		// The owners close only while they run, so a DB that never ran runs them with a
+		// done context, which closes them in order.
 		done, cancel := context.WithCancel(context.Background())
 		cancel()
 		return db.engine.run(done)

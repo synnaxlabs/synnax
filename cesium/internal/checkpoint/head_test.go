@@ -118,6 +118,17 @@ var _ = Describe("Head", func() {
 		Expect(decodeErr(b)).To(MatchError(checkpoint.ErrIncomplete))
 	})
 
+	DescribeTable("Should report a file shorter than its header sector by its bytes",
+		func(b []byte, want error) {
+			Expect(decodeErr(b)).To(MatchError(want))
+		},
+		Entry("as incomplete when it is empty", []byte{}, checkpoint.ErrIncomplete),
+		Entry("as incomplete when it holds only zeros", make([]byte, 100),
+			checkpoint.ErrIncomplete),
+		Entry("as corrupt when a byte is set", append(make([]byte, 99), 1),
+			place.ErrCorrupt),
+	)
+
 	DescribeTable(
 		"Should refuse a head whose bytes fail a checksum",
 		func(at func(b []byte) int, msg string) {
