@@ -18,9 +18,9 @@ import { describe, expect, it, vi } from "vitest";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 
-/** cfg fills a partial label config with the schema defaults the spec does not pin. */
 const DRAG = { dataTransfer: new DataTransfer() };
 
+/** cfg fills a partial label config with the schema defaults the spec does not pin. */
 const cfg = (overrides: Partial<schematic.LabelConfig> = {}): schematic.LabelConfig =>
   schematic.labelConfigZ.parse(overrides);
 
