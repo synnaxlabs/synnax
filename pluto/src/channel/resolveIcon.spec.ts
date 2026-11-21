@@ -23,15 +23,14 @@ describe("resolveIcon", () => {
     expect(resolveIcon(undefined)).toBe(Icon.Channel);
   });
 
-  it("should return Icon.Calculation for a calculated channel", () => {
+  it("should return Icon.Calculation for a channel that a calculation writes", () => {
     const ch: channel.Payload = channel.payloadZ.parse({
       key: 1,
       name: "calc",
       dataType: DataType.FLOAT32,
-      expression: "x + 1",
       virtual: true,
     });
-    expect(resolveIcon(ch)).toBe(Icon.Calculation);
+    expect(resolveIcon(ch, true)).toBe(Icon.Calculation);
   });
 
   it("should return Icon.Decimal for a float channel", () => {

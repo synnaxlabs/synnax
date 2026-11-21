@@ -561,15 +561,20 @@ export class StreamMultiChannelLog
       this.status = telem.LOADING_STATUS;
     while (generation === this.generation) {
       const missing = this._channels.filter(isMissing);
+      // The lookups of a tick share one request for the outputs.
       const results = await Promise.allSettled(
-        missing.map(async (k) => await client.channels.retrieve(k)),
+        missing.map(async (k) => {
+          const ch = await client.channels.retrieve(k);
+          const [output] = await client.calculations.outputs.retrieve([ch.key]);
+          return toMeta(ch, output.calculation != null);
+        }),
       );
       if (generation !== this.generation) return;
       let retried = false;
       results.forEach((r, i) => {
         const key = missing[i];
         if (r.status === "fulfilled") {
-          this.metas.set(key, toMeta(r.value));
+          this.metas.set(key, r.value);
           this.unresolved.delete(key);
           return;
         }
@@ -910,8 +915,8 @@ export class StreamMultiChannelLog
 }
 
 // Returns the older of the oldest sample held and the sample at time.
-const toMeta = (ch: channel.Channel): Meta => {
-  const stored = ch.isIndex || (ch.index !== 0 && (!ch.virtual || ch.isCalculated));
+const toMeta = (ch: channel.Channel, calculated: boolean): Meta => {
+  const stored = ch.isIndex || (ch.index !== 0 && (!ch.virtual || calculated));
   return {
     name: ch.name,
     stored,

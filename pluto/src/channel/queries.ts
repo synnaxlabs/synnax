@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { actions, calculation, channel, DataType, query } from "@synnaxlabs/client";
+import { type Icon } from "@synnaxlabs/lyra/icon";
 import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
+import { useIsOutput } from "@/calculation/queries";
 import {
   PLURAL_RESOURCE_NAME,
   RESOURCE_NAME,
@@ -114,18 +116,33 @@ export const useResultDataType = createResultSelector(
   (a, b) => a.equals(b),
 );
 
-/**
- * The icon of the channel, and whether it is internal or virtual. Compared by value: a
- * status heartbeat is silenced.
- */
-export const useResultKind = createResultSelector(
-  (ch) => ({
-    icon: resolveIcon(ch.payload),
-    internal: ch.internal,
-    virtual: ch.virtual,
-  }),
-  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
+// Compared by value, so a status heartbeat is silenced.
+const useResultFlags = createResultSelector(
+  ({ dataType, internal, virtual }) => ({ dataType, internal, virtual }),
+  (a, b) =>
+    a.dataType.equals(b.dataType) &&
+    a.internal === b.internal &&
+    a.virtual === b.virtual,
 );
+
+/** The icon of a channel, and whether it is internal or virtual. */
+export interface Kind {
+  icon: Icon.FC;
+  internal: boolean;
+  virtual: boolean;
+}
+
+/** @returns the kind of the channel, or undefined until the channel loads. */
+export const useKind = (query: RetrieveQuery): Kind | undefined => {
+  const flags = useResultFlags(query).data;
+  const calculated = useIsOutput(query.key);
+  if (flags == null) return undefined;
+  return {
+    icon: resolveIcon(flags, calculated),
+    internal: flags.internal,
+    virtual: flags.virtual,
+  };
+};
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
@@ -235,6 +252,16 @@ const toCalculationOperations = (op?: channel.Operation): calculation.Operation[
   return [{ type: op.type, duration: new TimeSpan(op.duration), reset }];
 };
 
+const toCalculatedFormValues = (
+  ch: channel.Channel,
+  calc?: calculation.Calculation,
+) => ({
+  ...channelToFormValues(ch),
+  expression: calc?.expression ?? "",
+  operations: [toFormOperation(calc?.operations[0])],
+  calculation: calc?.key,
+});
+
 const retrieveCalculatedFormValues = async ({
   query: { key },
   client,
@@ -243,13 +270,23 @@ const retrieveCalculatedFormValues = async ({
     client.channels.retrieve(key),
     client.calculations.retrieve({ output: key }),
   ]);
-  const calc = calcs[0];
-  return {
-    ...channelToFormValues(ch),
-    expression: calc?.expression ?? "",
-    operations: [toFormOperation(calc?.operations[0])],
-    calculation: calc?.key,
+  return toCalculatedFormValues(ch, calcs[0]);
+};
+
+// A change to the channel or to its calculation from elsewhere reloads the form.
+const calculatedFormMountListeners: Flux.CreateFormParams<
+  FormQuery,
+  typeof calculatedFormSchema
+>["mountListeners"] = ({ client, query: { key }, reset }) => {
+  const ch = client.channels.watch({ key });
+  const calcs = client.calculations.watch({ output: key });
+  const reload = () => {
+    const cached = ch.getCached();
+    const window = calcs.getCached();
+    if (query.isLive(cached) && window != null)
+      reset(toCalculatedFormValues(cached, window.records[0]));
   };
+  return [ch.onChange(reload), calcs.onChange(reload)];
 };
 
 const updateCalculatedForm = async ({
@@ -290,6 +327,7 @@ export const useCalculatedForm = Flux.createForm<
   initialValues: { ...ZERO_FORM_VALUES, calculation: undefined },
   retrieve: retrieveCalculatedFormValues,
   update: updateCalculatedForm,
+  mountListeners: calculatedFormMountListeners,
 });
 
 export type ListQuery = channel.RetrieveMultipleParams;

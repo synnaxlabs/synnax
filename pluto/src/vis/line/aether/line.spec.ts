@@ -823,6 +823,7 @@ describe("line", () => {
     const client: telem.Client = {
       feed,
       channels: synnax.channels,
+      calculations: synnax.calculations,
       now: () => TimeStamp.now(),
     };
     afterAll(async () => await feed.close());

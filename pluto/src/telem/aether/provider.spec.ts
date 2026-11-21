@@ -33,6 +33,7 @@ const TELEM_KEY = "telem";
 interface StubCore {
   openFeed: Mock;
   channels: telem.Client["channels"];
+  calculations: telem.Client["calculations"];
   connection: { status: { details: { clockSkew: TimeSpan } } };
 }
 
@@ -47,6 +48,13 @@ const stubCore = (clockSkew: TimeSpan = TimeSpan.ZERO): StubCore => ({
     },
     watch: () => {
       throw new Error("unused");
+    },
+  },
+  calculations: {
+    outputs: {
+      retrieve: async () => {
+        throw new Error("unused");
+      },
     },
   },
 });
@@ -99,6 +107,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      calculations: core.calculations,
       now: expect.any(Function),
     });
   });
@@ -129,6 +138,7 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenLastCalledWith({
       feed: core.openFeed.mock.results[0].value,
       channels: core.channels,
+      calculations: core.calculations,
       now: expect.any(Function),
     });
   });

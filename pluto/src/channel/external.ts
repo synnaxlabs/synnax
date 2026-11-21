@@ -10,6 +10,7 @@
 export * from "@/channel/Deleted";
 export * from "@/channel/HaulPreview";
 export * from "@/channel/Icons";
+export * from "@/channel/KindIcon";
 export * from "@/channel/queries";
 export * from "@/channel/resolveIcon";
 export * from "@/channel/Select";

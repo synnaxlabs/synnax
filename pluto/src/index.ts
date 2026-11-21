@@ -12,6 +12,7 @@ export { Aether } from "@/aether";
 export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
 export { Certificate } from "@/certificate";
+export { Calculation } from "@/calculation";
 export { Channel } from "@/channel";
 export { Code } from "@/code";
 export { Color } from "@/color";

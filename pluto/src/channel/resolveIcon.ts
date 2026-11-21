@@ -7,14 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { DataType } from "@synnaxlabs/x";
 
 import { Telem } from "@/telem";
 
-export const resolveIcon = (ch?: channel.Payload): Icon.FC => {
+/**
+ * @returns the icon of the channel: a calculation icon when a calculation writes it,
+ * and otherwise the icon of its data type.
+ */
+export const resolveIcon = (
+  ch?: Pick<channel.Payload, "dataType">,
+  calculated: boolean = false,
+): Icon.FC => {
   if (ch == null) return Icon.Channel;
-  if (channel.isCalculated(ch)) return Icon.Calculation;
+  if (calculated) return Icon.Calculation;
   return Telem.resolveDataTypeIcon(new DataType(ch.dataType)) ?? Icon.Channel;
 };

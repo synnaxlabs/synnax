@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type calculation,
   type channel,
   framer,
   NotFoundError,
@@ -58,6 +59,10 @@ export interface Client {
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
     watch: (key: channel.Key) => Pick<query.Live<channel.Channel>, "onChange">;
+  };
+  /** Answers which channels a calculation writes. */
+  calculations: {
+    outputs: Pick<query.Table<channel.Key, calculation.Output>, "retrieve">;
   };
   /** @returns the current time on the Core's clock, which stamps every sample. */
   now: () => TimeStamp;

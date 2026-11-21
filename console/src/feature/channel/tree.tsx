@@ -156,7 +156,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const params = { key: Number(resource.id.key) };
   const { data: chStatus } = PChannel.useResultStatus(params);
-  const { data: kind } = PChannel.useResultKind(params);
+  const kind = PChannel.useKind(params);
   const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();

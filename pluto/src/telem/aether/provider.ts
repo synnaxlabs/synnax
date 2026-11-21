@@ -64,7 +64,12 @@ export const createProvider = (
           instrumentation: i.instrumentation,
           now,
         });
-        client = { feed: this.feed, channels: core.channels, now };
+        client = {
+          feed: this.feed,
+          channels: core.channels,
+          calculations: core.calculations,
+          now,
+        };
       }
       setContext(ctx, new Context(createFactory(client)));
     }

@@ -1,0 +1,79 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type calculation, type channel } from "@synnaxlabs/client";
+
+import { Flux } from "@/flux";
+
+export type RetrieveOutputQuery = {
+  /** The key of the channel. */
+  channel: channel.Key;
+};
+
+/**
+ * Answers with the calculation that writes the channel of the query, or with none. The
+ * lookups of a tick share one request.
+ */
+export const { useResult: useResultOutput } = Flux.createRetrieve<
+  RetrieveOutputQuery,
+  calculation.Output
+>({
+  name: "calculation output",
+  retrieve: async ({ client, query: { channel } }) => {
+    const [output] = await client.calculations.outputs.retrieve([channel]);
+    return output;
+  },
+  onChange: ({ client, query: { channel } }, handler) =>
+    client.calculations.outputs.subscribe(
+      (event) => handler(event.variant === "set" ? event.value : undefined),
+      channel,
+    ),
+  getCached: ({ client, query: { channel } }) =>
+    client.calculations.outputs.get(channel),
+});
+
+/**
+ * @returns whether a calculation writes the channel. False until the answer loads, and
+ * for the key 0, which names no channel.
+ */
+export const useIsOutput = (channel: channel.Key): boolean =>
+  useResultOutput(channel === 0 ? null : { channel }).data?.calculation != null;
+
+const statusQuery = (channel: channel.Key) => ({
+  output: channel,
+  includeStatus: true,
+});
+
+const statusOf = (calcs: calculation.Calculation[]): calculation.Status | null =>
+  calcs[0]?.status ?? null;
+
+/**
+ * Answers with the status of the calculation that writes the channel of the query, or
+ * null when no calculation writes it or the calculation has no status. Compared by
+ * variant and message, so a heartbeat that changes neither is silenced.
+ */
+export const { useResult: useResultStatus } = Flux.createRetrieve<
+  RetrieveOutputQuery,
+  calculation.Status | null
+>({
+  name: "calculation status",
+  retrieve: async ({ client, query: { channel } }) =>
+    statusOf(
+      (await client.calculations.watch(statusQuery(channel)).retrieve()).records,
+    ),
+  onChange: ({ client, query: { channel } }, handler) =>
+    client.calculations
+      .watch(statusQuery(channel))
+      .onChange((w) => handler(w == null ? undefined : statusOf(w.records))),
+  getCached: ({ client, query: { channel } }) => {
+    const window = client.calculations.watch(statusQuery(channel)).getCached();
+    return window == null ? undefined : statusOf(window.records);
+  },
+  equal: (a, b) => a?.variant === b?.variant && a?.message === b?.message,
+});

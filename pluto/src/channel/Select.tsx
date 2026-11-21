@@ -16,7 +16,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement, type ReactNode } from "react";
 
-import { getCachedIndex, HaulPreview } from "@/channel/HaulPreview";
+import { useIsOutput } from "@/calculation/queries";
+import { getCachedIndex, getCachedIsOutput, HaulPreview } from "@/channel/HaulPreview";
+import { KindIcon } from "@/channel/KindIcon";
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
@@ -29,7 +31,7 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<channel.Key>): ReactElement | null => {
   const item = List.useItem<channel.Key, channel.Channel>(itemKey);
-  const Icon = resolveIcon(item?.payload);
+  const Icon = resolveIcon(item?.payload, useIsOutput(itemKey));
   return (
     <Select.Item itemKey={itemKey} {...rest}>
       <Icon />
@@ -54,8 +56,7 @@ const isChannel = (entry: unknown): entry is channel.Channel =>
 // A selection with no channel, such as a fixed item, shows the select's own icon.
 const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
   if (!isChannel(entry)) return undefined;
-  const Resolved = resolveIcon(entry.payload);
-  return <Resolved />;
+  return <KindIcon channel={entry.payload} />;
 };
 
 const createHaulPreviewRenderer =
@@ -65,6 +66,7 @@ const createHaulPreviewRenderer =
       <HaulPreview
         channel={entry.payload}
         index={getCachedIndex(client, entry.payload)}
+        calculated={getCachedIsOutput(client, entry.payload)}
       />
     ) : undefined;
 

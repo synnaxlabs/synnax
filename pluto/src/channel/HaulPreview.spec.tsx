@@ -54,9 +54,9 @@ describe("Channel.HaulPreview", () => {
     expect(factsOf(container)).toBe("Timestamp·Index");
   });
 
-  it("should name a calculated channel as calculated", () => {
-    const calculated = createPayload({ virtual: true, expression: "return 1" });
-    const { container } = render(<Channel.HaulPreview channel={calculated} />);
+  it("should name a channel that a calculation writes as calculated", () => {
+    const output = createPayload({ virtual: true });
+    const { container } = render(<Channel.HaulPreview channel={output} calculated />);
     expect(factsOf(container)).toBe("float64·Calculated");
   });
 

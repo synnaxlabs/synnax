@@ -9,7 +9,7 @@
 
 import "@/schematic/Tooltip.css";
 
-import { channel } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +19,7 @@ import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { type color, primitive, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
+import { Calculation } from "@/calculation";
 import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
@@ -56,9 +57,9 @@ const FIELD_ROWS: { field: Field; label?: string }[] = [
 
 const SPAN_FIELDS = new Set<Field>(["onClickDelay", "stalenessTimeout"]);
 
-const kindIcon = (ch: channel.Channel): Icon.FC | null => {
+const kindIcon = (ch: channel.Channel, calculated: boolean): Icon.FC | null => {
   if (ch.isIndex) return Icon.Time;
-  if (channel.isCalculated(ch.payload)) return Icon.Calculation;
+  if (calculated) return Icon.Calculation;
   if (ch.virtual) return Icon.Virtual;
   return null;
 };
@@ -143,6 +144,11 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     channel: Channel.useDeleted(keyOf("channel")),
     commandChannel: Channel.useDeleted(keyOf("commandChannel")),
   };
+  const calculated: Partial<Record<Field, boolean>> = {
+    stateChannel: Calculation.useIsOutput(keyOf("stateChannel")),
+    channel: Calculation.useIsOutput(keyOf("channel")),
+    commandChannel: Calculation.useIsOutput(keyOf("commandChannel")),
+  };
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { where: { key: { in: keys } } } : null,
@@ -169,7 +175,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
         />
       );
     }
-    const KindIcon = kindIcon(ch);
+    const KindIcon = kindIcon(ch, calculated[field] === true);
     return (
       <Row
         key={field}

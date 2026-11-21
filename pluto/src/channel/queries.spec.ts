@@ -13,6 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -372,42 +373,6 @@ describe("queries", () => {
       });
     });
 
-    it("should retrieve a calculated channel with its error status", async () => {
-      const source = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const calc = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
-      // The core clears a calculated channel's status shortly after creation;
-      // let that settle so it does not race the status set below.
-      await sleep.sleep(TimeSpan.milliseconds(500));
-      await client.statuses.set({
-        owner: channel.resourceID(calc.key),
-        name: calc.name,
-        variant: "error",
-        message: "invalid expression",
-        time: TimeStamp.now(),
-        details: { channel: calc.key },
-      });
-      const { result } = await renderHookSuspended(
-        () => Channel.use({ key: calc.key }),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => {
-        expect(result.current).not.toBeNull();
-        expect(result.current?.status?.variant).toEqual("error");
-        expect(result.current?.status?.message).toEqual("invalid expression");
-      });
-    });
-
     it("should retrieve a calculated channel without a status", async () => {
       const source = await client.channels.create({
         name: id.create(),
@@ -428,46 +393,6 @@ describe("queries", () => {
       );
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.status).toBeUndefined();
-    });
-
-    it("should react to status changes on a calculated channel", async () => {
-      const source = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const calc = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
-      const { result } = await renderHookSuspended(
-        () => Channel.use({ key: calc.key }),
-        {
-          wrapper,
-        },
-      );
-      await waitFor(() => expect(result.current).not.toBeNull());
-      expect(result.current?.status).toBeUndefined();
-
-      // The core clears a calculated channel's status shortly after creation;
-      // let that settle so it does not race the status set below.
-      await sleep.sleep(TimeSpan.milliseconds(500));
-      await act(async () => {
-        await client.statuses.set({
-          owner: channel.resourceID(calc.key),
-          name: calc.name,
-          variant: "error",
-          message: "broken expression",
-          time: TimeStamp.now(),
-          details: { channel: calc.key },
-        });
-      });
-      await waitFor(() => {
-        expect(result.current?.status?.variant).toEqual("error");
-        expect(result.current?.status?.message).toEqual("broken expression");
-      });
     });
 
     describe("calculated channel cached without a status", () => {
@@ -601,7 +526,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultKind", () => {
+  describe("useKind", () => {
     it("should read the icon and flags of a channel and keep them across a rename", async () => {
       const ch = await client.channels.create({
         name: id.create(),
@@ -610,25 +535,36 @@ describe("queries", () => {
       });
       const { result } = renderHook(
         () => ({
-          kind: Channel.useResultKind({ key: ch.key }),
+          kind: Channel.useKind({ key: ch.key }),
           name: Channel.useResultName({ key: ch.key }),
         }),
         { wrapper },
       );
       await waitFor(() =>
-        expect(result.current.kind.data).toEqual({
+        expect(result.current.kind).toEqual({
           icon: Channel.resolveIcon(ch.payload),
           internal: false,
           virtual: true,
         }),
       );
-      const before = result.current.kind.data;
+      const before = result.current.kind;
       const name = id.create();
       await act(async () => {
         await client.channels.rename(ch.key, name);
       });
       await waitFor(() => expect(result.current.name.data).toEqual(name));
-      expect(result.current.kind.data).toBe(before);
+      expect(result.current.kind).toBe(before);
+    });
+
+    it("should show a calculation icon for a channel that a calculation writes", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      const { result } = renderHook(() => Channel.useKind({ key: calc.output }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.icon).toBe(Icon.Calculation));
     });
   });
 
@@ -885,7 +821,9 @@ describe("queries", () => {
         expect(result.current.form.value().expression).toEqual(
           `return ${sourceChannel.name} * 3`,
         );
-        const stored = await client.channels.retrieve(existingCalculated.key);
+        const [stored] = await client.calculations.retrieve({
+          output: existingCalculated.key,
+        });
         expect(stored.expression).toEqual(`return ${sourceChannel.name} * 3`);
       });
     });
@@ -898,7 +836,7 @@ describe("queries", () => {
       });
       const resetChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.UINT8,
+        dataType: DataType.BOOLEAN,
         virtual: true,
       });
       const existing = await client.channels.create({
@@ -925,10 +863,12 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       await waitFor(async () => {
-        const stored = await client.channels.retrieve(existing.key);
-        expect(stored.name).toEqual(name);
+        expect((await client.channels.retrieve(existing.key)).name).toEqual(name);
+        const [stored] = await client.calculations.retrieve({ output: existing.key });
         expect(stored.expression).toEqual(`return ${sourceChannel.name}`);
-        expect(stored.operations).toEqual(operations);
+        expect(stored.operations).toEqual([
+          { type: "avg", reset: resetChannel.key, duration: TimeSpan.seconds(5) },
+        ]);
       });
     });
 

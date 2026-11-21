@@ -14,7 +14,8 @@ import { type Client } from "@/telem/aether/remote";
 
 /**
  * @returns the client that the telemetry provider builds, served by the synthetic Core
- * through a feed opened with the props. The caller closes the feed.
+ * through a feed opened with the props. The caller closes the feed. The synthetic Core
+ * holds no calculations.
  */
 export const createClient = (
   core: SyntheticCore,
@@ -22,5 +23,10 @@ export const createClient = (
 ): Client & { feed: framer.Feed } => ({
   feed: core.openFeed(props),
   channels: core.channels,
+  calculations: {
+    outputs: {
+      retrieve: async (keys) => keys.map((key) => ({ key, calculation: null })),
+    },
+  },
   now: core.now,
 });
