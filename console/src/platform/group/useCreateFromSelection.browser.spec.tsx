@@ -20,7 +20,6 @@ import {
   createScopeTree,
   expandTreeRow,
   findTreeRow,
-  getTreeRow,
   itemName,
   renderLiveTree,
   retrieveChildGroupKeys,
@@ -81,8 +80,9 @@ const setupSearch = async () => {
 
 const groupSelection = async (first: string, last: string) => {
   fireEvent.click(await findTreeRow(first));
-  withControlHeld(() => fireEvent.click(getTreeRow(last)));
-  fireEvent.contextMenu(getTreeRow(last));
+  const lastRow = await findTreeRow(last);
+  withControlHeld(() => fireEvent.click(lastRow));
+  fireEvent.contextMenu(lastRow);
   fireEvent.click(await screen.findByText("group selection"));
   return await awaitTextEditingElement();
 };
