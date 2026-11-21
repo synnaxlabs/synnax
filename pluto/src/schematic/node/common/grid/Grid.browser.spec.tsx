@@ -21,6 +21,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Grid } from "@/schematic/node/common/grid";
 
+const DRAG = { dataTransfer: new DataTransfer() };
+
 const NODE_KEY = "node-1";
 
 interface GridHostProps extends Omit<Grid.GridProps, "children"> {
@@ -380,7 +382,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     fireEvent.dragOver(slot(container, "right") as HTMLElement, {
       screenX: 100,
       screenY: 50,
@@ -404,7 +406,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     fireEvent.dragOver(slot(container, "right") as HTMLElement, {
       screenX: 1,
       screenY: 1,
@@ -449,7 +451,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     const right = slot(container, "right") as HTMLElement;
     fireEvent.dragOver(right, { screenX: 10, screenY: 10 });
     fireEvent.dragOver(right, { screenX: 10, screenY: 10 });
@@ -469,7 +471,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     const right = slot(container, "right") as HTMLElement;
     fireEvent.dragOver(right, { screenX: 10, screenY: 10 });
     fireEvent.drop(right);
@@ -495,7 +497,7 @@ describe("Grid drag-and-drop", () => {
     const right = slot(container, "right") as HTMLElement;
     expect(top.className).not.toContain("pluto-dragging");
     expect(right.className).not.toContain("pluto-dragging");
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     expect(top.className).toContain("pluto-dragging");
     expect(right.className).toContain("pluto-dragging");
     expect(top.className).toContain("lyra-haul-drop-region");
@@ -512,7 +514,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     const right = slot(container, "right") as HTMLElement;
     fireEvent.dragOver(right, { screenX: 1, screenY: 1 });
     expect(right.className).toContain("pluto-dragging-over");
@@ -532,7 +534,7 @@ describe("Grid drag-and-drop", () => {
         </Grid.Item>
       </GridHost>,
     );
-    fireEvent.dragStart(draggable(container, "x"));
+    fireEvent.dragStart(draggable(container, "x"), DRAG);
     fireEvent.dragOver(slot(container, "right") as HTMLElement, {
       screenX: 10,
       screenY: 10,
