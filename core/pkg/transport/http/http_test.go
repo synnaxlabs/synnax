@@ -200,9 +200,24 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/retrieve",
 			),
 			Entry(
+				"unary EtherCAT master create",
+				http.MethodPost,
+				"/api/v1/ethercat/master/create",
+			),
+			Entry(
 				"unary EtherCAT master retrieve",
 				http.MethodPost,
 				"/api/v1/ethercat/master/retrieve",
+			),
+			Entry(
+				"unary EtherCAT master update",
+				http.MethodPost,
+				"/api/v1/ethercat/master/update",
+			),
+			Entry(
+				"unary EtherCAT master delete",
+				http.MethodPost,
+				"/api/v1/ethercat/master/delete",
 			),
 			Entry(
 				"unary EtherCAT slave retrieve",

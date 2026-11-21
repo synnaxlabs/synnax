@@ -127,12 +127,14 @@ var _ = Describe("Service", func() {
 		channelSvc *channel.Service
 		tasks      *tasktestutil.Tasks
 		db         *gorp.DB
+		statuses   *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		var tasksCfg tasktestutil.TasksConfig
 		devices, tasksCfg = openDevices(ctx, node.DB)
+		statuses = tasksCfg.Status
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
 			DB:      node.DB,
@@ -142,6 +144,7 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 			DB:     node.DB,
 			Device: devices,
+			Status: tasksCfg.Status,
 		}))
 		tasksCfg.Stores = svc.Stores()
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasksCfg))
@@ -151,6 +154,7 @@ var _ = Describe("Service", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
 			Expect(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				Device: devices,
+				Status: statuses,
 			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
@@ -158,8 +162,18 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-				DB: db,
+				DB:     db,
+				Status: statuses,
 			})).Error().To(MatchError(ContainSubstring("device: must be non-nil")))
+		})
+
+		It("Should reject a config missing the status service", func(
+			ctx SpecContext,
+		) {
+			Expect(ethercat.OpenService(ctx, ethercat.ServiceConfig{
+				DB:     db,
+				Device: devices,
+			})).Error().To(MatchError(ContainSubstring("status: must be non-nil")))
 		})
 
 		It("Should address the channels of stored version 1 configs", func(
@@ -167,7 +181,7 @@ var _ = Describe("Service", func() {
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			devices, _ := openDevices(ctx, db)
+			devices, cfg := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{
@@ -193,6 +207,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB:     db,
 				Device: devices,
+				Status: cfg.Status,
 			}))
 			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
 			Expect(readData["channels"]).To(Equal([]any{
@@ -280,7 +295,7 @@ var _ = Describe("Service", func() {
 			}
 			Expect(gorp.NewCreate[device.Key, device.Device]().
 				Entry(&slave).Exec(ctx, db)).To(Succeed())
-			devices, _ := openDevices(ctx, db)
+			devices, cfg := openDevices(ctx, db)
 			var read v1.ReadConfig
 			read.Key = uuid.New()
 			read.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
@@ -292,6 +307,7 @@ var _ = Describe("Service", func() {
 			svc := MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB:     db,
 				Device: devices,
+				Status: cfg.Status,
 			}))
 			readData := MustSucceed(svc.Read.Read(ctx, db, read.Key))
 			channels, ok := readData["channels"].([]any)

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,6 +21,31 @@ from synnax.resource import ID
 from x import filter
 
 Key: TypeAlias = UUID
+
+
+class Identity(BaseModel):
+    """Holds the master fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the master runs on.
+        interface: Is the network interface the master drives, such as eth0 or igh:0.
+        slaves: Are the keys of the slaves on the bus, in bus order. A slave's position
+            is its index.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    interface: str = Field(min_length=1)
+    slaves: list[UUID] = Field(default_factory=list)
+
+
+class Configuration(BaseModel):
+    """Holds the master fields that the user owns.
+
+    Attributes:
+        name: Is a human-readable name for the master.
+    """
+
+    name: str = Field(min_length=1)
 
 
 class StatusDetails(BaseModel):
@@ -85,6 +110,26 @@ class Cursor(BaseModel):
 
     key: Key
 
+
+class IdentityUpdate(Identity):
+    """Writes the fields that the scanner owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the fields that the user owns. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a master.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
