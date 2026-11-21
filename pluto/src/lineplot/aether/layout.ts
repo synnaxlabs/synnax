@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  box,
+  resolveWindow,
+  scale,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  type Window,
+} from "@synnaxlabs/x";
 
 import type { TickType } from "@/vis/axis/ticks";
 import type { line } from "@/vis/line/aether";
@@ -293,22 +302,26 @@ export const collapse = (
  * time order. Each span holds one or more windows, the margins and time between them,
  * and each open gap between them. The outer edges are the exact edges of the windows,
  * so the last span stays open when a window has no end.
- * @param now - a window that ends after now runs, as the plot lays it out.
- * @param newest - the newest sample, where a running window stops for laying out the
- * gaps.
+ * @param now - a static window that ends after now runs, as the plot lays it out.
+ * @param newest - the newest sample, where each dynamic window ends and a running
+ * window stops for laying out the gaps.
  * @param open - the open breaks, as the lower bounds of their gaps.
  */
 export const shownSpans = (
-  windows: TimeRange[],
+  windows: Window[],
   now: TimeStamp,
   newest: TimeStamp,
   open: readonly number[] = [],
 ): TimeRange[] => {
-  const traces = windows.map((w): line.DataBounds => {
-    if (!w.end.after(now)) return { bounds: w.numericBounds, loading: false };
-    const upper = TimeStamp.max(w.start, TimeStamp.min(w.end, newest));
+  const resolved = windows.map((w) => resolveWindow(w, newest));
+  const traces = windows.map((w, i): line.DataBounds => {
+    const r = resolved[i];
+    if (w.variant === "dynamic")
+      return { bounds: r.numericBounds, loading: false, edge: "rolling" };
+    if (!r.end.after(now)) return { bounds: r.numericBounds, loading: false };
+    const upper = TimeStamp.max(r.start, TimeStamp.min(r.end, newest));
     return {
-      bounds: new TimeRange(w.start, upper).numericBounds,
+      bounds: new TimeRange(r.start, upper).numericBounds,
       loading: false,
       edge: "growing",
     };
@@ -317,7 +330,7 @@ export const shownSpans = (
   if (shown.length === 0) return [];
   // A number cannot hold a timestamp to the nanosecond, so the outer edges come from
   // the windows.
-  const merged = TimeRange.merge(...windows);
+  const merged = TimeRange.merge(...resolved);
   const last = shown.length - 1;
   return shown.map(
     (b, i) =>

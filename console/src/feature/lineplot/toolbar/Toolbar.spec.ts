@@ -219,7 +219,7 @@ describe("lineplot/toolbar/Toolbar", () => {
       expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
     });
 
-    it("should not lay out a live window that ends after now as running", async () => {
+    it("should give a live window no margin after its newest sample", async () => {
       const suffix = id.create().replace(/-/g, "_");
       const index = await client.channels.create({
         name: `toolbar_csv_time_${suffix}`,
@@ -232,8 +232,8 @@ describe("lineplot/toolbar/Toolbar", () => {
         index: index.key,
       });
       // The live window ends at the newest sample, 2 minutes from now. A planned range
-      // starts a minute after it, inside the margin after the live window, so the
-      // download shows one span.
+      // starts a minute after it. The plot shows the two apart, so the download does
+      // too.
       const now = TimeStamp.now();
       const at = (minutes: number) => now.add(TimeSpan.minutes(minutes));
       await client.write(at(-30), {
@@ -242,7 +242,7 @@ describe("lineplot/toolbar/Toolbar", () => {
       });
       const planned = staticWindow(new TimeRange(at(3), at(63)));
       await openDownload([data.key], [dynamicWindow(TimeSpan.minutes(40)), planned]);
-      expect(document.querySelectorAll(".console-download-csv__arrow")).toHaveLength(1);
+      expect(document.querySelectorAll(".console-download-csv__arrow")).toHaveLength(2);
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {
