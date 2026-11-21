@@ -762,6 +762,40 @@ describe("line", () => {
         m.line.render(PROPS);
         expect(m.line.findDrawnByXValue(PROPS, 1).value).toEqual({ x: 1, y: 30 });
       });
+
+      describe("span", () => {
+        // The axis values -1 to 1 fill the region, and the span ends at axis value 0.
+        const props: LineProps = {
+          ...PROPS,
+          dataToDecimalScale: new scale.XY(
+            scale.Scale.scale<number>(-1, 1).scale(0, 1),
+          ),
+          span: { lower: -Infinity, upper: 0 },
+        };
+
+        it("should read and clip its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          const value = vi.spyOn(m.xSource, "value");
+          m.line.render(props);
+          expect(value.mock.calls[0][0]?.span).toEqual({ lower: -Infinity, upper: 1 });
+          expect(m.recorder.scissorCalls).toEqual([
+            {
+              region: box.construct({ x: 0, y: 0 }, { x: 400, y: 600 }),
+              overScan: xy.ZERO,
+              canvases: ["gl"],
+            },
+          ]);
+        });
+
+        it("should find points only inside its span measured from its zero", () => {
+          const m = mount([X1], [Y1], { zero });
+          m.line.render(props);
+          expect(m.line.findByXValue(props, -1).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findByXValue(props, 0.6).value.x).toBeNaN();
+          expect(m.line.findDrawnByXValue(props, -0.6).value).toEqual({ x: -1, y: 10 });
+          expect(m.line.findDrawnByXValue(props, 0.6).value.x).toBeNaN();
+        });
+      });
     });
 
     describe("opacity", () => {
