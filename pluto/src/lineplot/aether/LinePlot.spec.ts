@@ -457,7 +457,6 @@ describe("LinePlot breaks", () => {
       container: box.construct(0, 0, 1000, 500),
       viewport: box.DECIMAL,
       grid: {},
-      gapsCollapsed: true,
     });
     const minute = Number(TimeSpan.MINUTE.valueOf());
     const day = Number(TimeSpan.DAY.valueOf());
