@@ -31,6 +31,31 @@ import (
 
 var codec = json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 
+// offsetFS records the offset of each read of the file name.
+type offsetFS struct {
+	xfs.FS
+	name string
+	offs *[]int64
+}
+
+func (f offsetFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != f.name {
+		return file, err
+	}
+	return offsetFile{File: file, offs: f.offs}, nil
+}
+
+type offsetFile struct {
+	xfs.File
+	offs *[]int64
+}
+
+func (f offsetFile) ReadAt(p []byte, off int64) (int, error) {
+	*f.offs = append(*f.offs, off)
+	return f.File.ReadAt(p, off)
+}
+
 // old is a pointer of an old index.domain file.
 type old struct {
 	start, end   telem.TimeStamp
@@ -185,6 +210,22 @@ var _ = Describe("Read", func() {
 			))
 		},
 	)
+
+	It("Should read the stamps of an old index file in file-offset order", func() {
+		root.channel(idx(1))
+		root.file(1, 1, stamps(30, 40, 10, 20))
+		root.pointers(1, old{30, 41, 1, 0, 16}, old{10, 21, 1, 16, 16})
+		var offs []int64
+		s, _ := MustSucceed2(convert.Read(convert.Config{
+			FS:    offsetFS{FS: fs, name: "1/1.domain", offs: &offs},
+			Codec: codec,
+		}))
+		Expect(offs).To(Equal([]int64{0, 0, 8, 8, 16, 16, 24, 24}))
+		Expect(s.Channels[0].Segments[0].Pointers).To(Equal([]state.Pointer{
+			ptr(30, 40, 2, 0, 0, 16, 2),
+			ptr(10, 20, 1, 0, 16, 16, 2),
+		}))
+	})
 
 	It(
 		"Should split a data pointer at the start of each index pointer it crosses",

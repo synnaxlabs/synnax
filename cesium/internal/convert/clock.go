@@ -10,6 +10,7 @@
 package convert
 
 import (
+	"cmp"
 	"encoding/binary"
 	"slices"
 
@@ -35,28 +36,43 @@ type clock struct {
 func (c *clock) count(k int) uint32 { return c.ptrs[k].size / stampSize }
 
 // index gives each pointer of index ch the next alignment number, reads its first and
-// last stamp, and adds it.
+// last stamp, and adds it. The stamp reads go in file-offset order within each old
+// file.
 func (r *reader) index(ch channel.Channel) error {
 	ptrs, err := r.pointers(ch.Key, stampSize)
 	if err != nil {
 		return err
 	}
-	c := &clock{key: ch.Key, ptrs: ptrs}
+	c := &clock{
+		key:   ch.Key,
+		ptrs:  ptrs,
+		first: make([]telem.TimeStamp, len(ptrs)),
+		last:  make([]telem.TimeStamp, len(ptrs)),
+	}
 	r.clocks[ch.Key] = c
+	order := make([]int, len(ptrs))
+	for k := range order {
+		order[k] = k
+	}
+	slices.SortFunc(order, func(a, b int) int {
+		return cmp.Or(
+			cmp.Compare(ptrs[a].file, ptrs[b].file),
+			cmp.Compare(ptrs[a].offset, ptrs[b].offset),
+		)
+	})
+	for _, k := range order {
+		if c.first[k], err = r.stamp(c, k, 0); err != nil {
+			return err
+		}
+		if c.last[k], err = r.stamp(c, k, c.count(k)-1); err != nil {
+			return err
+		}
+	}
 	for k, p := range ptrs {
-		first, err := r.stamp(c, k, 0)
-		if err != nil {
-			return err
-		}
-		last, err := r.stamp(c, k, c.count(k)-1)
-		if err != nil {
-			return err
-		}
 		c.nums = append(c.nums, uint32(r.next))
-		c.first, c.last = append(c.first, first), append(c.last, last)
 		r.add(ch.Key, p.file, state.Pointer{
-			First:     first,
-			Last:      last,
+			First:     c.first[k],
+			Last:      c.last[k],
 			Alignment: telem.NewAlignment(uint32(r.next), 0),
 			Offset:    p.offset,
 			Length:    p.size,

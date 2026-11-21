@@ -12,9 +12,13 @@ package cesium_test
 import (
 	"fmt"
 	"hash/crc32"
+	"math/rand/v2"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // The floor benchmarks measure what the host can do, with the standard library only.
@@ -134,6 +138,85 @@ func BenchmarkFloorWrite(b *testing.B) {
 		if err := f.Sync(); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// benchDir returns the directory of the files that a benchmark keeps between runs:
+// CESIUM_BENCH_DIR when it is set, so that a run after a page cache drop reads them
+// cold, and otherwise a temporary directory.
+func benchDir(b *testing.B) string {
+	b.Helper()
+	if dir := os.Getenv("CESIUM_BENCH_DIR"); dir != "" {
+		return dir
+	}
+	return b.TempDir()
+}
+
+// floorReadFile opens the file of floorFileSize in benchDir that the read floors read,
+// and writes and syncs it first when it does not exist.
+func floorReadFile(b *testing.B) *os.File {
+	b.Helper()
+	name := filepath.Join(benchDir(b), "floor-read")
+	if info, err := os.Stat(name); err != nil || info.Size() != floorFileSize {
+		f, err := os.Create(filepath.Clean(name))
+		if err != nil {
+			b.Fatal(err)
+		}
+		block := make([]byte, mib)
+		for i := range block {
+			block[i] = byte(i)
+		}
+		for range floorFileSize / mib {
+			if _, err = f.Write(block); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if err = errors.Join(f.Sync(), f.Close()); err != nil {
+			b.Fatal(err)
+		}
+	}
+	f, err := os.Open(filepath.Clean(name))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			b.Error(err)
+		}
+	})
+	return f
+}
+
+// BenchmarkFloorRead reads a file of floorFileSize in 1 MiB blocks, per iteration. The
+// first iteration after a page cache drop gives F_read.
+func BenchmarkFloorRead(b *testing.B) {
+	f := floorReadFile(b)
+	block := make([]byte, mib)
+	b.SetBytes(floorFileSize)
+	for b.Loop() {
+		for off := int64(0); off < floorFileSize; off += mib {
+			if _, err := f.ReadAt(block, off); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+// BenchmarkFloorReadPage reads 4 KiB at a random page of a file of floorFileSize, per
+// iteration. It reads no page twice until it has read them all, so after a page cache
+// drop it gives F_page.
+func BenchmarkFloorReadPage(b *testing.B) {
+	const pages = floorFileSize / (4 * kib)
+	f := floorReadFile(b)
+	order := rand.New(rand.NewPCG(1, 2)).Perm(pages)
+	page := make([]byte, 4*kib)
+	b.SetBytes(4 * kib)
+	i := 0
+	for b.Loop() {
+		if _, err := f.ReadAt(page, int64(order[i%pages])*4*kib); err != nil {
+			b.Fatal(err)
+		}
+		i++
 	}
 }
 
