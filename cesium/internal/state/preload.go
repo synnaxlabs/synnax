@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -207,28 +208,78 @@ func (st *carried) carry(c *core, seg *segState) {
 	}
 }
 
+// forget takes the tagged segments of the keys of changed, which a Parted of tagged
+// tags changed, and of the keys with put-back records, out of the state, and adds to
+// changed each key that it changes. Their files stay for the reads of their part
+// records. When most segments leave, it builds the segment map again from the ones
+// left, which costs less than a removal for each.
+func (c *core) forget(changed set.Set[uint32], tagged int) {
+	rebuild := 2*tagged > len(c.segments)
+	var kept set.Set[uint32]
+	forget := func(key uint32) {
+		ch := c.channels[key]
+		if ch == nil {
+			return
+		}
+		forgot, cutting := c.forgetTagged(ch, !rebuild)
+		if forgot {
+			changed.Add(key)
+		}
+		if cutting {
+			if kept == nil {
+				kept = set.New[uint32]()
+			}
+			kept.Add(key)
+		}
+	}
+	for key := range changed {
+		forget(key)
+	}
+	for key := range c.putBacks {
+		if !changed.Contains(key) {
+			forget(key)
+		}
+	}
+	c.putBacks = kept
+	if !rebuild {
+		return
+	}
+	segments := make(map[uint64]*segState, len(c.segments)-tagged)
+	for _, ch := range c.channels {
+		for _, s := range ch.segs {
+			segments[s.vis.ID] = s
+		}
+	}
+	c.segments = segments
+}
+
 // forgetTagged takes each tagged segment of ch out of the state, with no file to
 // unlink,
 // and reports whether any was. It keeps a segment that a delete in progress put back
 // for the cut of its Tombstone.
-func (c *core) forgetTagged(ch *chanState) bool {
-	cutting := func(s *segState) bool {
+func (c *core) forgetTagged(ch *chanState, unmap bool) (forgot, cutting bool) {
+	cuts := func(s *segState) bool {
 		return slices.ContainsFunc(ch.claims, func(cl *claim) bool {
 			return cl.w == nil && overlaps(s.vis.Pointers, cl.start, cl.end)
 		})
 	}
 	kept := ch.segs[:0]
 	for _, s := range ch.segs {
-		if s.vis.Part != 0 && !cutting(s) {
-			delete(c.segments, s.vis.ID)
-			continue
+		if s.vis.Part != 0 {
+			if !cuts(s) {
+				if unmap {
+					delete(c.segments, s.vis.ID)
+				}
+				continue
+			}
+			cutting = true
 		}
 		kept = append(kept, s)
 	}
-	forgot := len(kept) < len(ch.segs)
+	forgot = len(kept) < len(ch.segs)
 	clear(ch.segs[len(kept):])
 	ch.segs = kept
-	return forgot
+	return forgot, cutting
 }
 
 // overlaps reports whether a pointer of ptrs shares a stamp with [first, last].
@@ -268,6 +319,12 @@ func union(segs, more []Segment) []Segment {
 // takes its record, and a segment that the state holds untagged keeps its own.
 func (c *core) putBack(key uint32, records []Segment) {
 	ch := c.channels[key]
+	if len(records) > 0 {
+		if c.putBacks == nil {
+			c.putBacks = set.New[uint32]()
+		}
+		c.putBacks.Add(key)
+	}
 	for _, rec := range records {
 		seg := c.segments[rec.ID]
 		switch {

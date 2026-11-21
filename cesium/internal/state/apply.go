@@ -56,6 +56,8 @@ type core struct {
 	// dropUsers holds, for each key that BeginDrop took, the part records that name it
 	// as their clock, for the durable apply of its Drop.
 	dropUsers map[uint32][]User
+	// putBacks holds the keys with put-back records that a Parted has yet to take out.
+	putBacks set.Set[uint32]
 	// checked holds, for each segment with visible commits that are not durable yet,
 	// the part records that those commits were checked against, which their durable
 	// apply checks again. Most segments have none, so the map holds few.
