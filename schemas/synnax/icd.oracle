@@ -136,45 +136,58 @@ BaseField struct {
     @go marshal
 }
 
-BinaryField struct extends BaseField {
-    start_bit        uint16 = 0 {
-        @doc value """
-            is the bit where the field starts, numbered as in a DBC file: the least
-            significant bit for little-endian fields and the most significant bit for
-            big-endian fields.
-        """
+BinaryField union on kind extends BinaryBaseField {
+    float {
+        default payload.Float? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are an IEEE 754 float of 32 or 64 bits."
     }
-    bit_length       uint8 = 8 {
-        @doc value    "is the number of bits in the field, from 1 to 64."
-        @validate max 64
-        @validate min 1
+    integer {
+        default payload.Integer? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are a two's complement integer."
     }
-    byte_order       ByteOrder = little_endian {
-        @doc value "is the byte order of the field."
-    }
-    kind             payload.Kind = unsigned {
-        @doc value """
-            is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
-            complement integer, or an unsigned integer. No other kind is valid.
-        """
-    }
-    multiplexor      FieldKey?    {
-        @doc value """
-            is the key of the field that selects whether this field is present. When
-            absent the field is always present.
-        """
-    }
-    multiplex_values int32[] = [] {
-        @doc value """
-            are the raw values of the multiplexor for which this field is present.
-        """
+    unsigned {
+        default payload.Unsigned? {
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
+        }
+
+        @doc value "is a field whose raw bits are an unsigned integer."
     }
 
-    @doc value  "is a field read from a bit range of a binary payload."
+    @doc value  """
+        is a field read from a bit range of a binary payload. With no default, a write
+        needs a channel.
+    """
     @go marshal
 }
 
-TextField union on encoding extends BaseField {
+TextBaseField struct extends BaseField {
+    default payload.Float? {
+        @doc value """
+            is the raw number, before scale and offset, when a read finds none or no
+            channel is bound.
+        """
+    }
+
+    @doc value  "carries the parts every text field shares."
+    @go marshal
+}
+
+TextField union on encoding extends TextBaseField {
     delimited {
         position uint32 = 0 {
             @doc value "is the zero-based item index after splitting on the delimiter."
@@ -190,7 +203,41 @@ TextField union on encoding extends BaseField {
         @doc value "is a field read from the text that follows a tag."
     }
 
-    @doc value  "is a field read from a text line."
+    @doc value  """
+        is a field read from a text line. With no default, a write needs a channel.
+    """
+    @go marshal
+}
+
+TimestampDefault union on type {
+    constant {
+        value telem.TimeStamp {
+            @doc value "is the timestamp that the default gives."
+        }
+
+        @doc value "is one fixed timestamp."
+    }
+    now {
+        @doc value "is the time of each read or write."
+    }
+
+    @doc value  "is the default of a timestamp field."
+    @go marshal
+}
+
+UUIDDefault union on type {
+    constant {
+        value uuid {
+            @doc value "is the UUID that the default gives."
+        }
+
+        @doc value "is one fixed UUID."
+    }
+    random {
+        @doc value "is a new random UUID for each read or write."
+    }
+
+    @doc value  "is the default of a UUID field."
     @go marshal
 }
 
@@ -212,7 +259,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Float?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a float."
@@ -222,7 +272,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Integer?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a signed integer."
@@ -232,7 +285,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Unsigned?       {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as an unsigned integer."
@@ -242,7 +298,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     string?               {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a JSON string."
@@ -252,7 +308,7 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     bool?                  {
-            @doc value "is the value when the document has none. Absent requires one."
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a JSON boolean."
@@ -261,23 +317,44 @@ JSONField union on type payload.Kind extends JSONBaseField {
         time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
         }
-        default     telem.TimeStamp?   {
-            @doc value "is the value when the document has none. Absent requires one."
+        default     TimestampDefault?  {
+            @doc value "is the value when a read finds none or no channel is bound."
         }
 
         @doc value "is a timestamp held in a JSON number or string."
     }
     json {
+        default string? {
+            @doc value """
+                is the JSON text of the value when a read finds none or no channel is
+                bound.
+            """
+        }
+
         @doc value "is any JSON value."
     }
     uuid {
+        default UUIDDefault? {
+            @doc value "is the value when a read finds none or no channel is bound."
+        }
+
         @doc value "is a UUID held in a JSON string."
     }
     bytes {
+        default string? {
+            @doc value """
+                is the base64 text of the value when a read finds none or no channel is
+                bound.
+            """
+        }
+
         @doc value "is base64 text held in a JSON string."
     }
 
-    @doc value  "is a field read from a JSON document."
+    @doc value  """
+        is a field read from a JSON document. With no default, a read needs its value
+        and a write needs a channel.
+    """
     @go marshal
 }
 
@@ -510,4 +587,36 @@ ReadMessage struct {
     @doc value  "reads one message of an ICD."
     @go marshal
     @pb omit
+}
+
+BinaryBaseField struct extends BaseField {
+    start_bit        uint16 = 0 {
+        @doc value """
+            is the bit where the field starts, numbered as in a DBC file: the least
+            significant bit for little-endian fields and the most significant bit for
+            big-endian fields.
+        """
+    }
+    bit_length       uint8 = 8 {
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
+    }
+    byte_order       ByteOrder = little_endian {
+        @doc value "is the byte order of the field."
+    }
+    multiplexor      FieldKey? {
+        @doc value """
+            is the key of the field that selects whether this field is present. When
+            absent the field is always present.
+        """
+    }
+    multiplex_values int32[] = [] {
+        @doc value """
+            are the raw values of the multiplexor for which this field is present.
+        """
+    }
+
+    @doc value  "carries the parts every binary field shares."
+    @go marshal
 }

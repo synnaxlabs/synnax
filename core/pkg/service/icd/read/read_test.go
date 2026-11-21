@@ -52,7 +52,9 @@ var (
 	// defaulted is a timestamp field that takes a default.
 	defaulted = jsonField("ts", "/ts", icd.TimestampJSONField{
 		TimeFormat: payload.TimeFormatUnixSec,
-		Default:    &stamp,
+		Default: &icd.TimestampDefault{
+			Variant: icd.ConstantTimestampDefault{Value: stamp},
+		},
 	})
 	status  = jsonMessage("Status", ts, temp, state, raw)
 	stamped = jsonMessage("Stamped", defaulted)

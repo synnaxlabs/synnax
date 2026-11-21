@@ -32,7 +32,6 @@ import {
   createRepeatedNameSlave,
   createSlaveDevice,
   createUnresolvedWriteChannel,
-  preloadForms,
 } from "@/feature/ethercat/testutil";
 import {
   awaitEditableForm,
@@ -41,12 +40,13 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
   getChannelItemStatus,
+  preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(EtherCAT.Task.FORMS);
 
 let testRack: rack.Rack;
 

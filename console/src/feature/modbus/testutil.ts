@@ -19,7 +19,6 @@ import {
   ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
-import { preload } from "@/testutil";
 
 type TCPConnection = Extract<Connection, { transport: "tcp" }>;
 type RTUConnection = Extract<Connection, { transport: "rtu" }>;
@@ -68,10 +67,3 @@ export const createModbusDevice = async (
     SCHEMAS,
   );
 };
-
-/** Loads the modules of the lazy task forms before the specs of a file run. */
-export const preloadForms = (): void =>
-  preload(
-    async () => await import("@/feature/modbus/task/Read"),
-    async () => await import("@/feature/modbus/task/Write"),
-  );

@@ -12,7 +12,7 @@ import type { Color } from "@synnaxlabs/lyra/color";
 import type { color as xcolor } from "@synnaxlabs/x";
 
 import { Access } from "@/access";
-import { CreatePalette, CreateSwatch } from "@/color/Create";
+import { CreatePalette, CreateSwatch, SaveToLibrary } from "@/color/Create";
 import { SwatchMenu } from "@/color/Edit";
 import { usePalettes, useResolve } from "@/color/library";
 import { Synnax } from "@/synnax";
@@ -28,7 +28,8 @@ export interface Binding {
  * Binds a Lyra color control to a stored color reference. A pick from a palette calls
  * onChange with a named reference, a custom color with a fixed reference, and Auto with
  * undefined. The picker can also create a named color, which the value then follows,
- * and edit a named color, for a user with the access to do so.
+ * from a palette or from the custom color, and edit a named color, for a user with the
+ * access to do so.
  */
 export const useBinding = (
   value: color.Ref | undefined,
@@ -54,6 +55,7 @@ export const useBinding = (
             hasSwatchMenu: (key) =>
               Access.updateGranted({ client, id: color.resourceID(key) }),
             footer: canCreate && canCreatePalette ? <CreatePalette /> : undefined,
+            customFooter: canCreate ? <SaveToLibrary /> : undefined,
           },
   };
 };
