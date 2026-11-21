@@ -41,6 +41,7 @@ var _ = Describe("Tombstone", Ordered, func() {
 		holders  *gorp.Table[string, displayHolder]
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		// The holder has no generated codec, so the store encodes with msgpack.
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		StartRun(db.Run)
