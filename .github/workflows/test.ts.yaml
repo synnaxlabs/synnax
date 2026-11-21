@@ -409,6 +409,13 @@ jobs:
           flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
 
+      # A spec that times out on a Core request shows no Core side in its own output.
+      - name: Print the Core log
+        if:
+          failure() && runner.os == 'Linux' && inputs.core_image != '' && env.FORK !=
+          'true'
+        run: docker logs --tail 2000 synnax
+
       - name: Stop the services
         if: always() && runner.os == 'Linux'
         run: docker rm --force synnax freighter 2> /dev/null || true
