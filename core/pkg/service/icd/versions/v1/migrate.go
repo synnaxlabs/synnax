@@ -11,13 +11,13 @@ package v1
 
 import (
 	"context"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -71,14 +71,9 @@ func migrateBinaryField(old v0.BinaryField, _ int) BinaryField {
 	return BinaryField{Variant: UnsignedBinaryField{BinaryBaseField: base}}
 }
 
-var numberKinds = []payload.Kind{
-	payload.KindFloat,
-	payload.KindInteger,
-	payload.KindUnsigned,
-}
+var numberKinds = set.New(payload.KindFloat, payload.KindInteger, payload.KindUnsigned)
 
-// migrateStored lifts a stored v0 ICD and logs each binary field that is not a number,
-// so a field that reads as unsigned after the upgrade can be traced to its cause.
+// migrateStored lifts a stored v0 ICD and logs each binary field that is not a number.
 func migrateStored(
 	ctx context.Context,
 	old v0.ICD,
@@ -90,7 +85,7 @@ func migrateStored(
 			continue
 		}
 		for _, f := range b.Fields {
-			if slices.Contains(numberKinds, f.Kind) {
+			if numberKinds.Contains(f.Kind) {
 				continue
 			}
 			ins.L.Warn(

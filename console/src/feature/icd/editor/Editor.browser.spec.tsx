@@ -119,8 +119,12 @@ const retrieveMessage = async (key: icd.Key): Promise<icd.Message> => {
 
 /** Reads the ICD through a new client, so the result is what the Core stored. */
 const retrieveStoredMessage = async (key: icd.Key): Promise<icd.Message> => {
-  const [message] = (await createTestClient().icds.retrieve({ key })).messages;
-  return message;
+  const core = createTestClient();
+  try {
+    return (await core.icds.retrieve({ key })).messages[0];
+  } finally {
+    await core.close();
+  }
 };
 
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
