@@ -153,9 +153,10 @@ finite samples, and two series join when their spans touch
 cleanup turned the test off (`pluto/src/vis/render/context.ts:480`). Its cleanup is now
 a restore of the box before it.
 
-A closed break draws a band over its seam, about 8 px wide at every zoom, through the
-plot and the range strip, with `//` on the axis. The band covers about 4 px on each side
-of the seam. At the home view, that is margin data.
+A closed break draws a grey band over its seam, 12 px wide at every zoom, through the
+plot and the range strip. A `//` of 12 px sits centered on the axis line, and the band
+ends just above it. The band covers 6 px on each side of the seam. At the home view,
+that is margin data.
 
 ### 4.4 Ticks and labels
 
