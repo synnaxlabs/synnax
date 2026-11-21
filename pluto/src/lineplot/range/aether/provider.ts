@@ -68,6 +68,8 @@ export interface ProviderProps {
   timeRange: TimeRange;
   /** The newest sample, when the x axis ends at it. */
   newest?: TimeStamp;
+  /** Draws that the plot runs after every axis draws. The strip adds its tooltip. */
+  raised: Array<() => void>;
 }
 
 /**
@@ -143,7 +145,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    const { layout: xLayout, region, timeRange, newest } = props;
+    const { layout: xLayout, region, timeRange, newest, raised } = props;
     const { internal: i } = this;
     // Each segment fetches its own time, so the strip never asks for a collapsed gap.
     const pieces =
@@ -221,8 +223,9 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       drawFills(draw, bars, region, hovered);
       drawBars(draw, bars, region, lanes, hovered, now);
       clearScissor();
+      // The tooltip draws over the bands of the breaks, which draw after the strip.
       if (hovered != null && cursor != null && !menuOpen)
-        drawTooltip(draw, hovered, cursor, region, now);
+        raised.push(() => drawTooltip(draw, hovered, cursor, region, now));
     }
     let hoveredState: SelectedState | null = null;
     if (hovered != null) {
