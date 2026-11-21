@@ -127,6 +127,27 @@ var _ = Describe("Heal break", Ordered, ContinueOnFailure, func() {
 		}
 		return false
 	}
+	It("Should leave the tombstone and drop a given list before the service heals",
+		func(ctx SpecContext) {
+			dead := createAll(ctx, channel.Channel{})[0]
+			display := show(ctx, dead.Key())
+			del(ctx, dead.Key())
+			ch := createAll(ctx, channel.Channel{
+				Rewires: []channel.Rewire{{From: 7, At: telem.Now()}},
+			})[0]
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Rename(ctx, ch.Key(), dead.Name, false)
+			})).To(Succeed())
+			Expect(tombstoned(ctx, dead.Key())).To(BeTrue())
+			Expect(shown(ctx, display)).To(Equal([]channel.Key{dead.Key()}))
+			var stored channel.Channel
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(ch.Key())).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Rewires).To(BeEmpty())
+		})
+
 	It("Should heal a display that opens after a built-in takes the path of the "+
 		"channel it held", func(ctx SpecContext) {
 		name := UniqueChannelName()
