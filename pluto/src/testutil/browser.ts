@@ -13,8 +13,15 @@ import "@synnaxlabs/lyra/dist/base.css";
 import { setupBrowser } from "@synnaxlabs/lyra/styletest";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
-// Monaco warns when a startup step is slow, which depends on the machine.
-failOnConsoleOutput({ ignore: [/Creation of workbench contribution '.+' took \d+ms/] });
+failOnConsoleOutput({
+  ignore: [
+    // Monaco warns when a startup step is slow, which depends on the machine.
+    /Creation of workbench contribution '.+' took \d+ms/,
+    // React Flow resizes its nodes as it measures them, which the browser reports as a
+    // ResizeObserver loop. No notification is lost for good.
+    /ResizeObserver loop completed with undelivered notifications/,
+  ],
+});
 setupBrowser();
 
 // Testing Library unmounts each spec in an afterEach hook, which must run before the

@@ -17,7 +17,7 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
@@ -54,6 +54,9 @@ interface HarnessProps {
   viewportMode?: Viewport.Mode;
 }
 
+// The diagram fills its parent, so the parent gives it a size.
+const SIZE: CSSProperties = { width: 1000, height: 500 };
+
 // The diagram is controlled, so the harness feeds each selection back as the next
 // `selected` prop the way a caller would.
 const Harness = ({
@@ -74,55 +77,34 @@ const Harness = ({
     <Theming.Provider theme={{ key: themeKey }} applyCSSVars={false}>
       <Triggers.Provider>
         <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
-          <Base
-            nodes={NODES}
-            edges={[]}
-            onNodesChange={noop}
-            onEdgesChange={noop}
-            selected={selected}
-            onSelectionChange={handleSelectionChange}
-            editable={editable}
-            onEditableChange={noop}
-            onPaste={onPaste}
-            viewport={VIEWPORT}
-            onViewportChange={onViewportChange}
-            fitViewOnResize={false}
-            setFitViewOnResize={noop}
-            viewportMode={viewportMode}
-            onViewportModeChange={noop}
-            triggers={Viewport.DEFAULT_TRIGGERS[viewportMode]}
-            visible
-          >
-            {children}
-          </Base>
+          <div style={SIZE}>
+            <Base
+              nodes={NODES}
+              edges={[]}
+              onNodesChange={noop}
+              onEdgesChange={noop}
+              selected={selected}
+              onSelectionChange={handleSelectionChange}
+              editable={editable}
+              onEditableChange={noop}
+              onPaste={onPaste}
+              viewport={VIEWPORT}
+              onViewportChange={onViewportChange}
+              fitViewOnResize={false}
+              setFitViewOnResize={noop}
+              viewportMode={viewportMode}
+              onViewportModeChange={noop}
+              triggers={Viewport.DEFAULT_TRIGGERS[viewportMode]}
+              visible
+            >
+              {children}
+            </Base>
+          </div>
         </Tooltip.Config>
       </Triggers.Provider>
     </Theming.Provider>
   );
 };
-
-const RECT = {
-  x: 0,
-  y: 0,
-  width: 1000,
-  height: 500,
-  top: 0,
-  left: 0,
-  right: 1000,
-  bottom: 500,
-  toJSON: () => ({}),
-} as DOMRect;
-
-// Notifies at once, so useResize and the React Flow container measure the fixed box
-// below. Nodes stay unmeasured.
-class ImmediateResizeObserver {
-  constructor(private readonly notify: (entries: ResizeObserverEntry[]) => void) {}
-  observe(el: Element): void {
-    if (!el.classList.contains("react-flow__node")) this.notify([]);
-  }
-  unobserve(): void {}
-  disconnect(): void {}
-}
 
 const renderDiagram = async (
   children?: ReactNode,
@@ -158,17 +140,12 @@ describe("Diagram", () => {
   const canvas = document.createElement("div");
 
   beforeAll(() => {
-    vi.stubGlobal("ResizeObserver", ImmediateResizeObserver);
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(RECT.width);
-    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(RECT.height);
     canvas.className = "pluto-canvas--lower2d";
     document.body.appendChild(canvas);
   });
 
   afterAll(() => {
     canvas.remove();
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
