@@ -468,7 +468,11 @@ const NewColorForm = ({
     if (variant !== "loading") save();
   };
   return (
-    <PlatformSettings.CreateProvider close={onClose} created={onCreated}>
+    <PlatformSettings.CreateProvider
+      close={onClose}
+      creating={onCreated}
+      created={onCreated}
+    >
       <Form.Form<typeof PColor.createFormSchema> {...form}>
         <div className={CSS.BE("color-settings", "form")}>
           <span className={CSS.BE("color-settings", "form-check")} />
