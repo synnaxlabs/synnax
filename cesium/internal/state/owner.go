@@ -40,7 +40,7 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
-	// Generation is the generation of the head that Open loads.
+	// Generation is the generation of the head that Open loads, from 1.
 	Generation uint64
 }
 
@@ -52,6 +52,7 @@ func (c Config) Validate() error {
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_head", c.OnHead)
+	v.Ternary("generation", c.Generation == 0, "must be at least 1")
 	return v.Error()
 }
 
@@ -347,10 +348,11 @@ func sameRecord(a, b Segment) bool {
 
 // Parted queues what the head of generation holds once it commits: the tags of the
 // records that its switch wrote to parts, and the part range of each key that parts
-// hold. The owner first calls swap, which makes the parts of the head readable. It then
-// tags each sealed segment whose record is still the one that its part holds, gives
-// each key its range in the head or none, and drops the kills from before generation,
-// which the head holds as dead marks. Parted does not wait for the owner.
+// hold. The owner first calls swap, which makes the parts of the head readable. swap
+// runs on a step of the owner, so it must return at once and not wait on the state.
+// The owner then tags each sealed segment whose record is still the one that its part
+// holds, gives each key its range in the head or none, and drops the kills from before
+// generation, which the head holds as dead marks. Parted does not wait for the owner.
 func (s *State) Parted(
 	generation uint64,
 	tags []Tag,
