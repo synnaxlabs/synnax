@@ -207,6 +207,42 @@ describe("lineplot/toolbar/Toolbar", () => {
       expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
     });
 
+    it("should not lay out a live window that ends after now as running", async () => {
+      removeSaveFilePicker();
+      const downloads = captureBrowserDownloads();
+      const suffix = id.create().replace(/-/g, "_");
+      const index = await client.channels.create({
+        name: `toolbar_csv_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `toolbar_csv_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      // The live window ends at the newest sample, 2 minutes from now, so it starts 38
+      // minutes ago. Its margin of 2 minutes joins it to the range that ends 2 minutes
+      // before it, so the sample between them is in the export.
+      const now = TimeStamp.now();
+      const ago = (minutes: number) => now.sub(TimeSpan.minutes(minutes));
+      await client.write(ago(45), {
+        [index.key]: [ago(45), ago(39), ago(30), now.add(TimeSpan.minutes(2))],
+        [data.key]: [1, 2, 3, 4],
+      });
+      const range = staticWindow(new TimeRange(ago(50), ago(40)));
+      const download = await openDownload(
+        [data.key],
+        [range, dynamicWindow(TimeSpan.minutes(40))],
+      );
+      await act(async () => {
+        fireEvent.click(download);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n").slice(1);
+      expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4]);
+    });
+
     it("should open the download of a plot with a calculation over virtual channels", async () => {
       const suffix = id.create().replace(/-/g, "_");
       const { data } = await createStopped(suffix);

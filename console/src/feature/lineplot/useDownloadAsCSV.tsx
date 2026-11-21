@@ -98,8 +98,10 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
         channels: { x: d.xChannel, y: d.yChannel },
       }));
       const live = windows.some((w) => w.variant === "dynamic");
-      const now = TimeStamp.now();
-      const end = live ? await readEdge(client, channelsOf(lines)) : now;
+      const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
+      // The newest sample can be after now, and a live window that ends there does not
+      // run.
+      const now = TimeStamp.max(TimeStamp.now(), end);
       const resolved = windows.map((w) => resolveWindow(w, end));
       const timeRanges = FLAGS.breaks
         ? LinePlot.shownSpans(resolved, now, end, openBreaks)
