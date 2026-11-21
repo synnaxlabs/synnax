@@ -17,10 +17,10 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/color/types.gen.h"
 #include "client/cpp/label/types.gen.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "client/cpp/resource/id.h"
-#include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
@@ -65,8 +65,8 @@ struct Range {
     /// end timestamps.
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
     /// @brief color is an optional display color for visual identification of the range
-    /// in user interfaces.
-    std::optional<::x::color::Color> color;
+    /// in user interfaces, a named color or a fixed color.
+    std::optional<::synnax::color::Ref> color;
     /// @brief labels are the keys of the labels attached to the range.
     std::vector<::synnax::label::Key> labels = {};
     /// @brief parent is the key of the range this range is nested in. Empty for a

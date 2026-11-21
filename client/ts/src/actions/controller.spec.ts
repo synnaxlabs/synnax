@@ -11,6 +11,7 @@ import { observe, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
+import { createReduceAll } from "@/actions/actions";
 import {
   Controller,
   type Frame,
@@ -1805,6 +1806,44 @@ describe("actions.Controller", () => {
       controller.applyRemote("k", 1, dispatchKey, [create]);
       expect(docs.get("j")).toEqual({ key: "j", values: { a: 1 } });
       expect(docs.get("k")).toEqual({ key: "k", values: { a: 1 } });
+    });
+
+    it("settles an echo whose added action edits an object that a dispatched one adds", async () => {
+      interface Plot {
+        ranges: Array<{ key: string; color?: string }>;
+      }
+      type PlotAction =
+        | { type: "add"; range: { key: string } }
+        | { type: "color"; key: string; color: string };
+      const reduce = createReduceAll<Plot, PlotAction>((draft, a) => {
+        if (a.type === "add") draft.ranges.push(a.range);
+        else {
+          const range = draft.ranges.find(({ key }) => key === a.key);
+          if (range != null) range.color = a.color;
+        }
+        return { inverse: [], targets: ["ranges"] };
+      });
+      const errors: Error[] = [];
+      const onError = (error: Error) => errors.push(error);
+      const docs = new Table<string, Plot>({ onError, fetch: async () => [] });
+      const epochs = new observe.Observer<number>();
+      const color: PlotAction = { type: "color", key: "r", color: "#f00" };
+      const controller = new Controller<string, Plot, PlotAction>({
+        store: docs,
+        onError,
+        onEpoch: (callback) => epochs.onChange(callback),
+        onStreamDown: () => () => {},
+        reduce,
+        send: async () => [color],
+      });
+      epochs.notify(1);
+      docs.set("k", { ranges: [] });
+      await controller.dispatch("k", [{ type: "add", range: { key: "r" } }]);
+      const settled = controller.settled("k");
+      await vi.advanceTimersByTimeAsync(10_000);
+      await settled;
+      expect(errors).toEqual([]);
+      expect(docs.get("k")?.ranges).toEqual([{ key: "r", color: "#f00" }]);
     });
 
     const invalid: Action = { type: "invalid" };

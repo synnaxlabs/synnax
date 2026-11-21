@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package service.ranger.pb;
 
-import "x/go/color/pb/color.proto";
+import "core/pkg/service/color/pb/color.proto";
 import "x/go/filter/pb/filter.proto";
 import "x/go/telem/pb/telem.proto";
 
@@ -40,8 +40,8 @@ message Range {
   // timestamps.
   .x.telem.pb.TimeRange time_range = 4;
   // color is an optional display color for visual identification of the range in user
-  // interfaces.
-  optional .x.color.pb.Color color = 5;
+  // interfaces, a named color or a fixed color.
+  optional .service.color.pb.Ref color = 5;
   // labels are the keys of the labels attached to the range.
   repeated string labels = 6;
   // parent is the key of the range this range is nested in. Empty for a top-level
