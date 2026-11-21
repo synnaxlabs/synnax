@@ -27,6 +27,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   CaptureStatuses,
   createTestStore,
+  preload,
   renderSuspended,
   type TestStore,
 } from "@/testutil";
@@ -49,10 +50,16 @@ export interface RenderOverviewResult {
   statuses: () => Status.NotificationSpec[];
 }
 
+export interface RenderOverviewOptions {
+  /** The width of the pane that holds the overview, as CSS. */
+  width?: string;
+}
+
 /** Renders the overview of the range in a tab, as the client `as` sees it. */
 export const renderOverview = async (
   rangeKey: ranger.Key,
   as: Client = client,
+  { width }: RenderOverviewOptions = {},
 ): Promise<RenderOverviewResult> => {
   const { panelKey, tabKey } = await createResourceTab(
     client,
@@ -72,9 +79,11 @@ export const renderOverview = async (
   let statuses: Status.NotificationSpec[] = [];
   await renderSuspended(
     <>
-      <Guard FallbackComponent={Deleted}>
-        <Content />
-      </Guard>
+      <div style={{ width }}>
+        <Guard FallbackComponent={Deleted}>
+          <Content />
+        </Guard>
+      </div>
       <Modals.Stack />
       <CaptureStatuses onStatuses={(next) => (statuses = next)} />
     </>,
@@ -88,3 +97,7 @@ export const renderOverview = async (
     });
   return { store, project: proj.key, setTabResource, statuses: () => statuses };
 };
+
+/** Loads the module of the lazy overview before the specs of a file run. */
+export const preloadOverview = (): void =>
+  preload(async () => await import("@/feature/range/overview/Overview"));

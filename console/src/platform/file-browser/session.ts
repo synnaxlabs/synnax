@@ -52,6 +52,8 @@ export class Session {
   };
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<string, Promise<Listing>>();
+  private readonly latest = new Map<string, number>();
+  private requests = 0;
   private prefetching = false;
   private queued: string | null = null;
 
@@ -73,15 +75,18 @@ export class Session {
   };
 
   /**
-   * Lists a folder, sharing a request already in flight for it. An empty path lists the
+   * Lists a folder, sharing a request already in flight for it unless `fresh` is set.
+   * Only the last request for a folder changes the snapshot. An empty path lists the
    * roots, the home folder, and the secrets folder.
    * @throws {Error} if the rack has no file browser, or if the Driver fails to list the
    * folder.
    */
-  async list(path: string = ""): Promise<Listing> {
-    let request = this.pending.get(path);
+  async list(path: string = "", fresh: boolean = false): Promise<Listing> {
+    let request = fresh ? undefined : this.pending.get(path);
     if (request == null) {
-      request = this.request(path);
+      const id = ++this.requests;
+      this.latest.set(path, id);
+      request = this.request(path, id);
       this.pending.set(path, request);
       this.update(path, {});
     }
@@ -111,7 +116,7 @@ export class Session {
     this.list(path).then(next, next);
   }
 
-  private async request(path: string): Promise<Listing> {
+  private async request(path: string, id: number): Promise<Listing> {
     try {
       const browser = await this.retrieveBrowser();
       const res = await browser.executeCommandSync({
@@ -121,14 +126,20 @@ export class Session {
       });
       if (res.variant === "error") throw status.toError(res);
       const listing = listingZ.parse(res.details?.data);
-      this.pending.delete(path);
-      this.update(path, { listing });
+      this.settle(path, id, { listing });
       return listing;
     } catch (e) {
-      this.pending.delete(path);
-      this.update(path, { failure: status.fromException(e, "Failed to list files") });
+      this.settle(path, id, {
+        failure: status.fromException(e, "Failed to list files"),
+      });
       throw errors.fromUnknown(e);
     }
+  }
+
+  private settle(path: string, id: number, outcome: Outcome): void {
+    if (this.latest.get(path) !== id) return;
+    this.pending.delete(path);
+    this.update(path, outcome);
   }
 
   private update(path: string, { listing, failure }: Outcome): void {

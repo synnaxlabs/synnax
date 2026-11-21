@@ -247,7 +247,9 @@ class BinaryField(BaseField):
     byte_order: ByteOrder = "little_endian"
     kind: payload_.Kind = "unsigned"
     multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
 
 
 class JSONBaseField(BaseField):
@@ -283,12 +285,12 @@ TextField = Annotated[
 
 
 class ReadMessage(BaseModel):
-    """Reads the documents of one ICD message.
+    """Reads one message of an ICD.
 
     Attributes:
         message: Is the key of the ICD message to read.
         index: Is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples on arrival.
+            task stamps samples on arrival, or with the timestamp of the Kafka record.
         bindings: Are the fields the task reads. A field with no binding is not read.
     """
 
@@ -424,11 +426,16 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
+        cycle_time: Is the send cycle that the protocol states for the message. When
+            absent the protocol states none.
     """
 
     key: MessageKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     payload: Payload
+    cycle_time: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class ICD(BaseModel):

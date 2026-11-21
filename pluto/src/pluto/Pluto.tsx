@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Color } from "@synnaxlabs/lyra/color";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
@@ -18,6 +17,7 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Code } from "@/code";
+import { Color } from "@/color";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
@@ -69,8 +69,8 @@ export const Provider = ({
           <Alamos.Provider {...alamos}>
             <Status.Aggregator>
               <Synnax.Provider connParams={connParams}>
-                <Color.Provider {...color}>
-                  <Theming.Provider {...theming}>
+                <Theming.Provider {...theming}>
+                  <Color.Provider {...color}>
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
                         <Staleness.Provider {...staleness}>
@@ -78,8 +78,8 @@ export const Provider = ({
                         </Staleness.Provider>
                       </CanDisableTelem>
                     </Code.Provider>
-                  </Theming.Provider>
-                </Color.Provider>
+                  </Color.Provider>
+                </Theming.Provider>
               </Synnax.Provider>
             </Status.Aggregator>
           </Alamos.Provider>

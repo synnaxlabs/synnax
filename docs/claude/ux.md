@@ -68,6 +68,13 @@ contrast check, so lines past the eighth can look alike to a color-blind user.
 A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
 A new line takes the first series color in that order that no other line uses.
 
+On a plot in relative time, a range takes its own color when it is clearly apart from
+the other colors of the plot: an OKLab distance of 0.05 or more in normal vision and in
+three simulations of color blindness. Else it takes the series color that the fewest
+colors of the plot are close to. The Core picks the color when the range joins the plot
+and saves it on the plot. Rejected: an exact match only, which lets a range's red sit
+next to the series red.
+
 A user adds a series color in Settings, where they set its value. The Series palette in
 a color picker has no "+".
 
@@ -193,6 +200,10 @@ a color picker has no "+".
   (4 rem) above the other fields.
 - Footer: no divider. Cancel, then the primary button, at the trailing edge. The leading
   edge holds only Back, a mode switch ("Create more"), or a status summary.
+- A two-pane modal with a bar under its header, such as Add data (`ICD.Picker`), is the
+  exception: a gray step 6 divider sits above the bar and above the footer, so the side
+  list ends on a line. Its hint sits under each pane title, above the values it
+  explains, and the footer's leading edge holds only the summary of the picks.
 - Esc closes the modal from any field. Validation never changes the status of the
   primary button; errors show at their fields.
 - Every step of the device connect flow is 930 px (155 rem) wide
@@ -350,7 +361,9 @@ bound, a log precision, or the line plot X channel.
 - A user never needs to leave the field to create or edit a shared item. Settings is
   still a full editor for every type: create, edit, find, and delete, and, where the
   type supports them, see what uses an item and Replace with.
-- Each type has one editor. The field and Settings open the same editor.
+- Each type has one form and one save path. The field and Settings may lay out its
+  fields differently, such as a Light and Dark switch in a picker and two columns in a
+  table.
 - The field's picker creates in place, as every select of things users make does. A
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
@@ -447,6 +460,8 @@ bound, a log precision, or the line plot X channel.
   that integration.
 - A submenu of targets keeps a target that already has the change, with a check, and
   disables it. Add to plot does this for a plot that shows the range.
+- A selection of two or more ranges has Compare under Add to plot. It opens a new plot
+  in relative time with the ranges, named "Compare A and B".
 - In a selection, an option that only some of the items have shows a minus mark. The
   first click adds it to all of them, and the next click removes it from all of them.
 - A picker leaves out a choice that the Core would reject. The Parent picker leaves out
@@ -646,13 +661,14 @@ bound, a log precision, or the line plot X channel.
 - A caret at the start of an item opens the item's own content in place, such as a
   range's children or an enumeration's entries.
 - A caret at the end of a bar opens or closes a group of items, such as a palette
-  (`Header.Group`).
+  (`Header.Group`). The History list of the docs releases page is the one exception.
 
 ### Group headings
 
 - A list that groups its items, such as the palettes on the Colors page or the groups of
   the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
-  opens and closes the group.
+  opens and closes the group. The History list of the docs releases page is the one
+  exception.
 - The bar is l2 with the item radius. Its height is the Lyra size nearest the item
   height: `large` above a 40 px item. Hover and press fill the whole bar with a button's
   transition.
@@ -856,6 +872,13 @@ says why in a sentence, then gives the raw error.
   the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
   is open.
 
+### Plot controls
+
+- The controls on a plot hold tools for reading it: zoom, pan, select, reset zoom,
+  tooltip, the range strip, measure, and hold. Each is state of the window, never saved
+  with the plot. A setting saved with the plot goes in the toolbar, even when it changes
+  what the plot shows, such as the time mode.
+
 ### Plot range select
 
 - The dialog opens above the field. The Live row holds one chip per preset and an Off
@@ -874,6 +897,12 @@ says why in a sentence, then gives the raw error.
 - The labels share one column as wide as the widest label, so every field starts at one
   edge. X1, the field people change least, sits at the end of the Ranges row, as both
   set the x axis. Below a toolbar width of 144rem it takes its own row at the bottom.
+- The time mode, "Absolute" and "Relative" at medium size, sits right of X1. It moves
+  down with X1 below 171rem. X1 then fills its row, and the time mode lines up with the
+  right edge of Y1 and Y2. Below 76rem it shows only its icons: a clock and a timeline.
+  A change of mode resets the zoom, because a zoom in one mode means nothing in the
+  other. Rejected: the plot controls (the mode is saved), and the toolbar header (it
+  holds actions and tabs).
 - The X1 dialog floats, so it can be wider than its trigger.
 
 ### Plot lines tab
@@ -890,6 +919,31 @@ says why in a sentence, then gives the raw error.
 
 - A padded Lyra `Divider` separates the axis groups: the shared border, with 0.5rem
   above and below. A 1 px line with no space was too heavy.
+- In relative time, each range name sits above its channels. The range name is weight
+  500 in gray l10, and a channel is weight 400 in gray l9. Only the range has a swatch.
+  Each channel starts with its axis ("Y1") under the swatch, in the style of the axis
+  names of the absolute legend and the Data tab: weight 500 in gray l9. Rejected: a
+  swatch on each channel (one color again and again), a guide or bar in the range color,
+  an axis at the end of the channel, and an axis icon (a small box at text size).
+- The eyes take no room at rest. On hover the legend grows to the right as they fade in,
+  so no text moves.
+- Option or Alt click on an eye shows only that item, and a second one restores what was
+  hidden before. A channel hidden in all ranges shows again only in the range whose eye
+  the user clicks. When an item is hidden, the legend ends with "Show all (N hidden)". A
+  rolling window is named as its saved range is, such as "Rolling 5min".
+
+### Plot hover and tooltip
+
+- The pointer on a legend entry draws its lines twice as wide and on top. The other
+  lines draw at 25 percent over the background: the other ranges in relative time, and
+  the other channels in absolute time. The pointer on a line of the plot only makes its
+  tooltip entry bold. Rejected: a dim from the plot, which flickers as the pointer
+  crosses lines to read values.
+- The tooltip groups by channel. Under each channel, each range shows its color, name,
+  and value, from high to low. Rejected: channels under each range, and one flat list.
+- The tooltip lists as many entries as fit inside the plot, and stays inside it. The
+  last entry then reads "and N more". Rejected: a fixed count, which cuts a compare of 2
+  channels and 8 ranges, and no limit, where entries past the plot edge do not show.
 
 ## Interaction
 
@@ -979,3 +1033,10 @@ The `docs-refine` skill owns the forms and rhythm of docs pages, in its
 - Gradient blooms stay quiet. The Desktop band at the end of a blog post has a 30% blue
   bloom over `#181b27` in dark mode. A 70% bloom over `#282c41` was too intense, and a
   7% tint over the page surface was too flat.
+- The History list on the releases page groups the releases under the year they shipped,
+  with a caret before each year. One year is open at a time: the year of the release
+  being read opens by itself, and a click opens another. Rejected: a list that scrolls
+  inside itself, and a grid of every release three across.
+- The History list is an exception to Carets and Group headings: it is a navigation
+  tree, like the docs sidebar, so each year is a caret and a label, with the caret
+  before the year.

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -47,11 +48,7 @@ func resolveQualified(
 	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
-	if err != nil {
-		return nil, err
-	}
-	return headSym.Resolve(ctx, tail)
+	return scope.ResolveMember(ctx, head, tail, symbol.IncludeInternal)
 }
 
 // Analyze compiles a visual graph into executable IR with type inference,
@@ -180,6 +177,12 @@ func Analyze(
 			if param.Type.Kind == types.KindChan {
 				var k uint32
 				if err = zyn.Uint32().Coerce().Parse(paramValue, &k); err != nil {
+					aCtx.Diagnostics.Add(diagnostics.Error(errors.Wrapf(
+						err,
+						"node '%s' parameter '%s' is not a channel key",
+						n.Key,
+						param.Name,
+					), nil))
 					return ir.IR{}, aCtx.Diagnostics
 				}
 				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))

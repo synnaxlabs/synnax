@@ -25,6 +25,10 @@
     }
 
     .pluto-diagram {
+        /* React Flow's dark color mode paints a #141414 background. The theme shows
+           through instead. */
+        --xy-background-color: transparent;
+
         .react-flow__selection,
         .react-flow__nodesselection-rect {
             background: var(--pluto-primary-z-10) !important;
