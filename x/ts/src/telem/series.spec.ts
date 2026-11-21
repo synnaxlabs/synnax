@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import vm from "node:vm";
+
 import { describe, expect, it, type Mock, test, vi } from "vitest";
 import { z } from "zod";
 
@@ -153,6 +155,15 @@ describe("Series", () => {
         expect(s.length).toEqual(1);
         expect(s.at(0)).toEqual(3.25);
       });
+    });
+
+    it("should read an ArrayBuffer from another realm", () => {
+      const data: ArrayBuffer = vm.runInNewContext(
+        "new BigInt64Array([1n, 2n]).buffer",
+      );
+      const s = new Series({ data, dataType: DataType.INT64 });
+      expect(s.data).toBeInstanceOf(BigInt64Array);
+      expect(Array.from(s)).toEqual([1n, 2n]);
     });
 
     it("should convert the values of a typed array of another data type", () => {

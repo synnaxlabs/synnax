@@ -143,6 +143,11 @@ const checkAsType = (jsType: JSType, dataType: DataType) => {
 
 const SERIES_DISCRIMINATOR = "sy_x_telem_series";
 
+// Checks the tag instead of instanceof, which fails for an ArrayBuffer from another
+// realm, such as the buffer of a BigInt64Array under jsdom.
+const isArrayBuffer = (value: unknown): value is ArrayBuffer =>
+  Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
@@ -284,7 +289,7 @@ export class Series<T extends TelemValue = TelemValue> {
     const isArray = Array.isArray(data);
 
     if (dataType != null) this.dataType = new DataType(dataType);
-    else if (data instanceof ArrayBuffer)
+    else if (isArrayBuffer(data))
       throw new Error(
         "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
       );
@@ -314,7 +319,7 @@ export class Series<T extends TelemValue = TelemValue> {
         );
     } else this.dataType = new DataType(data);
 
-    if (data instanceof ArrayBuffer) {
+    if (isArrayBuffer(data)) {
       const density = this.dataType.density.valueOf();
       if (density > 0 && data.byteLength % density !== 0)
         throw new RangeError(
@@ -513,14 +518,14 @@ export class Series<T extends TelemValue = TelemValue> {
 
   /** @returns the underlying buffer backing this array. */
   get buffer(): ArrayBuffer {
-    if (this._data instanceof ArrayBuffer) return this._data;
+    if (isArrayBuffer(this._data)) return this._data;
     return this._data.buffer;
   }
 
   // The backing store and data type never change after construction, so the view is
   // cached.
   private get underlyingData(): TypedArray {
-    if (!(this._data instanceof ArrayBuffer)) return this._data;
+    if (!isArrayBuffer(this._data)) return this._data;
     return (this.cachedUnderlyingView ??= new this.dataType.Array(this._data));
   }
 
@@ -531,7 +536,7 @@ export class Series<T extends TelemValue = TelemValue> {
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    if (!(this._data instanceof ArrayBuffer))
+    if (!isArrayBuffer(this._data))
       throw new Error("a partially written series must be backed by an ArrayBuffer");
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
@@ -1348,7 +1353,7 @@ const convertDataType = (
 const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   if (value == null) return false;
   if (Array.isArray(value)) return true;
-  if (value instanceof ArrayBuffer) return true;
+  if (isArrayBuffer(value)) return true;
   if (ArrayBuffer.isView(value) && !(value instanceof DataView)) return true;
   if (value instanceof Series) return true;
   return isTelemValue(value);
