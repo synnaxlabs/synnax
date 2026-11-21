@@ -12,7 +12,6 @@ package testutil
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
@@ -28,9 +27,7 @@ type Calculation struct {
 	Expression string
 	// Operations are the operations of the calculation.
 	Operations []channel.Operation
-	// DataType is the data type of the output channel.
-	//
-	// [OPTIONAL] - The data type of Expression replaces it.
+	// DataType is not read: the data type of Expression types the output.
 	DataType telem.DataType
 }
 
@@ -62,22 +59,25 @@ func (c Creator) CreateMany(
 	ctx context.Context,
 	calcs []Calculation,
 ) ([]channel.Channel, error) {
-	channels := make([]channel.Channel, len(calcs))
-	for i, calc := range calcs {
-		channels[i] = channel.Channel{
-			Name:       calc.Name,
-			DataType:   calc.DataType,
-			Expression: calc.Expression,
-			Operations: calc.Operations,
-		}
-	}
+	outputs := make([]channel.Channel, len(calcs))
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return c.Calculation.NewWriter(tx).CreateChannels(ctx, &channels, false)
+		w := c.Calculation.NewWriter(tx)
+		for i, calc := range calcs {
+			record := calculation.Calculation{
+				Expression: calc.Expression,
+				Operations: calculation.FromChannelOperations(calc.Operations),
+			}
+			created, err := w.CreateOutput(ctx, &record, calc.Name, nil)
+			if err != nil {
+				return err
+			}
+			outputs[i] = created[0]
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	// The writer appends the index channels that it creates after the outputs.
-	return slices.Clip(channels[:len(calcs)]), nil
+	return outputs, nil
 }
 
 // CalculationOf returns the calculation that writes the channel with key output.

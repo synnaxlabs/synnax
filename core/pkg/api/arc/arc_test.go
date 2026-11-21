@@ -112,6 +112,22 @@ func deployOn(ctx context.Context, a arc.Arc, r rack.Key) task.Task {
 	return *tsk
 }
 
+// createOutput creates, in tx, the calculation of expression and its output named
+// ch.Name, and fills ch with the output.
+func createOutput(
+	ctx context.Context,
+	tx gorp.Tx,
+	ch *channel.Channel,
+	expression string,
+) error {
+	c := calculation.Calculation{Expression: expression}
+	created, err := svc.Calculation.NewWriter(tx).CreateOutput(ctx, &c, ch.Name, nil)
+	if err == nil {
+		*ch = created[0]
+	}
+	return err
+}
+
 var _ = Describe("Service", func() {
 	Describe("Retrieve", func() {
 		It("Should leave out the automations that the subject cannot retrieve", func(
@@ -407,18 +423,8 @@ var _ = Describe("Service", func() {
 				out := channel.Channel{
 					Name: "cb_out", DataType: telem.Int64T, Virtual: true,
 				}
-				inner := channel.Channel{
-					Name:       "cb_inner",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cb_base + 1",
-				}
-				outer := channel.Channel{
-					Name:       "cb_outer",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cb_inner * 2",
-				}
+				inner := channel.Channel{Name: "cb_inner"}
+				outer := channel.Channel{Name: "cb_outer"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
 					for _, ch := range []*channel.Channel{&base, &out} {
@@ -426,12 +432,22 @@ var _ = Describe("Service", func() {
 							return err
 						}
 					}
-					calcs := []channel.Channel{inner, outer}
-					if err := svc.Calculation.NewWriter(tx).
-						CreateChannels(ctx, &calcs, false); err != nil {
+					if err := createOutput(
+						ctx,
+						tx,
+						&inner,
+						"return cb_base + 1",
+					); err != nil {
 						return err
 					}
-					inner, outer = calcs[0], calcs[1]
+					if err := createOutput(
+						ctx,
+						tx,
+						&outer,
+						"return cb_inner * 2",
+					); err != nil {
+						return err
+					}
 					return w.Delete(ctx, base.Key(), false)
 				})).To(Succeed())
 				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
@@ -492,18 +508,8 @@ var _ = Describe("Service", func() {
 				out := channel.Channel{
 					Name: "cy_out", DataType: telem.Int64T, Virtual: true,
 				}
-				b := channel.Channel{
-					Name:       "cy_b",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cy_a + 1",
-				}
-				a := channel.Channel{
-					Name:       "cy_a_next",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cy_b * 2",
-				}
+				b := channel.Channel{Name: "cy_b"}
+				a := channel.Channel{Name: "cy_a_next"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
 					for _, ch := range []*channel.Channel{&base, &out} {
@@ -511,13 +517,10 @@ var _ = Describe("Service", func() {
 							return err
 						}
 					}
-					calcs := []channel.Channel{b, a}
-					if err := svc.Calculation.NewWriter(tx).
-						CreateChannels(ctx, &calcs, false); err != nil {
+					if err := createOutput(ctx, tx, &b, "return cy_a + 1"); err != nil {
 						return err
 					}
-					b, a = calcs[0], calcs[1]
-					return nil
+					return createOutput(ctx, tx, &a, "return cy_b * 2")
 				})).To(Succeed())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
