@@ -359,19 +359,10 @@ var _ = Describe("Planned delete breaker 3", func() {
 				Exec(ctx, db)).To(Succeed())
 			none := func(gorp.Tx) error { return nil }
 			Expect(freshDelete(ctx, none)).To(MatchError(query.ErrNotFound))
-			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return plan(ctx, tx, []uint32{1}, []uint32{1}, nil)
-			})
-			var l b3Label
-			Expect(labels.NewRetrieve().
-				Where(gorp.MatchKeys[string, b3Label]("l")).
-				Entry(&l).
-				Exec(ctx, db)).To(Succeed())
-			if l.Channel == 1 {
-				Expect(channelExists(ctx, 1)).
-					To(BeTrue(), "label l holds channel 1, which is deleted")
-			}
-			Expect(err).To(MatchError(query.ErrNotFound))
+			})).To(MatchError(query.ErrNotFound))
+			Expect(channelExists(ctx, 1)).To(BeTrue())
 		})
 
 		It("Should fail like a fresh walk when the OnDetach of a planned holder "+
@@ -532,7 +523,8 @@ var _ = Describe("Planned delete breaker 3", func() {
 			Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
 				Expect(tasks.NewCreate().
 					Entry(&b2Task{Key: "late", Reads: []uint32{1, 9}}).
-					Exec(ctx, tx)).Error().To(HaveOccurred())
+					Exec(ctx, tx),
+				).To(MatchError(ContainSubstring("channel 9 does not exist")))
 				return nil
 			})).To(Succeed())
 			Expect(statusExists(ctx, "s")).To(BeFalse())
