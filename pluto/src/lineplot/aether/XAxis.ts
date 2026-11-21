@@ -77,7 +77,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   /**
    * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
-   * raised lines to raised.
+   * raised lines to raised, and each range strip adds the draw of its tooltip.
    * @returns the layout of the draw, or null for a deleted axis.
    */
   render(props: AxisRenderProps, raised: Array<() => void>): Layout | null {
@@ -90,7 +90,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const openBreaks = layout.gaps.filter((g) => g.open).map((g) => layout.mark(g));
     this.renderAxis(props, segments[0].decimalToDataScale, segments, openBreaks);
     this.renderYAxes({ ...props, layout }, raised);
-    this.renderRanges(props, layout);
+    this.renderRanges(props, layout, raised);
     this.renderBreaks(props, layout);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
@@ -213,7 +213,11 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return [new Layout(segments, viewport, s, gaps), err];
   }
 
-  private renderRanges(props: AxisRenderProps, layout: Layout): void {
+  private renderRanges(
+    props: AxisRenderProps,
+    layout: Layout,
+    raised: Array<() => void>,
+  ): void {
     const clampedBounds = bounds.intersection([
       layout.bounds,
       TimeRange.MAX.numericBounds,
@@ -226,6 +230,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
         region: props.plot,
         timeRange,
         newest: newest == null ? undefined : new TimeStamp(newest),
+        raised,
       }),
     );
   }
