@@ -36,6 +36,8 @@ def without_plus(d: str) -> pathops.Path:
 
 
 class TestCompound:
+    """Tests for building a compound icon from a base and a modifier."""
+
     def test_should_scale_the_base_from_the_bottom_left_corner(self) -> None:
         base = without_plus(compound(SQUARE, PLUS, "circle"))
         x_min, y_min, x_max, y_max = base.bounds
@@ -75,6 +77,30 @@ class TestCompound:
         assert result.contains((10.5, 4.75))
         assert result.contains((2.05, 21.95))
 
+    def test_should_give_the_cut_ends_of_a_line_base_round_caps(self) -> None:
+        line = "M2 6h20v2h-20z"
+        assert parse(compound(line, PLUS)).contains((11.1, 7.8))
+        capped = parse(compound(line, PLUS, line_width=2))
+        assert not capped.contains((11.1, 7.8))
+        assert capped.contains((11.2, 8.5))
+
     def test_should_drop_slivers_the_cut_leaves(self) -> None:
-        result = parse(compound("M12 2h10v2.22h-10z", PLUS))
+        result = parse(compound("M10.78 4.22h11.22v0.33h-11.22z", PLUS))
         assert result.area == pytest.approx(parse(PLUS).area, abs=1e-2)
+
+    def test_should_keep_small_shapes_away_from_the_cut(self) -> None:
+        assert parse(compound("M3 19h0.5v0.5h-0.5z", PLUS)).contains((3.1, 19.5))
+
+    @pytest.mark.parametrize(
+        ("modifier", "width", "line_width", "message"),
+        [
+            ("", 9, None, "modifier has no width"),
+            (PLUS, 0, None, "width must be positive"),
+            (PLUS, 9, 0, "line width must be positive"),
+        ],
+    )
+    def test_should_reject_input_it_cannot_place(
+        self, modifier: str, width: float, line_width: float | None, message: str
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            compound(SQUARE, modifier, width=width, line_width=line_width)

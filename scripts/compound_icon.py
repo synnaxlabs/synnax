@@ -10,7 +10,7 @@
 """Prints the path of a compound icon: a base icon with a modifier at its top right.
 
 Usage: uv run --project scripts scripts/compound_icon.py <base> <modifier>
-    [--cut box|circle|outline] [--width <units>]
+    [--cut box|circle|outline] [--width <units>] [--line-width <units>]
 
 <base> and <modifier> are SVG path data on the 24-unit icon grid. Give the result to
 Icon.createFromPath. The rules are in docs/claude/ux.md under "Compound icons".
@@ -35,12 +35,20 @@ BASE_SCALE = 0.9
 BASE_ORIGIN = (2.0, 22.0)
 CLEARANCE = 1.75
 CORNER_RADIUS = 0.5
+# An opening as wide as a line would erase it, so a cap is a bit narrower.
+CAP_FRACTION = 0.95
 MIN_AREA = 0.5
+# A piece the opening cuts off only touches the rounded zone, so look past its edge.
+EDGE_TOLERANCE = 0.05
 CURVE_SAMPLES = 16
 
 
 def compound(
-    base: str, modifier: str, cut: Cut = "box", width: float = MODIFIER_WIDTH
+    base: str,
+    modifier: str,
+    cut: Cut = "box",
+    width: float = MODIFIER_WIDTH,
+    line_width: float | None = None,
 ) -> str:
     """Returns the path data of base with modifier at its top right.
 
@@ -52,8 +60,18 @@ def compound(
     :param cut: The shape that clears the base around the modifier.
     :param width: The width of the modifier, centered in a square as wide at the
         top-right corner of the live area.
-    :raises ValueError: If the path operations fail and the cut grows the base.
+    :param line_width: The width of the lines of a line base. The lines the cut ends
+        get round caps.
+    :raises ValueError: If width or line_width is not positive, if modifier has no
+        width, or if the path operations fail and the cut grows the base.
     """
+    if width <= 0:
+        raise ValueError("width must be positive")
+    radius = CORNER_RADIUS
+    if line_width is not None:
+        if line_width <= 0:
+            raise ValueError("line width must be positive")
+        radius = BASE_SCALE * line_width / 2 * CAP_FRACTION
     b = _parse(base).transform(
         BASE_SCALE,
         0,
@@ -65,12 +83,13 @@ def compound(
     center = (MODIFIER_CORNER[0] - width / 2, MODIFIER_CORNER[1] + width / 2)
     m = _place_modifier(_parse(modifier), width, center)
     region = _cut_region(m, cut, center)
+    near = _grow(region, 2 * radius)
     cut_base = pathops.op(b, region, pathops.PathOp.DIFFERENCE)
-    b = _round_cut_corners(cut_base, region)
+    b = _round_cut_corners(cut_base, near, radius)
     # Skia path operations can fail on near-coincident edges.
     if b.area > cut_base.area + 1e-3:
         raise ValueError("rounding the cut grew the base: try another cut or width")
-    return _format(pathops.op(_without_slivers(b), m, pathops.PathOp.UNION))
+    return _format(pathops.op(_without_slivers(b, near), m, pathops.PathOp.UNION))
 
 
 def _parse(d: str) -> pathops.Path:
@@ -83,6 +102,8 @@ def _place_modifier(
     m: pathops.Path, width: float, center: tuple[float, float]
 ) -> pathops.Path:
     x_min, y_min, x_max, y_max = m.bounds
+    if x_max <= x_min:
+        raise ValueError("modifier has no width")
     scale = width / (x_max - x_min)
     return m.transform(
         scale,
@@ -134,11 +155,12 @@ def _shrink(path: pathops.Path, by: float) -> pathops.Path:
     return pathops.op(path, _band(path, 2 * by), pathops.PathOp.DIFFERENCE)
 
 
-def _round_cut_corners(path: pathops.Path, region: pathops.Path) -> pathops.Path:
-    # Shrinking then growing rounds every convex corner. Use that shape only next to
-    # the cut, so the corners the base icon draws stay as they are.
-    opened = _grow(_shrink(path, CORNER_RADIUS), CORNER_RADIUS)
-    near = _grow(region, 2 * CORNER_RADIUS)
+def _round_cut_corners(
+    path: pathops.Path, near: pathops.Path, radius: float
+) -> pathops.Path:
+    # Shrinking then growing rounds every convex corner. Use that shape only near the
+    # cut, so the corners the base icon draws stay as they are.
+    opened = _grow(_shrink(path, radius), radius)
     return pathops.op(
         pathops.op(path, near, pathops.PathOp.DIFFERENCE),
         pathops.op(opened, near, pathops.PathOp.INTERSECTION),
@@ -146,10 +168,12 @@ def _round_cut_corners(path: pathops.Path, region: pathops.Path) -> pathops.Path
     )
 
 
-def _without_slivers(path: pathops.Path) -> pathops.Path:
+def _without_slivers(path: pathops.Path, near: pathops.Path) -> pathops.Path:
+    zone = _grow(near, EDGE_TOLERANCE)
     kept = pathops.Path()
     for contour in path.contours:
-        if abs(contour.area) >= MIN_AREA:
+        cut = pathops.op(contour, zone, pathops.PathOp.INTERSECTION).area > 0
+        if abs(contour.area) >= MIN_AREA or not cut:
             kept.addPath(contour)
     return pathops.simplify(kept)
 
@@ -233,8 +257,16 @@ def main() -> None:
         default=MODIFIER_WIDTH,
         help="the width of the modifier, for one much wider than it is tall",
     )
+    parser.add_argument(
+        "--line-width",
+        type=float,
+        help="the width of the lines of a line base, to give its cut ends round caps",
+    )
     args = parser.parse_args()
-    print(compound(args.base, args.modifier, args.cut, args.width))
+    try:
+        print(compound(args.base, args.modifier, args.cut, args.width, args.line_width))
+    except ValueError as e:
+        parser.error(str(e))
 
 
 if __name__ == "__main__":
