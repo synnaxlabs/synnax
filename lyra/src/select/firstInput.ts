@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x";
 
-import { type Registry } from "@/select/registry";
+import type { Registry } from "@/select/registry";
 
 const EVENTS = ["wheel", "touchmove", "pointerdown"] as const;
 const KEYS: ReadonlySet<string> = new Set([
