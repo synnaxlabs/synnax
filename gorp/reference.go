@@ -725,6 +725,7 @@ func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
 func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
 func (r *reference[K, E, T]) referenceTag() uint8      { return r.tag }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
+func (r *reference[K, E, T]) canRetarget() bool        { return r.retargetable }
 
 // check implements Reference.
 func (r *reference[K, E, T]) check(

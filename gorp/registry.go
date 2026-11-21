@@ -73,6 +73,7 @@ type registeredReference interface {
 	linkKind() LinkKind
 	referenceTag() uint8
 	targetTables() []string
+	canRetarget() bool
 	// dependents returns, at each position of targets, the text keys of the entries
 	// that hold that target, or nil when no entry holds any of targets. keys is nil or
 	// a slice of the keys of targets, which a reference whose values have that type
@@ -256,6 +257,37 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return slices.Clone(r.referencing[table])
+}
+
+// ReferenceID names a reference: the table whose entries hold it, and its name.
+type ReferenceID struct {
+	Table string
+	Name  string
+}
+
+// ReferenceInfo describes a reference that points at a table.
+type ReferenceInfo struct {
+	ID       ReferenceID
+	OnDelete OnDelete
+	Kind     LinkKind
+	// Retargets is true when the reference can move its targets to other keys.
+	Retargets bool
+}
+
+// References returns each reference that points at the table named table, in the order
+// that their tables opened.
+func (db *DB) References(table string) []ReferenceInfo {
+	refs := db.registry.referencesTo(table)
+	out := make([]ReferenceInfo, len(refs))
+	for i, r := range refs {
+		out[i] = ReferenceInfo{
+			ID:        ReferenceID{Table: r.ownerTable(), Name: r.referenceName()},
+			OnDelete:  r.onDeletePolicy(),
+			Kind:      r.linkKind(),
+			Retargets: r.canRetarget(),
+		}
+	}
+	return out
 }
 
 // dependents returns, at each position of targets, the entries that hold that target

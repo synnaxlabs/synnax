@@ -444,6 +444,11 @@ type Dependent struct {
 	Tag uint8
 }
 
+// ReferenceID returns the ID of the reference through which d holds its target.
+func (d Dependent) ReferenceID() ReferenceID {
+	return ReferenceID{Table: d.Holder.Table, Name: d.Reference}
+}
+
 // Dependents returns the entries of every open table that hold a reference to the entry
 // with key k, as seen by snap, once for each reference that holds it. A Weak reference
 // holds k after k is deleted. It waits for each reference's index to populate, or for
