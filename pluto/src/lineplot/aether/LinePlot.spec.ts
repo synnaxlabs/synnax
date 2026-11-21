@@ -23,7 +23,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -506,6 +506,17 @@ describe("LinePlot breaks", () => {
       .map((c) => String(c.args[0]));
     expect(texts).toContain("ΔX");
     expect(texts.filter((t) => t.endsWith(" //"))).toEqual([]);
+  });
+
+  it("should count no breaks while the x source of x1 fails", () => {
+    const { plot, recorder, setOpenBreaks } = mount();
+    const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {
+      throw new Error("x source failed");
+    });
+    teardowns.push(() => failed.mockRestore());
+    setOpenBreaks([]);
+    renderPlot(recorder);
+    expect(plot.state.breaks).toEqual({ open: 0, closed: 0 });
   });
 
   it("should lay out every x axis after the first in true time", () => {

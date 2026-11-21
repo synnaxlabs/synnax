@@ -184,7 +184,7 @@ describe("YAxis", () => {
       expect(colors[0]).not.toEqual(color.rgba1(RAISED));
     });
 
-    it("should draw the x axis before it throws the error of an x source", () => {
+    it("should draw the x axis before it returns the error of an x source", () => {
       const m = mount();
       const failed = vi.spyOn(Line.prototype, "xBounds").mockImplementation(() => {
         throw new Error("x source failed");
@@ -201,7 +201,7 @@ describe("YAxis", () => {
         gapsCollapsed: false,
         openBreaks: [],
       };
-      expect(() => m.xAxis.render(props, [])).toThrow("x source failed");
+      expect(m.xAxis.render(props, [])?.[1]?.message).toBe("x source failed");
       expect(m.lower2d.calls.length).toBeGreaterThan(0);
     });
   });

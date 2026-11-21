@@ -82,23 +82,30 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   /**
    * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
    * raised lines to raised, and each range strip adds the draw of its tooltip.
-   * @returns the layout of the draw, or null for a deleted axis.
+   * @returns the layout of the draw and the first error it met, or null for a deleted
+   * axis. An error does not stop the draw, so the axis still shows.
    */
-  render(props: AxisRenderProps, raised: Array<() => void>): Layout | null {
+  render(
+    props: AxisRenderProps,
+    raised: Array<() => void>,
+  ): [Layout, Error | null] | null {
     if (this.deleted) return null;
-    const [layout, err] = this.iLayout(props);
+    const [layout, traces, err] = this.iLayout(props);
     const segments = layout.segments.map(({ position, scale }) => ({
       position,
       decimalToDataScale: scale.reverse(),
     }));
     const openBreaks = layout.gaps.filter((g) => g.open).map((g) => layout.mark(g));
     this.renderAxis(props, segments[0].decimalToDataScale, segments, openBreaks);
-    this.renderYAxes({ ...props, layout }, raised);
-    this.renderRanges(props, layout, raised);
+    let yErr: Error | null = null;
+    try {
+      this.renderYAxes({ ...props, layout }, raised);
+    } catch (e) {
+      yErr = e as Error;
+    }
+    this.renderRanges(props, layout, traces, raised);
     this.renderBreaks(props, layout);
-    // Throw the error here to that the user still has a visible axis.
-    if (err != null) throw err;
-    return layout;
+    return [layout, err ?? yErr];
   }
 
   findByXDecimal(
@@ -205,37 +212,41 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   /** @returns the layout of the axis for the viewport. */
   layout(props: LayoutProps): Layout {
-    const [layout, err] = this.iLayout(props);
+    const [layout, , err] = this.iLayout(props);
     if (err != null) throw err;
     return layout;
   }
 
-  // iLayout returns the layout with the error that its traces or bounds met, so a
-  // render can draw the axis before it throws.
+  // iLayout returns the layout and the traces with the error that the traces or the
+  // bounds met, so a render can draw the axis before it reports the error.
   private iLayout({
     hold,
     viewport,
     gapsCollapsed,
     openBreaks,
-  }: LayoutProps): [Layout, Error | null] {
+  }: LayoutProps): [Layout, Trace[], Error | null] {
     const { type } = this.state;
-    let traces: Trace[] = [];
-    let err: Error | null = null;
-    try {
-      traces = this.traces();
-    } catch (e) {
-      err = e as Error;
-    }
+    const [traces, err] = this.iTraces();
     const collapsed = gapsCollapsed && type === "time";
     const [pieces, boundsErr] = this.iSegments(hold, () => traces, collapsed);
     const { segments, gaps } = join(pieces, openBreaks);
     const s = spans(align(traces), type, segments);
-    return [new Layout(segments, viewport, s, gaps), err ?? boundsErr];
+    return [new Layout(segments, viewport, s, gaps), traces, err ?? boundsErr];
+  }
+
+  // iTraces returns the traces, or none with the error that reading them met.
+  private iTraces(): [Trace[], Error | null] {
+    try {
+      return [this.traces(), null];
+    } catch (e) {
+      return [[], e as Error];
+    }
   }
 
   private renderRanges(
     props: AxisRenderProps,
     layout: Layout,
+    traces: Trace[],
     raised: Array<() => void>,
   ): void {
     const clampedBounds = bounds.intersection([
@@ -243,7 +254,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       TimeRange.MAX.numericBounds,
     ]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
-    const newest = newestSample(this.traces());
+    const newest = newestSample(traces);
     this.ranges.forEach((el) =>
       el.render({
         layout,
