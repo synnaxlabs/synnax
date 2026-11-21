@@ -472,15 +472,6 @@ var _ = Describe("Old API breaker d", func() {
 			}
 			roundTrip(ctx, req)
 		})
-
-		It("Should return a none operation as v0.62 did", func(ctx SpecContext) {
-			input := createChannel(ctx, telem.Float32T)
-			req := calculated(input)
-			req.Operations = []channel.Operation{
-				{Type: channel.OperationTypeNone},
-			}
-			roundTrip(ctx, req)
-		})
 	})
 
 	Describe("Create batches", func() {

@@ -151,9 +151,6 @@ var _ = Describe("Old API breaker a4", func() {
 			"derivative": func(channel.Key) []v062Operation {
 				return []v062Operation{{Type: "derivative"}}
 			},
-			"none": func(channel.Key) []v062Operation {
-				return []v062Operation{{Type: "none"}}
-			},
 		}
 		for name, ops := range cases {
 			for codecName, codec := range codecs {
@@ -186,7 +183,6 @@ var _ = Describe("Old API breaker a4", func() {
 					Duration:     telem.Second,
 				}},
 				{{Type: channel.OperationTypeDerivative}},
-				{{Type: channel.OperationTypeNone}},
 			} {
 				req := calculated(input)
 				req.Operations = ops

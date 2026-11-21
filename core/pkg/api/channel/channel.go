@@ -479,8 +479,7 @@ func namesByName(where *channel.Where) bool {
 }
 
 // translateForward returns the old API form of channels, with the expression and
-// operations of the calculation in shown that writes each one. A calculation with no
-// operations shows one none operation, as v0.62 did.
+// operations of the calculation in shown that writes each one.
 func (s *Service) translateForward(
 	channels []channel.Channel,
 	shown map[channel.Key]calculation.Calculation,
@@ -493,11 +492,6 @@ func (s *Service) translateForward(
 		}
 		translated[i].Expression = c.Expression
 		translated[i].Operations = calculation.ToChannelOperations(c.Operations)
-		if len(translated[i].Operations) == 0 {
-			translated[i].Operations = []channel.Operation{
-				{Type: channel.OperationTypeNone},
-			}
-		}
 	}
 	return translated
 }
