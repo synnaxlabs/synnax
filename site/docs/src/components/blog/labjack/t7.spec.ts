@@ -17,9 +17,9 @@ describe("t7", () => {
   it("should wire the thermocouple to AIN0 and the GND beside it", () => {
     expect(AIN0.label).toBe("AIN0");
     expect(GND.label).toBe("GND");
-    const { terminals } = BLOCKS.find((b) => b.terminals.includes(AIN0)) ?? {
-      terminals: [],
-    };
-    expect(terminals.indexOf(GND)).toBe(terminals.indexOf(AIN0) + 1);
+    const neighbors = BLOCKS.flatMap(({ terminals }) =>
+      terminals.slice(1).map((terminal, i) => [terminals[i], terminal]),
+    );
+    expect(neighbors).toContainEqual([AIN0, GND]);
   });
 });
