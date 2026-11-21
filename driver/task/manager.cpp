@@ -83,11 +83,7 @@ x::errors::Error Manager::open_streamer() {
                     this->channels.control_state.key,
                     this->channels.rack_set.key,
                 },
-            .on_missed = [] {
-                LOG(WARNING) << "the Core dropped task changes because the "
-                                "Driver fell behind. Restart the Driver to "
-                                "configure its tasks again.";
-            },
+            .on_missed = [this] { this->missed = true; },
         }
     );
     if (open_err) return open_err;
@@ -255,6 +251,13 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
                 this->control_states->apply(series);
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
+        }
+        // The next run configures the tasks again, as it does after a Core outage.
+        if (this->missed) {
+            this->missed = false;
+            LOG(WARNING) << "the Core dropped task changes because the Driver fell "
+                            "behind. Configuring the tasks again.";
+            break;
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};

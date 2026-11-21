@@ -483,6 +483,35 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
     ASSERT_TRUE(write_task->stop("stop_cmd", true));
 }
 
+/// @brief it should show a missed commands warning that holds while the task runs.
+TEST(TestCommonWriteTask, MissedCommandsWarningHolds) {
+    x::breaker::Breaker cancel;
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+    ASSERT_TRUE(write_task->start("start_cmd", cancel));
+    ASSERT_EVENTUALLY_GE(
+        streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    streamer_factory->config.on_missed();
+    const auto last = [&] {
+        const auto statuses = ctx->snapshot();
+        return statuses.empty() ? std::string() : statuses.back().message;
+    };
+    ASSERT_EVENTUALLY_EQ_F(last, std::string("Missed commands"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses.back().message, "Missed commands");
+    EXPECT_EQ(statuses.back().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(statuses.back().details.running);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+}
+
 /// @brief it should report a failed start and release the sink when the command
 /// streamer fails to open.
 TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {

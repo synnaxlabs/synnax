@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
-#include <tuple>
 
 #include "client/cpp/framer/framer.h"
 
@@ -44,9 +43,9 @@ Streamer::Streamer(std::unique_ptr<StreamerStream> stream, StreamerConfig config
 std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
-    while (!exc && fr.missed()) {
+    if (!exc && fr.missed()) {
         if (this->cfg.on_missed) this->cfg.on_missed();
-        std::tie(fr, exc) = this->stream->receive();
+        return {x::telem::Frame(), x::errors::NIL};
     }
     if (!fr.buffer().empty())
         return this->codec.decode(

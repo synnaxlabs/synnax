@@ -56,7 +56,6 @@ TEST(ControlPipeline, testHappyPath) {
     control.stop();
 }
 
-/// @brief it should stop and report error when streamer open fails with unknown error.
 /// @brief it should report missed commands to the sink and keep running.
 TEST(ControlPipeline, ReportsMissedCommands) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
@@ -87,6 +86,7 @@ TEST(ControlPipeline, ReportsMissedCommands) {
     control.stop();
 }
 
+/// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},

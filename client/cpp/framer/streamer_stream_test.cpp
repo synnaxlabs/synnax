@@ -137,7 +137,7 @@ TEST(StreamerStream, CloseIgnoresEOFAfterInFlightFrames) {
     ASSERT_NIL(streamer.close());
 }
 
-/// @brief it should call on_missed for a missed marker and return the next frame.
+/// @brief it should call on_missed for a missed marker and return an empty frame.
 TEST(StreamerStream, ReadCallsOnMissed) {
     const auto requested = std::make_shared<bool>(false);
     const Client client{
