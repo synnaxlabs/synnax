@@ -125,6 +125,7 @@ Range::to_proto() const {
     ::service::ranger::pb::Range pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
+    pb.set_has_children(this->has_children);
     {
         auto [v, err] = this->time_range.to_proto();
         if (err) return {{}, err};
@@ -139,7 +140,6 @@ Range::to_proto() const {
         pb.add_labels(item.to_string());
     }
     if (this->parent.has_value()) pb.set_parent(this->parent->to_string());
-    pb.set_has_children(this->has_children);
     return {pb, x::errors::NIL};
 }
 
@@ -152,6 +152,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         cpp.key = v;
     }
     cpp.name = pb.name();
+    cpp.has_children = pb.has_children();
     {
         auto [v, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
         if (err) return {{}, err};
@@ -172,7 +173,6 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.parent = v;
     }
-    cpp.has_children = pb.has_children();
     return {cpp, x::errors::NIL};
 }
 

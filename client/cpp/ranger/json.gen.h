@@ -28,6 +28,7 @@ inline Range Range::parse(x::json::Parser parser) {
     return Range{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
+        .has_children = parser.field<bool>("has_children", false),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
         .color = parser.field<std::optional<::x::color::Color>>("color"),
         .labels = parser.field<std::vector<::synnax::label::Key>>(
@@ -35,7 +36,6 @@ inline Range Range::parse(x::json::Parser parser) {
             std::vector<::synnax::label::Key>{}
         ),
         .parent = parser.field<std::optional<Key>>("parent"),
-        .has_children = parser.field<bool>("has_children", false),
     };
 }
 
@@ -43,6 +43,7 @@ inline x::json::json Range::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    j["has_children"] = this->has_children;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = this->color->to_json();
     {
@@ -52,7 +53,6 @@ inline x::json::json Range::to_json() const {
         j["labels"] = arr;
     }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
-    j["has_children"] = this->has_children;
     return j;
 }
 

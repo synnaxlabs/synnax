@@ -16,6 +16,7 @@ import { framer } from "@/framer";
 import {
   DisconnectedError,
   MultipleFoundError,
+  NotCachedError,
   NotFoundError,
   type Synnax,
   ValidationError,
@@ -633,7 +634,7 @@ describe("Task", async () => {
       ]);
     });
 
-    it("should return false without a send when the task is not cached", async () => {
+    it("should throw without a send when the task is not cached", async () => {
       const t = await testRack.createTask({
         name: `dispatch-uncached-${id.create()}`,
         config: { routingKey: ROUTING_KEY },
@@ -641,9 +642,9 @@ describe("Task", async () => {
       });
       const fresh = createTestClient();
       const send = spyOnSend(fresh);
-      expect(await fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY))).toBe(
-        false,
-      );
+      await expect(
+        fresh.tasks.dispatch(t.key, routingKey(OTHER_ROUTING_KEY)),
+      ).rejects.toThrow(NotCachedError);
       expect(send).not.toHaveBeenCalled();
     });
 

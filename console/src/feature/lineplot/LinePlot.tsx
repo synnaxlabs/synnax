@@ -180,7 +180,9 @@ const Internal = (): ReactElement => {
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.resourceID(key));
-  const windows = Session.Range.useResolveWindows(Base.useRanges());
+  const ranges = Session.Range.useResolveWindows(Base.useRanges()).map(
+    (window, i): Base.RangeSpec => ({ key: i.toString(), window }),
+  );
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = new Set(hiddenLineKeys);
@@ -262,7 +264,8 @@ const Internal = (): ReactElement => {
           aetherKey={key}
           editable={hasUpdatePermission}
           enableTriggers={hasUpdatePermission}
-          windows={windows}
+          ranges={ranges}
+          relativeDisabled
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}

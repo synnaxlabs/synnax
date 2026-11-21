@@ -1139,6 +1139,18 @@ var _ = Describe("Completion", func() {
 				"Internal symbol math.add should not appear in module-qualified completion")
 		})
 
+		It(
+			"Should replace a qualified prefix after a non-ASCII character",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, `"°" + math.a`)
+				completions := Completion(server, ctx, docURI, 0, 12)
+				item := MustBeOk(FindCompletion(completions.Items, "avg"))
+				edit, ok := item.TextEdit.(*protocol.TextEdit)
+				Expect(ok).To(BeTrue())
+				Expect(edit.Range.Start).To(Equal(protocol.Position{Character: 6}))
+			},
+		)
+
 		DescribeTable(
 			"Should complete float checks and constants",
 			func(ctx SpecContext, content string, line, col int) {
