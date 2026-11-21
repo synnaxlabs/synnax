@@ -140,22 +140,34 @@ export class Client extends query.Retriever<
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const outputs = cache.createTable<channel.Key, Output>({
       name: "calculation.outputs",
-      fetch: async (channels) => {
-        const calcs = await this.execRetrieve({ where: { output: { in: channels } } });
-        store.set(calcs.map(stripStatus));
-        const writers = new Map(calcs.map(({ key, output }) => [output, key]));
-        return channels.map((key) => ({ key, calculation: writers.get(key) ?? null }));
-      },
+      fetch: async (channels) =>
+        // A reply older than a delete, a reset, or a newer write leaves the record as
+        // the table holds it, and maps no channel to a record the table dropped.
+        await store.track(async (since) => {
+          const calcs = await this.execRetrieve({
+            where: { output: { in: channels } },
+          });
+          store.ingest(calcs.map(stripStatus), { since });
+          const writers = new Map(
+            calcs.flatMap(({ key, output }) => (store.has(key) ? [[output, key]] : [])),
+          );
+          return channels.map((key) => ({
+            key,
+            calculation: writers.get(key) ?? null,
+          }));
+        }),
     });
     // The output of a calculation never changes, so a set or a delete is all that moves
-    // a channel between written and not written.
+    // a channel between written and not written. A delete clears only the outputs that
+    // still name the deleted calculation.
     store.subscribe((event) => {
       if (event.variant === "set") {
         outputs.set({ key: event.value.output, calculation: event.key });
         return;
       }
-      const removed = store.getTombstone(event.key)?.corpse;
-      if (removed != null) outputs.set({ key: removed.output, calculation: null });
+      const named = outputs.get((output) => output.calculation === event.key);
+      if (named.length > 0)
+        outputs.set(named.map(({ key }) => ({ key, calculation: null })));
     });
     statuses.holdOwned(store, resourceID);
     super(cache, {
