@@ -179,7 +179,11 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 		return pick, nil
 	}
 	if !visible {
-		return "", errors.Wrapf(validate.ErrValidation, "a hidden entry cannot take %s", pick)
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"a hidden entry cannot take %s",
+			pick,
+		)
 	}
 	return "", errors.Wrapf(
 		validate.ErrValidation,
