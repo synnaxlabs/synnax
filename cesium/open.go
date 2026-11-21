@@ -52,9 +52,10 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			historyChanges: observe.New[HistoryChange](),
 			engine:         e,
 		}
-		if db.mu.channels, err = loadChannels(ctx, o); err != nil {
+		if db.mu.channels, db.mu.torn, err = db.loadChannels(); err != nil {
 			return nil, errors.Join(err, db.Close())
 		}
+		db.mu.hiddenChannels = make(map[ChannelKey]Channel)
 		return db, nil
 	}
 

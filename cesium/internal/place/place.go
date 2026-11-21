@@ -30,6 +30,7 @@ const (
 	kindLog     uint8 = 3
 	kindHead    uint8 = 4
 	kindPart    uint8 = 5
+	kindChannel uint8 = 6
 )
 
 var castagnoli = crc32.MakeTable(crc32.Castagnoli)
@@ -82,6 +83,11 @@ func Head(db, generation, offset uint64) Place {
 // Part returns the place of bytes at offset in part file.
 func Part(db, file, offset uint64) Place {
 	return Place{db: db, file: file, offset: offset, kind: kindPart, version: 1}
+}
+
+// Channel returns the place of the channel file of key.
+func Channel(db uint64, key uint32) Place {
+	return Place{db: db, file: uint64(key), kind: kindChannel, version: 1}
 }
 
 // At returns p at another offset of the same file.

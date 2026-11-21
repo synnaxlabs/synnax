@@ -43,17 +43,23 @@ type crashEngine struct {
 	ack crash.Ack
 }
 
-// openCrashEngine returns an Open function that reads each Cesium commit as ack.
+// openCrashEngine returns an Open function that reads each Cesium commit as ack, and
+// opens Cesium with opts.
 func openCrashEngine(
 	ack crash.Ack,
+	opts ...func() cesium.Option,
 ) func(context.Context, xfs.FS) (crash.Engine, error) {
 	return func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
-		db, err := cesium.Open(
-			ctx,
-			"",
+		options := make([]cesium.Option, 0, 2+len(opts))
+		options = append(
+			options,
 			cesium.WithFS(fs),
 			cesium.WithInstrumentation(PanicLogger()),
 		)
+		for _, opt := range opts {
+			options = append(options, opt())
+		}
+		db, err := cesium.Open(ctx, "", options...)
 		if err != nil {
 			return nil, err
 		}

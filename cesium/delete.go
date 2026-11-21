@@ -89,6 +89,9 @@ func (db *DB) Drop(keys []ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
+	if db.engine != nil {
+		return db.dropLog(keys)
+	}
 	return db.dropLocked(keys)
 }
 
@@ -308,6 +311,9 @@ func (db *DB) Intend(keys []ChannelKey) error {
 	if len(keys) == 0 {
 		return nil
 	}
+	if db.engine != nil {
+		return db.engine.intend(keys, false)
+	}
 	return db.intents.add(keys)
 }
 
@@ -325,6 +331,12 @@ func (db *DB) DeleteTimeRange(
 	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if db.engine != nil {
+		return errors.Wrap(
+			errors.ErrUnsupported,
+			"the pointer log does not delete a time range yet",
+		)
 	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))

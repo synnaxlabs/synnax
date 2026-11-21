@@ -11,12 +11,9 @@ package cesium
 
 import (
 	"context"
-	"os"
-	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -139,38 +136,6 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	return err
 }
 
-// createLogChannel keeps ch in the channel list of the pointer log layout: in memory,
-// and durable in the metadata file of its directory.
-func (db *DB) createLogChannel(ch Channel) error {
-	data, err := db.metaCodec.Encode(ch)
-	if err != nil {
-		return err
-	}
-	dir := strconv.FormatUint(uint64(ch.Key), 10)
-	sub, err := db.fs.Sub(dir)
-	if err != nil {
-		return err
-	}
-	f, err := sub.Open(meta.File, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
-	if err != nil {
-		return err
-	}
-	if _, err = f.WriteAt(data, 0); err == nil {
-		err = f.Sync()
-	}
-	if err = errors.Join(err, f.Close()); err != nil {
-		return err
-	}
-	if err = db.fs.SyncDir(dir); err != nil {
-		return err
-	}
-	if err = db.fs.SyncDir(""); err != nil {
-		return err
-	}
-	db.mu.channels[ch.Key] = ch
-	return nil
-}
-
 func indexChannelNotFoundError(key ChannelKey) error {
 	return errors.Wrapf(
 		query.ErrNotFound,
@@ -213,35 +178,4 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		}
 	}
 	return nil
-}
-
-// loadChannels reads the channel list of the pointer log layout from the metadata file
-// of each channel directory.
-func loadChannels(ctx context.Context, o *options) (map[ChannelKey]Channel, error) {
-	infos, err := o.fs.List("")
-	if err != nil {
-		return nil, err
-	}
-	channels := make(map[ChannelKey]Channel)
-	for _, info := range infos {
-		name := info.Name()
-		if _, err = strconv.ParseUint(name, 10, 32); err != nil || !info.IsDir() {
-			continue
-		}
-		if ok, err := o.fs.Exists(name + "/" + meta.File); err != nil {
-			return nil, err
-		} else if !ok {
-			continue
-		}
-		sub, err := o.fs.Sub(name)
-		if err != nil {
-			return nil, err
-		}
-		ch, err := meta.Read(ctx, sub, o.metaCodec)
-		if err != nil {
-			return nil, err
-		}
-		channels[ch.Key] = ch
-	}
-	return channels, nil
 }
