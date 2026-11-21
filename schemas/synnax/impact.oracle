@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/resource"
 
 @go output "core/pkg/service/impact"
+@py output "client/py/synnax/impact"
 
 Change union on type {
     delete_channels {
