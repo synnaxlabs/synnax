@@ -207,6 +207,22 @@ func (e AmbiguousNameError) Error() string {
 	)
 }
 
+// QuotePath returns path quoted as Arc quotes a channel name: in single quotes, with
+// each quote and backslash escaped.
+func QuotePath(path string) string {
+	var b strings.Builder
+	b.Grow(len(path) + 2)
+	b.WriteByte('\'')
+	for i := range len(path) {
+		if path[i] == '\'' || path[i] == '\\' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(path[i])
+	}
+	b.WriteByte('\'')
+	return b.String()
+}
+
 // ambiguousName returns the validation error that holds the AmbiguousNameError of name
 // and holders.
 func ambiguousName(name string, holders Keys) error {
@@ -278,7 +294,7 @@ func (s *Service) DescribeAmbiguity(
 	shown := make([]string, 0, len(holders)+1)
 	for i, p := range paths {
 		if allowed(holders[i].ResourceID()) && lo.EveryBy(p.Folders, folderAllowed) {
-			shown = append(shown, "'"+texts[i]+"'")
+			shown = append(shown, QuotePath(texts[i]))
 		}
 	}
 	slices.Sort(shown)

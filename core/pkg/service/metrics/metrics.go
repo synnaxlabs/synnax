@@ -77,18 +77,35 @@ func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []me
 	return metrics
 }
 
-func createCalculatedMetrics(namePrefix string) []channel.Channel {
-	return []channel.Channel{
-		{
-			Name:     namePrefix + "total_size_gb",
-			DataType: telem.Float32T,
-			Expression: fmt.Sprintf(
-				"return %s%s + %s%s",
-				namePrefix,
-				tsSizeMetricName,
-				namePrefix,
-				kvSizeMetricName,
-			),
-		},
+// createCalculatedMetrics returns the calculated metrics whose inputs opened, given
+// each opened metric by the name that the service gives it. A metric reads each input
+// by its current name, quoted when a user renamed it.
+func createCalculatedMetrics(
+	namePrefix string,
+	opened map[string]channel.Channel,
+) []channel.Channel {
+	tsName, kvName := namePrefix+tsSizeMetricName, namePrefix+kvSizeMetricName
+	ts, tsOpened := opened[tsName]
+	kv, kvOpened := opened[kvName]
+	if !tsOpened || !kvOpened {
+		return nil
 	}
+	return []channel.Channel{{
+		Name:     namePrefix + "total_size_gb",
+		DataType: telem.Float32T,
+		Expression: fmt.Sprintf(
+			"return %s + %s",
+			inputText(ts.Name, tsName),
+			inputText(kv.Name, kvName),
+		),
+	}}
+}
+
+// inputText returns the text that reads the input named name, whose given name is
+// given: bare while it keeps that name, and quoted otherwise.
+func inputText(name, given string) string {
+	if name == given {
+		return name
+	}
+	return channel.QuotePath(name)
 }

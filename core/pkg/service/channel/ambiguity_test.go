@@ -301,16 +301,22 @@ var _ = Describe("Ambiguous names", func() {
 			))
 		})
 
-		It(
-			"Should leave a channel the subject cannot retrieve out of the holders",
-			func(
-				ctx SpecContext,
-			) {
-				r := svc.NewSubjectResolver(db, access(inRig.ResourceID()))
-				Expect(
-					MustSucceed(r.Resolve(ctx, "pt")).ID,
-				).To(Equal(int(inStand.Key())))
-			},
-		)
+		It("Should count a holder that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			r := svc.NewSubjectResolver(db, access(inRig.ResourceID()))
+			Expect(r.Resolve(ctx, "pt")).Error().To(SatisfyAll(
+				MatchError(
+					"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
+				),
+				matchAmbiguousPT(),
+			))
+		})
+
+		It("Should resolve nothing for the one holder of a name that the subject "+
+			"cannot retrieve", func(ctx SpecContext) {
+			r := svc.NewSubjectResolver(db, access(solo.ResourceID()))
+			Expect(r.Resolve(ctx, "solo")).Error().To(MatchError(query.ErrNotFound))
+		})
 	})
 })
