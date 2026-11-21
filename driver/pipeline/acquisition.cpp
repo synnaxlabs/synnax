@@ -94,6 +94,7 @@ void Authorities::apply(synnax::framer::WriterConfig &config) const {
 void Acquisition::run() {
     Run run{.config = this->writer_config};
     run.config.err_on_unauthorized = this->err_on_unauthorized;
+    this->factory->begin_run();
     while (this->run_once(run)) {}
 }
 

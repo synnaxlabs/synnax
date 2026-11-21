@@ -97,13 +97,14 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
+    /// @brief guards state, opening, and pending_starts, which the command, pipeline,
+    /// and runtime threads all touch. Declared first, so it outlives the threads that
+    /// report to it.
+    std::mutex state_mu;
+    common::StatusHandler state;
     std::shared_ptr<::arc::runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
-    /// @brief guards state, opening, and pending_starts, which the command, pipeline,
-    /// and runtime threads all touch.
-    std::mutex state_mu;
-    common::StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
@@ -300,7 +301,13 @@ public:
         task->runtime = std::move(rt);
 
         if (!writer_factory)
-            writer_factory = bypass::pipeline::create_writer_factory(ctx);
+            writer_factory = bypass::pipeline::create_writer_factory(
+                ctx,
+                [task_ptr = task.get()](
+                    const std::string &message,
+                    const std::string &description
+                ) { task_ptr->state.set_background_warning({message, description}); }
+            );
         if (!streamer_factory)
             streamer_factory = bypass::pipeline::create_streamer_factory(
                 ctx,

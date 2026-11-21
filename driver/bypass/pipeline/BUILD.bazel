@@ -14,6 +14,7 @@ cc_library(
     name = "pipeline",
     hdrs = [
         "factory.h",
+        "forwarder.h",
         "streamer.h",
         "writer.h",
     ],
@@ -27,6 +28,7 @@ cc_library(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/control",
+        "//x/cpp/defer",
         "//x/cpp/telem",
     ],
 )
@@ -34,6 +36,7 @@ cc_library(
 cc_test(
     name = "bypass_test",
     srcs = [
+        "forwarder_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
@@ -43,6 +46,7 @@ cc_test(
         "//driver/pipeline",
         "//driver/pipeline/testutil",
         "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
