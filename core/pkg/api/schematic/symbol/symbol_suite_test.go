@@ -77,6 +77,8 @@ var (
 		apisymbol.ExportGroupResponse,
 	]
 	author user.User
+	// channelSvc holds the channels and tombstones of channel folders.
+	channelSvc *channel.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -113,7 +115,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group: groupSvc,
 		ImEx:  imex.NewService(),
 	}))
-	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
