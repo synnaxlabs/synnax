@@ -37,9 +37,7 @@ type Preload struct {
 // key. It returns ErrStale for a preload from the parts of a head that c no longer
 // reads, and refuses a step with none when c has a part range.
 func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
-	i, found := slices.BinarySearchFunc(pre, c.key, func(p Preload, key uint32) int {
-		return cmp.Compare(p.Key, key)
-	})
+	i, found := search(pre, c.key)
 	switch {
 	case !found && c.oldest == 0:
 		return nil, nil
@@ -50,6 +48,14 @@ func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
 			c.key, c.partsGeneration(), pre[i].Generation)
 	}
 	return pre[i].Segments, nil
+}
+
+// search returns the index of the preload of key in pre, which is in rising order of
+// key, and whether pre holds one.
+func search(pre []Preload, key uint32) (int, bool) {
+	return slices.BinarySearchFunc(pre, key, func(p Preload, key uint32) int {
+		return cmp.Compare(p.Key, key)
+	})
 }
 
 // stored returns the first visible pointer of c that shares a stamp with [first,

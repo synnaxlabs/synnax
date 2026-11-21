@@ -42,7 +42,8 @@ func (e *engine) withPreloads(
 }
 
 // preload returns the live part records of key whose pointers reach [first, last].
-// Only a part whose stamps reach the range needs a read, which it pins.
+// Only a part whose stamps reach the range needs its records, and only a read of a part
+// that the part cache lacks pins it.
 func (e *engine) preload(
 	key ChannelKey,
 	first, last telem.TimeStamp,
@@ -53,10 +54,15 @@ func (e *engine) preload(
 	}
 	pre := state.Preload{Key: key, Generation: partsGeneration(ch)}
 	parts, err := e.partsOf(ch)
-	if err != nil || !reachesAny(parts, first, last) {
+	if err != nil {
 		return pre, err
 	}
-	ch, h, err := e.pinReaching(key, first, last)
+	var buf [4]checkpoint.Part
+	if reach := reaching(parts, first, last, buf[:0]); len(reach) == 0 ||
+		e.cached(&pre, ch, reach, key, first, last) {
+		return pre, nil
+	}
+	ch, h, err := e.pinReaching(key, first, last, buf[:0])
 	if err != nil || ch == nil {
 		return state.Preload{Key: key}, err
 	}
@@ -66,14 +72,61 @@ func (e *engine) preload(
 		if err != nil {
 			return pre, errors.Join(err, e.unpin(h))
 		}
-		for i, seg := range r.Segments {
-			if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) &&
-				reaches(seg.Pointers, first, last) {
-				pre.Segments = append(pre.Segments, seg)
-			}
-		}
+		addLive(&pre, ch, p, r, first, last)
 	}
 	return pre, e.unpin(h)
+}
+
+// cached adds to pre the live records of key in reach, parts of ch, that reach [first,
+// last], when the part cache holds the records of every part of reach. It reports
+// whether it did.
+func (e *engine) cached(
+	pre *state.Preload,
+	ch *state.Channel,
+	reach []checkpoint.Part,
+	key ChannelKey,
+	first, last telem.TimeStamp,
+) bool {
+	for _, p := range reach {
+		r, ok := e.cache.Cached(p, key)
+		if !ok {
+			pre.Segments = pre.Segments[:0]
+			return false
+		}
+		addLive(pre, ch, p, r, first, last)
+	}
+	return true
+}
+
+// addLive adds to pre each record of r, the records in part p of the key of ch, that is
+// live and reaches [first, last].
+func addLive(
+	pre *state.Preload,
+	ch *state.Channel,
+	p checkpoint.Part,
+	r checkpoint.Records,
+	first, last telem.TimeStamp,
+) {
+	for i, seg := range r.Segments {
+		if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) &&
+			reaches(seg.Pointers, first, last) {
+			pre.Segments = append(pre.Segments, seg)
+		}
+	}
+}
+
+// reaching appends to buf the parts of parts whose stamps reach [first, last].
+func reaching(
+	parts []checkpoint.Part,
+	first, last telem.TimeStamp,
+	buf []checkpoint.Part,
+) []checkpoint.Part {
+	for _, p := range parts {
+		if p.First <= last && first <= p.Last {
+			buf = append(buf, p)
+		}
+	}
+	return buf
 }
 
 // partsGeneration returns the generation of the head whose parts ch names, or 0 when
@@ -86,10 +139,11 @@ func partsGeneration(ch *state.Channel) uint64 {
 }
 
 // pinReaching returns the Channel of key and pins the parts of its range whose stamps
-// reach [first, last], under the lock that the pins of a load take.
+// reach [first, last], appended to buf, under the lock that the pins of a load take.
 func (e *engine) pinReaching(
 	key ChannelKey,
 	first, last telem.TimeStamp,
+	buf []checkpoint.Part,
 ) (*state.Channel, held, error) {
 	e.pins.mu.Lock()
 	defer e.pins.mu.Unlock()
@@ -101,24 +155,9 @@ func (e *engine) pinReaching(
 	if err != nil {
 		return ch, held{}, err
 	}
-	var h held
-	for _, p := range parts {
-		if p.First <= last && first <= p.Last {
-			h.parts = append(h.parts, p)
-		}
-	}
+	h := held{parts: reaching(parts, first, last, buf)}
 	e.pins.pin(h)
 	return ch, h, nil
-}
-
-// reachesAny reports whether the stamps of a part of parts reach [first, last].
-func reachesAny(parts []checkpoint.Part, first, last telem.TimeStamp) bool {
-	for _, p := range parts {
-		if p.First <= last && first <= p.Last {
-			return true
-		}
-	}
-	return false
 }
 
 // reaches reports whether a pointer of ptrs shares a stamp with [first, last].

@@ -108,6 +108,16 @@ func (c *Cache) Records(p Part, key uint32) (Records, error) {
 	return r, nil
 }
 
+// Cached returns the records of key in the part p when the cache holds them, with no
+// read of the part.
+func (c *Cache) Cached(p Part, key uint32) (Records, bool) {
+	e, ok := c.get(cacheKey{part: p.ID, key: key})
+	if !ok {
+		return Records{}, false
+	}
+	return e.records, true
+}
+
 func (c *Cache) get(k cacheKey) (*cacheEntry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
