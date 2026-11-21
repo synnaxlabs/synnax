@@ -394,14 +394,14 @@ func (idx *Index[K]) holds(id uint32, tokens, extra []string) bool {
 	if len(terms) != len(tokens)+len(extra) {
 		return false
 	}
-	for i, tm := range terms {
-		tok, secondary := "", i >= len(tokens)
-		if secondary {
-			tok = extra[i-len(tokens)]
-		} else {
-			tok = tokens[i]
+	for i, tok := range tokens {
+		if isSecondary(terms[i]) || idx.trie.find(root, tok) != terms[i].node {
+			return false
 		}
-		if isSecondary(tm) != secondary || idx.trie.find(root, tok) != tm.node {
+	}
+	for i, tok := range extra {
+		tm := terms[len(tokens)+i]
+		if !isSecondary(tm) || idx.trie.find(root, tok) != tm.node {
 			return false
 		}
 	}
