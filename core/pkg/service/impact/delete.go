@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/set"
 )
 
 // planned is a plan with what Apply needs to carry it out.
@@ -56,13 +55,18 @@ func (s *Service) planDelete(
 		keys:    deleted,
 		effects: effects,
 	}
-	listed := set.New[resource.ID]()
+	// effectOf holds the effect of each record with an entry, and no effect for each
+	// record that keeps a weak link.
+	effectOf := make(
+		map[resource.ID]Effect,
+		len(effects.Restricts)+len(effects.Detaches),
+	)
 	add := func(e gorp.DeleteEffect, effect Effect) (resource.ID, bool) {
 		record := s.cfg.RecordOf(e.Holder)
-		if listed.Contains(record) {
+		if effectOf[record] != "" {
 			return record, false
 		}
-		listed.Add(record)
+		effectOf[record] = effect
 		entry := Entry{Record: record, Effect: effect}
 		if effect == EffectRestrict {
 			entry.Choices = []Choice{ChoiceCancel, ChoiceDelete}
@@ -86,13 +90,17 @@ func (s *Service) planDelete(
 	for _, e := range effects.Detaches {
 		add(e, EffectDetach)
 	}
-	kept := set.New[resource.ID]()
 	for _, e := range effects.Weak {
-		if record := s.cfg.RecordOf(e.Holder); !listed.Contains(record) {
-			kept.Add(record)
+		if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
+			effectOf[record] = ""
+			p.Kept++
 		}
 	}
-	p.Kept = uint32(len(kept))
 	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
+}
+
+func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
+	_, ok := m[k]
+	return ok
 }
