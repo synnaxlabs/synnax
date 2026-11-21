@@ -74,7 +74,8 @@ const cachedStatusOf = (
  * Answers with the status of the calculation that writes the channel of the query, or
  * null when no calculation writes it or the calculation has no status. The lookups of
  * a tick share one request for the outputs and one for the statuses. Compared by
- * variant and message, so a heartbeat that changes neither is silenced.
+ * variant, message, and description, so a heartbeat that changes only the time is
+ * silenced.
  */
 export const { useResult: useResultStatus } = Flux.createRetrieve<
   RetrieveOutputQuery,
@@ -105,7 +106,10 @@ export const { useResult: useResultStatus } = Flux.createRetrieve<
     };
   },
   getCached: ({ client, query: { channel } }) => cachedStatusOf(client, channel),
-  equal: (a, b) => a?.variant === b?.variant && a?.message === b?.message,
+  equal: (a, b) =>
+    a?.variant === b?.variant &&
+    a?.message === b?.message &&
+    a?.description === b?.description,
   retryUnreachable: true,
 });
 

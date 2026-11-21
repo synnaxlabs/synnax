@@ -179,12 +179,14 @@ describe("queries", () => {
     const setStatus = async (
       calc: calculation.Calculation,
       message: string,
+      description: string = "",
     ): Promise<void> => {
       await client.statuses.set({
         owner: calculation.resourceID(calc.key),
         name: "Calculation Status",
         variant: "error",
         message,
+        description,
         time: TimeStamp.now(),
       });
     };
@@ -201,6 +203,55 @@ describe("queries", () => {
       );
       await waitFor(() =>
         expect(result.current.data?.message).toEqual("invalid expression"),
+      );
+      expect(result.current.data?.variant).toEqual("error");
+    });
+
+    it("should answer with null for a channel that no calculation writes", async () => {
+      const plain = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: plain.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toBeNull();
+    });
+
+    it("should answer with null for a calculation with no status", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: calc.output }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toBeNull();
+    });
+
+    it("should follow a change of the description alone", async () => {
+      const calc = await client.calculations.create({
+        name: id.create(),
+        expression: "return 2",
+      });
+      await setStatus(calc, "Failed to run calculation", "cannot read a");
+      const { result } = renderHook(
+        () => Calculation.useResultStatus({ channel: calc.output }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.description).toEqual("cannot read a"),
+      );
+      await act(
+        async () => await setStatus(calc, "Failed to run calculation", "cannot read b"),
+      );
+      await waitFor(() =>
+        expect(result.current.data?.description).toEqual("cannot read b"),
       );
     });
 
