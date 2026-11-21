@@ -284,14 +284,19 @@ export const collapse = (
 };
 
 /**
- * @returns the spans of time that a plot of windows shows with its gaps collapsed and
- * every break closed, in time order. Each span holds one or more windows and the
- * margins and time between them. The outer edges are the exact edges of the windows,
+ * @returns the spans of time that a plot of windows shows with its gaps collapsed, in
+ * time order. Each span holds one or more windows, the margins and time between them,
+ * and each open gap between them. The outer edges are the exact edges of the windows,
  * so the last span stays open when a window has no end.
  * @param end - where a window with no end stops for laying out the gaps, such as the
  * newest sample.
+ * @param open - the open breaks, as the lower bounds of their gaps.
  */
-export const shownSpans = (windows: TimeRange[], end: TimeStamp): TimeRange[] => {
+export const shownSpans = (
+  windows: TimeRange[],
+  end: TimeStamp,
+  open: readonly number[] = [],
+): TimeRange[] => {
   const traces = windows.map((w): line.DataBounds => {
     if (!w.end.equals(TimeStamp.MAX))
       return { bounds: w.numericBounds, loading: false };
@@ -302,7 +307,7 @@ export const shownSpans = (windows: TimeRange[], end: TimeStamp): TimeRange[] =>
       edge: "growing",
     };
   });
-  const shown = collapse(traces, 0);
+  const { segments: shown } = join(collapse(traces, 0), open);
   if (shown.length === 0) return [];
   // A number cannot hold a timestamp to the nanosecond, so the outer edges come from
   // the windows.

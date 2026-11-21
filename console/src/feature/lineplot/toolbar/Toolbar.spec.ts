@@ -175,14 +175,13 @@ describe("lineplot/toolbar/Toolbar", () => {
       expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
     });
 
-    // A window from 12:00 to 13:00 on the fifth of month in 2020.
-    const at = (month: number) =>
-      staticWindow(
-        new TimeRange(
-          new TimeStamp(new Date(2020, month, 5, 12)),
-          new TimeStamp(new Date(2020, month, 5, 13)),
-        ),
+    // The hour from 12:00 on the fifth of month in 2020.
+    const hourOf = (month: number) =>
+      new TimeRange(
+        new TimeStamp(new Date(2020, month, 5, 12)),
+        new TimeStamp(new Date(2020, month, 5, 13)),
       );
+    const at = (month: number) => staticWindow(hourOf(month));
 
     it("should download one span for each range a plot shows apart", async () => {
       const { data } = await createStopped(id.create().replace(/-/g, "_"));
@@ -197,9 +196,24 @@ describe("lineplot/toolbar/Toolbar", () => {
       );
     });
 
+    it("should download one span across a break the plot opened", async () => {
+      const { data } = await createStopped(id.create().replace(/-/g, "_"));
+      const { lower, upper } = hourOf(2).numericBounds;
+      // The gap after a range starts at its end and a margin of 5% of its span.
+      const open = [upper + (upper - lower) * 0.05];
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: false, open },
+      });
+      const text = document.body.textContent;
+      expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
+      expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);
+    });
+
     it("should download one span over every range while breaks are hidden", async () => {
       const { data } = await createStopped(id.create().replace(/-/g, "_"));
-      await openDownload([data.key], [at(6), at(2)], { breaks: { hidden: true } });
+      await openDownload([data.key], [at(6), at(2)], {
+        breaks: { hidden: true, open: [] },
+      });
       const text = document.body.textContent;
       expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
       expect(text).not.toMatch(/Mar 5, 2020\s*13:0/);

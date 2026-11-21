@@ -229,8 +229,8 @@ const Internal = (): ReactElement => {
   useTriggerHold({ key, enabled: hasUpdatePermission });
   useResetZoomOnRangeChange({ key });
 
-  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box: b, stage, mode }) => {
+  const handleViewportChange = useDebouncedCallback(
+    ({ box: b, stage, mode }: Viewport.UseEvent) => {
       if (stage !== "end") return;
       if (mode === "select") dispatch(Session.LinePlot.setSelection({ key, box: b }));
       else
@@ -245,6 +245,24 @@ const Internal = (): ReactElement => {
     VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
+
+  const handleOpenBreaksChange = ({
+    openBreaks: open,
+    viewport,
+    selection,
+  }: Base.OpenBreaksChange) => {
+    // A view stored after the change would hold the times of the layout before it.
+    handleViewportChange.flush();
+    dispatch(
+      Session.LinePlot.storeBreaks({
+        key,
+        open,
+        pan: box.bottomLeft(viewport),
+        zoom: box.dims(viewport),
+        selection,
+      }),
+    );
+  };
 
   const handleSelectRule = (ruleKey: string) =>
     dispatch(Session.LinePlot.setSelectedRule({ key, ruleKey }));
@@ -308,6 +326,8 @@ const Internal = (): ReactElement => {
           visible={visible}
           breaksHidden={breaksHidden}
           onBreaksChange={setBreaks}
+          initialOpenBreaks={vis.breaks.open}
+          onOpenBreaksChange={handleOpenBreaksChange}
         >
           <Controls
             hasAnnotations={hasAnnotations}

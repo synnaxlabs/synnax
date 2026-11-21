@@ -90,3 +90,8 @@ const selectBreaksHidden = (params: KeyedSelectorParams): boolean =>
   selectState(params).breaks.hidden;
 
 export const useSelectBreaksHidden = createSelector(selectBreaksHidden);
+
+const selectOpenBreaks = (params: KeyedSelectorParams): number[] =>
+  selectState(params).breaks.open;
+
+export const useSelectOpenBreaks = createSelector(selectOpenBreaks);

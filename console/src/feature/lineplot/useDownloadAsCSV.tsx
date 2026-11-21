@@ -91,6 +91,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
   const breaksHidden = Session.LinePlot.useSelectBreaksHidden({ key });
+  const openBreaks = Session.LinePlot.useSelectOpenBreaks({ key });
   return () =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -103,7 +104,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       const timeRanges =
         !FLAGS.breaks || breaksHidden
           ? [TimeRange.merge(...resolved)]
-          : LinePlot.shownSpans(resolved, end);
+          : LinePlot.shownSpans(resolved, end, openBreaks);
       downloadAsCSV({ timeRanges, lines, name });
     }, "Failed to download plot as CSV");
 };

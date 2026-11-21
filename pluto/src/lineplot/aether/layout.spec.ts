@@ -462,6 +462,15 @@ describe("shownSpans", () => {
     expect(shown[1].end).toEqual(TimeStamp.MAX);
   });
 
+  it("should hold the time of an open break in one span", () => {
+    // The gap starts a margin of 5% of the first window after its end.
+    const lower = HOUR + HOUR * 0.05;
+    const shown = shownSpans([window(0, 1), window(100, 1)], NOW, [lower]);
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].start)).toEqual(0);
+    expect(ns(shown[0].end)).toEqual(101 * HOUR);
+  });
+
   it("should list the spans in time order", () => {
     const shown = shownSpans([window(100, 1), window(0, 1)], NOW);
     expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));

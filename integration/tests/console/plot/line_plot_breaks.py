@@ -77,6 +77,7 @@ class LinePlotBreaks(ConsoleCase):
 
         self.test_breaks_shown(plot)
         self.test_open_and_close_all_breaks(plot)
+        self.test_open_breaks_after_reload(plot)
         self.test_hide_and_show_breaks(plot)
         self.test_no_toggle_for_one_range(plot)
 
@@ -98,6 +99,21 @@ class LinePlotBreaks(ConsoleCase):
         plot.select_menu_option("Close all breaks")
         plot.expect_menu_option("Open all breaks")
         plot.expect_menu_option("Close all breaks", offered=False)
+
+    def test_open_breaks_after_reload(self, plot: Plot) -> None:
+        """Test that the breaks a user opens stay open after a reload."""
+        self.log("Testing open breaks after a reload")
+        plot.select_menu_option("Open all breaks")
+        plot.expect_menu_option("Close all breaks")
+
+        self.console.reload()
+        assert plot.pane_locator is not None
+        plot.pane_locator.wait_for(state="visible", timeout=10000)
+        plot.expect_menu_option("Close all breaks")
+        plot.expect_menu_option("Open all breaks", offered=False)
+
+        plot.select_menu_option("Close all breaks")
+        plot.expect_menu_option("Open all breaks")
 
     def test_hide_and_show_breaks(self, plot: Plot) -> None:
         """Test that the toggle hides the breaks and shows them again."""

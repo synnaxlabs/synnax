@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { box, deep } from "@synnaxlabs/x";
 import { act } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -225,6 +225,46 @@ describe("LinePlot Slice", () => {
       const viewport = viewportOf();
       expect(viewport.zoom).toEqual({ width: 3, height: 3 });
       expect(viewport.pan).toEqual({ x: 1, y: 1 });
+    });
+  });
+
+  describe("storeBreaks", () => {
+    const SELECTION = box.construct({ x: 0.1, y: 0.2 }, { x: 0.3, y: 0.4 });
+    const storeBreaks = () =>
+      store.dispatch(
+        LinePlot.storeBreaks({
+          key: KEY,
+          open: [5],
+          pan: { x: 0.2, y: 0 },
+          zoom: { width: 0.5, height: 1 },
+          selection: SELECTION,
+        }),
+      );
+
+    it("should default to no open breaks on a newly created plot", () => {
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      expect(docOf()?.breaks.open).toEqual([]);
+    });
+
+    it("should store the open breaks with the view and the selection", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        storeBreaks();
+      });
+      const doc = docOf();
+      expect(doc?.breaks.open).toEqual([5]);
+      expect(doc?.viewport.pan).toEqual({ x: 0.2, y: 0 });
+      expect(doc?.viewport.zoom).toEqual({ width: 0.5, height: 1 });
+      expect(doc?.selection.box).toEqual(SELECTION);
+    });
+
+    it("should close every break on setViewport", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        storeBreaks();
+        store.dispatch(LinePlot.setViewport({ key: KEY }));
+      });
+      expect(docOf()?.breaks.open).toEqual([]);
     });
   });
 
