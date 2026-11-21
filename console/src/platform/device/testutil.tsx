@@ -21,6 +21,7 @@ import {
   type RenderResult,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -174,11 +175,12 @@ export const createTestDevice = async (
  * @param search - The placeholder of the search field, such as "Search devices...".
  */
 export const pickDevice = async (name: string, search: string): Promise<void> => {
-  fireEvent.change(await screen.findByPlaceholderText(search), {
-    target: { value: name },
-  });
+  const field = await screen.findByPlaceholderText(search);
+  const dialog = field.closest<HTMLElement>('[role="dialog"]');
+  if (dialog == null) throw new Error(`no dialog holds the field "${search}"`);
+  fireEvent.change(field, { target: { value: name } });
   const option = await waitFor(() => {
-    const options = screen.getAllByRole("option");
+    const options = within(dialog).getAllByRole("option");
     if (options.length !== 1 || options[0].textContent?.includes(name) !== true)
       throw new Error(`the search for ${name} has not answered`);
     return options[0];
