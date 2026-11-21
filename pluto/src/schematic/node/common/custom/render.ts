@@ -13,7 +13,7 @@ import { color } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type Paint } from "@/schematic/node/common/custom/paint";
+import type { Paint } from "@/schematic/node/common/custom/paint";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Region } from "@/schematic/node/common/region";
 

@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -22,7 +22,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
+import type { color } from "@synnaxlabs/x";
 
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
