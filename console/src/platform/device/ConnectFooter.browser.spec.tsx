@@ -9,7 +9,8 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { userEvent } from "vitest/browser";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
@@ -46,7 +47,9 @@ describe("ConnectFooter", () => {
 
   it("should let Escape close the dialog when idle", async () => {
     await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn() }]);
-    pressEscape();
+    await act(async () => {
+      await userEvent.keyboard("{Escape}");
+    });
     expect(screen.queryByText("Back")).toBeNull();
   });
 });
