@@ -85,7 +85,7 @@ func (s *Server) Hover(
 	qualifiedWord := lsp.GetQualifiedPrefixWordAtPosition(
 		displayContent,
 		params.Position,
-		d.wordChar,
+		d.wordChars,
 	)
 	var contents string
 	if qualifiedWord != word {

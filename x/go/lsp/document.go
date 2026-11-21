@@ -98,24 +98,27 @@ func GetLine(content string, line uint32) (string, bool) {
 	return lines[line], true
 }
 
-func isWordChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-		(c >= '0' && c <= '9') || c == '_'
+// WordChars reports, for each byte of line, whether the byte belongs to a word.
+type WordChars func(line string) []bool
+
+// DefaultWordChars marks the bytes [a-zA-Z0-9_].
+func DefaultWordChars(line string) []bool {
+	marks := make([]bool, len(line))
+	for i := range len(line) {
+		c := line[i]
+		marks[i] = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') || c == '_'
+	}
+	return marks
 }
-
-// WordChar reports whether the byte at index i of line belongs to a word.
-type WordChar func(line string, i int) bool
-
-// DefaultWordChar accepts the bytes [a-zA-Z0-9_].
-func DefaultWordChar(line string, i int) bool { return isWordChar(line[i]) }
 
 // GetWordAtPosition extracts the word at the given position in the content.
 func GetWordAtPosition(
 	content string,
 	pos protocol.Position,
-	wordChar WordChar,
+	wordChars WordChars,
 ) string {
-	line, start, end := wordSpan(content, pos, wordChar, wordChar)
+	line, start, end := wordSpan(content, pos, wordChars, false)
 	return line[start:end]
 }
 
@@ -129,12 +132,9 @@ func GetWordAtPosition(
 func GetQualifiedPrefixWordAtPosition(
 	content string,
 	pos protocol.Position,
-	wordChar WordChar,
+	wordChars WordChars,
 ) string {
-	qualified := func(line string, i int) bool {
-		return line[i] == '.' || wordChar(line, i)
-	}
-	line, start, end := wordSpan(content, pos, qualified, wordChar)
+	line, start, end := wordSpan(content, pos, wordChars, true)
 	return line[start:end]
 }
 
@@ -143,9 +143,9 @@ func GetQualifiedPrefixWordAtPosition(
 func GetWordRangeAtPosition(
 	content string,
 	pos protocol.Position,
-	wordChar WordChar,
+	wordChars WordChars,
 ) *protocol.Range {
-	line, start, end := wordSpan(content, pos, wordChar, wordChar)
+	line, start, end := wordSpan(content, pos, wordChars, false)
 	if start == end {
 		return nil
 	}
@@ -162,12 +162,13 @@ func GetWordRangeAtPosition(
 }
 
 // wordSpan returns the line at pos and the byte bounds of the word under the cursor.
-// The left walk accepts bytes matching left; the right walk accepts bytes matching
-// right. The bounds are equal when the cursor is past the line end.
+// When qualified is true, the left walk also crosses dots. The bounds are equal when
+// the cursor is past the line end.
 func wordSpan(
 	content string,
 	pos protocol.Position,
-	left, right WordChar,
+	wordChars WordChars,
+	qualified bool,
 ) (line string, start, end int) {
 	line, ok := GetLine(content, pos.Line)
 	if !ok {
@@ -177,11 +178,12 @@ func wordSpan(
 	if start >= len(line) {
 		return line, start, start
 	}
+	marks := wordChars(line)
 	end = start
-	for start > 0 && left(line, start-1) {
+	for start > 0 && (marks[start-1] || (qualified && line[start-1] == '.')) {
 		start--
 	}
-	for end < len(line) && right(line, end) {
+	for end < len(line) && marks[end] {
 		end++
 	}
 	return line, start, end

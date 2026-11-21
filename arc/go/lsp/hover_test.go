@@ -10,6 +10,9 @@
 package lsp_test
 
 import (
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -947,6 +950,21 @@ func add() {a i32, b i32} i32 {
 				Entry("before a minus-assign", "pt-=1", uint32(11)),
 				Entry("after a leading dash", "-pt", uint32(13)),
 				Entry("before a spaced minus", "pt - 1", uint32(11)),
+			)
+
+			It(
+				"should look up a name with many dashes in linear time",
+				func(ctx SpecContext) {
+					server = newServer(true)
+					name := strings.Repeat("a-", 10_000) + "a"
+					OpenArcDocument(server, ctx, uri, name)
+					start := time.Now()
+					Expect(Hover(server, ctx, uri, 0, uint32(len(name)-1))).To(BeNil())
+					Expect(
+						time.Since(start),
+					).To(BeNumerically("<", 100*time.Millisecond))
+				},
+				SpecTimeout(10*time.Second),
 			)
 
 			DescribeTable(

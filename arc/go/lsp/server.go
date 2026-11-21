@@ -194,25 +194,28 @@ func (s *Server) parserConfig() parser.Config {
 	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 }
 
-// isWordChar reports whether line[i] belongs to a word. With dashed names on, a '-'
-// joins the name before it, as in the lexer, unless it starts "->" or "-=". Leading
-// digits lex as a number, so a '-' after only digits is a minus.
-func (s *Server) isWordChar(line string, i int) bool {
-	if line[i] != '-' {
-		return lsp.DefaultWordChar(line, i)
+// wordChars marks the bytes of line that belong to a word. With dashed names on, a '-'
+// joins a name, as in the lexer, unless it starts "->" or "-=". A run of only digits
+// lexes as a number, so a '-' after it is a minus.
+func (s *Server) wordChars(line string) []bool {
+	marks := lsp.DefaultWordChars(line)
+	if !s.cfg.AllowDashedNames {
+		return marks
 	}
-	if !s.cfg.AllowDashedNames ||
-		(i+1 < len(line) && (line[i+1] == '>' || line[i+1] == '=')) {
-		return false
+	inName := false
+	for i := range len(line) {
+		c := line[i]
+		switch {
+		case marks[i]:
+			inName = inName || c < '0' || c > '9'
+		case c == '-' && inName &&
+			(i+1 == len(line) || (line[i+1] != '>' && line[i+1] != '=')):
+			marks[i] = true
+		default:
+			inName = false
+		}
 	}
-	start := i
-	for start > 0 && s.isWordChar(line, start-1) {
-		start--
-	}
-	for start < i && line[start] >= '0' && line[start] <= '9' {
-		start++
-	}
-	return start < i
+	return marks
 }
 
 // SetClient sets the LSP client for sending notifications.
@@ -332,11 +335,11 @@ func (s *Server) DidOpen(
 		zap.Bool("hasMetadata", metadata != nil),
 		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	doc := &document{
-		URI:      docURI,
-		Version:  params.TextDocument.Version,
-		Content:  params.TextDocument.Text,
-		metadata: metadata,
-		wordChar: s.isWordChar,
+		URI:       docURI,
+		Version:   params.TextDocument.Version,
+		Content:   params.TextDocument.Text,
+		metadata:  metadata,
+		wordChars: s.wordChars,
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{

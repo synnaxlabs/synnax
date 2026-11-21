@@ -45,7 +45,7 @@ type document struct {
 	analyzed  string
 	Version   int32
 	debouncer *debounce.Debouncer
-	wordChar  lsp.WordChar
+	wordChars lsp.WordChars
 }
 
 func (d *document) isBlock() bool {
@@ -122,11 +122,11 @@ func (d *document) toDocLocations(locs []protocol.Location) []protocol.Location 
 }
 
 func (d *document) getWordAtPosition(pos protocol.Position) string {
-	return lsp.GetWordAtPosition(d.displayContent(), pos, d.wordChar)
+	return lsp.GetWordAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range {
-	return lsp.GetWordRangeAtPosition(d.displayContent(), pos, d.wordChar)
+	return lsp.GetWordRangeAtPosition(d.displayContent(), pos, d.wordChars)
 }
 
 func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
