@@ -162,10 +162,11 @@ export const use = ({
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // A new initial view moves the view, so the mask no longer marks the same values.
+  // A view that moves leaves the mask on other values, so the mask clears.
   useEffect(() => {
-    setMaskBox(box.ZERO);
-    setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial)));
+    const next = box.truncate(initial, calculateTruncPrecision(initial));
+    if (!box.equals(stateRef.current, next)) setMaskBox(box.ZERO);
+    setStateRef(() => next);
   }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
