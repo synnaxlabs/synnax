@@ -24,8 +24,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { Explorer } from "@/feature/range/explorer/Explorer";
-import { TAB_TYPE } from "@/feature/range/explorer/external";
+import { Range } from "@/feature/range";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
@@ -43,7 +42,7 @@ import {
   isPlutoDisabled,
   openContextMenu,
   openSubmenu,
-  renderSuspended,
+  renderLazy,
   resolveFocusedTab,
   selectRange,
   selectTestProject,
@@ -52,6 +51,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const { Content: Explorer } = Range.Explorer.TAB;
 
 interface RenderOptions {
   /** The Core a copied link names. */
@@ -72,14 +73,14 @@ const renderExplorer = async (
     as,
     tab:
       shown == null
-        ? { variant: "view", type: TAB_TYPE }
+        ? { variant: "view", type: Range.Explorer.TAB_TYPE }
         : { variant: "resource", resource: view.resourceID(shown.key) },
     store:
       core == null
         ? undefined
         : await createTestStore({ preloadedState: createCoreState([core], core.key) }),
   });
-  await renderSuspended(
+  await renderLazy(
     <>
       <div
         style={{
@@ -572,9 +573,9 @@ describe("range/explorer/Explorer", () => {
       const rng = await createRange(uniqueName("rename"));
       const { wrapper } = await createTabWrapper({
         client,
-        tab: { variant: "view", type: TAB_TYPE },
+        tab: { variant: "view", type: Range.Explorer.TAB_TYPE },
       });
-      await renderSuspended(
+      await renderLazy(
         <>
           <Explorer />
           <Explorer />

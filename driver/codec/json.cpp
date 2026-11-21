@@ -267,8 +267,7 @@ JSON::create(const std::vector<JSONMessage> &messages) {
     if (router_err) return {JSON{}, router_err};
     JSON j;
     j.router = std::move(router);
-    std::vector<x::json::Pointer> pointers;
-    if (j.router.ruled) pointers.push_back(j.router.pointer);
+    auto pointers = j.router.pointers();
     j.messages.reserve(messages.size());
     for (const auto &m: messages) {
         Message msg{.name = m.name, .first_value = pointers.size()};
@@ -310,9 +309,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error>
 JSON::decode(const std::string_view doc) {
     if (const auto err = this->extractor.extract(doc, this->values))
         return {std::nullopt, err};
-    std::optional<std::string_view> match;
-    if (this->router.ruled) match = this->values[0];
-    auto [message, err] = this->router.find(match);
+    auto [message, err] = this->router.find(this->values);
     if (err || !message.has_value()) return {std::nullopt, err};
     auto &m = this->messages[*message];
     if (auto decode_err = m.decode(this->values)) {

@@ -125,7 +125,7 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
           const validity =
             details == null ? null : Validity.describeDetails(details, now);
           const handleBrowse = async () => {
-            const entry = await browse({ rack });
+            const entry = await browse({ rack, path: value });
             if (entry == null) return;
             onPick(entry);
             onChange(entry.path);
