@@ -36,6 +36,7 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		u    user.User
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		proj = project.Project{Name: "tombstone-break-r2"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return layer.Project.NewWriter(tx).Create(ctx, &proj)
