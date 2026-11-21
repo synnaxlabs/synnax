@@ -66,6 +66,8 @@ func ChangesOf(tx Tx) Changes {
 
 // changeList merges the writes of one transaction into one entry per record.
 type changeList struct {
+	// seq is the number of writes the transaction made.
+	seq uint64
 	// at maps each record the transaction wrote to its position in entries.
 	at      map[Target]int
 	entries []changeEntry
@@ -84,6 +86,8 @@ type changeEntry struct {
 	before []Link
 	// after holds the links of the record at the last set.
 	after []Link
+	// seq is the changeList.seq of the last write to the record.
+	seq uint64
 }
 
 // slot is the place of one write in a changeList. at is -1 on the first write to
@@ -177,6 +181,8 @@ func (l *changeList) entry(s slot, derived bool) *changeEntry {
 	}
 	e := &l.entries[s.at]
 	e.derived = e.derived && derived
+	l.seq++
+	e.seq = l.seq
 	return e
 }
 

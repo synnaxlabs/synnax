@@ -399,14 +399,16 @@ var _ = Describe("Planned delete", func() {
 		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{2}))
 	})
 
-	It("Should apply only the plan, with no walk of its own", func(ctx SpecContext) {
+	It("Should walk the references itself for a plan from another transaction", func(
+		ctx SpecContext,
+	) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return deletePlanned(ctx, tx, gorp.DeleteEffects{})
 		})).To(Succeed())
 		Expect(calcs.NewRetrieve().
 			Where(gorp.MatchKeys[string, pdCalc]("c")).
-			Exists(ctx, db)).To(BeTrue())
-		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{1, 2}))
+			Exists(ctx, db)).To(BeFalse())
+		Expect(retrieveHolder(ctx, "p").Plotted).To(Equal([]uint32{2}))
 	})
 
 	It("Should refuse while a planned Restrict holder still exists", func(

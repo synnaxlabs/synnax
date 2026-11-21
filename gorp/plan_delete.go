@@ -64,6 +64,41 @@ type DeleteEffects struct {
 	// Weak are the entries that the delete would keep unchanged, holding a target
 	// through a Weak reference.
 	Weak []DeleteEffect
+	// tx is the transaction that planned the delete, nil for a snapshot.
+	tx *txState
+	// seq is the number of writes that tx had made when it planned the delete.
+	seq uint64
+}
+
+// current reports whether e still describes the delete of the entries with keys from
+// the table named table in tx: e came from tx, and no write of tx after the plan added
+// a link to an entry that the delete removes.
+func current[K Key](e DeleteEffects, tx Tx, table string, keys []K) bool {
+	st := tx.txIdentity()
+	if st == nil || st != e.tx {
+		return false
+	}
+	var removed set.Set[Target]
+	for _, c := range st.changes.entries {
+		if c.seq <= e.seq || len(c.after) == 0 {
+			continue
+		}
+		if removed == nil {
+			removed = make(set.Set[Target], len(keys)+len(e.Cascades))
+			for _, k := range keys {
+				removed.Add(Target{Table: table, Key: FormatKey(k)})
+			}
+			for _, cascade := range e.Cascades {
+				removed.Add(cascade.Holder)
+			}
+		}
+		if slices.ContainsFunc(c.after, func(l Link) bool {
+			return removed.Contains(l.Target)
+		}) {
+			return false
+		}
+	}
+	return true
 }
 
 // PlanDelete returns what a delete of the entries with keys would do, as seen by snap,
@@ -114,12 +149,16 @@ func (t *Table[K, E]) PlanDelete(
 		slices.SortFunc(effects, compareDeleteEffects)
 		return effects
 	}
-	return DeleteEffects{
+	effects := DeleteEffects{
 		Cascades:  lowestPerHolder(w.effects[Cascade]),
 		Detaches:  kept(append(w.effects[Detach], w.effects[Inline]...)),
 		Restricts: lowestPerHolder(kept(w.effects[Restrict])),
 		Weak:      kept(w.effects[Weak]),
-	}, nil
+	}
+	if st := snap.txIdentity(); st != nil {
+		effects.tx, effects.seq = st, st.changes.seq
+	}
+	return effects, nil
 }
 
 // lowestPerHolder sorts effects and keeps the first effect of each holder.
