@@ -352,8 +352,8 @@ var _ = Describe("Old API breaker d", func() {
 				input := createChannel(ctx, telem.Float32T)
 				reset := createChannel(ctx, telem.BooleanT)
 				req := calculated(input)
-				req.Operations = []apichannel.Operation{{
-					Type:         apichannel.OperationTypeMax,
+				req.Operations = []channel.Operation{{
+					Type:         channel.OperationTypeMax,
 					ResetChannel: reset.Key(),
 				}}
 				ch := create(ctx, req)
@@ -483,9 +483,9 @@ var _ = Describe("Old API breaker d", func() {
 			input := createChannel(ctx, telem.Float32T)
 			reset := createChannel(ctx, telem.BooleanT)
 			req := calculated(input)
-			req.Operations = []apichannel.Operation{
-				{Type: apichannel.OperationTypeAvg, Duration: telem.Second},
-				{Type: apichannel.OperationTypeMax, ResetChannel: reset.Key()},
+			req.Operations = []channel.Operation{
+				{Type: channel.OperationTypeAvg, Duration: telem.Second},
+				{Type: channel.OperationTypeMax, ResetChannel: reset.Key()},
 			}
 			roundTrip(ctx, req)
 		})
@@ -493,8 +493,8 @@ var _ = Describe("Old API breaker d", func() {
 		It("Should return a none operation as v0.62 did", func(ctx SpecContext) {
 			input := createChannel(ctx, telem.Float32T)
 			req := calculated(input)
-			req.Operations = []apichannel.Operation{
-				{Type: apichannel.OperationTypeNone},
+			req.Operations = []channel.Operation{
+				{Type: channel.OperationTypeNone},
 			}
 			roundTrip(ctx, req)
 		})
@@ -528,8 +528,8 @@ var _ = Describe("Old API breaker d", func() {
 			level := createChannel(ctx, telem.Float32T)
 			good := calculated(input)
 			bad := calculated(input)
-			bad.Operations = []apichannel.Operation{{
-				Type:         apichannel.OperationTypeMax,
+			bad.Operations = []channel.Operation{{
+				Type:         channel.OperationTypeMax,
 				ResetChannel: level.Key(),
 			}}
 			Expect(createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
@@ -575,7 +575,7 @@ var _ = Describe("Old API breaker d", func() {
 			Expect(func() {
 				_, err = dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
 					Key: ch.Key,
-					Actions: []channel.Action{set("operations", []apichannel.Operation{{
+					Actions: []channel.Action{set("operations", []channel.Operation{{
 						Type:     "sum",
 						Duration: telem.Second,
 					}})},
@@ -589,7 +589,7 @@ var _ = Describe("Old API breaker d", func() {
 		) {
 			input := createChannel(ctx, telem.Float32T)
 			req := calculated(input)
-			req.Operations = []apichannel.Operation{
+			req.Operations = []channel.Operation{
 				{Type: "sum", Duration: telem.Second},
 			}
 			var err error

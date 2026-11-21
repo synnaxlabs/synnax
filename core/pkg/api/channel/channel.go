@@ -195,7 +195,7 @@ func (s *Service) Create(
 	)
 	for i, ch := range req.Channels {
 		if ch.Expression != "" {
-			ops, err := calculationOperations(ch.Operations)
+			ops, err := calculation.FromChannelOperations(ch.Operations)
 			if err != nil {
 				return CreateResponse{}, validate.PathedError(
 					err,
@@ -492,10 +492,10 @@ func (s *Service) translateForward(
 			continue
 		}
 		translated[i].Expression = c.Expression
-		translated[i].Operations = channelOperations(c.Operations)
+		translated[i].Operations = calculation.ToChannelOperations(c.Operations)
 		if len(translated[i].Operations) == 0 {
-			translated[i].Operations = []Operation{
-				{Type: OperationTypeNone},
+			translated[i].Operations = []channel.Operation{
+				{Type: channel.OperationTypeNone},
 			}
 		}
 	}

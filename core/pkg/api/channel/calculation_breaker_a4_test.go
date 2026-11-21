@@ -177,16 +177,16 @@ var _ = Describe("Old API breaker a4", func() {
 		) {
 			input := createChannel(ctx, telem.Float32T)
 			reset := createChannel(ctx, telem.BooleanT)
-			for _, ops := range [][]apichannel.Operation{
-				{{Type: apichannel.OperationTypeMin, Duration: telem.Second}},
-				{{Type: apichannel.OperationTypeMax, ResetChannel: reset.Key()}},
+			for _, ops := range [][]channel.Operation{
+				{{Type: channel.OperationTypeMin, Duration: telem.Second}},
+				{{Type: channel.OperationTypeMax, ResetChannel: reset.Key()}},
 				{{
-					Type:         apichannel.OperationTypeAvg,
+					Type:         channel.OperationTypeAvg,
 					ResetChannel: reset.Key(),
 					Duration:     telem.Second,
 				}},
-				{{Type: apichannel.OperationTypeDerivative}},
-				{{Type: apichannel.OperationTypeNone}},
+				{{Type: channel.OperationTypeDerivative}},
+				{{Type: channel.OperationTypeNone}},
 			} {
 				req := calculated(input)
 				req.Operations = ops
@@ -249,8 +249,8 @@ var _ = Describe("Old API breaker a4", func() {
 			Expect(xmsgpack.Codec.Decode(body, &req)).To(Succeed())
 			MustSucceed(dispatch(AuthedCtx(ctx, u), req))
 			Expect(retrieveOne(ctx, created.Key).Operations).To(Equal(
-				[]apichannel.Operation{{
-					Type:     apichannel.OperationTypeAvg,
+				[]channel.Operation{{
+					Type:     channel.OperationTypeAvg,
 					Duration: telem.Second,
 				}},
 			))
@@ -267,8 +267,8 @@ var _ = Describe("Old API breaker a4", func() {
 				},
 			)).Channels[0]
 			expression := fmt.Sprintf("return %s * 5", input.Name)
-			ops := []apichannel.Operation{
-				{Type: apichannel.OperationTypeMin, Duration: telem.Second},
+			ops := []channel.Operation{
+				{Type: channel.OperationTypeMin, Duration: telem.Second},
 			}
 			Expect(dispatchTo(
 				ctx,
