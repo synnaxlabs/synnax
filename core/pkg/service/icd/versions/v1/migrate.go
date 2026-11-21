@@ -107,5 +107,10 @@ func MigrateJSONField(ctx context.Context, old v0.JSONField) (JSONField, error) 
 	return JSONField{Variant: stamp}, nil
 }
 
+// MigrateJSONMatch lifts a v0 JSON match rule to v1.
+func MigrateJSONMatch(ctx context.Context, old v0.JSONMatch) (JSONMatch, error) {
+	return autoMigrateJSONMatch(ctx, old)
+}
+
 // Migration lifts stored ICDs from v0 to v1.
 var Migration = migrate.NewEntry("v63_message_cycle_time", MigrateICD)

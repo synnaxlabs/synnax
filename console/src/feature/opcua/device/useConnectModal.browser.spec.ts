@@ -10,6 +10,7 @@
 import { type rack, task, TimeSpan } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { binary } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -179,9 +180,7 @@ const clickSecurityMode = (mode: string): void => {
 };
 
 const toDER = (pem: string): Uint8Array =>
-  new Uint8Array(
-    Buffer.from(pem.replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, ""), "base64"),
-  );
+  binary.decodeBase64(pem.replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, ""));
 
 afterEach(() => {
   vi.restoreAllMocks();

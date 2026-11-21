@@ -147,6 +147,24 @@ var _ = Describe("JSONEncoder", func() {
 		)
 	})
 
+	It("Should give a present rule its value from a field inside its pointer", func() {
+		enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
+			Name: "fault",
+			Payload: icd.JSONPayload{
+				Match: &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+					JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/fault"},
+				}},
+				Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
+					Key: fixedKey, Name: "code", Scale: 1, Pointer: "/fault/code",
+				}}},
+			},
+			Bindings: []codec.Binding{{Field: fixedKey, DataType: telem.Float64T}},
+		}))
+		Expect(enc.Encode(nil, [][]byte{float64Sample(2)})).To(
+			MatchJSON(`{"fault":{"code":2}}`),
+		)
+	})
+
 	DescribeTable("Should write the default of a field with no channel",
 		func(field icd.JSONField, expected string) {
 			enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{field})))
@@ -311,6 +329,46 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(first).ToNot(Equal(uuid.Nil()))
 		Expect(second).ToNot(Equal(first))
 	})
+
+	DescribeTable("Should write a generated default beside a match rule",
+		func(match icd.JSONMatch, expectedType string) {
+			enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
+				Name: "status",
+				Payload: icd.JSONPayload{
+					Match: &match,
+					Fields: []icd.JSONField{{Variant: icd.UuidJSONField{
+						Key:     uuid.New(),
+						Name:    "id",
+						Scale:   1,
+						Pointer: "/id",
+						Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+					}}},
+				},
+			}))
+			var doc struct {
+				Type string `json:"type"`
+				ID   string `json:"id"`
+			}
+			Expect(
+				json.Unmarshal(MustSucceed(enc.Encode(nil, nil)), &doc),
+			).To(Succeed())
+			Expect(doc.Type).To(Equal(expectedType))
+			Expect(MustSucceed(uuid.Parse(doc.ID))).ToNot(Equal(uuid.Nil()))
+		},
+		Entry("a rule that writes its value",
+			icd.JSONMatch{Variant: icd.StringJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
+				Value:         "status",
+			}},
+			"status",
+		),
+		Entry("a rule on a present field",
+			icd.JSONMatch{Variant: icd.PresentJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/id"},
+			}},
+			"",
+		),
+	)
 
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
@@ -564,6 +622,20 @@ var _ = Describe("JSONEncoder", func() {
 			},
 			`message command: match: pointer "/10" holds an array index, which a `+
 				"document cannot place: validation error",
+		),
+		Entry("a present rule with no field at or inside its pointer",
+			codec.JSONMessage{
+				Name: "command",
+				Payload: icd.JSONPayload{
+					Match: &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+						JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/fault"},
+					}},
+					Fields: []icd.JSONField{floatField("temp", fixedKey, 1, 0)},
+				},
+				Bindings: []codec.Binding{{Field: fixedKey, DataType: telem.Float64T}},
+			},
+			`message command: match: no field is at or inside "/fault": `+
+				"validation error",
 		),
 		Entry("a scaled field with an integer channel",
 			message(
