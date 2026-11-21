@@ -44,6 +44,7 @@ import { Session } from "@/session";
 import {
   createConsoleWrapper,
   createTestClientWithGrants,
+  createTestClientWithHeldGrants,
   type TestStore,
 } from "@/testutil";
 
@@ -152,22 +153,6 @@ const leafTabs = async (key: panel.Key): Promise<panel.Tab[]> => {
   const { root } = await client.panels.retrieve(key);
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
   return root.tabs;
-};
-
-/**
- * Holds every grant read of the client until the returned function is called. The read
- * then runs against the Core.
- */
-const holdGrants = (as: Client): (() => void) => {
-  const { granted } = as.access;
-  const retrieve = granted.retrieve.bind(granted);
-  let resume = (): void => {};
-  const held = new Promise<void>((resolve) => (resume = resolve));
-  vi.spyOn(granted, "retrieve").mockImplementation(async (...args) => {
-    await held;
-    return await retrieve(...args);
-  });
-  return resume;
 };
 
 describe("app/triggers", () => {
@@ -305,11 +290,10 @@ describe("app/triggers", () => {
         variant: "leaf",
         tabs: [closed, kept],
       });
-      const editor = await createTestClientWithGrants(client, {
-        retrieve: [panel.TYPE_RESOURCE_ID],
-        update: [panel.TYPE_RESOURCE_ID],
-      });
-      const resume = holdGrants(editor);
+      const { client: editor, release: resume } = await createTestClientWithHeldGrants(
+        client,
+        { retrieve: [panel.TYPE_RESOURCE_ID], update: [panel.TYPE_RESOURCE_ID] },
+      );
       const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
       focusTab(store, pan.key, closed.key);
       expect(canEditPanel()).toBeUndefined();
@@ -331,11 +315,10 @@ describe("app/triggers", () => {
         variant: "leaf",
         tabs: [viewTab()],
       });
-      const editor = await createTestClientWithGrants(client, {
+      const { client: editor } = await createTestClientWithHeldGrants(client, {
         retrieve: [panel.TYPE_RESOURCE_ID],
         update: [panel.TYPE_RESOURCE_ID],
       });
-      holdGrants(editor);
       const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
       expect(canEditPanel()).toBeUndefined();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
