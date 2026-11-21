@@ -19,6 +19,7 @@ import { type KeyboardEvent, useEffect, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
+import { openContextMenu } from "@/menu/keyboard";
 import { useRegistryContext } from "@/select/registry";
 import {
   type Cursor,
@@ -115,14 +116,25 @@ export interface UseReturn<K extends record.Key> extends Omit<
   clear: () => void;
 }
 
+/**
+ * @returns a function that finds the element of an option, fixed or in the list, or
+ * undefined when the option is not rendered.
+ */
+export const useGetElement = (): ((key: record.Key) => HTMLElement | undefined) => {
+  const registry = useRegistryContext("Select.Frame");
+  const getRowElement = List.useGetElement();
+  return (key) =>
+    registry.hasItem(key)
+      ? (registry.getElement(key) ?? undefined)
+      : getRowElement(key);
+};
+
 // The registry holds keys of every selection's type, so the order narrows them to K.
 const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
-  const getRowElement = List.useGetElement();
+  const getElement = useGetElement();
   const getOrder = () => registry.getOrder(getData()) as K[];
-  const getElement = (key: K) =>
-    registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
   const scrollTo = (key: K, direction: location.Y) => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
@@ -135,16 +147,7 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     );
   const contextMenu = (key: K) => {
     const element = getElement(key);
-    if (element == null) return;
-    const { left, bottom } = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: left,
-        clientY: bottom,
-      }),
-    );
+    if (element != null) openContextMenu(element);
   };
   return {
     getOrder,

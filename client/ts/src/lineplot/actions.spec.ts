@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, TimeStamp } from "@synnaxlabs/x";
+import { freeze } from "immer";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
@@ -273,6 +274,21 @@ describe("lineplot reducer", () => {
     const red = fixed("#FF0000");
     const t0 = new TimeStamp(5);
     const styled: ranger.Ref = { variant: "key", key: r1, t0, color: red };
+
+    it("should color a range that a frozen action earlier in the batch adds", () => {
+      const add = freeze(
+        lineplot.addRange({ range: { variant: "key", key: r1, t0 } }),
+        true,
+      );
+      const { next } = lineplot.reduceAll(createEmpty(), [
+        add,
+        lineplot.setRangeColor({ range: keyRef(r1), color: red }),
+      ]);
+      expect(next.ranges).toEqual([styled]);
+      expect(next.ranges[0].variant === "key" && next.ranges[0].t0).toBeInstanceOf(
+        TimeStamp,
+      );
+    });
 
     it("should not add a second reference to a range with another T0 or color", () => {
       const state = createEmpty({ ranges: [keyRef(r1)] });

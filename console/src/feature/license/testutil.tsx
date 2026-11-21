@@ -11,6 +11,7 @@ import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { screen } from "@testing-library/react";
 
 import { Guard } from "@/feature/license/Guard";
+import type { Portal } from "@/platform/portal";
 import { renderWithStatus, type StatusHarness } from "@/testutil";
 
 export const GUARDED_CONTENT = "licensed content";
@@ -19,19 +20,20 @@ export const GUARDED_CONTENT = "licensed content";
 export const HANDOFF_CODE = /^[0-9a-f-]{36}$/;
 
 /**
- * Renders a {@link Guard} over {@link GUARDED_CONTENT} with the given client and
- * connection status. The client stays unconnected, because an unlicensed Core never
- * settles a connection.
+ * Renders a {@link Guard} over {@link GUARDED_CONTENT} with the given client,
+ * connection status, and portal. The client stays unconnected, because an unlicensed
+ * Core never settles a connection.
  */
 export const renderGuard = async (
   client: Client | null,
   status?: connection.Status,
+  portal?: Portal.Client,
 ): Promise<StatusHarness> =>
   await renderWithStatus(
     <Guard>
       <span>{GUARDED_CONTENT}</span>
     </Guard>,
-    { client, status },
+    { client, status, portal },
   );
 
 /** Finds the button labeled `label` that opens the portal, and returns its link. */

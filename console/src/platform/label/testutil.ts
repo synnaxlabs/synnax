@@ -32,6 +32,19 @@ export const searchAndClickLabelOption = async (name: string): Promise<void> => 
 };
 
 /**
+ * Returns the color of the dot beside the element, such as the dot of a label tag,
+ * option, or filter chip, or null if it has none. It reads the first dot in the nearest
+ * element around it that holds one.
+ */
+export const dotColorBeside = (element: HTMLElement): string | null => {
+  for (let el: HTMLElement | null = element; el != null; el = el.parentElement) {
+    const dot = el.querySelector("svg[color]");
+    if (dot != null) return dot.getAttribute("color");
+  }
+  return null;
+};
+
+/**
  * Creates a real label on the connected Core with a unique name. The overrides replace
  * those defaults. The label is deleted once the test finishes, so call it only inside a
  * test.
@@ -42,7 +55,7 @@ export const createTestLabel = async (
 ): Promise<label.Label> => {
   const l = await client.labels.create({
     name: uniqueName("label"),
-    color: "#000000",
+    color: { type: "fixed", value: "#000000" },
     ...overrides,
   });
   onTestFinished(async () => await client.labels.delete(l.key));

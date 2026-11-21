@@ -12,9 +12,11 @@ import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 
-@go output "core/pkg/service/color"
-@py output "client/py/synnax/color"
-@ts output "client/ts/src/color"
+@cpp output "client/cpp/color"
+@go output  "core/pkg/service/color"
+@pb
+@py output  "client/py/synnax/color"
+@ts output  "client/ts/src/color"
 
 Key = uuid {
     @doc value "is the key of a named color."
@@ -73,6 +75,7 @@ Named struct {
 
     action Move = patch.Move
 
+    @cpp omit
     @create
     @doc value     """
         is a color with a name. A record that uses it holds its key, so an edit to the
@@ -80,6 +83,7 @@ Named struct {
     """
     @go marshal
     @go migrate
+    @pb omit
     @resource type "color"
     @retrieve
     @retrieve noun "color"
@@ -95,8 +99,10 @@ Where filter Named {
         @doc value "matches the named colors in a palette, or in no palette when false."
     }
 
+    @cpp omit
     @doc value         "is a filter that selects named colors."
     @go request_output "core/pkg/api/color"
+    @pb omit
 }
 
 Ref union on type {

@@ -20,9 +20,10 @@ import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFailed, vi } from "vitest";
 
 import { Account } from "@/feature/account";
-import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { findButton, getSwitch } from "@/platform/modals/testutil";
+import { Portal } from "@/platform/portal";
+import { TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -196,14 +197,12 @@ describe("Account.Guard", () => {
   it("should open the hub with the state it minted", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { client, store } = await renderGuard({ status: UNLICENSED_STATUS });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
+    expect(url.origin + url.pathname).toBe(`${TEST_URL}/desktop/login`);
     const { fingerprint } = await client.license.retrieve();
-    expect(url.searchParams.get("fp")).toBe(License.joinFingerprint(fingerprint));
+    expect(url.searchParams.get("fp")).toBe(Portal.joinFingerprint(fingerprint));
     expect(url.searchParams.get("name")).toBe("Synnax Desktop");
     expect(url.searchParams.get("state")).toBe(
       Session.Account.selectPending(store.getState()),
@@ -215,9 +214,7 @@ describe("Account.Guard", () => {
     // A new state would make the first page's login link fail to finish.
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { store } = await renderGuard({ status: UNLICENSED_STATUS });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     expect(await screen.findByText("Finish in your browser")).toBeTruthy();
     fireEvent.click(findButton("Open the page again"));
     await waitFor(() => expect(open).toHaveBeenCalledTimes(2));
@@ -234,9 +231,7 @@ describe("Account.Guard", () => {
       status: UNLICENSED_STATUS,
       account: { ...Session.Account.ZERO_SLICE_STATE, pending: "minted" },
     });
-    const login = findButton("Log in");
-    await waitFor(() => expect(login.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(login);
+    fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
     expect(url.searchParams.get("state")).toBe("minted");

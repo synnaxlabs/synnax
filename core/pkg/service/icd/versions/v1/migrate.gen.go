@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func autoMigrateICD(ctx context.Context, old v0.ICD) (ICD, error) {
@@ -32,10 +33,82 @@ func autoMigrateICD(ctx context.Context, old v0.ICD) (ICD, error) {
 	}, nil
 }
 
-func autoMigrateMessage(_ context.Context, old v0.Message) (Message, error) {
+func autoMigrateMessage(ctx context.Context, old v0.Message) (Message, error) {
+	payload, err := autoMigratePayload(ctx, old.Payload)
+	if err != nil {
+		return Message{}, err
+	}
 	return Message{
 		Key:     old.Key,
 		Name:    old.Name,
-		Payload: old.Payload,
+		Payload: payload,
 	}, nil
+}
+
+func autoMigratePayload(ctx context.Context, old v0.Payload) (Payload, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return Payload{}, nil
+	case v0.BinaryPayload:
+		return Payload{Variant: BinaryPayload{
+			Length:     variant.Length,
+			Identifier: variant.Identifier,
+			Fields:     variant.Fields,
+		}}, nil
+	case v0.TextPayload:
+		return Payload{Variant: TextPayload{
+			Delimiter: variant.Delimiter,
+			Prefix:    variant.Prefix,
+			Fields:    variant.Fields,
+		}}, nil
+	case v0.JSONPayload:
+		var match *JSONMatch
+		if variant.Match != nil {
+			v, err := MigrateJSONMatch(ctx, *variant.Match)
+			if err != nil {
+				return Payload{}, err
+			}
+			match = &v
+		}
+		return Payload{Variant: JSONPayload{
+			Match:  match,
+			Fields: variant.Fields,
+		}}, nil
+	default:
+		return Payload{}, errors.Newf("unknown Payload variant %T", variant)
+	}
+}
+
+func autoMigrateJSONMatch(_ context.Context, old v0.JSONMatch) (JSONMatch, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return JSONMatch{}, nil
+	case v0.FloatJSONMatch:
+		return JSONMatch{Variant: FloatJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.IntegerJSONMatch:
+		return JSONMatch{Variant: IntegerJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.UnsignedJSONMatch:
+		return JSONMatch{Variant: UnsignedJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.StringJSONMatch:
+		return JSONMatch{Variant: StringJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	case v0.BooleanJSONMatch:
+		return JSONMatch{Variant: BooleanJSONMatch{
+			JSONBaseMatch: variant.JSONBaseMatch,
+			Value:         variant.Value,
+		}}, nil
+	default:
+		return JSONMatch{}, errors.Newf("unknown JSONMatch variant %T", variant)
+	}
 }
