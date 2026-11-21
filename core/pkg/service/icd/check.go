@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -144,8 +145,7 @@ func (c *checker) checkMessage(path []string, m Message) {
 					c.addf(pathOf(fieldPath, "tag"), "tag is required")
 				}
 			}
-			if d := f.Base().Default; d != nil &&
-				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+			if d := f.Base().Default; d != nil && !xmath.Finite(*d) {
 				c.addf(pathOf(fieldPath, "default"), "default must be finite")
 			}
 		}
@@ -205,8 +205,7 @@ func (c *checker) checkJSONFields(
 		c.checkEnumLabels(fieldPath, f)
 		switch v := f.Variant.(type) {
 		case FloatJSONField:
-			if d := v.Default; d != nil &&
-				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+			if d := v.Default; d != nil && !xmath.Finite(*d) {
 				c.addf(pathOf(fieldPath, "default"), "default must be finite")
 			}
 		case BytesJSONField:
@@ -285,8 +284,7 @@ func (c *checker) checkMatch(path []string, m JSONMatch) {
 		// The root holds a value in every document.
 		c.addf(pathOf(path, "pointer"), "pointer must not be empty")
 	}
-	if f, ok := m.Variant.(FloatJSONMatch); ok &&
-		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
+	if f, ok := m.Variant.(FloatJSONMatch); ok && !xmath.Finite(f.Value) {
 		c.addf(pathOf(path, "value"), "value must be finite")
 	}
 }
@@ -322,14 +320,14 @@ func (c *checker) checkUnscaled(path []string, b BaseField) {
 }
 
 func (c *checker) checkScaling(path []string, b BaseField) {
-	if math.IsNaN(b.Scale) || math.IsInf(b.Scale, 0) || b.Scale == 0 {
+	if !xmath.Finite(b.Scale) || b.Scale == 0 {
 		c.addf(pathOf(path, "scale"), "scale must be finite and non-zero")
 	}
-	if math.IsNaN(b.Offset) || math.IsInf(b.Offset, 0) {
+	if !xmath.Finite(b.Offset) {
 		c.addf(pathOf(path, "offset"), "offset must be finite")
 	}
 	finite := func(name string, v *float64) bool {
-		if v != nil && (math.IsNaN(*v) || math.IsInf(*v, 0)) {
+		if v != nil && !xmath.Finite(*v) {
 			c.addf(pathOf(path, name), "%s must be finite", name)
 			return false
 		}
@@ -497,7 +495,7 @@ func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
 		}
 		d := float64(*v.Default)
 		switch {
-		case math.IsNaN(d) || math.IsInf(d, 0):
+		case !xmath.Finite(d):
 			c.addf(defaultPath, "default must be finite")
 		case n == 32 && math.Abs(d) > math.MaxFloat32:
 			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
