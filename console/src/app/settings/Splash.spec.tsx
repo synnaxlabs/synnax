@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Settings } from "@/app/settings";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
-import { renderWithConsole } from "@/testutil";
+import { LAZY_WAIT, renderWithConsole } from "@/testutil";
 
 describe("Settings.Splash", () => {
   const querySplash = (container: HTMLElement): Element | null =>
@@ -26,7 +26,9 @@ describe("Settings.Splash", () => {
       </Project.Guard>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(await screen.findByRole("navigation", { name: "Settings" })).toBeDefined();
+    expect(
+      await screen.findByRole("navigation", { name: "Settings" }, LAZY_WAIT),
+    ).toBeDefined();
     expect(querySplash(container)).toBeNull();
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Projects" }));
@@ -41,7 +43,9 @@ describe("Settings.Splash", () => {
       </Project.Guard>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(await screen.findByRole("navigation", { name: "Settings" })).toBeDefined();
+    expect(
+      await screen.findByRole("navigation", { name: "Settings" }, LAZY_WAIT),
+    ).toBeDefined();
     act(() => {
       store.dispatch(Session.Project.select("00000000-0000-0000-0000-000000000001"));
     });

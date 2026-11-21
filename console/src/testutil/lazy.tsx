@@ -7,10 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RenderOptions, type RenderResult, waitFor } from "@testing-library/react";
+import {
+  type RenderOptions,
+  type RenderResult,
+  waitFor,
+  type waitForOptions,
+} from "@testing-library/react";
 import { type ReactElement, Suspense, useEffect } from "react";
 
 import { renderSuspended } from "@/testutil/testutil";
+
+/**
+ * Wait options for a query whose element a lazy module renders, such as one that a
+ * user action mounts. A cold module load can outlast the default query wait, so the
+ * wait ends only short of the test timeout.
+ */
+export const LAZY_WAIT: waitForOptions = { timeout: 10_000 };
 
 interface LoadProbeProps {
   onLoad: () => void;
@@ -24,9 +36,9 @@ const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
 
 /**
  * Renders ui inside a Suspense boundary and resolves once the boundary leaves its
- * fallback, so queries run against loaded lazy components. A cold module load can
- * outlast the default query wait, so the wait ends only short of the test timeout.
- * Rejects when the boundary does not load, with the first caught error as the cause.
+ * fallback, so queries run against loaded lazy components. It waits as long as
+ * LAZY_WAIT, and rejects when the boundary does not load, with the first caught error
+ * as the cause.
  */
 export const renderLazy = async (
   ui: ReactElement,
@@ -55,12 +67,9 @@ export const renderLazy = async (
     },
   );
   // waitFor runs outside act, since act holds React's retry until its callback returns.
-  await waitFor(
-    () => {
-      if (loaded) return;
-      throw new Error("The lazy component did not load", { cause: loadError });
-    },
-    { timeout: 10_000 },
-  );
+  await waitFor(() => {
+    if (loaded) return;
+    throw new Error("The lazy component did not load", { cause: loadError });
+  }, LAZY_WAIT);
   return result;
 };
