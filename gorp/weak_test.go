@@ -145,6 +145,15 @@ var _ = Describe("Weak reference", func() {
 	Describe("Delete with Held", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 
+		It("Should fail on a Delete that no table built", func(ctx SpecContext) {
+			Expect(gorp.NewDelete[uint32, weakChannel]().
+				Where(gorp.MatchKeys[uint32, weakChannel](1)).
+				Held(func(context.Context, gorp.Tx, weakChannel, []gorp.Dependent) error {
+					return nil
+				}).
+				Exec(ctx, db)).To(MatchError(ContainSubstring("Held needs a Delete")))
+		})
+
 		type call struct {
 			entry weakChannel
 			held  []gorp.Dependent
