@@ -84,4 +84,43 @@ var _ = Describe("Calculation status checks", func() {
 		Expect(got.Expression).To(BeEmpty())
 		Expect(got.Status).To(BeNil())
 	})
+
+	// A8: the old API shows the output of a hidden calculation as a plain virtual
+	// channel, so its virtual filter must match that output for the same subject.
+	It("Should match the output of a hidden calculation as virtual", func(
+		ctx SpecContext,
+	) {
+		owner := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
+			user.User{Name: "virtual-owner-" + uuid.New().String()}))
+		grantOn(ctx, owner.ResourceID(), access.AllActions,
+			resource.ID{Type: resource.TypeChannel},
+			resource.ID{Type: resource.TypeCalculation},
+			resource.ID{Type: resource.TypeFramer},
+			resource.ID{Type: resource.TypeGroup},
+		)
+		input := createChannel(ctx, telem.Float32T)
+		ch := MustSucceed(createChannels(
+			AuthedCtx(ctx, owner),
+			apichannel.CreateRequest{Channels: []apichannel.Channel{{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s * 2", input.Name),
+			}}},
+		)).Channels[0]
+		reader := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc,
+			user.User{Name: "virtual-reader-" + uuid.New().String()}))
+		grantOn(ctx, reader.ResourceID(), []access.Action{access.ActionRetrieve},
+			resource.ID{Type: resource.TypeChannel})
+		virtual := true
+		res := MustSucceed(retrieveChannels(AuthedCtx(ctx, reader),
+			apichannel.RetrieveRequest{Where: &channel.Where{
+				Key:     &filter.Set[channel.Key]{Eq: &ch.Key},
+				Virtual: &virtual,
+			}}))
+		Expect(res.Channels).To(ConsistOf(SatisfyAll(
+			HaveField("Key", ch.Key),
+			HaveField("Expression", BeEmpty()),
+		)))
+	})
 })
