@@ -125,27 +125,85 @@ func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 	return <-r.done
 }
 
-// carry hands seg, which a part now holds, to each step in progress that took its part
-// records before seg was tagged: a delete or a Drop of the clock of seg, and the
-// durable apply of a visible commit of the key of seg. Each would miss seg otherwise,
-// since its checks skip tagged segments.
-func (c *core) carry(seg *segState) {
-	user := User{Key: seg.key, Segment: seg.vis}
-	if seg.vis.Clock != seg.key {
-		if ch := c.channels[seg.vis.Clock]; ch != nil {
-			for _, cl := range ch.claims {
-				if cl.w == nil && overlaps(seg.vis.Pointers, cl.start, cl.end) {
-					cl.users = append(cl.users, user)
-				}
+// pendingSeg is a segment with visible commits that are not durable yet, and the time
+// range of their pointers.
+type pendingSeg struct {
+	seg         *segState
+	first, last telem.TimeStamp
+}
+
+// pending returns the segments of c with visible commits that are not durable yet.
+func (c *chanState) pending() []pendingSeg {
+	var out []pendingSeg
+	for _, s := range c.segs {
+		if s.dur.length >= s.vis.Length {
+			continue
+		}
+		// The last durable pointer may grow with the commits after it.
+		ptrs := s.vis.Pointers[max(len(s.dur.pointers)-1, 0):]
+		p := pendingSeg{seg: s, first: ptrs[0].First, last: ptrs[0].Last}
+		for _, ptr := range ptrs[1:] {
+			p.first, p.last = min(p.first, ptr.First), max(p.last, ptr.Last)
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// carried holds the steps in progress of one key and its clock that a tagged segment
+// of the key goes to, which a run of tags of the key looks up once.
+type carried struct {
+	key, clock uint32
+	found      bool
+	// pending are the segments of the key with commits that are not durable yet.
+	pending []pendingSeg
+	// deletes are the delete claims on the clock.
+	deletes []*claim
+	// dropping is true when BeginDrop took the clock.
+	dropping bool
+}
+
+// find looks up the steps in progress of key and its clock.
+func (st *carried) find(c *core, key, clock uint32) {
+	*st = carried{
+		key:     key,
+		clock:   clock,
+		found:   true,
+		pending: c.channels[key].pending(),
+	}
+	if clock == key {
+		return
+	}
+	if ch := c.channels[clock]; ch != nil {
+		for _, cl := range ch.claims {
+			if cl.w == nil {
+				st.deletes = append(st.deletes, cl)
 			}
 		}
-		if users, ok := c.dropUsers[seg.vis.Clock]; ok {
-			c.dropUsers[seg.vis.Clock] = append(users, user)
+	}
+	_, st.dropping = c.dropUsers[clock]
+}
+
+// carry hands seg, which a part now holds, to each step in progress that took its part
+// records before seg was tagged: a delete or a Drop of the clock of seg, and the
+// durable apply of the commits of the key of seg that are not durable. Each would miss
+// seg otherwise, since its checks skip tagged segments.
+func (st *carried) carry(c *core, seg *segState) {
+	if !st.found || st.key != seg.key || st.clock != seg.vis.Clock {
+		st.find(c, seg.key, seg.vis.Clock)
+	}
+	user := User{Key: seg.key, Segment: seg.vis}
+	for _, cl := range st.deletes {
+		if overlaps(seg.vis.Pointers, cl.start, cl.end) {
+			cl.users = append(cl.users, user)
 		}
 	}
-	for _, s := range c.channels[seg.key].segs {
-		if s != seg && s.dur.length < s.vis.Length {
-			s.pre = union(s.pre, []Segment{seg.vis})
+	if st.dropping {
+		c.dropUsers[st.clock] = append(c.dropUsers[st.clock], user)
+	}
+	for _, p := range st.pending {
+		if p.seg != seg && overlaps(seg.vis.Pointers, p.first, p.last) {
+			p.seg.pre = append(p.seg.pre, seg.vis)
 		}
 	}
 }

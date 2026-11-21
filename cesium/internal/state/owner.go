@@ -319,13 +319,14 @@ func (r *partedRequest) run(s *State) {
 	r.swap()
 	s.core.head = r.generation
 	changed := set.New[uint32]()
+	var steps carried
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
 		if !ok || !sameRecord(seg.vis, t.Segment) {
 			continue
 		}
 		seg.vis.Part = t.Part
-		s.core.carry(seg)
+		steps.carry(s.core, seg)
 		changed.Add(seg.key)
 	}
 	// A part holds each tagged segment as it is, and its file stays for the reads of
