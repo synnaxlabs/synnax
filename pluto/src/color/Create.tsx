@@ -12,7 +12,6 @@ import "@/color/Create.css";
 import { color, group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -209,32 +208,26 @@ export const CreatePalette = (): ReactElement => {
     if (extendable) focusPalette(key);
     else setFocused(true);
   };
-  return (
-    <Flex.Box y empty>
-      <Divider.Divider x padded className={CSS.BE("color-create-palette", "divider")} />
-      {naming ? (
-        <NameEntry
-          placeholder="Palette name"
-          onSave={handleSave}
-          saving={variant === "loading"}
-          onCancel={() => {
-            setFocused(true);
-            setNaming(false);
-          }}
-        />
-      ) : (
-        <Button.CreateListItem
-          size="small"
-          className={CSS.B("color-create-palette")}
-          autoFocus={focused}
-          onClick={() => {
-            setFocused(false);
-            setNaming(true);
-          }}
-        >
-          Create palette
-        </Button.CreateListItem>
-      )}
-    </Flex.Box>
+  return naming ? (
+    <NameEntry
+      placeholder="Palette name"
+      onSave={handleSave}
+      saving={variant === "loading"}
+      onCancel={() => {
+        setFocused(true);
+        setNaming(false);
+      }}
+    />
+  ) : (
+    <Button.CreateListItem
+      size="small"
+      autoFocus={focused}
+      onClick={() => {
+        setFocused(false);
+        setNaming(true);
+      }}
+    >
+      Create palette
+    </Button.CreateListItem>
   );
 };

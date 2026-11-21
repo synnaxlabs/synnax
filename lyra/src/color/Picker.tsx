@@ -169,7 +169,7 @@ const Tabbed = ({
   value,
   onChange,
   fallback,
-  library: { palettes, named, onNamedChange, ...slots },
+  library: { palettes, named, onNamedChange, footer, ...slots },
   className,
   ...rest
 }: TabbedProps): ReactElement => {
@@ -277,6 +277,11 @@ const Tabbed = ({
               onPaletteFocus={() => setFocusedPalette(undefined)}
               {...slots}
             />
+            {footer != null && (
+              <Flex.Box y empty className={CSS.BE("color-picker", "footer")}>
+                {footer}
+              </Flex.Box>
+            )}
           </>
         ) : (
           <Flex.Box y gap="medium" className={CSS.BE("color-picker", "custom")}>
@@ -448,7 +453,7 @@ const PaletteSection = ({
 
 interface PalettesProps
   extends
-    Pick<Library, "paletteEnd" | "swatchMenu" | "hasSwatchMenu" | "footer">,
+    Pick<Library, "paletteEnd" | "swatchMenu" | "hasSwatchMenu">,
     Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
@@ -473,7 +478,6 @@ const Palettes = ({
   paletteEnd,
   swatchMenu,
   hasSwatchMenu,
-  footer,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
   const term = search.trim().toLowerCase();
@@ -514,7 +518,6 @@ const Palettes = ({
           hasSwatchMenu={hasSwatchMenu}
         />
       ))}
-      {footer}
     </Flex.Box>
   );
 };

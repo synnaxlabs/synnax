@@ -15,7 +15,9 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
@@ -26,26 +28,37 @@ const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
   light: `#${(i * 20).toString(16).padStart(2, "0")}8040`,
 }));
 
-const renderLibrary = async (
-  value?: string,
-  paletteEnd?: ReactNode,
-  swatchMenu?: ReactNode,
-): Promise<HTMLElement> => {
-  await renderThemed(
+interface RenderLibraryOptions
+  extends
+    Pick<Color.PickerProps, "style">,
+    Pick<Color.Library, "paletteEnd" | "swatchMenu" | "footer"> {
+  value?: string;
+}
+
+const renderLibrary = async ({
+  value,
+  style,
+  paletteEnd,
+  swatchMenu,
+  footer,
+}: RenderLibraryOptions = {}): Promise<HTMLElement> => {
+  const { container } = await renderThemed(
     <Triggers.Provider>
       <Color.Picker
         value={value}
+        style={style}
         onChange={() => {}}
         library={{
           palettes: [{ key: "p", name: "Palette", colors: COLORS }],
           onNamedChange: () => {},
           paletteEnd,
           swatchMenu,
+          footer,
         }}
       />
     </Triggers.Provider>,
   );
-  const picker = document.querySelector(`.${CSS.B("color-picker")}`);
+  const picker = container.querySelector(`.${CSS.B("color-picker")}`);
   assert(picker instanceof HTMLElement);
   return picker;
 };
@@ -61,6 +74,10 @@ const swatchRect = (i: number): DOMRect =>
     .getByRole("button", { name: `Color ${i}`, exact: true })
     .element()
     .getBoundingClientRect();
+
+const CREATE = (
+  <Button.CreateListItem size="small">Create palette</Button.CreateListItem>
+);
 
 const SwatchMenu = (): ReactElement | null => {
   const { swatch } = Color.usePalette();
@@ -87,12 +104,13 @@ describe("Picker", () => {
     });
 
     it("should size a slotted button as a swatch", async () => {
-      await renderLibrary(
-        undefined,
-        <Button.Button variant="outlined" square aria-label="Add">
-          <Icon.Add />
-        </Button.Button>,
-      );
+      await renderLibrary({
+        paletteEnd: (
+          <Button.Button variant="outlined" square aria-label="Add">
+            <Icon.Add />
+          </Button.Button>
+        ),
+      });
       const add = page.getByRole("button", { name: "Add" }).element();
       const s = swatchRect(0);
       expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
@@ -100,7 +118,7 @@ describe("Picker", () => {
     });
 
     it("should focus a right-clicked swatch after an item opens a view and Back", async () => {
-      await renderLibrary(undefined, undefined, <SwatchMenu />);
+      await renderLibrary({ swatchMenu: <SwatchMenu /> });
       const swatch = page.getByRole("button", { name: "Color 2", exact: true });
       await userEvent.click(swatch, { button: "right" });
       await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
@@ -110,7 +128,7 @@ describe("Picker", () => {
     });
 
     it("should take the width of an open view, not its own", async () => {
-      const picker = await renderLibrary(undefined, undefined, <SwatchMenu />);
+      const picker = await renderLibrary({ swatchMenu: <SwatchMenu /> });
       const swatch = page.getByRole("button", { name: "Color 2", exact: true });
       await userEvent.click(swatch, { button: "right" });
       await userEvent.click(page.getByRole("menuitem", { name: "Edit" }));
@@ -145,14 +163,14 @@ describe("Picker", () => {
     });
 
     it("should fit the widest hex code in the Custom tab", async () => {
-      await renderLibrary("#cccccc");
+      await renderLibrary({ value: "#cccccc" });
       const hex = page.getByRole("textbox", { name: "Hex" }).element();
       assert(hex instanceof HTMLInputElement);
       expect(hex.scrollWidth).toBeLessThanOrEqual(hex.clientWidth);
     });
 
     it("should draw the # of the Custom tab in the code font of the digits", async () => {
-      await renderLibrary("#cccccc");
+      await renderLibrary({ value: "#cccccc" });
       const hex = page.getByRole("textbox", { name: "Hex" }).element();
       const hash = hex
         .closest(`.${CSS.B("color-hex-text")}`)
@@ -170,6 +188,66 @@ describe("Picker", () => {
         rectOf(`.${CSS.BE("color-picker", "search")} svg`).left - picker.left;
       expect(tabs).toBeCloseTo(swatch, 0);
       expect(icon).toBeCloseTo(swatch, 0);
+    });
+
+    it("should keep an equal edge around the footer's create item, under a hairline across the picker", async () => {
+      const picker = (await renderLibrary({ footer: CREATE })).getBoundingClientRect();
+      const footer = document.querySelector(`.${CSS.BE("color-picker", "footer")}`);
+      assert(footer instanceof HTMLElement);
+      const f = footer.getBoundingClientRect();
+      const hairline = Number.parseFloat(getComputedStyle(footer).borderTopWidth);
+      expect(hairline).toBeGreaterThan(0);
+      expect(f.left).toBeCloseTo(picker.left, 0);
+      expect(f.right).toBeCloseTo(picker.right, 0);
+      const item = page
+        .getByRole("button", { name: "Create palette" })
+        .element()
+        .getBoundingClientRect();
+      const left = item.left - picker.left;
+      expect(left).toBeGreaterThan(0);
+      expect(picker.right - item.right).toBeCloseTo(left, 0);
+      expect(picker.bottom - item.bottom).toBeCloseTo(left, 0);
+      expect(item.top - (f.top + hairline)).toBeCloseTo(left, 0);
+    });
+
+    it("should keep the footer at the bottom while the palettes scroll", async () => {
+      const picker = await renderLibrary({
+        footer: CREATE,
+        style: { height: "26rem" },
+      });
+      const palettes = picker.querySelector(`.${CSS.BE("color-picker", "palettes")}`);
+      assert(palettes instanceof HTMLElement);
+      expect(palettes.scrollHeight).toBeGreaterThan(palettes.clientHeight);
+      const footer = `.${CSS.BE("color-picker", "footer")}`;
+      const bottom =
+        picker.getBoundingClientRect().bottom -
+        Number.parseFloat(getComputedStyle(picker).borderBottomWidth);
+      expect(rectOf(footer).bottom).toBeCloseTo(bottom, 0);
+      palettes.scrollTop = palettes.scrollHeight;
+      await expect.poll(() => palettes.scrollTop).toBeGreaterThan(0);
+      expect(rectOf(footer).bottom).toBeCloseTo(bottom, 0);
+    });
+
+    it("should give what replaces the footer's create item the same box", async () => {
+      const box = async (footer: ReactNode): Promise<number[]> => {
+        const picker = await renderLibrary({ footer });
+        const p = picker.getBoundingClientRect();
+        const child = picker.querySelector(`.${CSS.BE("color-picker", "footer")} > *`);
+        assert(child instanceof HTMLElement);
+        const c = child.getBoundingClientRect();
+        return [c.left - p.left, p.right - c.right, p.bottom - c.bottom, c.height];
+      };
+      const entry = (
+        <Flex.Box x align="center">
+          <Input.Text
+            value=""
+            onChange={() => {}}
+            size="small"
+            aria-label="Palette name"
+          />
+        </Flex.Box>
+      );
+      expect(await box(entry)).toEqual(await box(CREATE));
     });
   });
 });
