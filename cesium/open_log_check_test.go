@@ -158,6 +158,10 @@ func (im *images) failures(ctx context.Context) []string {
 	return out
 }
 
+// plainChannel prints each field of a channel, which the String of cesium.Channel does
+// not.
+type plainChannel cesium.Channel
+
 var _ = Describe("Pointer log open check", func() {
 	It("Should open each crash image of the first open of a database", func(
 		ctx SpecContext,
@@ -224,8 +228,7 @@ var _ = Describe("Pointer log open check", func() {
 			got, err := db.RetrieveChannel(ctx, 1)
 			if err != nil || got != ch {
 				failures = append(failures, fmt.Sprintf(
-					"run key %d: key %d, name %q, data type %s, index %d: %v",
-					runKey, got.Key, got.Name, got.DataType, got.Index, err,
+					"run key %d: %+v: %v", runKey, plainChannel(got), err,
 				))
 			}
 			Expect(closeImage()).To(Succeed())
@@ -238,9 +241,7 @@ var _ = Describe("Pointer log open check", func() {
 		disks := fault.Config{Capacity: log.FileSize + 1<<20}
 		disk := MustSucceed(fault.New(disks))
 		db, closeDB := MustSucceed2(openLog(ctx, disk))
-		Expect(db.CreateChannel(ctx, cesium.Channel{
-			Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
-		})).To(Succeed())
+		// The failed prepare of log 2 fills the disk, so the spec creates no channel.
 		// Each Intend takes one block of the log: its frame, then a mark at the next
 		// block boundary. 12,400 blocks pass three quarters of the log.
 		for range 12_400 {
@@ -251,4 +252,15 @@ var _ = Describe("Pointer log open check", func() {
 		_, closeImage := MustSucceed2(openLog(ctx, image))
 		Expect(closeImage()).To(Succeed())
 	})
+
+	It("Should create a channel on a disk with room for it but not for the next log",
+		func(ctx SpecContext) {
+			disk := MustSucceed(fault.New(fault.Config{Capacity: log.FileSize + 1<<20}))
+			db, closeDB := MustSucceed2(openLog(ctx, disk))
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(closeDB()).To(Succeed())
+		},
+	)
 })

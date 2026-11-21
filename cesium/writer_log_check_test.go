@@ -184,4 +184,25 @@ var _ = Describe("Pointer log writer check", func() {
 				To(MatchError(cesium.ErrChannelNotFound))
 		}
 	})
+
+	DescribeTable(
+		"Should refuse a create of a clock that a drop keeps for a key that it times",
+		func(ctx SpecContext, opts []cesium.Option) {
+			start(ctx, opts...)
+			w := openWriter(ctx, 10)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+			Expect(db.Intend([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: idx, Name: "again", IsIndex: true, DataType: telem.TimestampT,
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("already exists")),
+			))
+		},
+		Entry("old layout", []cesium.Option(nil)),
+		Entry("pointer log", []cesium.Option{cesium.WithPointerLog()}),
+	)
 })
