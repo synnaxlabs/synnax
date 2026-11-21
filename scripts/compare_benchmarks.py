@@ -179,6 +179,18 @@ GROUPS: tuple[Group, ...] = (
     go("api/stream", "cpu", "core/pkg/api/framer", "^BenchmarkStreamKeyChange$"),
     go("iterator/calc", "cpu", f"{FRAMER}/iterator", "^BenchmarkIteratorCalc_"),
     go(
+        "iterator/open",
+        "cpu",
+        f"{FRAMER}/iterator",
+        "^BenchmarkIteratorHistorical$/^rate=0.1hz$/^span=minute$",
+    ),
+    go(
+        "iterator/open-calcs",
+        "cpu",
+        f"{FRAMER}/iterator",
+        "^BenchmarkIteratorCalculatedCount$",
+    ),
+    go(
         "calculator", "cpu", f"{FRAMER}/calculation/calculator", "^BenchmarkCalculator_"
     ),
     vitest("ts/codec", "src/framer/codec.bench.ts"),
@@ -193,6 +205,14 @@ GROUPS: tuple[Group, ...] = (
     gbench("cpp/codec", "client/cpp/framer", "codec_bench"),
     gbench("driver/sample-clock", "driver/common", "sample_clock_bench"),
     go("floors/cpu", "cpu", "cesium", "^BenchmarkFloor(Copy|CRC32C)$", control=True),
+    go(
+        "floors/gorp",
+        "cpu",
+        "gorp",
+        "^Benchmark(RetrieveByKeys?|RetrieveByFilter|RetrieveExists"
+        "|LookupQueryViaIndex)$",
+        control=True,
+    ),
     go("floors", "io", "cesium", "^BenchmarkFloor", control=True),
 )
 
