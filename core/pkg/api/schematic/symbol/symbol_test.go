@@ -399,6 +399,9 @@ var _ = Describe("DeleteGroup", func() {
 			)
 			MustSucceed(removeGroup(ctx, u, g))
 			Expect(exists(ctx, sym.Key)).To(BeFalse())
+			Expect(groupSvc.NewRetrieve().
+				Where(group.MatchKeys(g.Key)).
+				Exists(ctx, db)).To(BeFalse())
 		},
 	)
 	It("Should reject the request when delete is not granted on the group", func(
