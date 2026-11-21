@@ -710,6 +710,24 @@ describe("ICD editor", () => {
     expect(await screen.findByText("Default Now")).toBeTruthy();
   });
 
+  it("should show the default of a UUID, JSON, and bytes JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Device", "/device"),
+          type: "uuid",
+          default: { type: "random" },
+        },
+        { ...createJSONBase("Config", "/config"), type: "json", default: '{"a":1}' },
+        { ...createJSONBase("Raw", "/raw"), type: "bytes", default: "AQI=" },
+      ]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Default Random")).toBeTruthy();
+    expect(await screen.findByText('Default {"a":1}')).toBeTruthy();
+    expect(await screen.findByText("Default AQI=")).toBeTruthy();
+  });
+
   it("should keep the default of a timestamp JSON field on a time format change", async () => {
     const at = TimeStamp.milliseconds(1_700_000_000_000);
     const ic = await createICD([
