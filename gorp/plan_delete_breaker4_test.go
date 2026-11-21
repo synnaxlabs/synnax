@@ -493,18 +493,18 @@ var _ = Describe("Planned delete breaker 4", func() {
 				return fmt.Sprint(d.Plotted)
 			}
 			var fresh string
-			rolledBack(ctx, func(tx gorp.Tx) error {
+			Expect(rolledBack(ctx, func(tx gorp.Tx) error {
 				Expect(between(tx)).To(Succeed())
 				Expect(channels.NewDelete().
 					Where(gorp.MatchKeys[uint32, b2Channel](1)).
 					Exec(ctx, tx)).To(Succeed())
 				fresh = plottedByD(tx)
 				return nil
-			})
+			})).To(Succeed())
 			Expect(fresh).To(Equal("[1]"))
 			plannedResults := set.New[string]()
 			for range 32 {
-				rolledBack(ctx, func(tx gorp.Tx) error {
+				Expect(rolledBack(ctx, func(tx gorp.Tx) error {
 					effects := MustSucceed(channels.PlanDelete(ctx, tx, one))
 					Expect(between(tx)).To(Succeed())
 					Expect(channels.NewDelete().
@@ -513,7 +513,7 @@ var _ = Describe("Planned delete breaker 4", func() {
 						Exec(ctx, tx)).To(Succeed())
 					plannedResults.Add(plottedByD(tx))
 					return nil
-				})
+				})).To(Succeed())
 			}
 			Expect(plannedResults.Slice()).To(ConsistOf(fresh))
 		})
@@ -529,7 +529,7 @@ var _ = Describe("Planned delete breaker 4", func() {
 				keys := []uint32{9, 10}
 				text := func(planned bool) string {
 					var got string
-					rolledBack(ctx, func(tx gorp.Tx) error {
+					Expect(rolledBack(ctx, func(tx gorp.Tx) error {
 						del := channels.NewDelete().
 							Where(gorp.MatchKeys[uint32, b2Channel](keys...))
 						if planned {
@@ -545,7 +545,7 @@ var _ = Describe("Planned delete breaker 4", func() {
 							Exec(ctx, tx)).To(Succeed())
 						got = f.Text
 						return nil
-					})
+					})).To(Succeed())
 					return got
 				}
 				Expect(text(false)).To(Equal("9;10;"))
@@ -574,11 +574,10 @@ var _ = Describe("Planned delete breaker 4", func() {
 			"holder closes", func(ctx SpecContext) {
 			create(ctx, b3Guard{Key: "g", Channel: 1})
 			one := []uint32{1}
-			plannedErr := plannedDelete(ctx, one, one, func(gorp.Tx) error {
+			Expect(plannedDelete(ctx, one, one, func(gorp.Tx) error {
 				return guards.Close()
-			})
+			})).To(Succeed())
 			Expect(freshDelete(ctx, one, none)).To(Succeed())
-			Expect(plannedErr).To(Succeed())
 		})
 	})
 
@@ -838,22 +837,7 @@ func openPlannedDeleteBench(
 	if err != nil {
 		b.Fatal(err)
 	}
-	statuses, err := gorp.OpenTable(ctx, gorp.TableConfig[string, b2Status]{
-		DB:   db,
-		Name: "status",
-		References: []gorp.Reference[string, b2Status]{
-			gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Status, uint32]{
-				Name:     "channel",
-				Table:    "channel",
-				OnDelete: gorp.Cascade,
-				Kind:     gorp.Place,
-				Targets:  func(s *b2Status) []uint32 { return []uint32{s.Channel} },
-			}),
-		},
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
+	statuses := openB4Statuses(b, db)
 	b.Cleanup(func() {
 		cancel()
 		if err := errors.Join(
@@ -880,6 +864,28 @@ func openPlannedDeleteBench(
 		b.Fatal(err)
 	}
 	return db, channels
+}
+
+// openB4Statuses opens a status table whose statuses cascade from their channel.
+func openB4Statuses(b *testing.B, db *gorp.DB) *gorp.Table[string, b2Status] {
+	b.Helper()
+	statuses, err := gorp.OpenTable(b.Context(), gorp.TableConfig[string, b2Status]{
+		DB:   db,
+		Name: "status",
+		References: []gorp.Reference[string, b2Status]{
+			gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Status, uint32]{
+				Name:     "channel",
+				Table:    "channel",
+				OnDelete: gorp.Cascade,
+				Kind:     gorp.Place,
+				Targets:  func(s *b2Status) []uint32 { return []uint32{s.Channel} },
+			}),
+		},
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	return statuses
 }
 
 // b4Mode is what one run of a planned delete benchmark does in its transaction.
