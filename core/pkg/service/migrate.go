@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -110,7 +109,10 @@ func newGroupRemovalReport(
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
 var rangeAliasDropMigration = migrate.Drop[string]("v62_drop_range_aliases", "Alias")
 
-func taskNames(svc *task.Service) pagerduty.TaskNames {
+// taskNames returns the task names that the migrations of PagerDuty and Kafka read.
+func taskNames(
+	svc *task.Service,
+) func(context.Context, gorp.Tx, []task.Key) (map[task.Key]string, error) {
 	return func(
 		ctx context.Context,
 		tx gorp.Tx,

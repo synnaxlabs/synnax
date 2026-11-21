@@ -396,7 +396,7 @@ func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) st
 	if !ok {
 		return ""
 	}
-	col := int(pos.Character)
+	col := lsp.CharacterToByte(line, pos.Character)
 	if col >= len(line) {
 		return ""
 	}
