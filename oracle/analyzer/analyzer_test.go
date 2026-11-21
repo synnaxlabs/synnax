@@ -1197,6 +1197,111 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an lt rule",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a type", `
+				Count int32 { @go validate lt max }
+			`, "test.Count has a @go validate rule, but only a struct field can have one"),
+			Entry("on a struct", `
+				Range struct {
+					min float64
+					max float64
+
+					@go validate lt max
+				}
+			`, "test.Range has a @go validate rule, but only a struct field can have one"),
+			Entry("naming a field the struct does not have", `
+				Range struct {
+					min float64 { @go validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
+			Entry("on a string", `
+				Range struct {
+					min string { @go validate lt max }
+					max string
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("naming an optional field", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64?
+				}
+			`, "test.Range.min is less than max, but both must be required numbers"),
+			Entry("in a generic struct", `
+				Range struct<T> {
+					min float64 { @go validate lt max }
+					max float64
+					value T
+				}
+			`, "test.Range.min has an lt rule, but test.Range is generic"),
+			Entry("inherited by a generic struct", `
+				Range struct {
+					min float64 { @go validate lt max }
+					max float64
+				}
+				Holder struct<T> extends Range {
+					value T
+				}
+			`, "test.Holder.min has an lt rule, but test.Holder is generic"),
+			Entry("comparing two number types", `
+				Range struct {
+					min int32 { @go validate lt max }
+					max float64
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a distinct type with its base", `
+				Key uint32
+				Range struct {
+					min Key { @go validate lt max }
+					max uint32
+				}
+			`, "test.Range.min is less than max, but the two have different types"),
+			Entry("comparing a field with itself", `
+				Range struct {
+					min float64 { @go validate lt min }
+				}
+			`, "test.Range.min is less than min, but a field cannot be less than itself"),
+			Entry("that is not lt", `
+				Range struct {
+					min float64 { @go validate max 3 }
+				}
+			`, "test.Range.min has a @go validate rule, but only lt <field> is supported"),
+		)
+
+		DescribeTable(
+			"Should accept an lt rule",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("naming a field of the struct", `
+				Range struct {
+					min float64 { @go validate lt max "min must be below max" }
+					max float64
+				}
+			`),
+			Entry("naming an inherited field", `
+				Upper struct {
+					max int32
+				}
+				Range struct extends Upper {
+					min int32 { @go validate lt max }
+				}
+			`),
+			Entry("comparing aliases of one type", `
+				Bound = float64
+				Range struct {
+					min Bound { @go validate lt max }
+					max float64
+				}
+			`),
+		)
+
+		DescribeTable(
 			"Should accept a finite rule on a float",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)

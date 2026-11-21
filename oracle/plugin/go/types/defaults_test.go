@@ -818,6 +818,47 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should check that a field is less than another field", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Range struct {
+					min float64 {
+						@go validate lt max
+					}
+					max float64
+					low int32 {
+						@go validate lt high "low must be below high"
+					}
+					high int32
+					lower uint32 {
+						@go validate lt upper
+					}
+					upper uint32 {
+						@go name "UpperBound"
+					}
+				}
+
+				Holder struct extends Range {
+					name string
+				}
+
+				Shape union on kind {
+					ranged extends Range {
+						label string
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Ternary("min", !(r.Min < r.Max), "must be less than max")`,
+				`v.Ternary("low", !(r.Low < r.High), "low must be below high")`,
+				`v.Ternary("lower", !(r.Lower < r.UpperBound), "must be less than upper")`,
+				`v.Exec(h.Range.Validate)`,
+				`v.Exec(r.Range.Validate)`,
+			)
+		})
+
 		It(
 			"Should merge a field's rules with its type's rules",
 			func() {

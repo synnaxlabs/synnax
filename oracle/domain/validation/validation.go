@@ -37,6 +37,14 @@ type Rules struct {
 	Skip bool
 }
 
+// Comparison is a rule that compares a field to another field of its struct.
+type Comparison struct {
+	// Field is the schema name of the other field.
+	Field string
+	// Message replaces the generated error message when it is not empty.
+	Message string
+}
+
 // Number represents a numeric constraint value that can be int or float.
 type Number struct {
 	Int   int64
@@ -88,6 +96,20 @@ func Parse(domain resolution.Domain) *Rules {
 		}
 	}
 	return rules
+}
+
+// LessThan returns the rule that domains set with `@<lang> validate lt <field>
+// ["message"]`, or nil when they set none.
+func LessThan(domains map[string]resolution.Domain, lang string) *Comparison {
+	expr, ok := domains[lang].Expressions.Find("validate")
+	if !ok || len(expr.Values) < 2 || expr.Values[0].IdentValue != "lt" {
+		return nil
+	}
+	lt := &Comparison{Field: expr.Values[1].IdentValue}
+	if len(expr.Values) > 2 {
+		lt.Message = expr.Values[2].StringValue
+	}
+	return lt
 }
 
 // FieldRules returns the rules that apply to field: its own rules merged with the

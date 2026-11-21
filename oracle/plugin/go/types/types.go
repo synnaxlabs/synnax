@@ -831,12 +831,15 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 	if err := checkHeld(entry.Name, sd.IsGeneric, embeds, fields, data); err != nil {
 		return structData{}, err
 	}
+	siblings := resolution.UnifiedFields(entry, data.table)
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
 		if genMethods {
-			addFieldMethods(&sd, field, defaultOnly.Contains(field.Name), data)
+			addFieldMethods(
+				&sd, field, siblings, defaultOnly.Contains(field.Name), data,
+			)
 		}
 	}
 	if genMethods {
@@ -945,11 +948,13 @@ func embedExtends(
 	return embeds
 }
 
-// addFieldMethods adds the default fills and validation checks of field. defaultOnly
-// marks a field that only restates an inherited default.
+// addFieldMethods adds the default fills and validation checks of field. siblings are
+// the fields of field's struct. defaultOnly marks a field that only restates an
+// inherited default.
 func addFieldMethods(
 	sd *structData,
 	field resolution.Field,
+	siblings []resolution.Field,
 	defaultOnly bool,
 	data *templateData,
 ) {
@@ -971,6 +976,9 @@ func addFieldMethods(
 		sd.ConstraintChecks,
 		goConstraintChecks(field, defaultOnly, fd)...,
 	)
+	if chk, ok := goLessThanCheck(field, siblings); ok {
+		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
+	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
@@ -1663,6 +1671,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
@@ -1799,6 +1809,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "lt"}}
+	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
 {{- end}}
 {{- if .Closes}}
 	}
