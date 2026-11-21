@@ -469,9 +469,9 @@ describe("Input.Table", () => {
     );
   };
 
-  const paste = (input: HTMLInputElement, text: string): void => {
-    fireEvent.focus(input);
-    firePaste(input, text);
+  const paste = (el: HTMLElement, text: string): void => {
+    fireEvent.focus(el);
+    firePaste(el, text);
   };
 
   const addButton = (): HTMLElement => screen.getByRole("button", { name: "Add row" });
@@ -1378,6 +1378,7 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(cell("Label", "2"));
     });
   });
+
   describe("boolean columns", () => {
     const renderFlags = (value: Input.TableCell[][] = [["pump", true]]) => {
       const onChange = vi.fn();
@@ -1607,14 +1608,9 @@ describe("Input.Table", () => {
       return { onChange, order };
     };
 
-    const pasteOn = (el: HTMLElement, text: string): void => {
-      fireEvent.focus(el);
-      firePaste(el, text);
-    };
-
     it("should leave one value pasted on a select whose column has no parse", () => {
       const { onChange, order } = renderOrders();
-      pasteOn(order, "foo");
+      paste(order, "foo");
       expect(onChange).not.toHaveBeenCalled();
     });
 
@@ -1622,7 +1618,7 @@ describe("Input.Table", () => {
       const { onChange, order } = renderOrders((text) =>
         ORDERS.includes(text) ? text : null,
       );
-      pasteOn(order, "little");
+      paste(order, "little");
       expect(onChange).toHaveBeenCalledWith([["little"]]);
     });
   });
