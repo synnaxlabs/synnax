@@ -9,9 +9,10 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { usePopover } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import type { ReactElement } from "react";
+import { type ReactElement, useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Notifications } from "@/platform/notifications";
@@ -164,6 +165,21 @@ describe("Notifications", () => {
     };
     ModalHarness.displayName = "ModalHarness";
 
+    /** A popover over the whole window, opened after the feed mounts. */
+    const Cover = (): ReactElement => {
+      const ref = useRef<HTMLDivElement>(null);
+      return (
+        <>
+          <button onClick={() => ref.current?.showPopover()}>cover</button>
+          <div
+            ref={ref}
+            popover="manual"
+            style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
+          />
+        </>
+      );
+    };
+
     /** @returns true when the element is the topmost one at its own center. */
     const onTop = (el: Element): boolean => {
       const { left, top, width, height } = el.getBoundingClientRect();
@@ -181,6 +197,76 @@ describe("Notifications", () => {
       fireEvent.click(notification);
       await waitFor(() => expect(screen.queryByText("Hello")).toBeNull());
       expect(screen.queryByText("Modal")).not.toBeNull();
+    });
+
+    /** A popover over the whole window that Lyra shows, as it shows a dropdown. */
+    const LyraCover = (): ReactElement => {
+      const ref = useRef<HTMLDivElement>(null);
+      const [shown, setShown] = useState(false);
+      usePopover(ref, shown, null);
+      return (
+        <>
+          <button onClick={() => setShown(true)}>lyra cover</button>
+          <div
+            ref={ref}
+            popover="manual"
+            style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh" }}
+          />
+        </>
+      );
+    };
+
+    it("keeps a notification over an overlay opened after it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <LyraCover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      fireEvent.click(screen.getByRole("button", { name: "lyra cover" }));
+      await waitFor(() => expect(onTop(notification)).toBe(true));
+    });
+
+    it("leaves an overlay opened from the feed over it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <LyraCover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      notification.focus();
+      fireEvent.click(screen.getByRole("button", { name: "lyra cover" }));
+      await new Promise(requestAnimationFrame);
+      expect(onTop(notification)).toBe(false);
+    });
+
+    it("shows a new notification over a popover opened before it", async () => {
+      await renderWithConsole(
+        <>
+          <ModalHarness />
+          <Cover />
+        </>,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "cover" }));
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(onTop(notification)).toBe(true);
+    });
+
+    it("shows again in the top layer after a modal closes", async () => {
+      await renderWithConsole(<ModalHarness />);
+      fireEvent.click(screen.getByRole("button", { name: "add" }));
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await screen.findByText("Modal");
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await waitFor(() => expect(screen.queryByText("Modal")).toBeNull());
+      const notification = await screen.findByRole("button", { name: "Hello" });
+      expect(notification.closest("[popover]")?.matches(":popover-open")).toBe(true);
+      expect(onTop(notification)).toBe(true);
     });
   });
 });

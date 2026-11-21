@@ -11,10 +11,11 @@ import "@/platform/notifications/Feed.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { POPOVER_SHOW_EVENT, usePopover } from "@synnaxlabs/lyra/hooks";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { getRootElement } from "@synnaxlabs/lyra/util";
-import { type FC, type ReactElement, useEffect, useState } from "react";
+import { type FC, type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -60,9 +61,31 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
     if (overflow <= 0) setExpanded(false);
   }, [overflow]);
   const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
+  const ref = useRef<HTMLDivElement>(null);
+  // The feed shows again, last in the top layer, when Portal.Above moves it (which
+  // hides it), when a notification arrives, and when another overlay shows. An overlay
+  // opened from the feed itself, under the pointer or the focus, stays over it.
+  const [raises, setRaises] = useState(0);
+  useEffect(() => {
+    const raise = (): void => setRaises((r) => r + 1);
+    const handleShow = ({ target }: Event): void => {
+      const feed = ref.current;
+      if (feed == null || target === feed || feed.matches(":hover, :focus-within"))
+        return;
+      raise();
+    };
+    document.addEventListener(Portal.MODAL_CHANGE_EVENT, raise);
+    document.addEventListener(POPOVER_SHOW_EVENT, handleShow);
+    return () => {
+      document.removeEventListener(Portal.MODAL_CHANGE_EVENT, raise);
+      document.removeEventListener(POPOVER_SHOW_EVENT, handleShow);
+    };
+  }, []);
+  const shown = statuses.map(({ key, count }) => `${key}:${count}`).join();
+  usePopover(ref, true, `${raises}|${shown}`);
   return (
     <Portal.Above element={getRootElement()}>
-      <Flex.Box y className={CSS.B("notifications")}>
+      <Flex.Box y className={CSS.B("notifications")} ref={ref} popover="manual">
         <Flex.Box y className={CSS.BE("notifications", "stack")}>
           {visible.map(({ status, Render }) => (
             <Render key={status.key} status={status} silence={silence} />

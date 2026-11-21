@@ -22,13 +22,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { z } from "zod";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
-import { Portal } from "@/portal";
 import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
@@ -241,6 +240,11 @@ export const Provider = memo(
         x = PREVIEW_PAD + event.clientX - rect.left;
         y = PREVIEW_PAD + event.clientY - rect.top;
       }
+      // Last in the top layer, the preview shows over the dropdown it came from.
+      if (content != null) {
+        layer.hidePopover();
+        layer.showPopover();
+      }
       event.dataTransfer.setDragImage(layer, x, y);
       requestAnimationFrame(() => flushSync(() => setPreviewContent(null)));
     };
@@ -347,11 +351,17 @@ export const Provider = memo(
     return (
       <Context value={controls}>
         <StateContext value={dragging}>{children}</StateContext>
-        <Portal.Above element={document.body}>
-          <div ref={layerRef} className={CSS.BE("haul", "layer")} aria-hidden>
+        {createPortal(
+          <div
+            ref={layerRef}
+            className={CSS.BE("haul", "layer")}
+            popover="manual"
+            aria-hidden
+          >
             {preview}
-          </div>
-        </Portal.Above>
+          </div>,
+          document.body,
+        )}
       </Context>
     );
   },

@@ -26,7 +26,7 @@ import { trapTab } from "@/dialog/tabOrder";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { useDropdownFocus } from "@/dialog/useDropdownFocus";
 import { Flex } from "@/flex";
-import { useCombinedRefs } from "@/hooks";
+import { useCombinedRefs, usePopover } from "@/hooks";
 import { Portal } from "@/portal";
 import { getRootElement } from "@/util/rootElement";
 
@@ -132,7 +132,8 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
  * into the nearest `Portal.Target`, or the document root outside one. A modal renders
  * in a native modal `<dialog>`, and the overlays in the modal portal into it. Any other
- * dialog takes the place right after its trigger in the tab order.
+ * dialog shows in the top layer and takes the place right after its trigger in the tab
+ * order.
  */
 export const Dialog = ({
   ref: propsRef,
@@ -167,6 +168,7 @@ export const Dialog = ({
   const handleModalKeyDown = (e: KeyboardEvent<HTMLDialogElement>): void => {
     if (surfaceRef.current != null) trapTab(e, surfaceRef.current);
   };
+  usePopover(surfaceRef, visible && !modal, portalTarget);
   const dialogStyle = { ...ctxStyle, ...style };
   if (!visible) return null;
   const actuallyVisible = modal || Object.keys(ctxStyle).length > 0;
@@ -188,6 +190,7 @@ export const Dialog = ({
       )}
       rounded={rounded}
       role={modal ? undefined : "dialog"}
+      popover={modal ? undefined : "manual"}
       tabIndex={modal ? undefined : -1}
       empty
       bordered={bordered}
