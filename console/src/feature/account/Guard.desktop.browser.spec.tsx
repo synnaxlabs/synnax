@@ -33,15 +33,16 @@ import {
 } from "@/testutil";
 
 interface Read {
+  target?: string;
   start: number;
   end?: number;
   failure?: string;
 }
 
 /**
- * Creates a client that times each license read and request retry, so a failed test
- * reports whether the Log in click reached its read, how long the read took, and
- * whether the transport retried.
+ * Creates a client that times each license read, each request it sends, and each
+ * retry, so a failed test reports whether the Log in click reached its read and which
+ * request it waited on: the login or the license read itself.
  */
 const createReportingClient = (): Client => {
   const begun = performance.now();
@@ -51,6 +52,19 @@ const createReportingClient = (): Client => {
       retries.push(`at ${Math.round(performance.now() - begun)} ms: ${error.message}`),
   });
   const reads: Read[] = [];
+  const requests: Read[] = [];
+  // Each request, the login included, goes out through fetch.
+  const fetch = globalThis.fetch.bind(globalThis);
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    const request: Read = { target: new URL(url).pathname, start: performance.now() };
+    requests.push(request);
+    try {
+      return await fetch(input, init);
+    } finally {
+      request.end = performance.now();
+    }
+  });
   const retrieve = client.license.retrieve.bind(client.license);
   vi.spyOn(client.license, "retrieve").mockImplementation(async () => {
     const read: Read = { start: performance.now() };
@@ -69,12 +83,12 @@ const createReportingClient = (): Client => {
   });
   onTestFailed(() => {
     const now = performance.now();
-    const report =
-      reads.length === 0
+    const format = (list: Read[]): string =>
+      list.length === 0
         ? "none"
-        : reads
-            .map(({ start, end, failure }) => {
-              const at = `at ${Math.round(start - begun)} ms`;
+        : list
+            .map(({ target, start, end, failure }) => {
+              const at = `${target ?? ""} at ${Math.round(start - begun)} ms`.trim();
               if (end == null)
                 return `${at}, still waiting after ${Math.round(now - start)} ms`;
               const took = `${at}, took ${Math.round(end - start)} ms`;
@@ -82,7 +96,8 @@ const createReportingClient = (): Client => {
             })
             .join("; ");
     // A browser spec has no process to write to stderr through.
-    console.error(`license reads: ${report}`);
+    console.error(`license reads: ${format(reads)}`);
+    console.error(`requests: ${format(requests)}`);
     console.error(`retries: ${retries.length === 0 ? "none" : retries.join("; ")}`);
   });
   return client;
