@@ -921,6 +921,29 @@ func add() {a i32, b i32} i32 {
 					Expect(HoverContents(hover)).ToNot(ContainSubstring("ox-pt-1"))
 				},
 			)
+
+			DescribeTable(
+				"should split where the lexer splits",
+				func(ctx SpecContext, expr string, char uint32) {
+					server = newServer(true)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return "+expr+"\n}",
+					)
+					hover := Hover(server, ctx, uri, 1, char)
+					Expect(hover).ToNot(BeNil())
+					Expect(HoverContents(hover)).To(HavePrefix("#### pt\n"))
+				},
+				Entry("after an integer", "1-pt", uint32(14)),
+				Entry("after a float", "1.5-pt", uint32(16)),
+				Entry("after a number with no space", "12pt", uint32(14)),
+				Entry("before an arrow", "pt->ox-pt-1", uint32(11)),
+				Entry("before a minus-assign", "pt-=1", uint32(11)),
+				Entry("after a leading dash", "-pt", uint32(13)),
+				Entry("before a spaced minus", "pt - 1", uint32(11)),
+			)
 		})
 	})
 

@@ -194,16 +194,23 @@ func (s *Server) parserConfig() parser.Config {
 	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 }
 
-// isWordChar mirrors the lexer: with dashed names on, a '-' joins the name before it
-// unless it starts "->" or "-=".
+// isWordChar reports whether line[i] belongs to an identifier, as the lexer reads it.
+// A digit continues an identifier but never starts one. With dashed names on, a '-'
+// continues one unless it starts "->" or "-=".
 func (s *Server) isWordChar(line string, i int) bool {
-	if line[i] != '-' || !s.cfg.AllowDashedNames {
-		return lsp.IsWordChar(line[i])
-	}
-	if i == 0 || !s.isWordChar(line, i-1) {
+	c := line[i]
+	switch {
+	case c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'):
+		return true
+	case c == '-':
+		if !s.cfg.AllowDashedNames ||
+			(i+1 < len(line) && (line[i+1] == '>' || line[i+1] == '=')) {
+			return false
+		}
+	case c < '0' || c > '9':
 		return false
 	}
-	return i+1 == len(line) || (line[i+1] != '>' && line[i+1] != '=')
+	return i > 0 && s.isWordChar(line, i-1)
 }
 
 // SetClient sets the LSP client for sending notifications.

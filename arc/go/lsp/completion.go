@@ -423,7 +423,7 @@ func (s *Server) Completion(
 
 	col := lsp.CharacterToByte(line, params.Position.Character)
 	start := col
-	for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
+	for start > 0 && (line[start-1] == '.' || doc.wordChar(line, start-1)) {
 		start--
 	}
 	prefix := line[start:col]
