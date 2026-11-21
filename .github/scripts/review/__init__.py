@@ -29,7 +29,7 @@ from review.post import (
     threads,
     withdrawn,
 )
-from review.restore import Unrestorable, restore
+from review.restore import Outcome, Unrestorable, restore
 from review.run import (
     Claude,
     Config,
@@ -57,6 +57,7 @@ __all__ = [
     "Judgment",
     "Lens",
     "LoginRejected",
+    "Outcome",
     "Pass",
     "PullRequest",
     "Review",

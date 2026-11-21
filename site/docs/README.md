@@ -69,18 +69,16 @@ because a newer train does not always rebuild it.
 To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
 
 To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
-`0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
+`0.62`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
 its newest stable Core tag, or from its `release/X.Y` branch if the branch holds that
-tag. 0.60 and 0.61 shipped while `main` held the docs, so they build from
-`release/docs-0.60` and `release/docs-0.61`. 0.60 starts at the `main` of 2026-11-08,
-and 0.61 at the `core/v0.61.0` tag. Set `ref` to build one version from another ref. A
+tag. 0.60 and 0.61 get no more patches, so their sites keep their last deploy. They
+shipped while `main` held the docs, so they build only from a given `ref`, and `latest`,
+`previous`, and a release skip them. Set `ref` to build one version from another ref. A
 push to `main` deploys `next`. A stable release deploys `next`, `latest`, `previous`,
 and the train it released. An older site keeps the download links of its last deploy.
 
 To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
-train's release branch (`release/docs-X.Y` for 0.60 and 0.61), and deploy the train. If
-a patch of the train shipped from `main`, first merge its tag into the branch. A 0.60 or
-0.61 release deploys its `release/docs-X.Y` branch as it is, so pick the docs of a patch
-onto that branch before the release. Only the root serves release notes, so a note for a
-patch of an older train also goes onto the newest train's branch. From 0.62 on, if that
-branch does not exist, first cut `release/X.Y` from the train's newest stable Core tag.
+train's release branch, and deploy the train. If the branch does not exist, first cut
+`release/X.Y` from the train's newest stable Core tag. If a patch of the train shipped
+from `main`, first merge its tag into the branch. Only the root serves release notes, so
+a note for a patch of an older train also goes onto the newest train's branch.

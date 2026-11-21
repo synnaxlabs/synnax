@@ -15,6 +15,7 @@ proto_library(
     srcs = ["pb/certificate.proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/service/resource:resource_proto",
         "//core/pkg/service/secret:secret_proto",
         "//x/go/filter:filter_proto",
     ],
@@ -26,6 +27,7 @@ cpp_grpc_library(
     protos = [":certificate_proto"],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/pkg/service/resource:resource_grpc",
         "//core/pkg/service/secret:secret_grpc",
         "//x/go/filter:filter_grpc",
     ],

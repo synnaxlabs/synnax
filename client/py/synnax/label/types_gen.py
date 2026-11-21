@@ -16,8 +16,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import color as color_
 from synnax.resource import ID
-from x import color as color_, filter
+from x import filter
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -46,12 +47,13 @@ class Label(BaseModel):
     Attributes:
         key: Is the unique identifier for this label.
         name: Is a human-readable name for the label.
-        color: Is the display color for visual identification of the label.
+        color: Is the display color for visual identification of the label, a named
+            color or a fixed color.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
-    color: color_.Color
+    color: color_.Ref
 
     @_override
     def __hash__(self) -> int:

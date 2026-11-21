@@ -2401,6 +2401,9 @@ var _ = Describe("Compiler", func() {
 			Entry("u32", `{
 				return i64(u32(-1))
 			}`, float64(4294967295)),
+			Entry("u64", `{
+				return i64(u64(-1))
+			}`, float64(-1)),
 		)
 
 		DescribeTable("a stepped range loop should end at the bound of the type",
@@ -2866,6 +2869,21 @@ var _ = Describe("Compiler", func() {
 			`, api.EncodeI64(131071), int64(-1)),
 		)
 
+		DescribeTable("a negated literal should fit the minimum of its type",
+			narrowResult,
+			Entry("i16 declaration", `{
+				x i16 := -32768
+				return i64(x)
+			}`, float64(math.MinInt16)),
+			Entry("i8 cast", `{
+				return i64(i8(-128))
+			}`, float64(math.MinInt8)),
+			Entry("i8 operand", `{
+				n i8 := 1
+				return i64(-128 + n)
+			}`, float64(-127)),
+		)
+
 		DescribeTable("a float cast should saturate at the bounds of the target",
 			narrowResult,
 			Entry("f64 above the range to u8", `{
@@ -3139,6 +3157,44 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s % 4.0
 				return t[0]
 			}`, 2.5),
+
+			// Series-scalar comparison
+			Entry("series-scalar greater than f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := s > 2.0
+				return m[2]
+			}`, true),
+			Entry("series-scalar less or equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s <= 1
+				return m[1]
+			}`, false),
+			Entry("series-scalar equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s == 2
+				return m[1]
+			}`, true),
+			Entry("series-scalar not equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := s != 2
+				return m[1]
+			}`, false),
+
+			Entry("scalar-series less than f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[2]
+			}`, true),
+			Entry("scalar-series less than f64 false", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				m := 2.0 < s
+				return m[1]
+			}`, false),
+			Entry("scalar-series equal i64", `{
+				s series i64 := [1, 2, 3]
+				m := 2 == s
+				return m[1]
+			}`, true),
 
 			// Series-series arithmetic (f64)
 			Entry("series-series add f64", `{

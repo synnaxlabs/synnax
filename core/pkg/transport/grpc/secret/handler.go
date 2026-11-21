@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/secret"
 	"github.com/synnaxlabs/synnax/pkg/api/secret/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -107,6 +108,9 @@ func (resolveResponseTranslator) Forward(
 	return &ResolveResponse{
 		Command: cmd,
 		Secrets: lo.Map(res.Secrets, func(k secret.Key, _ int) string {
+			return k.String()
+		}),
+		Certificates: lo.Map(res.Certificates, func(k certificate.Key, _ int) string {
 			return k.String()
 		}),
 		Values: lo.Map(res.Values, func(v secret.Value, _ int) *Value {

@@ -375,3 +375,42 @@ describe("against a live Core", () => {
     ]);
   });
 });
+
+describe("RelativeTickFactory", () => {
+  const S = TimeSpan.SECOND.nanoseconds;
+  const relative = (lower: number, upper: number, size: number): Tick[] =>
+    newTickFactory({ type: "relative" }).create({
+      decimalToDataScale: scale.Scale.scale<number>(0, 1).scale(lower, upper),
+      size,
+    });
+
+  it("should put T0 at the zero of the axis", () => {
+    const ticks = relative(-5 * S, 5 * S, 500);
+    expect(ticks.find((t) => t.label === "T0")?.position).toBeCloseTo(250);
+    expect(ticks.some((t) => t.label.startsWith("T-"))).toBe(true);
+    expect(ticks.some((t) => t.label.startsWith("T+"))).toBe(true);
+  });
+
+  it("should label every tick of an axis in one unit", () => {
+    const labels = relative(-0.5 * S, 2 * S, 500)
+      .map((t) => t.label)
+      .filter((l) => l !== "T0");
+    expect(labels.length).toBeGreaterThan(1);
+    for (const l of labels) expect(l).toMatch(/^T[+-]\d+(\.\d+)? s$/);
+  });
+
+  it("should label a span of a minute or more as a clock", () => {
+    const labels = relative(0, 90 * S, 500).map((t) => t.label);
+    expect(labels).toContain("T+1:00");
+  });
+
+  it("should space the ticks evenly", () => {
+    const ticks = relative(-3 * S, 7 * S, 800);
+    const gaps = ticks.slice(1).map((t, i) => t.position - ticks[i].position);
+    for (const g of gaps) expect(g).toBeCloseTo(gaps[0]);
+  });
+
+  it("should return no ticks for an empty span", () => {
+    expect(relative(S, S, 500)).toEqual([]);
+  });
+});

@@ -108,8 +108,6 @@ func (s *SegmentedEdgeConfig) SetDefaults() {
 // schema constraints.
 func (s SegmentedEdgeConfig) Validate() error {
 	v := validate.New("SegmentedEdgeConfig")
-	v.GreaterThanEq("stroke_width", s.StrokeWidth, 1)
-	v.LessThanEq("stroke_width", s.StrokeWidth, 20)
 	for i := range s.Segments {
 		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
 	}
