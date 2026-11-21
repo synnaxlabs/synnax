@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -455,10 +454,8 @@ func (r *registry) planned(
 ) (*deletePlan, error) {
 	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
 	// since still exists.
-	changes := &tx.txIdentity().changes
 	for _, e := range effects.Restricts {
-		at, written := changes.at[e.Holder]
-		if !written || changes.entries[at].present {
+		if !deletedIn(tx, e.Holder) {
 			return nil, RestrictError{
 				Target:    e.Target,
 				Holder:    e.Holder,
@@ -657,11 +654,10 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		if err != nil {
 			return err
 		}
-		err = t.detach(ctx, tx, dep.Key, ops)
-		if p.planned && errors.Is(err, query.ErrNotFound) {
+		if p.planned && deletedIn(tx, dep) {
 			continue
 		}
-		if err != nil {
+		if err = t.detach(ctx, tx, dep.Key, ops); err != nil {
 			return err
 		}
 	}

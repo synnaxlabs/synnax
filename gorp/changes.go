@@ -257,3 +257,10 @@ func subtract(links, minus []Link) []Link {
 	}
 	return out
 }
+
+// deletedIn reports whether the last write of tx to target deleted it.
+func deletedIn(tx Tx, target Target) bool {
+	changes := &tx.txIdentity().changes
+	at, written := changes.at[target]
+	return written && !changes.entries[at].present
+}
