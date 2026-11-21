@@ -155,7 +155,7 @@ var _ = Describe("Routes", Ordered, func() {
 		)
 		Expect(p.Entries).To(BeEmpty())
 		Expect(p.Hidden).To(Equal(uint32(1)))
-		Expect(p.Token).To(HaveLen(32))
+		Expect(p.Token).To(HaveLen(16))
 	})
 
 	It("Should list a record that the subject can retrieve", func(ctx SpecContext) {

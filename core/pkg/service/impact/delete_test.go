@@ -332,7 +332,7 @@ var _ = Describe("Delete", Ordered, func() {
 		) {
 			ch := createChannel(ctx, channel.Channel{})
 			first := plan(ctx, nil, ch.Key())
-			Expect(first.Token).To(HaveLen(32))
+			Expect(first.Token).To(HaveLen(16))
 			Expect(plan(ctx, nil, ch.Key()).Token).To(Equal(first.Token))
 			createPlot(ctx, ch.Key())
 			Expect(plan(ctx, nil, ch.Key()).Token).ToNot(Equal(first.Token))
