@@ -1244,6 +1244,9 @@ func newIndexes() indexes {
 				return []string{ {{- template "searchTexts" $ret.PrimarySearch -}} }
 			},
 			func(e *{{$ret.GoName}}) []string {
+				if {{range $i, $f := $ret.SecondarySearch}}{{if $i}} && {{end}}e.{{$f.Access}} == ""{{end}} {
+					return nil
+				}
 				return []string{ {{- template "searchTexts" $ret.SecondarySearch -}} }
 			},
 		),

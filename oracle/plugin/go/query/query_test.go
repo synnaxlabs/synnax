@@ -387,6 +387,9 @@ var _ = Describe("Go Query Plugin", func() {
 				return []string{e.Name}
 			},
 			func(e *Foo) []string {
+				if e.Label == "" && e.Note == "" {
+					return nil
+				}
 				return []string{string(e.Label), e.Note}
 			},
 		),`).
