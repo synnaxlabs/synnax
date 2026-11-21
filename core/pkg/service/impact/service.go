@@ -148,6 +148,7 @@ func (s *Service) deleteGroups(
 			Effect: EffectCascade,
 		})
 	}
+	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
 }
 

@@ -20,8 +20,9 @@ import (
 
 type arenaScope struct{ cleanups []func(committed bool) }
 
-func (s *arenaScope) OnCleanup(fn func(committed bool)) {
+func (s *arenaScope) OnCleanup(fn func(committed bool)) bool {
 	s.cleanups = append(s.cleanups, fn)
+	return true
 }
 
 func (s *arenaScope) Committing() bool { return false }

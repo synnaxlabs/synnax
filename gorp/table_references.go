@@ -381,12 +381,8 @@ func (t *Table[K, E]) delete(
 			return err
 		}
 		if len(plan.weak) > 0 {
-			for _, e := range entries {
-				if deps := plan.weak[FormatKey(e.GorpKey())]; len(deps) > 0 {
-					if err = held(ctx, tx, e, deps); err != nil {
-						return err
-					}
-				}
+			if err = t.callHeld(ctx, tx, entries, plan.weak, held); err != nil {
+				return err
 			}
 		}
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
@@ -395,6 +391,58 @@ func (t *Table[K, E]) delete(
 	}
 	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
+}
+
+// callHeld calls held with each entry of the table that weak holds: the entries the
+// caller asked to delete first, then, in key order, those that a cascade deletes.
+func (t *Table[K, E]) callHeld(
+	ctx context.Context,
+	tx Tx,
+	entries []E,
+	weak map[string][]Dependent,
+	held HeldFunc[K, E],
+) error {
+	requested := make(set.Set[string], len(entries))
+	for _, e := range entries {
+		k := FormatKey(e.GorpKey())
+		requested.Add(k)
+		if deps := weak[k]; len(deps) > 0 {
+			if err := held(ctx, tx, e, deps); err != nil {
+				return err
+			}
+		}
+	}
+	var texts []string
+	for text := range weak {
+		if !requested.Contains(text) {
+			texts = append(texts, text)
+		}
+	}
+	if len(texts) == 0 {
+		return nil
+	}
+	slices.Sort(texts)
+	cascaded := make([]K, len(texts))
+	for i, text := range texts {
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return err
+		}
+		cascaded[i] = k
+	}
+	var more []E
+	if err := t.NewRetrieve().
+		Where(MatchKeys[K, E](cascaded...)).
+		Entries(&more).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	for _, e := range more {
+		if err := held(ctx, tx, e, weak[FormatKey(e.GorpKey())]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // referenceIndex implements registeredTable.

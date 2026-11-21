@@ -54,7 +54,9 @@ type Returns interface {
 //     transaction did not change.
 //
 // A link or an owner needs nothing when the write creates or deletes it. A record with
-// no resource type must be placed in exactly one record. Policies are read from
+// no resource type must be placed in exactly one record, unless it is a mirror
+// (ServiceConfig.Mirrors), whose changes need nothing; a write that changes only
+// mirrors fails. Policies are read from
 // committed state, so a policy or role that apply stages grants nothing. A denial wraps
 // access.ErrDenied and names the record.
 func Write[RQ, RS freighter.Payload](
@@ -160,7 +162,13 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 			createdOrDeleted.Add(c.Record)
 		}
 	}
+	mirrored, checked := false, false
 	for _, c := range changes {
+		if slices.Contains(s.cfg.Mirrors, c.Record.Table) {
+			mirrored = true
+			continue
+		}
+		checked = true
 		// owner is zero for a record with a resource type.
 		var owner gorp.Target
 		owned := s.owned(c, subject)
@@ -207,6 +215,11 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				return err
 			}
 		}
+	}
+	if mirrored && !checked {
+		return errors.New(
+			"[bind] - a write changed mirror records and no record they mirror",
+		)
 	}
 	// The write lock holds commits off, and committed policies decide, so a write
 	// cannot grant itself access.
