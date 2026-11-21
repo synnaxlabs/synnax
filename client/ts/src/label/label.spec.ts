@@ -10,7 +10,12 @@
 import { color, id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
+import {
+  MultipleFoundError,
+  NotCachedError,
+  NotFoundError,
+  ValidationError,
+} from "@/errors";
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";
@@ -382,11 +387,13 @@ describe("dispatch", () => {
     expect(cached.color).toEqual(color.construct("#ff0000"));
   });
 
-  it("should return false without a send when the label is not cached", async () => {
+  it("should throw without a send when the label is not cached", async () => {
     const lbl = await createLabel(remote);
     const fresh = createTestClient();
     const send = spyOnSend(fresh);
-    expect(await fresh.labels.dispatch(lbl.key, rename("Anomaly"))).toBe(false);
+    await expect(fresh.labels.dispatch(lbl.key, rename("Anomaly"))).rejects.toThrow(
+      NotCachedError,
+    );
     expect(send).not.toHaveBeenCalled();
   });
 

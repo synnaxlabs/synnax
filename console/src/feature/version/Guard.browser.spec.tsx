@@ -39,8 +39,6 @@ import {
 import {
   createTestClientWithGrants,
   INCOMPATIBLE_UNLICENSED_STATUS,
-  mockLocationReload,
-  pinLocationOrigin,
   renderWithStatus,
   type StatusHarness,
 } from "@/testutil";
@@ -72,16 +70,20 @@ const COMPATIBLE_STATUS: connection.Status = {
   },
 };
 
+/** The location of a page that no Core served. */
+const ELSEWHERE = { origin: "http://elsewhere:1", reload: () => {} };
+
 const renderGuard = async (
   status: connection.Status,
   secure: boolean = false,
   client: Synnax | null = null,
+  location: Version.GuardProps["location"] = ELSEWHERE,
 ): Promise<StatusHarness> => {
   const core = createCore(CORE_NAME, { secure });
   return await renderWithStatus(
     <PlatformVersion.Provider>
       <Auth.Guard>
-        <Version.Guard>
+        <Version.Guard location={location}>
           <span>{WORKSPACE}</span>
         </Version.Guard>
       </Auth.Guard>
@@ -215,9 +217,11 @@ describe("Version.Guard", () => {
     });
 
     it("should reload the page when the Core changes to another minor version", async () => {
-      pinLocationOrigin(`http://${host}:${port}`);
-      const reload = mockLocationReload();
-      const { setStatus } = await renderGuard(COMPATIBLE_STATUS);
+      const reload = vi.fn();
+      const { setStatus } = await renderGuard(COMPATIBLE_STATUS, false, null, {
+        origin: `http://${host}:${port}`,
+        reload,
+      });
       expect(reload).not.toHaveBeenCalled();
       setStatus(INCOMPATIBLE_STATUS);
       expect(reload).toHaveBeenCalledOnce();
@@ -226,9 +230,11 @@ describe("Version.Guard", () => {
     });
 
     it("should show the mismatch screen when another Core served the page", async () => {
-      pinLocationOrigin(`http://${host}:${port + 1}`);
-      const reload = mockLocationReload();
-      await renderGuard(INCOMPATIBLE_STATUS);
+      const reload = vi.fn();
+      await renderGuard(INCOMPATIBLE_STATUS, false, null, {
+        origin: `http://${host}:${port + 1}`,
+        reload,
+      });
       expect(reload).not.toHaveBeenCalled();
       expect(screen.getByText(TITLE)).toBeTruthy();
     });
