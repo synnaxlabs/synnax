@@ -269,6 +269,8 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	depth := 1
 	for i := open + 1; i < len(body); i++ {
 		switch body[i] {
+		case '\'', '"', '`':
+			i = quotedEnd(body, i)
 		case '{':
 			depth++
 		case '}':
@@ -281,30 +283,44 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return 0, errors.New("unmatched '{'")
 }
 
-// splitSpec splits a placeholder body on the last `:` at brace and bracket
-// depth 0, yielding (expr, spec). Colons inside nested `{...}` (struct
-// literals) or `[...]` (index/slice expressions) are skipped.
+// quotedEnd returns the index of the delimiter that closes the channel name or string
+// opening at i, or the last index of body when none closes it.
+func quotedEnd(body string, i int) int {
+	delimiter := body[i]
+	for i++; i < len(body); i++ {
+		switch body[i] {
+		case '\\':
+			i++
+		case delimiter:
+			return i
+		}
+	}
+	return len(body) - 1
+}
+
+// splitSpec splits a placeholder body on the last `:` at brace and bracket depth 0,
+// yielding (expr, spec). Colons inside nested `{...}` (struct literals), `[...]`
+// (index/slice expressions), a quoted channel name, or a string are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
 	idx := -1
 	braceDepth := 0
 	bracketDepth := 0
-	for i := len(body) - 1; i >= 0; i-- {
+	for i := 0; i < len(body); i++ {
 		switch body[i] {
-		case '}':
-			braceDepth++
+		case '\'', '"', '`':
+			i = quotedEnd(body, i)
 		case '{':
+			braceDepth++
+		case '}':
 			braceDepth--
-		case ']':
-			bracketDepth++
 		case '[':
+			bracketDepth++
+		case ']':
 			bracketDepth--
 		case ':':
 			if braceDepth == 0 && bracketDepth == 0 {
 				idx = i
 			}
-		}
-		if idx >= 0 {
-			break
 		}
 	}
 	if idx < 0 {

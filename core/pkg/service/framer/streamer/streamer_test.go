@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -37,6 +38,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	var (
 		node        testutil.Node
 		channelSvc  *channel.Service
+		creator     calctestutil.Creator
 		streamerSvc *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
@@ -50,10 +52,12 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
+		creator = calctestutil.Creator{DB: node.DB, Channel: channelSvc}
 		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      node.DB,
 			Framer:  node.Framer,
@@ -215,14 +219,11 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 
 		It("Should receive calculated values", func(ctx SpecContext) {
-			calculation := &channel.Channel{
+			calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, calculation)
-			})).To(Succeed())
+			}))
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
@@ -259,7 +260,7 @@ var _ = Describe("Streamer", Ordered, func() {
 		It(
 			"Should allow the user to dynamically update the channels being calculated",
 			func(ctx SpecContext) {
-				calculation := &channel.Channel{
+				calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:     UniqueChannelName(),
 					DataType: telem.Float32T,
 					Expression: fmt.Sprintf(
@@ -267,10 +268,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						dataCh1.Name,
 						dataCh2.Name,
 					),
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calculation)
-				})).To(Succeed())
+				}))
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
@@ -343,14 +341,11 @@ var _ = Describe("Streamer", Ordered, func() {
 					return channelSvc.NewWriter(tx).Create(ctx, dataB)
 				})).To(Succeed())
 
-				calculation := &channel.Channel{
+				calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
 					Expression: fmt.Sprintf("return %s + %s", dataA.Name, dataB.Name),
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calculation)
-				})).To(Succeed())
+				}))
 
 				keysA := []channel.Key{idxA.Key(), dataA.Key()}
 				wA := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -514,7 +509,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					return channelSvc.NewWriter(tx).Create(ctx, dataCh2)
 				})).To(Succeed())
 
-				calculation := &channel.Channel{
+				calculation := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:     UniqueChannelName(),
 					DataType: telem.Float32T,
 					Expression: fmt.Sprintf(
@@ -522,10 +517,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						dataCh1.Name,
 						dataCh2.Name,
 					),
-				}
-				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, calculation)
-				})).To(Succeed())
+				}))
 
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
 				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -598,17 +590,14 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
 			})).To(Succeed())
-			total := &channel.Channel{
+			total := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:     UniqueChannelName(),
 				DataType: telem.Float32T,
 				Expression: fmt.Sprintf(
 					"total f32 $= 0\ntotal = total + %s\nreturn total",
 					dataCh.Name,
 				),
-			}
-			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, total)
-			})).To(Succeed())
+			}))
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
