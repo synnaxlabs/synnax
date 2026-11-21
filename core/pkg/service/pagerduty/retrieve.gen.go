@@ -64,6 +64,13 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 					}
 				}
 			},
+			Retarget: func(e *TaskConfig, to map[status.Key]status.Key) {
+				for i3 := range e.Alerts {
+					if t, ok := to[e.Alerts[i3].Status]; ok {
+						e.Alerts[i3].Status = t
+					}
+				}
+			},
 		}),
 	}
 }

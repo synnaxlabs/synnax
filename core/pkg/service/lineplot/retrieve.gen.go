@@ -66,6 +66,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *LinePlot, _ group.Key) { e.Group = nil },
+			Retarget: func(e *LinePlot, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		project: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, LinePlot, project.Key]{
 			Name:     "project",

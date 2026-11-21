@@ -74,6 +74,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Device, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Device, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
 			Name:     "parent",

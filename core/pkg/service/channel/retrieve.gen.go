@@ -58,6 +58,13 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Channel, _ group.Key) { e.Group = nil },
+			Retarget: func(e *Channel, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						e.Group = &t
+					}
+				}
+			},
 		}),
 		rewiresFrom: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Channel, Key]{
 			Name:     "rewires.from",

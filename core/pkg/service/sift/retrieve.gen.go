@@ -78,6 +78,13 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					return k2 == t
 				})
 			},
+			Retarget: func(e *StreamConfig, to map[label.Key]label.Key) {
+				for i3, k4 := range e.Labels {
+					if t, ok := to[k4]; ok {
+						e.Labels[i3] = t
+					}
+				}
+			},
 		}),
 	}
 }
