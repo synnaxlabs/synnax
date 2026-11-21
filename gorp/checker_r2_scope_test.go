@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -89,3 +90,17 @@ var _ = Describe("Checker r2 scope: stages from more than one scope", func() {
 		},
 	)
 })
+
+var errR2 = errors.New("checker r2: commit refused")
+
+type r2Item struct {
+	Key    int32
+	Name   string
+	Labels []string
+}
+
+func (i r2Item) GorpKey() int32 { return i.Key }
+
+type r2Label struct{ Key string }
+
+func (l r2Label) GorpKey() string { return l.Key }

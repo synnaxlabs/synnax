@@ -41,7 +41,7 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 		reverse:    make(map[K][]V),
 		none:       make(set.Set[K]),
 	}
-	m.overlay.init(newDelta[K, V](), m.flush)
+	m.overlay.init(newDelta[K, V], m.flush)
 	return m
 }
 
@@ -108,6 +108,7 @@ func (m *Multi[S, K, V]) stageFresh(d *delta[K, V], key K) bool {
 		d.fresh = make(set.Set[K])
 	}
 	d.fresh.Add(key)
+	d.grew(len(d.fresh))
 	return true
 }
 
@@ -121,6 +122,7 @@ func (m *Multi[S, K, V]) stageGone(d *delta[K, V], key K) bool {
 		d.gone = make(set.Set[K])
 	}
 	d.gone.Add(key)
+	d.grew(len(d.gone))
 	return true
 }
 
