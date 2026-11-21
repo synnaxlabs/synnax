@@ -44,7 +44,10 @@ type partWrite struct {
 func (c *Checkpointer) plan(s *state.Snapshot) plan {
 	pl := plan{index: &Index{limit: max(c.index.limit, s.Limits.Parts, 1)}}
 	f := flatten(s)
-	kills := make(map[uint32][]state.Kill)
+	var kills map[uint32][]state.Kill
+	if len(s.Kills) > 0 {
+		kills = make(map[uint32][]state.Kill)
+	}
 	for _, k := range s.Kills {
 		kills[k.Key] = append(kills[k.Key], k)
 	}
@@ -186,30 +189,6 @@ func (f *flat) part(at []int) {
 			f.parted[j] = true
 		}
 	}
-}
-
-// withRanges returns head with the part range of each key in ranges. A key that only
-// parts hold gets a channel with no segment. ranges and head are in rising order of
-// key.
-func withRanges(head []*state.Channel, ranges []state.Range) []*state.Channel {
-	if len(ranges) == 0 {
-		return head
-	}
-	out := make([]*state.Channel, 0, len(head)+len(ranges))
-	i := 0
-	for _, r := range ranges {
-		for ; i < len(head) && head[i].Key < r.Key; i++ {
-			out = append(out, head[i])
-		}
-		c := &state.Channel{Key: r.Key}
-		if i < len(head) && head[i].Key == r.Key {
-			c.Segments = head[i].Segments
-			i++
-		}
-		c.Oldest, c.Newest = r.Oldest, r.Newest
-		out = append(out, c)
-	}
-	return append(out, head[i:]...)
 }
 
 // keep returns the segments that no part holds, the sealed ones alone when sealed is

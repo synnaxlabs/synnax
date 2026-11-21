@@ -112,11 +112,16 @@ func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generatio
 // Encode returns the bytes of the head of generation in database db that holds s. The
 // bytes depend on db, generation, and s alone.
 func Encode(db, generation uint64, s *state.Snapshot) []byte {
-	return encodeHead(db, generation, s, nil)
+	return encodeHead(db, generation, s, nil, nil)
 }
 
 // encodeHead is Encode for a head that names parts.
-func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
+func encodeHead(
+	db, generation uint64,
+	s *state.Snapshot,
+	parts []Part,
+	ranges []state.Range,
+) []byte {
 	return headFormat.encode(db, body{
 		file:     generation,
 		second:   s.Sequence,
@@ -124,6 +129,7 @@ func encodeHead(db, generation uint64, s *state.Snapshot, parts []Part) []byte {
 		channels: s.Channels,
 		intents:  s.Intents,
 		parts:    parts,
+		ranges:   ranges,
 	})
 }
 
@@ -136,6 +142,9 @@ type body struct {
 	channels     []*state.Channel
 	intents      []uint32
 	parts        []Part
+	// ranges are the part ranges of a head in rising order of key. A key of ranges
+	// that channels lack gets a channel record with no segment.
+	ranges []state.Range
 }
 
 func (f *format) encode(db uint64, bd body) []byte {
@@ -153,7 +162,9 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	for _, p := range bd.parts {
 		l.counts[sectionDead] += uint64(len(p.Dead))
 	}
-	l.counts[sectionChans] = uint64(len(bd.channels))
+	eachChannel(bd.channels, bd.ranges, func(uint32, []state.Segment, state.Range) {
+		l.counts[sectionChans]++
+	})
 	for _, c := range bd.channels {
 		l.counts[sectionSegs] += uint64(len(c.Segments))
 		for _, seg := range c.Segments {
@@ -165,7 +176,7 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	l.place()
 	b := make([]byte, l.length)
 	putParts(b, &l, bd.parts)
-	putChannels(b, &l, bd.channels, bd.parts)
+	putChannels(b, &l, bd)
 	putUint32s(b[l.offsets[sectionClocks]:], clocks)
 	putUint32s(b[l.offsets[sectionIntent]:], bd.intents)
 	for i, kind := range f.sections {
@@ -220,19 +231,49 @@ func putParts(b []byte, l *layout, parts []Part) {
 	}
 }
 
-func putChannels(b []byte, l *layout, channels []*state.Channel, parts []Part) {
+// eachChannel calls f with the key, segments, and part range of each channel of a file
+// in rising order of key: a channel of channels with the range of its key in ranges, or
+// a channel of no segment for a key of ranges alone. A key with no range in ranges
+// keeps the range of its channel.
+func eachChannel(
+	channels []*state.Channel,
+	ranges []state.Range,
+	f func(key uint32, segs []state.Segment, r state.Range),
+) {
+	i := 0
+	for _, c := range channels {
+		for ; i < len(ranges) && ranges[i].Key < c.Key; i++ {
+			f(ranges[i].Key, nil, ranges[i])
+		}
+		r := state.Range{Key: c.Key, Oldest: c.Oldest, Newest: c.Newest}
+		if i < len(ranges) && ranges[i].Key == c.Key {
+			r = ranges[i]
+			i++
+		}
+		f(c.Key, c.Segments, r)
+	}
+	for ; i < len(ranges); i++ {
+		f(ranges[i].Key, nil, ranges[i])
+	}
+}
+
+func putChannels(b []byte, l *layout, bd body) {
 	cAt, sAt := l.offsets[sectionChans], l.offsets[sectionSegs]
 	pAt := l.offsets[sectionPtrs]
 	var segs, ptrs uint32
-	for _, c := range channels {
+	eachChannel(bd.channels, bd.ranges, func(
+		key uint32,
+		channelSegs []state.Segment,
+		r state.Range,
+	) {
 		if l.f.kind == kindHead {
-			putLE32(b[cAt:], c.Key, segs, partIndex(parts, c.Oldest),
-				partIndex(parts, c.Newest))
+			putLE32(b[cAt:], key, segs, partIndex(bd.parts, r.Oldest),
+				partIndex(bd.parts, r.Newest))
 		} else {
-			putLE32(b[cAt:], c.Key, segs)
+			putLE32(b[cAt:], key, segs)
 		}
 		cAt += uint64(l.f.sizes[sectionChans])
-		for _, seg := range c.Segments {
+		for _, seg := range channelSegs {
 			binary.LittleEndian.PutUint64(b[sAt:], seg.ID)
 			putLE32(b[sAt+8:], seg.Clock, seg.Length, seg.TailCRC, ptrs)
 			binary.LittleEndian.PutUint16(b[sAt+24:], seg.Version)
@@ -249,7 +290,7 @@ func putChannels(b []byte, l *layout, channels []*state.Channel, parts []Part) {
 			ptrs += uint32(len(seg.Pointers))
 			segs++
 		}
-	}
+	})
 }
 
 // partIndex returns the index in parts of the part of identity id, or noPart for 0.
