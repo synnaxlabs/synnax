@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import (
     Any,
@@ -48,7 +48,7 @@ from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.params import deprecate_positional
-from x.timing import Timer
+from x.timing import Timer as Stopwatch
 
 
 class _CreateRequest(BaseModel):
@@ -85,6 +85,27 @@ _TASK_CMD_CHANNEL = "sy_task_cmd"
 # Each loading status of a command restarts the wait for its next status. A wait past
 # this limit lost its command, for example to a Driver restart.
 _FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
+
+
+class Timer(BaseProtocol):
+    """A wait for a status that a command started."""
+
+    def remaining(self) -> TimeSpan:
+        """Returns how long the wait has left, or zero once it has passed."""
+        ...
+
+
+StartTimer = Callable[[TimeSpan], Timer]
+"""Starts a Timer that passes after the span."""
+
+
+class _SystemTimer:
+    def __init__(self, span: TimeSpan) -> None:
+        self._span = span
+        self._stopwatch = Stopwatch()
+
+    def remaining(self) -> TimeSpan:
+        return max(self._span - self._stopwatch.elapsed(), TimeSpan.ZERO)
 
 
 class _Keyed(BaseProtocol):
@@ -209,7 +230,7 @@ class Task:
         *,
         args: Mapping[str, object] | None = None,
         timeout: CrudeTimeSpan = 5,
-        final_timeout: CrudeTimeSpan | None = None,
+        timer: StartTimer = _SystemTimer,
     ) -> Status:
         """Executes a command on the task and waits for the final status that the
         driver sends for it. A loading status acknowledges the command, and the wait
@@ -219,30 +240,25 @@ class Task:
         :param args: The arguments to pass to the command.
         :param timeout: How long to wait for the driver to acknowledge the command.
         Once it does, each loading status restarts the wait for the next status, which
-        lasts final_timeout.
-        :param final_timeout: How long each wait for the next status lasts once the
-        driver acknowledges the command. Defaults to two minutes or the timeout,
-        whichever is longer.
+        lasts two minutes or the timeout, whichever is longer.
+        :param timer: Starts each wait for a status. Defaults to a timer on the system
+        clock.
         :raises TimeoutError: If the driver does not acknowledge the command or send
         its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
         while the command waits.
         """
         span = TimeSpan.from_seconds(timeout)
-        final_span = (
-            max(span, _FINAL_STATUS_TIMEOUT)
-            if final_timeout is None
-            else TimeSpan.from_seconds(final_timeout)
-        )
+        final_span = max(span, _FINAL_STATUS_TIMEOUT)
         rack_id = rack_.resource_id(self.rack) if self.rack != 0 else None
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args=args)
-            timer = Timer()
+            wait = timer(span)
             acknowledged = False
             while True:
                 # The channel carries every status in the cluster, so the wait is a
                 # deadline: a frame answering some other command must not renew it.
-                remaining = span - timer.elapsed()
+                remaining = wait.remaining()
                 frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
                     step = "finish" if acknowledged else "acknowledge"
@@ -271,8 +287,7 @@ class Task:
                         # A loading status shows the Driver still works on the
                         # command, so the wait starts again.
                         acknowledged = True
-                        span = final_span
-                        timer = Timer()
+                        wait = timer(final_span)
 
 
 def _config_devices(config: Mapping[str, Any]) -> list[str]:

@@ -56,6 +56,44 @@ const OTHER_ROUTING_KEY = await createRoutingKey();
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
+interface ManualTimer extends task.Timer {
+  span: TimeSpan;
+  /** Expires the timer, unless it was cancelled. */
+  expire: () => void;
+}
+
+/** Starts timers that expire only when a spec expires them. */
+const createManualTimer = () => {
+  const timers: ManualTimer[] = [];
+  const pending: Array<() => void> = [];
+  const start: task.StartTimer = (span) => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    let cancelled = false;
+    timers.push({
+      span,
+      expired: promise,
+      cancel: () => {
+        cancelled = true;
+      },
+      expire: () => {
+        if (!cancelled) resolve();
+      },
+    });
+    pending.splice(0).forEach((notify) => notify());
+    return timers[timers.length - 1];
+  };
+  /** Resolves with the timer started at the index, once it starts. */
+  const started = async (index: number): Promise<ManualTimer> => {
+    while (timers.length <= index) {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      pending.push(resolve);
+      await promise;
+    }
+    return timers[index];
+  };
+  return { start, started };
+};
+
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
   // The Core refuses an alert config that names a status it does not hold.
@@ -1346,7 +1384,7 @@ describe("Task", async () => {
       expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
 
-    it("should give up once the final timeout passes after a loading reply", async () => {
+    it("should give up two minutes after a loading reply with no final status", async () => {
       const t = await testRack.createTask({
         name: `lost-start-${id.create()}`,
         config: {},
@@ -1354,16 +1392,19 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
-      const finalTimeout = TimeSpan.milliseconds(500);
+      const timer = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
-        finalTimeout,
+        timer: timer.start,
       });
       const cmd = await readCommand(streamer, t.key);
       await setReply(t, cmd, "loading", "Starting task");
+      const final = await timer.started(1);
+      expect(final.span).toEqual(TimeSpan.minutes(2));
+      final.expire();
       await expect(wait).rejects.toThrow(
-        new Error(`Command to ${t.name} timed out after ${finalTimeout.toString()}`),
+        new Error(`Command to ${t.name} timed out after ${final.span.toString()}`),
       );
     });
 
@@ -1375,26 +1416,20 @@ describe("Task", async () => {
       });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
       onTestFinished(() => streamer.close());
-      const finalTimeout = TimeSpan.milliseconds(1500);
+      const timer = createManualTimer();
       const wait = t.executeCommandSync({
         type: "start",
         timeout: TimeSpan.minutes(1),
-        finalTimeout,
+        timer: timer.start,
       });
       const cmd = await readCommand(streamer, t.key);
-      const gap = TimeSpan.seconds(1);
       await setReply(t, cmd, "loading", "Starting task");
-      await sleep.sleep(gap);
-      // The reply arrives after this, so a restarted wait ends a full finalTimeout
-      // later however slow the Core is. A wait that did not restart ends a gap earlier.
-      const restarted = TimeStamp.now();
+      const first = await timer.started(1);
       await setReply(t, cmd, "loading", "Still starting task");
-      await expect(wait).rejects.toThrow(
-        new Error(`Command to ${t.name} timed out after ${finalTimeout.toString()}`),
-      );
-      expect(TimeStamp.since(restarted).milliseconds).toBeGreaterThan(
-        finalTimeout.sub(gap.div(2)).milliseconds,
-      );
+      await timer.started(2);
+      first.expire();
+      await setReply(t, cmd, "success", "Started task");
+      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
     });
 
     // The change stream can deliver a status written before the wait began, so each

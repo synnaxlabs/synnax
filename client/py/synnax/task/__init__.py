@@ -12,7 +12,9 @@ from synnax.task.client import (
     JSONConfigMixin,
     Protocol,
     StarterStopperMixin,
+    StartTimer,
     Task,
+    Timer,
     assign_keys,
 )
 from synnax.task.types_gen import (
@@ -61,11 +63,13 @@ __all__ = [
     "Scale",
     "ScanConfig",
     "StartConfig",
+    "StartTimer",
     "StarterStopperMixin",
     "Status",
     "StatusDetails",
     "TableScale",
     "Task",
+    "Timer",
     "Where",
     "WhereInput",
     "WriteConfig",

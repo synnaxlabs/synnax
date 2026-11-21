@@ -82,6 +82,43 @@ def silent_rack(client: sy.Synnax) -> sy.Rack:
     return r
 
 
+class _ManualTimer:
+    """A timer that passes only when a test sets passed."""
+
+    def __init__(self, span: sy.TimeSpan) -> None:
+        self.span = span
+        self.passed = False
+
+    def remaining(self) -> sy.TimeSpan:
+        return sy.TimeSpan.ZERO if self.passed else self.span
+
+
+class _ManualTimers:
+    """Starts manual timers and lets a test wait for each one to start."""
+
+    def __init__(self) -> None:
+        self._timers: list[_ManualTimer] = []
+        self._started = threading.Condition()
+
+    def __call__(self, span: sy.TimeSpan) -> _ManualTimer:
+        with self._started:
+            self._timers.append(_ManualTimer(span))
+            self._started.notify_all()
+            return self._timers[-1]
+
+    def started(self, index: int) -> _ManualTimer:
+        """Returns the timer started at the index, once it starts."""
+        with self._started:
+            assert self._started.wait_for(lambda: len(self._timers) > index, 30)
+            return self._timers[index]
+
+
+def _wake(client: sy.Synnax) -> None:
+    """Writes a status that no command waits for, so a waiting command reads its
+    timer again."""
+    client.statuses.set(sy.Status(variant=sy.status.VARIANT_INFO, message="Wake"))
+
+
 def _set_reply(
     client: sy.Synnax, cmd: sy.task.Command, variant: sy.status.Variant
 ) -> None:
@@ -532,10 +569,11 @@ class TestTaskClient:
         self, client: sy.Synnax, silent_rack: sy.Rack
     ) -> None:
         """A Driver that restarts after a loading reply never sends the final status,
-        so the wait ends at its limit."""
+        so the wait ends two minutes after the reply."""
         tsk = client.tasks.create(
             name="test", type="pagerduty_alert", rack=silent_rack.key
         )
+        timers = _ManualTimers()
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -544,17 +582,18 @@ class TestTaskClient:
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                final = timers.started(1)
+                assert final.span == 2 * sy.TimeSpan.MINUTE
+                final.passed = True
+                _wake(client)
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
         ev.wait()
-        timeout = 30 * sy.TimeSpan.SECOND
-        timer = sy.Timer()
         with pytest.raises(TimeoutError) as err:
-            tsk.execute_command_sync("start", timeout=timeout, final_timeout=0.5)
+            tsk.execute_command_sync("start", timeout=5, timer=timers)
         assert str(err.value) == "timed out waiting for driver to finish start command"
-        assert timer.elapsed() < timeout
         t.join()
 
     def test_execute_command_sync_restarts_the_wait_on_each_loading_reply(
@@ -564,9 +603,7 @@ class TestTaskClient:
         tsk = client.tasks.create(
             name="test", type="pagerduty_alert", rack=silent_rack.key
         )
-        final_timeout = 1500 * sy.TimeSpan.MILLISECOND
-        gap = sy.TimeSpan.SECOND
-        restarted: list[sy.TimeStamp] = []
+        timers = _ManualTimers()
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -575,21 +612,20 @@ class TestTaskClient:
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
-                sy.sleep(gap)
-                # The reply arrives after this, so a restarted wait ends a full
-                # final_timeout later however slow the Core is. A wait that did not
-                # restart ends a gap earlier.
-                restarted.append(sy.TimeStamp.now())
+                first = timers.started(1)
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                timers.started(2)
+                first.passed = True
+                _wake(client)
+                _set_reply(client, cmd, sy.status.VARIANT_SUCCESS)
 
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
         ev.wait()
-        with pytest.raises(TimeoutError):
-            tsk.execute_command_sync("start", timeout=5, final_timeout=final_timeout)
+        status = tsk.execute_command_sync("start", timeout=5, timer=timers)
+        assert status.variant == sy.status.VARIANT_SUCCESS
         t.join()
-        assert sy.TimeStamp.since(restarted[0]) > final_timeout - gap / 2
 
     def test_execute_command_without_args_sends_empty_object(
         self, client: sy.Synnax

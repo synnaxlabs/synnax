@@ -153,15 +153,30 @@ export interface ExecuteCommandsParams {
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   /**
    * How long to wait for the Driver to acknowledge the command. Once it does, each
-   * loading status restarts the wait for the next status, which lasts finalTimeout.
+   * loading status restarts the wait for the next status, which lasts two minutes or
+   * the timeout, whichever is longer.
    */
   timeout?: CrudeTimeSpan;
-  /**
-   * How long each wait for the next status lasts once the Driver acknowledges the
-   * command. Defaults to two minutes or the timeout, whichever is longer.
-   */
-  finalTimeout?: CrudeTimeSpan;
+  /** Starts each wait for a status. Defaults to a timer on the system clock. */
+  timer?: StartTimer;
 }
+
+/** A wait for a status that a command started. */
+export interface Timer {
+  /** Resolves once the wait passes. Never resolves after cancel. */
+  expired: Promise<void>;
+  /** Stops the wait. */
+  cancel: () => void;
+}
+
+/** Starts a {@link Timer} that expires after the span. */
+export type StartTimer = (span: TimeSpan) => Timer;
+
+const startTimer: StartTimer = (span) => {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  const handle = setTimeout(resolve, span.milliseconds);
+  return { expired: promise, cancel: () => clearTimeout(handle) };
+};
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
   ExecuteCommandsSyncInternalParams<StatusData>,
@@ -1131,7 +1146,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   task,
   type,
   timeout,
-  finalTimeout,
+  timer,
   name: taskName,
   statusDataZ,
   args,
@@ -1146,7 +1161,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
       commands: [{ args, task, type, configHash, pinned }],
       racks,
       timeout,
-      finalTimeout,
+      timer,
       statusDataZ,
       name: taskName,
     })
@@ -1160,7 +1175,7 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   /** The racks of the commanded tasks. The wait fails when one of them goes down. */
   racks: RackKey[];
   timeout?: CrudeTimeSpan;
-  finalTimeout?: CrudeTimeSpan;
+  timer?: StartTimer;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
 }
@@ -1171,7 +1186,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   commands,
   racks,
   timeout = COMMAND_DEADLINE,
-  finalTimeout: crudeFinalTimeout,
+  timer: start = startTimer,
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
@@ -1184,23 +1199,21 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const cmds = keyCommands(commands);
   const cmdKeys = cmds.map((c) => c.key);
   const parsedTimeout = new TimeSpan(timeout);
-  const finalTimeout =
-    crudeFinalTimeout != null
-      ? new TimeSpan(crudeFinalTimeout)
-      : parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
-        ? parsedTimeout
-        : FINAL_STATUS_TIMEOUT;
+  const finalTimeout = parsedTimeout.greaterThan(FINAL_STATUS_TIMEOUT)
+    ? parsedTimeout
+    : FINAL_STATUS_TIMEOUT;
   const { promise, resolve, reject } = Promise.withResolvers<Status<StatusData>[]>();
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: Timer | undefined;
   const timeOutAfter = (span: TimeSpan): void => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
+    timer?.cancel();
+    timer = start(span);
+    void timer.expired.then(() => {
       formatTimeoutError(
         taskName,
         span,
         commands.map((c) => c.task),
       ).then(reject, reject);
-    }, span.milliseconds);
+    });
   };
   const acknowledged = new Set<string>();
   // A loading status shows the Driver still works on its command, so once every
@@ -1247,7 +1260,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     return replies;
   } finally {
     ended = true;
-    clearTimeout(timer);
+    timer?.cancel();
     close();
   }
 };
