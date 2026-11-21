@@ -100,6 +100,11 @@ export interface Holder<Key extends record.Key> {
   held: () => Iterable<Key>;
   /** Discards anything composed from the dropped records. */
   drop?: (keys: ReadonlySet<Key>) => void;
+  /**
+   * Learns of a write to the key, even one that left its record as it was, such as the
+   * echo of a write that the Core committed.
+   */
+  written?: (key: Key) => void;
 }
 
 /** A point in a table's write history, handed to a fetch by {@link Table.track}. */
@@ -452,6 +457,16 @@ export class Table<
     return this.interceptor?.keys() ?? [];
   }
 
+  /**
+   * Notifies the subscribers of the key with its value, though the value is unchanged.
+   * The value can come to answer differently at the Core, such as when the Core applies
+   * an edit that the table already shows, so lists place the key again.
+   */
+  renotify(key: Key): void {
+    const value = this.entries.get(key);
+    if (value != null) this.notify({ variant: "set", key, value });
+  }
+
   private base(key: Key): Value | undefined {
     return this.interceptor?.base(key) ?? this.entries.get(key);
   }
@@ -543,10 +558,12 @@ export class Table<
 
   /**
    * Counts a write that left the key's value as it was, so a fetch that started before
-   * this call cannot overwrite the key.
+   * this call cannot overwrite the key. Tells each holder of the write.
    */
   stampWrite(key: Key): void {
-    if (this.entries.has(key)) this.writeStamps.set(key, ++this.writeSeq);
+    if (!this.entries.has(key)) return;
+    this.writeStamps.set(key, ++this.writeSeq);
+    this.holders.forEach((holder) => holder.written?.(key));
   }
 
   private writtenSince(key: Key, since: Stamp): boolean {
