@@ -128,8 +128,7 @@ void Manager::discard(const synnax::task::Key &key, const bool even_if_processin
     if (removed) this->statuses->drop(key);
 }
 
-x::errors::Error Manager::configure_initial_tasks() {
-    VLOG(1) << "configuring initial tasks";
+x::errors::Error Manager::sync_tasks() {
     auto [tasks, tasks_err] = this->rack.tasks.retrieve(
         synnax::task::Where{},
         synnax::task::RetrieveOptions{.include_status = true}
@@ -166,6 +165,13 @@ x::errors::Error Manager::configure_initial_tasks() {
     this->cv.notify_all();
     for (const auto &key: gone)
         this->statuses->drop(key);
+    VLOG(1) << "queued " << queued << " tasks";
+    return x::errors::NIL;
+}
+
+x::errors::Error Manager::configure_initial_tasks() {
+    VLOG(1) << "configuring initial tasks";
+    if (const auto err = this->sync_tasks()) return err;
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(
         this->ctx,
@@ -185,7 +191,6 @@ x::errors::Error Manager::configure_initial_tasks() {
             entry->deployed_hash = sy_task.config_hash;
         }
     }
-    VLOG(1) << "queued " << queued << " initial tasks";
     return x::errors::NIL;
 }
 
@@ -255,12 +260,13 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             else if (key == this->channels.rack_set.key)
                 this->process_rack_set(series);
         }
-        // The next run configures the tasks again, as it does after a Core outage.
+        // The stream stays open, so the frames after the drop still apply.
         if (this->missed) {
             this->missed = false;
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
                             "behind. Configuring the tasks again.";
-            break;
+            if (const auto err = this->sync_tasks())
+                LOG(WARNING) << "failed to configure the tasks again: " << err;
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};
