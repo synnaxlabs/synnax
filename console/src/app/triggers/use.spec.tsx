@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { panel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type Synnax as Client } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
@@ -41,7 +41,11 @@ import {
 } from "@/platform/panel/testutil";
 import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  createConsoleWrapper,
+  createTestClientWithGrants,
+  type TestStore,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -109,8 +113,11 @@ const renderTriggers = async (ui?: ReactNode) => {
 
 // The Core-writing shortcuts need a panel that exists on the Core. The triggers mount
 // above every panel scope, the way the app shell mounts them.
-const renderLiveTriggers = async (panelKey: panel.Key) => {
-  const { wrapper: Panels, store } = await createPanelWrapper({ client });
+const renderLiveTriggers = async (panelKey: panel.Key, as: Client = client) => {
+  const { wrapper: Panels, store } = await createPanelWrapper({
+    client: as,
+    project: await createPanelProject(client),
+  });
   await primePanel(Panels, panelKey);
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Panels>
@@ -145,6 +152,22 @@ const leafTabs = async (key: panel.Key): Promise<panel.Tab[]> => {
   const { root } = await client.panels.retrieve(key);
   if (root.variant !== "leaf") throw new Error("expected a single-leaf root");
   return root.tabs;
+};
+
+/**
+ * Holds every grant read of the client until the returned function is called. The read
+ * then runs against the Core.
+ */
+const holdGrants = (as: Client): (() => void) => {
+  const { granted } = as.access;
+  const retrieve = granted.retrieve.bind(granted);
+  let resume = (): void => {};
+  const held = new Promise<void>((resolve) => (resume = resolve));
+  vi.spyOn(granted, "retrieve").mockImplementation(async (...args) => {
+    await held;
+    return await retrieve(...args);
+  });
+  return resume;
 };
 
 describe("app/triggers", () => {
@@ -272,6 +295,53 @@ describe("app/triggers", () => {
       await waitFor(() => expect(canEditPanel()).toBe(true));
       act(() => press(CONTROL, "KeyW"));
       await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
+    });
+
+    it("should do nothing until the grant to edit the panel loads", async () => {
+      mocks.engine = "tauri";
+      const closed = viewTab();
+      const kept = viewTab();
+      const pan = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [closed, kept],
+      });
+      const editor = await createTestClientWithGrants(client, {
+        retrieve: [panel.TYPE_RESOURCE_ID],
+        update: [panel.TYPE_RESOURCE_ID],
+      });
+      const resume = holdGrants(editor);
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, editor);
+      focusTab(store, pan.key, closed.key);
+      expect(canEditPanel()).toBeUndefined();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(true);
+      resume();
+      await waitFor(() => expect(canEditPanel()).toBe(true));
+      act(() => press(CONTROL, "KeyW"));
+      await waitFor(async () => expect(await leafTabs(pan.key)).toEqual([kept]));
+    });
+
+    it("should close the window for a user who may not edit the panel", async () => {
+      mocks.engine = "tauri";
+      const tab = viewTab();
+      const pan = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
+      const reader = await createTestClientWithGrants(client, {
+        retrieve: [panel.TYPE_RESOURCE_ID],
+      });
+      const { store, canEditPanel } = await renderLiveTriggers(pan.key, reader);
+      focusTab(store, pan.key, tab.key);
+      await waitFor(() => expect(canEditPanel()).toBe(false));
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      act(() => hold(CONTROL, "KeyW"));
+      act(() => void vi.advanceTimersByTime(400));
+      act(() => release(CONTROL, "KeyW"));
+      vi.useRealTimers();
+      expect(isWindowOpen(store)).toBe(false);
+      expect(await leafTabs(pan.key)).toEqual([tab]);
     });
   });
 

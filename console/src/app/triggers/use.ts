@@ -105,6 +105,9 @@ export const use = (): void => {
         }
         return;
       }
+      // Until the grant loads, the shortcut cannot tell closing the tab from closing
+      // the window.
+      if (canEditPanel == null) return;
       const panelKey = getSelectedPanel();
       const focused = getFocusedTab();
       if (canEditPanel && panelKey != null && focused != null) {
