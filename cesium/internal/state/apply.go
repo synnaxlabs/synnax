@@ -11,6 +11,7 @@ package state
 
 import (
 	"math"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
@@ -55,6 +56,10 @@ type core struct {
 	// dropUsers holds, for each key that BeginDrop took, the part records that name it
 	// as their clock, for the durable apply of its Drop.
 	dropUsers map[uint32][]User
+	// checked holds, for each segment with visible commits that are not durable yet,
+	// the part records that those commits were checked against, which their durable
+	// apply checks again. Most segments have none, so the map holds few.
+	checked map[uint64][]Segment
 }
 
 func newCore(versions set.Set[uint16]) *core {
@@ -65,6 +70,7 @@ func newCore(versions set.Set[uint16]) *core {
 		intents:   set.Set[uint32]{},
 		keys:      set.Set[uint32]{},
 		dropUsers: map[uint32][]User{},
+		checked:   map[uint64][]Segment{},
 	}
 }
 
@@ -232,7 +238,11 @@ func (c *core) commit(r *log.Commit, pre []Preload) error {
 		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
 		if s.dur.length == s.vis.Length {
-			s.pre = nil
+			delete(c.checked, s.vis.ID)
+			ch := c.channels[s.key]
+			ch.pending = slices.DeleteFunc(ch.pending, func(o *segState) bool {
+				return o == s
+			})
 		}
 	}
 	return nil
@@ -246,7 +256,12 @@ func (c *core) durableOverlap(
 	first, last telem.TimeStamp,
 	pre []Preload,
 ) (Pointer, bool) {
-	return c.channels[s.key].overlapsDurable(first, last, s.pre, recordsOf(pre, s.key))
+	return c.channels[s.key].overlapsDurable(
+		first,
+		last,
+		c.checked[s.vis.ID],
+		recordsOf(pre, s.key),
+	)
 }
 
 func (c *core) seal(r *log.Seal) error {
