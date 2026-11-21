@@ -544,6 +544,22 @@ describe("viewport/use", () => {
       expect(starts[1]).toBeCloseTo(0.1);
     });
 
+    it("should not keep the bound of a select drag that a zoom reset ended", () => {
+      const { h, starts } = bounded();
+      fireEvent.keyDown(document.body, { code: ALT });
+      press(h.canvas, { x: 40, y: 20 });
+      move({ x: 60, y: 60 });
+      fireEvent.keyDown(document.body, { code: CONTROL });
+      release(h.canvas, { x: 80, y: 80 });
+      fireEvent.keyUp(document.body, { code: CONTROL });
+      press(h.canvas, { x: 10, y: 20 });
+      move({ x: 30, y: 80 });
+      release(h.canvas, { x: 30, y: 80 });
+      fireEvent.keyUp(document.body, { code: ALT });
+      expect(starts).toHaveLength(2);
+      expect(starts[1]).toBeCloseTo(0.1);
+    });
+
     it("should not bound a zoom", () => {
       const { h, starts } = bounded();
       drag(h.canvas, { x: 40, y: 20 }, { x: 80, y: 80 });
