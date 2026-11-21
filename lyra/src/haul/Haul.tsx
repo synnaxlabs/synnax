@@ -241,13 +241,12 @@ export const Provider = memo(
         y = PREVIEW_PAD + event.clientY - rect.top;
       }
       // Last in the top layer, the preview shows over the dropdown it came from.
-      layer.hidePopover();
-      layer.showPopover();
-      event.dataTransfer.setDragImage(layer, x, y);
-      requestAnimationFrame(() => {
+      if (content != null) {
         layer.hidePopover();
-        flushSync(() => setPreviewContent(null));
-      });
+        layer.showPopover();
+      }
+      event.dataTransfer.setDragImage(layer, x, y);
+      requestAnimationFrame(() => flushSync(() => setPreviewContent(null)));
     };
 
     const claimDragEvent: ContextValue["claimDragEvent"] = (event) => {
