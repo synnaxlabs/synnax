@@ -122,6 +122,12 @@ var _ = Describe("Calculation records", func() {
 		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
 		unnamed.Expression = "return 2"
 		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
+		badName := apichannel.Channel{
+			Name:     "bad name",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+		Expect(pathOf(calculated(input), badName)).To(Equal([]string{"1", "name"}))
 	})
 
 	It("Should write the record of a calculated channel", func(ctx SpecContext) {

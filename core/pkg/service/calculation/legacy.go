@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
@@ -66,8 +65,8 @@ type Requested struct {
 // other channel goes to the channel service. When retrieveIfExists is true, a channel
 // whose name or key is stored is found as channel.RetrieveIfNameExists finds it, and
 // CreateChannels writes no calculation for it. It returns the stored channels in the
-// order of requested, then the index channels of the new outputs. A failed channel's
-// error holds its position in requested.
+// order of requested, then the index channels of the new outputs. The error of a failed
+// channel is a channel.BatchError at its position in requested.
 func (w Writer) CreateChannels(
 	ctx context.Context,
 	requested []Requested,
@@ -101,9 +100,11 @@ func (w Writer) CreateChannels(
 		if err := w.channels.NewWriter(w.tx).
 			WithDispatchKey(w.dispatchKey).
 			CreateMany(ctx, &plain, opts...); err != nil {
-			return nil, reindex(err, func(j int) []string {
-				return []string{strconv.Itoa(plainAt[j])}
-			})
+			if b, ok := errors.AsType[channel.BatchError](err); ok {
+				b.At = plainAt[b.At]
+				return nil, b
+			}
+			return nil, err
 		}
 		for j, i := range plainAt {
 			channels[i] = plain[j]
@@ -120,7 +121,7 @@ func (w Writer) CreateChannels(
 		}
 		created, err := w.createRequested(ctx, r)
 		if err != nil {
-			return nil, validate.PathedError(err, strconv.Itoa(i))
+			return nil, channel.BatchError{At: i, Err: err}
 		}
 		channels[i] = created[0]
 		indexes = append(indexes, created[1:]...)

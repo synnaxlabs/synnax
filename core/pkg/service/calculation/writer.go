@@ -12,7 +12,6 @@ package calculation
 import (
 	"context"
 	"slices"
-	"strconv"
 	"strings"
 	"uuid"
 
@@ -113,7 +112,10 @@ func (w Writer) CreateOutput(
 	if err = w.channels.NewWriter(w.tx).
 		WithDispatchKey(w.dispatchKey).
 		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
-		return nil, reindex(err, func(int) []string { return nil })
+		if b, ok := errors.AsType[channel.BatchError](err); ok {
+			err = b.Err
+		}
+		return nil, err
 	}
 	c.Output = created[0].Key()
 	return created, w.Create(ctx, c)
@@ -409,21 +411,6 @@ func (w Writer) storedChannels(
 		return nil, err
 	}
 	return slices.Concat(byName, byKey), nil
-}
-
-// reindex replaces the position p that leads the path of err, an error from
-// channel.Writer.CreateMany, with at(p).
-func reindex(err error, at func(p int) []string) error {
-	pathErr, ok := errors.AsType[validate.PathError](err)
-	if !ok || len(pathErr.Path) == 0 {
-		return err
-	}
-	p, convErr := strconv.Atoi(pathErr.Path[0])
-	if convErr != nil {
-		return err
-	}
-	pathErr.Path = slices.Concat(at(p), pathErr.Path[1:])
-	return pathErr
 }
 
 // sameKeys reports whether a and b hold the same keys, in any order and with any

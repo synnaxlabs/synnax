@@ -230,6 +230,9 @@ func (s *Service) Create(
 	}
 	stored, err := s.calculations.NewWriter(tx).
 		CreateChannels(ctx, requested, req.RetrieveIfNameExists)
+	if b, ok := errors.AsType[channel.BatchError](err); ok {
+		return CreateResponse{}, validate.PathedError(b.Err, strconv.Itoa(b.At))
+	}
 	if err != nil {
 		return CreateResponse{}, err
 	}

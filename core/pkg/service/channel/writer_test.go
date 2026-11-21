@@ -313,6 +313,45 @@ var _ = Describe("Writer", func() {
 						To(MatchError(ContainSubstring(fmt.Sprintf("duplicate channel name '%s' in request", ch1.Name))))
 				},
 			)
+			DescribeTable(
+				"Should fail at the position of the channel at fault",
+				func(ctx SpecContext, name string, path []string) {
+					chs := []channel.Channel{
+						{
+							Name:     UniqueChannelName(),
+							DataType: telem.Float64T,
+							Virtual:  true,
+						},
+						{Name: name, DataType: telem.Float64T, Virtual: true},
+					}
+					err := db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).CreateMany(ctx, &chs)
+					})
+					batchErr := MustBeOk(errors.AsType[channel.BatchError](err))
+					Expect(batchErr.At).To(Equal(1))
+					pathErr := MustBeOk(errors.AsType[validate.PathError](batchErr.Err))
+					Expect(pathErr.Path).To(Equal(path))
+				},
+				Entry("a name that is not valid", "bad name", []string{"name"}),
+				Entry("no name", "", []string{"name"}),
+			)
+			It(
+				"Should return the error of one channel without its position",
+				func(ctx SpecContext) {
+					ch := channel.Channel{
+						Name:     "bad name",
+						DataType: telem.Float64T,
+						Virtual:  true,
+					}
+					err := db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})
+					_, positioned := errors.AsType[channel.BatchError](err)
+					Expect(positioned).To(BeFalse())
+					Expect(MustBeOk(errors.AsType[validate.PathError](err)).Path).
+						To(Equal([]string{"name"}))
+				},
+			)
 		})
 		Context("Creating if name doesn't exist", func() {
 			var ch channel.Channel
