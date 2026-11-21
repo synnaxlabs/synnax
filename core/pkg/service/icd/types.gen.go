@@ -142,6 +142,9 @@ const (
 	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
 	// BooleanJSONMatchType matches an equal JSON boolean.
 	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+	// PresentJSONMatchType matches a document that holds a value other than null at the
+	// pointer.
+	PresentJSONMatchType JSONMatchType = versions.PresentJSONMatchType
 )
 
 // FloatJSONMatch matches a JSON number equal to a float.
@@ -158,6 +161,10 @@ type StringJSONMatch = versions.StringJSONMatch
 
 // BooleanJSONMatch matches an equal JSON boolean.
 type BooleanJSONMatch = versions.BooleanJSONMatch
+
+// PresentJSONMatch matches a document that holds a value other than null at the
+// pointer.
+type PresentJSONMatch = versions.PresentJSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload

@@ -13,6 +13,8 @@ package v1
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -63,6 +65,126 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (jsonm JSONMatch) EncodeOrc(w *orc.Writer) error {
+	switch v := jsonm.Variant.(type) {
+	case FloatJSONMatch:
+		w.String("float")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.Value))
+	case IntegerJSONMatch:
+		w.String("integer")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Int64(int64(v.Value))
+	case UnsignedJSONMatch:
+		w.String("unsigned")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint64(uint64(v.Value))
+	case StringJSONMatch:
+		w.String("string")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	case BooleanJSONMatch:
+		w.String("boolean")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.Value)
+	case PresentJSONMatch:
+		w.String("present")
+		if err := v.JSONBaseMatch.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("JSONMatch: nil or unknown variant %T", jsonm.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (jsonm *JSONMatch) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Float64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Float(rawV)
+		}
+		jsonm.Variant = v
+	case "integer":
+		var v IntegerJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Integer(rawV)
+		}
+		jsonm.Variant = v
+	case "unsigned":
+		var v UnsignedJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint64()
+			if err != nil {
+				return err
+			}
+			v.Value = payload.Unsigned(rawV)
+		}
+		jsonm.Variant = v
+	case "string":
+		var v StringJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	case "boolean":
+		var v BooleanJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.Bool(); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	case "present":
+		var v PresentJSONMatch
+		if err := v.JSONBaseMatch.DecodeOrc(r); err != nil {
+			return err
+		}
+		jsonm.Variant = v
+	default:
+		return errors.Newf("JSONMatch: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (mv Message) EncodeOrc(w *orc.Writer) error {
 	w.Write(mv.Key[:])
 	w.String(mv.Name)
@@ -106,6 +228,193 @@ func (mv *Message) DecodeOrc(r *orc.Reader) error {
 			}
 			mv.CycleTime = &hv
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (p Payload) EncodeOrc(w *orc.Writer) error {
+	switch v := p.Variant.(type) {
+	case BinaryPayload:
+		w.String("binary")
+		if v.Length != nil {
+			w.Bool(true)
+			w.Uint16(uint16(*v.Length))
+		} else {
+			w.Bool(false)
+		}
+		if v.Identifier != nil {
+			w.Bool(true)
+			if err := v.Identifier.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Fields != nil)
+		if v.Fields != nil {
+			w.Uint32(uint32(len(v.Fields)))
+			for i := range v.Fields {
+				if err := v.Fields[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case TextPayload:
+		w.String("text")
+		w.String(v.Delimiter)
+		w.String(v.Prefix)
+		w.Bool(v.Fields != nil)
+		if v.Fields != nil {
+			w.Uint32(uint32(len(v.Fields)))
+			for i := range v.Fields {
+				if err := v.Fields[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	case JSONPayload:
+		w.String("json")
+		if v.Match != nil {
+			w.Bool(true)
+			if err := v.Match.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		w.Bool(v.Fields != nil)
+		if v.Fields != nil {
+			w.Uint32(uint32(len(v.Fields)))
+			for i := range v.Fields {
+				if err := v.Fields[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		return errors.Newf("Payload: nil or unknown variant %T", p.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (p *Payload) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "binary":
+		var v BinaryPayload
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv uint16
+				if hv, err = r.Uint16(); err != nil {
+					return err
+				}
+				v.Length = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv Identifier
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Identifier = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Fields = make([]BinaryField, n)
+				for i := range v.Fields {
+					if err = v.Fields[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		p.Variant = v
+	case "text":
+		var v TextPayload
+		if v.Delimiter, err = r.String(); err != nil {
+			return err
+		}
+		if v.Prefix, err = r.String(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Fields = make([]TextField, n)
+				for i := range v.Fields {
+					if err = v.Fields[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		p.Variant = v
+	case "json":
+		var v JSONPayload
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv JSONMatch
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Match = &hv
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Fields = make([]JSONField, n)
+				for i := range v.Fields {
+					if err = v.Fields[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		p.Variant = v
+	default:
+		return errors.Newf("Payload: unknown variant %q", tag)
 	}
 	return nil
 }

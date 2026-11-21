@@ -7,61 +7,61 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package v1_test
 
 import (
 	"encoding/json/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 )
 
 var _ = Describe("Base", func() {
 	Describe("Payload", func() {
-		binary := v0.Payload{Variant: v0.BinaryPayload{Fields: []v0.BinaryField{
+		binary := v1.Payload{Variant: v1.BinaryPayload{Fields: []v1.BinaryField{
 			{Name: "rpm"},
 		}}}
-		text := v0.Payload{Variant: v0.TextPayload{Fields: []v0.TextField{
-			{Variant: v0.TaggedTextField{BaseField: v0.BaseField{Name: "temp"}}},
+		text := v1.Payload{Variant: v1.TextPayload{Fields: []v1.TextField{
+			{Variant: v1.TaggedTextField{BaseField: v1.BaseField{Name: "temp"}}},
 			{},
 		}}}
-		jsonPayload := v0.Payload{Variant: v0.JSONPayload{Fields: []v0.JSONField{
-			{Variant: v0.FloatJSONField{JSONBaseField: v0.JSONBaseField{
-				BaseField: v0.BaseField{Name: "volts"},
+		jsonPayload := v1.Payload{Variant: v1.JSONPayload{Fields: []v1.JSONField{
+			{Variant: v1.FloatJSONField{JSONBaseField: v1.JSONBaseField{
+				BaseField: v1.BaseField{Name: "volts"},
 				Pointer:   "/v",
 			}}},
 			{},
 		}}}
-		rename := func(b *v0.BaseField) { b.Name += "!" }
+		rename := func(b *v1.BaseField) { b.Name += "!" }
 
 		It("Should return the base of every field", func() {
-			Expect(binary.FieldBases()).To(Equal([]v0.BaseField{{Name: "rpm"}}))
-			Expect(text.FieldBases()).To(Equal([]v0.BaseField{{Name: "temp"}, {}}))
+			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}}))
+			Expect(text.FieldBases()).To(Equal([]v1.BaseField{{Name: "temp"}, {}}))
 			Expect(
 				jsonPayload.FieldBases(),
-			).To(Equal([]v0.BaseField{{Name: "volts"}, {}}))
-			Expect(v0.Payload{}.FieldBases()).To(BeNil())
+			).To(Equal([]v1.BaseField{{Name: "volts"}, {}}))
+			Expect(v1.Payload{}.FieldBases()).To(BeNil())
 		})
 
 		It("Should update the base of every field without touching the source", func() {
 			updated := binary
 			updated.UpdateFieldBases(rename)
-			Expect(updated.FieldBases()).To(Equal([]v0.BaseField{{Name: "rpm!"}}))
-			Expect(binary.FieldBases()).To(Equal([]v0.BaseField{{Name: "rpm"}}))
+			Expect(updated.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm!"}}))
+			Expect(binary.FieldBases()).To(Equal([]v1.BaseField{{Name: "rpm"}}))
 		})
 
 		It("Should skip a text field with no encoding", func() {
 			updated := text
 			updated.UpdateFieldBases(rename)
-			Expect(updated.FieldBases()).To(Equal([]v0.BaseField{{Name: "temp!"}, {}}))
+			Expect(updated.FieldBases()).To(Equal([]v1.BaseField{{Name: "temp!"}, {}}))
 		})
 
 		It("Should keep the pointer and skip a JSON field with no type", func() {
 			updated := jsonPayload
 			updated.UpdateFieldBases(rename)
-			Expect(updated.FieldBases()).To(Equal([]v0.BaseField{{Name: "volts!"}, {}}))
-			payload, ok := updated.Variant.(v0.JSONPayload)
+			Expect(updated.FieldBases()).To(Equal([]v1.BaseField{{Name: "volts!"}, {}}))
+			payload, ok := updated.Variant.(v1.JSONPayload)
 			Expect(ok).To(BeTrue())
 			fields := payload.Fields
 			Expect(fields[0].Base().Pointer).To(Equal("/v"))
@@ -70,7 +70,7 @@ var _ = Describe("Base", func() {
 
 		DescribeTable("Should not decode a part of the other format",
 			func(payload, msg string) {
-				var p v0.Payload
+				var p v1.Payload
 				Expect(json.Unmarshal([]byte(payload), &p)).
 					To(MatchError(ContainSubstring(msg)))
 			},
