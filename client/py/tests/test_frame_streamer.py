@@ -10,7 +10,10 @@
 import asyncio
 import logging
 import time
+from collections.abc import Iterator
+from contextlib import AbstractContextManager
 from typing import Any
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -18,13 +21,18 @@ import pytest
 from pydantic import BaseModel
 
 import synnax as sy
+from alamos import NOOP
 from freighter import AsyncMiddleware, AsyncStream, Middleware, Stream, Unreachable
 from synnax.channel.retrieve import Retriever
 from synnax.framer.adapter import ReadFrameAdapter
+from synnax.framer.client import Client as FramerClient
+from synnax.framer.deleter import Deleter
 from synnax.framer.streamer import AsyncStreamer
 from tests.channel import assert_eventually_channels_are_found
 from tests.proxy import Proxy
 from x.codec import Codec
+from x.exceptions import Registry
+from x.fs import FilePath
 
 # Seconds to wait for a written sample to come back through the streamer.
 READ_TIMEOUT = 5
@@ -723,9 +731,65 @@ class _FakeUnaryClient:
         raise NotImplementedError
 
 
+class _FakeFileTransport:
+    def use(self, *middleware: Middleware) -> None:
+        pass
+
+    def upload[R: BaseModel](
+        self,
+        target: str,
+        req: FilePath,
+        res_t: type[R],
+        *,
+        params: dict[str, str] | None = None,
+    ) -> R:
+        raise NotImplementedError
+
+    def download(self, target: str, req: BaseModel, *, dest: FilePath) -> None:
+        raise NotImplementedError
+
+    def stream(
+        self, target: str, req: BaseModel, *, accept: str
+    ) -> AbstractContextManager[Iterator[bytes]]:
+        raise NotImplementedError
+
+
+def _fake_framer_client(responses: list[dict[str, Any]]) -> FramerClient:
+    unary = _FakeUnaryClient()
+    retriever = Retriever(client=unary)
+    return FramerClient(
+        stream_client=_FakeStreamClient(responses),
+        async_client=_FakeAsyncStreamClient(responses),
+        unary_client=unary,
+        file_transport=_FakeFileTransport(),
+        retriever=retriever,
+        deleter=Deleter(client=unary, instrumentation=NOOP),
+        registry=Registry(),
+    )
+
+
 @pytest.mark.framer
 @pytest.mark.streamer
 class TestStreamerMissed:
+    def test_open_streamer_on_missed(self) -> None:
+        """Should pass on_missed from open_streamer to the streamer."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        on_missed = Mock()
+        client = _fake_framer_client([empty, {**empty, "missed": True}, empty])
+        s = client.open_streamer([], on_missed=on_missed)
+        assert s.read(timeout=1) is not None
+        on_missed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_open_async_streamer_on_missed(self) -> None:
+        """Should pass on_missed from open_async_streamer to the streamer."""
+        empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
+        on_missed = Mock()
+        client = _fake_framer_client([empty, {**empty, "missed": True}, empty])
+        s = await client.open_async_streamer([], on_missed=on_missed)
+        await s.read()
+        on_missed.assert_called_once()
+
     def test_missed_marker(self, caplog: pytest.LogCaptureFixture) -> None:
         """Should warn and call on_missed for a missed marker, then keep reading."""
         empty: dict[str, Any] = {"frame": {"keys": [], "series": []}}
