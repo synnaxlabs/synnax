@@ -89,23 +89,31 @@ const failureOf = (names: string[]): string =>
 const blockedOf = (count: number): string =>
   count === 1 ? "1 record blocks the delete" : `${count} records block the delete`;
 
-const ACCESS_DENIED =
-  "Your role cannot change a record that this delete changes. Ask an admin for " +
-  "access, or cancel.";
+/** What failed: listing the records, or the delete itself. */
+type Step = "plan" | "apply";
 
-const CONNECTION = "Check the connection to the Core";
+const DENIED: Record<Step, string> = {
+  plan:
+    "Your role cannot see a record that this delete names. Ask an admin for access, " +
+    "then try again.",
+  apply:
+    "Your role cannot change a record that this delete changes. Ask an admin for " +
+    "access, or cancel.",
+};
 
-/**
- * Returns why err happened, as sentences. next is the step that the user takes when the
- * Core cannot be reached.
- */
-const reasonOf = (err: unknown, next: string): string => {
+const UNREACHABLE: Record<Step, string> = {
+  plan: "Check the connection to the Core, then try again.",
+  apply: "Check the connection to the Core, then press Delete again.",
+};
+
+/** Returns why err failed step, as sentences, with the next step when one helps. */
+const reasonOf = (err: unknown, step: Step): string => {
   const text = err instanceof Error ? err.message : String(err);
-  if (AccessDeniedError.matches(err)) return `${ACCESS_DENIED} ${text}`;
+  if (AccessDeniedError.matches(err)) return `${DENIED[step]} ${text}`;
   let sentence = text.charAt(0).toUpperCase() + text.slice(1);
   if (!/[.!?]$/.test(sentence)) sentence += ".";
   if (!isConnectionError(err)) return sentence;
-  return `${sentence} ${CONNECTION}, then ${next}.`;
+  return `${sentence} ${UNREACHABLE[step]}`;
 };
 
 /** The next step when a record that the user cannot see and did not pick blocks. */
@@ -405,7 +413,7 @@ const Dialog = ({
         setPlanError({
           variant: "error",
           message: "Failed to list the records that this delete touches",
-          description: reasonOf(failure, "try again"),
+          description: reasonOf(failure, "plan"),
         });
         return;
       }
@@ -479,7 +487,7 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      let description = reasonOf(failure, "press Delete again");
+      let description = reasonOf(failure, "apply");
       if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden)
         description = `${description} ${hiddenStepOf(view.plan.hidden)}`;
       setFooter({ variant: "error", message: failureOf(names), description });
@@ -497,7 +505,7 @@ const Dialog = ({
       setFooter({
         variant: "error",
         message: failureOf(names),
-        description: reasonOf(failure, "press Delete again"),
+        description: reasonOf(failure, "apply"),
       });
       return;
     }

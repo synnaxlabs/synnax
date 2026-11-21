@@ -15,7 +15,9 @@ import {
   query,
 } from "@synnaxlabs/client";
 import {
+  createEmptyRole,
   createTestClient,
+  createTestClientAs,
   createTestClientWithPolicy,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
@@ -360,6 +362,46 @@ describe("channel/tree", () => {
         }),
       );
       await waitFor(() => expect(screen.queryByText(step)).toBeNull());
+    });
+
+    it("plans again when the user presses Try again", async () => {
+      const ch = await createChannel();
+      const role = await createEmptyRole(client);
+      const grant = async (action: "retrieve" | "delete") =>
+        await client.access.policies.create({
+          name: uniqueName("impact"),
+          role: role.key,
+          objects: [channelClient.resourceID(ch.key)],
+          actions: [action],
+        });
+      await grant("delete");
+      const retrieve = await grant("retrieve");
+      const username = uniqueName("user");
+      await client.users.create({
+        username,
+        password: "test",
+        name: "test",
+        role: role.key,
+      });
+      assertDefined(Item.ContextMenu);
+      await renderTreeContextMenu(Item.ContextMenu, {
+        client: createTestClientAs(username, "test"),
+        resources: [createResource(channelClient.resourceID(ch.key), ch.name)],
+      });
+      const item = await screen.findByText("Delete");
+      // The plan needs retrieve on the channel, so losing it fails the plan.
+      await client.access.policies.delete(retrieve.key);
+      fireEvent.click(item);
+      const failed = "Failed to list the records that this delete touches";
+      await screen.findByText(failed);
+      await grant("retrieve");
+      fireEvent.click(findLastButton("Try again"));
+      await screen.findByText(
+        "Deletes the channel and its data. Nothing else uses it.",
+      );
+      expect(screen.queryByText(failed)).toBeNull();
+      await clickDelete();
+      await expectGone(async () => await client.channels.retrieve(ch.key));
     });
 
     it("opens the calculation editor for a calculated channel", async () => {
