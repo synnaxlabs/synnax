@@ -10,7 +10,7 @@
 import { type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep } from "@synnaxlabs/x";
+import { deep, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
@@ -69,7 +69,7 @@ export const SlaveSettings = (): ReactElement | null => {
         {reader == null
           ? "The Driver writes each set value as a startup parameter. A field not set " +
             "keeps the value on the device."
-          : `${caseconv.capitalize(reader)} sets these values. Synnax does not change ` +
+          : `${strings.capitalize(reader)} sets these values. Synnax does not change ` +
             "them."}
       </Text.Text>
     </Form.Section>
