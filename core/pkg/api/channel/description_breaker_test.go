@@ -92,7 +92,7 @@ var _ = Describe("Description breaker", func() {
 	})
 
 	It("Should refuse a create with a description over the cap", func(ctx SpecContext) {
-		_, err := createChannels(
+		Expect(createChannels(
 			AuthedCtx(ctx, author),
 			apichannel.CreateRequest{Channels: []apichannel.Channel{{
 				Name:        UniqueChannelName(),
@@ -100,8 +100,7 @@ var _ = Describe("Description breaker", func() {
 				Virtual:     true,
 				Description: strings.Repeat("é", 1025),
 			}}},
-		)
-		Expect(err).To(MatchError(validate.ErrValidation))
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 
 	It("Should set a description through dispatch and find it by search", func(

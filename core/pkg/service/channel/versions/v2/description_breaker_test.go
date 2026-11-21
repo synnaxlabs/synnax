@@ -10,6 +10,8 @@
 package v2_test
 
 import (
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -34,8 +36,6 @@ var _ = Describe("Description breaker", func() {
 		r := orc.NewReader(nil)
 		r.ResetBytes(old)
 		var decoded v2.Channel
-		Expect(func() { _ = decoded.DecodeOrc(r) }).ToNot(Panic())
-		r.ResetBytes(old)
-		Expect(decoded.DecodeOrc(r)).ToNot(Succeed())
+		Expect(decoded.DecodeOrc(r)).To(MatchError(io.EOF))
 	})
 })
