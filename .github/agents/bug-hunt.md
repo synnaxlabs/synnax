@@ -36,12 +36,17 @@ with no details.
 2. Branch from `main`: `agent/bug-hunt-<area>-<short-slug>`.
 3. Write a spec that shows the bug, co-located as the language guide says. Run it and
    see it fail.
-4. Fix the cause in one place. Run the spec, the package's tests, the format check, and
-   the lint. Push only when they pass.
-5. Open one PR per bug with `gh pr create --base main --title ... --body ...`:
+4. Look for the same bug in the sibling implementations: the TS, Python, and C++
+   clients, the Go and C++ runtimes of Arc, and the Go code of the Core that the clients
+   mirror. Fix each sibling that has the bug in the same PR, with a spec for each. Open
+   one PR per bug, not one per language.
+5. Fix the cause in one place in each implementation. Run the spec, the package's tests,
+   the format check, and the lint. Push only when they pass.
+6. Open one PR per bug with `gh pr create --base main --title ... --body ...`:
    - Title: `[<package>] Fix ...`, or `SY-####: Fix ...` when a Linear issue covers it.
    - Body: fill `.github/pull_request_template.md`. Say what goes wrong, when, and why.
-     Paste the spec's failure output from before the fix.
+     Paste the spec's failure output from before the fix. List the siblings you checked,
+     and say which had the bug.
    - Add one review tier label, as the "Review tiers" table in `CONTRIBUTING.md` says:
      `review/human` when the fix changes a user-facing interface, else `review/bot`. For
      `review/human`, also request a review from the reviewer the prompt names
