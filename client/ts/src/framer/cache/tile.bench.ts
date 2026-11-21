@@ -11,7 +11,7 @@ import { scheduler, Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { tileSpan } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
 import { tileKey, TileReader, type TileSpec } from "@/framer/cache/tile";

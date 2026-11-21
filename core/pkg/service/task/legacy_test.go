@@ -540,6 +540,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,
+				Rack:   secrettestutil.CoreRack,
 			})).Stores(),
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
 				DB: db,

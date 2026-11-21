@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Client, neon } from "@neondatabase/serverless";
-import { type ExtractTablesWithRelations } from "drizzle-orm";
+import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { drizzle as drizzleHTTP } from "drizzle-orm/neon-http";
 import { drizzle as drizzleWS } from "drizzle-orm/neon-serverless";
-import {
-  type PgDatabase,
-  type PgQueryResultHKT,
-  type PgTransaction,
-} from "drizzle-orm/pg-core";
+import type { PgDatabase, PgQueryResultHKT, PgTransaction } from "drizzle-orm/pg-core";
 
 import { schema } from "@/server/db";
 

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Batcher, type BatcherEntry } from "@/scheduler/batcher";
 import { TimeSpan } from "@/telem/telem";
+import { assertDefined } from "@/testutil";
 
 const resolveAll = (entries: Array<BatcherEntry<number, number>>): void =>
   entries.forEach(({ req, resolve }) => resolve(req * 2));
@@ -34,7 +35,7 @@ describe("Batcher", () => {
     expect(exec).toHaveBeenCalledTimes(0);
     await vi.advanceTimersByTimeAsync(100);
     expect(exec).toHaveBeenCalledTimes(1);
-    expect(exec.mock.calls[0][0].map(({ req }) => req)).toEqual([1, 2]);
+    expect(exec.mock.calls[0]?.[0].map(({ req }) => req)).toEqual([1, 2]);
     expect(await results).toEqual([2, 4]);
   });
 
@@ -70,7 +71,7 @@ describe("Batcher", () => {
     const batcher = new Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec: (entries) => {
-        entries[0].resolve(42);
+        entries[0]?.resolve(42);
         throw new Error("exec exploded");
       },
     });
@@ -130,6 +131,8 @@ describe("Batcher", () => {
     const batcher = new Batcher<number, number>({
       interval: TimeSpan.milliseconds(100),
       exec: async ([first, second]) => {
+        assertDefined(first);
+        assertDefined(second);
         first.resolve(first.req);
         await fetched.promise;
         second.resolve(second.req);

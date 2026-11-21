@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
@@ -22,8 +22,9 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { formatRelativeTime } from "@/vis/axis/relative";
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import type { FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const modeZ = z.enum(["one", "two"]);
@@ -46,6 +47,8 @@ export const measureStateZ = z.object({
     .optional(),
   strokeWidth: z.number().default(1),
   strokeDash: z.number().default(2),
+  /** True when x is a span from a zero, shown as T+ time. */
+  relative: z.boolean().default(false),
 });
 
 interface InternalState {
@@ -139,9 +142,9 @@ export interface MeasureProps {
 
 export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = measureStateZ;
+  override schema = measureStateZ;
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const renderCtx = render.Context.use(ctx);
     this.internal.theme = theming.use(ctx);
     this.internal.renderCtx = renderCtx;
@@ -151,7 +154,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.dotColorContrast = this.internal.theme.colors.textInverted;
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 
@@ -373,7 +376,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       params;
     const { draw, theme } = this.internal;
     const ts = new TimeStamp(value.x);
-    const xValue = ts.toString(ts.formatBySpan(xDist), "local");
+    const xValue = this.state.relative
+      ? formatRelativeTime(value.x, Number(TimeSpan.MILLISECOND.valueOf()))
+      : ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
     const pointText = `${pointNumber}`;

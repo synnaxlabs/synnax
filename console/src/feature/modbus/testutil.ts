@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 
@@ -19,6 +19,7 @@ import {
   ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
+import { preload } from "@/testutil";
 
 type TCPConnection = Extract<Connection, { transport: "tcp" }>;
 type RTUConnection = Extract<Connection, { transport: "rtu" }>;
@@ -67,3 +68,10 @@ export const createModbusDevice = async (
     SCHEMAS,
   );
 };
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/modbus/task/Read"),
+    async () => await import("@/feature/modbus/task/Write"),
+  );

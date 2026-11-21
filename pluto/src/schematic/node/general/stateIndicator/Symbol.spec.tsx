@@ -48,7 +48,7 @@ const state = z.object({}).loose();
 // Stands in for the state indicator worker component.
 class StubStateIndicator extends aether.Leaf<typeof state> {
   static readonly TYPE = "StateIndicator";
-  schema = state;
+  override schema = state;
 }
 
 describe("StateIndicator.Symbol", () => {

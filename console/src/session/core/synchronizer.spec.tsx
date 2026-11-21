@@ -11,7 +11,7 @@ import { connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";

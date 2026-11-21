@@ -28,10 +28,6 @@ on:
         description: "Pull request to review"
         type: number
         required: true
-      comment:
-        description: "Comment that asked for the review, to react to"
-        type: string
-        required: false
       head:
         description: "Commit to review, if not the head of the pull request"
         type: string
@@ -52,10 +48,6 @@ on:
         description: "Review the head again, even when its last review succeeded"
         type: boolean
         default: false
-      reply:
-        description: "Reply to the comment when the review skips"
-        type: boolean
-        default: false
       restore:
         description: "Put the last summary back in the body, without a review"
         type: boolean
@@ -69,9 +61,8 @@ env:
   # The review module reads the Claude Code stream with the agent wrapper's code.
   PYTHONPATH: ${{ github.workspace }}/scripts
 
-# One review of a pull request at a time. A newer request replaces a queued one, so the
-# relay asks for a repeat while one waits. Replays post nothing, and a restore cannot
-# replace a queued review, so each runs apart.
+# One review of a pull request at a time. A newer request replaces a queued one. Replays
+# post nothing, and a restore cannot replace a queued review, so each runs apart.
 concurrency:
   group:
     review-sedosaur-${{ inputs.pr }}-${{ (inputs.replay || inputs.restore) &&
@@ -91,9 +82,9 @@ jobs:
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
       fork: ${{ steps.pr.outputs.fork }}
-      approved: ${{ steps.skip.outputs.approved }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr
@@ -146,10 +137,6 @@ jobs:
         run: |
           skip=$(.github/scripts/sedosaur_skip.sh)
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
-          if [ "$FORK" = true ]; then
-            approved=$(.github/scripts/fork_approved.sh "$PR" "$HEAD_SHA")
-            echo "approved=$approved" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Mint the GitHub App token
         id: app
@@ -194,60 +181,6 @@ jobs:
         run: |
           carried=$(python3 -m review carry || echo false)
           echo "carried=$carried" >> "$GITHUB_OUTPUT"
-
-  # A job of its own, so a deleted comment cannot stop the review.
-  react:
-    needs: start
-    if: needs.start.outputs.skip == 'false' && inputs.comment != '' && !inputs.replay
-    name: React to the request
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mint the GitHub App token
-        id: app
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
-          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
-          permission-pull-requests: write
-
-      - name: React with a rocket
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          COMMENT: ${{ inputs.comment }}
-        run: |
-          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
-            -f content=rocket --silent
-
-  decline:
-    needs: start
-    if: needs.start.outputs.skip == 'true' && inputs.reply && !inputs.replay
-    name: Reply to the request
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mint the GitHub App token
-        id: app
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
-          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
-          permission-pull-requests: write
-
-      - name: Reply with the reason
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          PR: ${{ inputs.pr }}
-          HEAD_SHA: ${{ needs.start.outputs.head }}
-          FORK: ${{ needs.start.outputs.fork }}
-          APPROVED: ${{ needs.start.outputs.approved }}
-        run: |
-          if [ "$FORK" = true ] && [ "$APPROVED" != true ]; then
-            body="Sedosaur reviews a fork only after a maintainer approves its head."
-          else
-            body="Sedosaur already reviewed $HEAD_SHA under the current rules."
-            body+=" To review it again, comment \`@sedosaur review repeat=true\`."
-          fi
-          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
-            -f body="$body" --silent
 
   review:
     needs: start
@@ -434,6 +367,7 @@ jobs:
       'true' && !inputs.replay
     name: Unwatch the pull request
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -465,6 +399,7 @@ jobs:
       needs.start.outputs.carried != 'true'
     name: End the check run
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Mint the GitHub App token
         id: app
@@ -501,6 +436,7 @@ jobs:
     permissions:
       checks: read
       pull-requests: read
+    timeout-minutes: 10
     steps:
       - name: Read the pull request
         id: pr
@@ -544,7 +480,7 @@ jobs:
 
   relay-failure:
     name: Relay the failure
-    needs: [start, react, decline, review, unwatch, end, restore]
+    needs: [start, review, unwatch, end, restore]
     if: always() && contains(needs.*.result, 'failure')
     permissions:
       actions: write

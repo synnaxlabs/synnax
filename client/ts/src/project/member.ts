@@ -9,10 +9,10 @@
 
 import { array, type patch, type record } from "@synnaxlabs/x";
 
-import { type actions } from "@/actions";
-import { type batch } from "@/batch";
-import { type group } from "@/group";
-import { type Key } from "@/project/types.gen";
+import type { actions } from "@/actions";
+import type { batch } from "@/batch";
+import type { group } from "@/group";
+import type { Key } from "@/project/types.gen";
 
 /** A visualization, which belongs to a project. */
 export interface Member {

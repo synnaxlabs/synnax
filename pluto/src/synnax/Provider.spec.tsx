@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type Synnax as Client } from "@synnaxlabs/client";
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { testClientParams } from "@synnaxlabs/client/testutil";
+import { Status as Base } from "@synnaxlabs/lyra/status";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
@@ -31,13 +33,13 @@ const probeStateZ = z.object({});
 const createProbe = (seen: Array<Client | null>) =>
   class Probe extends aether.Leaf<typeof probeStateZ> {
     static readonly TYPE = PROBE_TYPE;
-    schema = probeStateZ;
+    override schema = probeStateZ;
 
-    afterUpdate(ctx: aether.Context): void {
+    override afterUpdate(ctx: aether.Context): void {
       seen.push(synnax.use(ctx));
     }
 
-    afterDelete(): void {}
+    override afterDelete(): void {}
   };
 
 const ProbeComponent = (): null => {
@@ -65,10 +67,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     let page: Client | null = null;
+    const connParams = testClientParams();
     const Tree = (): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>
+          <Synnax.Provider connParams={connParams}>
             <PageClient onClient={(c) => (page = c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -97,10 +100,11 @@ describe("Synnax.Provider", () => {
       [PROBE_TYPE]: createProbe(seen),
     });
     const pages: Client[] = [];
+    const connParams = testClientParams();
     const Tree = ({ host }: { host: string }): ReactElement => (
       <Aether.Provider worker={mainSide}>
         <Status.Aggregator log={() => {}}>
-          <Synnax.Provider connParams={{ ...TEST_CLIENT_PARAMS, host }}>
+          <Synnax.Provider connParams={{ ...connParams, host }}>
             <PageClient onClient={(c) => c != null && pages.push(c)} />
             <ProbeComponent />
           </Synnax.Provider>
@@ -177,10 +181,11 @@ describe("Synnax.Provider", () => {
   it("should keep its client when the error handler changes", () => {
     // A new log makes the aggregator hand out a new error handler.
     let log = (): void => {};
+    const connParams = testClientParams();
     const wrapper = ({ children }: PropsWithChildren): ReactElement => (
       <AetherProvider>
         <Status.Aggregator log={log}>
-          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>{children}</Synnax.Provider>
+          <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
         </Status.Aggregator>
       </AetherProvider>
     );
@@ -191,5 +196,63 @@ describe("Synnax.Provider", () => {
     rerender();
     expect(result.current).toBe(client);
     unmount();
+  });
+
+  it("should add a status only when clock skew starts and when it ends", async () => {
+    disableActEnvironment();
+    // The page and worker clients both log the skew.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    let skew = TimeSpan.hours(1);
+    let checks = 0;
+    const realFetch = globalThis.fetch;
+    // Shifts the time the real Core reports, so this machine's clock looks off by skew.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const res = await realFetch(input, init);
+      if (typeof input !== "string" || !input.endsWith("/connectivity/check"))
+        return res;
+      checks += 1;
+      const body = (await res.text()).replace(
+        /"node_time":"(\d+)"/,
+        (_, t: string) => `"node_time":"${BigInt(t) - skew.valueOf()}"`,
+      );
+      return new Response(body, { status: res.status });
+    });
+    const passChecks = async (count: number): Promise<void> => {
+      const target = checks + count;
+      await waitFor(() => expect(checks).toBeGreaterThanOrEqual(target));
+    };
+    const connParams = {
+      ...testClientParams(),
+      connectivityPollFrequency: TimeSpan.milliseconds(20),
+    };
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <AetherProvider>
+        <Status.Aggregator log={() => {}}>
+          <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+    const { result, unmount } = renderHook(
+      () => Base.useNotifications({ expiration: TimeSpan.minutes(1) }),
+      { wrapper },
+    );
+    const withMessage = (message: string) =>
+      result.current.statuses.filter((s) => s.message === message);
+    await waitFor(() => expect(withMessage("Clock skew detected")).toHaveLength(1));
+    skew = TimeSpan.hours(2);
+    await passChecks(6);
+    expect(withMessage("Clock skew detected")).toEqual([
+      expect.objectContaining({ variant: "warning", count: 1 }),
+    ]);
+    skew = TimeSpan.ZERO;
+    await waitFor(() => expect(withMessage("Clock skew resolved")).toHaveLength(1));
+    await passChecks(6);
+    expect(withMessage("Clock skew resolved")).toEqual([
+      expect.objectContaining({ variant: "success", count: 1 }),
+    ]);
+    expect(withMessage("Clock skew detected")).toHaveLength(1);
+    unmount();
+    vi.restoreAllMocks();
   });
 });

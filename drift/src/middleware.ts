@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Action as BaseAction,
-  type configureStore,
-  type Dispatch,
-  type Middleware,
-  type PayloadAction,
-  type Tuple,
-  type UnknownAction,
+import type {
+  Action as BaseAction,
+  configureStore,
+  Dispatch,
+  Middleware,
+  PayloadAction,
+  Tuple,
+  UnknownAction,
 } from "@reduxjs/toolkit";
 import { errors, sync as xsync } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
-import { type Runtime } from "@/runtime";
+import type { Runtime } from "@/runtime";
 import {
   type Action,
   assignLabel,

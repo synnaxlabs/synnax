@@ -9,20 +9,20 @@
 
 import "@/device/Select.css";
 
-import { type device } from "@synnaxlabs/client";
+import type { device } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Location, type LocationFormat } from "@/device/Location";
 import { type RetrieveMultipleQuery, useList } from "@/device/queries";
 import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
-import { type Flux } from "@/flux";
+import type { Flux } from "@/flux";
 
 interface ListItemProps extends List.ItemRenderProps<device.Key> {
   locationFormat?: LocationFormat;

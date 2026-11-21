@@ -306,16 +306,18 @@ class BinaryBaseField(BaseField):
     bit_length: int = Field(default=8, ge=1, le=64)
     byte_order: ByteOrder = "little_endian"
     multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
 
 
 class ReadMessage(BaseModel):
-    """Reads the documents of one ICD message.
+    """Reads one message of an ICD.
 
     Attributes:
         message: Is the key of the ICD message to read.
         index: Is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples on arrival.
+            task stamps samples on arrival, or with the timestamp of the Kafka record.
         bindings: Are the fields the task reads. A field with no binding is not read.
     """
 

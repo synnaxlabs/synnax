@@ -21,6 +21,7 @@
 #include "driver/http/device/device.h"
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
+#include "driver/http/types/types.h"
 #include "driver/task/task.h"
 
 namespace driver::http {
@@ -44,7 +45,9 @@ struct ExpectedResponseConfig {
 
     [[nodiscard]] explicit ExpectedResponseConfig(x::json::Parser parser):
         pointer(parser.field<std::string>("pointer")),
-        expected_value(parser.field<x::json::json>("expected_value")) {}
+        expected_value(parser.field<x::json::json>("expected_value")) {
+        validate_pointer(this->pointer, parser, "pointer");
+    }
 };
 
 /// @brief configurable health check request and optional response validation.

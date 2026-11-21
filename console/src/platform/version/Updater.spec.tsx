@@ -24,7 +24,7 @@ const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreEmbedded?: boolean }
   engine: "tauri",
 }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
@@ -176,7 +176,7 @@ describe("version Provider", () => {
       if (cmd === "plugin:app|version") return "1.5.0";
       throw new Error("offline");
     });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       const { result } = await renderCheck();
       await act(async () => {

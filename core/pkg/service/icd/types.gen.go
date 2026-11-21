@@ -258,7 +258,7 @@ type ICD = versions.ICD
 // ReadBinding writes the value of one message field to a channel.
 type ReadBinding = versions.ReadBinding
 
-// ReadMessage reads the documents of one ICD message.
+// ReadMessage reads one message of an ICD.
 type ReadMessage = versions.ReadMessage
 
 // BinaryBaseField carries the parts every binary field shares.

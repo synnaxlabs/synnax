@@ -332,13 +332,13 @@ export const binaryBaseFieldZ = baseFieldZ.extend({
 });
 export interface BinaryBaseField extends z.infer<typeof binaryBaseFieldZ> {}
 
-/** ReadMessage reads the documents of one ICD message. */
+/** ReadMessage reads one message of an ICD. */
 export const readMessageZ = z.object({
   /** message is the key of the ICD message to read. */
   message: messageKeyZ,
   /**
    * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples on arrival.
+   * task stamps samples on arrival, or with the timestamp of the Kafka record.
    */
   index: fieldKeyZ.optional(),
   /** bindings are the fields the task reads. A field with no binding is not read. */

@@ -15,7 +15,7 @@ import {
   type user,
 } from "@synnaxlabs/client";
 import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import type { location } from "@synnaxlabs/x";
 
 import { useGetIconKey } from "@/platform/panel/tab";
 import { Session } from "@/session";

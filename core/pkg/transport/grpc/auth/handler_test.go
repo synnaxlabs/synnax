@@ -71,6 +71,12 @@ type (
 		auth.KeyRetrieveResponse,
 		*grpcauth.KeyRetrieveResponse,
 	]
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*grpcauth.MethodsResponse,
+	]
 	keyDeleteServer = grpc.UnaryServer[
 		auth.KeyDeleteRequest,
 		*grpcauth.KeyDeleteRequest,
@@ -130,6 +136,8 @@ var _ = Describe("Auth", func() {
 	Expect(ok).To(BeTrue())
 	login, ok := transport.AuthLogin.(*loginServer)
 	Expect(ok).To(BeTrue())
+	methods, ok := transport.AuthMethods.(*methodsServer)
+	Expect(ok).To(BeTrue())
 	create, ok := transport.AuthSessionCreate.(*sessionCreateServer)
 	Expect(ok).To(BeTrue())
 	renew, ok := transport.AuthSessionRenew.(*sessionRenewServer)
@@ -156,7 +164,26 @@ var _ = Describe("Auth", func() {
 				BeIdenticalTo(keyCreate),
 				BeIdenticalTo(keyRetrieve),
 				BeIdenticalTo(keyDelete),
+				BeIdenticalTo(methods),
 			))
+		})
+	})
+
+	Describe("MethodsResponse", func() {
+		It("Should translate the methods", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{Methods: []svcauth.Method{
+					svcauth.MethodAPIKey,
+					svcauth.MethodPassword,
+				}},
+			)).Methods).To(Equal([]string{"api_key", "password"}))
+		})
+		It("Should translate an empty method list", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{Methods: []svcauth.Method{}},
+			)).Methods).To(BeEmpty())
 		})
 	})
 

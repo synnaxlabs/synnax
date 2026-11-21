@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type connection } from "@/connection";
+import type { connection } from "@/connection";
 import { type Info, infoZ, type State } from "@/license/types.gen";
 import { query } from "@/query";
-import { type resource } from "@/resource";
+import type { resource } from "@/resource";
 
 export const STATE_MESSAGES: Record<State, string> = {
   ok: "Licensed",

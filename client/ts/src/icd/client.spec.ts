@@ -9,13 +9,21 @@
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { NotFoundError, PathError } from "@/errors";
+import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/errors";
 import { icd } from "@/icd";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
+
+interface Problem {
+  path: string;
+  message: string;
+}
+
+const problemsOf = (errors: PathError[]): Problem[] =>
+  errors.map(({ path, error }) => ({ path: path.join("."), message: error.message }));
 
 const createNew = (name: string = "ICD"): icd.New => ({
   name,
@@ -341,6 +349,27 @@ describe("icd", () => {
       expect(await client.icds.check(createNew())).toEqual([]);
     });
 
+    it("should return each problem as a path error of a validation error", async () => {
+      const problems = [
+        ...(await client.icds.check({
+          name: "ICD",
+          messages: [{ name: "", payload: { format: "binary" } }],
+        })),
+        ...(await client.icds.check({
+          name: "ICD",
+          messages: [
+            { name: "Mode", payload: { format: "binary" } },
+            { name: "Mode", payload: { format: "binary" } },
+          ],
+        })),
+      ];
+      expect(problems).toHaveLength(2);
+      for (const p of problems) {
+        expect(p).toBeInstanceOf(PathError);
+        expect(p.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
     it("should return every problem with its path", async () => {
       const problems = await client.icds.check({
         name: "ICD",
@@ -359,7 +388,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         { path: "messages.1.name", message: 'duplicate message name "Mode"' },
         {
           path: "messages.2.payload.fields.0.scale",
@@ -387,7 +416,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.identifier.bitrateSwitched",
           message: "only a CAN FD frame can switch bitrates",
@@ -411,7 +440,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.fields.1.pointer",
           message: 'pointer "/v/x" is inside the value of field "a"',
@@ -428,7 +457,7 @@ describe("icd", () => {
         name: "ICD",
         messages: [{ name: "", payload: { format: "binary" } }],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.name",
           message: "name is required",
@@ -449,7 +478,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.fields.0.bitLength",
           message: "bit length must be less than or equal to 64",
@@ -543,7 +572,7 @@ describe("icd", () => {
       const path = ["messages", msg.key, "payload", "fields", state.key, "name"];
       await client.icds.dispatch(ic.key, icd.set({ path, value: "temperature" }));
       const stored = await createTestClient().icds.retrieve(ic.key);
-      expect(await client.icds.check(stored)).toEqual([
+      expect(problemsOf(await client.icds.check(stored))).toEqual([
         {
           path: "messages.0.payload.fields.1.name",
           message: 'duplicate field name "temperature"',
@@ -559,14 +588,14 @@ describe("icd", () => {
       expect((await client.icds.retrieve(ic.key)).key).toEqual(ic.key);
     });
 
-    it("should return false without a send when the ICD is not cached", async () => {
+    it("should throw when the ICD is not cached", async () => {
       const ic = await client.icds.create(createNew());
-      expect(
-        await createTestClient().icds.dispatch(
+      await expect(
+        createTestClient().icds.dispatch(
           ic.key,
           icd.set({ path: ["name"], value: "Renamed" }),
         ),
-      ).toBe(false);
+      ).rejects.toThrow(NotCachedError);
     });
   });
 

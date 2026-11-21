@@ -456,10 +456,9 @@ func processTypeDef(
 		// references with type arguments (e.g., status.Status<StatusDetails> ->
 		// status.Status[StatusDetails])
 		data.imports.addTyping("TypeAlias")
-		if _, err := declareTypeVars(
+		if err := declareTypeVars(
 			typ.Name,
-			form.TypeParams,
-			table,
+			processTypeParams(form.TypeParams, table, data),
 			data,
 		); err != nil {
 			return typeDefData{}, err
@@ -475,47 +474,50 @@ func processTypeDef(
 	}
 }
 
-// declareTypeVars declares a module-level TypeVar for each non-defaulted type parameter
-// of the declaration named owner, and returns those parameters. It errors when another
-// declaration in the file declares a TypeVar of the same name differently.
-func declareTypeVars(
-	owner string,
+// processTypeParams returns the Python type parameters of params: the non-defaulted
+// ones, in declared order.
+func processTypeParams(
 	params []resolution.TypeParam,
 	table *resolution.Table,
 	data *templateData,
-) ([]typeParamData, error) {
-	var declared []typeParamData
-	for _, tp := range resolution.NonDefaultedTypeParams(params) {
-		tpd := processTypeParam(tp, table, data)
-		declared = append(declared, tpd)
-		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
-		// An omitted optional type argument means its bound, or arbitrary JSON when
-		// unbounded.
-		if tp.Optional {
-			tvd.Default = tpd.Constraint
-			if tvd.Default == "" {
-				data.imports.addPydantic("JsonValue")
-				tvd.Default = "JsonValue"
-			}
+) []typeParamData {
+	return lo.Map(
+		resolution.NonDefaultedTypeParams(params),
+		func(tp resolution.TypeParam, _ int) typeParamData {
+			return processTypeParam(tp, table, data)
+		},
+	)
+}
+
+// declareTypeVars declares a module-level TypeVar for each of params, which a
+// declaration named owner needs because it cannot scope its own type parameters. It
+// errors when another declaration in the file declares a TypeVar of the same name
+// differently.
+func declareTypeVars(owner string, params []typeParamData, data *templateData) error {
+	for _, tpd := range params {
+		tvd := typeVarData{
+			Name:       tpd.Name,
+			Constraint: tpd.Constraint,
+			Default:    tpd.Default,
 		}
 		// TypeVars are module-level, so declarations in one file share them by name.
 		existing, found := lo.Find(
 			data.TypeVars,
-			func(tv typeVarData) bool { return tv.Name == tp.Name },
+			func(tv typeVarData) bool { return tv.Name == tpd.Name },
 		)
 		if !found {
 			data.TypeVars = append(data.TypeVars, tvd)
 		} else if existing != tvd {
-			return nil, errors.Newf(
+			return errors.Newf(
 				"type parameter %s of %s conflicts with another %s in the same "+
 					"Python file; rename one of them",
-				tp.Name,
+				tpd.Name,
 				owner,
-				tp.Name,
+				tpd.Name,
 			)
 		}
 	}
-	return declared, nil
+	return nil
 }
 
 func processTypeParam(
@@ -529,6 +531,15 @@ func processTypeParam(
 	}
 	if tp.Constraint != nil {
 		tpd.Constraint = constraintToPython(*tp.Constraint, table, data)
+	}
+	// An omitted optional type argument means its bound, or arbitrary JSON when
+	// unbounded.
+	if tp.Optional {
+		tpd.Default = tpd.Constraint
+		if tpd.Default == "" {
+			data.imports.addPydantic("JsonValue")
+			tpd.Default = "JsonValue"
+		}
 	}
 	return tpd
 }
@@ -586,27 +597,8 @@ func typeDefBaseToPython(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
-	// Handle Array type. Collection elements are resolved via typeToPython, which
-	// handles every form (struct, enum, alias, union); typeDefBaseToPython only
-	// special-cases distinct bases and would yield Any for a struct element.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return fmt.Sprintf("list[%s]", elemType)
-	}
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
@@ -671,17 +663,15 @@ func processStruct(
 	// Process type parameters for generic structs
 	if len(form.TypeParams) > 0 {
 		sd.IsGeneric = true
-		data.imports.addTyping("Generic")
-		params, err := declareTypeVars(entry.Name, form.TypeParams, table, data)
-		if err != nil {
-			return structData{}, err
-		}
-		sd.TypeParams = params
+		sd.TypeParams = processTypeParams(form.TypeParams, table, data)
 	}
 
 	// Handle struct aliases (AliasForm)
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
+		if err := declareTypeVars(entry.Name, sd.TypeParams, data); err != nil {
+			return structData{}, err
+		}
 		sd.AliasOf = typeRefToPythonAlias(aliasForm.Target, table, data)
 		return sd, nil
 	}
@@ -921,8 +911,7 @@ func buildExtendsExpr(
 	// An alias re-exports its target class under its own name and type parameters.
 	params := resolution.TypeParams(parent.Form)
 
-	// Find which parent type params don't have defaults (those are the ones in
-	// Generic[])
+	// Find the parent type params that have no default.
 	var activeParamIndices []int
 	for i, tp := range params {
 		if !tp.HasDefault() {
@@ -961,13 +950,12 @@ func processField(
 		Name:       fieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: optionalInPython(field),
-		IsArray:    field.Type.Name == "Array",
 	}
 	if fd.Name != wireName {
 		fd.Alias = wireName
 	}
 
-	baseType := typeToPython(field.Type, table, data)
+	fd.PyType = typeToPython(field.Type, table, data)
 	// The Core mints a key, so a client sends its zero value on create. An optional
 	// field is never required.
 	_, isKey := field.Domains["key"]
@@ -1004,31 +992,21 @@ func processField(
 	// A type never sends an excluded field, so it cannot require one.
 	excludedRequired := isExcluded && requiredInPython(field, table)
 
-	if fd.IsArray {
-		fd.PyType = fmt.Sprintf("list[%s]", baseType)
-	} else {
-		fd.PyType = baseType
-	}
-
 	// Optional (?) fields become T | None in Python (no pointer distinction). A field
 	// typed as an optional type parameter (e.g. details Details, where Details?) is
 	// likewise optional: an unspecialized struct may omit it. A required collection
 	// defaults an absent value to its empty form, so it is always present and
 	// iterable; the server omits a nil ("not loaded") collection from the wire, so
-	// the default is what fills it. CollectionKind sees through aliases and
-	// type-parameter constraints so an alias- or type-parameter-typed collection is
-	// defaulted too.
+	// the default is what fills it. A fixed-size array has no empty form, so it stays
+	// required. CollectionKind sees through aliases and type-parameter constraints so
+	// an alias- or type-parameter-typed collection is defaulted too.
 	isOptionalTypeParam := field.Type.IsTypeParam() &&
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
 		fd.PyType += " | None"
-	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
-		if kind == "Array" {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
-		} else {
-			fieldConstraints = ensureDefaultFactory(fieldConstraints, "dict")
-		}
+	} else if factory, ok := emptyFactory(field.Type, table); ok {
+		fieldConstraints = ensureDefaultFactory(fieldConstraints, factory)
 	}
 
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
@@ -1046,8 +1024,23 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 		field.Type.TypeParam.Optional {
 		return false
 	}
-	_, isCollection := resolution.CollectionKind(field.Type, table)
-	return !isCollection
+	_, hasEmpty := emptyFactory(field.Type, table)
+	return !hasEmpty
+}
+
+// emptyFactory returns the factory of the empty value that a missing collection
+// defaults to. A fixed-size array has no empty value, so it has no factory.
+func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
+	kind, isCollection := resolution.CollectionKind(typeRef, table)
+	_, fixed := resolution.ArraySize(typeRef, table)
+	switch {
+	case !isCollection, fixed:
+		return "", false
+	case kind == "Array":
+		return "list", true
+	default:
+		return "dict", true
+	}
 }
 
 // optionalInPython reports whether field is optional in Python. `@py optional` makes a
@@ -1311,7 +1304,13 @@ func collectValidation(
 			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
-			if len(defaultVal.Elements) == 0 {
+			// Tuples are immutable, so they take a plain default.
+			if _, fixed := resolution.ArraySize(typeRef, table); fixed {
+				constraints = append(
+					constraints,
+					"default="+pyDefaultLiteral(typeRef, *defaultVal, table, data),
+				)
+			} else if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
 				constraints = append(
@@ -1392,7 +1391,13 @@ func pyDefaultLiteral(
 		for _, el := range val.Elements {
 			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
 		}
-		return "[" + strings.Join(parts, ", ") + "]"
+		if _, fixed := resolution.ArraySize(typeRef, table); !fixed {
+			return "[" + strings.Join(parts, ", ") + "]"
+		}
+		if len(parts) == 1 {
+			return "(" + parts[0] + ",)"
+		}
+		return "(" + strings.Join(parts, ", ") + ")"
 	case resolution.ValueKindStruct:
 		if kind, _ := resolution.CollectionKind(
 			typeRef,
@@ -1642,8 +1647,9 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// boundedArgToPython returns the Python type of a map key or value. A sized integer
-// carries its range in its type, since the bounds of a field do not reach into a dict.
+// boundedArgToPython returns the Python type of a map key, map value, or list element.
+// A sized integer carries its range in its type, since field bounds do not reach into a
+// collection.
 func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -1662,6 +1668,35 @@ func boundedArgToPython(
 		bounds.min,
 		bounds.max,
 	)
+}
+
+// collectionToPython returns the Python type of an array (list[...], or a Tuple when
+// fixed-size) or a map (dict[...]), and false when typeRef is neither.
+func collectionToPython(
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) (string, bool) {
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return fmt.Sprintf(
+			"dict[%s, %s]",
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
+		), true
+	}
+	if typeRef.Name != "Array" || len(typeRef.TypeArgs) == 0 {
+		return "", false
+	}
+	elemType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+	if typeRef.ArraySize == nil {
+		return fmt.Sprintf("list[%s]", elemType), true
+	}
+	data.imports.addTyping("Tuple")
+	elements := make([]string, *typeRef.ArraySize)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", ")), true
 }
 
 // importLocalHand imports name from typ's `@py include` module when typ is
@@ -1730,29 +1765,8 @@ func typeToPython(
 		return primitiveToPython(typeRef.Name, data)
 	}
 
-	// Handle Array type. The bare element type is returned (not list[...]); field
-	// processing wraps array-typed fields in list[...] itself off the element type,
-	// so wrapping here would double-wrap. Alias contexts that need list[...] use
-	// typeDefBaseToPython / typeRefToPythonAlias instead.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
-		// Fixed-size array -> tuple type
-		if typeRef.ArraySize != nil {
-			data.imports.addTyping("Tuple")
-			elements := make([]string, *typeRef.ArraySize)
-			for i := range elements {
-				elements[i] = elemType
-			}
-			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
-		}
-		return elemType
-	}
-
-	// Handle Map type
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
-		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
-		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 
 	// Try to resolve the type
@@ -1845,19 +1859,8 @@ func typeRefToPythonAlias(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	// Array and map alias targets (e.g. Nodes = Node[], Authorities = map<...>) are
-	// builtin generics that do not resolve to a struct, so handle them here rather
-	// than falling through to the scalar/struct path below.
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 &&
-		typeRef.ArraySize == nil {
-		return fmt.Sprintf("list[%s]", typeToPython(typeRef.TypeArgs[0], table, data))
-	}
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		return fmt.Sprintf(
-			"dict[%s, %s]",
-			boundedArgToPython(typeRef.TypeArgs[0], table, data),
-			boundedArgToPython(typeRef.TypeArgs[1], table, data),
-		)
+	if pyType, ok := collectionToPython(typeRef, table, data); ok {
+		return pyType
 	}
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -2071,9 +2074,8 @@ func (m *importManager) addNamespace(alias, path string) {
 // pydantic, uuid, enum, the resource ID and x.codec. A module import never binds one of
 // them, because the generator may add that import later in the same file.
 var generatedImportNames = set.New(
-	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
-	"ID", "IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar",
-	"UUID", "uuid4",
+	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "ID",
+	"IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar", "UUID", "uuid4",
 )
 
 // bound reports whether name is reserved or already imported in the file.
@@ -2219,6 +2221,8 @@ type typeParamData struct {
 	Constraint string
 	// IsOptional is true if optional (defaults to JsonValue).
 	IsOptional bool
+	// Default is the Python type used when the type argument is omitted, or empty.
+	Default string
 }
 
 type typeVarData struct {
@@ -2272,7 +2276,6 @@ type fieldData struct {
 	PyType     string
 	Default    string
 	IsOptional bool
-	IsArray    bool
 }
 
 type enumData struct {
@@ -2341,14 +2344,22 @@ func formatVariantDocstring(v unionVariantData) string {
 	return googleDocstring(v.Doc, nil)
 }
 
-// genericArg returns the Python type argument for a type parameter in Generic[...].
-func genericArg(tpd typeParamData) string {
-	return tpd.Name
-}
-
-// hasTypeParams checks if there are any type params.
-func hasTypeParams(params []typeParamData) bool {
-	return len(params) > 0
+// typeParamList returns the PEP 695 type parameter list of a class, such as
+// "[T: Bound = Default]", or empty for a class with no type parameters.
+func typeParamList(params []typeParamData) string {
+	if len(params) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(lo.Map(params, func(p typeParamData, _ int) string {
+		s := p.Name
+		if p.Constraint != "" {
+			s += ": " + p.Constraint
+		}
+		if p.Default != "" {
+			s += " = " + p.Default
+		}
+		return s
+	}), ", ") + "]"
 }
 
 // fieldName returns the Python attribute name for a schema field: its snake_case wire
@@ -2370,8 +2381,7 @@ var templateFuncs = template.FuncMap{
 	"hasDocumentation":       hasDocumentation,
 	"formatVariantDocstring": formatVariantDocstring,
 	"pyDocComment":           doc.FormatPyComment,
-	"genericArg":             genericArg,
-	"hasTypeParams":          hasTypeParams,
+	"typeParamList":          typeParamList,
 	"fieldName":              fieldName,
 }
 
@@ -2433,7 +2443,7 @@ class {{ .Name }}(IntEnum):
 {{- else if .HasExtends }}
 
 
-class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}):
+class {{ .PyName }}{{ typeParamList .TypeParams }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
@@ -2457,33 +2467,10 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- else if not (hasDocumentation .) }}
     pass
 {{- end }}
-{{- else if hasTypeParams .TypeParams }}
-
-
-class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]):
-{{- if hasDocumentation . }}
-{{ formatGoogleDocstring . }}
-{{- end }}
-{{- if .ModelConfig }}
-    model_config = {{ .ModelConfig }}
-{{ end }}
-{{- range .Fields }}
-    {{ .Name }}: {{ .PyType }}{{ .Default }}
-{{- end }}
-{{- if .KeyField }}
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.{{ .KeyField }})
-{{- end }}
-{{- if .Validators }}
-
-{{ .Validators }}
-{{- end }}
 {{- else }}
 
 
-class {{ .PyName }}(BaseModel):
+class {{ .PyName }}{{ typeParamList .TypeParams }}(BaseModel):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}

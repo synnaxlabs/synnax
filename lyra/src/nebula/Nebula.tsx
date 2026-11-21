@@ -155,7 +155,9 @@ export const Nebula = (): ReactElement => {
       if (frame != null) return;
       frame = requestAnimationFrame(() => {
         frame = null;
-        draw(canvas, SEED);
+        // The observer also reports a canvas that leaves the page, which has no styles
+        // to read. It reports again when the canvas comes back.
+        if (canvas.isConnected) draw(canvas, SEED);
       });
     };
     // observe reports the first size at once, so re-subscribing on a theme change

@@ -95,7 +95,8 @@ def outside(findings: list[Finding], *, blob: str) -> str:
         return "\n".join([*lines, "No findings outside the diff remain."]) + "\n"
     lines += [
         "These findings could not be posted inline. To dismiss one, someone with write "
-        "access comments `@sedosaur dismiss`, its title, and a reason.",
+        "access runs `gh workflow run dismiss.sedosaur.yaml -f pr=<number> "
+        "-f finding='<title>' -f reason='<why>'`.",
         "",
     ]
     for f in findings:

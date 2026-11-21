@@ -9,17 +9,17 @@
 
 import "@/feature/ni/task/PortsView.css";
 
-import { type device, type rack } from "@synnaxlabs/client";
+import type { device, rack } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice } from "@synnaxlabs/pluto";
-import { type MouseEvent, type ReactElement, type ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 
 import { type Device, MAKE } from "@/feature/ni/device/types";
-import { type LinePlacement } from "@/feature/ni/task/createChannel";
+import type { LinePlacement } from "@/feature/ni/task/createChannel";
 import {
   claimsOf,
   digitalPorts,
@@ -28,7 +28,7 @@ import {
   lineName,
   type PortKind,
 } from "@/feature/ni/task/ports";
-import { type DigitalChannel } from "@/feature/ni/task/types";
+import type { DigitalChannel } from "@/feature/ni/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";

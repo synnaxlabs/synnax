@@ -10,11 +10,11 @@
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { semver } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
 import { isDev } from "@/platform/version/build";
-import { type Target } from "@/platform/version/check";
+import type { Target } from "@/platform/version/check";
 import { Session } from "@/session";
 
 const RELEASE_URL = "https://docs.synnaxlabs.com/releases/core/latest.json";

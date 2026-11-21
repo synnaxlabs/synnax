@@ -19,9 +19,9 @@ import { gauge } from "@/vis/gauge/aether";
 // Stands in for the worker component and reports its source as stale.
 class StaleGauge extends aether.Leaf<typeof gauge.Gauge.z> {
   static readonly TYPE = gauge.Gauge.TYPE;
-  schema = gauge.Gauge.z;
+  override schema = gauge.Gauge.z;
 
-  afterUpdate(): void {
+  override afterUpdate(): void {
     if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
   }
 }

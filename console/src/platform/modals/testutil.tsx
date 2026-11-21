@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import type { connection, Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type aether } from "@synnaxlabs/pluto/ether";
+import type { aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
   act,
@@ -21,12 +21,7 @@ import {
   type RenderResult,
   screen,
 } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import type { FC, PropsWithChildren, ReactElement, ReactNode } from "react";
 import { Provider } from "react-redux";
 
 import { Analytics } from "@/platform/analytics";

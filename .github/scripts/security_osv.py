@@ -28,10 +28,10 @@ from typing import Any
 OSV_URL = "https://api.osv.dev/v1/query"
 # Bazel module name to its upstream repository and its release tag for a version.
 BAZEL = {
+    "boringssl": ("https://boringssl.googlesource.com/boringssl", "{}"),
     "cpp-httplib": ("https://github.com/yhirose/cpp-httplib.git", "v{}"),
     "curl": ("https://github.com/curl/curl.git", "curl-{}"),
     "grpc": ("https://github.com/grpc/grpc.git", "v{}"),
-    "openssl": ("https://github.com/openssl/openssl.git", "openssl-{}"),
 }
 WASMTIME_VERSION = re.compile(r'^WASMTIME_VERSION = "([^"]+)"', re.MULTILINE)
 BAZEL_DEP = re.compile(

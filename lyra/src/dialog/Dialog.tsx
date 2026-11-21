@@ -20,6 +20,7 @@ import { useDropdownFocus } from "@/dialog/useDropdownFocus";
 import { useFocusTrap } from "@/dialog/useFocusTrap";
 import { Flex } from "@/flex";
 import { useCombinedRefs } from "@/hooks";
+import { Portal } from "@/portal";
 import { getRootElement } from "@/util/rootElement";
 
 /** Props for {@link Dialog}. */
@@ -27,8 +28,9 @@ export interface DialogProps extends Flex.BoxProps<"div"> {}
 
 /**
  * The floating surface of a {@link Frame}. It mounts only while open and portals itself
- * to the document root. A modal holds the focus while open and gives it back on close.
- * Any other dialog takes the place right after its trigger in the tab order.
+ * into the nearest `Portal.Target`, or the document root outside one. A modal holds the
+ * focus while open and gives it back on close. Any other dialog takes the place right
+ * after its trigger in the tab order.
  */
 export const Dialog = ({
   ref: propsRef,
@@ -52,6 +54,7 @@ export const Dialog = ({
   const { visible, variant, close } = useContext();
   const modal = variant === "modal";
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const portalTarget = Portal.useTarget();
   const trap = useFocusTrap(surfaceRef, modal && visible);
   const dropdown = useDropdownFocus(!modal, trigger, close);
   const combinedRef = useCombinedRefs(propsRef, ref, surfaceRef, dropdown.ref);
@@ -98,5 +101,5 @@ export const Dialog = ({
         {dialog}
       </Background>
     );
-  return createPortal(dialog, getRootElement());
+  return createPortal(dialog, portalTarget ?? getRootElement());
 };

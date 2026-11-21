@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func binaryField(name string, startBit uint16, bitLength uint8) icd.BinaryField {
@@ -157,7 +156,7 @@ var _ = Describe("Writer", func() {
 			}}
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
 			Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
-			Expect(icd.Check(ic)).To(ConsistOf(validate.Problem{
+			Expect(problemsOf(ic)).To(ConsistOf(problem{
 				Path:    "messages.1.name",
 				Message: `duplicate message name "State"`,
 			}))

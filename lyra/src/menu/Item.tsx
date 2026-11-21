@@ -9,7 +9,7 @@
 
 import "@/menu/Item.css";
 
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";

@@ -18,8 +18,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Label } from "@synnaxlabs/pluto";
-import { type color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type color, uuid } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -69,9 +69,15 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
 };
 
 const CreateLabel = (): ReactElement => {
-  const { created } = PlatformSettings.useCreate();
+  const { creating, created } = PlatformSettings.useCreate();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
+    beforeSave: async ({ set }) => {
+      const key = uuid.create();
+      set(path.key, key);
+      creating(key);
+      return true;
+    },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Label key is null");
