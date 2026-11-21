@@ -436,6 +436,75 @@ describe("LinePlot breaks", () => {
     expect(measureAt(900)).toEqual(measureAt(400) - 1);
   });
 
+  it("should join two measured points of an x axis after the first", () => {
+    const recorder = new canvasTest.Recorder();
+    (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
+    const stack = buildStack({
+      registry: {
+        [lineTest.Host.TYPE]: lineTest.Host,
+        [LinePlot.TYPE]: LinePlot,
+        [XAxis.TYPE]: XAxis,
+        [YAxis.TYPE]: YAxis,
+        [line.Line.TYPE]: line.Line,
+        [measure.Measure.TYPE]: measure.Measure,
+      },
+      render: recorder,
+    });
+    teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
+    const gl = [...stack.basePath, "gl"];
+    stack.driver.update(gl, lineTest.Host.TYPE, {});
+    const base = [...gl, "plot"];
+    stack.driver.update(base, LinePlot.TYPE, {
+      container: box.construct(0, 0, 1000, 500),
+      viewport: box.DECIMAL,
+      grid: {},
+      gapsCollapsed: true,
+    });
+    const minute = Number(TimeSpan.MINUTE.valueOf());
+    const day = Number(TimeSpan.DAY.valueOf());
+    const axis = (axisKey: string, yAxisKey: string) => {
+      stack.driver.update([...base, axisKey], XAxis.TYPE, {
+        axisKey,
+        location: axisKey === "x1" ? "bottom" : "top",
+        type: "time",
+        autoBoundPadding: 0,
+      });
+      stack.driver.update([...base, axisKey, yAxisKey], YAxis.TYPE, {
+        location: "left",
+      });
+    };
+    // x1 collapses the day between its two lines. The flat line of x2 spans that day,
+    // so the measure finds its points at the middle of the plot.
+    axis("x1", "y1");
+    [0, day].forEach((start, i) =>
+      stack.driver.update([...base, "x1", "y1", `l${i}`], line.Line.TYPE, {
+        x: seriesSpec([start, start + minute]),
+        y: seriesSpec([0, 2]),
+        color: "#ff0000",
+      }),
+    );
+    axis("x2", "y2");
+    const end = day + minute;
+    stack.driver.update([...base, "x2", "y2", "l"], line.Line.TYPE, {
+      x: seriesSpec([0, end]),
+      y: seriesSpec([1, 1]),
+      color: "#0000ff",
+    });
+    renderPlot(recorder);
+    recorder.upper2d.calls.length = 0;
+    stack.driver.update([...base, "measure"], measure.Measure.TYPE, {
+      one: { x: 1, y: 250 },
+      two: { x: 999, y: 250 },
+      hover: null,
+    });
+    renderPlot(recorder);
+    const texts = recorder.upper2d.calls
+      .filter((c) => c.op === "fillText")
+      .map((c) => String(c.args[0]));
+    expect(texts).toContain("ΔX");
+    expect(texts.filter((t) => t.endsWith(" //"))).toEqual([]);
+  });
+
   it("should lay out every x axis after the first in true time", () => {
     const recorder = new canvasTest.Recorder();
     (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
