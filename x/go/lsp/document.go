@@ -12,28 +12,50 @@ package lsp
 import (
 	"fmt"
 	"strings"
+	"unicode/utf16"
 
 	"go.lsp.dev/protocol"
 )
 
-// PositionToOffset converts an LSP line/character position to a byte offset
-// within the given content string.
+// PositionToOffset converts an LSP line/character position to a byte offset within
+// content. Characters count UTF-16 code units. A character past the end of its line
+// resolves to the line end.
 func PositionToOffset(content string, pos protocol.Position) int {
-	line := int(pos.Line)
-	char := int(pos.Character)
 	offset := 0
-	for range line {
+	for range pos.Line {
 		idx := strings.IndexByte(content[offset:], '\n')
 		if idx < 0 {
 			return len(content)
 		}
 		offset += idx + 1
 	}
-	offset += char
-	if offset > len(content) {
-		return len(content)
+	line := content[offset:]
+	if idx := strings.IndexByte(line, '\n'); idx >= 0 {
+		line = line[:idx]
 	}
-	return offset
+	return offset + CharacterToByte(strings.TrimSuffix(line, "\r"), pos.Character)
+}
+
+// CharacterToByte converts a UTF-16 column in line to a byte offset, clamped to the
+// line length.
+func CharacterToByte(line string, character uint32) int {
+	units := 0
+	for i, r := range line {
+		if units >= int(character) {
+			return i
+		}
+		units += utf16.RuneLen(r)
+	}
+	return len(line)
+}
+
+// byteToCharacter converts a byte offset in line to a UTF-16 column.
+func byteToCharacter(line string, offset int) uint32 {
+	units := 0
+	for _, r := range line[:offset] {
+		units += utf16.RuneLen(r)
+	}
+	return uint32(units)
 }
 
 // ApplyIncrementalChange splices a single incremental change into the document content
@@ -84,18 +106,7 @@ func IsWordChar(c byte) bool {
 
 // GetWordAtPosition extracts the word at the given position in the content.
 func GetWordAtPosition(content string, pos protocol.Position) string {
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && IsWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && IsWordChar(line[end]) {
-		end++
-	}
+	line, start, end := wordSpan(content, pos, IsWordChar)
 	return line[start:end]
 }
 
@@ -112,18 +123,7 @@ func GetQualifiedPrefixWordAtPosition(
 	content string,
 	pos protocol.Position,
 ) string {
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isQualifiedWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && IsWordChar(line[end]) {
-		end++
-	}
+	line, start, end := wordSpan(content, pos, isQualifiedWordChar)
 	return line[start:end]
 }
 
@@ -133,20 +133,44 @@ func GetWordRangeAtPosition(
 	content string,
 	pos protocol.Position,
 ) *protocol.Range {
-	word := GetWordAtPosition(content, pos)
-	if word == "" {
+	line, start, end := wordSpan(content, pos, IsWordChar)
+	if start == end {
 		return nil
-	}
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return nil
-	}
-	start := int(pos.Character)
-	for start > 0 && IsWordChar(line[start-1]) {
-		start--
 	}
 	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
+		Start: protocol.Position{
+			Line:      pos.Line,
+			Character: byteToCharacter(line, start),
+		},
+		End: protocol.Position{
+			Line:      pos.Line,
+			Character: byteToCharacter(line, end),
+		},
 	}
+}
+
+// wordSpan returns the line at pos and the byte bounds of the word under the cursor.
+// The left walk accepts bytes matching left; the right walk accepts word characters.
+// The bounds are equal when the cursor is past the line end.
+func wordSpan(
+	content string,
+	pos protocol.Position,
+	left func(byte) bool,
+) (line string, start, end int) {
+	line, ok := GetLine(content, pos.Line)
+	if !ok {
+		return "", 0, 0
+	}
+	start = CharacterToByte(line, pos.Character)
+	if start >= len(line) {
+		return line, start, start
+	}
+	end = start
+	for start > 0 && left(line[start-1]) {
+		start--
+	}
+	for end < len(line) && IsWordChar(line[end]) {
+		end++
+	}
+	return line, start, end
 }
