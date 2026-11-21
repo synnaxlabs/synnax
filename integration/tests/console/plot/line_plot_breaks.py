@@ -75,6 +75,7 @@ class LinePlotBreaks(ConsoleCase):
         plot.add_ranges([r.name for r in self.ranges])
 
         self.test_open_and_close_all_breaks(plot)
+        self.test_open_breaks_after_reload(plot)
 
     def test_open_and_close_all_breaks(self, plot: Plot) -> None:
         """Test that the plot menu opens and closes every break."""
@@ -89,3 +90,18 @@ class LinePlotBreaks(ConsoleCase):
         plot.select_menu_option("Close all breaks")
         plot.expect_menu_option("Open all breaks")
         plot.expect_menu_option("Close all breaks", offered=False)
+
+    def test_open_breaks_after_reload(self, plot: Plot) -> None:
+        """Test that the breaks a user opens stay open after a reload."""
+        self.log("Testing open breaks after a reload")
+        plot.select_menu_option("Open all breaks")
+        plot.expect_menu_option("Close all breaks")
+
+        self.console.reload()
+        assert plot.pane_locator is not None
+        plot.pane_locator.wait_for(state="visible", timeout=10000)
+        plot.expect_menu_option("Close all breaks")
+        plot.expect_menu_option("Open all breaks", offered=False)
+
+        plot.select_menu_option("Close all breaks")
+        plot.expect_menu_option("Open all breaks")

@@ -668,6 +668,7 @@ describe("LinePlot", () => {
       const onViewport = vi.fn();
       const onViewportChange = vi.fn();
       const onBreaksChange = vi.fn();
+      const onOpenBreaksChange = vi.fn();
       const sync = vi.fn();
       const viewportRef = { current: { reset: vi.fn(), sync } };
       const ref = createRef<LinePlot.FrameRef>();
@@ -679,6 +680,8 @@ describe("LinePlot", () => {
             viewportRef={viewportRef}
             onViewportChange={onViewportChange}
             onBreaksChange={onBreaksChange}
+            initialOpenBreaks={[2]}
+            onOpenBreaksChange={onOpenBreaksChange}
           >
             {extra()}
             {children}
@@ -699,11 +702,11 @@ describe("LinePlot", () => {
         if (found == null) throw new Error("no plot");
         return found;
       });
-      act(() => plot.setState((p) => ({ ...p, breaks: COUNTS, openBreaks: [2] })));
+      act(() => plot.setState((p) => ({ ...p, breaks: COUNTS })));
       await waitFor(() => expect(onBreaksChange).toHaveBeenCalledWith(COUNTS));
       const view = (): box.Box => onViewport.mock.calls.at(-1)?.[0].box;
       const selected = (): box.Box | undefined =>
-        onViewportChange.mock.calls.findLast(([e]) => e.mode === "select")?.[0].box;
+        onOpenBreaksChange.mock.calls.at(-1)?.[0].selection;
       return {
         result,
         rerender,
@@ -712,6 +715,7 @@ describe("LinePlot", () => {
         getBreakChange,
         onViewportChange,
         onBreaksChange,
+        onOpenBreaksChange,
         sync,
         view,
         selected,
@@ -720,6 +724,19 @@ describe("LinePlot", () => {
 
     it("should report the break counts of the plot", async () => {
       await renderFrame();
+    });
+
+    it("should mount with the open breaks it is given", async () => {
+      const { plot } = await renderFrame();
+      expect(plot.state.openBreaks).toEqual([2]);
+    });
+
+    it("should keep the open breaks it mounts with through its first view", async () => {
+      const { plot, getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.Viewport initial={box.DECIMAL} />
+      ));
+      expect(getBreakChange).not.toHaveBeenCalled();
+      expect(plot.state.openBreaks).toEqual([2]);
     });
 
     it("should ask for the change of a click at its x on the canvas", async () => {
@@ -750,11 +767,43 @@ describe("LinePlot", () => {
       expect(view()).toEqual(CHANGE.held[0]);
     });
 
-    it("should report the selection at the times it held", async () => {
-      const { result, selected } = await renderFrame();
+    it("should report the open breaks with the view and the selection", async () => {
+      const { result, onOpenBreaksChange } = await renderFrame();
       act(() => result.current.setViewport(select(SELECTION)));
       act(() => result.current.toggleBreak(120, "axis"));
-      await waitFor(() => expect(selected()).toEqual(MOVED));
+      await waitFor(() =>
+        expect(onOpenBreaksChange).toHaveBeenCalledWith({
+          openBreaks: CHANGE.openBreaks,
+          viewport: CHANGE.viewport,
+          selection: MOVED,
+        }),
+      );
+    });
+
+    it("should report the reset view when a zoom reset closes the breaks", async () => {
+      const { result, onOpenBreaksChange } = await renderFrame();
+      act(() =>
+        result.current.setViewport({
+          box: decimal(0.1, 0.6),
+          mode: "pan",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      act(() =>
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "zoomReset",
+          stage: "start",
+          cursor: xy.ZERO,
+        }),
+      );
+      await waitFor(() => expect(onOpenBreaksChange).toHaveBeenCalled());
+      expect(onOpenBreaksChange.mock.calls[0][0]).toEqual({
+        openBreaks: CHANGE.openBreaks,
+        viewport: box.DECIMAL,
+        selection: box.ZERO,
+      });
     });
 
     it("should mask the selection at the times it held", async () => {

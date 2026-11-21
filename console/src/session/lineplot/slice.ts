@@ -53,6 +53,10 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
+// The open breaks are the lower bounds of their gaps. The viewport and the selection
+// hold the times of the layout with them open.
+const breaksZ = z.object({ open: z.array(z.number()).default([]) });
+
 const stateZ = z.object({
   viewport: viewportZ.prefault({}),
   selection: selectionZ.prefault({}),
@@ -61,6 +65,7 @@ const stateZ = z.object({
   toolbar: toolbarZ.prefault({}),
   measure: measureZ.prefault({}),
   annotations: annotationsZ.prefault({}),
+  breaks: breaksZ.prefault({}),
   selectedRules: z.array(z.string()).default([]),
   hiddenLines: z.array(z.string()).default([]),
 });
@@ -99,6 +104,11 @@ export interface StoreViewportPayload
   extends KeyedPayload, Omit<ViewportState, "renderTrigger"> {}
 
 export interface SetSelectionPayload extends KeyedPayload, SelectionState {}
+
+export interface StoreBreaksPayload extends StoreViewportPayload {
+  open: number[];
+  selection: box.Box;
+}
 
 export interface SetActiveToolbarTabPayload extends KeyedPayload {
   tab: ToolbarTab;
@@ -158,6 +168,7 @@ export const { actions, reducer } = createSlice({
           renderTrigger: state.viewport.renderTrigger + 1,
         };
         state.selection = deep.copy(ZERO_STATE.selection);
+        state.breaks.open = [];
       },
     ),
     storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
@@ -171,6 +182,13 @@ export const { actions, reducer } = createSlice({
       (state, { payload }) => {
         const { key: _key, ...rest } = payload;
         state.selection = { ...state.selection, ...rest };
+      },
+    ),
+    storeBreaks: withSelectedState<StoreBreaksPayload, SliceState>(
+      (state, { payload: { open, pan, zoom, selection } }) => {
+        state.breaks.open = open;
+        state.viewport = { ...state.viewport, pan, zoom };
+        state.selection = { box: selection };
       },
     ),
     setActiveToolbarTab: withSelectedState<SetActiveToolbarTabPayload, SliceState>(
@@ -237,6 +255,7 @@ export const {
   setViewport,
   storeViewport,
   setSelection,
+  storeBreaks,
   setActiveToolbarTab,
   setControlHold,
   toggleControlClickMode,
@@ -269,6 +288,7 @@ export const MIDDLEWARE = [
     setViewport,
     storeViewport,
     setSelection,
+    storeBreaks,
     setActiveToolbarTab,
     setControlHold,
     toggleControlClickMode,
