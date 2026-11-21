@@ -48,7 +48,7 @@ var _ = Describe("Reader", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 
 				iter := MustSucceed(
-					gorp.WrapReader[int32, entry](tx).OpenIterator(gorp.IterOptions{}),
+					gorp.WrapReader[int32, entry](db).OpenIterator(gorp.IterOptions{}),
 				)
 				var rawKey []byte
 				for iter.First(); iter.Valid(); iter.Next() {
