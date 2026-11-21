@@ -247,6 +247,31 @@ describe("icd", () => {
       expect(retrieved.messages[0].payload).toMatchObject({ format: "json", fields });
     });
 
+    it("should keep the non-finite enum values of a float field", async () => {
+      const enumValues = [
+        { label: "UNKNOWN", value: NaN },
+        { label: "HIGH", value: Infinity },
+        { label: "LOW", value: -Infinity },
+      ];
+      const ic = await client.icds.create({
+        name: "Non-finite",
+        messages: [
+          {
+            name: "Reading",
+            payload: {
+              format: "json",
+              fields: [{ type: "float", name: "level", pointer: "/level", enumValues }],
+            },
+          },
+        ],
+      });
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved.messages[0].payload).toMatchObject({
+        format: "json",
+        fields: [{ enumValues }],
+      });
+    });
+
     it("should create multiple ICDs", async () => {
       const ics = await client.icds.create([createNew("A"), createNew("B")]);
       expect(ics.map((i) => i.name)).toEqual(["A", "B"]);
