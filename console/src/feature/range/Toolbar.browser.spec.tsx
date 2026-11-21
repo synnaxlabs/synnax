@@ -663,7 +663,9 @@ describe("range/Toolbar", () => {
         TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       );
       await renderToolbar({ favorites: [rng] });
-      fireEvent.dragStart(await findLine("Favorites", rng.name));
+      fireEvent.dragStart(await findLine("Favorites", rng.name), {
+        dataTransfer: new DataTransfer(),
+      });
       const preview = document.querySelector(".lyra-haul__layer .lyra-haul-preview");
       expect(preview?.querySelector(".lyra-haul-preview__name")?.textContent).toBe(
         rng.name,
@@ -692,8 +694,12 @@ describe("range/Toolbar", () => {
           }),
         },
       );
-      fireEvent.dragStart(await findLine("Favorites", rng.name));
-      fireEvent.drop(await screen.findByLabelText("Ranges"));
+      fireEvent.dragStart(await findLine("Favorites", rng.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(await screen.findByLabelText("Ranges"), {
+        dataTransfer: new DataTransfer(),
+      });
       await waitFor(async () =>
         expect((await reader.lineplots.retrieve(key)).ranges).toContainEqual(
           expect.objectContaining({ variant: "key", key: rng.key }),
