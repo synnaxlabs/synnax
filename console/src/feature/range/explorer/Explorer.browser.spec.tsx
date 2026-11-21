@@ -165,10 +165,13 @@ const focusedTabs = (store: TestStore): string[] => {
 const checkboxOf = (name: string): HTMLInputElement =>
   within(itemOf(name)).getByRole<HTMLInputElement>("checkbox", { name: "Select" });
 
-/** Searches for the range, then opens the context menu on it. */
+/**
+ * Searches for the range, then opens the context menu on it once the search lands, so
+ * the item does not mount again and end a rename that the menu started.
+ */
 const openMenuOf = async (rng: ranger.Range): Promise<void> => {
   await search(rng.name);
-  await findItem(rng.name);
+  await findSearchedItem(rng.name, rng.name);
   await openContextMenu(() => itemOf(rng.name));
 };
 
