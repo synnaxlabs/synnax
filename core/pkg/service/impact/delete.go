@@ -12,6 +12,9 @@ package impact
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"slices"
 	"strings"
 
@@ -107,4 +110,23 @@ func (s *Service) planDelete(
 func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 	_, ok := m[k]
 	return ok
+}
+
+// token returns the hex form of the first 16 bytes of a SHA-256 hash of the delete of
+// the channels with keys, in sorted order, and its entries, which are sorted.
+func token(keys []channel.Key, entries []Entry) string {
+	h := sha256.New()
+	h.Write([]byte(DeleteChannelsChangeType))
+	sorted := slices.Clone(keys)
+	slices.Sort(sorted)
+	for _, k := range slices.Compact(sorted) {
+		h.Write(binary.BigEndian.AppendUint32(nil, uint32(k)))
+	}
+	for _, e := range entries {
+		h.Write([]byte{0})
+		h.Write([]byte(e.Record.String()))
+		h.Write([]byte{0})
+		h.Write([]byte(e.Effect))
+	}
+	return hex.EncodeToString(h.Sum(nil)[:16])
 }

@@ -75,6 +75,18 @@ Plan struct {
             change. They need no pick, so they are not entries.
         """
     }
+    hidden  uint32  {
+        @doc value """
+            is the number of entries whose records the caller cannot see. One pick
+            covers all of them.
+        """
+    }
+    token   string  {
+        @doc value """
+            is the hex form of a hash of the change and every entry, hidden ones too.
+            Apply refuses a token that no longer matches.
+        """
+    }
     change  Change  {
         @doc value "is the change that the plan covers."
     }
