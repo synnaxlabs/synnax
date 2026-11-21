@@ -312,6 +312,8 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// ended is true once the cleanups ran. mu guards it.
+	ended bool
 	// inline holds the first cleanups of a transaction, so that registering them
 	// allocates nothing.
 	inline [8]func(committed bool)
@@ -346,14 +348,19 @@ func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
 // Committing reports whether a commit attempt is in flight.
 func (s *txState) Committing() bool { return s.committing.Load() }
 
-// OnCleanup registers a hook to run when the owning transaction commits or closes. The
-// hook is invoked with committed=true once the writes of Commit are visible to reads,
-// and committed=false otherwise (Close without prior Commit, or a failed Commit). Safe
-// to call from any goroutine that holds a reference to the state handle.
-func (s *txState) OnCleanup(fn func(committed bool)) {
+// OnCleanup registers a hook to run when the owning transaction commits or closes, and
+// reports true. The hook is invoked with committed=true once the writes of Commit are
+// visible to reads, and committed=false otherwise (Close without prior Commit, or a
+// failed Commit). It reports false, and never runs the hook, once the cleanups ran.
+// Safe to call from any goroutine that holds a reference to the state handle.
+func (s *txState) OnCleanup(fn func(committed bool)) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ended {
+		return false
+	}
 	s.cleanups = append(s.cleanups, fn)
-	s.mu.Unlock()
+	return true
 }
 
 // runCleanups invokes every registered hook exactly once in registration
@@ -362,7 +369,7 @@ func (s *txState) OnCleanup(fn func(committed bool)) {
 func (s *txState) runCleanups(committed bool) {
 	s.mu.Lock()
 	hooks := s.cleanups
-	s.cleanups = nil
+	s.cleanups, s.ended = nil, true
 	s.mu.Unlock()
 	for _, h := range hooks {
 		h(committed)

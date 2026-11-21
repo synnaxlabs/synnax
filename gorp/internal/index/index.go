@@ -28,9 +28,10 @@ import (
 // committed state at once, and reads against it see committed state only.
 type Scope interface {
 	comparable
-	// OnCleanup registers fn to run once when the transaction ends. committed is true
-	// when the transaction committed.
-	OnCleanup(fn func(committed bool))
+	// OnCleanup registers fn to run once when the transaction ends, and reports true.
+	// committed is true when the transaction committed. It reports false, and never
+	// runs fn, when the transaction has ended.
+	OnCleanup(fn func(committed bool)) bool
 	// Committing reports whether the transaction is in its commit. Its staged changes
 	// are final from that point.
 	Committing() bool
@@ -95,6 +96,9 @@ type delta[K, V comparable] struct {
 	// keys in none that the scope deleted. Neither needs an entry in state. Only Multi
 	// stages them.
 	fresh, gone set.Set[K]
+	// peak is the most entries that one map of d held since the last reset. A cleared
+	// map keeps the room of its peak, so reset drops the maps by it.
+	peak int
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -105,19 +109,23 @@ func (d *delta[K, V]) isEmpty() bool {
 	return len(d.state) == 0 && len(d.fresh) == 0 && len(d.gone) == 0
 }
 
-// reset empties d for the next scope.
+// reset empties d for the next scope. It drops the maps when one grew past retained, so
+// that one large transaction does not hold their memory.
 func (d *delta[K, V]) reset() {
-	if d.state = emptied(d.state); d.state == nil {
-		d.state = make(map[K]staged[V])
+	if d.peak > retained {
+		d.state, d.forward, d.fresh, d.gone = make(map[K]staged[V]), nil, nil, nil
+	} else {
+		clear(d.state)
+		clear(d.forward)
+		clear(d.fresh)
+		clear(d.gone)
 	}
-	d.forward = emptied(d.forward)
-	d.fresh = emptied(d.fresh)
-	d.gone = emptied(d.gone)
 	d.arena = truncated(d.arena)
 	d.keys = truncated(d.keys)
+	d.peak = 0
 }
 
-// retained is the most entries that an emptied map keeps room for.
+// retained is the most entries that a map of a delta keeps room for between scopes.
 const retained = 1024
 
 // truncated returns s with no elements, or nil when s grew past retained.
@@ -127,16 +135,6 @@ func truncated[T any](s []T) []T {
 	}
 	clear(s)
 	return s[:0]
-}
-
-// emptied returns m with no entries, or nil when m grew past retained, so that one
-// large transaction does not hold its memory.
-func emptied[M ~map[K]V, K comparable, V any](m M) M {
-	if len(m) > retained {
-		return nil
-	}
-	clear(m)
-	return m
 }
 
 // set stages values for key. The delta owns values from then on.
@@ -149,6 +147,7 @@ func (d *delta[K, V]) set(key K, values []V) {
 	for _, v := range values {
 		d.addHolder(v, key)
 	}
+	d.grew(max(len(d.state), len(d.forward)))
 }
 
 // setOne stages value as the one value of key.
@@ -182,9 +181,13 @@ func (d *delta[K, V]) addHolder(value V, key K) {
 // arenaMin is the size of the first arena of a delta.
 const arenaMin = 8
 
+// grew records that a map of d holds n entries.
+func (d *delta[K, V]) grew(n int) { d.peak = max(d.peak, n) }
+
 func (d *delta[K, V]) delete(key K) {
 	d.unstage(key)
 	d.state[key] = staged[V]{deleted: true}
+	d.grew(len(d.state))
 }
 
 func (d *delta[K, V]) unstage(key K) {
@@ -260,20 +263,24 @@ type overlay[S Scope, D changes] struct {
 	// the last one ended.
 	scope S
 	d     D
+	// create returns empty changes.
+	create func() D
 	// flush applies the changes of a committed scope to committed state.
 	flush func(D)
 	// end is finish, bound once so that registering it allocates nothing.
 	end func(committed bool)
 }
 
-// init gives o the empty changes d, and flush to apply them.
-func (o *overlay[S, D]) init(d D, flush func(D)) {
-	o.d, o.flush, o.end = d, flush, o.finish
+// init gives o create to make empty changes, and flush to apply them.
+func (o *overlay[S, D]) init(create func() D, flush func(D)) {
+	o.create, o.flush, o.end = create, flush, o.finish
+	o.d = create()
 }
 
 // load returns the changes of scope. The first load of a scope registers a cleanup on
-// scope that flushes the changes if scope committed, and then empties them. It panics
-// when another scope staged changes and has not ended.
+// scope that flushes the changes if scope committed, and then empties them. A scope
+// that has ended can never commit, so it gets changes of its own that nothing reads. It
+// panics when another scope staged changes and has not ended.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -281,8 +288,10 @@ func (o *overlay[S, D]) load(scope S) D {
 		if !isNone(o.scope) {
 			panic("[index] - a scope staged changes while another was open")
 		}
+		if !scope.OnCleanup(o.end) {
+			return o.create()
+		}
 		o.scope = scope
-		scope.OnCleanup(o.end)
 	}
 	return o.d
 }
