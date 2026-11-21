@@ -136,15 +136,16 @@ class _ManualTimers:
 
     @contextmanager
     def released(self, client: sy.Synnax) -> Generator[None]:
-        """Passes every timer on exit, so a failed Driver does not leave the command
-        waiting."""
+        """Passes every timer when the block raises, so a failed Driver does not leave
+        the command waiting."""
         try:
             yield
-        finally:
+        except BaseException:
             with self._started:
                 for timer in self._timers:
                     timer.passed = True
             _wake(client)
+            raise
 
 
 def _wake(client: sy.Synnax) -> None:
@@ -617,7 +618,10 @@ class TestTaskClient:
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
                 _set_reply(client, cmd, sy.status.VARIANT_LOADING)
                 with timers.released(client):
-                    assert timers.started(1).span == 2 * sy.TimeSpan.MINUTE
+                    final = timers.started(1)
+                    assert final.span == 2 * sy.TimeSpan.MINUTE
+                    final.passed = True
+                    _wake(client)
 
         ev = threading.Event()
         t = _Driver(driver, ev)
