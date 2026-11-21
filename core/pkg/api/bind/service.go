@@ -45,7 +45,8 @@ type ServiceConfig struct {
 	OwnedPlaces []string
 	// Mirrors names the tables of the records that a change to another record writes
 	// beside it, such as the tombstone of a deleted channel. A change to one needs
-	// nothing, since the change that it mirrors is checked.
+	// nothing, since the change that it mirrors is checked. A write that changes
+	// mirror records and no other record fails.
 	Mirrors []string
 }
 

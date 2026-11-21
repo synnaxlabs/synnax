@@ -20,6 +20,7 @@ import (
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,6 +47,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Held:        apiauth.HeldTables(),
 		Owned:       apipanel.OwnedTables(),
 		OwnedPlaces: apipanel.OwnedPlaces(),
+		Mirrors:     channel.MirrorTables(),
 	}))
 })
 
