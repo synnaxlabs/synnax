@@ -26,7 +26,7 @@ type cutAt struct {
 // checkTombstone checks t against the durable view: the key is live, no live pointer
 // of another key on the key's clock lies in the range, and each cut names the live
 // pointer that holds an end of the range, inside it.
-func (c *core) checkTombstone(t *log.Tombstone) error {
+func (c *core) checkTombstone(t *log.Tombstone, users []User) error {
 	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
 	ch := c.channels[t.Key]
 	var left, right cutAt
@@ -37,11 +37,8 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	case ch == nil:
 		return refuse("tombstone of key %d, which holds no segment", t.Key)
 	}
-	for _, s := range c.segments {
-		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
-			continue
-		}
-		for _, p := range s.dur.pointers {
+	uses := func(key uint32, ptrs []Pointer) error {
+		for _, p := range ptrs {
 			if p.First < end && p.Last >= start {
 				return refuse(
 					"tombstone of clock %d from %d to %d, which "+
@@ -49,11 +46,30 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 					t.Key,
 					start,
 					end,
-					s.key,
+					key,
 					p.First,
 					p.Last,
 				)
 			}
+		}
+		return nil
+	}
+	// A segment that a part holds counts through its record in users.
+	for _, s := range c.segments {
+		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created || s.vis.Part != 0 {
+			continue
+		}
+		if err := uses(s.key, s.dur.pointers); err != nil {
+			return err
+		}
+	}
+	for _, u := range users {
+		// The records of a key that a Drop took out are dead.
+		if c.channels[u.Key] == nil {
+			continue
+		}
+		if err := uses(u.Key, u.Segment.Pointers); err != nil {
+			return err
 		}
 	}
 	for _, s := range ch.segs {
@@ -114,10 +130,14 @@ func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
 // tombstone applies t to both views, which a durable Tombstone changes at once, and
 // buries each sealed segment that no live pointer is left in.
 func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
-	if c.channels[t.Key] != nil {
+	users := usersOf(pre, t.Key)
+	if ch := c.channels[t.Key]; ch != nil {
 		c.putBack(t.Key, recordsOf(pre, t.Key))
+		if users == nil {
+			users = ch.deleteUsers(t)
+		}
 	}
-	if err := c.checkTombstone(t); err != nil {
+	if err := c.checkTombstone(t, users); err != nil {
 		return err
 	}
 	ch := c.channels[t.Key]
@@ -139,6 +159,17 @@ func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
 		c.bury(s)
 	}
 	ch.publish()
+	return nil
+}
+
+// deleteUsers returns the users that the delete claim of the range of t holds.
+func (c *chanState) deleteUsers(t *log.Tombstone) []User {
+	for _, cl := range c.claims {
+		if cl.w == nil && cl.start == telem.TimeStamp(t.Start) &&
+			cl.end == telem.TimeStamp(t.End)-1 {
+			return cl.users
+		}
+	}
 	return nil
 }
 
@@ -262,7 +293,12 @@ func (r *beginDeleteRequest) run(s *State) {
 	}
 	// The Tombstone cuts the records that the delete reaches as head segments.
 	s.core.putBack(r.d.key, records)
-	r.d.c = &claim{start: r.start, end: last, bounded: true}
+	r.d.c = &claim{
+		start:   r.start,
+		end:     last,
+		bounded: true,
+		users:   usersOf(r.pre, r.d.key),
+	}
 	ch.claims = append(ch.claims, r.d.c)
 	r.d.done <- nil
 }
@@ -297,7 +333,9 @@ type checkDeleteRequest struct {
 
 func (r *checkDeleteRequest) fail(err error) { r.d.done <- err }
 
-func (r *checkDeleteRequest) run(s *State) { r.d.done <- s.core.checkTombstone(r.t) }
+func (r *checkDeleteRequest) run(s *State) {
+	r.d.done <- s.core.checkTombstone(r.t, r.d.c.users)
+}
 
 // Check checks t with the rule that a durable Tombstone must pass, so the caller logs
 // only a Tombstone that the state applies. It returns an error that wraps ErrRefused

@@ -20,18 +20,19 @@ import (
 
 // withPreloads runs step with the preload of each key of keys over [first, last],
 // appended to pre[:0], and loads them again while step returns state.ErrStale. keys are
-// in rising order. It returns the preloads of the last run, so the caller may reuse
-// their slice.
+// in rising order. With timed, each preload also holds the users of its key as a clock.
+// It returns the preloads of the last run, so the caller may reuse their slice.
 func (e *engine) withPreloads(
 	pre []state.Preload,
 	keys []ChannelKey,
 	first, last telem.TimeStamp,
+	timed bool,
 	step func([]state.Preload) error,
 ) ([]state.Preload, error) {
 	for {
 		pre = pre[:0]
 		for _, key := range keys {
-			p, err := e.preload(key, first, last)
+			p, err := e.preload(key, first, last, timed)
 			if err != nil {
 				return pre, err
 			}
@@ -43,15 +44,16 @@ func (e *engine) withPreloads(
 	}
 }
 
-// addPreload adds the part records of key whose pointers reach [first, last] to the
-// preload of key in pre.
+// addPreload adds the part records of key whose pointers reach [first, last], and with
+// timed the users of key as a clock, to the preload of key in pre.
 func (e *engine) addPreload(
 	pre []state.Preload,
 	key ChannelKey,
 	first, last telem.TimeStamp,
+	timed bool,
 ) ([]state.Preload, error) {
-	p, err := e.preload(key, first, last)
-	if err != nil || len(p.Segments) == 0 {
+	p, err := e.preload(key, first, last, timed)
+	if err != nil || (len(p.Segments) == 0 && len(p.Users) == 0) {
 		return pre, err
 	}
 	for i := range pre {
@@ -65,20 +67,42 @@ func (e *engine) addPreload(
 				pre[i].Segments = append(pre[i].Segments, rec)
 			}
 		}
+		for _, u := range p.Users {
+			if !slices.ContainsFunc(pre[i].Users, func(o state.User) bool {
+				return o.Segment.ID == u.Segment.ID
+			}) {
+				pre[i].Users = append(pre[i].Users, u)
+			}
+		}
 		return pre, nil
 	}
 	return append(pre, p), nil
 }
 
-// preload returns the live part records of key whose pointers reach [first, last].
-// Only a part whose stamps reach the range needs a read, which it pins.
+// preload returns the live part records of key whose pointers reach [first, last], and
+// with timed the users of key as a clock.
 func (e *engine) preload(
+	key ChannelKey,
+	first, last telem.TimeStamp,
+	timed bool,
+) (state.Preload, error) {
+	pre, err := e.records(key, first, last)
+	if err != nil || !timed {
+		return pre, err
+	}
+	pre.Users, err = e.clockUsers(key, first, last)
+	return pre, err
+}
+
+// records returns the live part records of key whose pointers reach [first, last].
+// Only a part whose stamps reach the range needs a read, which it pins.
+func (e *engine) records(
 	key ChannelKey,
 	first, last telem.TimeStamp,
 ) (state.Preload, error) {
 	ch := e.state.Channel(key)
 	if ch == nil {
-		return state.Preload{Key: key}, nil
+		return state.Preload{Key: key, Generation: e.parts.Load().live.generation}, nil
 	}
 	pre := state.Preload{Key: key, Generation: e.parts.Load().live.generation}
 	if ch.Oldest != 0 {
@@ -110,6 +134,42 @@ func (e *engine) preload(
 		}
 	}
 	return pre, e.unpin(h)
+}
+
+// clockUsers returns the live part records of keys other than clock that name clock as
+// their clock, and whose pointers reach [first, last]. Section 8 of a part tells
+// whether its records need a read, and it pins the parts that it reads.
+func (e *engine) clockUsers(
+	clock ChannelKey,
+	first, last telem.TimeStamp,
+) ([]state.User, error) {
+	var h held
+	e.pins.mu.Lock()
+	for _, p := range e.parts.Load().live.parts {
+		if p.First <= last && first <= p.Last {
+			h.parts = append(h.parts, p)
+		}
+	}
+	e.pins.pin(h)
+	e.pins.mu.Unlock()
+	var users []state.User
+	for _, p := range h.parts {
+		timed, err := e.cache.Timed(p, clock)
+		if err != nil {
+			return nil, errors.Join(err, e.unpin(h))
+		}
+		for _, t := range timed {
+			ch := e.state.Channel(t.Key)
+			if ch == nil || !p.Live(t.Index) || killed(ch.Kills, p, t.Segment.ID) ||
+				!reaches(t.Segment.Pointers, first, last) {
+				continue
+			}
+			seg := t.Segment
+			seg.Part = p.ID
+			users = append(users, state.User{Key: t.Key, Segment: seg})
+		}
+	}
+	return users, e.unpin(h)
 }
 
 // pinReaching returns the Channel of key and pins the parts of its range whose stamps

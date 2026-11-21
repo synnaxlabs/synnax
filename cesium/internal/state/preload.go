@@ -30,6 +30,23 @@ type Preload struct {
 	// Segments are the live records of the key in the parts of that Channel whose
 	// pointers reach the time range of the step, each tagged with its part.
 	Segments []Segment
+	// Users are the live part records of other keys that name the key as their clock,
+	// and whose pointers reach the time range of the step.
+	Users []User
+}
+
+// User is a part record of a key that names another key as its clock.
+type User struct {
+	Key     uint32
+	Segment Segment
+}
+
+// usersOf returns the users of the preload of key in pre, or none.
+func usersOf(pre []Preload, key uint32) []User {
+	if i, found := search(pre, key); found {
+		return pre[i].Users
+	}
+	return nil
 }
 
 // preloadOf returns the records of the preload of ch in pre, which is in rising order
@@ -68,6 +85,35 @@ func (c *chanState) stored(first, last telem.TimeStamp, pre []Segment) (Pointer,
 		}
 	}
 	return Pointer{}, false
+}
+
+type beginDropRequest struct {
+	key  uint32
+	pre  []Preload
+	done chan error
+}
+
+func (r *beginDropRequest) fail(err error) { r.done <- err }
+
+func (r *beginDropRequest) run(s *State) {
+	if i, found := search(r.pre, r.key); found && r.pre[i].Generation != s.core.head {
+		r.done <- errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
+			r.key, s.core.head, r.pre[i].Generation)
+		return
+	}
+	s.core.dropUsers[r.key] = usersOf(r.pre, r.key)
+	r.done <- nil
+}
+
+// BeginDrop holds the part records that name key as their clock, from the preload of
+// key in pre, for the durable apply of the Drop of key that the caller logs next. It
+// returns ErrStale when the preload is stale.
+func (s *State) BeginDrop(key uint32, pre ...Preload) error {
+	r := &beginDropRequest{key: key, pre: pre, done: make(chan error, 1)}
+	if err := s.enqueue(r); err != nil {
+		return err
+	}
+	return <-r.done
 }
 
 // search returns the index of the preload of key in pre, which is in rising order of

@@ -414,8 +414,6 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 				created = make(map[uint64]ChannelKey)
 			}
 			created[r.Segment] = r.Key
-		case *log.Drop:
-			e.stored.Remove(r.Key)
 		case *log.Commit:
 			first, last := telem.TimeStamp(r.First), telem.TimeStamp(r.Last)
 			for _, slot := range r.Slots {
@@ -424,14 +422,32 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 					key, ok = created[slot.Segment]
 				}
 				if ok {
-					if pre, err = e.addPreload(pre, key, first, last); err != nil {
+					if pre, err = e.addPreload(
+						pre,
+						key,
+						first,
+						last,
+						false,
+					); err != nil {
 						return err
 					}
 				}
 			}
 		case *log.Tombstone:
 			start, end := telem.TimeStamp(r.Start), telem.TimeStamp(r.End)
-			if pre, err = e.addPreload(pre, r.Key, start, end-1); err != nil {
+			if pre, err = e.addPreload(pre, r.Key, start, end-1, true); err != nil {
+				return err
+			}
+		case *log.Drop:
+			e.stored.Remove(r.Key)
+			pre, err = e.addPreload(
+				pre,
+				r.Key,
+				telem.TimeStampMin,
+				telem.TimeStampMax,
+				true,
+			)
+			if err != nil {
 				return err
 			}
 		}

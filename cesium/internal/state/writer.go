@@ -64,6 +64,9 @@ type claim struct {
 	start, end telem.TimeStamp
 	bounded    bool
 	pinned     bool
+	// users are the part records that name the key of a delete claim as their clock,
+	// which the check and the durable apply of its Tombstone read.
+	users []User
 }
 
 func (c *claim) reaches(first, last telem.TimeStamp) bool {

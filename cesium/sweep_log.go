@@ -57,18 +57,35 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 		if !live && stored == nil {
 			continue
 		}
-		if !ch.IsIndex && !timesItself(stored, k) {
+		own, err := db.engine.preload(k, telem.TimeStampMin, telem.TimeStampMax, true)
+		if err != nil {
+			return err
+		}
+		if !ch.IsIndex && !timesItself(stored, own.Segments, k) {
 			dropped = append(dropped, k)
 			continue
 		}
 		if !db.indexUsedOutside(k, dropping) &&
-			!clockStoredOutside(snapshot, k, dropping) {
+			!clockStoredOutside(snapshot, own.Users, k, dropping) {
 			clocks = append(clocks, k)
 		}
 	}
 	dropped = append(dropped, clocks...)
 	if len(dropped) == 0 {
 		return nil
+	}
+	// The Drop of each key checks the part records that name it as their clock.
+	for _, k := range dropped {
+		if _, err = db.engine.withPreloads(
+			nil,
+			[]ChannelKey{k},
+			telem.TimeStampMin,
+			telem.TimeStampMax,
+			true,
+			func(pre []state.Preload) error { return db.engine.state.BeginDrop(k, pre...) },
+		); err != nil {
+			return err
+		}
 	}
 	var entry log.Entry
 	for _, k := range dropped {
@@ -97,21 +114,24 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	return db.fs.SyncDir("")
 }
 
-// timesItself reports whether a stored segment of ch, the stored channel of key, has
-// key as its clock.
-func timesItself(ch *state.Channel, key ChannelKey) bool {
-	if ch == nil {
-		return false
+// timesItself reports whether a stored segment of key has key as its clock: a segment
+// of
+// ch, the stored channel of key, that no part holds, or a part record of parted.
+func timesItself(ch *state.Channel, parted []state.Segment, key ChannelKey) bool {
+	clocked := func(seg state.Segment) bool { return seg.Clock == key }
+	if ch != nil && slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
+		return seg.Part == 0 && clocked(seg)
+	}) {
+		return true
 	}
-	return slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
-		return seg.Clock == key
-	})
+	return slices.ContainsFunc(parted, clocked)
 }
 
 // clockStoredOutside reports whether a stored segment of a key outside dropping has
-// clock as its clock.
+// clock as its clock: a segment of s that no part holds, or a part record of users.
 func clockStoredOutside(
 	s *state.Snapshot,
+	users []state.User,
 	clock ChannelKey,
 	dropping set.Set[ChannelKey],
 ) bool {
@@ -120,12 +140,14 @@ func clockStoredOutside(
 			continue
 		}
 		for _, seg := range ch.Segments {
-			if seg.Clock == clock {
+			if seg.Part == 0 && seg.Clock == clock {
 				return true
 			}
 		}
 	}
-	return false
+	return slices.ContainsFunc(users, func(u state.User) bool {
+		return !dropping.Contains(u.Key)
+	})
 }
 
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses

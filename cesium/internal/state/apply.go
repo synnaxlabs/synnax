@@ -52,15 +52,19 @@ type core struct {
 	// head is the generation of the head whose parts the state reads, which a preload
 	// must come from.
 	head uint64
+	// dropUsers holds, for each key that BeginDrop took, the part records that name it
+	// as their clock, for the durable apply of its Drop.
+	dropUsers map[uint32][]User
 }
 
 func newCore(versions set.Set[uint16]) *core {
 	return &core{
-		versions: versions,
-		channels: map[uint32]*chanState{},
-		segments: map[uint64]*segState{},
-		intents:  set.Set[uint32]{},
-		keys:     set.Set[uint32]{},
+		versions:  versions,
+		channels:  map[uint32]*chanState{},
+		segments:  map[uint64]*segState{},
+		intents:   set.Set[uint32]{},
+		keys:      set.Set[uint32]{},
+		dropUsers: map[uint32][]User{},
 	}
 }
 
@@ -101,7 +105,7 @@ func (c *core) record(r log.Record, pre []Preload) error {
 	case *log.Seal:
 		return c.seal(r)
 	case *log.Drop:
-		return c.drop(r.Key)
+		return c.drop(r.Key, pre)
 	case *log.Restart:
 		c.restart()
 		return nil
@@ -281,11 +285,24 @@ func (c *core) bury(s *segState) {
 	ch.publish()
 }
 
-func (c *core) drop(key uint32) error {
+func (c *core) drop(key uint32, pre []Preload) error {
+	users := usersOf(pre, key)
+	if users == nil {
+		users = c.dropUsers[key]
+	}
+	delete(c.dropUsers, key)
+	// A segment that a part holds counts through its record in users.
 	for _, s := range c.segments {
-		if s.key != key && s.vis.Clock == key && s.dur.created {
+		if s.key != key && s.vis.Clock == key && s.dur.created && s.vis.Part == 0 {
 			return refuse("drop of key %d, the clock of segment %d of key %d", key,
 				s.vis.ID, s.key)
+		}
+	}
+	for _, u := range users {
+		// The records of a key that a Drop took out are dead.
+		if u.Key != key && c.channels[u.Key] != nil {
+			return refuse("drop of key %d, the clock of segment %d of key %d", key,
+				u.Segment.ID, u.Key)
 		}
 	}
 	if ch, ok := c.channels[key]; ok {
