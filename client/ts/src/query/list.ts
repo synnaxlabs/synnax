@@ -218,6 +218,7 @@ export class Lists<
     this.release = config.table.hold({
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
+      written: (key) => this.written(key),
     });
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // The fresh stream's own epoch refetches after a reset, not the reset itself.
@@ -311,6 +312,17 @@ export class Lists<
       entry.searchLimit = undefined;
       entry.composed = undefined;
       entry.composedByKey = undefined;
+    });
+  }
+
+  /**
+   * Places a written key in each maintained window again. A fetch that the Core answers
+   * before it commits the write misses the key, and the commit can leave the record as
+   * it was, so no change reaches the window.
+   */
+  private written(key: K): void {
+    this.entries.forEach((entry) => {
+      if (entry.teardown != null) this.changed(entry, [key]);
     });
   }
 
@@ -572,8 +584,14 @@ export class Lists<
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
     if (entry.ingesting) return;
     const changes = entry.ranked ? events.filter(isChange) : events;
-    if (changes.length === 0) return;
-    const keys = changes.map(({ key }) => key);
+    if (changes.length > 0)
+      this.changed(
+        entry,
+        changes.map(({ key }) => key),
+      );
+  }
+
+  private changed(entry: Entry<Q, K, D, V, C>, keys: K[]): void {
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {

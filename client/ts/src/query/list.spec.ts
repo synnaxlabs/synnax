@@ -396,6 +396,19 @@ describe("Lists", () => {
       table.set("3", rec("3", "b"));
       expect(names(list.getCached())).toEqual(["c", "b", "a"]);
     });
+
+    it("should place again a written key that a refetch left out", async () => {
+      const { table, lists, list, fetch, core } = await maintained([rec("1", "a")], {
+        order: byName,
+      });
+      table.set("2", rec("2", "b"));
+      lists.refetchMatching(() => true);
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await expect.poll(() => names(list.getCached())).toEqual(["a"]);
+      core.records.push(rec("2", "b"));
+      table.set("2", rec("2", "b"));
+      expect(names(list.getCached())).toEqual(["a", "b"]);
+    });
   });
 
   describe("local edits", () => {
@@ -466,6 +479,51 @@ describe("Lists", () => {
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
       expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write that leaves a record as it was", async () => {
+      const { table, list, fetch, core } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await fetch.mock.results[1].value;
+      expect(names(list.getCached())).toEqual(["ab"]);
+      core.records.push(rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again after a write during a fetch", async () => {
+      const { lists, table, fetch, core } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      const list = lists.list({ searchTerm: "a", limit: 2 });
+      list.onChange(vi.fn());
+      fetch.mockImplementationOnce(async () => {
+        core.records.push(rec("2", "ac"));
+        table.set("2", rec("2", "ac"));
+        return [rec("1", "ab")];
+      });
+      await list.retrieve();
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should fetch once for writes inside one debounce", async () => {
+      const { table, fetch } = await searching([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      table.set("2", rec("2", "ac"));
+      table.stampWrite("2");
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not fetch an unmaintained search after a write", async () => {
+      const { lists, table, fetch } = setup([rec("1", "ab")]);
+      table.set("2", rec("2", "ac"));
+      await lists.list({ searchTerm: "a", limit: 2 }).retrieve();
+      table.set("2", rec("2", "ac"));
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 3));
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should show a change to a member at once", async () => {

@@ -2591,3 +2591,73 @@ describe("drop", () => {
     expect(table.get("a")).toBeUndefined();
   });
 });
+
+describe("written", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (key: string, name = key): Doc => ({ key, name });
+  const held = () => {
+    const table = new query.Table<string, Doc>({ onError: noopError });
+    const written = vi.fn();
+    const release = table.hold({ held: () => [], written });
+    return { table, written, release };
+  };
+
+  it("should tell each holder of a set", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    table.set([doc("b"), doc("c")]);
+    expect(written.mock.calls).toEqual([["a"], ["b"], ["c"]]);
+  });
+
+  it("should tell each holder of a set that leaves the record as it was", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    const subscriber = vi.fn();
+    table.subscribeBatch(subscriber);
+    written.mockClear();
+    table.set("a", doc("a"));
+    expect(subscriber).not.toHaveBeenCalled();
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should tell each holder of a stamped write", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    written.mockClear();
+    table.stampWrite("a");
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should tell each holder of a delete rollback that restores a record", () => {
+    const { table, written } = held();
+    table.set("a", doc("a"));
+    const rollback = table.delete("a");
+    written.mockClear();
+    rollback();
+    expect(table.get("a")).toEqual(doc("a"));
+    expect(written).toHaveBeenCalledExactlyOnceWith("a");
+  });
+
+  it("should not tell the holders of a key the table does not hold", () => {
+    const { table, written } = held();
+    table.stampWrite("missing");
+    table.set("a", () => undefined);
+    expect(written).not.toHaveBeenCalled();
+  });
+
+  it("should not tell a released holder", () => {
+    const { table, written, release } = held();
+    release();
+    table.set("a", doc("a"));
+    expect(written).not.toHaveBeenCalled();
+  });
+
+  it("should not tell the holders of an ingest", () => {
+    const { table, written } = held();
+    table.ingest([doc("a")]);
+    expect(written).not.toHaveBeenCalled();
+  });
+});
