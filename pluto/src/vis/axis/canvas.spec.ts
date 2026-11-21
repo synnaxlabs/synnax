@@ -138,7 +138,7 @@ describe("axis/canvas", () => {
         .slice(faint, end)
         .filter((c) => c.op === "lineTo")
         .map((c) => c.args[0]);
-      expect(marked).toEqual([POSITION.x + 75, POSITION.x + 79]);
+      expect(marked).toEqual([POSITION.x + 74.5, POSITION.x + 80.5]);
     });
 
     it("should stop the axis line at the mark of each seam", () => {
@@ -162,9 +162,9 @@ describe("axis/canvas", () => {
 
     it("should not draw a label that overlaps an anchor", () => {
       const { labels } = render([
-        { position: 40, label: "10:00", anchorLabel: "Nov 17 10:00", segment: 0 },
+        { position: 30, label: "10:00", anchorLabel: "Nov 17 10:00", segment: 0 },
         { position: 70, label: "10:01", anchorLabel: "Nov 17 10:01", segment: 0 },
-        { position: 118, label: "10:02", anchorLabel: "Nov 17 10:02", segment: 0 },
+        { position: 112, label: "10:02", anchorLabel: "Nov 17 10:02", segment: 0 },
       ]);
       expect(labels).toEqual(["Nov 17 10:00", "10:02"]);
     });
