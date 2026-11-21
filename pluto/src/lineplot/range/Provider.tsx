@@ -32,6 +32,8 @@ export interface MenuProps extends range.SelectedState {
 
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
+  /** True when a click on the strip does not open a break, as on an axis with none. */
+  breaksDisabled?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
   menu?: Component.RenderProp<MenuProps>;
 }
@@ -40,6 +42,7 @@ export const Provider = ({
   aetherKey,
   menu,
   visible = true,
+  breaksDisabled = false,
   onHasAnnotationsChange,
   ...rest
 }: ProviderProps): ReactElement => {
@@ -110,7 +113,7 @@ export const Provider = ({
         onClick={(e) => {
           // A break band runs through the strip, so a click on it opens the break.
           if (hovered != null) toggleZoom(hovered.key, hovered.viewport);
-          else toggleBreak(e.clientX, "plot");
+          else if (!breaksDisabled) toggleBreak(e.clientX, "plot");
         }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

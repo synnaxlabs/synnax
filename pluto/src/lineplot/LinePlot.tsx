@@ -592,7 +592,9 @@ const XAxis = ({
         />
       ))}
       <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
-      {!relative && <Range.Provider {...rangeProviderProps} />}
+      {!relative && (
+        <Range.Provider {...rangeProviderProps} breaksDisabled={axisKey !== "x1"} />
+      )}
     </BaseXAxis>
   );
 };
