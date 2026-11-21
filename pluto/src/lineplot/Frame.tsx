@@ -132,6 +132,16 @@ export interface FrameRef {
    * spans from zero, not timestamps.
    */
   getBounds: () => Promise<lineplot.AxesBounds>;
+  /**
+   * Returns, for each x axis, the values that a span of decimal positions across the
+   * home view holds. On a relative x axis the values are spans from zero.
+   */
+  getXBounds: (positions: bounds.Bounds) => Promise<lineplot.AxesBounds>;
+  /**
+   * Returns, for each x axis, the decimal positions across the home view of a span of
+   * values. It is the inverse of getXBounds.
+   */
+  getXPositions: (values: bounds.Bounds) => Promise<lineplot.AxesBounds>;
   /** Zooms to x, in decimal space, like ContextValue.toggleZoom. */
   toggleZoom: ContextValue["toggleZoom"];
 }
@@ -311,9 +321,11 @@ export const Frame = ({
     ref,
     () => ({
       getBounds: methods.getBounds,
+      getXBounds: methods.getXBounds,
+      getXPositions: methods.getXPositions,
       toggleZoom: (key, x) => toggleZoomRef.current(key, x),
     }),
-    [methods.getBounds],
+    [methods.getBounds, methods.getXBounds, methods.getXPositions],
   );
 
   const id = `line-plot-${aetherKey}`;

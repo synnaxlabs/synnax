@@ -27,7 +27,6 @@ import {
   box,
   type color,
   location,
-  scale,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -169,13 +168,12 @@ const CompareMenuItems = ({
     }, "Failed to set T0");
   const handleZoom = () =>
     handleError(async () => {
-      const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null) return;
-      const s = scale.Scale.scale<number>(bounds.x1).scale(1);
-      linePlotRef.current?.toggleZoom(range.key, {
-        lower: s.pos(Number(shown.start.valueOf() - zero.valueOf())),
-        upper: s.pos(Number(shown.end.valueOf() - zero.valueOf())),
+      const positions = await linePlotRef.current?.getXPositions({
+        lower: Number(shown.start.valueOf() - zero.valueOf()),
+        upper: Number(shown.end.valueOf() - zero.valueOf()),
       });
+      if (positions == null) return;
+      linePlotRef.current?.toggleZoom(range.key, positions.x1);
     }, "Failed to zoom to range");
   return (
     <>
@@ -265,10 +263,9 @@ const ContextMenuContent = ({
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = async (): Promise<TimeRange> => {
-    const bounds = await linePlotRef.current?.getBounds();
+    const bounds = await linePlotRef.current?.getXBounds(box.xBounds(selection));
     if (bounds == null) throw new Error("No bounds available");
-    const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-    return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+    return new TimeRange(bounds.x1.lower, bounds.x1.upper);
   };
   const copyText = (fmt: (tr: TimeRange) => string) => async () =>
     fmt(await getTimeRange());

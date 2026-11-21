@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type color, ranger, type Synnax } from "@synnaxlabs/client";
-import { bounds, box, type scale, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
+import { bounds, box, TimeRange, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color as aetherColor } from "@/color/aether";
 import { flux } from "@/flux/aether";
+import type { Layout } from "@/lineplot/aether/layout";
 import {
   type Bar,
   drawBars,
@@ -63,8 +64,8 @@ interface InternalState {
 }
 
 export interface ProviderProps {
-  dataToDecimalScale: scale.Scale;
-  viewport: box.Box;
+  /** The layout of the x axis. */
+  layout: Layout;
   region: box.Box;
   timeRange: TimeRange;
   /** The newest sample, when the x axis ends at it. */
@@ -155,14 +156,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    const {
-      dataToDecimalScale,
-      region,
-      viewport,
-      timeRange,
-      newest,
-      now = TimeStamp.now(),
-    } = props;
+    const { layout: xLayout, region, timeRange, newest, now = TimeStamp.now() } = props;
     const { internal: i } = this;
     if (i.window == null || !covers(i.window, timeRange)) i.window = pad(timeRange);
     if (i.client != null) {
@@ -180,13 +174,12 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       (r) => r.timeRange.end.valueOf() >= start && r.timeRange.start.valueOf() <= end,
     );
     const saturated = fetched.length >= FETCH_LIMIT || inView.length > MAX_ANNOTATIONS;
-    const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     // Lanes pack over the axis bounds, not the viewport, so a range keeps its lane
     // while the viewport moves.
     const { bars: packed, lanes } = layout(
       saturated ? [] : inView,
       region,
-      (v) => regionScale.pos(v),
+      (v) => box.left(region) + xLayout.pos(v) * box.width(region),
       draw.theme,
       i.named,
       now,
@@ -229,7 +222,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (hovered != null && cursor != null && !menuOpen)
         drawTooltip(draw, hovered, cursor, region, now);
     }
-    const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
     let hoveredState: SelectedState | null = null;
     if (hovered != null) {
       const r = hovered.range;
@@ -246,8 +238,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         timeRange: r.timeRange,
         hasChildren: r.hasChildren,
         viewport: {
-          lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
-          upper: viewportScale.pos(Number(end.valueOf())),
+          lower: xLayout.home(Number(r.timeRange.start.valueOf())),
+          upper: xLayout.home(Number(end.valueOf())),
         },
       };
     }
