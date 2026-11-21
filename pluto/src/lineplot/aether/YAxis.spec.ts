@@ -642,12 +642,25 @@ describe("XAxis", () => {
         WINDOWS.y1[1].x,
         new MultiSeries(),
       ]);
-      const x = mount({ y1: [WINDOWS.y1[0], { ...WINDOWS.y1[1], source: moved }] });
+      const x = mount(
+        { y1: [WINDOWS.y1[0], { ...WINDOWS.y1[1], source: moved }] },
+        { type: "time" },
+      );
       const before = segmentBounds(x);
+      expect(before).toHaveLength(2);
       moved.setValue([{ lower: 2 * DAY, upper: 2 * DAY + 60 * S }, new MultiSeries()]);
       const held = x.layout({ ...props(), hold: true }).segments.map((s) => s.bounds);
       expect(held).toEqual(before);
       expect(segmentBounds(x)).not.toEqual(before);
+    });
+
+    it("should hide and show its breaks while it holds", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(segmentBounds(x)).toHaveLength(2);
+      const held = (breaksHidden: boolean) =>
+        x.layout({ ...props(), hold: true, breaksHidden }).segments;
+      expect(held(true)).toHaveLength(1);
+      expect(held(false)).toHaveLength(2);
     });
 
     it("should draw a band over each seam in view", () => {

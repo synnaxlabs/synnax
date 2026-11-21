@@ -133,7 +133,7 @@ interface InternalState {
   base: axis.Axis;
   // A hold keeps a snapshot of the segments, so the plot draws in the same place while
   // the data changes.
-  segmentSnapshot?: bounds.Bounds[];
+  segmentSnapshot?: { segments: bounds.Bounds[]; collapsed: boolean };
   updateBounds?: (bounds: bounds.Bounds) => void;
 }
 
@@ -212,12 +212,14 @@ export abstract class BaseAxis<
     collapsed: boolean,
   ): [bounds.Bounds[], Error | null] {
     const { internal: i } = this;
-    if (hold && i.segmentSnapshot != null) return [i.segmentSnapshot, null];
+    // A snapshot cut with its gaps collapsed means nothing with them shown.
+    const snapshot = i.segmentSnapshot;
+    if (hold && snapshot?.collapsed === collapsed) return [snapshot.segments, null];
     const { manualBounds, bounds: manual, autoBoundPadding, type } = this.state;
     const autoLower = !manualBounds.lower || manual == null;
     const autoUpper = !manualBounds.upper || manual == null;
     if (!collapsed && !autoLower && !autoUpper) {
-      i.segmentSnapshot = [manual];
+      i.segmentSnapshot = { segments: [manual], collapsed };
       return [[manual], null];
     }
     let auto: bounds.Bounds[];
@@ -240,7 +242,7 @@ export abstract class BaseAxis<
       autoUpper ? undefined : manual?.upper,
     );
     // A hold keeps segments of loaded data, never of data still loading.
-    if (!loading) i.segmentSnapshot = clipped;
+    if (!loading) i.segmentSnapshot = { segments: clipped, collapsed };
     const outer = { lower: clipped[0].lower, upper: clipped[clipped.length - 1].upper };
     if (
       manual == null ||
