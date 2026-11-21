@@ -51,6 +51,8 @@ message RetrieveRequest {
   optional Cursor after = 4;
   // limit is the most certificates to return.
   optional uint32 limit = 5;
+  // include_uses includes the uses of each record.
+  bool include_uses = 6;
 }
 
 // RetrieveResponse holds the certificates a RetrieveRequest selects.

@@ -22,6 +22,7 @@ import {
 } from "@xyflow/react";
 import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import type { Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
@@ -75,6 +76,7 @@ const create = (Path: FC<PathProps>): Edge => {
     config: { segments: middleSegments, strokeColor, strokeWidth },
     onChange,
   }): ReactElement | null => {
+    const resolve = Color.useResolve();
     const flow = useReactFlow();
     const zoom = useViewportStore(selectZoom);
     const crossings = Jumps.useCrossings(edgeKey);
@@ -143,7 +145,7 @@ const create = (Path: FC<PathProps>): Edge => {
         <Path
           points={points}
           crossings={crossings}
-          color={strokeColor}
+          color={resolve(strokeColor)}
           strokeWidth={strokeWidth}
         />
         {selected &&

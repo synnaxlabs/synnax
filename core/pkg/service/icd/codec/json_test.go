@@ -64,14 +64,23 @@ type decodeCase struct {
 	Samples   []json.RawMessage `json:"samples"`
 }
 
-func decodeEntries() []TableEntry {
+func fixtureEntry(path string) TableEntry {
+	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+}
+
+func fixturePaths() []string {
 	GinkgoHelper()
 	paths := MustSucceed(
 		filepath.Glob(filepath.Join("..", "testdata", "decode", "*.json")),
 	)
 	Expect(paths).ToNot(BeEmpty())
-	return lo.Map(paths, func(path string, _ int) TableEntry {
-		return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+	return paths
+}
+
+func decodeEntries() []TableEntry {
+	GinkgoHelper()
+	return lo.Map(fixturePaths(), func(path string, _ int) TableEntry {
+		return fixtureEntry(path)
 	})
 }
 
@@ -118,6 +127,28 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
+func readDecodeFixture(path string) decodeFixture {
+	GinkgoHelper()
+	var f decodeFixture
+	Expect(
+		json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+	).To(Succeed())
+	Expect(f.Description).ToNot(BeEmpty())
+	return f
+}
+
+func (f decodeFixture) messages() []codec.JSONMessage {
+	return lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
+		return codec.JSONMessage{
+			Name:    m.Name,
+			Payload: m.Payload,
+			Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
+				return codec.Binding{Field: b.Field, DataType: b.DataType}
+			}),
+		}
+	})
+}
+
 // newSamples returns empty sample slices for each binding of each message.
 func newSamples(messages []codec.JSONMessage) [][][]byte {
 	return lo.Map(messages, func(m codec.JSONMessage, _ int) [][]byte {
@@ -127,20 +158,8 @@ func newSamples(messages []codec.JSONMessage) [][][]byte {
 
 var _ = Describe("JSON", func() {
 	DescribeTable("Should decode the documents of a fixture", func(path string) {
-		var f decodeFixture
-		Expect(
-			json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
-		).To(Succeed())
-		Expect(f.Description).ToNot(BeEmpty())
-		messages := lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
-			return codec.JSONMessage{
-				Name:    m.Name,
-				Payload: m.Payload,
-				Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
-					return codec.Binding{Field: b.Field, DataType: b.DataType}
-				}),
-			}
-		})
+		f := readDecodeFixture(path)
+		messages := f.messages()
 		if f.Error != "" {
 			Expect(codec.NewJSON(messages)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),

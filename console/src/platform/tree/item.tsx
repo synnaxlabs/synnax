@@ -9,12 +9,13 @@
 
 import "@/platform/tree/item.css";
 
-import type { resource, Synnax } from "@synnaxlabs/client";
+import type { color, resource, Synnax } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
+import type { color as xcolor } from "@synnaxlabs/x";
 import type { FC, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
@@ -82,11 +83,14 @@ export interface HaulPreviewProps {
   client: Synnax;
   /** How many resources the drag carries. */
   count: number;
+  /** Resolves a color reference to its value for the theme. */
+  resolveColor: (ref?: color.Ref) => xcolor.Color | undefined;
 }
 
 /**
  * Renders the drag preview of a resource. The preview renders outside every provider,
- * so it reads data from the client cache, never through hooks.
+ * so it reads data from the client cache and resolves colors with resolveColor, never
+ * through hooks.
  */
 export interface HaulPreview {
   (props: HaulPreviewProps): ReactNode;

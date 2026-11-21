@@ -9,20 +9,21 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { Color } from "@synnaxlabs/lyra/color";
+import type { color } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import type { CSSProperties, ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import type { Variant } from "@/schematic/edge/registry";
 
 const path = deep.path<{
-  strokeColor?: color.Color;
+  strokeColor?: color.Ref;
   strokeWidth: number;
   variant: Variant;
 }>();

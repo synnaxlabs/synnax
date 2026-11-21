@@ -11,7 +11,9 @@ import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { certificate } from "@/certificate";
+import { device } from "@/device";
 import { NotFoundError, PathError, ValidationError } from "@/index";
+import { query } from "@/query";
 import { rack } from "@/rack";
 import {
   CERTIFICATE,
@@ -128,6 +130,21 @@ describe("Certificate", () => {
       );
     });
 
+    it("should refuse to add a private key to a certificate saved without one", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Keyless",
+        source: "stored",
+        pem: PEM,
+      });
+      assert(c.source === "stored");
+      const replace = client.certificates.set({ ...c, privateKeyPem: PRIVATE_KEY });
+      await expect(replace).rejects.toThrow(PathError);
+      await expect(replace).rejects.toThrow(
+        "private_key_pem: must be empty for a certificate saved without a private key",
+      );
+    });
+
     it("should create a file certificate", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "File certificate" });
@@ -167,6 +184,39 @@ describe("Certificate", () => {
       expect(await createTestClient().certificates.retrieve(keys[0])).toEqual(
         created[0],
       );
+    });
+
+    it("should retrieve the current uses past the cache", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Server",
+        source: "stored",
+        pem: PEM,
+      });
+      const r = await client.racks.create({ name: "Uses" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        rack: r.key,
+        location: "opc.tcp://localhost:4840",
+        make: "opc",
+        model: "OPC UA",
+        name: "Uses server",
+        properties: { connection: { serverCertificate: c.key } },
+      });
+      const withUses = await client.certificates.retrieve({
+        key: c.key,
+        includeUses: true,
+      });
+      expect(withUses.uses).toEqual([device.resourceID(dev.key)]);
+      const cached = client.certificates.watch(c.key).getCached();
+      assert(query.isLive(cached));
+      expect(cached.uses).toBeUndefined();
+      await client.devices.delete(dev.key);
+      const after = await client.certificates.retrieve({
+        key: c.key,
+        includeUses: true,
+      });
+      expect(after.uses).toEqual([]);
     });
 
     it("should leave out a key that no certificate has in a filter", async () => {

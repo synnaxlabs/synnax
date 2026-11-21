@@ -20,6 +20,7 @@ const WORKER_PATH = [
   "status",
   "synnax",
   "theming",
+  "series",
   "telem",
   "staleness",
   "render",

@@ -10,6 +10,7 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import type { NodeProps } from "@/schematic/node/spec";
@@ -27,21 +28,40 @@ export const Symbol = ({
     dimensions,
     borderRadius,
   },
-}: NodeProps<schematic.CylinderNodeConfig>): ReactElement => (
-  <Grid.Grid
-    editable={selected}
-    nodeKey={nodeKey}
-    orientation={orientation}
-    onRotate={onConfigChange}
-    onResize={(dimensions) => onConfigChange({ dimensions })}
-  >
-    <Label.Label config={label} onChange={onConfigChange} />
-    <Cylinder
+}: NodeProps<schematic.CylinderNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Grid.Grid
+      editable={selected}
+      nodeKey={nodeKey}
       orientation={orientation}
-      strokeColor={strokeColor}
-      dimensions={dimensions}
-      borderRadius={borderRadius}
-      fillColor={fillColor}
+      onRotate={onConfigChange}
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      <Cylinder
+        orientation={orientation}
+        strokeColor={resolve(strokeColor)}
+        dimensions={dimensions}
+        borderRadius={borderRadius}
+        fillColor={resolve(fillColor)}
+      />
+    </Grid.Grid>
+  );
+};
+
+/** Renders the cylinder in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  fillColor,
+  ...rest
+}: schematic.CylinderNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Cylinder
+      {...rest}
+      strokeColor={resolve(strokeColor)}
+      fillColor={resolve(fillColor)}
     />
-  </Grid.Grid>
-);
+  );
+};

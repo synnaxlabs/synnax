@@ -42,13 +42,15 @@ env:
   COMMENT: Deploy runners at ${{ github.sha }}
   TIMEOUT: 1800
   # The release that a Core deploy with no source installs.
-  PINNED_CORE: 0.61.0
+  PINNED_CORE: 0.62.0
 
 jobs:
   deploy:
     name: Deploy to Sandbox-Windows
     runs-on: ubuntu-latest
     environment: runners
+    # Above the normal time of every step together, so a step's TIMEOUT fires first.
+    timeout-minutes: 90
     steps:
       - name: Check the selection
         if: ${{ !(inputs.controller || inputs.core || inputs.backup || inputs.agents) }}

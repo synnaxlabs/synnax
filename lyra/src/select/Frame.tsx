@@ -19,7 +19,7 @@ import { Dialog } from "@/dialog";
 import { List } from "@/list";
 import { Context } from "@/select/Context";
 import { type Registry, RegistryContext, useRegistry } from "@/select/registry";
-import { KeyboardContext } from "@/select/scope";
+import { KeyboardContext, ViewingContext } from "@/select/scope";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -169,9 +169,14 @@ export const Frame = <
     pinned,
     value,
     onChange,
+    enableTriggers,
     ...rest
   } = props;
   const registry = useRegistry();
+  const { visible } = Dialog.useContext();
+  const [viewing, setViewing] = useState(false);
+  // A dialog that closes drops its view.
+  if (viewing && !visible) setViewing(false);
   const ordered = useSelectedFirst(
     registry,
     data,
@@ -190,11 +195,23 @@ export const Frame = <
       pinned={pinned}
     >
       <RegistryContext value={registry}>
-        {multiple ? (
-          <MultipleProvider value={value} onChange={onChange} {...rest} />
-        ) : (
-          <SingleProvider value={value} onChange={onChange} {...rest} />
-        )}
+        <ViewingContext value={setViewing}>
+          {multiple ? (
+            <MultipleProvider
+              value={value}
+              onChange={onChange}
+              enableTriggers={viewing ? false : enableTriggers}
+              {...rest}
+            />
+          ) : (
+            <SingleProvider
+              value={value}
+              onChange={onChange}
+              enableTriggers={viewing ? false : enableTriggers}
+              {...rest}
+            />
+          )}
+        </ViewingContext>
       </RegistryContext>
     </List.Frame>
   );

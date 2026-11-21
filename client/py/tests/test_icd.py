@@ -28,6 +28,11 @@ BO_ 256 EngineStatus: 8 ECU
 """
 
 
+def problems_of(problems: list[sy.PathError]) -> list[tuple[str, str]]:
+    """:returns: the dotted path and the message of each problem."""
+    return [(".".join(p.path), str(p.error)) for p in problems]
+
+
 def create_icd(name: str = "ICD") -> sy.ICD:
     return sy.ICD(
         name=name,
@@ -97,6 +102,7 @@ class TestICD:
             sy.icd.BytesJSONField(name="blob", pointer="/blob"),
         ]
         match = sy.icd.UnsignedJSONMatch(pointer="/seq", value=Unsigned(2**64 - 1))
+        present = sy.icd.PresentJSONMatch(pointer="/fault")
         ic = client.icds.create(
             sy.ICD(
                 name="JSON",
@@ -104,11 +110,23 @@ class TestICD:
                     sy.icd.Message(
                         name="Reading",
                         payload=sy.icd.JSONPayload(match=match, fields=fields),
-                    )
+                    ),
+                    sy.icd.Message(
+                        name="Fault",
+                        payload=sy.icd.JSONPayload(
+                            match=present,
+                            fields=[
+                                sy.icd.StringJSONField(name="fault", pointer="/fault")
+                            ],
+                        ),
+                    ),
                 ],
             )
         )
         assert client.icds.retrieve(key=ic.key) == ic
+        fault = ic.messages[1].payload
+        assert isinstance(fault, sy.icd.JSONPayload)
+        assert fault.match == present
         payload = ic.messages[0].payload
         assert isinstance(payload, sy.icd.JSONPayload)
         assert payload.match == match
@@ -259,10 +277,8 @@ class TestICD:
         )
         retrieved = client.icds.retrieve(key=ic.key)
         assert [m.name for m in retrieved.messages] == ["Mode", "Mode"]
-        assert client.icds.check(retrieved) == [
-            sy.icd.Problem(
-                path="messages.1.name", message='duplicate message name "Mode"'
-            ),
+        assert problems_of(client.icds.check(retrieved)) == [
+            ("messages.1.name", 'duplicate message name "Mode"'),
         ]
 
     def test_check_valid(self, client: sy.Synnax) -> None:
@@ -289,15 +305,12 @@ class TestICD:
                 ),
             ],
         )
-        assert client.icds.check(ic) == [
-            sy.icd.Problem(
-                path="messages.1.name", message='duplicate message name "Mode"'
-            ),
-            sy.icd.Problem(
-                path="messages.1.payload.fields.0.scale",
-                message="scale must be finite and non-zero",
-            ),
+        problems = client.icds.check(ic)
+        assert problems_of(problems) == [
+            ("messages.1.name", 'duplicate message name "Mode"'),
+            ("messages.1.payload.fields.0.scale", "scale must be finite and non-zero"),
         ]
+        assert all(isinstance(p.error, sy.ValidationError) for p in problems)
 
     def test_check_does_not_save(self, client: sy.Synnax) -> None:
         """Should not store the ICD it checks."""
