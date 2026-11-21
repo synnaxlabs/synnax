@@ -781,6 +781,13 @@ describe("XAxis", () => {
       expect(x.breaks(props(), request(all(false)), PLOT)).toBeNull();
     });
 
+    it("should open the breaks that a set names", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const set: BreakAction = { variant: "set", open: [GAP] };
+      expect(x.breaks(props(), request(set), PLOT)?.openBreaks).toEqual([GAP]);
+      expect(x.breaks(props([GAP]), request(set), PLOT)).toBeNull();
+    });
+
     it("should keep the width of a view inside a gap that closes", () => {
       const x = mount(WINDOWS, { type: "time" });
       const inGap = view(0.4, 0.6);

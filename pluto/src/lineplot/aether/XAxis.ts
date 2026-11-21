@@ -32,7 +32,10 @@ const BAND_GAP = 2;
 const breakSourceZ = z.enum(["plot", "axis"]);
 export type BreakSource = z.infer<typeof breakSourceZ>;
 
-/** Opens or closes the break under a click, or opens or closes every break. */
+/**
+ * Opens or closes the break under a click, opens or closes every break, or opens the
+ * breaks at the given gap starts.
+ */
 const breakActionZ = z.discriminatedUnion("variant", [
   z.object({
     variant: z.literal("toggle"),
@@ -41,6 +44,7 @@ const breakActionZ = z.discriminatedUnion("variant", [
     source: breakSourceZ,
   }),
   z.object({ variant: z.literal("all"), open: z.boolean() }),
+  z.object({ variant: z.literal("set"), open: z.array(z.number()) }),
 ]);
 export type BreakAction = z.infer<typeof breakActionZ>;
 
@@ -137,6 +141,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     let openBreaks: number[];
     if (action.variant === "all")
       openBreaks = action.open ? before.gaps.map((g) => g.bounds.lower) : [];
+    else if (action.variant === "set") openBreaks = action.open;
     else {
       const width = box.width(plot);
       const position = (action.x - box.left(plot)) / width;

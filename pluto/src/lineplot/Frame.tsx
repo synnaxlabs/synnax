@@ -293,22 +293,47 @@ export const Frame = ({
   const openBreaksRef = useSyncedRef(openBreaks);
   // The selection the plot last reported, so a break change can map it.
   const selectionRef = useRef<box.Box>(box.ZERO);
+  // Break changes run one at a time, so each starts from the open breaks of the last.
+  const breaksQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const pendingBreaksRef = useRef(0);
 
   // applyBreaks applies a break action and maps the zoom history and the selection
   // through time, and the view too when moveView is set. It resolves to false when the
   // action changes nothing.
-  const applyBreaks = async (
+  const applyBreaks = (
     action: lineplot.BreakAction,
     moveView: boolean,
   ): Promise<boolean> => {
+    pendingBreaksRef.current++;
+    const run = breaksQueueRef.current
+      .then(async () => await changeBreaks(action, moveView))
+      .finally(() => pendingBreaksRef.current--);
+    breaksQueueRef.current = run.catch(() => undefined);
+    return run;
+  };
+
+  // requestBreaks asks the plot for the change of an action. A view set while the
+  // change loads maps again to the same open breaks.
+  const requestBreaks = async (action: lineplot.BreakAction) => {
     const history = zoomHistory.current;
     const selection = selectionRef.current;
+    const viewport = appliedRef.current;
     const change = await methods.getBreakChange({
       action,
-      viewport: appliedRef.current,
+      viewport,
       held: history.map((v) => v.viewport),
       selection,
     });
+    if (change == null || appliedRef.current === viewport)
+      return { change, history, selection };
+    return await requestBreaks({ variant: "set", open: change.openBreaks });
+  };
+
+  const changeBreaks = async (
+    action: lineplot.BreakAction,
+    moveView: boolean,
+  ): Promise<boolean> => {
+    const { change, history, selection } = await requestBreaks(action);
     if (change == null) return false;
     setState((prev) => ({ ...prev, openBreaks: change.openBreaks }));
     if (zoomHistory.current === history)
@@ -345,7 +370,8 @@ export const Frame = ({
   };
 
   const closeBreaks = () => {
-    if (openBreaksRef.current.length === 0) return;
+    // A change in flight can open a break, so the close waits for it.
+    if (openBreaksRef.current.length === 0 && pendingBreaksRef.current === 0) return;
     handleError(async () => {
       await applyBreaks({ variant: "all", open: false }, false);
     }, "Failed to close breaks");
