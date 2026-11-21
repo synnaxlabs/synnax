@@ -102,7 +102,11 @@ var _ = Describe("Tombstone", Ordered, func() {
 	}
 	tombstoneOf := func(ctx SpecContext, k channel.Key) (channel.Tombstone, bool) {
 		GinkgoHelper()
-		for _, t := range MustSucceed(svc.Tombstones(ctx, db)) {
+		var tombstones []channel.Tombstone
+		Expect(gorp.NewRetrieve[channel.Key, channel.Tombstone]().
+			Entries(&tombstones).
+			Exec(ctx, db)).To(Succeed())
+		for _, t := range tombstones {
 			if t.Key == k {
 				return t, true
 			}
@@ -125,8 +129,7 @@ var _ = Describe("Tombstone", Ordered, func() {
 		g := createFolder(ctx)
 		before := telem.Now()
 		ch := deleteHeld(ctx, channel.Channel{Group: &g.Key})
-		t, ok := tombstoneOf(ctx, ch.Key())
-		Expect(ok).To(BeTrue())
+		t := MustBeOk(tombstoneOf(ctx, ch.Key()))
 		Expect(t.Name).To(Equal(ch.Name))
 		Expect(t.Group).To(Equal(&g.Key))
 		Expect(t.Rewires).To(HaveLen(1))
@@ -164,7 +167,7 @@ var _ = Describe("Tombstone", Ordered, func() {
 			{From: past.Key(), At: telem.Now()},
 			{At: late},
 		}})
-		t, _ := tombstoneOf(ctx, ch.Key())
+		t := MustBeOk(tombstoneOf(ctx, ch.Key()))
 		Expect(t.Rewires).To(HaveLen(2))
 		Expect(t.Rewires[0].From).To(Equal(past.Key()))
 		Expect(t.Rewires[1]).To(Equal(channel.Rewire{At: late + 1}))
