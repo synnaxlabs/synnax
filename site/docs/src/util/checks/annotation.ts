@@ -10,6 +10,7 @@
 import path from "path";
 
 import type { Source } from "@/util/checks/check";
+import { toPosix } from "@/util/filePath";
 
 const escapeData = (s: string): string =>
   s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
@@ -24,6 +25,6 @@ const escapeProperty = (s: string): string =>
  */
 export const warning = (message: string, at: Source | null, root: string): string => {
   if (at == null) return `::warning::${escapeData(message)}`;
-  const file = path.relative(root, path.resolve(at.file)).split(path.sep).join("/");
+  const file = toPosix(path.relative(root, path.resolve(at.file)));
   return `::warning file=${escapeProperty(file)},line=${at.line}::${escapeData(message)}`;
 };

@@ -12,13 +12,11 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Haul } from "@synnaxlabs/lyra/haul";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
-import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createOPCDevice, createScannedDevice } from "@/feature/opcua/testutil";
 import {
   answerCommand,
   answerNextCommand,
@@ -114,13 +112,7 @@ const member = (field: string, name: string, dataType: string) => ({
 describe("Browser structures", () => {
   it("should browse members by field and name them after their structure", async () => {
     const client = createTestClient();
-    const rack = await createRunningRack(client, "opc");
-    const scan = await rack.createTask({
-      name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
-      config: {},
-    });
-    const dev = await createOPCDevice(client, { rack: rack.key });
+    const { scan, device: dev } = await createScannedDevice(client);
     const browse = async (channels: OPCUA.Task.ScannedNode[]) =>
       await answerNextCommand(client, scan, {
         type: OPCUA.Task.BROWSE_COMMAND_TYPE,
@@ -182,13 +174,7 @@ const DETAILS = {
 
 const renderBrowser = async () => {
   const client = createTestClient();
-  const rack = await createRunningRack(client, "opc");
-  const scan = await rack.createTask({
-    name: uniqueName("opcua_scan"),
-    type: OPCUA.Task.SCAN_TYPE,
-    config: {},
-  });
-  const dev = await createOPCDevice(client, { rack: rack.key });
+  const { scan, device: dev } = await createScannedDevice(client);
   const root = await answerNextCommand(client, scan, {
     type: OPCUA.Task.BROWSE_COMMAND_TYPE,
     data: { channels: [TANK, PUMP] },
@@ -535,13 +521,7 @@ describe("Browser details", () => {
 describe("Browser limits", () => {
   it("should warn only when the server lists more nodes than the Driver loads", async () => {
     const client = createTestClient();
-    const rack = await createRunningRack(client, "opc");
-    const scan = await rack.createTask({
-      name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
-      config: {},
-    });
-    const dev = await createOPCDevice(client, { rack: rack.key });
+    const { scan, device: dev } = await createScannedDevice(client);
     const root = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [TANK, PUMP], truncated: true },
