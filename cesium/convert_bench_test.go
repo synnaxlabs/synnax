@@ -78,8 +78,8 @@ func BenchmarkConvert(b *testing.B) {
 }
 
 // convertFixture returns the root of an old layout of keys keys, in groups of an index
-// and 9 float64 keys that it times, where each key holds about files old data files.
-// It writes the root once, syncs each of its files, and keeps it in benchDir.
+// and 9 float64 keys that it times, where each key holds about files old data files. It
+// writes the root once, syncs each of its files, and keeps it in benchDir.
 func convertFixture(b *testing.B, keys, files int) xfs.FS {
 	b.Helper()
 	const (

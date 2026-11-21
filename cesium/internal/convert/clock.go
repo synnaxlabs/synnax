@@ -192,9 +192,8 @@ func (h *handle) data(
 
 // split adds to pieces the pieces of data pointer d of key, one for each pointer of c
 // whose stamps time its samples. Sample i of d takes stamp i of c from the first stamp
-// at or
-// after the start of d, and every stamp it takes is before the end of d. A density of
-// zero is a variable type.
+// at or after the start of d, and every stamp it takes is before the end of d. A
+// density of zero is a variable type.
 func (h *handle) split(
 	pieces map[uint16][]state.Pointer,
 	key uint32,
