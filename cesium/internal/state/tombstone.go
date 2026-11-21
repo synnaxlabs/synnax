@@ -234,6 +234,9 @@ type Delete struct {
 	c    *claim
 	key  uint32
 	done chan error
+	// pre holds the preload of the key, in preload, or none.
+	pre     []Preload
+	preload [1]Preload
 	// Left and Right are the durable pointers that hold the start and the end of the
 	// range, or nil when no pointer holds that end.
 	Left, Right *Edge
@@ -244,7 +247,6 @@ type Delete struct {
 type beginDeleteRequest struct {
 	d          *Delete
 	start, end telem.TimeStamp
-	pre        []Preload
 }
 
 func (r *beginDeleteRequest) fail(err error) { r.d.done <- err }
@@ -265,34 +267,20 @@ func (r *beginDeleteRequest) run(s *State) {
 			return
 		}
 	}
-	records, err := s.core.preloadOf(ch, r.pre)
+	records, err := s.core.preloadOf(ch, r.d.pre)
 	if err != nil {
 		r.d.done <- err
 		return
 	}
 	r.d.Empty = true
-	edges := func(seg Segment, ptrs []Pointer) {
-		for _, p := range ptrs {
-			if p.First > last || p.Last < r.start {
-				continue
-			}
-			r.d.Empty = false
-			if p.First < r.start {
-				r.d.Left = &Edge{Segment: seg, Pointer: p}
-			}
-			if p.Last >= r.end {
-				r.d.Right = &Edge{Segment: seg, Pointer: p}
-			}
-		}
-	}
 	// A segment that a part holds counts through its record in the preload.
 	for _, seg := range ch.segs {
 		if seg.vis.Part == 0 {
-			edges(seg.vis, seg.dur.pointers)
+			r.edges(&seg.vis, seg.dur.pointers, last)
 		}
 	}
-	for _, seg := range records {
-		edges(seg, seg.Pointers)
+	for i := range records {
+		r.edges(&records[i], records[i].Pointers, last)
 	}
 	// The Tombstone cuts the records that the delete reaches as head segments.
 	s.core.putBack(r.d.key, records)
@@ -300,10 +288,27 @@ func (r *beginDeleteRequest) run(s *State) {
 		start:   r.start,
 		end:     last,
 		bounded: true,
-		users:   usersOf(r.pre, r.d.key),
+		users:   usersOf(r.d.pre, r.d.key),
 	}
 	ch.claims = append(ch.claims, r.d.c)
 	r.d.done <- nil
+}
+
+// edges notes on the delete of r each pointer of ptrs, of segment seg, in the range up
+// to last, and the pointers that hold the ends of the range.
+func (r *beginDeleteRequest) edges(seg *Segment, ptrs []Pointer, last telem.TimeStamp) {
+	for _, p := range ptrs {
+		if p.First > last || p.Last < r.start {
+			continue
+		}
+		r.d.Empty = false
+		if p.First < r.start {
+			r.d.Left = &Edge{Segment: *seg, Pointer: p}
+		}
+		if p.Last >= r.end {
+			r.d.Right = &Edge{Segment: *seg, Pointer: p}
+		}
+	}
 }
 
 // BeginDelete claims the time range from start to end of key for a delete, and returns
@@ -319,7 +324,11 @@ func (s *State) BeginDelete(
 	pre ...Preload,
 ) (*Delete, error) {
 	d := &Delete{s: s, key: key, done: make(chan error, 1)}
-	r := &beginDeleteRequest{d: d, start: start, end: end, pre: pre}
+	if i, found := search(pre, key); found {
+		d.preload[0] = pre[i]
+		d.pre = d.preload[:]
+	}
+	r := &beginDeleteRequest{d: d, start: start, end: end}
 	if err := s.enqueue(r); err != nil {
 		return nil, err
 	}

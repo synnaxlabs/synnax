@@ -80,16 +80,22 @@ func (e *engine) deleteRange(
 	if tr.Start == tr.End {
 		return false, nil
 	}
-	var d *state.Delete
-	keys := []ChannelKey{key}
 	// A delete of a clock checks the records of the keys that it times.
 	timed := key == clock
-	_, err := e.withPreloads(nil, keys, tr.Start, tr.End-1, timed, func(
-		pre []state.Preload,
-	) (err error) {
-		d, err = e.state.BeginDelete(key, tr.Start, tr.End, pre...)
-		return err
-	})
+	var (
+		d   *state.Delete
+		pre state.Preload
+		err error
+	)
+	for {
+		if pre, err = e.preload(key, tr.Start, tr.End-1, timed); err != nil {
+			return false, err
+		}
+		d, err = e.state.BeginDelete(key, tr.Start, tr.End, pre)
+		if !errors.Is(err, state.ErrStale) {
+			break
+		}
+	}
 	if err != nil {
 		return false, err
 	}
