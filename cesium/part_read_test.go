@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -359,7 +360,7 @@ var _ = Describe("Drop of parted records", func() {
 	segments := func(fs xfs.FS, key cesium.ChannelKey) int {
 		GinkgoHelper()
 		n := 0
-		for _, info := range MustSucceed(fs.List(fmt.Sprint(key))) {
+		for _, info := range MustSucceed(fs.List(strconv.FormatUint(uint64(key), 10))) {
 			if strings.HasSuffix(info.Name(), ".seg") {
 				n++
 			}

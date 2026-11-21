@@ -529,7 +529,7 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 				16,
 				64,
 			); err == nil {
-				seg, ok = e.opened.Record(uint32(key), id)
+				seg, ok = e.opened.Record(key, id)
 			}
 		}
 		if !ok {
