@@ -15,6 +15,7 @@ import type { ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
 
 type Mode = lineplot.TimeMode;
 
@@ -34,12 +35,13 @@ const TOOLTIPS: Record<Mode, string> = {
 
 /**
  * Selects the time mode of the plot's x axis: absolute or relative. Renders nothing
- * when the axis does not show time.
+ * when the axis does not show time, or when no range of the plot has a zero.
  */
 export const TimeModeSelect = (): ReactElement | null => {
   const key = LinePlot.useKey();
   const { dispatch } = LinePlot.useDispatch();
   const { type, timeMode } = LinePlot.useXAxis({ axisKey: "x1" });
+  const refs = LinePlot.useRanges();
   const handleChange = (next: Mode) =>
     dispatch({
       key,
@@ -58,7 +60,8 @@ export const TimeModeSelect = (): ReactElement | null => {
       </span>
     </Select.Item>
   );
-  if (!FLAGS.compare || type !== "time") return null;
+  if (!FLAGS.compare || type !== "time" || !refs.some(Session.Range.hasZero))
+    return null;
   return (
     <Select.Buttons<Mode>
       variant="outlined"

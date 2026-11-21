@@ -137,6 +137,17 @@ describe("range ref", () => {
     });
   });
 
+  describe("hasZero", () => {
+    it("should give a saved range and a fixed window a zero", () => {
+      expect(Range.hasZero(keyRef("a"))).toBe(true);
+      expect(Range.hasZero(staticRef(0, 1000))).toBe(true);
+    });
+
+    it("should give a rolling window no zero", () => {
+      expect(Range.hasZero(windowRef(1000))).toBe(false);
+    });
+  });
+
   describe("useResolveRanges", () => {
     const RED = color.construct("#ff0000");
     const BLUE = color.construct("#0000ff");

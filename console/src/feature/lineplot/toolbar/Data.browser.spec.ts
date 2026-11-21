@@ -126,11 +126,21 @@ describe("lineplot/toolbar/Data", () => {
       );
 
     it("saves relative time on the x axis, then absolute time as no mode", async () => {
-      const { key } = await renderData();
+      const { key } = await renderData([fixed(9, 10)]);
       fireEvent.click(screen.getByText("Relative"));
       await expectTimeMode(key, "relative");
       fireEvent.click(screen.getByText("Absolute"));
       await expectTimeMode(key, undefined);
+    });
+
+    it("offers relative time once a range has a zero", async () => {
+      await renderData([rolling(FIVE_MIN), fixed(9, 10)]);
+      expect(screen.getByText("Relative")).toBeDefined();
+    });
+
+    it("does not offer relative time when no range has a zero", async () => {
+      await renderData([rolling(FIVE_MIN), rolling(FORTY_FIVE_MIN)]);
+      expect(screen.queryByText("Relative")).toBeNull();
     });
 
     it("does not offer relative time on an x axis that does not show time", async () => {

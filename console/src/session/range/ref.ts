@@ -80,6 +80,13 @@ const windowKey = (w: Window): string =>
 export const keyOf = (ref: ranger.Ref): string =>
   ref.variant === "key" ? ref.key : windowKey(ref.window);
 
+/**
+ * @returns whether the reference has a zero, so a relative x axis draws it. A saved
+ * range and a fixed window have one, and a rolling window has none.
+ */
+export const hasZero = (ref: ranger.Ref): boolean =>
+  ref.variant === "key" || ref.window.variant === "static";
+
 const windowLabel = (w: Window): string =>
   w.variant === "dynamic"
     ? `Rolling ${new TimeSpan(w.timeSpan).toString("semantic")}`
