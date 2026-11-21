@@ -1725,6 +1725,21 @@ describe("update against a local server", () => {
     await expect(reading).rejects.toThrow(StreamClosed);
   });
 
+  it("should ask for missed markers when onMissed is set", async () => {
+    const openRequest = async (onMissed?: () => void): Promise<unknown> => {
+      const first = connected.then(
+        async (ws) =>
+          await new Promise<Buffer>((resolve) => ws.once("message", resolve)),
+      );
+      const streamer = await open(() => {}, onMissed);
+      const data = await first;
+      streamer.close();
+      return new binary.JSONCodec().decode(data, z.object({ payload: z.unknown() }))
+        .payload;
+    };
+    expect(await openRequest(() => {})).toMatchObject({ missedRequested: true });
+  });
+
   it("should call onMissed for a missed marker and keep reading", async () => {
     const onMissed = vi.fn();
     const streamer = await open(() => {}, onMissed);
