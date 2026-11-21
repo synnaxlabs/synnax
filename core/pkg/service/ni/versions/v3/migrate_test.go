@@ -668,6 +668,18 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 })
 
 var _ = Describe("MigrateCounterReadConfig", func() {
+	It("Should swap a reversed range", func(ctx SpecContext) {
+		got := MustSucceed(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
+			Channels: []v2.CIChannel{{Variant: v2.CIPeriodChannel{
+				MinMaxVal: v2.MinMaxVal{MinVal: 1, MaxVal: 0.5},
+				Divisor:   4,
+			}}},
+		}))
+		ch, ok := got.Channels[0].Variant.(v3.CIPeriodChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.MinMaxVal).To(Equal(v3.MinMaxVal{MinVal: 0.5, MaxVal: 1}))
+	})
+
 	It("Should clamp each counter channel", func(ctx SpecContext) {
 		got := MustSucceed(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
 			Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{Divisor: -2}}},

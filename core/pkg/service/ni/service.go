@@ -119,6 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.AnalogReadMigration,
 				v4.AnalogReadMigration,
+				v3.AnalogReadRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_read",
@@ -145,6 +146,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.AnalogWriteMigration,
 				v4.AnalogWriteMigration,
+				v3.AnalogWriteRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_analog_write",
@@ -166,6 +168,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.CounterReadMigration,
 				v4.CounterReadMigration,
+				v3.CounterReadRangeMigration,
 			},
 			Instrumentation: cfg.Instrumentation,
 			Type:            "ni_counter_read",
