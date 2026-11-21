@@ -87,9 +87,9 @@ const rows = (results: FindResult[], hovered: Hovered | null): Row[] => {
   ]);
 };
 
-// fit is how many list items fit in height.
 const length = (r: Row): number => r.label.length + (r.value?.length ?? 0);
 
+// fit is how many list items fit in height.
 const fit = (height: number): number =>
   Math.floor(
     (height - TOOLTIP_PADDING.y * 2 + TOOLTIP_LIST_SPACING) /

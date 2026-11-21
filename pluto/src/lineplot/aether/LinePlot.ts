@@ -174,13 +174,15 @@ export class LinePlot
       this.setState((p) => ({ ...p, breaks }));
   }
 
-  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
+  // renderAxes draws each x axis and returns the layout of x1, or null.
+  private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): Layout | null {
     const p = { ...this.state, plot, canvases };
     // Raised lines draw after the lines of every axis, so they draw over all of them.
     const raised: Array<() => void> = [];
     try {
-      const layouts = this.axes.map((xAxis) => xAxis.render(p, raised));
-      this.syncBreaks(layouts[0] ?? null);
+      const x1 = this.axes.map((xAxis) => xAxis.render(p, raised))[0] ?? null;
+      this.syncBreaks(x1);
+      return x1;
     } finally {
       raised.forEach((draw) => draw());
     }
@@ -196,10 +198,15 @@ export class LinePlot
     return x1.breaks(this.state, req, this.calculatePlot());
   }
 
-  private renderTooltips(region: box.Box, canvases: render.CanvasVariant[]): void {
+  private renderTooltips(
+    region: box.Box,
+    canvases: render.CanvasVariant[],
+    x1: Layout | null,
+  ): void {
     const findByXDecimal = this.findDrawnByXDecimal.bind(this);
+    const axis = this.axes.at(0);
     const hiddenAt = (position: number) =>
-      this.axes.at(0)?.hiddenAt(this.state, position, region) ?? null;
+      axis == null || x1 == null ? null : axis.hiddenAt(x1, position, region);
     const p = { findByXDecimal, hiddenAt, region, canvases };
     this.tooltips.forEach((t) => t.render(p));
   }
@@ -231,12 +238,11 @@ export class LinePlot
     );
   }
 
-  private renderMeasures(region: box.Box): void {
+  private renderMeasures(region: box.Box, x1: Layout | null): void {
     const p: measure.MeasureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
-      closedBetween: (a, b) =>
-        this.axes.at(0)?.closedBetween(this.state, a, b) ?? false,
+      closedBetween: (a, b) => x1?.closedBetween(a, b) ?? false,
       region,
     };
     this.measures.forEach((m) => m.render(p));
@@ -284,9 +290,9 @@ export class LinePlot
     );
 
     try {
-      this.renderAxes(plot, canvases);
-      this.renderTooltips(plot, canvases);
-      this.renderMeasures(plot);
+      const x1 = this.renderAxes(plot, canvases);
+      this.renderTooltips(plot, canvases, x1);
+      this.renderMeasures(plot, x1);
     } catch (e) {
       handleError(e, "Failed to render line plot");
     } finally {

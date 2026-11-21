@@ -60,7 +60,7 @@ export interface UseProps {
   /**
    * Called as a select drag starts, with the x of the press in the decimal space of the
    * view. Resolves to the x bounds, in the same space, that the drag stays inside. The
-   * drag commits once it resolves.
+   * drag commits once it resolves. It must not reject: it handles its own errors.
    */
   selectBound?: (x: number) => Promise<bounds.Bounds>;
 }
@@ -171,9 +171,8 @@ export const use = ({
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
   const [maskBox, setMaskBox, maskBoxRef] = useCombinedStateAndRef<box.Box>(box.ZERO);
-  const selectBoundRef = useRef<bounds.Bounds>(bounds.INFINITE);
-  // Set while the bound of a select drag is on its way.
-  const pendingBoundRef = useRef<Promise<void> | null>(null);
+  // The bound of the select drag in progress, which is null until it arrives.
+  const dragBoundRef = useRef<DragBound | null>(null);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
   // We store the START of the previous pan in statRef, which means that even if the
@@ -218,6 +217,51 @@ export const use = ({
     return box.truncate(next, calculateTruncPrecision(next));
   };
 
+  // selectionOf returns the box of a drag clipped to the canvas, grown to full size
+  // where it is thin, and held inside the x bound.
+  const selectionOf = (b: box.Box, canvas: box.Box, bound: bounds.Bounds): box.Box =>
+    clampX(
+      fullSize(threshold, box.intersection(b, canvas), canvas),
+      constructScale(stateRef.current, canvas).reverse(),
+      bound,
+    );
+
+  // endDrag commits a drag that ended, with its selection held inside bound.
+  const endDrag = (
+    { box: box_, triggers, cursor, mode, canvas }: EndedDrag,
+    bound: bounds.Bounds,
+  ): void => {
+    const stage = "end";
+    const selection = selectionOf(box_, canvas, bound);
+    const isClick_ = isClick(box_) || (mode === "zoom" && isSmallZoom(selection));
+    if (isClick_ && mode === "zoom") setMaskBox(box.ZERO);
+    const isContext = triggers.find((t) => t.includes("MouseRight"));
+    // This prevents clicks from being registered as a drag
+    if (isClick_ && !isContext) {
+      onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
+      return;
+    }
+    setStateRef((prev) => {
+      if (mode === "pan") {
+        const next = handlePan(box_, prev, canvas);
+        if (next === null || box.equals(next, prev)) return prev;
+        onChange?.({ box: next, mode, stage, cursor });
+        return next;
+      }
+      const next = handleZoomSelect(selection, prev, canvas);
+      if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
+        return prev;
+      onChange?.({ box: next, mode, stage, cursor });
+
+      if (mode === "zoom") {
+        setMaskBox(box.ZERO);
+        return next;
+      }
+      if (!isClick_) setMaskBox(toMask(selection, canvas));
+      return box.truncate(prev, calculateTruncPrecision(prev));
+    });
+  };
+
   const handleDrag: Triggers.DragCallback = ({
     box: box_,
     triggers,
@@ -242,57 +286,28 @@ export const use = ({
     }
 
     if (mode === "select" && stage === "start" && selectBound != null) {
-      selectBoundRef.current = bounds.INFINITE;
       const x = constructScale(stateRef.current, canvas).x.pos(cursor.x);
-      const pending = selectBound(x).then((b) => {
-        selectBoundRef.current = b;
-        if (pendingBoundRef.current === pending) pendingBoundRef.current = null;
-      });
-      pendingBoundRef.current = pending;
+      const drag: DragBound = { bound: null, loaded: selectBound(x) };
+      void drag.loaded.then((b) => (drag.bound = b));
+      dragBoundRef.current = drag;
     }
-    // A select drag that ends before its bound arrives commits once it does.
-    const pending = pendingBoundRef.current;
-    if (mode === "select" && stage === "end" && pending != null) {
-      void pending.then(() => handleDrag({ box: box_, triggers, stage, cursor }));
+    if (stage === "end") {
+      const drag = mode === "select" ? dragBoundRef.current : null;
+      dragBoundRef.current = null;
+      const args = { box: box_, triggers, cursor, mode, canvas };
+      // A select drag that ends before its bound arrives commits once it does.
+      if (drag?.bound == null && drag != null)
+        void drag.loaded.then((b) => endDrag(args, b));
+      else endDrag(args, drag?.bound ?? bounds.INFINITE);
       return;
     }
-    const bound = mode === "select" ? selectBoundRef.current : bounds.INFINITE;
-    if (stage === "end") selectBoundRef.current = bounds.INFINITE;
-    const selection = clampX(
-      fullSize(threshold, box.intersection(box_, canvas), canvas),
-      constructScale(stateRef.current, canvas).reverse(),
-      bound,
-    );
+    const bound =
+      mode === "select"
+        ? (dragBoundRef.current?.bound ?? bounds.INFINITE)
+        : bounds.INFINITE;
+    const selection = selectionOf(box_, canvas, bound);
     const isClick_ = isClick(box_) || (mode === "zoom" && isSmallZoom(selection));
     if (isClick_ && mode === "zoom") setMaskBox(box.ZERO);
-
-    if (stage === "end") {
-      const isContext = triggers.find((t) => t.includes("MouseRight"));
-      // This prevents clicks from being registered as a drag
-      if (isClick_ && !isContext) {
-        onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
-        return;
-      }
-      return setStateRef((prev) => {
-        if (mode === "pan") {
-          const next = handlePan(box_, prev, canvas);
-          if (next === null || box.equals(next, prev)) return prev;
-          onChange?.({ box: next, mode, stage, cursor });
-          return next;
-        }
-        const next = handleZoomSelect(selection, prev, canvas);
-        if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
-          return prev;
-        onChange?.({ box: next, mode, stage, cursor });
-
-        if (mode === "zoom") {
-          setMaskBox(box.ZERO);
-          return next;
-        }
-        if (!isClick_) setMaskBox(toMask(selection, canvas));
-        return box.truncate(prev, calculateTruncPrecision(prev));
-      });
-    }
 
     if (MASK_MODES.includes(mode)) {
       if (isClick_) return;
@@ -398,6 +413,19 @@ export const use = ({
   };
 };
 
+interface DragBound {
+  bound: bounds.Bounds | null;
+  loaded: Promise<bounds.Bounds>;
+}
+
+interface EndedDrag {
+  box: box.Box;
+  triggers: Triggers.Trigger[];
+  cursor: xy.XY;
+  mode: TriggerMode;
+  canvas: box.Box;
+}
+
 const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
   scale.XY.scale(canvas).clamp(canvas).scale(prev);
 
@@ -410,6 +438,7 @@ const toMask = (selection: box.Box, canvas: box.Box): box.Box =>
 
 // clampX limits the x of b, in pixels, to bound, in the space toPixels maps from.
 const clampX = (b: box.Box, toPixels: scale.XY, bound: bounds.Bounds): box.Box => {
+  if (bound.lower === -Infinity && bound.upper === Infinity) return b;
   const lower = Number.isFinite(bound.lower) ? toPixels.x.pos(bound.lower) : -Infinity;
   const upper = Number.isFinite(bound.upper) ? toPixels.x.pos(bound.upper) : Infinity;
   const clamp = (x: number) => Math.min(Math.max(x, lower), upper);
