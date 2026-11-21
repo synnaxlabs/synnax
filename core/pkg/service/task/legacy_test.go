@@ -537,6 +537,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB:     db,
 				Device: deviceSvc,
+				Status: statusSvc,
 			})).Stores(),
 			MustOpen(http.OpenService(ctx, http.ServiceConfig{
 				DB:      db,
