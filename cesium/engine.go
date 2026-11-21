@@ -70,6 +70,8 @@ type engine struct {
 	shutdown sync.Once
 	closeErr error
 	pins     pins
+	// partSize is the part size of the checkpointer.
+	partSize int
 	// cache is the part cache of the checkpointer and the readers.
 	cache *checkpoint.Cache
 	// parts holds the parts that the last two heads name, which a tag may name.
@@ -110,6 +112,7 @@ func openEngine(o *options) (*engine, error) {
 		ready:    make(chan struct{}),
 		failed:   make(chan struct{}),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		partSize: o.partSize,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
 	if snapshot == nil {
@@ -133,6 +136,9 @@ func openEngine(o *options) (*engine, error) {
 	}
 	if err = e.recover(r); err != nil {
 		return nil, err
+	}
+	if r.parts != nil {
+		e.parted(r.head.Parts, r.parts.Tags())
 	}
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
@@ -226,6 +232,7 @@ func (e *engine) recover(r *recovery) (err error) {
 		Executor: e.exec,
 		Parts:    r.parts,
 		Live:     r.head.Generation,
+		PartSize: e.partSize,
 		Cache:    e.cache,
 		Parted:   e.parted,
 	})

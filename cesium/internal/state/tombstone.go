@@ -119,10 +119,13 @@ func (c *core) tombstone(t *log.Tombstone) error {
 	}
 	ch := c.channels[t.Key]
 	for _, s := range slices.Clone(ch.segs) {
+		before := s.vis.Pointers
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
 		// A part holds the record before the cut.
-		s.vis.Part = 0
+		if !slices.Equal(before, s.vis.Pointers) {
+			s.vis.Part = 0
+		}
 		c.bury(s)
 	}
 	ch.publish()

@@ -34,6 +34,50 @@ var _ = Describe("Part tags", func() {
 		return s.Channel(6).Segments[0]
 	}
 
+	// of returns the visible record of segment i of key once the owner ran every queued
+	// request.
+	of := func(key uint32, i int) state.Segment {
+		GinkgoHelper()
+		MustSucceed(s.Snapshot())
+		return s.Channel(key).Segments[i]
+	}
+
+	It("Should tag only the segment that matches its part among two of a key", func() {
+		Expect(s.Parted([]state.Tag{
+			{Part: 7, Segment: of(5, 0)},
+			{Part: 7, Segment: of(5, 1)},
+		})).To(Succeed())
+		Expect(of(5, 0).Part).To(Equal(uint64(7)))
+		Expect(of(5, 1).Part).To(BeZero())
+	})
+
+	It("Should leave an open segment", func() {
+		open := of(5, 1)
+		Expect(open.Sealed).To(BeFalse())
+		Expect(s.Parted([]state.Tag{{Part: 7, Segment: open}})).To(Succeed())
+		Expect(of(5, 1).Part).To(BeZero())
+	})
+
+	It("Should skip a tag whose segment left the state", func() {
+		gone := of(5, 0)
+		gone.ID = 99
+		Expect(s.Parted([]state.Tag{
+			{Part: 7, Segment: gone},
+			{Part: 8, Segment: segment()},
+		})).To(Succeed())
+		Expect(of(5, 0).Part).To(BeZero())
+		Expect(segment().Part).To(Equal(uint64(8)))
+	})
+
+	It("Should keep the tag of a segment that a tombstone does not cut", func() {
+		Expect(s.Parted([]state.Tag{{Part: 7, Segment: of(5, 0)}})).To(Succeed())
+		Expect(s.Durable(11, []log.Record{
+			&log.Tombstone{Key: 5, Start: 35, End: 60},
+		})).To(Succeed())
+		Expect(of(5, 0).Part).To(Equal(uint64(7)))
+		Expect(of(5, 1).Pointers).To(BeEmpty())
+	})
+
 	It("Should tag a sealed segment whose record its part holds", func() {
 		Expect(s.Parted([]state.Tag{{Part: 7, Segment: segment()}})).To(Succeed())
 		Expect(segment().Part).To(Equal(uint64(7)))

@@ -292,13 +292,14 @@ type Tag struct {
 
 type partedRequest struct{ tags []Tag }
 
+// fail drops the tags: a segment with no tag reads its own pointers.
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
 	changed := set.New[uint32]()
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
-		if !ok || seg.holder != nil || !sameRecord(seg.vis, t.Segment) {
+		if !ok || !sameRecord(seg.vis, t.Segment) {
 			continue
 		}
 		seg.vis.Part = t.Part

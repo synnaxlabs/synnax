@@ -108,6 +108,19 @@ func (x *Index) Merge(s *state.Snapshot) {
 	}
 }
 
+// Tags returns the tags of the records of the parts of x that are not dead.
+func (x *Index) Tags() []state.Tag {
+	var tags []state.Tag
+	for _, p := range x.parts {
+		for i, seg := range p.segs {
+			if !p.dead(i) {
+				tags = append(tags, state.Tag{Part: p.ID, Segment: seg})
+			}
+		}
+	}
+	return tags
+}
+
 // ids returns the identities of the parts of x.
 func (x *Index) ids() set.Set[uint64] {
 	ids := set.New[uint64]()
