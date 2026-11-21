@@ -273,20 +273,33 @@ const retrieveCalculatedFormValues = async ({
   return toCalculatedFormValues(ch, calcs[0]);
 };
 
-// A change to the channel or to its calculation from elsewhere reloads the form.
+// A change to the channel or to its calculation from elsewhere reloads the form. Each
+// change carries one source, so the form keeps the last state of the other, starting
+// from the values it loaded with.
 const calculatedFormMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof calculatedFormSchema
->["mountListeners"] = ({ client, query: { key }, reset }) => {
-  const ch = client.channels.watch({ key });
-  const calcs = client.calculations.watch({ output: key });
-  const reload = () => {
-    const cached = ch.getCached();
-    const window = calcs.getCached();
-    if (query.isLive(cached) && window != null)
-      reset(toCalculatedFormValues(cached, window.records[0]));
+>["mountListeners"] = ({ client, query: { key }, reset, value }) => {
+  let latest = value();
+  const reload = (next: typeof latest) => {
+    latest = next;
+    reset(next);
   };
-  return [ch.onChange(reload), calcs.onChange(reload)];
+  return [
+    client.channels.watch({ key }).onChange((result) => {
+      if (query.isLive(result)) reload({ ...latest, ...channelToFormValues(result) });
+    }),
+    client.calculations.watch({ output: key }).onChange((window) => {
+      const calc = window?.records[0];
+      if (calc == null) return;
+      reload({
+        ...latest,
+        expression: calc.expression,
+        operations: [toFormOperation(calc.operations[0])],
+        calculation: calc.key,
+      });
+    }),
+  ];
 };
 
 const updateCalculatedForm = async ({
