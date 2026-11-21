@@ -87,7 +87,7 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Schematic) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Nodes))
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case ThrusterNodeConfig:
@@ -432,7 +432,7 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *Schematic) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Nodes))
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case ThrusterNodeConfig:
@@ -786,7 +786,7 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Schematic) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Nodes))
 				for _, v1 := range e.Nodes {
 					switch v2 := v1.Config.Variant.(type) {
 					case GaugeNodeConfig:

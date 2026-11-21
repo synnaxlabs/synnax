@@ -24,7 +24,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Wrap wraps the provided key-value database in a DB.
+// Wrap wraps the provided key-value database in a DB. Wrap a key-value database in
+// one DB only: the indexes of a DB see no write made through another.
 func Wrap(
 	kv kv.DB,
 	opts ...Option,

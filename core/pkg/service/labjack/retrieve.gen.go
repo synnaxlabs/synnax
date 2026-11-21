@@ -47,7 +47,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogReadChannel:
@@ -119,7 +119,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogWriteChannel:
@@ -158,7 +158,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *WriteConfig) []channel.Key {
-				var targets []channel.Key
+				targets := make([]channel.Key, 0, len(e.Channels))
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogWriteChannel:

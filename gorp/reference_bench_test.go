@@ -90,19 +90,24 @@ func openRefBench(
 }
 
 // BenchmarkReferenceWrite measures a write of a holder that references n targets: an
-// edit that keeps every target, and one that moves its last target.
+// edit that keeps every target, one that moves its last target, and one that removes
+// its first target or inserts it again.
 func BenchmarkReferenceWrite(b *testing.B) {
 	for _, n := range []int{1, 10, 300} {
-		for _, edit := range []string{"keep", "move"} {
+		for _, edit := range []string{"keep", "move", "shift"} {
 			b.Run(fmt.Sprintf("%s/n=%d", edit, n), func(b *testing.B) {
 				db, holders, h := openRefBench(b, n)
+				all := slices.Clone(h.Targets)
 				ctx := b.Context()
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := range b.N {
 					h.Note = strconv.Itoa(i)
-					if edit == "move" {
+					switch edit {
+					case "move":
 						h.Targets[n-1] = int32(n - 1 + i%2)
+					case "shift":
+						h.Targets = all[(i+1)%2:]
 					}
 					if err := holders.NewCreate().Entry(&h).Exec(ctx, db); err != nil {
 						b.Fatal(err)
