@@ -141,7 +141,8 @@ const Content = ({
   // snapshot shows the result or the failure. Try again sends new requests, as one in
   // flight can carry an answer from before the click.
   const relist = (fresh: boolean = false): void => {
-    if (!snapshot.listings.has("")) session?.list("", fresh).catch(() => {});
+    if (path !== "" && !snapshot.listings.has(""))
+      session?.list("", fresh).catch(() => {});
     session?.list(path, fresh).catch(() => {});
   };
   useEffect(() => relist(), [session, path]);
