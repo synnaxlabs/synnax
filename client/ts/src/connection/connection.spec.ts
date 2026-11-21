@@ -68,6 +68,8 @@ interface ScriptedUnary extends UnaryClient {
   setClusterKey: (key: string) => void;
   /** Changes the license state answered by later checks. */
   setLicense: (state: license.State) => void;
+  /** Changes how far this host's clock appears ahead of the cluster's. */
+  setSkew: (skew: TimeSpan) => void;
 }
 
 /** A unary whose reachability and cluster identity change mid-test. */
@@ -83,13 +85,14 @@ const createScriptedUnary = ({
   let key = clusterKey;
   let down = failing;
   let state = license;
+  let skew = TimeSpan.ZERO;
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
       return {
         clusterKey: key,
         nodeVersion: __VERSION__,
-        nodeTime: TimeStamp.now(),
+        nodeTime: TimeStamp.now().sub(skew),
         license: state,
       };
     }),
@@ -97,6 +100,7 @@ const createScriptedUnary = ({
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
     setLicense: (next) => (state = next),
+    setSkew: (next) => (skew = next),
   };
 };
 
@@ -304,6 +308,80 @@ describe("connection", () => {
         expect.stringContaining("excessive clock skew"),
       );
       warn.mockRestore();
+    });
+
+    const createSkewed = () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const unary = createScriptedUnary();
+      const send = vi.mocked(unary.send);
+      const client = createClient(unary);
+      // checks run in sequence, so the second check sent after a change starts only
+      // once the first has finished
+      const passChecks = async (skew?: TimeSpan): Promise<void> => {
+        if (skew != null) unary.setSkew(skew);
+        const target = send.mock.calls.length + 2;
+        await expect
+          .poll(() => send.mock.calls.length, POLL)
+          .toBeGreaterThanOrEqual(target);
+      };
+      const close = async (): Promise<void> => {
+        await client.close();
+        warn.mockRestore();
+        info.mockRestore();
+      };
+      return { warn, info, unary, client, passChecks, close };
+    };
+
+    it("should warn only when skew starts and log once when it ends", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      await passChecks(TimeSpan.hours(2));
+      await passChecks(TimeSpan.hours(3));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.ZERO);
+      await passChecks();
+      expect(info).toHaveBeenCalledOnce();
+      expect(info).toHaveBeenCalledWith(expect.stringContaining("back in sync"));
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should stay skewed until skew falls below half the threshold", async () => {
+      const { warn, info, passChecks, close } = createSkewed();
+      for (const ms of [1500, 900, 1100, 800, 650, 1050, 600])
+        await passChecks(TimeSpan.milliseconds(ms));
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await passChecks(TimeSpan.milliseconds(300));
+      expect(info).toHaveBeenCalledOnce();
+      await close();
+    });
+
+    it("should warn again when a new Core answers with skew", async () => {
+      const { warn, unary, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      expect(warn).toHaveBeenCalledOnce();
+      unary.setClusterKey("other");
+      await passChecks();
+      expect(warn).toHaveBeenCalledTimes(2);
+      await close();
+    });
+
+    it("should not warn again on a reconnect to the same Core", async () => {
+      const { warn, info, unary, client, passChecks, close } = createSkewed();
+      await passChecks(TimeSpan.hours(1));
+      unary.setFailing(true);
+      await expect.poll(() => client.status.variant, POLL).toEqual("error");
+      unary.setFailing(false);
+      await expect.poll(() => client.status.variant, POLL).toEqual("success");
+      await passChecks();
+      expect(client.status.details.clockSkewExceeded).toBe(true);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(info).not.toHaveBeenCalled();
+      await close();
     });
 
     it("should not flag skew within threshold", async () => {

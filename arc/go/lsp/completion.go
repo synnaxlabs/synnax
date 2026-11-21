@@ -442,7 +442,8 @@ func (s *Server) getCompletionItems(
 	prefix string,
 	pos protocol.Position,
 ) []protocol.CompletionItem {
-	completionCtx := DetectCompletionContext(doc.displayContent(), pos)
+	cfg := s.parserConfig()
+	completionCtx := DetectCompletionContext(doc.displayContent(), pos, cfg)
 
 	if completionCtx == ContextComment || completionCtx == ContextNone {
 		return []protocol.CompletionItem{}
@@ -464,7 +465,7 @@ func (s *Server) getCompletionItems(
 	// A block document is a func body, so a call in it takes positional arguments.
 	if !doc.isBlock() && (completionCtx == ContextInputParamName ||
 		completionCtx == ContextInputParamValue) {
-		inputInfo := extractInputContext(doc.displayContent(), pos)
+		inputInfo := extractInputContext(doc.displayContent(), pos, cfg)
 		if inputInfo != nil {
 			if completionCtx == ContextInputParamName {
 				return s.getInputParamCompletions(ctx, doc, prefix, inputInfo, root)
@@ -473,12 +474,15 @@ func (s *Server) getCompletionItems(
 		}
 	}
 
-	nesting := detectCursorNesting(doc, pos)
+	nesting := detectCursorNesting(doc, pos, cfg)
 	items := keywordCompletions(allowedCategories(completionCtx, nesting), prefix)
 	if completionCtx == ContextTypeAnnotation {
 		return items
 	}
-	return append(items, symbolCompletions(ctx, doc, root, prefix, pos, nesting)...)
+	return append(
+		items,
+		symbolCompletions(ctx, doc, root, prefix, pos, nesting, cfg)...,
+	)
 }
 
 func symbolCompletions(
@@ -488,6 +492,7 @@ func symbolCompletions(
 	prefix string,
 	pos protocol.Position,
 	nesting nestingKind,
+	cfg parser.Config,
 ) []protocol.CompletionItem {
 	// A flow expression can call a WASM function, so only a func body filters.
 	var execFilter symbol.ExecContext
@@ -504,7 +509,7 @@ func symbolCompletions(
 	}
 	if qualified {
 		return qualifiedCompletions(
-			ctx, doc, root, moduleName, memberPrefix, replace, execFilter,
+			ctx, doc, root, moduleName, memberPrefix, replace, execFilter, cfg,
 		)
 	}
 	searchScope := doc.findScopeAtPosition(pos)
@@ -514,14 +519,18 @@ func symbolCompletions(
 	if searchScope == nil {
 		return nil
 	}
-	items := scopeCompletions(ctx, doc, searchScope, prefix, execFilter)
+	items := scopeCompletions(ctx, doc, searchScope, prefix, execFilter, cfg)
 	return appendModuleMemberCompletions(
-		items, doc, searchScope, prefix, replace, execFilter,
+		items, doc, searchScope, prefix, replace, execFilter, cfg,
 	)
 }
 
-func detectCursorNesting(doc *document, pos protocol.Position) nestingKind {
-	tokens := tokenizeContent(doc.displayContent())
+func detectCursorNesting(
+	doc *document,
+	pos protocol.Position,
+	cfg parser.Config,
+) nestingKind {
+	tokens := tokenizeContent(doc.displayContent(), cfg)
 	nesting := detectNesting(getTokensBeforeCursor(tokens, pos))
 	if doc.isBlock() && nesting == nestingTopLevel {
 		return nestingFunction
@@ -593,6 +602,7 @@ func qualifiedCompletions(
 	moduleName, memberPrefix string,
 	replace protocol.Range,
 	execFilter symbol.ExecContext,
+	cfg parser.Config,
 ) []protocol.CompletionItem {
 	mod, imported := resolveCompletionModule(ctx, doc, root, moduleName, replace.End)
 	if mod == nil || mod.Kind != symbol.KindModule {
@@ -600,7 +610,7 @@ func qualifiedCompletions(
 	}
 	var importEdit []protocol.TextEdit
 	if !imported {
-		importEdit = buildAutoImportEdit(doc, mod.Name)
+		importEdit = buildAutoImportEdit(doc, mod.Name, cfg)
 	}
 	var items []protocol.CompletionItem
 	for _, sym := range mod.Children() {
@@ -653,6 +663,7 @@ func scopeCompletions(
 	scope *symbol.Symbol,
 	prefix string,
 	execFilter symbol.ExecContext,
+	cfg parser.Config,
 ) []protocol.CompletionItem {
 	symbols, err := scope.Search(ctx, prefix)
 	if err != nil {
@@ -665,7 +676,7 @@ func scopeCompletions(
 		}
 		item := symbolCompletionItem(sym)
 		if sym.Kind == symbol.KindModule {
-			item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name)
+			item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name, cfg)
 		}
 		applyInvocationSuffix(&item, sym.Kind)
 		items = append(items, item)
@@ -810,8 +821,8 @@ func (s *Server) getImportPathCompletions(
 // tree is unavailable because the document has a parse error. The lexer
 // succeeds even when the parser fails, so this scan stays accurate while
 // the user is mid-typing a dot completion.
-func isModuleImportedInSource(content, moduleName string) bool {
-	tokens := parserTokens(content)
+func isModuleImportedInSource(content, moduleName string, cfg parser.Config) bool {
+	tokens := parserTokens(content, cfg)
 	for i := 0; i < len(tokens); i++ {
 		if tokens[i].GetTokenType() != parser.ArcLexerIMPORT {
 			continue
@@ -834,8 +845,8 @@ func isModuleImportedInSource(content, moduleName string) bool {
 	return false
 }
 
-func parserTokens(content string) []antlr.Token {
-	raw := tokenizeContent(content)
+func parserTokens(content string, cfg parser.Config) []antlr.Token {
+	raw := tokenizeContent(content, cfg)
 	tokens := make([]antlr.Token, 0, len(raw))
 	for _, t := range raw {
 		tt := t.GetTokenType()
@@ -924,11 +935,16 @@ func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 // moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
 // semantics; this wrapper exists for callers that still hold a *document
 // rather than snapshotted fields.
-func buildAutoImportEdit(doc *document, moduleName string) []protocol.TextEdit {
+func buildAutoImportEdit(
+	doc *document,
+	moduleName string,
+	cfg parser.Config,
+) []protocol.TextEdit {
 	return buildAutoImportEditFromSnapshot(
 		doc.displayContent(),
 		doc.IR.Symbols,
 		moduleName,
+		cfg,
 	)
 }
 
@@ -938,6 +954,7 @@ func buildAutoImportEditFromSnapshot(
 	content string,
 	symbols *symbol.Symbol,
 	moduleName string,
+	cfg parser.Config,
 ) []protocol.TextEdit {
 	// The analyzer's symbol tree is dropped whenever the document has a
 	// parse error — which happens routinely while the user is mid-typing
@@ -945,7 +962,7 @@ func buildAutoImportEditFromSnapshot(
 	// token-level fallback the dot completion would re-add the import
 	// the user just inserted. A textual scan answers "is moduleName
 	// already imported?" without needing a valid AST.
-	if isModuleImportedInSource(content, moduleName) {
+	if isModuleImportedInSource(content, moduleName, cfg) {
 		return nil
 	}
 	return formatter.AddImport(symbols, moduleName)
@@ -966,6 +983,7 @@ func appendModuleMemberCompletions(
 	prefix string,
 	replace protocol.Range,
 	execFilter symbol.ExecContext,
+	cfg parser.Config,
 ) []protocol.CompletionItem {
 	seen := make(set.Set[string])
 	for s := scope; s != nil; s = s.Parent {
@@ -986,7 +1004,7 @@ func appendModuleMemberCompletions(
 				item := qualifiedMemberItem(member, qualifiedName, replace)
 				item.Label = qualifiedName
 				if !imported {
-					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name)
+					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name, cfg)
 				}
 				items = append(items, item)
 			}
@@ -1030,7 +1048,11 @@ func (s *Server) getAuthorityEntryCompletions(
 	pos protocol.Position,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
+	existing := extractAuthorityExistingChannels(
+		doc.displayContent(),
+		pos,
+		s.parserConfig(),
+	)
 	existingSet := set.New(existing...)
 	var items []protocol.CompletionItem
 	appendChanCompletions := func(name string, t types.Type) {
