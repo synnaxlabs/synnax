@@ -150,26 +150,52 @@ func (c *chanState) pending() []pendingSeg {
 	return out
 }
 
+// carried holds the steps in progress of one key and its clock that a tagged segment
+// of the key goes to, which a run of tags of the key looks up once.
+type carried struct {
+	key, clock uint32
+	found      bool
+	// pending are the segments of the key with commits that are not durable yet.
+	pending []pendingSeg
+	// deletes are the delete claims on the clock.
+	deletes []*claim
+	// dropping is true when BeginDrop took the clock.
+	dropping bool
+}
+
 // carry hands seg, which a part now holds, to each step in progress that took its part
 // records before seg was tagged: a delete or a Drop of the clock of seg, and the
-// durable apply of the visible commits of pending, the segments of the key of seg with
-// commits that are not durable. Each would miss seg otherwise, since its checks skip
-// tagged segments.
-func (c *core) carry(seg *segState, pending []pendingSeg) {
-	user := User{Key: seg.key, Segment: seg.vis}
-	if seg.vis.Clock != seg.key {
-		if ch := c.channels[seg.vis.Clock]; ch != nil {
-			for _, cl := range ch.claims {
-				if cl.w == nil && overlaps(seg.vis.Pointers, cl.start, cl.end) {
-					cl.users = append(cl.users, user)
+// durable apply of the commits of the key of seg that are not durable. Each would miss
+// seg otherwise, since its checks skip tagged segments.
+func (st *carried) carry(c *core, seg *segState) {
+	if !st.found || st.key != seg.key || st.clock != seg.vis.Clock {
+		*st = carried{
+			key:     seg.key,
+			clock:   seg.vis.Clock,
+			found:   true,
+			pending: c.channels[seg.key].pending(),
+		}
+		if st.clock != st.key {
+			if ch := c.channels[st.clock]; ch != nil {
+				for _, cl := range ch.claims {
+					if cl.w == nil {
+						st.deletes = append(st.deletes, cl)
+					}
 				}
 			}
-		}
-		if users, ok := c.dropUsers[seg.vis.Clock]; ok {
-			c.dropUsers[seg.vis.Clock] = append(users, user)
+			_, st.dropping = c.dropUsers[st.clock]
 		}
 	}
-	for _, p := range pending {
+	user := User{Key: seg.key, Segment: seg.vis}
+	for _, cl := range st.deletes {
+		if overlaps(seg.vis.Pointers, cl.start, cl.end) {
+			cl.users = append(cl.users, user)
+		}
+	}
+	if st.dropping {
+		c.dropUsers[st.clock] = append(c.dropUsers[st.clock], user)
+	}
+	for _, p := range st.pending {
 		if p.seg != seg && overlaps(seg.vis.Pointers, p.first, p.last) {
 			p.seg.pre = append(p.seg.pre, seg.vis)
 		}

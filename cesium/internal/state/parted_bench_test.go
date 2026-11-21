@@ -62,7 +62,9 @@ func BenchmarkParted(b *testing.B) {
 				if err := s.Close(); err != nil {
 					b.Fatal(err)
 				}
-				<-done
+				if err := <-done; err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}
