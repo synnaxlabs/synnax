@@ -292,7 +292,9 @@ var _ = Describe("Service", func() {
 			stamped := jsonMessage("Stamped", nil, jsonField(
 				"ts", "/ts", icd.TimestampJSONField{
 					TimeFormat: payload.TimeFormatUnixSec,
-					Default:    &stamp,
+					Default: &icd.TimestampDefault{
+						Variant: icd.ConstantTimestampDefault{Value: stamp},
+					},
 				},
 			))
 			frame := icd.Message{

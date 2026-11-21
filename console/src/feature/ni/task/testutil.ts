@@ -29,7 +29,6 @@ import {
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { preload } from "@/testutil";
 
 type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
 
@@ -156,13 +155,3 @@ export const awaitStatusDescription = async (
     )
     .toBe(true);
 };
-
-/** Loads the modules of the lazy task forms before the specs of a file run. */
-export const preloadForms = (): void =>
-  preload(
-    async () => await import("@/feature/ni/task/AnalogRead"),
-    async () => await import("@/feature/ni/task/AnalogWrite"),
-    async () => await import("@/feature/ni/task/CounterRead"),
-    async () => await import("@/feature/ni/task/DigitalRead"),
-    async () => await import("@/feature/ni/task/DigitalWrite"),
-  );

@@ -11,8 +11,9 @@ import { beforeAll } from "vitest";
 
 /**
  * Loads the modules of lazy components before the specs of a file run, so a cold load
- * counts against the hook timeout and not the first spec that renders one. Call it
- * once, at the top of a spec file or from a domain's preload helper.
+ * counts against the hook timeout. Without it, the first spec that renders a lazy
+ * component pays the cold load inside its own timeout. Call it once, at the top of a
+ * spec file or from its testutil.
  */
 export const preload = (...loads: Array<() => Promise<unknown>>): void =>
   beforeAll(async () => {
