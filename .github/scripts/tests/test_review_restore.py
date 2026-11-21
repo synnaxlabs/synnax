@@ -69,6 +69,10 @@ class FakeGH:
                 "conclusion": "success",
             }
         ]
+        self.relays: list[str] = []
+        """The IDs of the relay runs for HEAD that are queued or running."""
+        self.reviews: list[str] = []
+        """The titles of the review runs that are queued or running."""
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
 
     @property
@@ -86,6 +90,13 @@ class FakeGH:
             return lines(self.edits)
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
+        if path.startswith(f"repos/{REPO}/actions/workflows/relay.sedosaur.yaml/runs?"):
+            assert f"head_sha={HEAD}" in path
+            return "".join(f"{r}\n" for r in self.relays)
+        if path.startswith(
+            f"repos/{REPO}/actions/workflows/review.sedosaur.yaml/runs?"
+        ):
+            return "".join(f"{r}\n" for r in self.reviews)
         if path == f"repos/{REPO}/pulls/7":
             body = self.bodies.pop(0) if len(self.bodies) > 1 else self.body
             return json.dumps({"head": self.head, "body": body}) + "\n"
@@ -138,10 +149,29 @@ class TestRestore:
         assert run(gh) == Outcome.PRESENT
         assert gh.written() is None
 
-    def test_should_write_nothing_when_the_head_has_no_review(self, gh: FakeGH) -> None:
+    def test_should_write_nothing_while_the_relay_waits(self, gh: FakeGH) -> None:
         gh.runs = []
+        gh.relays = ["11"]
         assert run(gh) == Outcome.PENDING
         assert gh.written() is None
+
+    def test_should_write_nothing_while_a_review_is_queued(self, gh: FakeGH) -> None:
+        gh.runs = []
+        gh.reviews = ["7 repeat"]
+        assert run(gh) == Outcome.PENDING
+        assert gh.written() is None
+
+    def test_should_fail_when_no_review_is_on_the_way(self, gh: FakeGH) -> None:
+        gh.runs = []
+        with pytest.raises(Unrestorable, match=f"no review of {HEAD} on the way"):
+            run(gh)
+        assert gh.written() is None
+
+    def test_should_not_count_a_replay_or_restore_as_a_review(self, gh: FakeGH) -> None:
+        gh.runs = []
+        gh.reviews = ["7 replay", "7 restore", "70"]
+        with pytest.raises(Unrestorable, match="on the way"):
+            run(gh)
 
     def test_should_write_nothing_while_the_review_runs(self, gh: FakeGH) -> None:
         gh.runs[0]["status"] = "in_progress"
@@ -197,10 +227,11 @@ class TestMain:
         assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     @pytest.mark.usefixtures("env")
-    def test_should_succeed_without_a_finished_review(
+    def test_should_succeed_while_a_review_is_on_the_way(
         self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
     ) -> None:
         gh.runs = []
+        gh.relays = ["11"]
         main(["restore"])
         assert capsys.readouterr().out == f"{Outcome.PENDING.value}\n"
         assert gh.written() is None

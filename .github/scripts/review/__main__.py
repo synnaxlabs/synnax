@@ -38,8 +38,8 @@ the finding that FINDING names, with REASON, for ACTOR, a person with write acce
 leaves the score to `dismiss`. It fails when no one finding has that title.
 `restore` takes KEY, and puts the summary that the bot wrote last back in the pull
 request body when an edit dropped or changed it. It writes the body with WRITE_TOKEN,
-asks Claude Code nothing, writes nothing while the head has no finished review, and
-fails when the review of the head failed.
+asks Claude Code nothing, writes nothing while a review of the head is on the way, and
+fails when none is on the way or the review of the head failed.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY.

@@ -28,22 +28,29 @@ class Outcome(Enum):
 
     RESTORED = "Restored the summary."
     PRESENT = "The body holds the summary."
-    PENDING = "No review of the head has finished. That review writes the summary."
+    PENDING = "A review of the head is on the way. That review writes the summary."
 
 
 def restore(t: Target, gh: GH, *, key: str, writer: GH) -> Outcome:
     """Writes the summary that the bot wrote last back in the pull request body, and
-    keeps the rest of the body. Writes nothing when the body holds it already, or when
-    the head has no finished review yet: that review writes the summary.
+    keeps the rest of the body. Writes nothing when the body holds it already, or while
+    a review of the head is on the way: that review writes the summary.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     :param writer: Runs `gh` for the write of the body.
-    :raises Unrestorable: The bot's review of the head failed or the bot never wrote a
-        summary, or the head or the body changed during the restore.
+    :raises Unrestorable: No review of the head is on the way or it failed, the bot
+        never wrote a summary, or the head or the body changed during the restore.
     """
     before = _body(t, gh)
     run = newest(t, gh, t.head, key)
-    if run is None or run["status"] != "completed":
+    if run is None:
+        if _requested(t, gh):
+            return Outcome.PENDING
+        raise Unrestorable(
+            f"Sedosaur has no review of {t.head} on the way. Dispatch Review - "
+            "Sedosaur to get one."
+        )
+    if run["status"] != "completed":
         return Outcome.PENDING
     if run["conclusion"] != "success":
         raise Unrestorable(
@@ -75,3 +82,27 @@ def _body(t: Target, gh: GH) -> str:
         raise Unrestorable(CHANGED)
     body: str = pr["body"]
     return body
+
+
+def _requested(t: Target, gh: GH) -> bool:
+    """Reports whether a relay run for the head or a review run for the pull request is
+    queued or running. The relay waits two minutes before it dispatches the review, and
+    the review creates its check run only once it starts."""
+    relays = gh(
+        "api",
+        f"repos/{t.repo}/actions/workflows/relay.sedosaur.yaml/runs"
+        f"?event=pull_request&head_sha={t.head}&per_page=100",
+        "--jq",
+        '.workflow_runs[] | select(.status != "completed") | .id',
+    )
+    reviews = gh(
+        "api",
+        f"repos/{t.repo}/actions/workflows/review.sedosaur.yaml/runs"
+        "?event=workflow_dispatch&per_page=100",
+        "--jq",
+        '.workflow_runs[] | select(.status != "completed") | .display_title',
+    )
+    # A replay or a restore writes no summary, so only a plain or repeat run counts.
+    titles = [line.split() for line in reviews.splitlines() if line]
+    review = any(w[0] == str(t.pr) and w[1:] in ([], ["repeat"]) for w in titles)
+    return bool(relays.strip()) or review
