@@ -19,6 +19,8 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 
 /** cfg fills a partial label config with the schema defaults the spec does not pin. */
+const DRAG = { dataTransfer: new DataTransfer() };
+
 const cfg = (overrides: Partial<schematic.LabelConfig> = {}): schematic.LabelConfig =>
   schematic.labelConfigZ.parse(overrides);
 
@@ -151,7 +153,7 @@ describe("Label.Label as GridItem", () => {
         </Wrap>,
       );
       const labelDiv = labelEl(container) as HTMLElement;
-      fireEvent.dragStart(labelDiv);
+      fireEvent.dragStart(labelDiv, DRAG);
       fireEvent.dragOver(slot(container, "right") as HTMLElement, {
         screenX: 1,
         screenY: 1,

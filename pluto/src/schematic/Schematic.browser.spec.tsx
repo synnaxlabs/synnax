@@ -32,9 +32,8 @@ const client = createTestClient();
 
 const RECT = mockBoundingClientRect(0, 0, 1000, 500)();
 
-// The @juggle polyfill reads computed styles, which jsdom leaves empty, so it never
-// reports a size. Nodes stay unmeasured: React Flow reads their transforms through
-// DOMMatrixReadOnly, which jsdom lacks.
+// Notifies at once, so the schematic measures the fixed box below. Nodes stay
+// unmeasured.
 class ImmediateResizeObserver {
   constructor(private readonly notify: (entries: ResizeObserverEntry[]) => void) {}
   observe(el: Element): void {
@@ -153,6 +152,11 @@ describe("Schematic", () => {
     const { key, utils } = await renderSchematic();
     const label = await utils.findByText("Pump");
     const send = spyOnSend(client);
+    // React Flow hides the nodes the stub leaves unmeasured, and a hidden element
+    // reads no innerText.
+    label
+      .closest<HTMLElement>(".react-flow__node")
+      ?.style.setProperty("visibility", "visible");
     fireEvent.dblClick(label);
     label.innerText = "Valve";
     fireEvent.keyDown(label, { key: "Enter" });
