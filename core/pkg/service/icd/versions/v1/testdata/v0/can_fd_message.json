@@ -1,41 +1,35 @@
 {
-  "description": "A binary field has a kind that is not a number.",
-  "codec_rejects": true,
-  "problems": [
-    {
-      "path": "messages.0.payload.fields.0.kind",
-      "message": "a binary field must be a float, an integer, or an unsigned integer"
-    }
-  ],
+  "description": "A CAN FD message whose float field ends in byte 63.",
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
     "messages": [
       {
         "key": "00000000-0000-4000-8000-000000000001",
-        "name": "M",
+        "name": "Telemetry",
         "payload": {
           "format": "binary",
           "fields": [
             {
               "key": "00000000-0000-4000-8000-00000000000a",
-              "name": "a",
+              "name": "pressure",
               "scale": 1,
               "offset": 0,
               "units": "",
               "multiplex_values": [],
-              "start_bit": 0,
-              "bit_length": 8,
+              "start_bit": 448,
+              "bit_length": 64,
               "byte_order": "little_endian",
-              "kind": "string"
+              "kind": "float"
             }
           ],
-          "length": 8,
+          "length": 64,
           "identifier": {
             "type": "can",
-            "id": 256,
+            "id": 2047,
             "extended": false,
-            "fd": false
+            "fd": true,
+            "bitrate_switched": true
           }
         }
       }

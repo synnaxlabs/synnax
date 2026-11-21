@@ -40,7 +40,6 @@ import {
   createSlaveDevice,
   createUnresolvedReadChannel,
   createWarningStatus,
-  preloadForms,
   STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
@@ -54,6 +53,7 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
   getChannelItemStatus,
+  preloadForms,
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
@@ -65,7 +65,7 @@ import {
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(EtherCAT.Task.FORMS);
 
 let testRack: rack.Rack;
 

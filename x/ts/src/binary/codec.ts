@@ -78,6 +78,8 @@ export class JSONCodec implements Codec {
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();
+      // JSON has no non-finite number, so send the text that a float decodes.
+      if (typeof v === "number" && !Number.isFinite(v)) return String(v);
       return v;
     });
   }

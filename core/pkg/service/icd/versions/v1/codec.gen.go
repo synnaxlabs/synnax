@@ -19,6 +19,259 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bbf BinaryBaseField) EncodeOrc(w *orc.Writer) error {
+	w.Write(bbf.Key[:])
+	w.String(bbf.Name)
+	w.Float64(float64(bbf.Scale))
+	w.Float64(float64(bbf.Offset))
+	w.String(bbf.Units)
+	if bbf.Min != nil {
+		w.Bool(true)
+		w.Float64(float64(*bbf.Min))
+	} else {
+		w.Bool(false)
+	}
+	if bbf.Max != nil {
+		w.Bool(true)
+		w.Float64(float64(*bbf.Max))
+	} else {
+		w.Bool(false)
+	}
+	w.Uint16(uint16(bbf.StartBit))
+	w.Uint8(uint8(bbf.BitLength))
+	w.String(string(bbf.ByteOrder))
+	if bbf.Multiplexor != nil {
+		w.Bool(true)
+		w.Write((*bbf.Multiplexor)[:])
+	} else {
+		w.Bool(false)
+	}
+	w.Bool(bbf.MultiplexValues != nil)
+	if bbf.MultiplexValues != nil {
+		w.Uint32(uint32(len(bbf.MultiplexValues)))
+		for i := range bbf.MultiplexValues {
+			w.Int32(int32(bbf.MultiplexValues[i]))
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bbf *BinaryBaseField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(bbf.Key[:]); err != nil {
+		return err
+	}
+	if bbf.Name, err = r.String(); err != nil {
+		return err
+	}
+	if bbf.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if bbf.Offset, err = r.Float64(); err != nil {
+		return err
+	}
+	if bbf.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bbf.Min = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			bbf.Max = &hv
+		}
+	}
+	if bbf.StartBit, err = r.Uint16(); err != nil {
+		return err
+	}
+	if bbf.BitLength, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		bbf.ByteOrder = ByteOrder(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv FieldKey
+			if _, err := r.Read(hv[:]); err != nil {
+				return err
+			}
+			bbf.Multiplexor = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			bbf.MultiplexValues = make([]int32, n)
+			for i := range bbf.MultiplexValues {
+				if bbf.MultiplexValues[i], err = r.Int32(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bf BinaryField) EncodeOrc(w *orc.Writer) error {
+	switch v := bf.Variant.(type) {
+	case FloatBinaryField:
+		w.String("float")
+		if err := v.BinaryBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Float64(float64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	case IntegerBinaryField:
+		w.String("integer")
+		if err := v.BinaryBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Int64(int64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	case UnsignedBinaryField:
+		w.String("unsigned")
+		if err := v.BinaryBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Uint64(uint64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	default:
+		return errors.Newf("BinaryField: nil or unknown variant %T", bf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bf *BinaryField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatBinaryField
+		if err := v.BinaryBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Float
+				{
+					rawV, err := r.Float64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Float(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		bf.Variant = v
+	case "integer":
+		var v IntegerBinaryField
+		if err := v.BinaryBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Integer
+				{
+					rawV, err := r.Int64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Integer(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		bf.Variant = v
+	case "unsigned":
+		var v UnsignedBinaryField
+		if err := v.BinaryBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Unsigned
+				{
+					rawV, err := r.Uint64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Unsigned(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		bf.Variant = v
+	default:
+		return errors.Newf("BinaryField: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (icd ICD) EncodeOrc(w *orc.Writer) error {
 	w.Write(icd.Key[:])
 	w.String(icd.Name)
@@ -60,6 +313,457 @@ func (icd *ICD) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (jsonf JSONField) EncodeOrc(w *orc.Writer) error {
+	switch v := jsonf.Variant.(type) {
+	case FloatJSONField:
+		w.String("float")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Float64(float64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	case IntegerJSONField:
+		w.String("integer")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Int64(int64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	case UnsignedJSONField:
+		w.String("unsigned")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Uint64(uint64(*v.Default))
+		} else {
+			w.Bool(false)
+		}
+	case StringJSONField:
+		w.String("string")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.String(*v.Default)
+		} else {
+			w.Bool(false)
+		}
+	case BooleanJSONField:
+		w.String("boolean")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Bool(v.EnumValues != nil)
+		if v.EnumValues != nil {
+			w.Uint32(uint32(len(v.EnumValues)))
+			for i := range v.EnumValues {
+				if err := v.EnumValues[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.Bool(*v.Default)
+		} else {
+			w.Bool(false)
+		}
+	case TimestampJSONField:
+		w.String("timestamp")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.TimeFormat))
+		if v.Default != nil {
+			w.Bool(true)
+			if err := v.Default.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case JSONJSONField:
+		w.String("json")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.String(*v.Default)
+		} else {
+			w.Bool(false)
+		}
+	case UuidJSONField:
+		w.String("uuid")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			if err := v.Default.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+	case BytesJSONField:
+		w.String("bytes")
+		if err := v.JSONBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		if v.Default != nil {
+			w.Bool(true)
+			w.String(*v.Default)
+		} else {
+			w.Bool(false)
+		}
+	default:
+		return errors.Newf("JSONField: nil or unknown variant %T", jsonf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (jsonf *JSONField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "float":
+		var v FloatJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.FloatEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Float
+				{
+					rawV, err := r.Float64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Float(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "integer":
+		var v IntegerJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.IntegerEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Integer
+				{
+					rawV, err := r.Int64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Integer(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "unsigned":
+		var v UnsignedJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.UnsignedEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv payload.Unsigned
+				{
+					rawV, err := r.Uint64()
+					if err != nil {
+						return err
+					}
+					hv = payload.Unsigned(rawV)
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "string":
+		var v StringJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.StringEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "boolean":
+		var v BooleanJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.EnumValues = make([]payload.BooleanEntry, n)
+				for i := range v.EnumValues {
+					if err = v.EnumValues[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "timestamp":
+		var v TimestampJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.TimeFormat = payload.TimeFormat(rawV)
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv TimestampDefault
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "json":
+		var v JSONJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "uuid":
+		var v UuidJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv UUIDDefault
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	case "bytes":
+		var v BytesJSONField
+		if err := v.JSONBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Default = &hv
+			}
+		}
+		jsonf.Variant = v
+	default:
+		return errors.Newf("JSONField: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -415,6 +1119,226 @@ func (p *Payload) DecodeOrc(r *orc.Reader) error {
 		p.Variant = v
 	default:
 		return errors.Newf("Payload: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tbf TextBaseField) EncodeOrc(w *orc.Writer) error {
+	w.Write(tbf.Key[:])
+	w.String(tbf.Name)
+	w.Float64(float64(tbf.Scale))
+	w.Float64(float64(tbf.Offset))
+	w.String(tbf.Units)
+	if tbf.Min != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Min))
+	} else {
+		w.Bool(false)
+	}
+	if tbf.Max != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Max))
+	} else {
+		w.Bool(false)
+	}
+	if tbf.Default != nil {
+		w.Bool(true)
+		w.Float64(float64(*tbf.Default))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tbf *TextBaseField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(tbf.Key[:]); err != nil {
+		return err
+	}
+	if tbf.Name, err = r.String(); err != nil {
+		return err
+	}
+	if tbf.Scale, err = r.Float64(); err != nil {
+		return err
+	}
+	if tbf.Offset, err = r.Float64(); err != nil {
+		return err
+	}
+	if tbf.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tbf.Min = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tbf.Max = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv payload.Float
+			{
+				rawV, err := r.Float64()
+				if err != nil {
+					return err
+				}
+				hv = payload.Float(rawV)
+			}
+			tbf.Default = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tf TextField) EncodeOrc(w *orc.Writer) error {
+	switch v := tf.Variant.(type) {
+	case DelimitedTextField:
+		w.String("delimited")
+		if err := v.TextBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Uint32(uint32(v.Position))
+	case TaggedTextField:
+		w.String("tagged")
+		if err := v.TextBaseField.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Tag)
+	default:
+		return errors.Newf("TextField: nil or unknown variant %T", tf.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tf *TextField) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "delimited":
+		var v DelimitedTextField
+		if err := v.TextBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Position, err = r.Uint32(); err != nil {
+			return err
+		}
+		tf.Variant = v
+	case "tagged":
+		var v TaggedTextField
+		if err := v.TextBaseField.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Tag, err = r.String(); err != nil {
+			return err
+		}
+		tf.Variant = v
+	default:
+		return errors.Newf("TextField: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (td TimestampDefault) EncodeOrc(w *orc.Writer) error {
+	switch v := td.Variant.(type) {
+	case ConstantTimestampDefault:
+		w.String("constant")
+		w.Int64(int64(v.Value))
+	case NowTimestampDefault:
+		w.String("now")
+	default:
+		return errors.Newf("TimestampDefault: nil or unknown variant %T", td.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (td *TimestampDefault) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "constant":
+		var v ConstantTimestampDefault
+		{
+			rawV, err := r.Int64()
+			if err != nil {
+				return err
+			}
+			v.Value = telem.TimeStamp(rawV)
+		}
+		td.Variant = v
+	case "now":
+		var v NowTimestampDefault
+		td.Variant = v
+	default:
+		return errors.Newf("TimestampDefault: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (uuidd UUIDDefault) EncodeOrc(w *orc.Writer) error {
+	switch v := uuidd.Variant.(type) {
+	case ConstantUUIDDefault:
+		w.String("constant")
+		w.Write(v.Value[:])
+	case RandomUUIDDefault:
+		w.String("random")
+	default:
+		return errors.Newf("UUIDDefault: nil or unknown variant %T", uuidd.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (uuidd *UUIDDefault) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "constant":
+		var v ConstantUUIDDefault
+		if _, err := r.Read(v.Value[:]); err != nil {
+			return err
+		}
+		uuidd.Variant = v
+	case "random":
+		var v RandomUUIDDefault
+		uuidd.Variant = v
+	default:
+		return errors.Newf("UUIDDefault: unknown variant %q", tag)
 	}
 	return nil
 }

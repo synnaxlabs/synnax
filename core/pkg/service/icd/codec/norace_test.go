@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { preload } from "@/testutil";
+//go:build !race
 
-/** Loads the modules of the lazy task forms before the specs of a file run. */
-export const preloadForms = (): void =>
-  preload(async () => await import("@/feature/pagerduty/task/Alert"));
+package codec_test
+
+const raceEnabled = false

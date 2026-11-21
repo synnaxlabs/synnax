@@ -24,7 +24,6 @@ import {
   READ_CHANNEL_SCHEMAS,
   WRITE_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
-import { preload } from "@/testutil";
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
@@ -390,10 +389,3 @@ export const createRepeatedNameSlave = async (
     network: "eth0",
     pdos: createRepeatedNamePDOs(),
   });
-
-/** Loads the modules of the lazy task forms before the specs of a file run. */
-export const preloadForms = (): void =>
-  preload(
-    async () => await import("@/feature/ethercat/task/Read"),
-    async () => await import("@/feature/ethercat/task/Write"),
-  );

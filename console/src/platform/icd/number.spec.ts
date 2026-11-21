@@ -131,3 +131,39 @@ describe("numberOptionsOf", () => {
     });
   });
 });
+
+describe("binaryOptionsOf", () => {
+  const binary: icd.BinaryBaseField = {
+    key: "f",
+    name: "f",
+    scale: 1,
+    offset: 0,
+    units: "",
+    startBit: 0,
+    bitLength: 64,
+    byteOrder: "little_endian",
+    multiplexValues: [],
+  };
+
+  it("should carry a default that the new kind holds exactly", () => {
+    const field: icd.BinaryField = { ...binary, kind: "integer", default: "-5" };
+    expect(ICD.binaryOptionsOf(field, "float")).toEqual({
+      type: "float",
+      enumValues: [],
+      default: -5,
+    });
+  });
+
+  it("should drop a default that the new kind does not hold exactly", () => {
+    const field: icd.BinaryField = {
+      ...binary,
+      kind: "unsigned",
+      default: "18446744073709551615",
+    };
+    expect(ICD.binaryOptionsOf(field, "float")).toEqual({
+      type: "float",
+      enumValues: [],
+      default: undefined,
+    });
+  });
+});
