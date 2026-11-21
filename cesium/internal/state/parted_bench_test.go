@@ -16,7 +16,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/state"
 )
 
-// BenchmarkParted tags every sealed segment of one key in one Parted.
+// BenchmarkParted tags every sealed segment of one key in one Parted. It times the
+// Parted step alone.
 func BenchmarkParted(b *testing.B) {
 	for _, n := range []int{2_000, 20_000} {
 		b.Run(fmt.Sprintf("segments=%d", n), func(b *testing.B) {
@@ -49,13 +50,20 @@ func BenchmarkParted(b *testing.B) {
 				}
 				done := make(chan error, 1)
 				go func() { done <- s.Run(b.Context()) }()
+				// Run ends replay mode before its first step, so a step outside the
+				// timer keeps that work out of it.
+				if _, err := s.TakeDead(); err != nil {
+					b.Fatal(err)
+				}
 				b.StartTimer()
 				if err := s.Parted(2, tags, []state.Range{
 					{Key: 5, Oldest: 1, Newest: 1},
 				}, func() {}); err != nil {
 					b.Fatal(err)
 				}
-				if _, err := s.Snapshot(); err != nil {
+				// TakeDead waits for the owner to run the Parted step, at a small fixed
+				// cost.
+				if _, err := s.TakeDead(); err != nil {
 					b.Fatal(err)
 				}
 				b.StopTimer()
