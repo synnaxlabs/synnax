@@ -1416,11 +1416,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			})).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
-					Analyze(ctx, channel.Channel{
-						Name:       calc.Name,
-						Virtual:    true,
-						Expression: calc.Expression,
-					}),
+					AnalyzeExpression(
+						ctx,
+						channel.Channel{Name: calc.Name, Virtual: true},
+						calc.Expression,
+						false,
+					),
 			)
 			calc.DataType = res.ChanDataType
 			out := MustSucceed(creator.Create(ctx, calc))
