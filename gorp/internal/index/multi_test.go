@@ -280,6 +280,43 @@ var _ = Describe("Multi", func() {
 		})
 	})
 
+	Describe("Empty", func() {
+		var empty *index.Multi[*scope, int, string]
+		BeforeEach(func() {
+			empty = index.NewMulti[*scope, int, string]()
+			insert, finish := empty.Populate()
+			insert(1, nil)
+			finish(nil)
+		})
+
+		It("Should be true when no key holds a value", func() {
+			Expect(empty.Empty(txn)).To(BeTrue())
+			Expect(m.Empty(txn)).To(BeFalse())
+		})
+
+		It("Should be false for a scope that staged a value", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			Expect(empty.Empty(txn)).To(BeFalse())
+			Expect(empty.Empty(&scope{})).To(BeTrue())
+		})
+
+		It("Should be false for every scope while a staged value commits", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			txn.committing = true
+			Expect(empty.Empty(&scope{})).To(BeFalse())
+		})
+
+		It("Should be false once a staged value commits", func() {
+			empty.Stage(txn, 2, []string{"a"})
+			txn.end(true)
+			Expect(empty.Empty(&scope{})).To(BeFalse())
+		})
+
+		It("Should be false before the bulk load finishes", func() {
+			Expect(index.NewMulti[*scope, int, string]().Empty(txn)).To(BeFalse())
+		})
+	})
+
 	Describe("Changes of a scope", func() {
 		It("Should allocate nothing for a scope that stages nothing", func() {
 			values := []string{"a", "b"}
