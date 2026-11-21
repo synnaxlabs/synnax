@@ -179,7 +179,15 @@ describe("Account.Guard", () => {
         </Account.Guard>
       </Synnax.TestProvider>
     );
-    const { rerender } = render(ui(createTestClient({ port: 1 })), { wrapper });
+    // A browser reports the closed port as unreachable, which the test client retries
+    // for 8 s. This client gives up at once, and its streams to the closed port are
+    // expected to fail.
+    const unreachable = createTestClient({
+      port: 1,
+      retry: { maxRetries: 0 },
+      onInternalError: () => {},
+    });
+    const { rerender } = render(ui(unreachable), { wrapper });
     fireEvent.click(findButton("Log in"));
     await waitFor(() =>
       expect(statuses.map((s) => s.message)).toContain("Failed to open login page"),
