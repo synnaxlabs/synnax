@@ -404,9 +404,13 @@ export default class Synnax extends framer.Client {
       },
     });
     this.colors = new color.Client({ unary, cache });
-    this.calculations = new calculation.Client({ unary, cache });
     this.enumerations = new enumeration.Client({ unary, cache });
     this.statuses = new status.Client({ unary, cache });
+    this.calculations = new calculation.Client({
+      unary,
+      cache,
+      statuses: this.statuses,
+    });
     this.ranges = new ranger.Client({
       framer: this,
       unary,

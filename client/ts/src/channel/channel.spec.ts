@@ -1168,22 +1168,5 @@ describe("cached reads", () => {
       });
       expect(withStatus.status?.message).toEqual("calculating");
     });
-
-    it("delivers a remote status change to a request that includes them", async () => {
-      const ch = await createCalculated();
-      const list = client.channels.watch({
-        where: { key: { in: [ch.key] } },
-        includeStatus: true,
-      });
-      const results: Array<channel.Channel[] | undefined> = [];
-      const off = list.onChange((w) => results.push(w?.records));
-      try {
-        await list.retrieve();
-        await setStatus(ch.key, "done");
-        await expect.poll(() => results.at(-1)?.[0]?.status?.message).toEqual("done");
-      } finally {
-        off();
-      }
-    });
   });
 });

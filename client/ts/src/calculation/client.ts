@@ -25,9 +25,11 @@ import {
   type Key,
   keyZ,
   type New,
+  resourceID,
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  statusZ,
 } from "@/calculation/types.gen";
 import {
   compareCursors,
@@ -40,6 +42,7 @@ import {
 import { type channel } from "@/channel";
 import { group } from "@/group";
 import { query } from "@/query";
+import { type status } from "@/status";
 
 export const ACTION_CHANNEL_NAME = "sy_calculation_action_set";
 export const DELETE_CHANNEL_NAME = "sy_calculation_delete";
@@ -77,10 +80,22 @@ export interface CreateInput extends Omit<New, "output"> {
   group?: group.Key;
 }
 
+/** A calculation as the cache holds it. The status table is the home of its status. */
+type Stored = Omit<Calculation, "status">;
+
+/** The calculation that writes the channel with key, or null when none does. */
+export interface Output {
+  key: channel.Key;
+  calculation: Key | null;
+}
+
+const stripStatus = ({ status: _, ...calc }: Calculation): Stored => calc;
+
 /** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  statuses: status.Client;
 }
 
 /**
@@ -90,20 +105,28 @@ export interface ClientConfig {
 export class Client extends query.Retriever<
   typeof retrieveMultiParamsZ,
   Key,
+  Stored,
   Calculation
 > {
   readonly type: string = "calculation";
   private readonly unary: UnaryClient;
-  private readonly store: query.Table<Key, Calculation>;
-  private readonly dispatcher: actions.Controller<Key, Calculation, Action>;
+  private readonly statuses: status.Client;
+  private readonly store: query.Table<Key, Stored>;
+  /**
+   * Maps each channel to the calculation that writes it. Its fetch merges the lookups
+   * of a tick into one retrieve by output. An absent entry is not yet loaded.
+   */
+  readonly outputs: query.Table<channel.Key, Output>;
+  private readonly dispatcher: actions.Controller<Key, Stored, Action>;
 
-  constructor({ unary, cache }: ClientConfig) {
-    const store = cache.createTable<Key, Calculation>({
+  constructor({ unary, cache, statuses }: ClientConfig) {
+    const store = cache.createTable<Key, Stored>({
       name: "calculations",
-      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
+      fetch: async (keys) =>
+        (await this.execRetrieve(query.keysRequest(keys))).map(stripStatus),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
-    const dispatcher = new actions.Controller<Key, Calculation, Action>({
+    const dispatcher = new actions.Controller<Key, Stored, Action>({
       store,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
@@ -115,19 +138,53 @@ export class Client extends query.Retriever<
       createOf,
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
+    const outputs = cache.createTable<channel.Key, Output>({
+      name: "calculation.outputs",
+      fetch: async (channels) => {
+        const calcs = await this.execRetrieve({ where: { output: { in: channels } } });
+        store.set(calcs.map(stripStatus));
+        const writers = new Map(calcs.map(({ key, output }) => [output, key]));
+        return channels.map((key) => ({ key, calculation: writers.get(key) ?? null }));
+      },
+    });
+    // The output of a calculation never changes, so a set or a delete is all that moves
+    // a channel between written and not written.
+    store.subscribe((event) => {
+      if (event.variant === "set") {
+        outputs.set({ key: event.value.output, calculation: event.key });
+        return;
+      }
+      const removed = store.getTombstone(event.key)?.corpse;
+      if (removed != null) outputs.set({ key: removed.output, calculation: null });
+    });
+    statuses.holdOwned(store, resourceID);
     super(cache, {
       name: "calculation",
       table: store,
       request: {
         list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
-        fetch: async (req) => await this.execRetrieve(req),
+        fetch: async (req) => (await this.execRetrieve(req)).map(stripStatus),
         matches: (calc, req) => matches(calc, req.where),
         serverComputed: (req) => serverComputed(req.where),
+        triggers: [
+          query.trigger(
+            statuses.store,
+            (event, req: RetrieveRequest) =>
+              req.includeStatus === true
+                ? statuses.ownerKeys(event, "calculation")
+                : null,
+            { contentOnly: true },
+          ),
+        ],
       },
+      compose: (calc, req) =>
+        this.compose(calc, (req as RetrieveRequest).includeStatus === true),
     });
     this.unary = unary;
+    this.statuses = statuses;
     this.store = store;
+    this.outputs = outputs;
     this.dispatcher = dispatcher;
   }
 
@@ -162,7 +219,7 @@ export class Client extends query.Retriever<
           createResZ,
         ),
     );
-    this.store.set(res.calculations);
+    this.store.set(res.calculations.map(stripStatus));
     return isMany ? res.calculations : res.calculations[0];
   }
 
@@ -199,13 +256,28 @@ export class Client extends query.Retriever<
     drop();
   }
 
+  /** Returns cached with its cached status when includeStatus is true. */
+  private compose(cached: Stored, includeStatus: boolean): Calculation {
+    if (!includeStatus) return cached;
+    const parsed = statusZ.safeParse(this.statuses.ownedBy(resourceID(cached.key)));
+    return parsed.success ? { ...cached, status: parsed.data } : cached;
+  }
+
+  /** Fetches calculations and saves the statuses the Core returns. */
   private async execRetrieve(params: RetrieveRequest): Promise<Calculation[]> {
-    const res = await this.unary.send(
-      "/calculation/retrieve",
-      params,
-      retrieveRequestZ,
-      retrieveResponseZ,
-    );
-    return res.calculations;
+    const { store } = this.statuses;
+    // A status that streams in during the fetch is newer than the fetched one.
+    return await store.track(async (since) => {
+      const res = await this.unary.send(
+        "/calculation/retrieve",
+        params,
+        retrieveRequestZ,
+        retrieveResponseZ,
+      );
+      res.calculations.forEach(({ status }) => {
+        if (status != null) store.ingest(status, { since });
+      });
+      return res.calculations;
+    });
   }
 }
