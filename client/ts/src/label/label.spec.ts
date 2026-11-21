@@ -19,7 +19,14 @@ import {
 import { label } from "@/label";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  holdRequests,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -303,6 +310,28 @@ describe("cached reads", () => {
       const cached = expectDeleted(client.labels.watch(lbl.key).getCached());
       expect(cached.corpse.name).toEqual(lbl.name);
       await expect(client.labels.retrieve(lbl.key)).rejects.toThrow("deleted");
+    } finally {
+      off();
+    }
+  });
+
+  it("lists a label whose create reaches the Core after its search", async () => {
+    const term = id.create();
+    const local = createTestClient();
+    await local.connect();
+    await waitForStreamLive(local.connection);
+    const list = local.labels.watch({ searchTerm: term });
+    const off = list.onChange(vi.fn());
+    try {
+      await list.retrieve();
+      const { release } = holdRequests(local, "/label/create");
+      const creating = local.labels.create({ name: term, color: "#E774D0" });
+      expect((await list.retrieve()).records).toEqual([]);
+      release();
+      const created = await creating;
+      await expect
+        .poll(() => list.getCached()?.records.map(({ key }) => key))
+        .toEqual([created.key]);
     } finally {
       off();
     }
