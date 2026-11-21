@@ -107,13 +107,18 @@ export const renderModalHook = <T,>(
 };
 
 /**
- * Presses and releases Escape on the focused element, as a browser does. A modal holds
- * the focus while open, so the key reaches the modal on top.
+ * Presses and releases Escape as a browser does: on the focused element, then, unless
+ * the page prevented the key, as a cancel request to the modal on top.
  */
 export const pressEscape = (): void => {
   const target = document.activeElement ?? document.body;
-  fireEvent.keyDown(target, { code: "Escape" });
-  fireEvent.keyUp(target, { code: "Escape" });
+  const unprevented = fireEvent.keyDown(target, { code: "Escape", key: "Escape" });
+  const modals = document.querySelectorAll("dialog:modal");
+  const top = modals[modals.length - 1];
+  const cancel = new Event("cancel", { cancelable: true });
+  if (unprevented && top instanceof HTMLDialogElement && fireEvent(top, cancel))
+    top.close();
+  fireEvent.keyUp(target, { code: "Escape", key: "Escape" });
 };
 
 /**
