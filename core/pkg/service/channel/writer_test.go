@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -611,6 +612,34 @@ var _ = Describe("Writer", func() {
 					Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
 				},
 			)
+
+			It(
+				"Should reject shared concurrency on a persisted channel",
+				func(ctx SpecContext) {
+					ch := channel.Channel{
+						Name:        "persisted_shared",
+						DataType:    telem.Float64T,
+						Concurrency: control.ConcurrencyShared,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(MatchError(ContainSubstring(
+						"only virtual channels can have shared concurrency",
+					)))
+				},
+			)
+
+			It("Should reject an unknown concurrency", func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        "unknown_concurrency",
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Concurrency: control.Concurrency(2),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(MatchError(validate.ErrValidation))
+			})
 
 			It(
 				"Should reject calculated channel with manually-specified index",

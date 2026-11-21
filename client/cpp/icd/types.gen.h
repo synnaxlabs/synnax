@@ -476,12 +476,13 @@ text_field_from_proto(const ::service::icd::pb::TextField &pb);
     return std::visit([](const auto &v) -> const BaseField & { return v; }, value);
 }
 
-/// @brief ReadMessage reads the documents of one ICD message.
+/// @brief ReadMessage reads one message of an ICD.
 struct ReadMessage {
     /// @brief message is the key of the ICD message to read.
     MessageKey message;
     /// @brief index is the key of the field whose channel indexes the others. Absent
-    /// when the task stamps samples on arrival.
+    /// when the task stamps samples on arrival, or with the timestamp of the Kafka
+    /// record.
     std::optional<FieldKey> index;
     /// @brief bindings are the fields the task reads. A field with no binding is not
     /// read.
@@ -750,6 +751,9 @@ struct Message {
     std::string name;
     /// @brief payload is the layout of the message's payload.
     Payload payload;
+    /// @brief cycle_time is the send cycle that the protocol states for the message.
+    /// When absent the protocol states none.
+    std::optional<::x::telem::TimeSpan> cycle_time;
 
     static Message parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

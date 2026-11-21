@@ -9,7 +9,7 @@
 
 import { lineplot, type ranger } from "@synnaxlabs/client";
 import { LinePlot } from "@synnaxlabs/pluto";
-import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
+import { color as xcolor, dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -43,6 +43,7 @@ const renderResetZoom = async () => {
       return {
         viewport: Session.LinePlot.useSelect({ key }).viewport,
         name: LinePlot.useName({ key }),
+        ranges: LinePlot.useRanges({ key }),
       };
     },
     { wrapper },
@@ -71,6 +72,19 @@ describe("lineplot useResetZoomOnRangeChange", () => {
         ...Session.LinePlot.ZERO_STATE.viewport,
         renderTrigger: 1,
       });
+  });
+
+  it("should keep the zoom when the color of a range changes", async () => {
+    const { key, result } = await renderResetZoom();
+    const color = { type: "fixed" as const, value: xcolor.construct("#ff8000") };
+    await act(async () => {
+      await client.lineplots.dispatch(
+        key,
+        lineplot.setRangeColor({ range: rolling(TimeSpan.minutes(5)), color }),
+      );
+    });
+    await expect.poll(() => result.current.ranges[0]?.color).toEqual(color);
+    expect(result.current.viewport).toEqual(ZOOMED);
   });
 
   it("should keep the zoom when an edit leaves the ranges alone", async () => {

@@ -152,12 +152,14 @@ const Content = ({
   }, [session]);
 
   // Each visit lists the folder again, and the places while they have no listing. The
-  // snapshot shows the result or the failure.
-  const relist = (): void => {
-    if (!snapshot.listings.has("")) session?.list("").catch(() => {});
-    session?.list(path).catch(() => {});
+  // snapshot shows the result or the failure. Try again sends new requests, as one in
+  // flight can carry an answer from before the click.
+  const relist = (fresh: boolean = false): void => {
+    if (path !== "" && !snapshot.listings.has(""))
+      session?.list("", fresh).catch(() => {});
+    session?.list(path, fresh).catch(() => {});
   };
-  useEffect(relist, [session, path]);
+  useEffect(() => relist(), [session, path]);
 
   const listing = snapshot.listings.get(path);
   // The home folder replaces the top level, so the top level never shows as stale.
@@ -316,7 +318,12 @@ const Content = ({
           {failure.description}
         </Text.Text>
         <Flex.Box x gap="small">
-          <Button.Button variant="text" size="small" textColor={9} onClick={relist}>
+          <Button.Button
+            variant="text"
+            size="small"
+            textColor={9}
+            onClick={() => relist(true)}
+          >
             Try again
           </Button.Button>
           {history.index > 0 && (

@@ -53,7 +53,8 @@ import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/S
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
-import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
+import type { Kind } from "@/feature/mqtt/task/discover/Discover";
+import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -145,6 +146,7 @@ const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
   hint: "Select the values to read. Each one becomes a field of the message format.",
+  tagHint: "Select the tags to read. Each one becomes a channel.",
   noun: "field",
   tagNoun: "tag",
   create: ({ topics, tags }) => [
@@ -207,17 +209,22 @@ const storedOf = (
 };
 
 /**
- * @returns the channel that the device stores for each pointer under any message of the
- * topic. The channels of the message itself come first.
+ * @returns the channel that the device stores for each pointer of the topic, for a
+ * message that Add data binds as the first read of entry. The channels of the message
+ * itself come first. The channels of a later read of entry stay with that read.
  */
 const topicChannels = (
   stored: Stored,
-  topic: string,
+  entry: Pick<PlainReadEntry, "topic" | "messages">,
   message: icd.MessageKey,
 ): Record<string, channel.Key> => {
+  const { topic, messages } = entry;
+  const claimed = new Set(
+    messages.slice(1).map((_, i) => storedOf(stored, entry, i + 1)),
+  );
   const channels: Record<string, channel.Key> = {};
   for (const [key, props] of Object.entries(stored))
-    if (key === topic || key.startsWith(`${topic}#`))
+    if ((key === topic || key.startsWith(`${topic}#`)) && !claimed.has(props))
       Object.assign(channels, props.channels);
   return { ...channels, ...stored[storedKey(topic, message)]?.channels };
 };
@@ -411,28 +418,6 @@ const addTopics = async ({
   return result;
 };
 
-/**
- * @returns what the device stores for a message read, without the stored channel of a
- * field with no channel when written holds it, as another binding writes it. Changes
- * neither stored nor bound.
- */
-const storedProps = (
-  stored: Stored,
-  topic: string,
-  { source: { messages }, read: r, fields }: ICD.BoundMessage<ICD.ReadSource>,
-  written: ReadonlySet<channel.Key>,
-): Task.ReadChannelProps | undefined => {
-  const props = storedOf(stored, { topic, messages }, r);
-  if (props == null) return undefined;
-  const { bindings } = messages[r];
-  const channels = { ...props.channels };
-  for (const f of fields) {
-    const ch = bindings.find(({ field }) => field === f.key)?.channel ?? 0;
-    if (ch === 0 && written.has(channels[f.pointer])) delete channels[f.pointer];
-  }
-  return { ...props, channels };
-};
-
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
   deviceName: string,
@@ -526,6 +511,7 @@ const MessageDetails = ({
       {...props}
       format={format}
       matchTitle="Documents"
+      anyLabel="Any document"
       onAddField={onAddField}
       addFieldDisabled={bindDisabled}
     />
@@ -746,7 +732,7 @@ const Entries: FC<EntriesProps> = ({
       const entry = ctx.get(plainPath(key)).value;
       const channels =
         entry.messages.length === 1
-          ? topicChannels(stored, entry.topic, entry.messages[0].message)
+          ? topicChannels(stored, entry, entry.messages[0].message)
           : (storedOf(stored, entry, read)?.channels ?? {});
       const written = writtenChannels(ctx.get(root.config.entries).value);
       return bindingsOf(channels, [field], written, dataTypes)[0];
@@ -781,8 +767,15 @@ const Entries: FC<EntriesProps> = ({
     const drafts = additions.filter(isDraft);
     const tags = additions.filter((a): a is SparkplugReadEntry => !isDraft(a));
     const written = writtenChannels(entries);
-    const bind: Bind = ({ topic }, fields, message) =>
-      bindingsOf(topicChannels(stored, topic, message), fields, written, dataTypes);
+    const bind: Bind = ({ topic }, fields, message) => {
+      const entry = plain.find((e) => e.topic === topic) ?? { topic, messages: [] };
+      return bindingsOf(
+        topicChannels(stored, entry, message),
+        fields,
+        written,
+        dataTypes,
+      );
+    };
     const { added, held: grown } =
       drafts.length === 0
         ? { added: [], held: [] }
@@ -960,7 +953,6 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     }),
   );
   const tags = enabled.filter((e) => e.type === "sparkplug");
-  const written = writtenChannels(entries);
   const sources = [
     ...bound.map((b) => ({
       key: b.source.key,
@@ -969,7 +961,7 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       read: b.source.messages[b.read],
       message: b.message,
       prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
-      props: storedProps(device.properties.read, b.source.topic, b, written),
+      props: storedOf(device.properties.read, b.source, b.read),
     })),
     ...tags.map((entry) => ({
       entry,
@@ -978,7 +970,14 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     })),
   ];
   const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(client, device, bound, tags, written, signal);
+    const plan = await planRead(
+      client,
+      device,
+      bound,
+      tags,
+      writtenChannels(entries),
+      signal,
+    );
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -1092,7 +1091,8 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedProps(dev.properties.read, entry.topic, b, kept),
+      storedOf(dev.properties.read, entry, r),
+      kept,
     );
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
