@@ -1030,14 +1030,15 @@ describe("MQTT read form", () => {
     /** Picks a message of the named ICD as the message format of the open topic. */
     const pickFormat = async (current: string, next: string, icdName: string) => {
       const dialog = await searchFormats(current, icdName);
-      const name = await waitFor(() => {
+      // waitFor resolves a timer tick after its match. A render in that tick can
+      // replace the option. A click in the callback goes to the option on the page.
+      await waitFor(() => {
         const [match] = dialog
           .getAllByText(next)
           .filter((n) => n.parentElement?.textContent?.includes(icdName));
         if (match == null) throw new Error(`no ${next} of ${icdName}`);
-        return match;
+        fireEvent.click(match);
       });
-      fireEvent.click(name);
     };
 
     const openTopic = async (topic = TOPIC) =>
