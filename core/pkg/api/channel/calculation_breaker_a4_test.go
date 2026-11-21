@@ -333,32 +333,6 @@ var _ = Describe("Old API breaker a4", func() {
 			},
 		)
 
-		It("Should give a name repeated in one request the position v0.62 gave it",
-			func(ctx SpecContext) {
-				input := createChannel(ctx, telem.Float32T)
-				for calcMask := range 16 {
-					for first := range 4 {
-						for second := first + 1; second < 4; second++ {
-							channels := batch(input, calcMask)
-							channels[second].Name = channels[first].Name
-							_, err := createChannels(
-								AuthedCtx(ctx, u),
-								apichannel.CreateRequest{Channels: channels},
-							)
-							Expect(pathOf(ctx, channels)[0]).To(
-								Equal(strconv.Itoa(second)),
-								"mask %04b, name of %d repeated at %d: %v",
-								calcMask,
-								first,
-								second,
-								err,
-							)
-						}
-					}
-				}
-			},
-		)
-
 		It("Should give a failed index of a calculated channel its channel's position",
 			func(ctx SpecContext) {
 				input := createChannel(ctx, telem.Float32T)

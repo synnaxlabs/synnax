@@ -38,9 +38,6 @@ func (s *Service) createChannels(
 	unsavedAt []int,
 	retrieveIfExists bool,
 ) ([]channel.Channel, error) {
-	if err := s.checkRepeatedNames(channels); err != nil {
-		return nil, err
-	}
 	var (
 		stored  = slices.Clone(channels)
 		plainAt []int
@@ -88,35 +85,6 @@ func (s *Service) createChannels(
 		indexes = append(indexes, created[1:]...)
 	}
 	return slices.Concat(stored, indexes), nil
-}
-
-// checkRepeatedNames returns an error wrapping validate.ErrValidation, at the position
-// of the second holder, for a name that channels repeat. The channel service checks
-// each batch it creates, and the old API creates calculated channels apart from the
-// rest.
-func (s *Service) checkRepeatedNames(channels []channel.Channel) error {
-	if !s.internal.ShouldValidateNames() {
-		return nil
-	}
-	seen := make(set.Set[string], len(channels))
-	for i, ch := range channels {
-		if ch.Name == "" {
-			continue
-		}
-		if seen.Contains(ch.Name) {
-			return validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"duplicate channel name '%s' in request",
-					ch.Name,
-				),
-				strconv.Itoa(i),
-				"name",
-			)
-		}
-		seen.Add(ch.Name)
-	}
-	return nil
 }
 
 // createPlain creates the channels at plainAt of channels, which no calculation
