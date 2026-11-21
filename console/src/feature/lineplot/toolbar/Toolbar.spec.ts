@@ -174,7 +174,7 @@ describe("lineplot/toolbar/Toolbar", () => {
       expect(rows.map((r) => Number(r.split(",").at(-1)))).toEqual([1, 2, 3, 4, 5]);
     });
 
-    it("should download one span from the first range to the last", async () => {
+    it("should download one span for each range a plot shows apart", async () => {
       const { data } = await createStopped(id.create().replace(/-/g, "_"));
       const at = (month: number) =>
         staticWindow(
@@ -185,8 +185,13 @@ describe("lineplot/toolbar/Toolbar", () => {
         );
       await openDownload([data.key], [at(6), at(2)]);
       const text = document.body.textContent;
-      expect(text).toMatch(/Mar 5, 2020\s*12:00.*Jul 5, 2020\s*13:00/);
-      expect(text).not.toMatch(/Mar 5, 2020\s*13:00/);
+      // Each span ends at its range and a margin.
+      expect(text).toMatch(
+        new RegExp(
+          String.raw`Mar 5, 2020\s*12:00.*Mar 5, 2020\s*13:0\d.*` +
+            String.raw`Jul 5, 2020\s*11:5\d.*Jul 5, 2020\s*13:00`,
+        ),
+      );
     });
 
     it("should open the download of a plot with a calculation over virtual channels", async () => {
