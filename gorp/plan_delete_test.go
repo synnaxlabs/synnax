@@ -227,6 +227,25 @@ var _ = Describe("PlanDelete", func() {
 		}))
 	})
 
+	It("Should name the lowest Restrict holder of a transaction's staged holders",
+		func(ctx SpecContext) {
+			open(ctx)
+			tx := DeferClose(db.OpenTx())
+			for i := range 40 {
+				key := fmt.Sprintf("h%02d", 39-i)
+				create(ctx, tx, pdHolder{Key: key, Tasks: []uint32{1}})
+			}
+			for range 2 {
+				Expect(channels.NewDelete().
+					Where(gorp.MatchKeys[uint32, pdChannel](1)).
+					Exec(ctx, tx)).To(MatchError(gorp.RestrictError{
+					Target:    gorp.NewTarget("channel", uint32(1)),
+					Holder:    gorp.Target{Table: "holder", Key: "h00"},
+					Reference: "tasks",
+				}))
+			}
+		})
+
 	It("Should list a holder that restricts two targets once", func(ctx SpecContext) {
 		open(ctx)
 		create(ctx, db, pdHolder{Key: "h", Tasks: []uint32{1, 2}})

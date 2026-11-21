@@ -67,8 +67,9 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
-	// dependentsOf returns the text keys of the entries that hold target, as snap holds
-	// them. A transaction holds the DB lock, so it sees no commit in flight.
+	// dependentsOf returns the sorted text keys of the entries that hold target, as
+	// snap holds them, so a delete meets them in a fixed order. A transaction holds the
+	// DB lock, so it sees no commit in flight.
 	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
