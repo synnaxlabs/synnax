@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -69,12 +70,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// Named implements bind.Named: the subject needs retrieve on each channel it names.
+// Named implements bind.Named: the subject needs retrieve on each channel or group it
+// names.
 func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
 
 func named(c impact.Change) []resource.ID {
-	if d, ok := c.Variant.(impact.DeleteChannelsChange); ok {
-		return channel.ResourceIDsFromKeys(d.Keys)
+	switch v := c.Variant.(type) {
+	case impact.DeleteChannelsChange:
+		return channel.ResourceIDsFromKeys(v.Keys)
+	case impact.DeleteGroupsChange:
+		return group.ResourceIDs(v.Keys)
 	}
 	return nil
 }

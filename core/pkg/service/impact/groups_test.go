@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -55,17 +56,22 @@ var _ = Describe("Delete groups", Ordered, func() {
 			Where(group.MatchKeys(k)).
 			Exists(ctx, db))
 	}
+	deleteOf := func(keys ...group.Key) impact.Change {
+		return impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}}
+	}
 	apply := func(
 		ctx SpecContext,
 		opts impact.ApplyOptions,
 		keys ...group.Key,
 	) (impact.Plan, error) {
-		return layer.Impact.Apply(
-			ctx,
-			db,
-			impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}},
-			opts,
-		)
+		return layer.Impact.Apply(ctx, db, deleteOf(keys...), opts)
+	}
+	plan := func(
+		ctx SpecContext,
+		opts impact.PlanOptions,
+		keys ...group.Key,
+	) (impact.Plan, error) {
+		return layer.Impact.Plan(ctx, db, deleteOf(keys...), opts)
 	}
 
 	It("Should delete a folder and a folder inside it", func(ctx SpecContext) {
@@ -101,24 +107,92 @@ var _ = Describe("Delete groups", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
-	It("Should refuse a pick, since a group delete has no entries", func(
-		ctx SpecContext,
-	) {
-		folder := createFolder(ctx, "impact-picked", nil)
-		Expect(apply(ctx, impact.ApplyOptions{
-			Picks: map[string]impact.Choice{
-				"task:b": impact.ChoiceDelete,
-				"task:a": impact.ChoiceCancel,
-			},
-		}, folder.Key)).Error().To(And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("no entry is task:a")),
-		))
-		Expect(exists(ctx, folder.Key)).To(BeTrue())
-	})
-
 	It("Should fail on a change of no known variant", func(ctx SpecContext) {
 		Expect(layer.Impact.Apply(ctx, db, impact.Change{}, impact.ApplyOptions{})).
 			Error().To(MatchError("[impact] - unknown change"))
+		Expect(layer.Impact.Plan(ctx, db, impact.Change{}, impact.PlanOptions{})).
+			Error().To(MatchError("[impact] - unknown change"))
 	})
+
+	It("Should plan a group delete with no entries and a token of its keys", func(
+		ctx SpecContext,
+	) {
+		parent := createFolder(ctx, "impact-planned", nil)
+		child := createFolder(ctx, "impact-planned-child", &parent)
+		p := MustSucceed(plan(ctx, impact.PlanOptions{}, parent.Key, child.Key))
+		Expect(p.Entries).To(BeEmpty())
+		Expect(p.Kept).To(BeZero())
+		Expect(p.Hidden).To(BeZero())
+		Expect(p.Change).To(Equal(deleteOf(parent.Key, child.Key)))
+		Expect(p.Token).To(HaveLen(16))
+		Expect(plan(ctx, impact.PlanOptions{}, child.Key, parent.Key, child.Key)).
+			To(HaveField("Token", p.Token))
+		Expect(plan(ctx, impact.PlanOptions{}, child.Key)).
+			To(HaveField("Token", Not(Equal(p.Token))))
+		Expect(exists(ctx, parent.Key)).To(BeTrue())
+	})
+
+	It("Should apply a group delete with the token of its plan", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-tokened", nil)
+		p := MustSucceed(plan(ctx, impact.PlanOptions{}, folder.Key))
+		Expect(apply(ctx, impact.ApplyOptions{Token: p.Token}, folder.Key)).
+			To(Equal(p))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
+	})
+
+	It("Should refuse the token of another plan and delete nothing", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-stale", nil)
+		other := createFolder(ctx, "impact-other", nil)
+		stale := MustSucceed(plan(ctx, impact.PlanOptions{}, other.Key))
+		applied, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, folder.Key)
+		Expect(applied).To(BeZero())
+		Expect(err).To(MatchError("the records that the change touches changed"))
+		changed, ok := errors.AsType[impact.PlanChangedError](err)
+		Expect(ok).To(BeTrue())
+		Expect(changed.Plan).To(Equal(MustSucceed(
+			plan(ctx, impact.PlanOptions{}, folder.Key),
+		)))
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	})
+
+	DescribeTable("Should refuse a pick in a plan or an apply", func(
+		ctx SpecContext,
+		picks map[string]impact.Choice,
+		hidden *impact.Choice,
+		message string,
+	) {
+		folder := createFolder(ctx, "impact-refused", nil)
+		refused := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(message)),
+		)
+		Expect(plan(ctx, impact.PlanOptions{Picks: picks, Hidden: hidden}, folder.Key)).
+			Error().To(refused)
+		Expect(apply(
+			ctx,
+			impact.ApplyOptions{Picks: picks, Hidden: hidden},
+			folder.Key,
+		)).Error().To(refused)
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	},
+		Entry(
+			"the smallest pick for no entry",
+			map[string]impact.Choice{
+				"task:b": impact.ChoiceDelete,
+				"task:a": impact.ChoiceCancel,
+			},
+			nil,
+			"no entry is task:a",
+		),
+		Entry(
+			"a hidden pick that is not a choice",
+			nil,
+			new(impact.Choice("keep")),
+			"keep is not a choice",
+		),
+	)
 })

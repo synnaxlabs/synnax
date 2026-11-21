@@ -108,29 +108,36 @@ type PlanOptions struct {
 
 // Plan returns every record that c touches with the picks of opts, as seen by snap, and
 // the token that Apply checks. A delete pick on a channel adds its holders, as Apply
-// does. It writes nothing. A pick that is not a choice, that names no visible entry, or
-// that its entry does not allow fails with a validation error.
+// does. A delete of groups has no entries. It writes nothing. A pick that is not a
+// choice, that names no visible entry, or that its entry does not allow fails with a
+// validation error.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	c Change,
 	opts PlanOptions,
 ) (Plan, error) {
-	d, ok := c.Variant.(DeleteChannelsChange)
-	if !ok {
-		return Plan{}, errors.Wrap(validate.ErrValidation, "unknown change")
+	switch v := c.Variant.(type) {
+	case DeleteChannelsChange:
+		chosen, err := newPicks(opts)
+		if err != nil {
+			return Plan{}, err
+		}
+		r, err := s.resolve(ctx, snap, v.Keys, chosen)
+		if err != nil {
+			return Plan{}, err
+		}
+		r.plan.Token = token(channelsSum(v.Keys, r.plan))
+		return r.plan, nil
+	case DeleteGroupsChange:
+		p, err := groupsPlan(c, opts.Picks, opts.Hidden)
+		if err != nil {
+			return Plan{}, err
+		}
+		p.Token = token(groupsSum(v.Keys, p))
+		return p, nil
 	}
-	keys := d.Keys
-	chosen, err := newPicks(opts)
-	if err != nil {
-		return Plan{}, err
-	}
-	r, err := s.resolve(ctx, snap, keys, chosen)
-	if err != nil {
-		return Plan{}, err
-	}
-	r.plan.Token = token(keys, r.plan)
-	return r.plan, nil
+	return Plan{}, errUnknownChange
 }
 
 // ApplyOptions are the inputs of the caller to Apply.
@@ -155,12 +162,8 @@ type picks struct {
 // newPicks parses the picks of opts. A pick that is not a choice, or that names no
 // record, fails with a validation error.
 func newPicks(opts PlanOptions) (picks, error) {
-	if opts.Hidden != nil && !opts.Hidden.IsValid() {
-		return picks{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s is not a choice",
-			*opts.Hidden,
-		)
+	if err := checkHidden(opts.Hidden); err != nil {
+		return picks{}, err
 	}
 	p := picks{
 		named:   make(map[resource.ID]Choice, len(opts.Picks)),
@@ -182,6 +185,14 @@ func newPicks(opts PlanOptions) (picks, error) {
 		p.named[id] = pick
 	}
 	return p, nil
+}
+
+// checkHidden returns a validation error when hidden is not a choice.
+func checkHidden(hidden *Choice) error {
+	if hidden == nil || hidden.IsValid() {
+		return nil
+	}
+	return errors.Wrapf(validate.ErrValidation, "%s is not a choice", *hidden)
 }
 
 // sees reports whether the caller may see r.
@@ -228,8 +239,9 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
 // record. A delete pick on a record other than a channel deletes it through
 // ServiceConfig.Delete before the channels go. A delete of groups deletes as
-// group.Writer.Delete does and returns a plan of c with no entries. Picks fail as they
-// fail Plan. Given a gorp.DB, Apply runs in a transaction of its own.
+// group.Writer.Delete does, after the token check, and returns a plan of c with no
+// entries. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a transaction
+// of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -247,27 +259,38 @@ func (s *Service) Apply(
 	case DeleteChannelsChange:
 		return s.deleteChannels(ctx, tx, c, v.Keys, opts)
 	case DeleteGroupsChange:
-		if err = s.deleteGroups(ctx, tx, v.Keys, opts); err != nil {
-			return Plan{}, err
-		}
-		return Plan{Change: c}, nil
+		return s.deleteGroups(ctx, tx, c, v.Keys, opts)
 	}
-	// Formatting the variant would make every change escape to the heap.
-	return Plan{}, errors.New("[impact] - unknown change")
+	return Plan{}, errUnknownChange
 }
 
-// deleteGroups deletes the groups with keys. Its plan has no entries, so every pick
-// fails.
+// errUnknownChange is the error of a change of no known variant. Formatting the variant
+// would make every change escape to the heap.
+var errUnknownChange = errors.New("[impact] - unknown change")
+
+// deleteGroups deletes the groups with keys, the groups of c, as Apply describes.
 func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
+	c Change,
 	keys []group.Key,
 	opts ApplyOptions,
-) error {
-	if err := pickWithoutEntry(opts.Picks, nil); err != nil {
-		return err
+) (Plan, error) {
+	p, err := groupsPlan(c, opts.Picks, opts.Hidden)
+	if err != nil {
+		return Plan{}, err
 	}
-	return s.cfg.Group.NewWriter(tx).Delete(ctx, keys...)
+	if opts.Token != "" {
+		if sum := groupsSum(keys, p); !matches(opts.Token, sum) {
+			p.Token = token(sum)
+			return Plan{}, PlanChangedError{Plan: p}
+		}
+		p.Token = opts.Token
+	}
+	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
+		return Plan{}, err
+	}
+	return p, nil
 }
 
 // pickWithoutEntry returns a validation error that names the smallest pick of picks
@@ -313,8 +336,8 @@ func (s *Service) deleteChannels(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if !matches(opts.Token, keys, r.plan) {
-			r.plan.Token = token(keys, r.plan)
+		if sum := channelsSum(keys, r.plan); !matches(opts.Token, sum) {
+			r.plan.Token = token(sum)
 			return Plan{}, PlanChangedError{Plan: r.plan}
 		}
 		r.plan.Token = opts.Token

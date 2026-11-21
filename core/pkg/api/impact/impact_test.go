@@ -26,6 +26,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -233,6 +234,59 @@ var _ = Describe("Routes", Ordered, func() {
 		))
 		Expect(err.Error()).ToNot(ContainSubstring("a record that it cannot see"))
 		Expect(exists(ctx, ch)).To(BeTrue())
+	})
+
+	Describe("Group deletes", func() {
+		createFolder := func(ctx SpecContext) group.Group {
+			GinkgoHelper()
+			g := group.Group{Name: uuid.New().String(), Scope: resource.TypeChannel}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return layer.Group.NewWriter(tx).Create(ctx, &g)
+			})).To(Succeed())
+			return g
+		}
+		deleteGroups := func(keys ...group.Key) impact.Change {
+			return impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}}
+		}
+
+		It("Should refuse to plan a group that the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			folder := createFolder(ctx)
+			other := createFolder(ctx)
+			u := createUser(ctx)
+			grant(ctx, u, retrieve, other.ResourceID())
+			Expect(plan(
+				AuthedCtx(ctx, u),
+				apiimpact.PlanRequest{Change: deleteGroups(other.Key, folder.Key)},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should plan and apply a group delete with its token", func(
+			ctx SpecContext,
+		) {
+			folder := createFolder(ctx)
+			u := createUser(ctx)
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionRetrieve, access.ActionDelete},
+				folder.ResourceID(),
+			)
+			change := deleteGroups(folder.Key)
+			p := MustSucceed(
+				plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{Change: change}),
+			)
+			Expect(p).To(Equal(impact.Plan{Change: change, Token: p.Token}))
+			Expect(p.Token).To(HaveLen(16))
+			Expect(apply(
+				AuthedCtx(ctx, u),
+				apiimpact.ApplyRequest{Change: change, Token: p.Token},
+			)).To(Equal(p))
+			Expect(layer.Group.NewRetrieve().
+				Where(group.MatchKeys(folder.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
 	})
 
 	It("Should send a changed plan through the error codec", func(ctx SpecContext) {

@@ -144,6 +144,27 @@ describe("impact", () => {
       .toBe(true);
   });
 
+  it("should plan a group delete and apply it with the plan's token", async () => {
+    const g = await client.groups.create({ name: id.create(), scope: "channel" });
+    const change: impact.Change = { type: "delete_groups", keys: [g.key] };
+    const plan = await client.impact.plan(change);
+    expect(plan).toEqual({
+      entries: [],
+      kept: 0,
+      hidden: 0,
+      token: plan.token,
+      change,
+    });
+    expect(plan.token).toHaveLength(16);
+    expect(await client.impact.apply(change, { token: plan.token })).toEqual(plan);
+    await expect
+      .poll(
+        async () =>
+          await isGone(async () => await client.groups.retrieve({ key: g.key })),
+      )
+      .toBe(true);
+  });
+
   it("should count a record that the caller cannot see as hidden", async () => {
     const ch = await createChannel();
     await createReadTask(ch.key);

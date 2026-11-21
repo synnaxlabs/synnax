@@ -112,12 +112,9 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 	return ok
 }
 
-// tokenSum returns an xxHash-64 of p, the plan of the delete of the channels with keys
-// as the caller sees it: the keys in sorted order, each visible entry's record and
-// effect, and the hidden count. Each field holds its length, so no two plans hash the
-// same bytes. The token detects a stale view, not a forged one, so it needs no
-// cryptographic hash.
-func tokenSum(keys []channel.Key, p Plan) uint64 {
+// channelsSum returns the plan sum of p, the plan of the delete of the channels with
+// keys, with the keys in sorted order.
+func channelsSum(keys []channel.Key, p Plan) uint64 {
 	sorted := keys
 	for i := 1; i < len(keys); i++ {
 		if keys[i] <= keys[i-1] {
@@ -134,7 +131,15 @@ func tokenSum(keys []channel.Key, p Plan) uint64 {
 	for _, k := range sorted {
 		buf = binary.BigEndian.AppendUint32(buf, uint32(k))
 	}
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(p.Entries)))
+	return planSum(buf, p)
+}
+
+// planSum returns an xxHash-64 of change, the bytes of a change, followed by p as the
+// caller sees it: each visible entry's record and effect, and the hidden count. Each
+// field holds its length, so no two plans hash the same bytes. The token detects a
+// stale view, not a forged one, so it needs no cryptographic hash.
+func planSum(change []byte, p Plan) uint64 {
+	buf := binary.BigEndian.AppendUint32(change, uint32(len(p.Entries)))
 	for _, e := range p.Entries {
 		buf = appendField(buf, string(e.Record.Type))
 		buf = appendField(buf, e.Record.Key)
@@ -144,20 +149,20 @@ func tokenSum(keys []channel.Key, p Plan) uint64 {
 	return xxhash.Sum64(buf)
 }
 
-// token returns the hex form of tokenSum(keys, p).
-func token(keys []channel.Key, p Plan) string {
+// token returns the token of a plan whose sum is sum.
+func token(sum uint64) string {
 	var (
 		raw     [8]byte
 		encoded [16]byte
 	)
-	binary.BigEndian.PutUint64(raw[:], tokenSum(keys, p))
+	binary.BigEndian.PutUint64(raw[:], sum)
 	hex.Encode(encoded[:], raw[:])
 	return string(encoded[:])
 }
 
-// matches reports whether t is the token of p, the plan of the delete of the channels
-// with keys, with no hex form built.
-func matches(t string, keys []channel.Key, p Plan) bool {
+// matches reports whether t is the token of a plan whose sum is sum, with no hex form
+// built.
+func matches(t string, sum uint64) bool {
 	var decoded [8]byte
 	if len(t) != hex.EncodedLen(len(decoded)) {
 		return false
@@ -165,7 +170,7 @@ func matches(t string, keys []channel.Key, p Plan) bool {
 	if _, err := hex.Decode(decoded[:], []byte(t)); err != nil {
 		return false
 	}
-	return binary.BigEndian.Uint64(decoded[:]) == tokenSum(keys, p)
+	return binary.BigEndian.Uint64(decoded[:]) == sum
 }
 
 // appendField appends the length of s, then s, to buf.
