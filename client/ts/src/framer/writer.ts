@@ -357,10 +357,11 @@ export class Writer {
     try {
       await this.stream.send(req);
     } catch (err) {
-      // A send failure is always EOF or StreamClosed, never WriterClosedError, so
-      // closeInternal re-throws here and the receive loop below is reached only when
-      // the send succeeds.
-      await this.closeInternal(errors.fromUnknown(err));
+      const e = errors.fromUnknown(err);
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(e)) await this.closeInternal(e);
+      await this.closeInternal(null);
+      throw new WriterClosedError();
     }
     while (true) {
       let res: Response;
