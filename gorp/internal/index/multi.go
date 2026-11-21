@@ -22,31 +22,16 @@ import (
 // that hold them. Unlike Lookup, one key can hold any number of values. Multi is safe
 // for concurrent use.
 type Multi[S Scope, K, V comparable] struct {
-	// mu guards forward, reverse, none, pending, and population.err. Populate holds it
-	// for writing until the load finishes.
+	// mu guards forward, reverse, none, and population.err. Populate holds it for
+	// writing until the load finishes.
 	mu         sync.RWMutex
 	population population
 	forward    map[V]holders[K]
 	reverse    map[K][]V
 	// none holds the keys that hold no value.
-	none set.Set[K]
-	// pending holds the changes of the writing transaction that need no delta: fresh
-	// keys, staged with no value and holding nothing before, and gone keys, deleted
-	// from none. Transactions write one at a time, so one pending serves them all.
-	pending struct {
-		scope      S
-		fresh      set.Set[K]
-		gone       set.Set[K]
-		registered bool
-	}
-	// endPending is finishPending, bound once so that registering it allocates nothing.
-	endPending func(committed bool)
-	overlay    overlay[S, *delta[K, V]]
+	none    set.Set[K]
+	overlay overlay[S, *delta[K, V]]
 }
-
-// pendingRetained is the most keys that a pending set keeps room for between
-// transactions.
-const pendingRetained = 1024
 
 // NewMulti returns an empty Multi that waits for its bulk load.
 func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
@@ -56,8 +41,7 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 		reverse:    make(map[K][]V),
 		none:       make(set.Set[K]),
 	}
-	m.overlay.create, m.overlay.flush = newDelta[K, V], m.flush
-	m.endPending = m.finishPending
+	m.overlay.init(newDelta[K, V](), m.flush)
 	return m
 }
 
@@ -99,142 +83,79 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 		m.Set(key, values)
 		return
 	}
-	m.unstageGone(scope, key)
-	if len(values) == 0 && m.stageFresh(scope, key) {
+	d := m.overlay.load(scope)
+	// A gone key is in none, so staging no values for it again changes nothing.
+	if d.gone.Contains(key) {
+		delete(d.gone, key)
+		if len(values) == 0 {
+			return
+		}
+	}
+	if len(values) == 0 && m.stageFresh(d, key) {
 		return
 	}
-	m.unstageFresh(scope, key)
-	m.overlay.load(scope).set(key, slices.Clone(values))
+	delete(d.fresh, key)
+	d.set(key, slices.Clone(values))
 }
 
-// stageFresh adds key to fresh when key holds nothing in committed state or in the
-// changes of scope. It returns false when key holds something, or before the bulk load
+// stageFresh adds key to the fresh keys of d when key holds nothing in committed state
+// or in d. It returns false when key holds something, or before the bulk load
 // finishes.
-func (m *Multi[S, K, V]) stageFresh(scope S, key K) bool {
-	select {
-	case <-m.population.done:
-	default:
+func (m *Multi[S, K, V]) stageFresh(d *delta[K, V], key K) bool {
+	if _, staged := d.state[key]; staged || !m.holdsNothing(key) {
 		return false
 	}
-	if d, ok := m.overlay.get(scope); ok {
-		if _, staged := d.state[key]; staged {
-			return false
-		}
+	if d.fresh == nil {
+		d.fresh = make(set.Set[K])
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.population.err != nil || m.none.Contains(key) {
-		return false
-	}
-	if _, held := m.reverse[key]; held {
-		return false
-	}
-	m.registerPending(scope)
-	if m.pending.fresh == nil {
-		m.pending.fresh = make(set.Set[K])
-	}
-	m.pending.fresh.Add(key)
+	d.fresh.Add(key)
 	return true
 }
 
-// registerPending runs finishPending when scope ends. Call it with mu held.
-func (m *Multi[S, K, V]) registerPending(scope S) {
-	if !m.pending.registered {
-		m.pending.scope, m.pending.registered = scope, true
-		scope.OnCleanup(m.endPending)
-	}
-}
-
-// stageGone adds key to gone when key is in none and the changes of scope do not hold
+// stageGone adds key to the gone keys of d when key is in none and d does not stage
 // it. It returns false otherwise, or before the bulk load finishes.
-func (m *Multi[S, K, V]) stageGone(scope S, key K) bool {
-	select {
-	case <-m.population.done:
-	default:
+func (m *Multi[S, K, V]) stageGone(d *delta[K, V], key K) bool {
+	if _, staged := d.state[key]; staged || !m.inNone(key) {
 		return false
 	}
-	if d, ok := m.overlay.get(scope); ok {
-		if _, staged := d.state[key]; staged {
-			return false
-		}
+	if d.gone == nil {
+		d.gone = make(set.Set[K])
+	}
+	d.gone.Add(key)
+	return true
+}
+
+// holdsNothing reports whether key holds no value and is not in none in committed
+// state. It is false before the bulk load finishes, and after the load fails.
+func (m *Multi[S, K, V]) holdsNothing(key K) bool {
+	if !m.loaded() {
+		return false
 	}
 	m.mu.RLock()
-	inNone := m.population.err == nil && m.none.Contains(key)
-	m.mu.RUnlock()
-	if !inNone {
+	defer m.mu.RUnlock()
+	_, held := m.reverse[key]
+	return m.population.err == nil && !held && !m.none.Contains(key)
+}
+
+// inNone reports whether key is in none in committed state. It is false before the
+// bulk load finishes, and after the load fails.
+func (m *Multi[S, K, V]) inNone(key K) bool {
+	if !m.loaded() {
 		return false
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.registerPending(scope)
-	if m.pending.gone == nil {
-		m.pending.gone = make(set.Set[K])
-	}
-	m.pending.gone.Add(key)
-	return true
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.population.err == nil && m.none.Contains(key)
 }
 
-// unstageGone removes key from gone for scope. Only the goroutine of the writing
-// transaction changes gone, so it reads gone unlocked.
-func (m *Multi[S, K, V]) unstageGone(scope S, key K) {
-	if m.goneOf(scope, key) {
-		m.mu.Lock()
-		m.pending.gone.Remove(key)
-		m.mu.Unlock()
-	}
-}
-
-// goneOf reports whether key is in gone for scope.
-func (m *Multi[S, K, V]) goneOf(scope S, key K) bool {
-	return m.pendingIn(scope) && m.pending.gone.Contains(key)
-}
-
-// unstageFresh removes key from fresh for scope and reports whether fresh held it. Only
-// the goroutine of the writing transaction changes fresh, so it reads fresh unlocked.
-func (m *Multi[S, K, V]) unstageFresh(scope S, key K) bool {
-	if !m.pendingIn(scope) || !m.pending.fresh.Contains(key) {
+// loaded reports whether the bulk load has finished.
+func (m *Multi[S, K, V]) loaded() bool {
+	select {
+	case <-m.population.done:
+		return true
+	default:
 		return false
 	}
-	m.mu.Lock()
-	m.pending.fresh.Remove(key)
-	m.mu.Unlock()
-	return true
-}
-
-// finishPending applies pending to none when its transaction committed, and drops it
-// otherwise.
-func (m *Multi[S, K, V]) finishPending(committed bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if committed {
-		maps.Copy(m.none, m.pending.fresh)
-		for k := range m.pending.gone {
-			m.none.Remove(k)
-		}
-	}
-	m.pending.fresh = retain(m.pending.fresh)
-	m.pending.gone = retain(m.pending.gone)
-	var none S
-	m.pending.scope, m.pending.registered = none, false
-}
-
-// retain empties keys, and drops it when it grew past pendingRetained.
-func retain[K comparable](keys set.Set[K]) set.Set[K] {
-	if len(keys) > pendingRetained {
-		return nil
-	}
-	clear(keys)
-	return keys
-}
-
-// pendingIn reports whether pending holds the changes of scope.
-func (m *Multi[S, K, V]) pendingIn(scope S) bool {
-	return m.pending.registered && m.pending.scope == scope
-}
-
-// freshOf reports whether key is in fresh for scope. Call it with mu held.
-func (m *Multi[S, K, V]) freshOf(scope S, key K) bool {
-	return m.pendingIn(scope) && m.pending.fresh.Contains(key)
 }
 
 // Current reports whether key holds exactly values, with the changes of scope applied,
@@ -250,6 +171,12 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 		if s, ok := d.state[key]; ok {
 			return !s.deleted && slices.Equal(s.values, values)
 		}
+		if d.gone.Contains(key) {
+			return false
+		}
+		if d.fresh.Contains(key) {
+			return len(values) == 0
+		}
 	}
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -259,10 +186,7 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 	if prev, ok := m.reverse[key]; ok {
 		return slices.Equal(prev, values)
 	}
-	if m.goneOf(scope, key) {
-		return false
-	}
-	return len(values) == 0 && (m.none.Contains(key) || m.freshOf(scope, key))
+	return len(values) == 0 && m.none.Contains(key)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -272,12 +196,15 @@ func (m *Multi[S, K, V]) StageDelete(scope S, key K) {
 		m.Delete(key)
 		return
 	}
-	// A key in fresh holds nothing in committed state, so its delete changes nothing.
-	// A key in none goes into gone, which needs no delta.
-	if m.unstageFresh(scope, key) || m.stageGone(scope, key) {
+	d := m.overlay.load(scope)
+	// A fresh key holds nothing in committed state, so its delete changes nothing.
+	if d.fresh.Contains(key) {
+		delete(d.fresh, key)
 		return
 	}
-	m.overlay.load(scope).delete(key)
+	if !m.stageGone(d, key) {
+		d.delete(key)
+	}
 }
 
 // Get returns the keys that hold any of values, with the changes of scope applied. It
@@ -361,12 +288,6 @@ func (m *Multi[S, K, V]) Holding(scope S, holding bool) ([]K, error) {
 		}
 	} else {
 		maps.Copy(keys, m.none)
-		if m.pendingIn(scope) {
-			maps.Copy(keys, m.pending.fresh)
-			for k := range m.pending.gone {
-				keys.Remove(k)
-			}
-		}
 	}
 	if d, ok := m.overlay.get(scope); ok {
 		d.applyHolding(keys, holding)
@@ -380,19 +301,10 @@ func (m *Multi[S, K, V]) Holding(scope S, holding bool) ([]K, error) {
 func (m *Multi[S, K, V]) CommittingHolding(holding bool) []K {
 	keys := make(set.Set[K])
 	m.overlay.mu.RLock()
-	for scope, d := range m.overlay.deltas {
-		if scope.Committing() {
-			d.applyHolding(keys, holding)
-		}
+	if d, ok := m.overlay.committing(); ok {
+		d.applyHolding(keys, holding)
 	}
 	m.overlay.mu.RUnlock()
-	if !holding {
-		m.mu.RLock()
-		if m.pending.registered && m.pending.scope.Committing() {
-			maps.Copy(keys, m.pending.fresh)
-		}
-		m.mu.RUnlock()
-	}
 	return keys.Slice()
 }
 
@@ -490,5 +402,9 @@ func (m *Multi[S, K, V]) flush(d *delta[K, V]) {
 			continue
 		}
 		m.put(k, s.values)
+	}
+	maps.Copy(m.none, d.fresh)
+	for k := range d.gone {
+		m.none.Remove(k)
 	}
 }
