@@ -195,13 +195,20 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 	kept := set.New[ChannelKey]()
 	var drop []ChannelKey
 	for k := range keys {
-		switch {
-		case records.Contains(k):
-		case intents.Contains(k) || (sizes[k] == 0 && !parted.Contains(k)):
-			drop = append(drop, k)
-		default:
-			kept.Add(k)
+		if records.Contains(k) {
+			continue
 		}
+		if !intents.Contains(k) {
+			size, err := db.storedSize(k, sizes, parted)
+			if err != nil {
+				return nil, err
+			}
+			if size > 0 {
+				kept.Add(k)
+				continue
+			}
+		}
+		drop = append(drop, k)
 	}
 	hidden := db.usedLogIndexes(records, kept)
 	drop = slices.DeleteFunc(drop, hidden.Contains)
@@ -272,10 +279,18 @@ func storedSizes(s *state.Snapshot) (map[ChannelKey]telem.Size, set.Set[ChannelK
 	return sizes, parted
 }
 
-// partedSize returns the committed bytes of the live part records of key.
-func (db *DB) partedSize(key ChannelKey) (telem.Size, error) {
+// storedSize returns the committed bytes of key in sizes, and of its live part records
+// when parted holds key. sizes and parted are what storedSizes returns.
+func (db *DB) storedSize(
+	key ChannelKey,
+	sizes map[ChannelKey]telem.Size,
+	parted set.Set[ChannelKey],
+) (telem.Size, error) {
+	size := sizes[key]
+	if !parted.Contains(key) {
+		return size, nil
+	}
 	pre, err := db.engine.records(key, telem.TimeStampMin, telem.TimeStampMax)
-	var size telem.Size
 	for _, seg := range pre.Segments {
 		for _, ptr := range seg.Pointers {
 			size += telem.Size(ptr.Length)
@@ -304,13 +319,9 @@ func (db *DB) keptLogChannels(kept set.Set[ChannelKey]) ([]KeptChannel, error) {
 		if ch.IsIndex {
 			index = 0
 		}
-		size := sizes[k]
-		if parted.Contains(k) {
-			more, err := db.partedSize(k)
-			if err != nil {
-				return nil, err
-			}
-			size += more
+		size, err := db.storedSize(k, sizes, parted)
+		if err != nil {
+			return nil, err
 		}
 		out = append(out, KeptChannel{Key: k, Index: index, Size: size})
 	}
