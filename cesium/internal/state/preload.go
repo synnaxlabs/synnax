@@ -45,9 +45,9 @@ func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
 		return nil, nil
 	case !found:
 		return nil, refuse("no preload of key %d, which parts hold", c.key)
-	case pre[i].Generation != c.generation:
+	case pre[i].Generation != c.partsGeneration():
 		return nil, errors.Wrapf(ErrStale, "key %d reads the parts of head %d, not %d",
-			c.key, c.generation, pre[i].Generation)
+			c.key, c.partsGeneration(), pre[i].Generation)
 	}
 	return pre[i].Segments, nil
 }

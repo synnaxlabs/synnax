@@ -33,7 +33,11 @@ func (c *core) load(s *Snapshot, generation uint64) error {
 	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits
 	for _, ch := range s.Channels {
 		cs := c.channel(ch.Key)
-		cs.oldest, cs.newest, cs.generation = ch.Oldest, ch.Newest, generation
+		if ch.Parts != nil {
+			cs.oldest, cs.newest, cs.generation = ch.Parts.Oldest, ch.Parts.Newest,
+				generation
+			cs.repart()
+		}
 		for _, seg := range ch.Segments {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err

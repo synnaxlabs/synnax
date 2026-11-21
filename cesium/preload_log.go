@@ -51,7 +51,7 @@ func (e *engine) preload(
 	if ch == nil {
 		return state.Preload{Key: key}, nil
 	}
-	pre := state.Preload{Key: key, Generation: ch.Generation}
+	pre := state.Preload{Key: key, Generation: partsGeneration(ch)}
 	parts, err := e.partsOf(ch)
 	if err != nil || !reachesAny(parts, first, last) {
 		return pre, err
@@ -60,20 +60,29 @@ func (e *engine) preload(
 	if err != nil || ch == nil {
 		return state.Preload{Key: key}, err
 	}
-	pre.Generation = ch.Generation
+	pre.Generation = partsGeneration(ch)
 	for _, p := range h.parts {
 		r, err := e.cache.Records(p, key)
 		if err != nil {
 			return pre, errors.Join(err, e.unpin(h))
 		}
 		for i, seg := range r.Segments {
-			if p.Live(r.First+i) && !killed(ch.Kills, p, seg.ID) &&
+			if p.Live(r.First+i) && !killed(ch.Parts.Kills, p, seg.ID) &&
 				reaches(seg.Pointers, first, last) {
 				pre.Segments = append(pre.Segments, seg)
 			}
 		}
 	}
 	return pre, e.unpin(h)
+}
+
+// partsGeneration returns the generation of the head whose parts ch names, or 0 when
+// none holds records of its key.
+func partsGeneration(ch *state.Channel) uint64 {
+	if ch.Parts == nil {
+		return 0
+	}
+	return ch.Parts.Generation
 }
 
 // pinReaching returns the Channel of key and pins the parts of its range whose stamps

@@ -42,7 +42,7 @@ var _ = Describe("Kills", func() {
 		Expect(s.Durable(11, []log.Record{cut})).To(Succeed())
 		want := []state.Kill{{Key: 6, Segment: 3, Generation: 4}}
 		Expect(kills()).To(Equal(want))
-		Expect(s.Channel(6).Kills).To(Equal(want))
+		Expect(s.Channel(6).Parts).To(BeNil())
 	})
 
 	It("Should not kill an open segment that a tombstone cuts", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Kills", func() {
 		Expect(s.Parted(5, nil, nil, func() {})).To(Succeed())
 		want := []state.Kill{{Key: 6, Segment: 3, Generation: 5}}
 		Expect(kills()).To(Equal(want))
-		Expect(s.Channel(6).Kills).To(Equal(want))
+		Expect(s.Channel(6).Parts).To(BeNil())
 	})
 
 	It("Should give each key its part range, and take the range of a key that a later "+
@@ -84,13 +84,14 @@ var _ = Describe("Kills", func() {
 			To(Succeed())
 		MustSucceed(s.Snapshot())
 		// The owner swaps the parts in before it publishes the ranges that name them.
-		Expect(before.Oldest).To(BeZero())
-		Expect(s.Channel(6).Oldest).To(Equal(uint64(2)))
-		Expect(s.Channel(6).Newest).To(Equal(uint64(3)))
-		Expect(s.Channel(6).Generation).To(Equal(uint64(5)))
+		Expect(before.Parts).To(BeNil())
+		Expect(*s.Channel(6).Parts).To(Equal(state.Parts{
+			Oldest:     2,
+			Newest:     3,
+			Generation: 5,
+		}))
 		Expect(s.Parted(6, nil, nil, func() {})).To(Succeed())
 		MustSucceed(s.Snapshot())
-		Expect(s.Channel(6).Oldest).To(BeZero())
-		Expect(s.Channel(6).Newest).To(BeZero())
+		Expect(s.Channel(6).Parts).To(BeNil())
 	})
 })
