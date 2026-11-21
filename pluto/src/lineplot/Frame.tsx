@@ -179,6 +179,8 @@ const changesView = ({ mode, stage }: Viewport.UseEvent): boolean =>
 /** The open breaks after a break change, and the view and the selection it leaves. */
 export type OpenBreaksChange = Omit<lineplot.BreaksChange, "held">;
 
+const NO_BREAKS: lineplot.BreakCounts = { open: 0, closed: 0 };
+
 export interface FrameProps
   extends
     PropsWithChildren,
@@ -305,7 +307,8 @@ export const Frame = ({
 
   const handleError = Status.useErrorHandler();
   const handleAsyncError = Status.useAsyncErrorHandler();
-  const breaksRef = useSyncedRef(breaks);
+  // Hidden breaks count for onBreaksChange only, as a click or a drag cannot meet them.
+  const shownBreaksRef = useSyncedRef(breaksHidden ? NO_BREAKS : breaks);
   const openBreaksRef = useSyncedRef(openBreaks);
   // The selection the plot last reported, so a break change can map it.
   const selectionRef = useRef<box.Box>(box.ZERO);
@@ -374,7 +377,8 @@ export const Frame = ({
     return true;
   };
 
-  const breaksShown = () => breaksRef.current.open + breaksRef.current.closed > 0;
+  const breaksShown = () =>
+    shownBreaksRef.current.open + shownBreaksRef.current.closed > 0;
 
   const toggleBreak: ContextValue["toggleBreak"] = (clientX, source) => {
     if (!breaksShown()) return;
@@ -401,7 +405,7 @@ export const Frame = ({
 
   // selectBound reports a failed read of the seams and leaves the drag unbounded.
   const selectBound = async (x: number): Promise<bounds.Bounds> => {
-    if (breaksRef.current.closed === 0) return bounds.INFINITE;
+    if (shownBreaksRef.current.closed === 0) return bounds.INFINITE;
     let seams: number[] = [];
     await handleAsyncError(async () => {
       seams = await methods.getSeams();

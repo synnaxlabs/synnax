@@ -681,6 +681,7 @@ describe("LinePlot", () => {
     const renderFrame = async (
       change: lineplot.BreaksChange | null = CHANGE,
       extra: () => ReactNode = () => null,
+      breaksHidden: boolean = false,
     ) => {
       const getBreakChange = vi
         .spyOn(lineplot.LinePlot.prototype, "getBreakChange")
@@ -700,6 +701,7 @@ describe("LinePlot", () => {
             viewportRef={viewportRef}
             onViewportChange={onViewportChange}
             onBreaksChange={onBreaksChange}
+            breaksHidden={breaksHidden}
             initialOpenBreaks={[2]}
             onOpenBreaksChange={onOpenBreaksChange}
           >
@@ -847,6 +849,23 @@ describe("LinePlot", () => {
       act(() => result.current.toggleBreak(120, "axis"));
       await waitFor(() => expect(getBreakChange).toHaveBeenCalled());
       expect(getBreakChange.mock.calls[0][0].selection).toEqual(box.ZERO);
+    });
+
+    it("should ask for no break change while the breaks are hidden", async () => {
+      const getSeams = vi.spyOn(lineplot.LinePlot.prototype, "getSeams");
+      const { result, getBreakChange } = await renderFrame(CHANGE, () => null, true);
+      act(() => result.current.toggleBreak(120, "plot"));
+      act(() =>
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "click",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      expect(await result.current.selectBound(0.45)).toEqual(bounds.INFINITE);
+      expect(getBreakChange).not.toHaveBeenCalled();
+      expect(getSeams).not.toHaveBeenCalled();
     });
 
     it("should map no selection after a click dismisses it", async () => {
