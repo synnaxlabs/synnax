@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -38,36 +37,47 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 }
 
 // dropLog drops keys on the pointer log layout, as Drop does: one durable Drop record
-// per key, then the removal of its files and its metadata. It keeps an index that a
-// channel outside keys uses. The caller holds db.mu.
+// per key, then the removal of its files and its metadata. It keeps a clock that a key
+// outside keys uses, and logs the Drop of each clock after the Drops of the keys it
+// times. The caller holds db.mu.
 func (db *DB) dropLog(keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
 	dropping := set.New(keys...)
-	var (
-		entry   log.Entry
-		dropped []ChannelKey
-	)
+	snapshot, err := db.engine.state.Snapshot()
+	if err != nil {
+		return err
+	}
+	var dropped, clocks []ChannelKey
 	for _, k := range keys {
 		ch, live := db.mu.channels[k]
 		if !live {
 			ch, live = db.mu.hiddenChannels[k]
 		}
-		if !live && db.engine.state.Channel(k) == nil {
+		stored := db.engine.state.Channel(k)
+		if !live && stored == nil {
 			continue
 		}
-		if ch.IsIndex && db.indexUsedOutside(k, dropping) {
+		if !ch.IsIndex && !timesItself(stored, k) {
+			dropped = append(dropped, k)
 			continue
 		}
-		entry.Add(&log.Drop{Key: k})
-		dropped = append(dropped, k)
+		if !db.indexUsedOutside(k, dropping) &&
+			!clockStoredOutside(snapshot, k, dropping) {
+			clocks = append(clocks, k)
+		}
 	}
-	if entry.Len() == 0 {
+	dropped = append(dropped, clocks...)
+	if len(dropped) == 0 {
 		return nil
 	}
-	if _, err := db.engine.log.Append(&entry).Wait(); err != nil {
+	var entry log.Entry
+	for _, k := range dropped {
+		entry.Add(&log.Drop{Key: k})
+	}
+	if _, err = db.engine.log.Append(&entry).Wait(); err != nil {
 		return err
 	}
-	err := db.engine.reap()
+	err = db.engine.reap()
 	for _, k := range dropped {
 		delete(db.mu.channels, k)
 		delete(db.mu.hiddenChannels, k)
@@ -76,10 +86,10 @@ func (db *DB) dropLog(keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the metadata file and the directory of key, when they exist.
+// removeLogDir removes the channel file and the directory of key, when they exist.
 func (db *DB) removeLogDir(key ChannelKey) error {
 	dir := keyToDirName(key)
-	for _, name := range []string{path.Join(dir, meta.File), dir} {
+	for _, name := range []string{path.Join(dir, channelFile), dir} {
 		if err := db.fs.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -87,9 +97,39 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	return db.fs.SyncDir("")
 }
 
+// timesItself reports whether a stored segment of ch, the stored channel of key, has
+// key as its clock.
+func timesItself(ch *state.Channel, key ChannelKey) bool {
+	if ch == nil {
+		return false
+	}
+	return slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
+		return seg.Clock == key
+	})
+}
+
+// clockStoredOutside reports whether a stored segment of a key outside dropping has
+// clock as its clock.
+func clockStoredOutside(
+	s *state.Snapshot,
+	clock ChannelKey,
+	dropping set.Set[ChannelKey],
+) bool {
+	for _, ch := range s.Channels {
+		if ch.Key == clock || dropping.Contains(ch.Key) {
+			continue
+		}
+		for _, seg := range ch.Segments {
+			if seg.Clock == clock {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses
-// index.
-// The caller holds db.mu.
+// index. The caller holds db.mu.
 func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) bool {
 	for _, chs := range []map[ChannelKey]Channel{db.mu.channels, db.mu.hiddenChannels} {
 		for k, ch := range chs {
@@ -101,10 +141,13 @@ func (db *DB) indexUsedOutside(index ChannelKey, dropping set.Set[ChannelKey]) b
 	return false
 }
 
-// decideLog decides the fate of each key of the pointer log layout against records,
-// as decide does on the old layout, and returns the keys it keeps. The caller holds
-// db.mu.
+// decideLog decides the fate of each key of the pointer log layout against records, as
+// decide does on the old layout, and returns the keys it keeps. It removes the
+// directory of each torn key outside records. The caller holds db.mu.
 func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error) {
+	if err := db.removeTorn(records); err != nil {
+		return nil, err
+	}
 	snapshot, err := db.engine.state.Snapshot()
 	if err != nil {
 		return nil, err
@@ -153,6 +196,21 @@ func (db *DB) decideLog(records set.Set[ChannelKey]) (set.Set[ChannelKey], error
 		return nil, err
 	}
 	return kept, db.dropLog(drop)
+}
+
+// removeTorn removes the directory of each torn key outside records. The caller holds
+// db.mu.
+func (db *DB) removeTorn(records set.Set[ChannelKey]) error {
+	for k := range db.mu.torn {
+		if records.Contains(k) {
+			continue
+		}
+		if err := db.removeLogDir(k); err != nil {
+			return err
+		}
+		db.mu.torn.Remove(k)
+	}
+	return nil
 }
 
 // usedLogIndexes returns the indexes outside records that a channel in records or in

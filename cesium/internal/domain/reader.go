@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
+// reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
-type Reader struct {
+type reader struct {
 	// section limits reads to the domain's bytes in the file.
 	section io.SectionReader
 	// internal is the file handle, returned to the DB on Close.
@@ -27,23 +27,23 @@ type Reader struct {
 	ptr pointer
 }
 
-func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*reader, error) {
 	internal, err := db.fc.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}
-	r := &Reader{internal: internal, ptr: ptr}
+	r := &reader{internal: internal, ptr: ptr}
 	r.section = *io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.size))
 	return r, nil
 }
 
 // ReadAt reads len(p) bytes of the domain starting at offset off.
-func (r *Reader) ReadAt(p []byte, off int64) (int, error) {
+func (r *reader) ReadAt(p []byte, off int64) (int, error) {
 	return r.section.ReadAt(p, off)
 }
 
 // Close releases the reader's file handle back to the DB.
-func (r *Reader) Close() error { return r.internal.Close() }
+func (r *reader) Close() error { return r.internal.Close() }
 
 // Size returns the number of bytes in the entire domain.
-func (r *Reader) Size() telem.Size { return telem.Size(r.ptr.size) }
+func (r *reader) Size() telem.Size { return telem.Size(r.ptr.size) }
