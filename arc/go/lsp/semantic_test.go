@@ -363,6 +363,15 @@ var _ = Describe("Semantic Tokens", func() {
 			},
 		)
 
+		It("classifies a quoted channel name as a channel", func(ctx SpecContext) {
+			server, uri = SetupTestServer()
+			OpenArcDocument(server, ctx, uri, `x := 'pt-01'`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeChannel)).To(Equal([]decodedToken{
+				{Line: 0, StartChar: 5, Length: 7, TokenType: tokenTypeChannel},
+			}))
+		})
+
 		It(
 			"classifies a placeholder identifier through the global resolver",
 			func(ctx SpecContext) {

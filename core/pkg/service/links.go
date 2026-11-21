@@ -25,13 +25,13 @@ import (
 const clearUnissuedKey = "v63_clear_unissued_channel_links"
 
 // ClearUnissuedChannelLinks returns the migration that removes, from every stored
-// schematic and table, each channel key that the Core had not issued when it opened. An
-// import in 0.62 kept the raw keys of another Core, which a channel created at start
-// could take. issuedAtOpen answers for a channel key as of the open.
+// schematic and table, each channel key that the Core had not issued at its first open.
+// An import in 0.62 kept the raw keys of another Core, which a channel created at start
+// could take. issuedAtFirstOpen answers for a channel key as of that open.
 func ClearUnissuedChannelLinks(
 	sch *schematic.Service,
 	tbl *table.Service,
-	issuedAtOpen func(channel.Key) bool,
+	issuedAtFirstOpen func(channel.Key) bool,
 ) gorp.Migration {
 	issued := func(target gorp.Target) (bool, error) {
 		if target.Table != string(resource.TypeChannel) {
@@ -41,7 +41,7 @@ func ClearUnissuedChannelLinks(
 		if err != nil {
 			return false, err
 		}
-		return issuedAtOpen(k), nil
+		return issuedAtFirstOpen(k), nil
 	}
 	schematics := sch.DanglingMigration(clearUnissuedKey, issued)
 	tables := tbl.DanglingMigration(clearUnissuedKey, issued)

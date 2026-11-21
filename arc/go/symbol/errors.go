@@ -45,6 +45,8 @@ type UndefinedSymbolError struct {
 	ctx   context.Context
 	Name  string
 	scope *Symbol
+	// channel is true when only a channel could have matched Name.
+	channel bool
 }
 
 // Error implements the error interface.
@@ -52,7 +54,8 @@ func (e *UndefinedSymbolError) Error() string {
 	return "undefined symbol: " + e.Name
 }
 
-func isUndefined(err error) bool {
+// IsUndefined reports whether err says that a name resolves to no symbol.
+func IsUndefined(err error) bool {
 	_, undefined := errors.AsType[*UndefinedSymbolError](err)
 	return undefined || errors.Is(err, query.ErrNotFound)
 }
@@ -67,14 +70,18 @@ func (e *UndefinedSymbolError) GetHint() string {
 	if dot := strings.IndexByte(head, '.'); dot > 0 {
 		head = head[:dot]
 	}
-	if e.scope.IsAmbientModule(head) {
+	if !e.channel && e.scope.IsAmbientModule(head) {
 		return fmt.Sprintf(
 			"module %q is not imported. add `import %s` at the top of the file",
 			head,
 			head,
 		)
 	}
-	suggestions := e.scope.SuggestSimilar(e.ctx, e.Name, 2)
+	keep := func(*Symbol) bool { return true }
+	if e.channel {
+		keep = func(s *Symbol) bool { return s.Kind == KindChannel }
+	}
+	suggestions := e.scope.suggestSimilar(e.ctx, e.Name, 2, keep)
 	if len(suggestions) > 0 {
 		return fmt.Sprintf("did you mean: %s?", strings.Join(suggestions, ", "))
 	}

@@ -334,13 +334,12 @@ func inferPrimaryType(
 	ctx context.Context[parser.IPrimaryExpressionContext],
 ) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		var buf [2]string
-		parts := parser.AppendQualifiedNameParts(buf[:0], qid)
-		headSym, err := ctx.Scope.Resolve(ctx, parts[0])
+		head, tail := parser.QualifiedNameParts(qid)
+		headSym, err := ctx.Scope.Resolve(ctx, head)
 		if err != nil {
 			return types.Type{}
 		}
-		resolved, err := headSym.Resolve(ctx, parts[1])
+		resolved, err := headSym.Resolve(ctx, tail)
 		if err != nil {
 			return types.Type{}
 		}
@@ -349,9 +348,8 @@ func inferPrimaryType(
 		}
 		return resolved.Type
 	}
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		text := id.GetText()
-		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
+	if name := parser.PrimaryName(ctx.AST); name.Head != "" {
+		if varScope, err := ctx.Scope.ResolveName(ctx, name); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				// A read gives an untyped variable one type, so `x := 10; x + 3.2`
 				// fails while `2 + 3.2` (both fresh literals) promotes to float.

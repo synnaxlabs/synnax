@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -112,16 +113,19 @@ func (s *Service) createPlain(
 	return nil
 }
 
-// storedChannels returns the stored channels that have the name or key of a channel in
-// channels.
+// storedChannels returns the stored channels that have the name, the name in NFC, or
+// the key of a channel in channels.
 func (s *Service) storedChannels(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels []channel.Channel,
 ) ([]channel.Channel, error) {
+	names := channel.Names(channels)
 	var byName []channel.Channel
 	if err := s.internal.NewRetrieve().
-		Where(channel.MatchNames(channel.Names(channels)...)).
+		Where(channel.MatchNames(
+			lo.Uniq(slices.Concat(names, channel.NormalizeNames(names)))...,
+		)).
 		Entries(&byName).
 		Exec(ctx, tx); err != nil {
 		return nil, err
@@ -165,7 +169,8 @@ func (s *Service) checkKeyFree(
 	return errors.Wrapf(validate.ErrValidation, "channel %s already exists", ch.Key())
 }
 
-// storedOf returns the stored channel that has the name or key of ch.
+// storedOf returns the stored channel that has the key of ch, the name of ch, or the
+// name of ch in NFC, in that order.
 func storedOf(
 	byName map[string]channel.Channel,
 	byKey map[channel.Key]channel.Channel,
@@ -176,7 +181,10 @@ func storedOf(
 			return s, true
 		}
 	}
-	s, ok := byName[ch.Name]
+	if s, ok := byName[ch.Name]; ok {
+		return s, true
+	}
+	s, ok := byName[validate.NormalizeName(ch.Name)]
 	return s, ok
 }
 

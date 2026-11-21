@@ -14,7 +14,6 @@ package flow
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -233,11 +232,8 @@ func identifierUpstreamType(
 	ctx context.Context[parser.IFunctionContext],
 	prevIDNode parser.IIdentifierContext,
 ) (types.Type, bool) {
-	idName := parser.IdentifierName(prevIDNode)
-	var buf [2]string
-	idSym, err := ctx.ResolveQualified(
-		parser.AppendIdentifierParts(buf[:0], prevIDNode),
-	)
+	idName := parser.IdentifierName(prevIDNode).String()
+	idSym, err := ctx.ResolveName(parser.IdentifierName(prevIDNode))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 		return types.Type{}, false
@@ -404,9 +400,8 @@ func analyzeIdentifier(
 	prevNode parser.IFlowNodeContext,
 	isLastNode bool,
 ) {
-	name := parser.IdentifierName(ctx.AST)
-	var buf [2]string
-	sym, err := ctx.ResolveQualified(parser.AppendIdentifierParts(buf[:0], ctx.AST))
+	name := parser.IdentifierName(ctx.AST).String()
+	sym, err := ctx.ResolveName(parser.IdentifierName(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -521,11 +516,8 @@ func flowSourceType(
 		return exprType, fmt.Sprintf("expression type %s", exprType)
 	}
 	if prevID := prevNode.Identifier(); prevID != nil {
-		srcName := parser.IdentifierName(prevID)
-		var buf [2]string
-		srcSym, err := ctx.ResolveQualified(
-			parser.AppendIdentifierParts(buf[:0], prevID),
-		)
+		srcName := parser.IdentifierName(prevID).String()
+		srcSym, err := ctx.ResolveName(parser.IdentifierName(prevID))
 		if err != nil {
 			return types.Type{}, ""
 		}
@@ -537,15 +529,14 @@ func flowSourceType(
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
 	}
 	if prevFn := prevNode.Function(); prevFn != nil {
-		// Resolve without ctx.Resolve: the call node already resolved this
-		// name, and resolving it again would duplicate deprecation warnings.
-		var buf [2]string
-		parts := parser.AppendFunctionNameParts(buf[:0], prevFn)
-		fnName := parts[0]
-		fnSym, err := ctx.Scope.Resolve(ctx, parts[0])
-		if err == nil && len(parts) > 1 {
-			fnName = strings.Join(parts, ".")
-			fnSym, err = fnSym.Resolve(ctx, parts[1])
+		// The scope lookup adds no deprecation warning: the call node already resolved
+		// this name and warned once.
+		head, tail := parser.FunctionNameParts(prevFn)
+		fnName := head
+		fnSym, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			fnName = head + "." + tail
+			fnSym, err = fnSym.Resolve(ctx, tail)
 		}
 		if err != nil || fnSym.Kind != symbol.KindFunction {
 			return types.Type{}, ""
@@ -567,10 +558,12 @@ func resolveFunc[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	fn parser.IFunctionContext,
 ) (*symbol.Symbol, string) {
-	var buf [2]string
-	parts := parser.AppendFunctionNameParts(buf[:0], fn)
-	name := strings.Join(parts, ".")
-	sym, err := ctx.ResolveQualified(parts)
+	head, tail := parser.FunctionNameParts(fn)
+	name := head
+	if tail != "" {
+		name = head + "." + tail
+	}
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nil, name
@@ -756,11 +749,10 @@ func resolveNextFunc(
 		if fn == nil {
 			continue
 		}
-		var buf [2]string
-		parts := parser.AppendFunctionNameParts(buf[:0], fn)
-		scope, err := ctx.Scope.Resolve(ctx, parts[0])
-		if err == nil && len(parts) > 1 {
-			scope, err = scope.Resolve(ctx, parts[1])
+		head, tail := parser.FunctionNameParts(fn)
+		scope, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			scope, err = scope.Resolve(ctx, tail)
 		}
 		if err == nil && scope.Kind == symbol.KindFunction {
 			return fn, scope.Type
@@ -974,7 +966,7 @@ func analyzeInputRoutingTable(
 			continue
 		}
 
-		paramName := parser.IdentifierName(lastNode.Identifier())
+		paramName := parser.IdentifierName(lastNode.Identifier()).String()
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
@@ -1087,8 +1079,7 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)
-		var buf [2]string
-		sym, err := ctx.ResolveQualified(parser.AppendFunctionNameParts(buf[:0], fn))
+		sym, err := ctx.ResolveQualified(parser.FunctionNameParts(fn))
 		if err != nil || sym.Kind != symbol.KindFunction {
 			return types.Type{}
 		}
@@ -1097,8 +1088,7 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 			"the next node in the chain expects an input")
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {
-		var buf [2]string
-		sym, err := ctx.ResolveQualified(parser.AppendIdentifierParts(buf[:0], idNode))
+		sym, err := ctx.ResolveName(parser.IdentifierName(idNode))
 		if err != nil {
 			return types.Type{}
 		}

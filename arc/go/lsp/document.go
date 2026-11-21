@@ -12,8 +12,11 @@ package lsp
 import (
 	"context"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -128,14 +131,13 @@ func (d *document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
+// findScopeAtPosition returns the scope at pos, a protocol position in UTF-16 units.
 func (d *document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
-	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
+	return findScopeAt(d.IR.Symbols, d.isBlock(), newLineText(d.Content).fromUTF16(pos))
 }
 
-// findScopeAt is the snapshot-friendly form of (*Document).findScopeAtPosition:
-// it operates on a symbol tree and isBlock flag passed in by the caller so
-// handlers can snapshot doc fields under the server lock and then resolve a
-// scope without touching the live Document.
+// findScopeAt returns the scope of symbols at pos, whose column counts code points as
+// token columns do. isBlock reports that symbols come from the body of a function.
 func findScopeAt(
 	symbols *symbol.Symbol,
 	isBlock bool,
@@ -164,13 +166,86 @@ func (d *document) resolveSymbolAtPosition(
 	ctx context.Context,
 	pos protocol.Position,
 ) (*symbol.Symbol, error) {
-	word := d.getWordAtPosition(pos)
-	if word == "" {
+	n, _, quoted := channelNameAt(d.displayContent(), pos)
+	if !quoted {
+		n = parser.Name{Head: d.getWordAtPosition(pos)}
+	}
+	if n.Head == "" {
 		return nil, nil
 	}
 	scope := d.findScopeAtPosition(pos)
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.Resolve(ctx, word, symbol.WithoutUsageTracking)
+	return scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+}
+
+// channelNameAt returns the quoted channel name whose token holds pos, and the range
+// of the token. pos and the range are protocol positions in UTF-16 units.
+func channelNameAt(
+	content string,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	lines := newLineText(content)
+	at := lines.fromUTF16(pos)
+	for _, t := range tokenizeContent(content) {
+		switch t.GetTokenType() {
+		case parser.ArcLexerCHANNEL_NAME:
+			if r := tokenRange(t); holds(r, at) {
+				return parser.TokenName(t), lines.rangeToUTF16(r), true
+			}
+		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
+			if n, r, ok := placeholderChannelNameAt(t, at); ok {
+				return n, lines.rangeToUTF16(r), true
+			}
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// placeholderChannelNameAt returns the quoted channel name at pos inside a placeholder
+// of the format string t, and its range.
+func placeholderChannelNameAt(
+	t antlr.Token,
+	pos protocol.Position,
+) (parser.Name, protocol.Range, bool) {
+	f, ok := parseFormatString(t)
+	if !ok {
+		return parser.Name{}, protocol.Range{}, false
+	}
+	for _, seg := range f.segs {
+		if !seg.IsPlaceholder {
+			continue
+		}
+		inner, spans := f.innerTokens(seg)
+		for i, it := range inner {
+			if it.GetTokenType() != parser.ArcLexerCHANNEL_NAME {
+				continue
+			}
+			r := protocol.Range{Start: f.at[spans[i][0]], End: f.at[spans[i][1]]}
+			if holds(r, pos) {
+				return parser.TokenName(it), r, true
+			}
+		}
+	}
+	return parser.Name{}, protocol.Range{}, false
+}
+
+// holds reports whether the one-line range r holds pos, its end included, as a word
+// lookup does.
+func holds(r protocol.Range, pos protocol.Position) bool {
+	return pos.Line == r.Start.Line && pos.Character >= r.Start.Character &&
+		pos.Character <= r.End.Character
+}
+
+// tokenRange returns the range of a token that spans one line, with columns in code
+// points.
+func tokenRange(t antlr.Token) protocol.Range {
+	start := protocol.Position{
+		Line:      uint32(t.GetLine() - 1),
+		Character: uint32(t.GetColumn()),
+	}
+	end := start
+	end.Character += uint32(utf8.RuneCountInString(t.GetText()))
+	return protocol.Range{Start: start, End: end}
 }

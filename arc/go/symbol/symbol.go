@@ -35,6 +35,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
@@ -402,7 +403,7 @@ const maxProgramLocalChannelKey = 1 << 20
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && existing.AST != nil {
@@ -657,19 +658,18 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
-// ResolveMember resolves parts[0], then each later part as a member of the symbol
-// before it. parts must not be empty. options apply to parts[0] only, so a module
-// member stays subject to export.
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export.
 func (s *Symbol) ResolveMember(
 	ctx context.Context,
-	parts []string,
+	head, tail string,
 	options ...ResolveOption,
 ) (*Symbol, error) {
-	sym, err := s.Resolve(ctx, parts[0], options...)
-	for i := 1; err == nil && i < len(parts); i++ {
-		sym, err = sym.Resolve(ctx, parts[i])
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
 	}
-	return sym, err
+	return sym.Resolve(ctx, tail)
 }
 
 // resolve does the actual lexical walk. origin is the scope the caller
@@ -708,6 +708,39 @@ func (s *Symbol) resolve(
 	return s.resolveLexical(ctx, name, opts, origin)
 }
 
+// ResolveName resolves n from s. A quoted channel name finds only the channel of that
+// exact name that s or an ancestor holds or that a global resolver gives, so it never
+// binds a variable or reads its path as a channel key. Any other name resolves as
+// ResolveMember does.
+func (s *Symbol) ResolveName(
+	ctx context.Context,
+	n parser.Name,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	if !n.Quoted {
+		return s.ResolveMember(ctx, n.Head, n.Tail, options...)
+	}
+	var opts resolveOpts
+	for _, o := range options {
+		o(&opts)
+	}
+	isPath := func(sym *Symbol) bool { return sym.Name == n.Head }
+	return s.resolveChannel(ctx, isPath, n.Head, opts, s)
+}
+
+// ResolveChannelKey finds the channel with key that s or an ancestor holds, or that a
+// global resolver gives.
+func (s *Symbol) ResolveChannelKey(ctx context.Context, key uint32) (*Symbol, error) {
+	isKey := func(sym *Symbol) bool { return uint32(sym.ID) == key }
+	return s.resolveChannel(
+		ctx,
+		isKey,
+		strconv.FormatUint(uint64(key), 10),
+		resolveOpts{},
+		s,
+	)
+}
+
 // resolveMember finds the member of module s that the caller may see.
 func (s *Symbol) resolveMember(
 	ctx context.Context,
@@ -726,6 +759,48 @@ func (s *Symbol) resolveMember(
 		)
 	}
 	return child, nil
+}
+
+// resolveChannel finds the channel that matches in s or its ancestors: a channel child,
+// or one that a global resolver gives for name.
+func (s *Symbol) resolveChannel(
+	ctx context.Context,
+	matches func(*Symbol) bool,
+	name string,
+	opts resolveOpts,
+	origin *Symbol,
+) (*Symbol, error) {
+	isChannel := func(child *Symbol) bool {
+		return child.Kind == KindChannel && matches(child)
+	}
+	for scope := s; scope != nil; scope = scope.Parent {
+		if child := scope.findChild(isChannel); child != nil {
+			return child, nil
+		}
+		switch r := scope.globalResolver.(type) {
+		case nil:
+		case scopeResolver:
+			// A lexical lookup reads digits as an ID and marks the aliases it finds as
+			// used, so the walk goes on through the scope of the resolver.
+			sym, err := r.scope.resolveChannel(ctx, matches, name, opts, origin)
+			if !IsUndefined(err) {
+				return sym, err
+			}
+		default:
+			sym, err := r.Resolve(ctx, name)
+			if err != nil && !IsUndefined(err) {
+				return nil, err
+			}
+			// A resolver reads digits as a channel key, so it can give a channel that
+			// does not match.
+			if err == nil && isChannel(sym) && (opts.includeInternal || !sym.Internal) {
+				return sym, nil
+			}
+		}
+	}
+	return nil, codes.SymbolUndefined.Mark(
+		&UndefinedSymbolError{ctx: ctx, Name: name, scope: origin, channel: true},
+	)
 }
 
 func (s *Symbol) resolveLexical(
@@ -748,7 +823,7 @@ func (s *Symbol) resolveLexical(
 	}
 	if s.globalResolver != nil {
 		sym, err := s.globalResolver.Resolve(ctx, name)
-		if err != nil && !isUndefined(err) {
+		if err != nil && !IsUndefined(err) {
 			return nil, err
 		}
 		if err == nil && (opts.includeInternal || !sym.Internal) {
@@ -766,43 +841,70 @@ func (s *Symbol) resolveLexical(
 // Search returns symbols matching the given prefix or fuzzy term using the
 // same traversal order as Resolve.
 func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
+	return s.search(ctx, term, keepAll)
+}
+
+func keepAll(*Symbol) bool { return true }
+
+// search is Search over the symbols that keep accepts, so a symbol that keep refuses
+// never hides another of its name.
+func (s *Symbol) search(
+	ctx context.Context,
+	term string,
+	keep func(*Symbol) bool,
+) ([]*Symbol, error) {
 	seen := make(set.Set[string])
 	var results []*Symbol
-	for _, child := range s.children {
-		if child.Internal || child.Name == "" {
-			continue
-		}
-		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
-			results = append(results, child)
-			seen.Add(child.Name)
+	add := func(sym *Symbol) {
+		if !seen.Contains(sym.Name) {
+			results = append(results, sym)
+			seen.Add(sym.Name)
 		}
 	}
-	if s.globalResolver != nil {
-		matches, err := s.globalResolver.Search(ctx, term)
-		if err == nil {
-			for _, sym := range matches {
-				if sym.Internal {
-					continue
-				}
-				if !seen.Contains(sym.Name) {
-					results = append(results, sym)
-					seen.Add(sym.Name)
-				}
-			}
+	for _, child := range s.children {
+		if !child.Internal && child.Name != "" && keep(child) &&
+			matchesSearch(child.Name, term) {
+			add(child)
 		}
+	}
+	for _, sym := range s.globalMatches(ctx, term, keep) {
+		add(sym)
 	}
 	if s.Parent != nil {
-		parentResults, err := s.Parent.Search(ctx, term)
-		if err == nil {
+		if parentResults, err := s.Parent.search(ctx, term, keep); err == nil {
 			for _, sym := range parentResults {
-				if !seen.Contains(sym.Name) {
-					results = append(results, sym)
-					seen.Add(sym.Name)
-				}
+				add(sym)
 			}
 		}
 	}
 	return results, nil
+}
+
+// globalMatches returns the symbols that the global resolver of s finds for term and
+// keep accepts, and none when the search fails.
+func (s *Symbol) globalMatches(
+	ctx context.Context,
+	term string,
+	keep func(*Symbol) bool,
+) []*Symbol {
+	if s.globalResolver == nil {
+		return nil
+	}
+	var (
+		matches []*Symbol
+		err     error
+	)
+	if r, ok := s.globalResolver.(scopeResolver); ok {
+		matches, err = r.scope.search(ctx, term, keep)
+	} else {
+		matches, err = s.globalResolver.Search(ctx, term)
+	}
+	if err != nil {
+		return nil
+	}
+	return lo.Filter(matches, func(sym *Symbol, _ int) bool {
+		return !sym.Internal && keep(sym)
+	})
 }
 
 func matchesSearch(name, term string) bool {

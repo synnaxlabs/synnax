@@ -317,7 +317,7 @@ var _ = Describe("Old API breaker a4", func() {
 				taken := createChannel(ctx, telem.Float32T)
 				for calcMask := range 16 {
 					for at := range 4 {
-						for _, name := range []string{"", "bad name", taken.Name} {
+						for _, name := range []string{"", "bad.name", taken.Name} {
 							channels := batch(input, calcMask)
 							channels[at].Name = name
 							Expect(pathOf(ctx, channels)).To(

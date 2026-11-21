@@ -43,7 +43,6 @@ package context
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -176,29 +175,37 @@ func (c Context[AST]) WithConfig(cfg parser.Config) Context[AST] {
 	return c
 }
 
-// Resolve resolves a single (unqualified) name in the current scope. If the
-// resolved symbol is deprecated, a warning is added to diagnostics. Use this
-// for bare identifier resolution. For qualified names (e.g., `math.abs`) use
-// ResolveQualified so the head and tail are resolved as separate symbols.
-func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
-	result, err := c.Scope.Resolve(c, name)
-	if err != nil {
-		return result, err
-	}
-	c.warnIfDeprecated(name, result)
-	return result, nil
-}
-
-// ResolveQualified resolves the name in parts: parts[0] in the current scope, then each
-// later part as a member of the symbol before it. parts must not be empty. If the
-// resolved symbol is deprecated, a warning that names the joined parts is added to
-// diagnostics.
-func (c Context[AST]) ResolveQualified(parts []string) (*symbol.Symbol, error) {
-	sym, err := c.Scope.ResolveMember(c, parts)
+// ResolveQualified resolves a possibly-qualified name. head is the first
+// segment (always present); tail is the second segment, empty when the
+// reference is bare. When tail is non-empty, ResolveQualified follows
+// the head and then resolves tail through it; an alias head transparently
+// dispatches to its Target inside Resolve. Deprecation warnings fire on
+// whichever segment resolved to the deprecated symbol.
+func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error) {
+	headSym, err := c.Scope.Resolve(c, head)
 	if err != nil {
 		return nil, err
 	}
-	c.warnIfDeprecated(strings.Join(parts, "."), sym)
+	if tail == "" {
+		c.warnIfDeprecated(head, headSym)
+		return headSym, nil
+	}
+	tailSym, err := headSym.Resolve(c, tail)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(head+"."+tail, tailSym)
+	return tailSym, nil
+}
+
+// ResolveName resolves n as Symbol.ResolveName does, and warns when the symbol it finds
+// is deprecated.
+func (c Context[AST]) ResolveName(n parser.Name) (*symbol.Symbol, error) {
+	sym, err := c.Scope.ResolveName(c, n)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(n.String(), sym)
 	return sym, nil
 }
 
@@ -220,13 +227,12 @@ func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	if primary == nil || primary.QualifiedIdentifier() == nil {
 		return 0, false
 	}
-	var buf [2]string
-	parts := parser.AppendQualifiedNameParts(buf[:0], primary.QualifiedIdentifier())
-	headSym, err := c.Scope.Resolve(c, parts[0])
+	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
+	headSym, err := c.Scope.Resolve(c, head)
 	if err != nil {
 		return 0, false
 	}
-	sym, err := headSym.Resolve(c, parts[1])
+	sym, err := headSym.Resolve(c, tail)
 	if err != nil || sym.Kind != symbol.KindConstant {
 		return 0, false
 	}

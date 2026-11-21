@@ -215,12 +215,11 @@ func readsFlowVariable[T antlr.ParserRuleContext](
 	if _, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction); err == nil {
 		return false
 	}
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, parts)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	return err == nil && sym.IsValueVariable()
 }
 

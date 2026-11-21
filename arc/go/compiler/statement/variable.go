@@ -105,12 +105,11 @@ func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
 ) *symbol.Symbol {
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return nil
 	}
-	scope, err := ctx.Scope.ResolveMember(ctx, parts)
+	scope, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		return nil
 	}
@@ -418,8 +417,9 @@ func emitCompoundStore(
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
-	name := ctx.AST.IDENTIFIER().GetText()
-	scope, err := ctx.Scope.Resolve(ctx, name)
+	target := parser.AssignmentName(ctx.AST)
+	name := target.String()
+	scope, err := ctx.Scope.ResolveName(ctx, target)
 	if err != nil {
 		return err
 	}

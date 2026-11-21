@@ -10,6 +10,7 @@
 package text
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
@@ -488,9 +489,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := parser.IdentifierName(ctx.AST)
-	var buf [2]string
-	sym, err := ctx.ResolveQualified(parser.AppendIdentifierParts(buf[:0], ctx.AST))
+	name := parser.IdentifierName(ctx.AST).String()
+	sym, err := ctx.ResolveName(parser.IdentifierName(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -859,21 +859,16 @@ func lowerExprTriggers[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge) {
-	names := make([]string, 0, len(exprSym.Channels.Read))
-	for _, name := range exprSym.Channels.Read {
-		names = append(names, name)
-	}
-	slices.Sort(names)
 	var (
 		nodes []ir.Node
 		edges []ir.Edge
 	)
-	for _, name := range names {
-		chanSym, err := ctx.Scope.Resolve(ctx, name)
+	for _, r := range sortedReads(exprSym.Channels.Read) {
+		chanSym, err := readSymbol(ctx, r)
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(name, chanSym, kg)
+		result, ok := buildChannelReadNode(r.name, chanSym, kg)
 		if !ok {
 			continue
 		}
@@ -938,7 +933,7 @@ func lowerAssignment(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
-	sym, err := ctx.Scope.Resolve(ctx, ctx.AST.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveName(ctx, parser.AssignmentName(ctx.AST))
 	if err != nil {
 		return nil, nil, true
 	}
@@ -1021,12 +1016,11 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	var buf [2]string
-	parts := parser.AppendExpressionNameParts(buf[:0], expr)
-	if len(parts) == 0 {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return nil, nil, true
 	}
-	rhs, err := ctx.Scope.ResolveMember(ctx, parts)
+	rhs, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
@@ -1081,18 +1075,14 @@ func buildDispatcherTriggers[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) types.Params {
-	names := make([]string, 0, len(union.Read))
-	for _, name := range union.Read {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	params := make(types.Params, 0, len(names))
-	for ti, name := range names {
-		chanSym, err := ctx.Scope.Resolve(ctx, name)
+	reads := sortedReads(union.Read)
+	params := make(types.Params, 0, len(reads))
+	for ti, r := range reads {
+		chanSym, err := readSymbol(ctx, r)
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(name, chanSym, kg)
+		result, ok := buildChannelReadNode(r.name, chanSym, kg)
 		if !ok {
 			continue
 		}
@@ -1247,6 +1237,46 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 
 // channelKey returns the external channel key sym targets: its source channel
 // when sym is an alias, otherwise its own key.
+// read is a channel or reactive variable that a function reads, by its key and name.
+type read struct {
+	key  uint32
+	name string
+}
+
+// sortedReads returns the reads of a function, sorted by name and then key.
+func sortedReads(reads map[uint32]string) []read {
+	out := make([]read, 0, len(reads))
+	for key, name := range reads {
+		out = append(out, read{key: key, name: name})
+	}
+	slices.SortFunc(out, func(a, b read) int {
+		return cmp.Or(cmp.Compare(a.name, b.name), cmp.Compare(a.key, b.key))
+	})
+	return out
+}
+
+// readSymbol returns the channel or variable of r. A channel can share its name with a
+// variable or a function, so the key decides. A read through a local of a called
+// function names the local, so its channel is found by its key.
+func readSymbol[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	r read,
+) (*symbol.Symbol, error) {
+	quoted := parser.Name{Head: r.name, Quoted: true}
+	if sym, err := ctx.Scope.ResolveName(ctx, quoted); err == nil &&
+		channelKey(sym) == r.key {
+		return sym, nil
+	}
+	sym, err := ctx.Scope.Resolve(ctx, r.name)
+	if err == nil && channelKey(sym) == r.key {
+		return sym, nil
+	}
+	if ch, chErr := ctx.Scope.ResolveChannelKey(ctx, r.key); chErr == nil {
+		return ch, nil
+	}
+	return sym, err
+}
+
 func channelKey(sym *symbol.Symbol) uint32 {
 	if sym.SourceID != nil {
 		return uint32(*sym.SourceID)
@@ -1330,10 +1360,12 @@ func analyzeFunctionNode(
 	shell *shellBuilder,
 	triggered bool,
 ) (nodeResult, bool) {
-	var buf [2]string
-	parts := parser.AppendFunctionNameParts(buf[:0], ctx.AST)
-	name := strings.Join(parts, ".")
-	sym, err := ctx.ResolveQualified(parts)
+	head, tail := parser.FunctionNameParts(ctx.AST)
+	name := head
+	if tail != "" {
+		name = head + "." + tail
+	}
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
@@ -1458,12 +1490,7 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	for i, p := range n.Inputs {
 		// A lifted input carries the name its expression reads, such as m.doubled.
 		head, tail, _ := strings.Cut(p.Name, ".")
-		var buf [2]string
-		parts := append(buf[:0], head)
-		if tail != "" {
-			parts = append(parts, tail)
-		}
-		vsym, err := ctx.Scope.ResolveMember(ctx, parts)
+		vsym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 		if err != nil {
 			continue
 		}
@@ -1930,12 +1957,12 @@ func implicitTriggers[T antlr.ParserRuleContext](
 	head antlr.ParserRuleContext,
 ) ([]nodeResult, bool) {
 	var triggers []nodeResult
-	for _, chName := range headChannelReads(ctx, head) {
-		chanSym, err := ctx.Scope.Resolve(ctx, chName)
+	for _, r := range sortedReads(headChannelReads(ctx, head)) {
+		chanSym, err := readSymbol(ctx, r)
 		if err != nil {
 			continue
 		}
-		result, ok := buildChannelReadNode(chName, chanSym, kg)
+		result, ok := buildChannelReadNode(r.name, chanSym, kg)
 		if !ok {
 			return nil, false
 		}
@@ -1963,9 +1990,7 @@ func headVarReads[T antlr.ParserRuleContext](
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
 		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
-			var buf [2]string
-			parts := parser.AppendPrimaryNameParts(buf[:0], pe)
-			sym, err := ctx.Scope.ResolveMember(ctx, parts)
+			sym, err := ctx.Scope.ResolveName(ctx, parser.PrimaryName(pe))
 			if err != nil || !isExprReadVar(sym) {
 				continue
 			}
@@ -2320,11 +2345,8 @@ func (p *inputParser) parse(
 	// Top-level literal variables cannot be reassigned, so they inline; so
 	// does any literal variable with no write sites in the source. Any
 	// other value variable stamps a var ref to its node instead.
-	var buf [2]string
-	if parts := parser.AppendExpressionNameParts(buf[:0], expr); len(parts) > 0 {
-		if value, typ, ok, done := p.parseName(
-			expr, parts, paramType, paramName,
-		); done {
+	if n := parser.ExpressionName(expr); n.Head != "" {
+		if value, typ, ok, done := p.parseName(expr, n, paramType, paramName); done {
 			return value, typ, ok
 		}
 	}
@@ -2350,15 +2372,15 @@ func (p *inputParser) parse(
 	return parsedValue.Value, paramType, true
 }
 
-// parseName parses an input expression that reads the name in parts. done is false when
+// parseName parses an input expression that names a symbol. done is false when
 // the expression falls through to the other input forms.
 func (p *inputParser) parseName(
 	expr parser.IExpressionContext,
-	parts []string,
+	n parser.Name,
 	paramType types.Type,
 	paramName string,
 ) (value any, typ types.Type, ok, done bool) {
-	sym, err := p.ctx.Scope.ResolveMember(p.ctx, parts)
+	sym, err := p.ctx.Scope.ResolveName(p.ctx, n)
 	if err != nil {
 		return nil, paramType, false, false
 	}
@@ -2432,8 +2454,11 @@ func (p *inputParser) parseChannel(
 	paramType types.Type,
 	paramName string,
 ) (any, types.Type, bool) {
-	channelName := parser.GetExpressionText(expr)
-	sym, err := p.ctx.Scope.Resolve(p.ctx, channelName)
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
+		n = parser.Name{Head: parser.GetExpressionText(expr)}
+	}
+	sym, err := p.ctx.Scope.ResolveName(p.ctx, n)
 	if err != nil {
 		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, paramType, false

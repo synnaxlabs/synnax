@@ -123,7 +123,7 @@ var _ = Describe("Calculation records", func() {
 		unnamed.Expression = "return 2"
 		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
 		badName := apichannel.Channel{
-			Name:     "bad name",
+			Name:     "bad.name",
 			DataType: telem.Float32T,
 			Virtual:  true,
 		}

@@ -9,29 +9,38 @@
 
 package channel
 
-import "github.com/synnaxlabs/gorp"
+import (
+	"sync/atomic"
+
+	"github.com/synnaxlabs/gorp"
+)
 
 // Retrieve is a builder for querying channels.
 type Retrieve struct {
 	gorp    gorp.Retrieve[Key, Channel]
 	indexes indexes
-	// builtIn reports whether a key is a built-in channel.
-	builtIn func(Key) bool
+	// builtIn holds the filters of MatchInternal.
+	builtIn *builtInFilters
 }
 
-// The filters of MatchInternal, built once so that a request allocates none.
-var (
-	matchBuiltIn    = Match(isBuiltIn)
-	matchNotBuiltIn = Match(isNotBuiltIn)
-)
+// builtInFilters holds the filters of MatchInternal for one Service. The Service builds
+// them once, so that a request allocates none.
+type builtInFilters struct{ in, out gorp.Filter[Key, Channel] }
 
-func isBuiltIn(_ gorp.Context, r Retrieve, ch *Channel) (bool, error) {
-	return r.builtIn(ch.Key()), nil
+func newBuiltInFilters(builtIns *atomic.Pointer[builtInSet]) builtInFilters {
+	return builtInFilters{
+		in: gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return builtIns.Load().contains(ch.Key()), nil
+		}),
+		out: gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+			return !builtIns.Load().contains(ch.Key()), nil
+		}),
+	}
 }
 
-func isNotBuiltIn(_ gorp.Context, r Retrieve, ch *Channel) (bool, error) {
-	return !r.builtIn(ch.Key()), nil
-}
+func matchBuiltIn(r Retrieve) gorp.Filter[Key, Channel] { return r.builtIn.in }
+
+func matchNotBuiltIn(r Retrieve) gorp.Filter[Key, Channel] { return r.builtIn.out }
 
 // MatchInternal returns a filter for the built-in channels when internal is true, or
 // for every other channel when it is false.

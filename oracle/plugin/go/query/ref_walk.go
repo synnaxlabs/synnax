@@ -537,15 +537,15 @@ func (rd *renderer) walk(
 
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
+	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
+	// A walk that finds a target sizes targets for one per element of the shared array.
+	grow := ""
 	if arr, ok := sharedArray(ref.sites); ok {
-		fmt.Fprintf(
-			&b,
-			"targets := make([]%s, 0, len(%s))\n",
+		grow = fmt.Sprintf(
+			"if targets == nil {\ntargets = make([]%s, 0, len(%s))\n}\n",
 			rd.info.TargetType(),
 			arr,
 		)
-	} else {
-		fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
 	}
 	steps := make([][]refStep, len(ref.sites))
 	for i, s := range ref.sites {
@@ -555,29 +555,32 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 	rd.walk(&b, buildTree(steps), "e", false, func(b *strings.Builder, expr string) {
 		switch mode {
 		case leafRequired:
-			fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
+			fmt.Fprintf(b, "%stargets = append(targets, %s)\n", grow, rd.target(expr))
 		case leafZero:
 			fmt.Fprintf(
 				b,
-				"if %s != %s {\ntargets = append(targets, %s)\n}\n",
+				"if %s != %s {\n%stargets = append(targets, %s)\n}\n",
 				expr,
 				rd.info.ZeroOperand(),
+				grow,
 				rd.target(expr),
 			)
 		case leafOptional:
 			fmt.Fprintf(
 				b,
-				"if %s != nil {\ntargets = append(targets, %s)\n}\n",
+				"if %s != nil {\n%stargets = append(targets, %s)\n}\n",
 				expr,
+				grow,
 				rd.target("*"+expr),
 			)
 		case leafSlice:
 			k := rd.nextVar("k")
 			fmt.Fprintf(
 				b,
-				"for _, %s := range %s {\ntargets = append(targets, %s)\n}\n",
+				"for _, %s := range %s {\n%stargets = append(targets, %s)\n}\n",
 				k,
 				expr,
+				grow,
 				rd.target(k),
 			)
 		}

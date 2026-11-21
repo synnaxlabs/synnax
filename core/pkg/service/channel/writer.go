@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -128,6 +129,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
+	acts = normalizeNameActions(acts)
 	next, err := Reduce(prev, acts...)
 	if err != nil {
 		return nil, err
@@ -144,7 +146,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return nil, withoutPosition(nameTaken(err, 0))
 	}
 	if _, ok := freeIndexOf(next); ok && !sameGroup(prev.Group, next.Group) {
 		if err = w.regroupIndex(ctx, key, next); err != nil {
@@ -284,14 +286,15 @@ func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) 
 	return w.delete(ctx, keys, allowInternal)
 }
 
-// DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
-// true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels with the given names, compared in NFC. Unless
+// allowInternal is true, deleting any internal channel returns an error and no channels
+// are deleted.
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNames(NormalizeNames(names)...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -375,6 +378,7 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
+	newNames = NormalizeNames(newNames)
 	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
 		return err
 	}
@@ -398,16 +402,23 @@ func (w Writer) create(
 ) error {
 	channels := *_channels
 	given := len(channels)
-	if err := w.validateCreate(ctx, channels, opts); err != nil {
+	if err := w.validateCreate(ctx, channels); err != nil {
 		return err
 	}
 	w.prepareCreate(channels)
+	var (
+		stored set.Set[int]
+		err    error
+	)
 	// Reset channels that already exist by name to their stored records before index
 	// synthesis, so an existing channel keeps its stored index.
 	if opts.retrieveIfNameExists {
-		if err := w.resetStoredNames(ctx, channels); err != nil {
+		if stored, err = w.resetStoredNames(ctx, channels); err != nil {
 			return err
 		}
+	}
+	if err = checkCreatedNames(channels, stored); err != nil {
+		return err
 	}
 	// Make a free index for each channel that needs one and has none, new or stored.
 	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels, opts)
@@ -443,12 +454,9 @@ func (w Writer) create(
 	return w.attachCreates(ctx, lo.Uniq(written), channels[:given], linkedFills)
 }
 
-// validateCreate validates each channel, its group, and the names of channels.
-func (w Writer) validateCreate(
-	ctx context.Context,
-	channels []Channel,
-	opts createOptions,
-) error {
+// validateCreate validates each channel and its group. checkCreatedNames checks the
+// names once the create knows which channels exist.
+func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 	for i, ch := range channels {
 		if err := ch.Validate(); err != nil {
 			return BatchError{At: i, Err: err}
@@ -463,15 +471,24 @@ func (w Writer) validateCreate(
 			return BatchError{At: i, Err: err}
 		}
 	}
-	if !*w.svc.cfg.ValidateNames {
-		return nil
+	return nil
+}
+
+// checkCreatedNames puts the name of each channel that the create writes in NFC and
+// checks it against the name rule. A channel at a position in stored keeps the name of
+// its stored record, which a Core that ran with the old flag may have made. The name
+// index refuses a name that another channel holds when the create writes.
+func checkCreatedNames(channels []Channel, stored set.Set[int]) error {
+	for i := range channels {
+		if stored.Contains(i) {
+			continue
+		}
+		channels[i].Name = validate.NormalizeName(channels[i].Name)
+		if err := checkNameRule(channels[i].Name); err != nil {
+			return BatchError{At: i, Err: validate.PathedError(err, "name")}
+		}
 	}
-	return w.validateChannelNames(
-		ctx,
-		KeysFromChannels(channels),
-		Names(channels),
-		opts.retrieveIfNameExists,
-	)
+	return checkRepeatedNames(Names(channels))
 }
 
 // prepareCreate sets the leaseholder of each channel and clears its local key, which
@@ -485,21 +502,56 @@ func (w Writer) prepareCreate(channels []Channel) {
 	}
 }
 
+// addPosition adds at to positions, making positions on first use, so a create that
+// resets no channel allocates no set.
+func addPosition(positions set.Set[int], at int) set.Set[int] {
+	if positions == nil {
+		positions = make(set.Set[int])
+	}
+	positions.Add(at)
+	return positions
+}
+
 // resetStoredNames resets each channel whose name exists to its stored record.
-func (w Writer) resetStoredNames(ctx context.Context, channels []Channel) error {
+func (w Writer) resetStoredNames(
+	ctx context.Context,
+	channels []Channel,
+) (set.Set[int], error) {
+	var reset set.Set[int]
 	names := Names(channels)
+	normal := NormalizeNames(names)
 	var existing []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
+		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
 		Entries(&existing).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
-	namePositions := positions(names)
+	exact, normalPositions := positions(names), positions(normal)
+	// A record whose name the request holds exactly wins over one that holds its NFC.
+	slices.SortStableFunc(existing, func(a, b Channel) int {
+		_, aExact := exact[a.Name]
+		_, bExact := exact[b.Name]
+		return cmp.Compare(boolRank(bExact), boolRank(aExact))
+	})
 	for _, e := range existing {
-		channels[namePositions[e.Name][0]] = e
+		at, ok := exact[e.Name]
+		if !ok {
+			at = normalPositions[e.Name]
+		}
+		if !reset.Contains(at[0]) {
+			channels[at[0]] = e
+			reset = addPosition(reset, at[0])
+		}
 	}
-	return nil
+	return reset, nil
+}
+
+func boolRank(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // synthesizeIndexes returns a new index channel for each channel that needs a free
@@ -623,6 +675,12 @@ func (w Writer) allocateNew(
 		if ch.LocalKey == 0 {
 			newIndices = append(newIndices, i)
 			minimal = append(minimal, ch.Distribution())
+		}
+	}
+	// Allocate uses up keys, so a name that the index refuses fails before it.
+	for _, i := range newIndices {
+		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
+			return nil, nameTaken(err, i)
 		}
 	}
 	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal, opts); err != nil {
@@ -752,7 +810,15 @@ func (w Writer) allocateAndWrite(
 		Exclusive().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		// The check before Allocate passed, so a clash is between two new channels, and
+		// the later one is refused.
+		at, name := -1, takenName(err)
+		for _, i := range newIndices {
+			if channels[i].Name == name {
+				at = i
+			}
+		}
+		return nameTaken(err, at)
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		stored := channel.ToStorage(allocated)
@@ -822,66 +888,22 @@ func indexesFirst(a, b Channel) int {
 	}
 }
 
-// validateChannelNames rejects a create/rename request whose proposed names are not
-// identifiers, duplicate each other, or collide with an existing channel under a
-// different key. It leaves an empty name to Channel.Validate.
-func (w Writer) validateChannelNames(
-	ctx context.Context,
-	keys Keys,
-	names []string,
-	skipExisting bool,
-) error {
-	if err := validateNameSyntax(names); err != nil {
-		return err
-	}
-	if skipExisting {
+// checkNameRule returns a validation error when name breaks the name rule
+// (validate.IsPathSegment). It leaves an empty name to Channel.Validate.
+func checkNameRule(name string) error {
+	if name == "" || validate.IsPathSegment(name) {
 		return nil
 	}
-	var conflictingChannels []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&conflictingChannels).
-		Exec(ctx, w.tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	nameConflicts := make(map[string]int, len(conflictingChannels))
-	for i, ch := range conflictingChannels {
-		nameConflicts[ch.Name] = i
-	}
-	for i, name := range names {
-		conflictingIdx, conflict := nameConflicts[name]
-		if !conflict {
-			continue
-		}
-		existingCh := conflictingChannels[conflictingIdx]
-		if existingCh.Key() == keys[i] {
-			continue
-		}
-		return BatchError{At: i, Err: validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "channel with name '%s' already exists", name,
-			),
-			"name",
-		)}
-	}
-	return nil
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"channel name '%s' must hold a visible character, and no '.' or invisible "+
+			"character",
+		name,
+	)
 }
 
-// validateNameSyntax rejects names that are not identifiers or that repeat. It
-// leaves an empty name to Channel.Validate.
-func validateNameSyntax(names []string) error {
-	for i, name := range names {
-		if name != "" && !validate.IsIdentifier(name) {
-			return BatchError{At: i, Err: validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"channel name '%s' contains invalid characters. Only letters, digits, and underscores are allowed, and it cannot start with a digit",
-					name,
-				),
-				"name",
-			)}
-		}
-	}
+// checkRepeatedNames rejects a request that names one channel name twice.
+func checkRepeatedNames(names []string) error {
 	namesSeen := make(set.Set[string], len(names))
 	for i, name := range names {
 		if namesSeen.Contains(name) {
@@ -897,6 +919,33 @@ func validateNameSyntax(names []string) error {
 		namesSeen.Add(name)
 	}
 	return nil
+}
+
+// takenName returns the name of a clash of the name index, or "" when err is not one.
+func takenName(err error) string {
+	var clash gorp.UniqueError
+	if errors.As(err, &clash) && clash.Space == nameSpace {
+		name, _ := clash.Value.(string)
+		return name
+	}
+	return ""
+}
+
+// nameTaken returns the error of the channel at position i when err is a clash of the
+// name index, and err itself otherwise.
+func nameTaken(err error, i int) error {
+	var clash gorp.UniqueError
+	if !errors.As(err, &clash) || clash.Space != nameSpace {
+		return err
+	}
+	return BatchError{At: i, Err: validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"channel with name '%v' already exists",
+			clash.Value,
+		),
+		"name",
+	)}
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
@@ -927,6 +976,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 	return nil
 }
 
+// rename renames the channels with keys to names, which must be in NFC.
 func (w Writer) rename(
 	ctx context.Context,
 	keys Keys,
@@ -939,10 +989,8 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	if *w.svc.cfg.ValidateNames {
-		if err := w.validateChannelNames(ctx, keys, names, false); err != nil {
-			return err
-		}
+	if err := checkRepeatedNames(names); err != nil {
+		return err
 	}
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
@@ -958,14 +1006,24 @@ func (w Writer) rename(
 					c.Name,
 				)
 			}
-			c.Name = renameMap[c.Key()]
+			// A stored name that the rule refuses stays writable while a rename keeps
+			// it.
+			if next := renameMap[c.Key()]; next != c.Name {
+				if err := checkNameRule(next); err != nil {
+					return Channel{}, BatchError{
+						At:  slices.Index(keys, c.Key()),
+						Err: validate.PathedError(err, "name"),
+					}
+				}
+				c.Name = next
+			}
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nameTaken(err, slices.Index(names, takenName(err)))
 	}
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
