@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -49,6 +50,23 @@ var _ = Describe("Delete", func() {
 	})
 
 	Describe("Where", func() {
+		It("Should delete nothing when the filter fails", func(ctx SpecContext) {
+			for i := range int32(10) {
+				Expect(gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: i}).
+					Exec(ctx, tx)).To(Succeed())
+			}
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
+					if e.ID == 5 {
+						return false, query.ErrNotFound
+					}
+					return true, nil
+				})).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(gorp.NewRetrieve[int32, entry]().Count(ctx, tx)).To(Equal(10))
+		})
+
 		It("Should delete an entry by predicate in the db", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&entry{ID: 1, Data: "Synnax"}).

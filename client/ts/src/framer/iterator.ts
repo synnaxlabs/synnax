@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Stream, WebSocketClient } from "@synnaxlabs/freighter";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -230,7 +230,12 @@ export class Iterator {
   }
 
   private async execute(request: IteratorRequest): Promise<boolean> {
-    await this.stream.send(request);
+    try {
+      await this.stream.send(request);
+    } catch (err) {
+      // An EOF means the Core closed the stream, and receive reports why.
+      if (!EOF.matches(err)) throw errors.fromUnknown(err);
+    }
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();

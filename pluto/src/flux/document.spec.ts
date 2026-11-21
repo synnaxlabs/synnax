@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { query, type rack, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -806,6 +806,38 @@ describe("createDocumentForm", () => {
     expect((await fetchStored(first.key)).config).toMatchObject({
       routingKey: ROUTING_KEY,
     });
+  });
+
+  it("should keep its values and take no edits after a remote delete", async () => {
+    // The form stays mounted after the delete, as it does until it renders again.
+    const useMountedForm = Flux.createDocumentForm<task.Key, task.Task, typeof schema>({
+      name: "Task",
+      schema,
+      domain: (client) => client.tasks,
+      useEnsure: () => {},
+      toValues: ({ payload: { name, config } }) => ({ name, config }) as Values,
+    });
+    const t = await createTask();
+    await formClient.tasks.retrieve(t.key);
+    const { result } = await renderHookSuspended(
+      () => useMountedForm({ query: { key: t.key } }),
+      { wrapper },
+    );
+    const values = result.current.form.value();
+    await act(async () => await client.tasks.delete(t.key));
+    await waitFor(() =>
+      expect(query.isLive(formClient.tasks.watch(t.key).getCached())).toBe(false),
+    );
+    const send = spyOnSend(formClient);
+    act(() => {
+      result.current.form.set(path.name, "renamed");
+      result.current.form.batch(() =>
+        result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY),
+      );
+    });
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(0);
+    expect(result.current.form.value()).toEqual(values);
   });
 
   describe("pathOf", () => {
