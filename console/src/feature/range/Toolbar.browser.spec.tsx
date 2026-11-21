@@ -707,12 +707,12 @@ describe("range/Toolbar", () => {
       // The named colors can load after the range, so each try starts a new drag.
       await expect
         .poll(() => {
-          fireEvent.dragStart(line);
+          fireEvent.dragStart(line, { dataTransfer: new DataTransfer() });
           const tile = document.querySelector<HTMLElement>(
             ".lyra-haul__layer .lyra-haul-preview__tile",
           );
           const background = tile?.style.background;
-          fireEvent.dragEnd(line);
+          fireEvent.dragEnd(line, { dataTransfer: new DataTransfer() });
           return background;
         })
         .toBe("rgb(18, 52, 86)");
