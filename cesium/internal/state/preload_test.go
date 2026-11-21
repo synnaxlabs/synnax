@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -40,12 +39,11 @@ var _ = Describe("Preloads", func() {
 		)).To(Succeed())
 		MustSucceed(s.Snapshot())
 	})
-	writer := func(start telem.TimeStamp) state.WriterConfig {
-		return state.WriterConfig{
-			Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
-			Clock: 5,
-			Start: start,
-		}
+	// writer starts inside segment 3, whose pointer runs from 10 to 30.
+	writer := state.WriterConfig{
+		Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+		Clock: 5,
+		Start: 20,
 	}
 	preload := func(generation uint64, segs ...state.Segment) state.Preload {
 		return state.Preload{Key: 6, Generation: generation, Segments: segs}
@@ -53,19 +51,19 @@ var _ = Describe("Preloads", func() {
 
 	It("Should refuse a writer that starts in a parted segment, through its "+
 		"preloaded record", func() {
-		Expect(s.OpenWriter(writer(20), preload(5, record))).Error().To(SatisfyAll(
+		Expect(s.OpenWriter(writer, preload(5, record))).Error().To(SatisfyAll(
 			MatchError(state.ErrConflict),
 			MatchError(ContainSubstring("inside its stored data from 10 to 30")),
 		))
 	})
 
 	It("Should take the records of a parted segment from the preload alone", func() {
-		w := MustSucceed(s.OpenWriter(writer(20), preload(5)))
+		w := MustSucceed(s.OpenWriter(writer, preload(5)))
 		Expect(w.Close()).To(Succeed())
 	})
 
 	It("Should refuse a preload from the parts of an older head as stale", func() {
-		Expect(s.OpenWriter(writer(20), preload(4, record))).Error().To(SatisfyAll(
+		Expect(s.OpenWriter(writer, preload(4, record))).Error().To(SatisfyAll(
 			MatchError(state.ErrStale),
 			MatchError(ContainSubstring("key 6 reads the parts of head 5, not 4")),
 		))
@@ -75,7 +73,7 @@ var _ = Describe("Preloads", func() {
 
 	It("Should refuse a step with no preload of a key that parts hold as stale",
 		func() {
-			Expect(s.OpenWriter(writer(20))).Error().To(SatisfyAll(
+			Expect(s.OpenWriter(writer)).Error().To(SatisfyAll(
 				MatchError(state.ErrStale),
 				MatchError(ContainSubstring("no preload of key 6, which parts hold")),
 			))
