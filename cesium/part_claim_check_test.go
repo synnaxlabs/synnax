@@ -10,6 +10,9 @@
 package cesium_test
 
 import (
+	"maps"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -27,14 +30,26 @@ import (
 func parted(fs xfs.FS, generation uint64, key cesium.ChannelKey) []uint64 {
 	GinkgoHelper()
 	h, s := MustSucceed2(checkpoint.Read(fs, generation))
-	MustSucceed(checkpoint.LoadParts(fs, h.DB, h)).Merge(s)
-	var parts []uint64
+	at := map[uint64]uint64{}
 	for _, ch := range s.Channels {
 		if ch.Key == key {
 			for _, seg := range ch.Segments {
-				parts = append(parts, seg.Part)
+				at[seg.ID] = 0
 			}
 		}
+	}
+	cache := checkpoint.NewCache(fs, h.DB, 1<<20)
+	for _, p := range h.Parts {
+		r := MustSucceed(cache.Records(p, key))
+		for i, seg := range r.Segments {
+			if p.Live(r.First + i) {
+				at[seg.ID] = p.ID
+			}
+		}
+	}
+	parts := make([]uint64, 0, len(at))
+	for _, id := range slices.Sorted(maps.Keys(at)) {
+		parts = append(parts, at[id])
 	}
 	return parts
 }
