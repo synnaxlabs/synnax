@@ -18,19 +18,10 @@ interface Size {
   height: number;
 }
 
-// A ResizeObserver loop can come from a change of less than a pixel, which the offset
-// size rounds away. The computed size keeps fractions and, unlike the bounding box,
-// ignores transforms. An inline element computes "auto", and the observer reports 0.
-const pixels = (value: string): number => {
-  const parsed = parseFloat(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
+// A ResizeObserver loop can come from a change of less than a pixel. The offset size
+// rounds it away, and Chromium writes a computed size to six digits, so only the
+// layout box keeps it. A callback that changes a scale reads as a resize.
 const measure = (element: Element): Size => {
-  if (element instanceof HTMLElement) {
-    const { width, height } = getComputedStyle(element);
-    return { width: pixels(width), height: pixels(height) };
-  }
   const { width, height } = element.getBoundingClientRect();
   return { width, height };
 };
