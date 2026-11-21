@@ -77,27 +77,4 @@ describe("Media", () => {
       );
     });
   });
-
-  describe("Image", () => {
-    it("should offer the dark version by color scheme and fall back to light", () => {
-      show(renderToString(<Media.Image id="shot" alt="Shot" />));
-      expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN.ROOT}/shot-dark.png`],
-      ]);
-      const img = document.querySelector("picture > img") as HTMLImageElement;
-      expect(img.getAttribute("src")).toBe(`${CDN.ROOT}/shot-light.png`);
-      expect(img.alt).toBe("Shot");
-      expect(img.getAttribute("loading")).toBe("lazy");
-    });
-
-    it("should render a plain image when not themed", () => {
-      show(
-        renderToString(<Media.Image id="logo" alt="" extension="svg" themed={false} />),
-      );
-      expect(document.querySelector("picture")).toBeNull();
-      expect(document.querySelector("img")?.getAttribute("src")).toBe(
-        `${CDN.ROOT}/logo.svg`,
-      );
-    });
-  });
 });

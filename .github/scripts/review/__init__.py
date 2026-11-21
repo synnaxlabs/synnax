@@ -11,7 +11,7 @@
 its review as a check run, inline threads, and a summary in the pull request body."""
 
 from review.carry import carry
-from review.dismiss import dismiss
+from review.dismiss import dismiss, dismiss_by_title
 from review.findings import SEVERITIES, Dismissal, Finding, Fix, Review, parse
 from review.judge import Judgment, judge, rule
 from review.post import (
@@ -29,7 +29,7 @@ from review.post import (
     threads,
     withdrawn,
 )
-from review.restore import Unrestorable, restore
+from review.restore import Outcome, Unrestorable, restore
 from review.run import (
     Claude,
     Config,
@@ -57,6 +57,7 @@ __all__ = [
     "Judgment",
     "Lens",
     "LoginRejected",
+    "Outcome",
     "Pass",
     "PullRequest",
     "Review",
@@ -69,6 +70,7 @@ __all__ = [
     "authority",
     "carry",
     "dismiss",
+    "dismiss_by_title",
     "dismissals",
     "dismissed",
     "gh",

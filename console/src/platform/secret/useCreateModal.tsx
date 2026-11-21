@@ -11,14 +11,14 @@ import { type rack, type secret, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { type Input } from "@synnaxlabs/lyra/input";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Secret, Synnax } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
 import { FileBrowser } from "@/platform/file-browser";

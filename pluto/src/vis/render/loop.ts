@@ -9,8 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 
-import { type status } from "@/status/aether";
-import { type CanvasVariant } from "@/vis/render/context";
+import type { status } from "@/status/aether";
+import type { CanvasVariant } from "@/vis/render/context";
 
 /**
  * A function that executes the render in the loop. This function can return an

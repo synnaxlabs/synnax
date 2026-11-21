@@ -19,7 +19,7 @@ import {
 import { deep, errors } from "@synnaxlabs/x";
 
 import { configureMiddleware, type Middlewares } from "@/middleware";
-import { type Runtime } from "@/runtime";
+import type { Runtime } from "@/runtime";
 import {
   type Action,
   closeWindow,

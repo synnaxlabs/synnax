@@ -11,7 +11,7 @@ import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, location, xy } from "@synnaxlabs/x";
 import { act, fireEvent, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, type RefObject } from "react";
+import type { PropsWithChildren, ReactElement, RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 
 import {

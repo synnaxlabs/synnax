@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 export interface TileProps extends PropsWithChildren {
   /** status tints the tile for a page that reports an outcome. */

@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { box, xy } from "@synnaxlabs/x";
 import { useReactFlowStoreApi } from "@xyflow/react";
 import { type ReactElement, useRef } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Line } from "@/schematic/node/general/line/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 // Absolute endpoints when the drag began, and which one is moving.
 interface Drag {
@@ -36,6 +37,7 @@ export const Symbol = ({
   position = xy.ZERO,
   config: { strokeColor, start, end, strokeWidth },
 }: NodeProps<schematic.LineNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const { optionsStore, viewportStore } = useReactFlowStoreApi();
   const dragRef = useRef<Drag | null>(null);
   const points = [start, end];
@@ -73,7 +75,7 @@ export const Symbol = ({
     <>
       <Line
         className={Grid.DRAG_HANDLE_CLASS}
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         start={start}
         end={end}
         strokeWidth={strokeWidth}
@@ -91,4 +93,15 @@ export const Symbol = ({
         ))}
     </>
   );
+};
+
+/** Renders the line in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  start: _start,
+  end: _end,
+  ...rest
+}: schematic.LineNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <Line {...rest} strokeColor={resolve(strokeColor)} />;
 };

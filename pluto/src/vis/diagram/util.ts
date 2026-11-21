@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
-import {
-  type InternalNode,
-  type NodeChange as RFNodeChange,
-  type ReactFlowInstance,
-  type ViewportStore,
+import type {
+  InternalNode,
+  NodeChange as RFNodeChange,
+  ReactFlowInstance,
+  ViewportStore,
 } from "@xyflow/react";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);

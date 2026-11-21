@@ -15,6 +15,7 @@ export * from "@/platform/view/Frame";
 export * from "@/platform/view/Items";
 export * from "@/platform/view/tab";
 export * from "@/platform/view/Toolbar";
+export * from "@/platform/view/tooltip";
 
 export const useContext = () => useCtx("View.useContext");
 

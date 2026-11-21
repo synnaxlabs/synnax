@@ -10,7 +10,7 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Keys } from "@/components/keys/Keys";
 import { Results } from "@/components/search/Results";

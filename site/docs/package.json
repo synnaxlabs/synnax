@@ -48,6 +48,7 @@
     "@testing-library/react": "catalog:",
     "@types/hast": "catalog:",
     "@types/html-escaper": "catalog:",
+    "@types/jsdom": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitest/browser-playwright": "catalog:",

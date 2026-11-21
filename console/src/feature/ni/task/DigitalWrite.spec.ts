@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { id } from "@synnaxlabs/x";
@@ -16,7 +16,11 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
+import {
+  createNIDevice,
+  preloadForms,
+  renderNITaskForm,
+} from "@/feature/ni/task/testutil";
 import { Task } from "@/platform/task";
 import {
   commitFieldInput,
@@ -27,6 +31,8 @@ import {
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms();
 
 interface CreateChannelOverrides extends Partial<NI.Task.DOChannel> {}
 

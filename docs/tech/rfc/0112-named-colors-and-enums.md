@@ -257,9 +257,9 @@ stores each old color as `fixed`, and its hand-written client code writes the un
 The field that uses a named color or an enumeration can create and edit one. The color
 picker creates a named color, and Edit in the menu of a swatch edits one. The Options
 tab of a select or a state indicator creates an enumeration and edits the one the symbol
-holds. Each type has one editor, and the field and Settings open the same editor.
-Settings also creates, edits, finds, and deletes both types, and for enumerations it
-lists their users and replaces them.
+holds. Each type has one form and one save path, but the field and Settings may lay out
+its fields differently. Settings also creates, edits, finds, and deletes both types, and
+for enumerations it lists their users and replaces them.
 
 ## 5 What this RFC does not cover
 

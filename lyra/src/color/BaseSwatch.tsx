@@ -10,7 +10,7 @@
 import "@/color/Swatch.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";

@@ -9,11 +9,11 @@
 
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { type Flex } from "@synnaxlabs/lyra/flex";
+import type { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, type TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";

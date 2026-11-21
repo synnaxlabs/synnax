@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import type { Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
 import {
@@ -25,6 +25,7 @@ import {
   type ReadChannel,
   type WriteChannel,
 } from "@/feature/labjack/task/types";
+import { preload } from "@/testutil";
 
 type AnalogReadChannel = Extract<ReadChannel, { type: "analog" }>;
 type DigitalReadChannel = Extract<ReadChannel, { type: "digital" }>;
@@ -126,3 +127,10 @@ export const createDigitalWriteChannel = (
   ...overrides,
   type: "digital",
 });
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/labjack/task/Read"),
+    async () => await import("@/feature/labjack/task/Write"),
+  );

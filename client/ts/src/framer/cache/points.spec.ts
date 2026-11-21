@@ -23,8 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import type { channel } from "@/channel";
+import type { framer } from "@/framer";
 import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,

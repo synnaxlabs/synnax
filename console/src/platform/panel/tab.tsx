@@ -15,11 +15,11 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { type Icon } from "@synnaxlabs/lyra/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x";
 import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
 export interface TabNameProps extends Pick<

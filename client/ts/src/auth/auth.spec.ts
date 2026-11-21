@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "@synnaxlabs/freighter";
+import type { Context } from "@synnaxlabs/freighter";
 import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
@@ -146,6 +146,25 @@ describe("auth", () => {
         }),
       ).rejects.toThrow(InvalidTokenError);
       expect(onFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: testClientParams().host,
+      port: Number(testClientParams().port),
+    });
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods(client);
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
     });
   });
 
@@ -842,6 +861,37 @@ describe("auth", () => {
       expect(() =>
         makeClient({ credentials: TEST_CREDENTIALS, apiKey: "syk_key" }),
       ).toThrow(/either an API key or a username and password/);
+    });
+  });
+
+  describe("setCredentials", () => {
+    it("should log in again for a request waiting on a login it made stale", async () => {
+      const admin = createTestClient();
+      const second = { username: id.create(), password: "seldon" };
+      const { key: role } = await createEmptyRole(admin);
+      await admin.users.create({ ...second, role });
+      const transport = new Transport({
+        url: new url.URL({
+          host: testClientParams().host,
+          port: Number(testClientParams().port),
+        }),
+      });
+      let username: string | undefined;
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onUser: (u) => (username = u?.name) },
+      );
+      transport.use(client.middleware());
+      const next = vi.fn(async (ctx: Context) => ctx);
+      const sent = client.middleware()({ ...DUMMY_CTX, params: {} }, next);
+      client.setCredentials(second);
+      await sent;
+      expect(username).toEqual(second.username);
+      expect(next.mock.calls[0][0].params.Authorization).toEqual(
+        `Bearer ${client.token}`,
+      );
+      await admin.close();
     });
   });
 });

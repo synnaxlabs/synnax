@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { type Theming } from "@synnaxlabs/lyra/theming";
+import type { schematic } from "@synnaxlabs/client";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
@@ -18,8 +18,10 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.PolygonNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor" | "fillColor"
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 

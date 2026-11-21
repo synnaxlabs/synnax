@@ -13,7 +13,7 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";

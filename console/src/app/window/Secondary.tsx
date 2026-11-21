@@ -10,7 +10,7 @@
 import "@/app/window/Secondary.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";

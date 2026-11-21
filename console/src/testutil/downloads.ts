@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
+import { onTestFinished, vi } from "vitest";
 
 export const MOCK_OBJECT_URL = "blob:mock";
 
@@ -21,10 +21,11 @@ export interface CapturedDownloads {
 }
 
 /**
- * captureBrowserDownloads stubs the object-URL and anchor-click primitives jsdom lacks
- * so browser download paths complete, recording each downloaded anchor, blob, and
- * revoked URL for assertion. Installs spies; callers restore them via
- * vi.restoreAllMocks() in afterEach.
+ * captureBrowserDownloads stubs the object-URL and anchor-click primitives so browser
+ * download paths complete, recording each downloaded anchor, blob, and revoked URL for
+ * assertion. It hides the save picker until the test ends, so a download takes the
+ * anchor path. Installs spies; callers restore them via vi.restoreAllMocks() in
+ * afterEach.
  */
 export const captureBrowserDownloads = (): CapturedDownloads => {
   const anchors: HTMLAnchorElement[] = [];
@@ -36,6 +37,18 @@ export const captureBrowserDownloads = (): CapturedDownloads => {
   });
   vi.spyOn(URL, "revokeObjectURL").mockImplementation((url) => {
     revoked.push(url);
+  });
+  // A browser with a save picker writes the file through it, so the picker is hidden
+  // for the test.
+  const picker = Object.getOwnPropertyDescriptor(window, "showSaveFilePicker");
+  Object.defineProperty(window, "showSaveFilePicker", {
+    configurable: true,
+    writable: true,
+    value: undefined,
+  });
+  onTestFinished(() => {
+    if (picker == null) Reflect.deleteProperty(window, "showSaveFilePicker");
+    else Object.defineProperty(window, "showSaveFilePicker", picker);
   });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
     this: HTMLAnchorElement,

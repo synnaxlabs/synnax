@@ -11,7 +11,7 @@ import { createRequire } from "node:module";
 
 import { type ParserOptions, transformAsync } from "@babel/core";
 import { isWorker, plugins } from "@synnaxlabs/eslint-config/compiler";
-import { type Plugin } from "rolldown";
+import type { Plugin } from "rolldown";
 
 const require = createRequire(import.meta.url);
 export const COMPILER = require.resolve("babel-plugin-react-compiler");

@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { channel, schematic } from "@synnaxlabs/client";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, type RefCallback } from "react";
+import type { color, xy } from "@synnaxlabs/x";
+import type { ReactElement, RefCallback } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Input } from "@/schematic/node/general/input/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Input as InputTelem } from "@/vis/input";
 import { Staleness } from "@/vis/staleness";
@@ -78,9 +79,11 @@ export const Symbol = ({
     stalenessTimeout,
     size,
     inlineSize,
+    fillColor,
     ...rest
   },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.stringSink(commandChannel);
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
@@ -109,6 +112,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Input
         onSend={set}
+        fillColor={resolve(fillColor)}
         value={value}
         size={size}
         inlineSize={inlineSize}

@@ -19,6 +19,7 @@ import { type KeyboardEvent, useEffect, useRef } from "react";
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
+import { openContextMenu } from "@/menu/keyboard";
 import { useRegistryContext, useSearching } from "@/select/registry";
 import {
   type Cursor,
@@ -115,20 +116,26 @@ export interface UseReturn<K extends record.Key> extends Omit<
   clear: () => void;
 }
 
-interface UseOrderReturn<K extends record.Key> extends SelectionOrder<K> {
-  /** Reads the element of the option with the given key, while it renders. */
-  getElement: (key: K) => HTMLElement | null | undefined;
-}
+/**
+ * @returns a function that finds the element of an option, fixed or in the list, or
+ * undefined when the option is not rendered.
+ */
+export const useGetElement = (): ((key: record.Key) => HTMLElement | undefined) => {
+  const registry = useRegistryContext("Select.Frame");
+  const getRowElement = List.useGetElement();
+  return (key) =>
+    registry.hasItem(key)
+      ? (registry.getElement(key) ?? undefined)
+      : getRowElement(key);
+};
 
 /** Reads and acts on the options of the enclosing select by key. */
-export const useOrder = <K extends record.Key>(): UseOrderReturn<K> => {
+export const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
-  const getRowElement = List.useGetElement();
+  const getElement = useGetElement();
   // The registry holds keys of every selection's type, so the order narrows them to K.
   const getOrder = () => registry.getOrder(getData()) as K[];
-  const getElement = (key: K) =>
-    registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
   const scrollTo = (key: K, direction: location.Y) => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
@@ -141,20 +148,10 @@ export const useOrder = <K extends record.Key>(): UseOrderReturn<K> => {
     );
   const contextMenu = (key: K) => {
     const element = getElement(key);
-    if (element == null) return;
-    const { left, bottom } = element.getBoundingClientRect();
-    element.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        cancelable: true,
-        clientX: left,
-        clientY: bottom,
-      }),
-    );
+    if (element != null) openContextMenu(element);
   };
   return {
     getOrder,
-    getElement,
     scrollTo,
     click,
     doubleClick,
@@ -291,12 +288,16 @@ export const useMultiple = <K extends record.Key>({
     const shiftValue = shiftValueRef.current;
     let nextSelected: K[];
     const value = array.toArray(valueRef.current).filter((v) => v != null);
+    const order = getOrder();
     // If the control key is held, we can still allow multiple selection.
     if (ctrl.current.held && replaceOnSingle)
       if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
-    else if (shift.current.held && shiftValue !== null) {
-      const order = getOrder();
+    else if (shift.current.held && shiftValue !== null && !order.includes(shiftValue)) {
+      // The anchor left the order, so the click extends the selection by itself.
+      nextSelected = [...value, key];
+      shiftValueRef.current = key;
+    } else if (shift.current.held && shiftValue !== null) {
       // We might select in reverse order, so we need to sort the indexes.
       const [start, end] = [order.indexOf(key), order.indexOf(shiftValue)].sort(
         (a, b) => a - b,

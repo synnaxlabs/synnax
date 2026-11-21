@@ -24,7 +24,7 @@ import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
-import { type LogEntry } from "@/log/aether/telem/types";
+import type { LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
