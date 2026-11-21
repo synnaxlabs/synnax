@@ -9,7 +9,7 @@
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { deep, record } from "@synnaxlabs/x";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import {
   CUSTOM_ACTUATOR_VARIANT,
@@ -24,7 +24,7 @@ import { GroupBox } from "@/schematic/node/groupBox";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
-import { type Spec } from "@/schematic/node/spec";
+import type { Spec } from "@/schematic/node/spec";
 import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
 

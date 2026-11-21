@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
-import { type PrimitiveTypeName } from "@/json/primitive";
+import type { PrimitiveTypeName } from "@/json/primitive";
 
 export interface SelectTypeProps extends Select.ButtonsProps<PrimitiveTypeName> {}
 

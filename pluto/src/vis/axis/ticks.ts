@@ -12,6 +12,7 @@ import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-sca
 import { z } from "zod";
 
 import { type PreciseTimeScale, preciseTimeScale } from "@/vis/axis/preciseTimeScale";
+import { formatRelativeTime, RELATIVE_STEPS } from "@/vis/axis/relative";
 
 export interface Tick {
   position: number;
@@ -22,7 +23,7 @@ export interface TickFactory {
   create: (params: TickFactoryRenderParams) => Tick[];
 }
 
-export const tickType = z.enum(["linear", "time"]);
+export const tickType = z.enum(["linear", "time", "relative"]);
 
 export type TickType = z.infer<typeof tickType>;
 
@@ -168,6 +169,35 @@ class LinearTickFactory implements TickFactory {
   }
 }
 
+// RelativeTickFactory labels a span in nanoseconds from a zero, such as the time since
+// the start of a range: T-5 s, T0, T+5 s.
+class RelativeTickFactory implements TickFactory {
+  private readonly props: ParsedTickFactoryProps;
+
+  constructor(props: ParsedTickFactoryProps) {
+    this.props = props;
+  }
+
+  create({ decimalToDataScale: scale, size }: TickFactoryRenderParams): Tick[] {
+    const lower = scale.pos(0);
+    const upper = scale.pos(1);
+    const span = upper - lower;
+    if (!(span > 0) || size <= 0) return [];
+    const target = span / calcTickCount(size, this.props.tickSpacing);
+    const step =
+      RELATIVE_STEPS.find((s) => s >= target) ??
+      RELATIVE_STEPS[RELATIVE_STEPS.length - 1];
+    const magnitude = Math.max(Math.abs(lower), Math.abs(upper));
+    const ticks: Tick[] = [];
+    for (let v = Math.ceil(lower / step) * step; v <= upper; v += step)
+      ticks.push({
+        label: formatRelativeTime(v, step, magnitude),
+        position: ((v - lower) / span) * size,
+      });
+    return ticks;
+  }
+}
+
 const calcTickCount = (size: number, pixelsPerTick: number): number => {
   const tickCount = Math.floor(size / pixelsPerTick);
   return tickCount > 0 ? tickCount : 1;
@@ -213,4 +243,5 @@ const TICK_FACTORIES: Record<TickType, (props: ParsedTickFactoryProps) => TickFa
   {
     linear: (p) => new LinearTickFactory(p),
     time: (p) => new TimeTickFactory(p),
+    relative: (p) => new RelativeTickFactory(p),
   };

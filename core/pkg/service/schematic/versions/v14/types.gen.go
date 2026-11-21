@@ -17,13 +17,14 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	border "github.com/synnaxlabs/x/border/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v2"
+	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -65,48 +66,391 @@ func (n Node) Validate() error {
 type Handle = v13.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge = v13.Edge
+type Edge struct {
+	// Key is the unique edge identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Source is the source endpoint of the edge.
+	Source Handle `json:"source" msgpack:"source"`
+	// Target is the target endpoint of the edge.
+	Target Handle `json:"target" msgpack:"target"`
+	// Config is the style of the connection and the path it traces.
+	Config EdgeConfig `json:"config" msgpack:"config"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e Edge) Validate() error {
+	v := validate.New("Edge")
+	v.Exec(func() error { return validate.PathedError(e.Config.Validate(), "config") })
+	return v.Error()
+}
 
 // Segment is a single orthogonal run in an edge's connector path.
 type Segment = v13.Segment
 
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
-type SegmentedEdgeConfig = v13.SegmentedEdgeConfig
+type SegmentedEdgeConfig struct {
+	// StrokeColor is the stroke color of the edge, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments []Segment `json:"segments" msgpack:"segments"`
+	// StrokeWidth is the stroke width of the edge in pixels.
+	StrokeWidth uint8 `json:"stroke_width" msgpack:"stroke_width"`
+}
 
-// EdgeConfig is the configuration of one edge. The variant selects the visual style of
-// the connection.
-type EdgeConfig = v13.EdgeConfig
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SegmentedEdgeConfig) SetDefaults() {
+	s.StrokeWidth = 2
+}
 
-// EdgeConfigVariant is implemented by every EdgeConfig variant.
-type EdgeConfigVariant = v13.EdgeConfigVariant
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SegmentedEdgeConfig) Validate() error {
+	v := validate.New("SegmentedEdgeConfig")
+	v.GreaterThanEq("stroke_width", s.StrokeWidth, 1)
+	v.LessThanEq("stroke_width", s.StrokeWidth, 20)
+	if s.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
+	}
+	for i := range s.Segments {
+		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // EdgeConfigType is the "variant" value that selects a variant of EdgeConfig.
-type EdgeConfigType = v13.EdgeConfigType
+type EdgeConfigType string
 
 const (
 	// PipeEdgeConfigType selects the PipeEdgeConfig variant.
-	PipeEdgeConfigType EdgeConfigType = v13.PipeEdgeConfigType
+	PipeEdgeConfigType EdgeConfigType = "pipe"
 	// ElectricEdgeConfigType selects the ElectricEdgeConfig variant.
-	ElectricEdgeConfigType EdgeConfigType = v13.ElectricEdgeConfigType
+	ElectricEdgeConfigType EdgeConfigType = "electric"
 	// SecondaryEdgeConfigType selects the SecondaryEdgeConfig variant.
-	SecondaryEdgeConfigType EdgeConfigType = v13.SecondaryEdgeConfigType
+	SecondaryEdgeConfigType EdgeConfigType = "secondary"
 	// JacketedEdgeConfigType selects the JacketedEdgeConfig variant.
-	JacketedEdgeConfigType EdgeConfigType = v13.JacketedEdgeConfigType
+	JacketedEdgeConfigType EdgeConfigType = "jacketed"
 	// HydraulicEdgeConfigType selects the HydraulicEdgeConfig variant.
-	HydraulicEdgeConfigType EdgeConfigType = v13.HydraulicEdgeConfigType
+	HydraulicEdgeConfigType EdgeConfigType = "hydraulic"
 	// PneumaticEdgeConfigType selects the PneumaticEdgeConfig variant.
-	PneumaticEdgeConfigType EdgeConfigType = v13.PneumaticEdgeConfigType
+	PneumaticEdgeConfigType EdgeConfigType = "pneumatic"
 	// DataEdgeConfigType selects the DataEdgeConfig variant.
-	DataEdgeConfigType EdgeConfigType = v13.DataEdgeConfigType
+	DataEdgeConfigType EdgeConfigType = "data"
 )
 
-type PipeEdgeConfig = v13.PipeEdgeConfig
-type ElectricEdgeConfig = v13.ElectricEdgeConfig
-type SecondaryEdgeConfig = v13.SecondaryEdgeConfig
-type JacketedEdgeConfig = v13.JacketedEdgeConfig
-type HydraulicEdgeConfig = v13.HydraulicEdgeConfig
-type PneumaticEdgeConfig = v13.PneumaticEdgeConfig
-type DataEdgeConfig = v13.DataEdgeConfig
+// EdgeConfigVariant is implemented by every EdgeConfig variant.
+type EdgeConfigVariant interface {
+	isEdgeConfigVariant()
+}
+
+type PipeEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PipeEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PipeEdgeConfig) SetDefaults() {
+	p.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PipeEdgeConfig) Validate() error {
+	v := validate.New("PipeEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type ElectricEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (ElectricEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (e *ElectricEdgeConfig) SetDefaults() {
+	e.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e ElectricEdgeConfig) Validate() error {
+	v := validate.New("ElectricEdgeConfig")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type SecondaryEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (SecondaryEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SecondaryEdgeConfig) SetDefaults() {
+	s.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SecondaryEdgeConfig) Validate() error {
+	v := validate.New("SecondaryEdgeConfig")
+	v.Exec(s.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type JacketedEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (JacketedEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (j *JacketedEdgeConfig) SetDefaults() {
+	j.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (j JacketedEdgeConfig) Validate() error {
+	v := validate.New("JacketedEdgeConfig")
+	v.Exec(j.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type HydraulicEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (HydraulicEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HydraulicEdgeConfig) SetDefaults() {
+	h.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h HydraulicEdgeConfig) Validate() error {
+	v := validate.New("HydraulicEdgeConfig")
+	v.Exec(h.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type PneumaticEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (PneumaticEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PneumaticEdgeConfig) SetDefaults() {
+	p.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PneumaticEdgeConfig) Validate() error {
+	v := validate.New("PneumaticEdgeConfig")
+	v.Exec(p.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+type DataEdgeConfig struct {
+	SegmentedEdgeConfig
+}
+
+func (DataEdgeConfig) isEdgeConfigVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DataEdgeConfig) SetDefaults() {
+	d.SegmentedEdgeConfig.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DataEdgeConfig) Validate() error {
+	v := validate.New("DataEdgeConfig")
+	v.Exec(d.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
+// EdgeConfig is the configuration of one edge. The variant selects the visual style of
+// the connection.
+type EdgeConfig struct {
+	Variant EdgeConfigVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case PipeEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
+	case ElectricEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
+	case SecondaryEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
+	case JacketedEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
+	case HydraulicEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
+	case PneumaticEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
+	case DataEdgeConfig:
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type EdgeConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case PipeEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}
+		v.PipeEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PipeEdgeConfig
+	case ElectricEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}
+		v.ElectricEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricEdgeConfig
+	case SecondaryEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}
+		v.SecondaryEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SecondaryEdgeConfig
+	case JacketedEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}
+		v.JacketedEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JacketedEdgeConfig
+	case HydraulicEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}
+		v.HydraulicEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HydraulicEdgeConfig
+	case PneumaticEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}
+		v.PneumaticEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PneumaticEdgeConfig
+	case DataEdgeConfigType:
+		var v struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}
+		v.DataEdgeConfig.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DataEdgeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u EdgeConfig) Validate() error {
+	v := validate.New("EdgeConfig")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PipeEdgeConfig:
+		v.Exec(variant.Validate)
+	case ElectricEdgeConfig:
+		v.Exec(variant.Validate)
+	case SecondaryEdgeConfig:
+		v.Exec(variant.Validate)
+	case JacketedEdgeConfig:
+		v.Exec(variant.Validate)
+	case HydraulicEdgeConfig:
+		v.Exec(variant.Validate)
+	case PneumaticEdgeConfig:
+		v.Exec(variant.Validate)
+	case DataEdgeConfig:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
 
 // FlexAlignment is a flex alignment for laid-out content.
 type FlexAlignment = v13.FlexAlignment
@@ -188,7 +532,64 @@ type DummyToggleSymbolConfig = v13.DummyToggleSymbolConfig
 
 // ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
 // symbols that show a level against a numeric range.
-type ScaleIndicatorConfig = v13.ScaleIndicatorConfig
+type ScaleIndicatorConfig struct {
+	NumericTelemConfig
+	StalenessConfig
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border, a named color or a fixed color.
+	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks, a named color or a fixed color.
+	AxisColor *servicecolor.Ref `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels, a named color or a fixed color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units string `json:"units" msgpack:"units"`
+	// LevelHidden hides the filled portion.
+	LevelHidden bool `json:"level_hidden" msgpack:"level_hidden"`
+	// CaretHidden hides the caret marking the current value.
+	CaretHidden bool `json:"caret_hidden" msgpack:"caret_hidden"`
+	// ScaleHidden hides the axis and its tick labels.
+	ScaleHidden bool `json:"scale_hidden" msgpack:"scale_hidden"`
+	// Side is the edge the axis is drawn along.
+	Side spatial.OuterLocation `json:"side" msgpack:"side"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
+	// Level is the typography level of the tick labels.
+	Level text.Level `json:"level" msgpack:"level"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScaleIndicatorConfig) SetDefaults() {
+	s.NumericTelemConfig.SetDefaults()
+	s.StalenessConfig.SetDefaults()
+	s.Bounds.Upper = 100
+	s.Side = spatial.OuterLocationRight
+	s.CaretSide = spatial.OuterLocationRight
+	s.Level = text.LevelSmall
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScaleIndicatorConfig) Validate() error {
+	v := validate.New("ScaleIndicatorConfig")
+	v.Ternaryf("side", !s.Side.IsValid(), "invalid side: %v", s.Side)
+	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.Exec(s.NumericTelemConfig.Validate)
+	v.Exec(s.StalenessConfig.Validate)
+	if s.LevelColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.LevelColor.Validate(), "level_color") })
+	}
+	if s.AxisColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.AxisColor.Validate(), "axis_color") })
+	}
+	if s.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.TextColor.Validate(), "text_color") })
+	}
+	return v.Error()
+}
 
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping = v13.StateMapping
@@ -929,10 +1330,10 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 // BoxNodeConfig is the configuration for box annotation symbols.
 type BoxNodeConfig struct {
 	LabeledConfig
-	// StrokeColor is the border color of the box.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the box.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the box, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the box, a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels. Absent draws 3.
@@ -958,6 +1359,12 @@ func (b BoxNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *b.StrokeWidth, 20)
 	}
 	v.Exec(b.LabeledConfig.Validate)
+	if b.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(b.StrokeColor.Validate(), "stroke_color") })
+	}
+	if b.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(b.FillColor.Validate(), "fill_color") })
+	}
 	return v.Error()
 }
 
@@ -973,8 +1380,9 @@ type ButtonNodeConfig struct {
 	CommandChannel channel.Key `json:"command_channel" msgpack:"command_channel"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
-	// FillColor is the fill color of the button, which its border follows.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the button, which its border follows, a named
+	// color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Control is the control state display configuration.
 	Control ControlStateConfig `json:"control" msgpack:"control"`
 }
@@ -998,6 +1406,9 @@ func (b ButtonNodeConfig) Validate() error {
 	v.GreaterThanEq("on_click_delay", b.OnClickDelay, 0)
 	v.LessThanEq("on_click_delay", b.OnClickDelay, 2147483647000000)
 	v.Exec(b.LabeledConfig.Validate)
+	if b.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(b.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(b.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1007,10 +1418,10 @@ type CircleNodeConfig struct {
 	LabeledConfig
 	// Radius is the radius of the circle in pixels.
 	Radius uint16 `json:"radius" msgpack:"radius"`
-	// StrokeColor is the border color of the circle.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the circle.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the circle, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the circle, a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
 	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
@@ -1032,6 +1443,12 @@ func (c CircleNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *c.StrokeWidth, 20)
 	}
 	v.Exec(c.LabeledConfig.Validate)
+	if c.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(c.StrokeColor.Validate(), "stroke_color") })
+	}
+	if c.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(c.FillColor.Validate(), "fill_color") })
+	}
 	return v.Error()
 }
 
@@ -1042,8 +1459,8 @@ type GaugeNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the gauge arc.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the color of the gauge arc, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -1079,6 +1496,9 @@ func (g GaugeNodeConfig) Validate() error {
 	v.Exec(g.LabeledConfig.Validate)
 	v.Exec(g.NumericTelemConfig.Validate)
 	v.Exec(g.StalenessConfig.Validate)
+	if g.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(g.StrokeColor.Validate(), "stroke_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1098,8 +1518,9 @@ type InputNodeConfig struct {
 	// Dimensions is the rendered size of the input in pixels. Zero sizes it to its
 	// content.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// FillColor is the fill color of the Set button, which the input border follows.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the input border follows, a
+	// named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
@@ -1131,6 +1552,9 @@ func (i InputNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", i.OnClickDelay, 2147483647000000)
 	v.Exec(i.LabeledConfig.Validate)
 	v.Exec(i.StalenessConfig.Validate)
+	if i.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(i.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(i.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1146,9 +1570,9 @@ type LightNodeConfig struct {
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// StrokeColor is the outline color of the light.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	StrokeColor *xcolor.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// OnColor is the fill color of the light while it is on.
-	OnColor *color.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
+	OnColor *xcolor.Color `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
@@ -1172,8 +1596,8 @@ func (l LightNodeConfig) Validate() error {
 
 // LineNodeConfig is the configuration for straight line symbols.
 type LineNodeConfig struct {
-	// StrokeColor is the stroke color of the line.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the stroke color of the line, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -1196,15 +1620,18 @@ func (l LineNodeConfig) Validate() error {
 	v := validate.New("LineNodeConfig")
 	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
 	v.LessThanEq("stroke_width", l.StrokeWidth, 20)
+	if l.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(l.StrokeColor.Validate(), "stroke_color") })
+	}
 	return v.Error()
 }
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
 	LabeledConfig
-	// FillColor is the fill color of a linked reference. An unlinked reference draws
-	// its outline in this color.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of a linked reference, a named color or a fixed
+	// color. An unlinked reference draws its outline in this color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Page is the page this reference links to. An empty key links to no page.
 	Page Page `json:"page" msgpack:"page"`
 	// DoubleClickNavigationDisabled stops double-clicking from navigating to the linked
@@ -1227,6 +1654,9 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
 	v.Exec(o.LabeledConfig.Validate)
+	if o.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(o.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
 	return v.Error()
 }
@@ -1242,10 +1672,10 @@ type PolygonNodeConfig struct {
 	Rotation float64 `json:"rotation" msgpack:"rotation"`
 	// BorderRadius is the corner radius of the polygon in pixels.
 	BorderRadius uint16 `json:"border_radius" msgpack:"border_radius"`
-	// StrokeColor is the border color of the polygon.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the polygon.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the polygon, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the polygon, a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels. Absent draws 2.
 	StrokeWidth *uint8 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
 }
@@ -1269,6 +1699,12 @@ func (p PolygonNodeConfig) Validate() error {
 		v.LessThanEq("stroke_width", *p.StrokeWidth, 20)
 	}
 	v.Exec(p.LabeledConfig.Validate)
+	if p.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(p.StrokeColor.Validate(), "stroke_color") })
+	}
+	if p.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(p.FillColor.Validate(), "fill_color") })
+	}
 	return v.Error()
 }
 
@@ -1284,8 +1720,9 @@ type SelectNodeConfig struct {
 	// StateChannel is the channel that reports the state the device holds, or 0 when
 	// none does.
 	StateChannel channel.Key `json:"state_channel" msgpack:"state_channel"`
-	// FillColor is the fill color of the Set button, which the select border follows.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the select border follows, a
+	// named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// InlineSize is the width of the field in pixels, not counting the Set button.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
@@ -1322,6 +1759,9 @@ func (s SelectNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	if s.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1373,8 +1813,9 @@ type SetpointNodeConfig struct {
 	// Dimensions is the rendered size of the setpoint in pixels. Zero sizes it to its
 	// content.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// FillColor is the fill color of the Set button, which the setpoint border follows.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// FillColor is the fill color of the Set button, which the setpoint border follows,
+	// a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -1408,6 +1849,9 @@ func (s SetpointNodeConfig) Validate() error {
 	v.LessThanEq("on_click_delay", s.OnClickDelay, 2147483647000000)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	if s.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(s.Control.Validate(), "control") })
 	return v.Error()
 }
@@ -1419,8 +1863,8 @@ type StateIndicatorNodeConfig struct {
 	// Channel is the channel whose value selects the displayed state, or 0 when none
 	// does.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// StrokeColor is the border color of the indicator.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// StrokeColor is the border color of the indicator, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
@@ -1450,6 +1894,9 @@ func (s StateIndicatorNodeConfig) Validate() error {
 	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	if s.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
+	}
 	return v.Error()
 }
 
@@ -1457,10 +1904,10 @@ func (s StateIndicatorNodeConfig) Validate() error {
 type StringDisplayNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
-	// StrokeColor is the border color of the display.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// StrokeColor is the border color of the display, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed text, a named color or a fixed color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
@@ -1490,6 +1937,12 @@ func (s StringDisplayNodeConfig) Validate() error {
 	v.GreaterThanEq("inline_size", s.InlineSize, 1)
 	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(s.StalenessConfig.Validate)
+	if s.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.StrokeColor.Validate(), "stroke_color") })
+	}
+	if s.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(s.TextColor.Validate(), "text_color") })
+	}
 	return v.Error()
 }
 
@@ -1515,8 +1968,8 @@ func (s SwitchNodeConfig) Validate() error {
 // TextBoxNodeConfig is the configuration for text box annotation symbols.
 type TextBoxNodeConfig struct {
 	LabeledConfig
-	// TextColor is the text color.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// TextColor is the text color, a named color or a fixed color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// InlineSize is the rendered inline size of the text box in pixels.
 	InlineSize uint16 `json:"inline_size" msgpack:"inline_size"`
 	// Align is the alignment of the text within the box.
@@ -1547,6 +2000,9 @@ func (t TextBoxNodeConfig) Validate() error {
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.GreaterThanEq("inline_size", t.InlineSize, 1)
 	v.Exec(t.LabeledConfig.Validate)
+	if t.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.TextColor.Validate(), "text_color") })
+	}
 	return v.Error()
 }
 
@@ -1557,17 +2013,18 @@ type ValueNodeConfig struct {
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the value's border and units divider.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// TextColor is the color of the displayed value.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
-	// FillColor is the fill behind the value where no redline band paints. When absent
-	// the value paints no fill.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the color of the value's border and units divider, a named color
+	// or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed value, a named color or a fixed color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints, a named
+	// color or a fixed color. When absent the value paints no fill.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the threshold band mapping applied to the background.
-	Redline color.Scale `json:"redline" msgpack:"redline"`
+	Redline xcolor.Scale `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
@@ -1600,6 +2057,15 @@ func (va ValueNodeConfig) Validate() error {
 	v.Exec(va.LabeledConfig.Validate)
 	v.Exec(va.NumericTelemConfig.Validate)
 	v.Exec(va.StalenessConfig.Validate)
+	if va.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.StrokeColor.Validate(), "stroke_color") })
+	}
+	if va.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.TextColor.Validate(), "text_color") })
+	}
+	if va.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(va.FillColor.Validate(), "fill_color") })
+	}
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -2679,10 +3145,10 @@ type CylinderNodeConfig struct {
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
 	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
-	// StrokeColor is the border color of the cylinder.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the cylinder.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the border color of the cylinder, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the cylinder, a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
@@ -2701,6 +3167,12 @@ func (c CylinderNodeConfig) Validate() error {
 	v := validate.New("CylinderNodeConfig")
 	v.Exec(c.LabeledConfig.Validate)
 	v.Exec(c.ScaledConfig.Validate)
+	if c.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(c.StrokeColor.Validate(), "stroke_color") })
+	}
+	if c.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(c.FillColor.Validate(), "fill_color") })
+	}
 	return v.Error()
 }
 
@@ -2719,16 +3191,16 @@ type TankNodeConfig struct {
 	// StalenessTimeout is the span after which the value is considered stale.
 	StalenessTimeout telem.TimeSpan `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	StalenessColor *xcolor.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// LevelColor is the color of the filled portion, the caret, and the value readout
-	// border.
-	LevelColor *color.Color `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
-	// AxisColor is the color of the axis and its ticks.
-	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
-	// TextColor is the color of the tick labels.
-	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// border, a named color or a fixed color.
+	LevelColor *servicecolor.Ref `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks, a named color or a fixed color.
+	AxisColor *servicecolor.Ref `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels, a named color or a fixed color.
+	TextColor *servicecolor.Ref `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// LevelHidden hides the filled portion.
@@ -2739,10 +3211,10 @@ type TankNodeConfig struct {
 	Level text.Level `json:"level" msgpack:"level"`
 	// Position is the offset of the tank contents within the symbol.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// StrokeColor is the color of the tank's wall.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
-	// FillColor is the fill color of the tank body.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeColor is the color of the tank's wall, a named color or a fixed color.
+	StrokeColor *servicecolor.Ref `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the tank body, a named color or a fixed color.
+	FillColor *servicecolor.Ref `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank. Absent draws 50 by 10 percent.
@@ -2786,6 +3258,21 @@ func (t TankNodeConfig) Validate() error {
 	v.GreaterThanEq("staleness_timeout", t.StalenessTimeout, 1000000000)
 	v.LessThanEq("staleness_timeout", t.StalenessTimeout, 9007199254740991)
 	v.Exec(t.LabeledConfig.Validate)
+	if t.LevelColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.LevelColor.Validate(), "level_color") })
+	}
+	if t.AxisColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.AxisColor.Validate(), "axis_color") })
+	}
+	if t.TextColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.TextColor.Validate(), "text_color") })
+	}
+	if t.StrokeColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.StrokeColor.Validate(), "stroke_color") })
+	}
+	if t.FillColor != nil {
+		v.Exec(func() error { return validate.PathedError(t.FillColor.Validate(), "fill_color") })
+	}
 	return v.Error()
 }
 

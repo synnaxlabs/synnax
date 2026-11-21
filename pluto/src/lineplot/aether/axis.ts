@@ -22,9 +22,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import type { TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
-import { type line } from "@/vis/line/aether";
+import type { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 
 export const baseAxisStateZ = axis.axisStateZ
@@ -62,6 +62,8 @@ const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 // Computed per call so an empty time axis tracks the present instead of app start.
 const emptyBounds = (type: TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  if (type === "relative")
+    return { lower: 0, upper: Number(TimeSpan.MINUTE.valueOf()) };
   const now = TimeStamp.now();
   return {
     lower: Number(now.valueOf()),
@@ -129,10 +131,12 @@ export abstract class BaseAxis<
   S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { location, autoBoundUpdateInterval } = this.state;
     i.render = render.Context.use(ctx);
+    // A held view in one tick type means nothing in another.
+    if (this.state.type !== this.prevState.type) i.boundSnapshot = undefined;
     const theme = theming.use(ctx);
     this.state.autoBoundPadding ??=
       direction.swap(location) === "x"
@@ -151,7 +155,7 @@ export abstract class BaseAxis<
     );
   }
 
-  afterDelete(ctx: aether.Context): void {
+  override afterDelete(ctx: aether.Context): void {
     render.request(ctx, "layout");
   }
 

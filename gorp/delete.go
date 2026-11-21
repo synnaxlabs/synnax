@@ -13,8 +13,6 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Delete is a query that deletes Entries from the DB.
@@ -75,9 +73,9 @@ func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	var (
 		queryCtx = newContext(ctx, tx)
 		entries  []E
-		q        = d.retrieve.Entries(&entries)
+		q        = d.retrieve.Entries(&entries).SkipMissingKeys()
 	)
-	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+	if err := q.Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := d.guards.checkMany(queryCtx, entries); err != nil {

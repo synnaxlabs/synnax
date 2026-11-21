@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x";
-import { type NodeChange as RFNodeChange } from "@xyflow/react";
+import type { NodeChange as RFNodeChange } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
 import { translateNodeChangeForward } from "@/vis/diagram/aether/types";

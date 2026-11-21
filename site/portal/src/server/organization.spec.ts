@@ -24,7 +24,7 @@ import {
   pick,
   retrieve,
 } from "@/server/organization";
-import { type Session } from "@/server/session";
+import type { Session } from "@/server/session";
 import { createLicense, createOrganization } from "@/testutil";
 
 const SESSION: Session = {

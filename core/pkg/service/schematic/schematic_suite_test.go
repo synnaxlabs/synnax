@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -36,6 +38,7 @@ var (
 	db         *gorp.DB
 	enumSvc    *enumeration.Service
 	groupSvc   *group.Service
+	colorSvc   *color.Service
 	proj       project.Project
 	projectSvc *project.Service
 	svc        *schematic.Service
@@ -51,6 +54,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
+	}))
+	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
+		DB:    db,
+		Group: groupSvc,
 	}))
 	imexSvc = imex.NewService()
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
@@ -81,4 +88,10 @@ func dispatch(
 			Apply(ctx, key, acts...)
 		return err
 	})
+}
+
+// fixedColor returns a fixed color reference to the color that hex names.
+func fixedColor(hex string) *color.Ref {
+	GinkgoHelper()
+	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
 }

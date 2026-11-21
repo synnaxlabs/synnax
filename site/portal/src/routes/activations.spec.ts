@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { type APIRoute } from "astro";
+import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -24,7 +24,7 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { type Team } from "@/server/directory";
+import type { Team } from "@/server/directory";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR } from "@/server/ratelimit";
 import {

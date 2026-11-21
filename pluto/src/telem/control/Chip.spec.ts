@@ -10,9 +10,9 @@
 import { control, status } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { type control as controlAether } from "@/telem/control/aether";
+import type { control as controlAether } from "@/telem/control/aether";
 import { tooltipMessage } from "@/telem/control/Chip";
 
 const makeStatus = (

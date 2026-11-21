@@ -21,9 +21,9 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import type { channel } from "@/channel";
 import { isConnectionError, NotFoundError, UnexpectedError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
+import type { ChannelRetriever } from "@/framer/adapter";
 import {
   align,
   countBefore,
@@ -34,8 +34,8 @@ import {
   split,
 } from "@/framer/cache/block";
 import { indexes, tileRange } from "@/framer/cache/grid";
-import { type Store } from "@/framer/cache/store";
-import { type Frame } from "@/framer/frame";
+import type { Store } from "@/framer/cache/store";
+import type { Frame } from "@/framer/frame";
 
 /** Reads a telemetry frame from the Core, reduced when a reduction is given. */
 export interface RemoteReader {

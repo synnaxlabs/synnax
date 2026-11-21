@@ -23,7 +23,7 @@ import {
   revoke,
   validate,
 } from "@/server/license/issue";
-import { type Signer } from "@/server/license/sign";
+import type { Signer } from "@/server/license/sign";
 import { HASH_A, HASH_B, LICENSE, NOW } from "@/server/license/testutil";
 import {
   createActivation,

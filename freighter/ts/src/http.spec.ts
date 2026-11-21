@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createServer, type RequestListener, type Server } from "node:http";
-import { type AddressInfo } from "node:net";
+import type { AddressInfo } from "node:net";
 
 import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { afterEach, describe, expect, test } from "vitest";

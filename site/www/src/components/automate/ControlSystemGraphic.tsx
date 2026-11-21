@@ -13,6 +13,26 @@ const TICK_COUNT = 12;
 const CYCLE_DURATION = 4;
 const ROWS = 3;
 
+interface FlashProps {
+  attribute: string;
+  /** The values at the start, the peak, the end of the flash, and the cycle end. */
+  values: string;
+  /** Seconds before the first flash. */
+  begin: number;
+}
+
+/** Flash animates an attribute through a short flash at the start of each cycle. */
+const Flash = ({ attribute, values, begin }: FlashProps): ReactElement => (
+  <animate
+    attributeName={attribute}
+    values={values}
+    keyTimes="0;0.04;0.1;1"
+    dur={`${CYCLE_DURATION}s`}
+    begin={`${begin}s`}
+    repeatCount="indefinite"
+  />
+);
+
 export function ControlSystemGraphic({
   className,
   size = 400,
@@ -59,22 +79,6 @@ export function ControlSystemGraphic({
         </linearGradient>
       </defs>
 
-      <style>{`
-        @keyframes sweep-${id} {
-          0% { transform: translateX(0); }
-          85% { transform: translateX(${trackWidth}px); }
-          85.01%, 100% { transform: translateX(0); }
-        }
-        @keyframes tick-flash-${id} {
-          0%, 10% { opacity: 0.2; transform: scale(1); }
-          4% { opacity: 1; transform: scale(1.6); }
-        }
-        @keyframes drop-flash-${id} {
-          0%, 10% { opacity: 0; }
-          4% { opacity: 0.3; }
-        }
-      `}</style>
-
       {rows.map((row, rowIdx) => (
         <g key={rowIdx}>
           {/* Track line */}
@@ -109,11 +113,10 @@ export function ControlSystemGraphic({
                   r={4}
                   fill="var(--pluto-gray-l9)"
                   opacity={0.2}
-                  style={{
-                    transformOrigin: `${tick.x}px ${tick.y}px`,
-                    animation: `tick-flash-${id} ${CYCLE_DURATION}s linear ${tickDelay}s infinite`,
-                  }}
-                />
+                >
+                  <Flash attribute="opacity" values="0.2;1;0.2;0.2" begin={tickDelay} />
+                  <Flash attribute="r" values="4;6.4;4;4" begin={tickDelay} />
+                </circle>
                 {/* Vertical drop line */}
                 <line
                   x1={tick.x}
@@ -123,20 +126,24 @@ export function ControlSystemGraphic({
                   stroke="var(--pluto-gray-l5)"
                   strokeWidth={0.75}
                   opacity={0}
-                  style={{
-                    animation: `drop-flash-${id} ${CYCLE_DURATION}s linear ${tickDelay}s infinite`,
-                  }}
-                />
+                >
+                  <Flash attribute="opacity" values="0;0.3;0;0" begin={tickDelay} />
+                </line>
               </g>
             );
           })}
 
           {/* Sweeping marker group */}
-          <g
-            style={{
-              animation: `sweep-${id} ${CYCLE_DURATION}s linear ${row.delay}s infinite`,
-            }}
-          >
+          <g>
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values={`0;${trackWidth};0;0`}
+              keyTimes="0;0.85;0.8501;1"
+              dur={`${CYCLE_DURATION}s`}
+              begin={`${row.delay}s`}
+              repeatCount="indefinite"
+            />
             {/* Glow halo */}
             <ellipse cx={padX} cy={row.y} rx={30} ry={24} fill={`url(#${id}-glow)`} />
             {/* Trail */}

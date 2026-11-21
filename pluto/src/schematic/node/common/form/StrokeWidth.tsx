@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { Border } from "@/schematic/node/common/border";
 import { STROKE_WIDTH_INPUT_PROPS } from "@/schematic/node/common/form/input";

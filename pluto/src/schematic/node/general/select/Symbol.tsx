@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import type { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -18,7 +19,7 @@ import { Options } from "@/schematic/node/common/options";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { optionName, Select } from "@/schematic/node/general/select/Primitive";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Staleness } from "@/vis/staleness";
 import { StateIndicator } from "@/vis/stateIndicator";
@@ -44,6 +45,7 @@ export const Symbol = ({
     onClickDelay,
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const badged = Staleness.useBadged();
   const options = Options.use({ enumeration, options: ownOptions });
@@ -74,7 +76,7 @@ export const Symbol = ({
       <Select
         value={target}
         onSend={set}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
         orientation={orientation}
         disabled={disabled}
         options={options}

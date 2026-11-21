@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x";
-import { type Locator, type Page } from "playwright";
+import type { Locator, Page } from "playwright";
 
 import { control } from "@/capture/plot";
-import { type CaptureSession } from "@/capture/rig";
-import { type Point } from "@/timeline";
+import type { CaptureSession } from "@/capture/rig";
+import type { Point } from "@/timeline";
 
 /** Tabs of the schematic's bottom toolbar. */
 export type ToolbarTab = "Symbols" | "Properties" | "Control";

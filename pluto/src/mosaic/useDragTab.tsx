@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { type record } from "@synnaxlabs/x";
-import { type DragEvent } from "react";
+import type { record } from "@synnaxlabs/x";
+import type { DragEvent } from "react";
 
 import { createTabDropHaulItem } from "@/mosaic/haul";
 

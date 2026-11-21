@@ -9,18 +9,18 @@
 
 import { deep, type destructor, errors, map } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import {
-  type BindFunc,
-  type ContextValue,
-  type GetFunc,
-  type InsertFunc,
-  type Listener,
-  type Mode,
-  type MoveFunc,
-  type RemoveFunc,
-  type SetFunc,
+import type {
+  BindFunc,
+  ContextValue,
+  GetFunc,
+  InsertFunc,
+  Listener,
+  Mode,
+  MoveFunc,
+  RemoveFunc,
+  SetFunc,
 } from "@/form/Context";
 import { type GetOptions, State } from "@/form/state";
 import { createLocalStore, type Store } from "@/form/store";

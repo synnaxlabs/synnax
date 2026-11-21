@@ -11,7 +11,7 @@ import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
+import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";

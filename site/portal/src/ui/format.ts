@@ -9,10 +9,10 @@
 
 import { array, math } from "@synnaxlabs/x";
 
-import { type Event, type License } from "@/server/db/schema";
+import type { Event, License } from "@/server/db/schema";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
-import { type Status } from "@/server/license/status";
+import type { Status } from "@/server/license/status";
 
 /** Clock reads dates and times in one time zone. */
 export interface Clock {

@@ -15,36 +15,12 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 // taskConfigReferences returns the references of TaskConfig.
 func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 	return []gorp.Reference[uuid.UUID, TaskConfig]{
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, TaskConfig, secret.Key]{
-			Name:     "routing_key",
-			Table:    "secret",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *TaskConfig) []secret.Key {
-				var targets []secret.Key
-				if e.RoutingKey != nil {
-					targets = append(targets, *e.RoutingKey)
-				}
-				return targets
-			},
-			Detach: func(e *TaskConfig, t secret.Key) {
-				if e.RoutingKey != nil && *e.RoutingKey == t {
-					e.RoutingKey = nil
-				}
-			},
-			Retarget: func(e *TaskConfig, from, to secret.Key) {
-				if e.RoutingKey != nil && *e.RoutingKey == from {
-					*e.RoutingKey = to
-				}
-			},
-		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, TaskConfig, status.Key]{
 			Name:     "alerts.status",
 			Table:    "status",

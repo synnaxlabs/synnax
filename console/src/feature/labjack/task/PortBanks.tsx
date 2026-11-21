@@ -14,7 +14,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type MouseEvent, type ReactElement, useState } from "react";
 
-import { type Port } from "@/feature/labjack/device/types";
+import type { Port } from "@/feature/labjack/device/types";
 import {
   type Bank,
   banks,

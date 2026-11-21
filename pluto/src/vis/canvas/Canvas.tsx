@@ -26,12 +26,12 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
-import { type render } from "@/vis/render";
+import type { render } from "@/vis/render";
 
 type State = z.infer<typeof canvas.canvasStateZ>;
 

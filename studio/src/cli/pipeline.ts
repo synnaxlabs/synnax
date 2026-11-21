@@ -14,14 +14,14 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 
-import { type CaptureSession } from "@/capture/rig";
+import type { CaptureSession } from "@/capture/rig";
 import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
 import { overlay } from "@/director/overlay";
 import { stage } from "@/director/stage";
-import { type Edit, type Format, type Overlays } from "@/film";
-import { type Core } from "@/fixtures/core";
-import { type FilmProps } from "@/remotion/Film";
+import type { Edit, Format, Overlays } from "@/film";
+import type { Core } from "@/fixtures/core";
+import type { FilmProps } from "@/remotion/Film";
 import { type HeroProps, type Region, SHOT, type ShotProps } from "@/remotion/Mail";
 import { parse, type Timeline } from "@/timeline";
 
