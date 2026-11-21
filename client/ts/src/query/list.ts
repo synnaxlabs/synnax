@@ -218,6 +218,7 @@ export class Lists<
     this.release = config.table.hold({
       held: () => this.held(),
       drop: (keys) => this.drop(keys),
+      written: (key) => this.written(key),
     });
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // The fresh stream's own epoch refetches after a reset, not the reset itself.
@@ -311,6 +312,19 @@ export class Lists<
       entry.searchLimit = undefined;
       entry.composed = undefined;
       entry.composedByKey = undefined;
+    });
+  }
+
+  /**
+   * Fetches each maintained search again after a write. A search that the Core answers
+   * before it commits the write misses it, and the commit can leave the record as it
+   * was, so no change reaches the search.
+   */
+  private written(key: K): void {
+    this.entries.forEach((entry) => {
+      if (!entry.ranked || entry.teardown == null) return;
+      entry.rechecks?.add(key);
+      if (entry.fetched) this.scheduleRefetch(entry);
     });
   }
 
