@@ -201,7 +201,9 @@ class Configuration(BaseModel):
         write_channels: Maps a node ID to the channel that commands the node.
     """
 
-    read_indexes: list[channel_.Key] = Field(default_factory=list)
+    read_indexes: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
     read_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
         Field(default_factory=dict)
     )
