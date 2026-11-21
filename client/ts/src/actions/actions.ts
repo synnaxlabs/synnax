@@ -42,8 +42,10 @@ export interface ReduceAllResult<S, A> {
 
 /**
  * Returns a plain-object snapshot of an Immer draft so the result is safe to embed in
- * an action stored on the undo stack. Returns non-draft inputs, such as primitives and
- * class instances, unchanged.
+ * an action stored on the undo stack. Returns non-draft inputs unchanged. The non-draft
+ * passthrough exists because when a reducer applies multiple actions in one produce(),
+ * an earlier action's wholesale assignment leaves the slot as a plain object, so the
+ * next action would crash if it called `current` unconditionally.
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
@@ -174,7 +176,9 @@ export const applyField = <S extends object>(
   const value = snapshotDraft(draft[field]);
   const next: unknown = zod.parse(fieldZ, value, { label: field });
   if (next === undefined) delete draft[field];
-  else draft[field] = next;
+  // The parse copies the field but shares its frozen values, so writing back an equal
+  // copy would leave a later action in the batch unable to edit them.
+  else if (!deep.equal(next, value)) draft[field] = next;
   return result;
 };
 
@@ -234,29 +238,41 @@ export const createPathHandlers = <D, A>(
   move: (state: D, move: patch.Move) => apply(state, { type: "move", move }),
 });
 
+// Returns a copy of the plain objects and arrays in value. Other objects, such as a
+// TimeStamp, are shared.
+const copyPlain = <T>(value: T): T => {
+  if (typeof value !== "object" || value === null) return value;
+  if (!Array.isArray(value) && !narrow.isPlainObject(value)) return value;
+  const out: T & object = Array.isArray(value)
+    ? Object.assign([], value)
+    : { ...value };
+  for (const [key, child] of Object.entries(value))
+    Reflect.set(out, key, copyPlain(child));
+  return out;
+};
+
 /**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched
  * reducer. The returned function applies each action against an Immer draft of
  * `state` in order, accumulates the inverses in reverse application order so a
- * single undo replays them correctly, and unions the touched targets.
+ * single undo replays them correctly, and unions the touched targets. The caller's
+ * actions stay unchanged.
  */
 export const createReduceAll =
   <S, A>(reduceOne: (draft: Draft<S>, action: A) => HandlerResult<A>) =>
   (state: S, actions: A[]): ReduceAllResult<S, A> => {
     const inverse: A[] = [];
     const targetsSet = new Set<string>();
-    // Each action gets its own draft. Immer does not draft a value that an earlier
-    // action placed in the same draft, so a later action would edit the action's own
-    // payload, which a past reduce froze.
-    const next = actions.reduce(
-      (prev, action) =>
-        produce(prev, (draft) => {
-          const result = reduceOne(draft, action);
-          if (result.inverse.length > 0) inverse.unshift(...result.inverse);
-          for (const t of result.targets) targetsSet.add(t);
-        }),
-      state,
-    );
+    const next = produce(state, (draft) => {
+      for (const action of actions) {
+        // Immer does not draft an object that an action puts into the draft, so a later
+        // action in the batch edits it in place. The copy keeps that edit off the
+        // caller's action, which an earlier reduce can have frozen.
+        const result = reduceOne(draft, copyPlain(action));
+        if (result.inverse.length > 0) inverse.unshift(...result.inverse);
+        for (const t of result.targets) targetsSet.add(t);
+      }
+    });
     return { next, inverse, targets: Array.from(targetsSet) };
   };
 

@@ -441,13 +441,10 @@ describe("applyField", () => {
   it("should apply two actions to one field of a frozen document", () => {
     const documentZ = z.object({ props: record.unknownZ() });
     const doc = freeze({ key: "a", props: { a: { b: {} }, c: 1 } }, true);
-    const reduce = actions.createReduceAll<typeof doc, patch.Action>((draft, action) =>
-      actions.applyField(draft, action, documentZ),
-    );
-    const { next } = reduce(doc, [
-      setAt(["props", "c"], 2),
-      setAt(["props", "a", "b", "d"], 3),
-    ]);
+    const next = produce(doc, (draft) => {
+      actions.applyField(draft, setAt(["props", "c"], 2), documentZ);
+      actions.applyField(draft, setAt(["props", "a", "b", "d"], 3), documentZ);
+    });
     expect(next).toEqual({ key: "a", props: { a: { b: { d: 3 } }, c: 2 } });
   });
 });
