@@ -7,8 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ReactElement, ReactNode } from "react";
-import { assert, describe, expect, it } from "vitest";
+import { color } from "@synnaxlabs/x";
+// The pure entry leaves the act environment of the browser specs alone.
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  type RenderResult,
+  within,
+} from "@testing-library/react/pure";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+} from "react";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
@@ -20,6 +36,7 @@ import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
 import { renderThemed } from "@/styletest";
+import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
 const COLORS: Color.Named[] = Array.from({ length: 10 }, (_, i) => ({
@@ -96,7 +113,317 @@ const SwatchMenu = (): ReactElement | null => {
 };
 
 describe("Picker", () => {
+  afterEach(cleanup);
+
   describe("library", () => {
+    describe("slots", () => {
+      const PALETTES: Color.Palette[] = [
+        {
+          key: "series",
+          name: "Series",
+          colors: [
+            { key: "ocean", name: "Ocean", light: "#3e8bff", dark: "#1a4f99" },
+            { key: "moss", name: "Moss", light: "#4caf50" },
+          ],
+        },
+        {
+          key: "status",
+          name: "Status",
+          colors: [{ key: "alarm", name: "Alarm", light: "#ff0000" }],
+        },
+      ];
+
+      const search = (c: RenderResult, term: string): void => {
+        fireEvent.change(c.getByPlaceholderText("Search colors"), {
+          target: { value: term },
+        });
+      };
+
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Triggers.Provider>
+          <Theming.Provider>{children}</Theming.Provider>
+        </Triggers.Provider>
+      );
+
+      const PaletteEnd = (): ReactElement => {
+        const { palette } = Color.usePalette();
+        return <span>{`end of ${palette.name}`}</span>;
+      };
+
+      const SwatchMenu = (): ReactElement => {
+        const { palette, swatch } = Color.usePalette();
+        return <span>{`menu for ${swatch?.name} in ${palette.name}`}</span>;
+      };
+
+      const ViewOpener = (): ReactElement => {
+        const { value } = Color.usePicker();
+        const { open } = Dialog.useViews();
+        return (
+          <button onClick={() => open("Edit color", <span>view body</span>)}>
+            {`open from ${color.hex(value)}`}
+          </button>
+        );
+      };
+
+      const EditMenu = (): ReactElement => {
+        const { open } = Dialog.useViews();
+        return (
+          <Menu.Menu onChange={() => open("Edit color", <span>view body</span>)}>
+            <Menu.Item itemKey="edit">Edit</Menu.Item>
+          </Menu.Menu>
+        );
+      };
+
+      const renderSlots = (
+        library: Partial<Color.Library>,
+        props: Partial<Color.PickerProps> = {},
+      ): RenderResult =>
+        render(
+          <Color.Picker
+            value={undefined}
+            onChange={vi.fn()}
+            library={{ palettes: PALETTES, onNamedChange: vi.fn(), ...library }}
+            {...props}
+          />,
+          { wrapper: Wrapper },
+        );
+
+      it("should end each palette with paletteEnd, given that palette", () => {
+        const c = renderSlots({ paletteEnd: <PaletteEnd /> });
+        const series = c.getByRole("group", { name: "Series" });
+        const status = c.getByRole("group", { name: "Status" });
+        expect(within(series).getByText("end of Series")).toBeTruthy();
+        expect(within(status).getByText("end of Status")).toBeTruthy();
+      });
+
+      it("should show a palette with no colors only while it has a paletteEnd", () => {
+        const palettes = [...PALETTES, { key: "empty", name: "Empty", colors: [] }];
+        const without = renderSlots({ palettes });
+        expect(without.queryByRole("group", { name: "Empty" })).toBeNull();
+        without.unmount();
+        const c = renderSlots({ palettes, paletteEnd: <PaletteEnd /> });
+        expect(c.getByText("end of Empty")).toBeTruthy();
+        search(c, "ocean");
+        expect(c.queryByRole("group", { name: "Empty" })).toBeNull();
+      });
+
+      it("should open swatchMenu on a right click, given its swatch", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByRole("menu")).toBeTruthy();
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should name the swatch of an open menu in the palette title", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        fireEvent.contextMenu(c.getByLabelText("Alarm"));
+        expect(c.getByText("Alarm")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a press of Shift+F10", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        const opened = fireEvent.keyDown(alarm, {
+          key: "F10",
+          code: "F10",
+          shiftKey: true,
+        });
+        expect(opened).toBe(false);
+        expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+      });
+
+      it("should open swatchMenu on a release of the Menu key", () => {
+        const c = renderSlots({ swatchMenu: <SwatchMenu /> });
+        const moss = c.getByLabelText("Moss");
+        const key = { key: "ContextMenu", code: "ContextMenu" };
+        expect(fireEvent.keyDown(moss, key)).toBe(false);
+        expect(c.queryByRole("menu")).toBeNull();
+        fireEvent.keyUp(moss, key);
+        expect(c.getByText("menu for Moss in Series")).toBeTruthy();
+      });
+
+      const OPENERS: [string, (swatch: HTMLElement) => boolean][] = [
+        ["a right click", (swatch) => fireEvent.contextMenu(swatch)],
+        [
+          "Shift+F10",
+          (swatch) =>
+            fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true }),
+        ],
+        [
+          "the Menu key",
+          (swatch) => {
+            const key = { key: "ContextMenu", code: "ContextMenu" };
+            const down = fireEvent.keyDown(swatch, key);
+            return fireEvent.keyUp(swatch, key) && down;
+          },
+        ],
+      ];
+
+      const onlyAlarm = (key: string): boolean => key === "alarm";
+
+      it.each(OPENERS)(
+        "should open swatchMenu on %s where hasSwatchMenu allows",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          expect(open(c.getByLabelText("Alarm"))).toBe(false);
+          expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+        },
+      );
+
+      it.each(OPENERS)(
+        "should leave %s to the platform where hasSwatchMenu refuses",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          const moss = c.getByLabelText("Moss");
+          act(() => moss.focus());
+          expect(open(moss)).toBe(true);
+          expect(c.queryByRole("menu")).toBeNull();
+          expect(document.activeElement).toBe(moss);
+        },
+      );
+
+      it("should leave a right click to the platform without swatchMenu", () => {
+        const c = renderSlots({});
+        expect(fireEvent.contextMenu(c.getByLabelText("Alarm"))).toBe(true);
+        expect(c.queryByRole("menu")).toBeNull();
+      });
+
+      it("should end the palettes with the footer", () => {
+        const c = renderSlots({ footer: <span>Create palette</span> });
+        expect(c.getByText("Create palette")).toBeTruthy();
+      });
+
+      it("should end the custom editor with customFooter, and show Library on a link", () => {
+        const Linker = (): ReactElement => {
+          const { link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots(
+          { named: "ocean", customFooter: <Linker /> },
+          { value: "#3e8bff" },
+        );
+        expect(c.queryByText("link Moss")).toBeNull();
+        fireEvent.click(c.getByText("Custom"));
+        fireEvent.click(c.getByText("link Moss"));
+        expect(c.queryByLabelText("Hex")).toBeNull();
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should give slots the fallback while the value is absent", () => {
+        const c = renderSlots({ footer: <ViewOpener /> }, { fallback: "#123456" });
+        expect(c.getByText("open from #123456")).toBeTruthy();
+      });
+
+      it("should clear the search and focus a hidden swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        search(c, "oc");
+        expect(c.queryByLabelText("Moss")).toBeNull();
+        fireEvent.click(c.getByText("link Moss"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should focus a shown swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        fireEvent.click(c.getByText("link Moss"));
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should move the focus into the end of a palette that a slot names", () => {
+        const End = (): ReactElement => {
+          const { palette, focused } = Color.usePalette();
+          const ref = useRef<HTMLButtonElement>(null);
+          useEffect(() => {
+            if (focused) ref.current?.focus();
+          }, [focused]);
+          return (
+            <button ref={ref}>
+              {focused ? `${palette.name} end, focused` : `${palette.name} end`}
+            </button>
+          );
+        };
+        const Focuser = (): ReactElement => {
+          const { focusPalette } = Color.usePicker();
+          return <button onClick={() => focusPalette("status")}>focus Status</button>;
+        };
+        const c = renderSlots({ paletteEnd: <End />, footer: <Focuser /> });
+        fireEvent.click(c.getByText("focus Status"));
+        // The focus entered the palette, so the flag is clear again.
+        expect(document.activeElement).toBe(c.getByText("Status end"));
+      });
+
+      it("should clear the search from a slot", () => {
+        const Clearer = (): ReactElement => {
+          const { clearSearch } = Color.usePicker();
+          return <button onClick={clearSearch}>clear</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Clearer /> });
+        search(c, "oc");
+        fireEvent.click(c.getByText("clear"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(c.getByLabelText("Moss")).toBeTruthy();
+      });
+
+      it("should keep the search under a view", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        search(c, "o");
+        fireEvent.click(c.getByText("open from #3e8bff"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("o");
+      });
+
+      it("should give a slot the linked color and link the value through the library", () => {
+        const onNamedChange = vi.fn();
+        const Linker = (): ReactElement => {
+          const { linked, link } = Color.usePicker();
+          return (
+            <button onClick={() => link("moss")}>{`linked ${linked?.name}`}</button>
+          );
+        };
+        const c = renderSlots(
+          { named: "ocean", onNamedChange, footer: <Linker /> },
+          { value: "#3e8bff" },
+        );
+        fireEvent.click(c.getByText("linked Ocean"));
+        expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
+      });
+
+      it("should focus the swatch after Back from a view its menu opened", () => {
+        const c = renderSlots({ named: "ocean", swatchMenu: <EditMenu /> });
+        const alarm = c.getByLabelText("Alarm");
+        act(() => alarm.focus());
+        fireEvent.contextMenu(alarm);
+        fireEvent.click(c.getByRole("menuitem", { name: "Edit" }));
+        expect(c.queryByRole("menu")).toBeNull();
+        expect(document.activeElement).toBe(c.getByLabelText("Back"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(alarm);
+      });
+    });
+
     it("should draw square swatches", async () => {
       await renderLibrary();
       const s = swatchRect(0);

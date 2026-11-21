@@ -20,7 +20,6 @@ import {
   createDigitalReadChannel,
   createLabJackDevice,
   createThermocoupleReadChannel,
-  preloadForms,
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
@@ -29,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -37,7 +37,7 @@ import { findDialogTriggerByText, findIconButton } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(LabJack.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.

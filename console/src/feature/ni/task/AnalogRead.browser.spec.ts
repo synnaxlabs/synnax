@@ -19,7 +19,6 @@ import {
   awaitStatusDescription,
   createHardware,
   createNIDevice,
-  preloadForms,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
@@ -29,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -42,7 +42,7 @@ import {
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(NI.Task.FORMS);
 
 type CreateChannelOverrides = Partial<NI.Task.AIChannel>;
 

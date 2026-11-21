@@ -139,6 +139,82 @@ describe("queries", () => {
     });
   });
 
+  describe("useValues", () => {
+    it("should give undefined for an absent reference and a missing named color", async () => {
+      const named = await createNamed();
+      const { result } = renderHook(
+        () =>
+          Color.useValues([
+            undefined,
+            { type: "named", key: uuid.create() },
+            { type: "named", key: named.key },
+          ]),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current[2]).toEqual(xcolor.construct(named.light)),
+      );
+      expect(result.current.slice(0, 2)).toEqual([undefined, undefined]);
+    });
+
+    it("should give the values in the order of the references, with repeated keys", async () => {
+      const [a, b] = await Promise.all([
+        remote.colors.create({ name: `color-${id.create()}`, light: "#112233" }),
+        remote.colors.create({ name: `color-${id.create()}`, light: "#445566" }),
+      ]);
+      const refs: color.Ref[] = [
+        { type: "named", key: b.key },
+        { type: "fixed", value: xcolor.construct("#FF0000") },
+        { type: "named", key: a.key },
+        { type: "named", key: b.key },
+      ];
+      const { result } = renderHook(() => Color.useValues(refs), { wrapper });
+      await waitFor(() =>
+        expect(result.current).toEqual([
+          xcolor.construct("#445566"),
+          xcolor.construct("#FF0000"),
+          xcolor.construct("#112233"),
+          xcolor.construct("#445566"),
+        ]),
+      );
+    });
+  });
+
+  describe("useResultAmong", () => {
+    it("should give only the named colors among its keys", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed(), createNamed()]);
+      const { result } = renderHook(
+        () => Color.useResultAmong({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should not render again for a change to a color outside its keys", async () => {
+      const [inside, outside] = await Promise.all([createNamed(), createNamed()]);
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          return Color.useResultAmong({ keys: [inside.key] });
+        },
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map((c) => c.key)).toEqual([inside.key]),
+      );
+      const before = renders;
+      await act(async () => await renameRemotely(outside.key, "Outside"));
+      await act(async () => await renameRemotely(inside.key, "Inside"));
+      await waitFor(() => expect(result.current.data?.[0]?.name).toBe("Inside"));
+      expect(renders).toBe(before + 1);
+    });
+  });
+
   describe("useRetrieve", () => {
     it("should show a rename from another client", async () => {
       const named = await createNamed();

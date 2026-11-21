@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { color, type group } from "@synnaxlabs/client";
-import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
+import { array, color as xcolor, deep, verbs } from "@synnaxlabs/x";
 import { generateKeyBetween } from "fractional-indexing";
 import z from "zod";
 
 import { color as aetherColor } from "@/color/aether";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 const RESOURCE_NAME = "color";
 const PLURAL_RESOURCE_NAME = "colors";
@@ -59,6 +60,29 @@ export const { useResult: useResultList } = Flux.createRetrieve<
   ListQuery,
   color.Named[]
 >(aetherColor.listDefinition);
+
+const ALL: ListQuery = {};
+
+// Every caller shares the one list of all named colors and selects its own keys.
+const { createResultSelector } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  color.Named[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client }) => client.colors.watch(ALL)),
+});
+
+/**
+ * The loaded named colors among the keys, kept live. The caller re-renders only when
+ * one of them changes.
+ */
+export const useResultAmong = createResultSelector(
+  (all, { keys }: RetrieveMultipleQuery) => {
+    const wanted = new Set(keys);
+    return all.filter((c) => wanted.has(c.key));
+  },
+  array.equal,
+);
 
 /** The named colors that the Core ships, with their shipped values. */
 export const { useResult: useResultBuiltins } = Flux.createRetrieve<
