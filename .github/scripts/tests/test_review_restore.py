@@ -145,7 +145,6 @@ class TestRestore:
 
     def test_should_write_nothing_while_the_review_runs(self, gh: FakeGH) -> None:
         gh.runs[0]["status"] = "in_progress"
-        gh.runs[0]["conclusion"] = None
         assert run(gh) == Outcome.PENDING
         assert gh.written() is None
 
