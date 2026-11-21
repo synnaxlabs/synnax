@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -50,6 +51,10 @@ type Engine interface {
 	// Close stops the engine.
 	Close() error
 }
+
+// ErrNoFault is the error of a run in which no fault of its profile fired after the
+// engine opened, so the run checked nothing that the profile names.
+var ErrNoFault = errors.New("crash: no fault of the profile fired")
 
 // Profile names the faults of a run, and with them the rules that the oracle applies.
 type Profile uint8
