@@ -24,11 +24,14 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText, isSelectButtonSelected } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 type CreateChannelOverrides = Partial<NI.Task.AOChannel>;
 

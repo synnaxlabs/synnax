@@ -21,6 +21,7 @@ import {
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -28,6 +29,8 @@ import {
 import { awaitTextEditingElement, commitTextEdit, getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(Modbus.Task.FORMS);
 
 // The channels of the task, while no menu is open.
 const getItems = () => screen.queryAllByRole("option");

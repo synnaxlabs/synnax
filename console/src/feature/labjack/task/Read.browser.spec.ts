@@ -28,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -35,6 +36,8 @@ import {
 import { findDialogTriggerByText, findIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(LabJack.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.

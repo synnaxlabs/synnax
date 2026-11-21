@@ -20,12 +20,15 @@ import { createFileSecret, createSecret } from "@/platform/secret/testutil";
 import {
   awaitEditableForm,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(PagerDuty.Task.FORMS);
 
 const secrets: secret.Key[] = [];
 

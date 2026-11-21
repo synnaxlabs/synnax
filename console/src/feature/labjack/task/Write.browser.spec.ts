@@ -26,6 +26,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   START_FAILURE,
@@ -33,6 +34,8 @@ import {
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(LabJack.Task.FORMS);
 
 const typeTriggers = (): HTMLElement[] =>
   screen.getAllByRole("button", { name: /^Channel type/ });

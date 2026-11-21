@@ -25,10 +25,13 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
 } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 interface CreateChannelOverrides extends Partial<NI.Task.DIChannel> {}
 

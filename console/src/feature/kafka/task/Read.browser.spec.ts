@@ -44,11 +44,14 @@ import {
   clickDeploy,
   type CommandAnswer,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(Kafka.Task.FORMS);
 
 const TOPIC = "oven";
 

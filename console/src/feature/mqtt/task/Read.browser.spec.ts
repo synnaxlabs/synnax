@@ -25,12 +25,15 @@ import {
   clickDeploy,
   clickFailedDeploy,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   START_FAILURE,
 } from "@/platform/task/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(MQTT.Task.FORMS);
 
 const TOPIC = "plant/oven";
 

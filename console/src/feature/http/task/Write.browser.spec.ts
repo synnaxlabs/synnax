@@ -23,6 +23,7 @@ import {
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -81,6 +82,8 @@ const createWriteConfig = (
   device,
   endpoints,
 });
+
+preloadForms(HTTP.Task.FORMS);
 
 describe("Write", () => {
   it("should show the empty state and add + select an endpoint", async () => {

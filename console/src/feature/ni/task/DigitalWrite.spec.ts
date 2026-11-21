@@ -23,10 +23,13 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
 } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 interface CreateChannelOverrides extends Partial<NI.Task.DOChannel> {}
 

@@ -43,7 +43,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
-import { commitFieldInput, selectFromDropdown } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  preloadForms,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
 import {
   fakePickedFile,
   findDialogTriggerByText,
@@ -55,6 +59,8 @@ import {
 const openMock = vi.mocked(open);
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {

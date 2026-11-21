@@ -19,6 +19,7 @@ import {
   awaitEditableForm,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -26,6 +27,8 @@ import {
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(Kafka.Task.FORMS);
 
 const renderWrite = async (options: RenderTaskFormTabOptions) => {
   const rendered = await renderTaskFormTab(

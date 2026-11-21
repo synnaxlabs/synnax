@@ -21,6 +21,7 @@ import {
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -32,6 +33,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(MQTT.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {

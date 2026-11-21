@@ -23,12 +23,15 @@ import {
   awaitEditableForm,
   createTaskReadOnlyClient,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(Sift.Task.FORMS);
 
 const ZERO_DRAFT: task.New<Sift.Task.StreamSchemas> = {
   name: "Sift stream task",

@@ -28,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  preloadForms,
   reportTaskRunning,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -40,6 +41,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(NI.Task.FORMS);
 
 type CreateChannelOverrides = Partial<NI.Task.AIChannel>;
 

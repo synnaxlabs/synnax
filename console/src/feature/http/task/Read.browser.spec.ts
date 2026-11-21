@@ -24,6 +24,7 @@ import {
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -81,6 +82,8 @@ const createDraft = async (
   client: Synnax,
   config: z.infer<HTTP.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
+
+preloadForms(HTTP.Task.FORMS);
 
 describe("Read", () => {
   it("should show the empty state and add + select an endpoint", async () => {

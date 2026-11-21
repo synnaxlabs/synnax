@@ -24,6 +24,7 @@ import {
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskRunning,
@@ -34,6 +35,8 @@ import {
 import { findIconButton, getIconButton } from "@/testutil";
 
 const client = createTestClient();
+
+preloadForms(Modbus.Task.FORMS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.

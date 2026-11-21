@@ -40,10 +40,13 @@ import {
   deployAndAwaitTask,
   findChannelListItem,
   getChannelItemStatus,
+  preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 
 const client = createTestClient();
+
+preloadForms(EtherCAT.Task.FORMS);
 
 let testRack: rack.Rack;
 
