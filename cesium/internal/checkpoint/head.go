@@ -101,6 +101,11 @@ type Part struct {
 	Dead []byte
 }
 
+// Live reports whether segment record i of p is not dead.
+func (p Part) Live(i int) bool {
+	return i/8 >= len(p.Dead) || p.Dead[i/8]&(1<<(i%8)) == 0
+}
+
 // Name returns the file name of the head of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.head", generation) }
 

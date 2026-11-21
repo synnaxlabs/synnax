@@ -107,7 +107,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
 	}
-	if err := s.core.load(head); err != nil {
+	if err := s.core.load(head, cfg.Generation); err != nil {
 		return nil, err
 	}
 	s.core.generation = cfg.Generation
@@ -297,12 +297,14 @@ type partedRequest struct {
 	generation uint64
 	tags       []Tag
 	ranges     []Range
+	swap       func()
 }
 
 // fail drops the request: the state failed, and later calls return its error.
 func (*partedRequest) fail(error) {}
 
 func (r *partedRequest) run(s *State) {
+	r.swap()
 	changed := set.New[uint32]()
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
@@ -320,8 +322,9 @@ func (r *partedRequest) run(s *State) {
 	}
 	for key, ch := range s.core.channels {
 		rg := ranges[key]
-		if ch.oldest != rg.Oldest || ch.newest != rg.Newest {
-			ch.oldest, ch.newest = rg.Oldest, rg.Newest
+		// A range names parts of the new head, even when its bounds stay.
+		if ch.oldest != 0 || rg.Oldest != 0 {
+			ch.oldest, ch.newest, ch.generation = rg.Oldest, rg.Newest, r.generation
 			changed.Add(key)
 		}
 		if slices.ContainsFunc(ch.kills, folded) {
@@ -344,11 +347,22 @@ func sameRecord(a, b Segment) bool {
 
 // Parted queues what the head of generation holds once it commits: the tags of the
 // records that its switch wrote to parts, and the part range of each key that parts
-// hold. The owner tags each sealed segment whose record is still the one that its part
-// holds, gives each key its range or none, and drops the kills from before generation,
-// which the head holds as dead marks. It does not wait for the owner.
-func (s *State) Parted(generation uint64, tags []Tag, ranges []Range) error {
-	return s.enqueue(&partedRequest{generation: generation, tags: tags, ranges: ranges})
+// hold. The owner first calls swap, which makes the parts of the head readable. It then
+// tags each sealed segment whose record is still the one that its part holds, gives
+// each key its range in the head or none, and drops the kills from before generation,
+// which the head holds as dead marks. Parted does not wait for the owner.
+func (s *State) Parted(
+	generation uint64,
+	tags []Tag,
+	ranges []Range,
+	swap func(),
+) error {
+	return s.enqueue(&partedRequest{
+		generation: generation,
+		tags:       tags,
+		ranges:     ranges,
+		swap:       swap,
+	})
 }
 
 // Durable queues the records of the durable entry of sequence, which the log owner

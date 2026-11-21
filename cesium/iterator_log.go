@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -62,9 +61,9 @@ type logCursor struct {
 	// cur is the range of the last valid move, which a move that fails keeps, as on the
 	// old layout.
 	cur logRange
-	// pinned holds the segments of the last load, which the cursor pins until the next
-	// load or Close.
-	pinned []uint64
+	// pinned holds the segments and parts of the last load, which the cursor pins until
+	// the next load or Close.
+	pinned held
 	// err holds the errors of the loads, an unlink after an unpin or a part read, which
 	// Close returns. broken is true once a load failed to read a part, which ends the
 	// cursor.
@@ -74,7 +73,9 @@ type logCursor struct {
 
 var _ domain.Ranges = (*logCursor)(nil)
 
-// load loads the visible pointers of the key in time order.
+// load loads the visible pointers of the key in time order: the live records of the
+// parts of its range, through the part cache, then the segments of the state that no
+// part holds.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
 	ch, pinned, err := c.e.load(c.key, c.pinned)
@@ -82,16 +83,26 @@ func (c *logCursor) load() {
 	if ch == nil {
 		return
 	}
-	var last partRecords
-	for _, seg := range ch.Segments {
-		ptrs, err := c.pointers(seg, &last)
+	if err != nil {
+		c.broken = true
+		return
+	}
+	for _, p := range pinned.parts {
+		r, err := c.e.cache.Records(p, c.key)
 		if err != nil {
 			c.err, c.broken = errors.Join(c.err, err), true
 			c.ranges = c.ranges[:0]
 			return
 		}
-		for _, ptr := range ptrs {
-			c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
+		for i, seg := range r.Segments {
+			if p.Live(r.First+i) && !killed(ch.Kills, p, seg.ID) {
+				c.add(seg)
+			}
+		}
+	}
+	for _, seg := range ch.Segments {
+		if seg.Part == 0 {
+			c.add(seg)
 		}
 	}
 	slices.SortFunc(c.ranges, func(a, b logRange) int {
@@ -105,60 +116,18 @@ func (c *logCursor) load() {
 	}
 }
 
-// partRecords are the records of the key of a cursor in one part, and the index of the
-// record after the last one that a load took. A load takes segments in rising order of
-// identity, as the part holds them.
-type partRecords struct {
-	part uint64
-	next int
-	checkpoint.Records
+// add adds the pointers of seg to the ranges of c.
+func (c *logCursor) add(seg state.Segment) {
+	for _, ptr := range seg.Pointers {
+		c.ranges = append(c.ranges, logRange{seg: seg, ptr: ptr, start: ptr.First})
+	}
 }
 
-// pointers returns the pointers of seg: from the part that its tag names, through the
-// part cache, or its own. last holds the records of the last part that a load read,
-// which the next segment in that part reuses.
-func (c *logCursor) pointers(
-	seg state.Segment,
-	last *partRecords,
-) ([]state.Pointer, error) {
-	if seg.Part == 0 {
-		return seg.Pointers, nil
-	}
-	if last.part != seg.Part {
-		r, err := c.records(seg)
-		if err != nil {
-			return nil, err
-		}
-		*last = partRecords{part: seg.Part, Records: r}
-	}
-	for last.next < len(last.Segments) && last.Segments[last.next].ID < seg.ID {
-		last.next++
-	}
-	if last.next == len(last.Segments) || last.Segments[last.next].ID != seg.ID {
-		return nil, errors.Wrapf(
-			place.ErrCorrupt,
-			"part %d holds no record of segment %d of key %d",
-			seg.Part,
-			seg.ID,
-			c.key,
-		)
-	}
-	last.next++
-	return last.Segments[last.next-1].Pointers, nil
-}
-
-// records returns the records of the key of c in the part that the tag of seg names.
-func (c *logCursor) records(seg state.Segment) (checkpoint.Records, error) {
-	p, ok := c.e.part(seg.Part)
-	if !ok {
-		return checkpoint.Records{}, errors.Newf(
-			"segment %d of key %d names part %d, which no head names",
-			seg.ID,
-			c.key,
-			seg.Part,
-		)
-	}
-	return c.e.cache.Records(p, c.key)
+// killed reports whether a kill in kills marks the record of segment id in p dead.
+func killed(kills []state.Kill, p checkpoint.Part, id uint64) bool {
+	return slices.ContainsFunc(kills, func(k state.Kill) bool {
+		return k.Segment == id && k.Generation >= p.Generation
+	})
 }
 
 // at moves the cursor to position pos, which is valid when it holds a range that
@@ -252,7 +221,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 func (c *logCursor) Close() error {
 	c.valid = false
 	err := errors.Join(c.err, c.e.unpin(c.pinned))
-	c.pinned, c.err = nil, nil
+	c.pinned, c.err = held{}, nil
 	return err
 }
 
@@ -290,5 +259,5 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin([]uint64{r.id}))
+	return errors.Join(r.h.Close(), r.e.unpin(held{segments: []uint64{r.id}}))
 }

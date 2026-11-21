@@ -75,7 +75,7 @@ func index(p Part, channels []*state.Channel) indexed {
 }
 
 // Merge adds the segments of the parts of x that are not dead to s, the snapshot of the
-// head that names them.
+// head that names them, each tagged with its part.
 func (x *Index) Merge(s *state.Snapshot) {
 	if len(x.parts) == 0 {
 		return
@@ -95,6 +95,7 @@ func (x *Index) Merge(s *state.Snapshot) {
 				byKey[c.Key] = c
 				s.Channels = append(s.Channels, c)
 			}
+			seg.Part = p.ID
 			c.Segments = append(c.Segments, seg)
 		}
 	}
@@ -146,19 +147,6 @@ func (p *indexed) fold(kills map[uint32][]state.Kill) {
 	}
 }
 
-// Tags returns the tags of the records of the parts of x that are not dead.
-func (x *Index) Tags() []state.Tag {
-	var tags []state.Tag
-	for _, p := range x.parts {
-		for i, seg := range p.segs {
-			if !p.dead(i) {
-				tags = append(tags, state.Tag{Part: p.ID, Segment: seg})
-			}
-		}
-	}
-	return tags
-}
-
 // ids returns the identities of the parts of x.
 func (x *Index) ids() set.Set[uint64] {
 	ids := set.New[uint64]()
@@ -168,9 +156,7 @@ func (x *Index) ids() set.Set[uint64] {
 	return ids
 }
 
-func (p *indexed) dead(i int) bool {
-	return i/8 < len(p.Dead) && p.Dead[i/8]&(1<<(i%8)) != 0
-}
+func (p *indexed) dead(i int) bool { return !p.Live(i) }
 
 func (p *indexed) kill(i int) {
 	if len(p.Dead) == 0 {

@@ -57,6 +57,8 @@ type Channel struct {
 	// Oldest and Newest are the identities of the oldest and newest part that hold
 	// records of the key, or 0 when no part does.
 	Oldest, Newest uint64
+	// Generation is the generation of the head whose parts Oldest and Newest name.
+	Generation uint64
 	// Kills are the kills of segments of the key that no head holds as dead marks yet.
 	Kills []Kill
 }

@@ -10,8 +10,11 @@
 package cesium
 
 import (
+	"maps"
+	"slices"
 	"sync"
 
+	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -22,40 +25,59 @@ type pins struct {
 	mu      sync.Mutex
 	readers map[uint64]int
 	dead    map[uint64]ChannelKey
+	// parts counts the readers of each part, which a switch keeps.
+	parts map[uint64]int
 }
 
-// load returns the visible Channel of key from e, and pins each of its segments under
-// the same lock that release takes, so release never unlinks a segment that a Channel
-// it returned still names. It unpins held, the segments of an earlier load, and returns
-// the segments it pinned.
-func (e *engine) load(key ChannelKey, held []uint64) (*state.Channel, []uint64, error) {
+// held is what a load pins: the segments of its Channel, and the parts of its range.
+type held struct {
+	segments []uint64
+	parts    []checkpoint.Part
+}
+
+// load returns the visible Channel of key from e and the parts of its range. It pins
+// each segment and part under the same lock that release takes, so release never
+// unlinks a segment that a Channel it returned still names, and a switch keeps each
+// part. It unpins prev, the pins of an earlier load, and returns the new pins.
+func (e *engine) load(key ChannelKey, prev held) (*state.Channel, held, error) {
 	e.pins.mu.Lock()
 	ch := e.state.Channel(key)
-	var ids []uint64
+	var (
+		h   held
+		err error
+	)
 	if ch != nil {
-		ids = make([]uint64, len(ch.Segments))
+		h.segments = make([]uint64, len(ch.Segments))
 		for i, seg := range ch.Segments {
-			ids[i] = seg.ID
+			h.segments[i] = seg.ID
 		}
+		h.parts, err = e.partsOf(ch)
 	}
-	e.pins.pin(ids)
-	free := e.pins.unpin(held)
+	e.pins.pin(h)
+	free := e.pins.unpin(prev)
 	e.pins.mu.Unlock()
-	return ch, ids, e.unlink(free)
+	return ch, h, errors.Join(err, e.unlink(free))
+}
+
+// pinned returns the parts that readers pin.
+func (e *engine) pinned() []uint64 {
+	e.pins.mu.Lock()
+	defer e.pins.mu.Unlock()
+	return slices.Collect(maps.Keys(e.pins.parts))
 }
 
 // pin pins segment id for a reader.
 func (e *engine) pin(id uint64) {
 	e.pins.mu.Lock()
-	e.pins.pin([]uint64{id})
+	e.pins.pin(held{segments: []uint64{id}})
 	e.pins.mu.Unlock()
 }
 
-// unpin drops a reader's pins of ids, and unlinks each dead segment that no reader
-// pins after it.
-func (e *engine) unpin(ids []uint64) error {
+// unpin drops a reader's pins of h, and unlinks each dead segment that no reader pins
+// after it.
+func (e *engine) unpin(h held) error {
 	e.pins.mu.Lock()
-	free := e.pins.unpin(ids)
+	free := e.pins.unpin(h)
 	e.pins.mu.Unlock()
 	return e.unlink(free)
 }
@@ -85,18 +107,26 @@ func (e *engine) unlink(dead []state.Dead) error {
 	return errors.Join(errs...)
 }
 
-// pin adds a reader of each segment of ids. The caller holds p.mu.
-func (p *pins) pin(ids []uint64) {
-	for _, id := range ids {
+// pin adds a reader of each segment and part of h. The caller holds p.mu.
+func (p *pins) pin(h held) {
+	for _, id := range h.segments {
 		p.readers[id]++
+	}
+	for _, part := range h.parts {
+		p.parts[part.ID]++
 	}
 }
 
-// unpin drops a reader of each segment of ids, and returns the dead segments that no
-// reader pins after it. The caller holds p.mu.
-func (p *pins) unpin(ids []uint64) []state.Dead {
+// unpin drops a reader of each segment and part of h, and returns the dead segments
+// that no reader pins after it. The caller holds p.mu.
+func (p *pins) unpin(h held) []state.Dead {
+	for _, part := range h.parts {
+		if p.parts[part.ID]--; p.parts[part.ID] == 0 {
+			delete(p.parts, part.ID)
+		}
+	}
 	var free []state.Dead
-	for _, id := range ids {
+	for _, id := range h.segments {
 		if p.readers[id]--; p.readers[id] > 0 {
 			continue
 		}

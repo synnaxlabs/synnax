@@ -48,8 +48,9 @@ type chanState struct {
 	segs   []*segState
 	claims []*claim
 	pub    atomic.Pointer[Channel]
-	// oldest and newest are the part range of the key.
-	oldest, newest uint64
+	// oldest and newest are the part range of the key, in the parts of the head of
+	// generation.
+	oldest, newest, generation uint64
 	// kills are the kills of segments of the key that no head holds yet. An append
 	// may share the array of a published Channel, so a change other than an append
 	// takes a new slice.
@@ -112,11 +113,12 @@ func (c *chanState) checkViews() {
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
 	ch := &Channel{
-		Key:      c.key,
-		Segments: make([]Segment, 0, len(c.segs)),
-		Oldest:   c.oldest,
-		Newest:   c.newest,
-		Kills:    c.kills,
+		Key:        c.key,
+		Segments:   make([]Segment, 0, len(c.segs)),
+		Oldest:     c.oldest,
+		Newest:     c.newest,
+		Generation: c.generation,
+		Kills:      c.kills,
 	}
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)

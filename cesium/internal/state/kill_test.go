@@ -70,7 +70,7 @@ var _ = Describe("Kills", func() {
 		Expect(s.Durable(12, []log.Record{
 			&log.Tombstone{Key: 6, Start: 30, End: 31},
 		})).To(Succeed())
-		Expect(s.Parted(5, nil, nil)).To(Succeed())
+		Expect(s.Parted(5, nil, nil, func() {})).To(Succeed())
 		want := []state.Kill{{Key: 6, Segment: 3, Generation: 5}}
 		Expect(kills()).To(Equal(want))
 		Expect(s.Channel(6).Kills).To(Equal(want))
@@ -78,12 +78,17 @@ var _ = Describe("Kills", func() {
 
 	It("Should give each key its part range, and take the range of a key that a later "+
 		"head leaves out", func() {
-		Expect(s.Parted(5, nil, []state.Range{{Key: 6, Oldest: 2, Newest: 3}})).
+		var before *state.Channel
+		swap := func() { before = s.Channel(6) }
+		Expect(s.Parted(5, nil, []state.Range{{Key: 6, Oldest: 2, Newest: 3}}, swap)).
 			To(Succeed())
 		MustSucceed(s.Snapshot())
+		// The owner swaps the parts in before it publishes the ranges that name them.
+		Expect(before.Oldest).To(BeZero())
 		Expect(s.Channel(6).Oldest).To(Equal(uint64(2)))
 		Expect(s.Channel(6).Newest).To(Equal(uint64(3)))
-		Expect(s.Parted(6, nil, nil)).To(Succeed())
+		Expect(s.Channel(6).Generation).To(Equal(uint64(5)))
+		Expect(s.Parted(6, nil, nil, func() {})).To(Succeed())
 		MustSucceed(s.Snapshot())
 		Expect(s.Channel(6).Oldest).To(BeZero())
 		Expect(s.Channel(6).Newest).To(BeZero())

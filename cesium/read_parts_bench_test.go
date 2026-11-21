@@ -60,7 +60,7 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 	for s := range stretches {
 		writePartsStretch(b, ctx, db, keys, s*samples, samples)
 	}
-	if err := switchLog(db, fs); err != nil {
+	if err := switchLog(db, fs, 2); err != nil {
 		b.Fatal(err)
 	}
 	// The checkpointer writes the parts before the head, and Exists sees head 2 once

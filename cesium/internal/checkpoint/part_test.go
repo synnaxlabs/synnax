@@ -10,6 +10,8 @@
 package checkpoint_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
@@ -150,14 +152,21 @@ var _ = Describe("Parts", func() {
 		Expect(got.Channels[1].Newest).To(Equal(h.Parts[0].ID))
 	})
 
-	It("Should give back the whole state from a head and its parts", func() {
+	It("Should give back the whole state from a head and its parts, with each record "+
+		"of a part tagged", func() {
 		whole := withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30))
 		switchTo(2, whole)
 		h, s := MustSucceed2(checkpoint.Read(fs, 2))
 		x := MustSucceed(checkpoint.LoadParts(fs, db, h))
 		x.Merge(s)
+		want := slices.Clone(whole.Channels[0].Segments)
+		for i := range want {
+			if want[i].Sealed {
+				want[i].Part = 1
+			}
+		}
 		Expect(s.Channels).To(HaveLen(1))
-		Expect(s.Channels[0].Segments).To(Equal(whole.Channels[0].Segments))
+		Expect(s.Channels[0].Segments).To(Equal(want))
 	})
 
 	It("Should set the bit of a killed part segment", func() {

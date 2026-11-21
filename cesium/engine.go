@@ -10,9 +10,11 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -74,11 +76,19 @@ type engine struct {
 	partSize int
 	// cache is the part cache of the checkpointer and the readers.
 	cache *checkpoint.Cache
-	// parts holds the parts that the last two heads name, which a tag may name.
+	// parts holds the parts that the last two heads name, which the range of a Channel
+	// may name.
 	parts struct {
 		sync.Mutex
-		live, older map[uint64]checkpoint.Part
+		live, older headParts
 	}
+}
+
+// headParts are the parts that the head of generation names, in rising order of
+// identity.
+type headParts struct {
+	generation uint64
+	parts      []checkpoint.Part
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -115,6 +125,7 @@ func openEngine(o *options) (*engine, error) {
 		partSize: o.partSize,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
+	e.pins.parts = make(map[uint64]int)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -138,9 +149,7 @@ func openEngine(o *options) (*engine, error) {
 	if err = e.recover(r); err != nil {
 		return nil, err
 	}
-	if r.parts != nil {
-		e.parted(r.head.Generation, r.head.Parts, r.parts.Tags(), r.parts.Ranges())
-	}
+	e.parts.live = headParts{generation: r.head.Generation, parts: r.head.Parts}
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
@@ -236,40 +245,56 @@ func (e *engine) recover(r *recovery) (err error) {
 		PartSize: e.partSize,
 		Cache:    e.cache,
 		Parted:   e.parted,
+		Pinned:   e.pinned,
 	})
 	return err
 }
 
-// parted keeps the parts of a new head for readers, and hands the tags of its switch
-// to the state.
+// parted hands what a new head holds to the state, which makes its parts readable for
+// the Channels that it publishes with their ranges.
 func (e *engine) parted(
 	generation uint64,
 	parts []checkpoint.Part,
 	tags []state.Tag,
 	ranges []state.Range,
 ) {
-	live := make(map[uint64]checkpoint.Part, len(parts))
-	for _, p := range parts {
-		live[p.ID] = p
+	swap := func() {
+		e.parts.Lock()
+		e.parts.older = e.parts.live
+		e.parts.live = headParts{generation: generation, parts: parts}
+		e.parts.Unlock()
 	}
-	e.parts.Lock()
-	e.parts.older, e.parts.live = e.parts.live, live
-	e.parts.Unlock()
-	if err := e.state.Parted(generation, tags, ranges); err != nil {
-		e.ins.L.Error("state refused the tags of a switch", zap.Error(err))
+	if err := e.state.Parted(generation, tags, ranges, swap); err != nil {
+		e.ins.L.Error("state refused what a head holds", zap.Error(err))
 	}
 }
 
-// part returns the part id that one of the last two heads names.
-func (e *engine) part(id uint64) (checkpoint.Part, bool) {
+// partsOf returns the parts of the range of ch, from the head that ch names.
+func (e *engine) partsOf(ch *state.Channel) ([]checkpoint.Part, error) {
+	if ch.Oldest == 0 {
+		return nil, nil
+	}
 	e.parts.Lock()
 	defer e.parts.Unlock()
-	if p, ok := e.parts.live[id]; ok {
-		return p, true
+	var head headParts
+	switch ch.Generation {
+	case e.parts.live.generation:
+		head = e.parts.live
+	case e.parts.older.generation:
+		head = e.parts.older
+	default:
+		return nil, errors.Newf(
+			"key %d names the parts of head %d, which the engine no longer holds",
+			ch.Key,
+			ch.Generation,
+		)
 	}
-	p, ok := e.parts.older[id]
-	return p, ok
+	lo, _ := slices.BinarySearchFunc(head.parts, ch.Oldest, compareParts)
+	hi, _ := slices.BinarySearchFunc(head.parts, ch.Newest, compareParts)
+	return head.parts[lo : hi+1], nil
 }
+
+func compareParts(p checkpoint.Part, id uint64) int { return cmp.Compare(p.ID, id) }
 
 func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }
 

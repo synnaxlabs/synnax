@@ -56,6 +56,9 @@ type Config struct {
 	// the part range of each key. It runs on the executor and must not wait for
 	// another of its jobs.
 	Parted func(generation uint64, parts []Part, tags []state.Tag, ranges []state.Range)
+	// Pinned, when set, returns the parts that readers pin, which a switch keeps until
+	// a later switch finds them unpinned. It must not wait for the executor.
+	Pinned func() []uint64
 }
 
 // Validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -240,7 +243,11 @@ func (c *Checkpointer) write(h head) error {
 	if c.cfg.Parted != nil {
 		c.cfg.Parted(h.generation, refs, pl.tags(), ranges)
 	}
-	return errors.Join(pl.err, clean(c.cfg.FS, h.generation, c.index.ids()))
+	keep := c.index.ids()
+	if c.cfg.Pinned != nil {
+		keep.Add(c.cfg.Pinned()...)
+	}
+	return errors.Join(pl.err, clean(c.cfg.FS, h.generation, keep))
 }
 
 // undo removes the parts of a failed switch, then syncs the root.
