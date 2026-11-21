@@ -112,11 +112,11 @@ func hasKey(m map[resource.ID]Effect, k resource.ID) bool {
 	return ok
 }
 
-// token returns the hex form of the first 16 bytes of a SHA-256 hash of p, the plan of
-// the delete of the channels with keys as the caller sees it: the keys in sorted order,
-// each visible entry's record and effect, and the hidden count. Each field holds its
-// length, so no two plans hash the same bytes.
-func token(keys []channel.Key, p Plan) string {
+// tokenSum returns the first 16 bytes of a SHA-256 hash of p, the plan of the delete of
+// the channels with keys as the caller sees it: the keys in sorted order, each visible
+// entry's record and effect, and the hidden count. Each field holds its length, so no
+// two plans hash the same bytes.
+func tokenSum(keys []channel.Key, p Plan) [16]byte {
 	sorted := keys
 	for i := 1; i < len(keys); i++ {
 		if keys[i] <= keys[i-1] {
@@ -140,12 +140,31 @@ func token(keys []channel.Key, p Plan) string {
 		buf = appendField(buf, string(e.Effect))
 	}
 	buf = binary.BigEndian.AppendUint32(buf, p.Hidden)
+	sum := sha256.Sum256(buf)
+	return [16]byte(sum[:16])
+}
+
+// token returns the hex form of tokenSum(keys, p).
+func token(keys []channel.Key, p Plan) string {
 	var (
-		sum     = sha256.Sum256(buf)
+		sum     = tokenSum(keys, p)
 		encoded [32]byte
 	)
-	hex.Encode(encoded[:], sum[:16])
+	hex.Encode(encoded[:], sum[:])
 	return string(encoded[:])
+}
+
+// matches reports whether t is the token of p, the plan of the delete of the channels
+// with keys, with no hex form built.
+func matches(t string, keys []channel.Key, p Plan) bool {
+	var decoded [16]byte
+	if len(t) != hex.EncodedLen(len(decoded)) {
+		return false
+	}
+	if _, err := hex.Decode(decoded[:], []byte(t)); err != nil {
+		return false
+	}
+	return decoded == tokenSum(keys, p)
 }
 
 // appendField appends the length of s, then s, to buf.

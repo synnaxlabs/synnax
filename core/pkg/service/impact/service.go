@@ -253,9 +253,11 @@ func (s *Service) Apply(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if r.plan.Token = token(keys, r.plan); r.plan.Token != opts.Token {
+		if !matches(opts.Token, keys, r.plan) {
+			r.plan.Token = token(keys, r.plan)
 			return Plan{}, PlanChangedError{Plan: r.plan}
 		}
+		r.plan.Token = opts.Token
 	}
 	if r.cancel != nil {
 		return Plan{}, *r.cancel
