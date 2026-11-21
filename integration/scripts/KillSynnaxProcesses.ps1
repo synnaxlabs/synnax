@@ -19,6 +19,9 @@ foreach ($name in "synnax", "synnax-driver") {
         continue
     }
     $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+    # A killed process holds its executable open until it exits, so removing the
+    # binaries directory right after the stop can fail.
+    $procs | Wait-Process -Timeout 30 -ErrorAction SilentlyContinue
     Write-Host "Stopped $name.exe processes"
 }
 
