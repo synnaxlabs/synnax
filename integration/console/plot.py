@@ -416,8 +416,7 @@ class Plot(ConsolePage):
         self.layout.ctx_menu.click_option(option)
 
     def reload_console(self) -> None:
-        """Reload the Console from the plot menu and wait for the plot to show.
-        The Console saves the Session before the reload."""
+        """Reload the Console from the plot menu and wait for the plot to show."""
         with self.page.expect_navigation(wait_until="load", timeout=30000):
             self.select_menu_option("Reload Console")
         if not self.pane_locator:
