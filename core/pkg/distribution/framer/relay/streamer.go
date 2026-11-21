@@ -138,7 +138,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := s.relay.connectToDelta(s.accepts)
+		responses, missed, disconnect := s.relay.connectToDelta(s.accepts)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
@@ -155,7 +155,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return err
 			}
 		}
-		return s.forward(ctx, responses)
+		return s.forward(ctx, responses, missed)
 	}, o.Signal...)
 }
 
@@ -173,9 +173,14 @@ func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{})
 }
 
-// forward applies key updates from the inlet and sends matching frames from responses
-// until the context is canceled or the inlet closes.
-func (s *streamer) forward(ctx context.Context, responses <-chan Response) error {
+// forward applies key updates from the inlet, sends matching frames from responses, and
+// sends a missed marker for each drop episode, until the context is canceled or the
+// inlet closes.
+func (s *streamer) forward(
+	ctx context.Context,
+	responses <-chan Response,
+	missed <-chan struct{},
+) error {
 	// pendingAcks holds the ack channels of key updates the tapper has not applied
 	// yet. The tapper applies demands in order, so the head always closes first.
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing
@@ -189,6 +194,14 @@ func (s *streamer) forward(ctx context.Context, responses <-chan Response) error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-missed:
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{Missed: true},
+			); err != nil {
+				return err
+			}
 		case <-nextAck:
 			pendingAcks = pendingAcks[1:]
 			if err := signal.SendUnderContext(

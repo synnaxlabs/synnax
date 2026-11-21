@@ -367,6 +367,80 @@ var _ = Describe("Relay", func() {
 				Expect(warnings()).To(Equal(2))
 			},
 		)
+
+		It(
+			"Should send one missed marker per drop episode and keep streaming",
+			func(ctx SpecContext) {
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				DeferCleanup(r.Close)
+				key := channel.NewKey(node.KeyFree, 1)
+				openStreamer := func(buffer int) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+						Keys:        channel.Keys{key},
+						SendOpenAck: new(true),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				stalled := openStreamer(0)
+				live := openStreamer(10)
+				send := func(n int) {
+					GinkgoHelper()
+					for v := range int64(n) {
+						freeWrites.Inlet() <- relay.Response{
+							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+						}
+						Eventually(live.Outlet()).Should(Receive())
+					}
+				}
+				// drain reads stalled until it stays empty.
+				drain := func() (frames, markers int) {
+					GinkgoHelper()
+					for {
+						var res relay.Response
+						select {
+						case res = <-stalled.Outlet():
+						case <-time.After(200 * time.Millisecond):
+							return frames, markers
+						}
+						if res.Missed {
+							Expect(res.Frame.Empty()).To(BeTrue())
+							markers++
+						} else {
+							frames++
+						}
+					}
+				}
+				// stalled holds one frame and buffers four, so it drops three.
+				send(8)
+				frames, markers := drain()
+				Expect(frames).To(Equal(5))
+				Expect(markers).To(Equal(1))
+				send(2)
+				frames, markers = drain()
+				Expect(frames).To(Equal(2))
+				Expect(markers).To(Equal(0))
+				send(8)
+				_, markers = drain()
+				Expect(markers).To(Equal(1))
+			},
+		)
 	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(

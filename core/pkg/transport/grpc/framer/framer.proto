@@ -92,6 +92,7 @@ message StreamerResponse {
   x.telem.pb.Frame frame = 1;
   bytes buffer = 2;
   bool ack = 3;
+  bool missed = 4;
 }
 
 service FrameDeleteService {

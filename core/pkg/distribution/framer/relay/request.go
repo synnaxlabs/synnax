@@ -39,6 +39,11 @@ type Response struct {
 	// Ack marks the empty response that answers a Request with AckRequested set. Acks
 	// arrive in the order of their requests.
 	Ack bool `json:"ack" msgpack:"ack"`
+	// Missed marks an empty response that the streamer sends after the relay drops
+	// frames because the streamer fell behind. One marker answers each run of drops
+	// that ends when the streamer's buffer empties. Changes in the dropped frames
+	// never arrive, so a consumer that holds state from the stream must read it again.
+	Missed bool `json:"missed" msgpack:"missed"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {

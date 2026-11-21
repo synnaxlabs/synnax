@@ -354,6 +354,21 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Entry("through the protobuf frame", false),
 			Entry("through the codec", true),
 		)
+
+		DescribeTable(
+			"Should send a missed marker",
+			func(ctx SpecContext, keyed bool) {
+				var req grpcframer.StreamerRequest
+				if keyed {
+					req.Keys = createVirtualChannel(ctx, telem.Int64T).Uint32()
+				}
+				serve(transport.FrameStreamer, 1, framer.StreamerResponse{Missed: true})
+				res := exchange(MustSucceed(client.Exec(ctx)), 1, &req)[0]
+				Expect(res.Missed).To(BeTrue())
+			},
+			Entry("through the protobuf frame", false),
+			Entry("through the codec", true),
+		)
 	})
 
 	Describe("Iterator", func() {
