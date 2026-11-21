@@ -1454,6 +1454,19 @@ describe("actions.Controller", () => {
       expect(controller.hasPending("k")).toBe(false);
     });
 
+    it("tells the doc's subscribers when the echo of the first pending dispatch arrives", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      const events: string[] = [];
+      docs.subscribe((event) => events.push(event.variant), "k");
+      controller.applyRemote("k", 1, calls[0].dispatchKey, [set("a", 1)]);
+      expect(events).toEqual(["set"]);
+      calls[0].resolve();
+      await dispatched;
+    });
+
     it("applies the actions that the Core adds to the echo of a dispatch", async () => {
       const { send, calls } = createHeldSend();
       const { docs, controller } = setupStore({ send });

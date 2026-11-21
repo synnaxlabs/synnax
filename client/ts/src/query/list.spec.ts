@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/errors";
@@ -478,6 +479,42 @@ describe("Lists", () => {
       expect(names(await list.retrieve())).toEqual(["a", "b"]);
       expect(names(await list.more(2))).toEqual(["a", "b", "d"]);
     });
+  });
+
+  it("should place an edited key whose edit the Core applies while a page is in flight", async () => {
+    const { table, fetch, lists } = setup([rec("1", "a", 0), rec("2", "b")]);
+    // Shows key 1 as matching until the Core applies its edit, as the action
+    // controller does.
+    const bases = new Map<string, Rec>();
+    table.intercept({
+      base: (key) => bases.get(key),
+      apply: (key, value) => {
+        if (key !== "1") return value;
+        bases.set(key, value);
+        return { ...value, value: 1 };
+      },
+      keys: () => bases.keys(),
+    });
+    table.set("1", rec("1", "a", 0));
+    const list = lists.list({ min: 1, order: byName, limit: 5 });
+    list.onChange(() => {});
+    const { promise: answered, resolve: answer } = Promise.withResolvers<void>();
+    const fetchCore = fetch.getMockImplementation();
+    assertDefined(fetchCore);
+    // The Core answers for the base, which the edit does not reach yet.
+    fetch.mockImplementationOnce(async (q) => {
+      const page = await fetchCore(q);
+      await answered;
+      return page;
+    });
+    const retrieving = list.retrieve();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    // The echo of the edit lands before the page, so the edit is no longer pending.
+    bases.delete("1");
+    table.renotify("1");
+    answer();
+    await retrieving;
+    expect(names(list.getCached())).toEqual(["a", "b"]);
   });
 
   describe("search", () => {
