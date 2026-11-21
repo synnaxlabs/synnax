@@ -12,7 +12,7 @@ import { type breaker, Rate, Size, sleep, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { rawIndex } from "@/framer/cache/block";
+import { rawTile } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
@@ -101,7 +101,7 @@ const tick = (core: SyntheticCore): (() => void) => {
 
 // Pins the channel's raw block of the Core's clock, as a subscription to it does.
 const pinOpen = (store: Store, core: SyntheticCore, ch: channel.Key): void =>
-  store.repin(new Set(), new Set([store.raw(ch, rawIndex(core.now()))]));
+  store.repin(new Set(), new Set([store.raw(ch, rawTile(core.now()))]));
 
 // Returns true when the stream writes both channels into open blocks that hold the same
 // number of samples.
@@ -173,7 +173,7 @@ describe("Joiner", () => {
     try {
       await expect.poll(() => joins.joined(data), POLL).toBe(true);
       // Another channel's block enters the store before the next sample streams.
-      store.raw(other, rawIndex(core.now()));
+      store.raw(other, rawTile(core.now()));
       core.advance(TimeSpan.milliseconds(100));
       await expect.poll(() => paired(store, data, index), POLL).toBe(true);
       expect(store.open(index)?.coveredCount).toBeGreaterThan(10);

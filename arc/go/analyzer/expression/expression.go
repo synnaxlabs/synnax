@@ -570,7 +570,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	name := parser.PrimaryNameParts(primary)
+	name := parser.PrimaryName(primary)
 	funcName := name.String()
 	scope, err := ctx.ResolveName(name)
 	if err != nil {
@@ -602,7 +602,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 func nonFunctionCall(
 	postfix parser.IPostfixExpressionContext,
 ) (parser.IFunctionCallSuffixContext, string) {
-	named := parser.PrimaryName(postfix.PrimaryExpression()) != ""
+	named := parser.PrimaryName(postfix.PrimaryExpression()).Head != ""
 	var callee strings.Builder
 	for i, child := range postfix.GetChildren() {
 		rule, ok := child.(antlr.ParserRuleContext)
@@ -710,10 +710,15 @@ func analyzeNamedPrimary(
 			context.VarRead{Var: resolved, Site: ctx.AST},
 		)
 	}
-	if !tracksChannelRead(resolved) {
-		return
+	if tracksChannelRead(resolved) {
+		recordChannelRead(ctx.Scope, resolved)
 	}
-	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+}
+
+// recordChannelRead records that the function that encloses scope reads the channel
+// resolved.
+func recordChannelRead(scope, resolved *symbol.Symbol) {
+	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 		panic(fnErr)
 	}
@@ -728,7 +733,7 @@ func analyzeNamedPrimary(
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if n := parser.PrimaryNameParts(ctx.AST); n.Head != "" {
+	if n := parser.PrimaryName(ctx.AST); n.Head != "" {
 		analyzeNamedPrimary(ctx, n)
 		return
 	}
@@ -854,7 +859,7 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	n := parser.ExpressionNameParts(expr)
+	n := parser.ExpressionName(expr)
 	if n.Head == "" {
 		return 0, "", false
 	}

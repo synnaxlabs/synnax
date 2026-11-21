@@ -1297,6 +1297,7 @@ func (p *printer) isLiteral(tokType int) bool {
 
 func (p *printer) isWordToken(tokType int) bool {
 	return tokType == parser.ArcLexerIDENTIFIER ||
+		tokType == parser.ArcLexerCHANNEL_NAME ||
 		p.isKeyword(tokType) || p.isType(tokType) || p.isLiteral(tokType)
 }
 
@@ -1305,7 +1306,7 @@ func (p *printer) needsSpaceBeforeParen(tok antlr.Token) bool {
 		return false
 	}
 	switch p.lastTokenType {
-	case parser.ArcLexerIDENTIFIER:
+	case parser.ArcLexerIDENTIFIER, parser.ArcLexerCHANNEL_NAME:
 		// A gap before `(` makes the name a bare flow node, so the gap is kept.
 		return !p.tokensAdjacent(p.prevToken, tok)
 	case parser.ArcLexerIF, parser.ArcLexerAUTHORITY, parser.ArcLexerIMPORT:
@@ -1410,7 +1411,7 @@ func reorderAuthorityEntries(tokens []antlr.Token) []antlr.Token {
 						isDefault: true,
 					})
 					i++
-				case parser.ArcLexerIDENTIFIER:
+				case parser.ArcLexerIDENTIFIER, parser.ArcLexerCHANNEL_NAME:
 					entry := authorityEntry{tokens: []antlr.Token{tokens[i]}}
 					i++
 					if i < len(tokens) &&

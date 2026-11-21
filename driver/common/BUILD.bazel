@@ -45,6 +45,17 @@ cc_library(
 )
 
 cc_binary(
+    name = "sample_clock_bench",
+    srcs = ["sample_clock_bench.cpp"],
+    deps = [
+        "//driver/common",
+        "//x/cpp/bench",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
+cc_binary(
     name = "write_task_bench",
     srcs = ["write_task_bench.cpp"],
     deps = [
