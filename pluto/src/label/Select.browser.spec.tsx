@@ -72,7 +72,7 @@ describe("Label.SelectSingle", () => {
     const option = page.getByRole("option", { name: lbl.name });
     await expect.element(option).toBeInTheDocument();
     expect(fireEvent.contextMenu(option.element())).toBe(false);
-    await page.getByText("Edit").click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
     await userEvent.fill(page.getByLabelText("Label name"), `${lbl.name}-renamed`);
     await expect
       .poll(async () => (await client.labels.retrieve(lbl.key)).name)
