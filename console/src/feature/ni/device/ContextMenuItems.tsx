@@ -9,6 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
+import { ADAPTER } from "@/feature/ni/device/hardware";
 import { suggestIdentifiers } from "@/feature/ni/device/identifier";
 import { ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { Task } from "@/feature/ni/task";
@@ -46,10 +47,17 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
+const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(ADAPTER);
+
+const ChangeIdentifierMenuItem = PlatformDevice.createChangeIdentifierMenuItem({
+  adapter: ADAPTER,
+  icon: "Logo.NI",
+});
+
 export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
   <>
-    <PlatformDevice.ConfigureMenuItem {...props} />
-    <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+    <ConfigureMenuItem {...props} />
+    <ChangeIdentifierMenuItem {...props} />
     <Menu.Divider />
     <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
   </>

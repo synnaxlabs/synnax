@@ -3336,6 +3336,29 @@ Node union on variant {
 		)
 
 		It(
+			"Should substitute a defaulted type parameter of an extended struct",
+			func() {
+				source := `
+				Box struct<T = string> {
+					data T
+				}
+
+				Container struct {
+					key uuid
+
+					action Load extends Box {}
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				action := findAction(table, "test.Container", "Load")
+				Expect(action.Fields).To(HaveLen(1))
+				Expect(action.Fields[0].Type.IsTypeParam()).To(BeFalse())
+				Expect(action.Fields[0].Type.Name).To(Equal("string"))
+			},
+		)
+
+		It(
 			"Should error when an action extends an unresolved type",
 			func() {
 				source := `
@@ -4089,6 +4112,276 @@ Node union on variant {
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
 			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
+
+		It(
+			"Should keep an array inside a map or a type argument",
+			func() {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					ports  map<string, uint16[]>
+					pairs  map<string, uint8[2]>
+					boxed  Box<string[]>
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form, ok := table.MustGet("test.Config").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+
+				ports, _ := form.Field("ports")
+				Expect(ports.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(ports.Type.TypeArgs[1].ArraySize).To(BeNil())
+				Expect(ports.Type.TypeArgs[1].TypeArgs[0].Name).To(Equal("uint16"))
+
+				pairs, _ := form.Field("pairs")
+				Expect(pairs.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(
+					pairs.Type.TypeArgs[1].ArraySize,
+				).To(HaveValue(BeEquivalentTo(2)))
+
+				boxed, _ := form.Field("boxed")
+				Expect(boxed.Type.TypeArgs[0].Name).To(Equal("Array"))
+				Expect(boxed.Type.TypeArgs[0].TypeArgs[0].Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should keep an array on a type parameter constraint and default",
+			func() {
+				source := `
+				Box struct<T extends uint16[], U = uint8[2]> {
+					a T
+					b U
+				}
+			`
+				table, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form, ok := table.MustGet("test.Box").Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				Expect(form.TypeParams).To(HaveLen(2))
+				constraint := form.TypeParams[0].Constraint
+				Expect(constraint.Name).To(Equal("Array"))
+				Expect(constraint.TypeArgs[0].Name).To(Equal("uint16"))
+				def := form.TypeParams[1].Default
+				Expect(def.Name).To(Equal("Array"))
+				Expect(def.ArraySize).To(HaveValue(BeEquivalentTo(2)))
+			},
+		)
+
+		It("Should reject an array as a union variant", func() {
+			source := `
+				Line struct {
+					a string
+				}
+
+				Shape union on kind {
+					lines Line[]
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`union Shape variant "lines" must reference a struct type`,
+			))
+		})
+
+		DescribeTable(
+			"Should reject an optional type argument",
+			func(fieldType, arg string) {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					value ` + fieldType + `
+				}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"type argument " + arg + " cannot be optional",
+				))
+			},
+			Entry("map value", "map<string, uint8[]?>", "uint8[]?"),
+			Entry("map key", "map<string?, uint8>", "string?"),
+			Entry(
+				"nested map",
+				"map<string, map<string, int32>?>",
+				"map<string,int32>?",
+			),
+			Entry("generic argument", "Box<string?>", "string?"),
+			Entry("argument in a map", "map<string, Box<int32?>>", "int32?"),
+		)
+
+		DescribeTable(
+			"Should reject an explicit type argument for a defaulted type parameter",
+			func(decl string) {
+				source := `
+				Box struct<T = uint8[2]> {
+					value T
+				}
+
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"cannot take a type argument for defaulted type parameter",
+				))
+			},
+			Entry("field", "Config struct {\n\tvalue Box<uint8[3]>\n}"),
+			Entry(
+				"argument equal to the default",
+				"Config struct {\n\tvalue Box<uint8[2]>\n}",
+			),
+			Entry("second parameter", "Config struct {\n\tvalue Pair<int32, int64>\n}"),
+			Entry("nested argument", "Config struct {\n\tvalue Box<uint8[3]>[]\n}"),
+			Entry("alias", "Wide = Box<uint8[3]>"),
+			Entry("extends", "Wide struct extends Box<uint8[3]> {}"),
+			Entry(
+				"pass-through of a parameter without a default",
+				"Wrap struct<U> {\n\tbox Box<U>\n}",
+			),
+			Entry(
+				"pass-through of a parameter with another default",
+				"Wrap struct<U = uint8[3]> {\n\tbox Box<U>\n}",
+			),
+		)
+
+		DescribeTable(
+			"Should allow a pass-through of a parameter with the same default",
+			func(def string) {
+				source := `
+				Details struct<Data? = ` + def + `> {
+					data Data
+				}
+
+				Status<Data? = ` + def + `> = Details<Data>
+
+				Info struct {
+					name string
+				}
+			`
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("primitive", "record"),
+			Entry("struct declared later", "Info"),
+			Entry("fixed-size array", "uint8[2]"),
+		)
+
+		It("Should allow an omitted argument for a defaulted type parameter", func() {
+			source := `
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				Config struct {
+					value Pair<int32>
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
+			"Should reject an optional marker outside a field",
+			func(decl, message string) {
+				source := `
+				Base struct {
+					name string
+				}
+
+				Box struct<T> {
+					value T
+				}
+
+				Kind enum {
+					a = "a"
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					message + " cannot be optional: only a field can be absent",
+				))
+			},
+			Entry(
+				"struct extends",
+				"Child struct extends Base? {\n}",
+				"extended type Base?",
+			),
+			Entry("alias target", "Alias = Base?", "alias target Base?"),
+			Entry(
+				"type parameter constraint",
+				"Wrap struct<T extends Base?> {\n value T\n}",
+				"type parameter constraint Base?",
+			),
+			Entry(
+				"type parameter default",
+				"Wrap struct<T = Base?> {\n value T\n}",
+				"type parameter default Base?",
+			),
+			Entry("base type", "Key uint32?", "base type uint32?"),
+			Entry(
+				"named variant type",
+				"Shape union on type {\n base Base?\n}",
+				"variant type Base?",
+			),
+			Entry(
+				"union extends",
+				"Shape union on type extends Base? {\n base Base\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"inline variant extends",
+				"Shape union on type {\n base extends Base? {}\n}",
+				"extended type Base?",
+			),
+			Entry(
+				"enum extends",
+				"More enum extends Kind? {\n b = \"b\"\n}",
+				"extended type Kind?",
+			),
+			Entry(
+				"action extends",
+				"Thing struct {\n action Rename extends Base? {}\n}",
+				"extended type Base?",
+			),
+		)
+
+		It("Should keep an optional marker on a field", func() {
+			source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					name   string?
+					box    Box<string>?
+					lookup map<string, int32>?
+				}
+			`
+			table, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form, ok := table.MustGet("test.Config").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			for _, name := range []string{"name", "box", "lookup"} {
+				field := MustBeOk(form.Field(name))
+				Expect(field.Optional).To(BeTrue(), name)
+			}
+		})
 	})
 
 	Describe("Recursive Types", func() {
@@ -4330,6 +4623,121 @@ Node union on variant {
 					def.Elements[1],
 				).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 			},
+		)
+
+		It(
+			"Should accept a fixed-size array default of the array's size",
+			func() {
+				def := defaultOf("coords float64[3] = [1.5, 2.5, 3.5]")
+				Expect(def.Elements).To(HaveLen(3))
+			},
+		)
+
+		DescribeTable(
+			"Should reject a fixed-size array default of another size",
+			func(decl, msg string) {
+				source := "Pair = uint8[2]\n\n" +
+					"Point struct {\n\tcoords float64[3]\n}\n\n" +
+					decl + "\n"
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(msg))
+			},
+			Entry(
+				"fewer elements",
+				"Item struct {\n\tcoords float64[3] = [1.5]\n}",
+				`default of field "coords" in "Item" has an array of 1 elements, `+
+					"but its type holds exactly 3",
+			),
+			Entry(
+				"no elements",
+				"Item struct {\n\tcoords float64[3] = []\n}",
+				"has an array of 0 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an alias",
+				"Item struct {\n\tpair Pair = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an array element",
+				"Item struct {\n\tpairs Pair[] = [[1, 2], [1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a struct field",
+				"Item struct {\n\tpoint Point = { coords = [1.5] }\n}",
+				"has an array of 1 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a type parameter",
+				"Item struct<T extends uint8[2]> {\n\tvalue T = [1]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"an element of a type parameter",
+				"Item struct<T extends Pair[]> {\n\tvalue T = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[2]> = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a generic struct at its default",
+				"Box struct<T = uint8[2]> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box = { v = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a field of a union variant",
+				"Shape union on kind {\n\tline {\n\t\tends Pair\n\t}\n}\n\n"+
+					"Item struct {\n\tshape Shape = { kind = \"line\", ends = [1] }\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias with a type argument",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"a generic distinct type with a type argument",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2]\n}",
+				"has an array of 2 elements, but its type holds exactly 3",
+			),
+			Entry(
+				"an element of a generic distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<Pair[]> = [[1]]\n}",
+				"has an array of 1 elements, but its type holds exactly 2",
+			),
+			Entry(
+				"a generic alias at its default",
+				"Wrap<T = uint8[2]> = T\n\nItem struct {\n\tw Wrap = [1, 2, 3]\n}",
+				"has an array of 3 elements, but its type holds exactly 2",
+			),
+		)
+
+		DescribeTable(
+			"Should check a generic type against its type argument",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry(
+				"a struct",
+				"Box struct<T> {\n\tv T\n}\n\n"+
+					"Item struct {\n\tb Box<uint8[3]> = { v = [1, 2, 3] }\n}\n",
+			),
+			Entry(
+				"a distinct type",
+				"Fixed<T> T\n\nItem struct {\n\tf Fixed<uint8[3]> = [1, 2, 3]\n}\n",
+			),
+			Entry(
+				"an alias",
+				"Wrap<T> = T\n\nItem struct {\n\tw Wrap<uint8[3]> = [1, 2, 3]\n}\n",
+			),
 		)
 	})
 
