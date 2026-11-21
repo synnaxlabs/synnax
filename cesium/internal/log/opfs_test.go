@@ -23,9 +23,11 @@ type opFS struct {
 	ops      []string
 	syncErr  error
 	writeErr error
-	// held receives once for each sync that waits, while release is set.
-	held    chan struct{}
-	release chan struct{}
+	// held receives once for each sync that waits, while release is set. A send on
+	// release lets one waiting sync go on, and Unhold closes lifted, which lets every
+	// waiting sync go on, including one that has not reached held.
+	held            chan struct{}
+	release, lifted chan struct{}
 }
 
 func newOpFS(fs xfs.FS) *opFS { return &opFS{FS: fs, held: make(chan struct{})} }
@@ -43,19 +45,23 @@ func (f *opFS) Ops() []string {
 	return append([]string(nil), f.ops...)
 }
 
-// Hold makes every later sync wait until a send on the returned channel.
+// Hold makes every later sync wait until a send on the returned channel, or Unhold. A
+// send after Unhold returns at once.
 func (f *opFS) Hold() chan struct{} {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.release = make(chan struct{})
+	f.release, f.lifted = make(chan struct{}, 1), make(chan struct{})
 	return f.release
 }
 
-// Unhold lets every later sync return at once.
+// Unhold lets every held sync, and every later sync, return at once.
 func (f *opFS) Unhold() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.release = nil
+	if f.lifted != nil {
+		close(f.lifted)
+	}
+	f.release, f.lifted = nil, nil
 }
 
 func (f *opFS) FailSync(err error) {
@@ -96,21 +102,32 @@ func (f *opFile) WriteAt(p []byte, off int64) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// The op is recorded once its bytes are in the file, so a spec that sees it can
+	// read them.
+	n, err := f.File.WriteAt(p, off)
 	f.fs.record(fmt.Sprintf("write %s %d %d", f.name, off, len(p)))
-	return f.File.WriteAt(p, off)
+	return n, err
 }
 
 func (f *opFile) Sync() error {
 	f.fs.mu.Lock()
-	release, err := f.fs.release, f.fs.syncErr
+	release, lifted, err := f.fs.release, f.fs.lifted, f.fs.syncErr
 	f.fs.mu.Unlock()
 	if release != nil {
-		f.fs.held <- struct{}{}
-		<-release
+		// A sync that reads the hold just before Unhold must not wait on held.
+		select {
+		case f.fs.held <- struct{}{}:
+			select {
+			case <-release:
+			case <-lifted:
+			}
+		case <-lifted:
+		}
 	}
 	if err != nil {
 		return err
 	}
+	err = f.File.Sync()
 	f.fs.record("sync " + f.name)
-	return f.File.Sync()
+	return err
 }
