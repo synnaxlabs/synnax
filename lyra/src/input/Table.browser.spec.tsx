@@ -568,11 +568,11 @@ describe("Input.Table", () => {
     fireEvent.blur(input);
   };
 
-  const firePaste = (input: HTMLInputElement, text: string): void => {
+  const firePaste = (target: HTMLElement, text: string): void => {
     const clipboardData = new DataTransfer();
     clipboardData.setData("text/plain", text);
     fireEvent(
-      input,
+      target,
       new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }),
     );
   };
@@ -2104,7 +2104,7 @@ describe("Input.Table", () => {
 
     const pasteOn = (el: HTMLElement, text: string): void => {
       fireEvent.focus(el);
-      fireEvent.paste(el, { clipboardData: { getData: () => text } });
+      firePaste(el, text);
     };
 
     it("should leave one value pasted on a select whose column has no parse", () => {
