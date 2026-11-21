@@ -622,9 +622,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (this.deleted) return;
     const props = this.absolute(axisProps);
     const span = props.span ?? bounds.INFINITE;
-    // A line whose span holds no time draws nothing, as when another line of its group
-    // draws all of its window.
-    if (!this.state.visible || !(span.lower < span.upper)) {
+    if (!this.state.visible) {
       i.loadingState = undefined;
       i.drawn = [];
       return;
@@ -636,6 +634,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const valueProps = this.read(v, span);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
+    // A line whose span holds no time draws nothing, as when another line of its group
+    // draws all of its window. Its sources still read the span, so they hold no tiles.
+    if (!(span.lower < span.upper)) {
+      i.loadingState = undefined;
+      i.drawn = [];
+      return;
+    }
     i.xBounds = x.data[0];
     i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
     if (!isLoading(x) && !isLoading(y)) i.loaded = true;

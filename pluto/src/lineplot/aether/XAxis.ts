@@ -196,8 +196,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return layout;
   }
 
-  // iLayout returns the layout with the error that its bounds met, so a render can draw
-  // the axis before it throws.
+  // iLayout returns the layout with the error that its traces or bounds met, so a
+  // render can draw the axis before it throws.
   private iLayout({
     hold,
     viewport,
@@ -205,12 +205,18 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     openBreaks,
   }: LayoutProps): [Layout, Error | null] {
     const { type } = this.state;
-    const traces = this.traces();
+    let traces: Trace[] = [];
+    let err: Error | null = null;
+    try {
+      traces = this.traces();
+    } catch (e) {
+      err = e as Error;
+    }
     const collapsed = gapsCollapsed && type === "time";
-    const [pieces, err] = this.iSegments(hold, () => traces, collapsed);
+    const [pieces, boundsErr] = this.iSegments(hold, () => traces, collapsed);
     const { segments, gaps } = join(pieces, openBreaks);
     const s = spans(align(traces), type, segments);
-    return [new Layout(segments, viewport, s, gaps), err];
+    return [new Layout(segments, viewport, s, gaps), err ?? boundsErr];
   }
 
   private renderRanges(
