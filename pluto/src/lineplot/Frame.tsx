@@ -415,7 +415,8 @@ export const Frame = ({
       setZoomedKey(null);
     }
     if (args.mode === "select" && args.stage === "end") selectionRef.current = args.box;
-    else if (changesView(args)) selectionRef.current = box.ZERO;
+    // Any other finished event, a click or a cancel too, dismisses the selection.
+    else if (changesView(args) || args.stage === "end") selectionRef.current = box.ZERO;
     if (args.mode === "zoomReset") closeBreaks();
     applyViewport(args);
     onViewportChange?.(args);
