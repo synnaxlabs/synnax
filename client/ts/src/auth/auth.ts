@@ -585,7 +585,8 @@ export class Client {
         return await next(reqCtx);
       }
       const tokenless = TOKENLESS_ENDPOINTS.some((t) => reqCtx.target.endsWith(t));
-      if (!this.authenticated && !tokenless) {
+      // a login that a setCredentials made stale resolves without authenticating
+      while (!this.authenticated && !tokenless) {
         this.authenticating ??= this.login();
         const err = await this.authenticating;
         if (err != null) {

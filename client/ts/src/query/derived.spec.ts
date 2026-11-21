@@ -67,6 +67,33 @@ describe("derived", () => {
     expect(tables.composed.get("t1")).toEqual({ key: "t1", name: "one" });
   });
 
+  it("drops a composed entry when its source trims the record", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set(task("t1", "one"));
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    query.partialUpdate(tables.tasks, "t1", { name: "two" });
+    expect(tables.composed.get("t1")).toBeUndefined();
+  });
+
+  it("drops a trimmed composed entry silently and tells its holders", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set(task("t1", "one"));
+    const events = vi.fn();
+    tables.composed.subscribeBatch(events);
+    const drop = vi.fn();
+    tables.composed.hold({ held: () => [], drop });
+    const version = tables.composed.version();
+    tables.tasks.trim(0);
+    tables.tasks.trim(0);
+    expect(tables.composed.has("t1")).toBe(false);
+    expect(drop).toHaveBeenCalledWith(new Set(["t1"]));
+    expect(events).not.toHaveBeenCalled();
+    expect(tables.composed.version()).toBe(version);
+  });
+
   it("materializes a composed entry when the source entry is set", () => {
     const tables = newTables();
     bindAll(tables);

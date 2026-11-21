@@ -17,8 +17,7 @@ import type { ReactElement } from "react";
 
 type Type = icd.JSONMatchType | "none";
 
-const NAMES: Record<Type, string> = {
-  none: "Any document",
+const NAMES: Record<icd.JSONMatchType, string> = {
   string: "String",
   integer: "Signed integer",
   unsigned: "Unsigned integer",
@@ -26,7 +25,7 @@ const NAMES: Record<Type, string> = {
   boolean: "Boolean",
 };
 
-const TYPES = Object.keys(NAMES) as Type[];
+const TYPES = ["none", ...Object.keys(NAMES)] as Type[];
 
 /** @returns a match of the type at the pointer, with the type's zero value. */
 export const createMatch = (
@@ -103,13 +102,18 @@ const Value = ({ path, type }: ValueProps): ReactElement => {
 export interface MatchProps {
   /** The form path of the JSON payload. */
   path: deep.Path<icd.JSONPayload>;
+  /** Names the option that matches every payload. */
+  anyLabel?: string;
 }
 
 /**
  * Picks the JSON documents that belong to a message: the ones whose value at a
  * pointer equals a value. A type change keeps the pointer.
  */
-export const Match = ({ path }: MatchProps): ReactElement => {
+export const Match = ({
+  path,
+  anyLabel = "Any document",
+}: MatchProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const match = deep.present(path.match);
   const type = Form.useFieldValue(match.type, { optional: true });
@@ -132,7 +136,7 @@ export const Match = ({ path }: MatchProps): ReactElement => {
         >
           {TYPES.map((t) => (
             <Select.Item key={t} itemKey={t}>
-              {NAMES[t]}
+              {t === "none" ? anyLabel : NAMES[t]}
             </Select.Item>
           ))}
         </Select.Simple>
