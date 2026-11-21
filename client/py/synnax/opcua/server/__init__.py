@@ -18,6 +18,7 @@ from synnax.opcua.server.types_gen import (
     Auth,
     CertificateAuth,
     Connection,
+    Cursor,
     FirstUseServerTrust,
     Key,
     NoneSecurity,
@@ -35,6 +36,8 @@ from synnax.opcua.server.types_gen import (
     UsernameAuth,
     ValidationDisabledServerTrust,
     Write,
+    Where,
+    WhereInput,
     resource_id,
 )
 
@@ -49,6 +52,7 @@ __all__ = [
     "Auth",
     "CertificateAuth",
     "Connection",
+    "Cursor",
     "FirstUseServerTrust",
     "Key",
     "NoneSecurity",
@@ -66,5 +70,7 @@ __all__ = [
     "UsernameAuth",
     "ValidationDisabledServerTrust",
     "Write",
+    "Where",
+    "WhereInput",
     "resource_id",
 ]
