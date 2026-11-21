@@ -44,6 +44,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	kafkav1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/service/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	lineplotversions "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
@@ -191,7 +192,7 @@ var _ = Describe("Layer", func() {
 	})
 
 	DescribeTable(
-		"Should publish NI resource changes on signal channels",
+		"Should publish device resource changes on signal channels",
 		func(
 			ctx SpecContext,
 			name string,
@@ -230,8 +231,8 @@ var _ = Describe("Layer", func() {
 				Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
 				return responses
 			}
-			sets := openStreamer("sy_ni_" + name + "_set")
-			deletes := openStreamer("sy_ni_" + name + "_delete")
+			sets := openStreamer("sy_" + name + "_set")
+			deletes := openStreamer("sy_" + name + "_delete")
 
 			var key uuid.UUID
 			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -259,8 +260,8 @@ var _ = Describe("Layer", func() {
 			Expect(removed).To(ContainElement(key))
 		},
 		Entry(
-			"chassis",
-			"chassis",
+			"NI chassis",
+			"ni_chassis",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
 				c := chassis.Chassis{
@@ -282,8 +283,8 @@ var _ = Describe("Layer", func() {
 			},
 		),
 		Entry(
-			"device",
-			"device",
+			"NI device",
+			"ni_device",
 			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
 				GinkgoHelper()
 				d := device.Device{
@@ -302,6 +303,36 @@ var _ = Describe("Layer", func() {
 				key uuid.UUID,
 			) error {
 				return layer.NI.Devices.NewWriter(tx).Delete(ctx, key)
+			},
+		),
+		Entry(
+			"LabJack device",
+			"labjack_device",
+			func(ctx context.Context, tx gorp.Tx, layer *service.Layer) uuid.UUID {
+				GinkgoHelper()
+				d := labjackdevice.Device{Variant: labjackdevice.T7Device{
+					Base: labjackdevice.Base{
+						Key:        uuid.New(),
+						Rack:       layer.Rack.EmbeddedKey,
+						Name:       "T7-0001",
+						Serial:     470010001,
+						Connection: labjackdevice.ConnectionUSB,
+					},
+				}}
+				Expect(gorp.NewCreate[labjackdevice.Key, labjackdevice.Device]().
+					Entry(&d).
+					Exec(ctx, tx)).To(Succeed())
+				return d.Base().Key
+			},
+			func(
+				ctx context.Context,
+				tx gorp.Tx,
+				layer *service.Layer,
+				key uuid.UUID,
+			) error {
+				return gorp.NewDelete[labjackdevice.Key, labjackdevice.Device]().
+					Where(gorp.MatchKeys[labjackdevice.Key, labjackdevice.Device](key)).
+					Exec(ctx, tx)
 			},
 		),
 	)
@@ -873,6 +904,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Enumeration", resource.TypeEnumeration),
 		Entry("Group", resource.TypeGroup),
 		Entry("Label", resource.TypeLabel),
+		Entry("LabjackDevice", resource.TypeLabjackDevice),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
 		Entry("NiChassis", resource.TypeNiChassis),
@@ -920,6 +952,30 @@ var _ = Describe("Resource search", Ordered, func() {
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID
 		})).To(ConsistOf(c.ResourceID(), d.ResourceID()))
+	})
+
+	It("Should find LabJack devices by name", func(ctx SpecContext) {
+		d := labjackdevice.Device{Variant: labjackdevice.T4Device{
+			Base: labjackdevice.Base{
+				Key:        uuid.New(),
+				Rack:       layer.Rack.EmbeddedKey,
+				Name:       "Pump LabJack",
+				Serial:     440010001,
+				Connection: labjackdevice.ConnectionTCP,
+			},
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[labjackdevice.Key, labjackdevice.Device]().
+				Entry(&d).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "pump",
+			Types: []resource.Type{resource.TypeLabjackDevice},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(d.ResourceID()))
 	})
 })
 

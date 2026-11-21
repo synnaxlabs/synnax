@@ -57,6 +57,10 @@ var _ = Describe("Service", func() {
 			Expect(labjack.OpenService(ctx, labjack.ServiceConfig{})).Error().
 				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
+
+		It("Should open the device service", func() {
+			Expect(svc.Devices).ToNot(BeNil())
+		})
 	})
 
 	Describe("Stores", func() {
