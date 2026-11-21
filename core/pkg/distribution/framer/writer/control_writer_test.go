@@ -424,6 +424,55 @@ var _ = Describe("Writer control moved from Cesium", func() {
 					},
 				)
 
+				It(
+					"Should fail a writer that takes its clock over stored data",
+					func(ctx SpecContext) {
+						key := GenerateChannelKey()
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Nansen",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						})).To(Succeed())
+						w1 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+							Channels:    []cesium.ChannelKey{key},
+							Start:       10 * telem.SecondTS,
+							Authorities: []control.Authority{control.AuthorityAbsolute},
+						}))
+						w2 := MustSucceed(db.OpenWriter(ctx, storageConfig{
+							Channels: []cesium.ChannelKey{key},
+							Start:    20 * telem.SecondTS,
+							Authorities: []control.Authority{
+								control.AuthorityAbsolute - 1,
+							},
+						}))
+						// w2 waits for the clock, so it claims no time there.
+						backfill := MustSucceed(
+							db.DB.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{key},
+								Clock:    key,
+								Start:    19 * telem.SecondTS,
+							}),
+						)
+						MustSucceed2(backfill.Write(ctx, telem.UnaryFrame(
+							key,
+							telem.NewSeriesSecondsTSV(19, 20, 21),
+						), nil))
+						MustSucceed2(backfill.Commit(ctx, nil))
+						Expect(backfill.Close()).To(Succeed())
+						Expect(w1.Close()).To(Succeed())
+						overlap := ContainSubstring(
+							"cannot open writer because there is already data in the " +
+								"writer's time range",
+						)
+						Expect(w2.Write(ctx, telem.UnaryFrame(
+							key,
+							telem.NewSeriesSecondsTSV(22),
+						))).Error().To(MatchError(overlap))
+						Expect(w2.Close()).To(MatchError(overlap))
+					},
+				)
+
 				It("Should finish writes while control moves between writers", func(
 					ctx SpecContext,
 				) {
