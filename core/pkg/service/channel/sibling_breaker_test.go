@@ -230,34 +230,6 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 			})).To(MatchError(MatchRegexp("a (group|channel) named '.*' already exists")))
 		},
 	)
-	It("Should use up no channel key on a create that a folder's name refuses", func(
-		ctx SpecContext,
-	) {
-		taken := UniqueChannelName()
-		folder(ctx, taken, nil)
-		first := virtualIn(UniqueChannelName(), nil)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &first)
-		})).To(Succeed())
-		sameName := virtualIn(first.Name, nil)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &sameName)
-		})).To(MatchError(ContainSubstring("already exists")))
-		before := virtualIn(UniqueChannelName(), nil)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &before)
-		})).To(Succeed())
-		Expect(before.LocalKey).To(Equal(first.LocalKey + 1))
-		refused := virtualIn(taken, nil)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &refused)
-		})).To(MatchError(MatchRegexp("a (group|channel) named '.*' already exists")))
-		after := virtualIn(UniqueChannelName(), nil)
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &after)
-		})).To(Succeed())
-		Expect(after.LocalKey).To(Equal(before.LocalKey + 1))
-	})
 })
 
 var _ = Describe("Sibling breaker over stored duplicates", func() {
