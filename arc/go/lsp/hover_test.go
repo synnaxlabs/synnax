@@ -867,6 +867,61 @@ func add() {a i32, b i32} i32 {
 				Expect(HoverContents(hover)).To(ContainSubstring("i32"))
 			},
 		)
+
+		Describe("Dashed names", func() {
+			newServer := func(allowDashedNames bool) *lsp.Server {
+				server := MustSucceed(lsp.New(lsp.Config{
+					NewRoot: func() *symbol.Symbol {
+						return NewRoot(
+							nil,
+							symbol.Symbol{
+								Name: "ox-pt-1",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
+							symbol.Symbol{
+								Name: "pt",
+								Type: types.I32(),
+								Kind: symbol.KindVariable,
+							},
+						)
+					},
+					AllowDashedNames: allowDashedNames,
+				}))
+				server.SetClient(&MockClient{})
+				return server
+			}
+
+			It("should hover the whole dashed name", func(ctx SpecContext) {
+				server = newServer(true)
+				OpenArcDocument(
+					server,
+					ctx,
+					uri,
+					"func test() i32 {\n    return ox-pt-1\n}",
+				)
+				hover := Hover(server, ctx, uri, 1, 15)
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("ox-pt-1"))
+			})
+
+			It(
+				"should split a dashed name when dashed names are off",
+				func(ctx SpecContext) {
+					server = newServer(false)
+					OpenArcDocument(
+						server,
+						ctx,
+						uri,
+						"func test() i32 {\n    return ox-pt-1\n}",
+					)
+					hover := Hover(server, ctx, uri, 1, 15)
+					Expect(hover).ToNot(BeNil())
+					Expect(HoverContents(hover)).To(ContainSubstring("pt"))
+					Expect(HoverContents(hover)).ToNot(ContainSubstring("ox-pt-1"))
+				},
+			)
+		})
 	})
 
 	Describe("Qualified Module Identifiers", func() {

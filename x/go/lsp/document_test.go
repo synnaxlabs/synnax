@@ -16,6 +16,10 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+func dashedWordChar(line string, i int) bool {
+	return line[i] == '-' || lsp.DefaultWordChar(line, i)
+}
+
 var _ = Describe("Document", func() {
 	DescribeTable(
 		"CharacterToByte",
@@ -233,6 +237,7 @@ var _ = Describe("Document", func() {
 				lsp.GetWordAtPosition(
 					"hello world",
 					protocol.Position{Line: 0, Character: 7},
+					lsp.DefaultWordChar,
 				),
 			).To(Equal("world"))
 		})
@@ -242,19 +247,28 @@ var _ = Describe("Document", func() {
 				lsp.GetWordAtPosition(
 					"hello world",
 					protocol.Position{Line: 0, Character: 0},
+					lsp.DefaultWordChar,
 				),
 			).To(Equal("hello"))
 		})
 
 		It("Should return empty for position beyond line", func() {
 			Expect(
-				lsp.GetWordAtPosition("hi", protocol.Position{Line: 0, Character: 10}),
+				lsp.GetWordAtPosition(
+					"hi",
+					protocol.Position{Line: 0, Character: 10},
+					lsp.DefaultWordChar,
+				),
 			).To(Equal(""))
 		})
 
 		It("Should return empty for position on empty content", func() {
 			Expect(
-				lsp.GetWordAtPosition("", protocol.Position{Line: 0, Character: 0}),
+				lsp.GetWordAtPosition(
+					"",
+					protocol.Position{Line: 0, Character: 0},
+					lsp.DefaultWordChar,
+				),
 			).To(Equal(""))
 		})
 
@@ -263,6 +277,7 @@ var _ = Describe("Document", func() {
 				lsp.GetWordAtPosition(
 					"°C temp",
 					protocol.Position{Line: 0, Character: 3},
+					lsp.DefaultWordChar,
 				),
 			).To(Equal("temp"))
 		})
@@ -272,8 +287,29 @@ var _ = Describe("Document", func() {
 				lsp.GetWordAtPosition(
 					"first\nsecond",
 					protocol.Position{Line: 1, Character: 2},
+					lsp.DefaultWordChar,
 				),
 			).To(Equal("second"))
+		})
+
+		It("Should split a dashed name with the default word characters", func() {
+			Expect(
+				lsp.GetWordAtPosition(
+					"ox-pt-1 + 1",
+					protocol.Position{Line: 0, Character: 4},
+					lsp.DefaultWordChar,
+				),
+			).To(Equal("pt"))
+		})
+
+		It("Should keep a dashed name whole when the caller accepts dashes", func() {
+			Expect(
+				lsp.GetWordAtPosition(
+					"ox-pt-1 + 1",
+					protocol.Position{Line: 0, Character: 4},
+					dashedWordChar,
+				),
+			).To(Equal("ox-pt-1"))
 		})
 	})
 
@@ -283,6 +319,7 @@ var _ = Describe("Document", func() {
 				Expect(lsp.GetQualifiedPrefixWordAtPosition(
 					content,
 					protocol.Position{Line: 0, Character: character},
+					lsp.DefaultWordChar,
 				)).To(Equal(expected))
 			},
 			Entry("on the head segment of time.now",
@@ -315,16 +352,29 @@ var _ = Describe("Document", func() {
 			r := lsp.GetWordRangeAtPosition(
 				"hello world",
 				protocol.Position{Line: 0, Character: 7},
+				lsp.DefaultWordChar,
 			)
 			Expect(r).ToNot(BeNil())
 			Expect(r.Start.Character).To(Equal(uint32(6)))
 			Expect(r.End.Character).To(Equal(uint32(11)))
 		})
 
+		It("Should cover a dashed name when the caller accepts dashes", func() {
+			r := lsp.GetWordRangeAtPosition(
+				"x := ox-pt-1",
+				protocol.Position{Line: 0, Character: 9},
+				dashedWordChar,
+			)
+			Expect(r).ToNot(BeNil())
+			Expect(r.Start.Character).To(Equal(uint32(5)))
+			Expect(r.End.Character).To(Equal(uint32(12)))
+		})
+
 		It("Should return the range in UTF-16 code units", func() {
 			r := lsp.GetWordRangeAtPosition(
 				"°C temp",
 				protocol.Position{Line: 0, Character: 4},
+				lsp.DefaultWordChar,
 			)
 			Expect(r).ToNot(BeNil())
 			Expect(r.Start.Character).To(Equal(uint32(3)))
@@ -336,6 +386,7 @@ var _ = Describe("Document", func() {
 				lsp.GetWordRangeAtPosition(
 					"",
 					protocol.Position{Line: 0, Character: 0},
+					lsp.DefaultWordChar,
 				),
 			).To(BeNil())
 		})
@@ -345,6 +396,7 @@ var _ = Describe("Document", func() {
 				lsp.GetWordRangeAtPosition(
 					"hi",
 					protocol.Position{Line: 0, Character: 10},
+					lsp.DefaultWordChar,
 				),
 			).To(BeNil())
 		})

@@ -194,6 +194,18 @@ func (s *Server) parserConfig() parser.Config {
 	return parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 }
 
+// isWordChar mirrors the lexer: with dashed names on, a '-' joins the name before it
+// unless it starts "->" or "-=".
+func (s *Server) isWordChar(line string, i int) bool {
+	if line[i] != '-' || !s.cfg.AllowDashedNames {
+		return lsp.IsWordChar(line[i])
+	}
+	if i == 0 || !s.isWordChar(line, i-1) {
+		return false
+	}
+	return i+1 == len(line) || (line[i+1] != '>' && line[i+1] != '=')
+}
+
 // SetClient sets the LSP client for sending notifications.
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
@@ -315,6 +327,7 @@ func (s *Server) DidOpen(
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
+		wordChar: s.isWordChar,
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{
