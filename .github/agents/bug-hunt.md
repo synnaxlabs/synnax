@@ -43,11 +43,12 @@ with no details.
    on `main` and pass with the fix. This job has no Core, so for a spec that needs one,
    let CI run it, and say in one sentence in the PR body why it fails on `main`. Open
    one PR per bug, not one per language.
-5. Fix the cause in one place in each implementation. Run the spec, the package's tests,
-   the format check, and the lint. Push only when they pass.
-6. Just before you open the PR, search the open PRs from `agent/bug-hunt-*` branches
-   that change the same files. If one fixes the same bug, open no PR, and link that PR
-   in your report.
+5. Fix the cause in one place in each implementation. Run the specs, the package's
+   tests, the format check, and the lint. All must pass, except the tests that need a
+   Core, which CI runs.
+6. Before you push, search the open PRs from `agent/bug-hunt-*` branches that change the
+   same files. If one fixes the same bug, do not push or open a PR, and link that PR in
+   your report. Else, push.
 7. Open one PR per bug with `gh pr create --base main --title ... --body ...`:
    - Title: `[<package>] Fix ...`, or `SY-####: Fix ...` when a Linear issue covers it.
    - Body: fill `.github/pull_request_template.md`. Say what goes wrong, when, and why.
