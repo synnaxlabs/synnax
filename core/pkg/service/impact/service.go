@@ -137,21 +137,12 @@ func (s *Service) resolve(
 	keys []channel.Key,
 	named map[string]Choice,
 ) (Plan, planned, []resource.ID, error) {
-	picks := make(map[resource.ID]Choice, len(named))
-	for text, pick := range named {
-		id, err := resource.ParseID(text)
-		if err != nil {
-			return Plan{}, planned{}, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"no entry is %s",
-				text,
-			)
-		}
-		picks[id] = pick
+	picks, err := parsePicks(named)
+	if err != nil {
+		return Plan{}, planned{}, nil, err
 	}
 	var (
 		p       planned
-		err     error
 		earlier []Entry
 		seen    = set.New[resource.ID]()
 		deleted = set.New[resource.ID]()
@@ -191,20 +182,41 @@ func (s *Service) resolve(
 	}
 	applied := Plan{Entries: p.Entries, Kept: p.Kept}
 	if len(earlier) > 0 {
-		last := set.New[resource.ID]()
-		for _, e := range p.Entries {
-			last.Add(e.Record)
-		}
-		applied.Entries = slices.Clone(p.Entries)
-		for _, e := range earlier {
-			if !last.Contains(e.Record) {
-				last.Add(e.Record)
-				applied.Entries = append(applied.Entries, e)
-			}
-		}
-		slices.SortFunc(applied.Entries, compareEntries)
+		applied.Entries = withEarlier(p.Entries, earlier)
 	}
 	return applied, p, records, nil
+}
+
+// parsePicks keys named by record. A pick that names no record fails with a validation
+// error.
+func parsePicks(named map[string]Choice) (map[resource.ID]Choice, error) {
+	picks := make(map[resource.ID]Choice, len(named))
+	for text, pick := range named {
+		id, err := resource.ParseID(text)
+		if err != nil {
+			return nil, errors.Wrapf(validate.ErrValidation, "no entry is %s", text)
+		}
+		picks[id] = pick
+	}
+	return picks, nil
+}
+
+// withEarlier returns entries and each entry of earlier for a record that entries do
+// not hold, sorted by record.
+func withEarlier(entries, earlier []Entry) []Entry {
+	held := set.New[resource.ID]()
+	for _, e := range entries {
+		held.Add(e.Record)
+	}
+	merged := slices.Clone(entries)
+	for _, e := range earlier {
+		if !held.Contains(e.Record) {
+			held.Add(e.Record)
+			merged = append(merged, e)
+		}
+	}
+	slices.SortFunc(merged, compareEntries)
+	return merged
 }
 
 // choose applies picks to the entries of p. It returns the channels and the other
