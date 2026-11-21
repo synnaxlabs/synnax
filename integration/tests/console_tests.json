@@ -45,6 +45,7 @@
         { "case": "console/pages/rename_synchronization" },
         { "case": "console/pages/tombstone" },
         { "case": "console/plot/line_plot" },
+        { "case": "console/plot/line_plot_breaks" },
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },
         { "case": "console/range/range_toolbar" },

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { array, bounds, box, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import {
   align,
@@ -16,7 +17,7 @@ import {
   baseAxisStateZ,
   newestSample,
 } from "@/lineplot/aether/axis";
-import { Layout, spans, type Trace } from "@/lineplot/aether/layout";
+import { join, Layout, spans, type Trace } from "@/lineplot/aether/layout";
 import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { axis } from "@/vis/axis";
@@ -27,8 +28,52 @@ export const xAxisStateZ = baseAxisStateZ;
 // The band over a seam ends this many pixels short of the mark on the axis.
 const BAND_GAP = 2;
 
+/** Where a click lands: a click on the plot finds only closed breaks. */
+const breakSourceZ = z.enum(["plot", "axis"]);
+export type BreakSource = z.infer<typeof breakSourceZ>;
+
+/**
+ * Opens or closes the break under a click, opens or closes every break, or opens the
+ * breaks at the given gap starts.
+ */
+const breakActionZ = z.discriminatedUnion("variant", [
+  z.object({
+    variant: z.literal("toggle"),
+    /** The x of the click, in pixels from the left of the canvas. */
+    x: z.number(),
+    source: breakSourceZ,
+  }),
+  z.object({ variant: z.literal("all"), open: z.boolean() }),
+  z.object({ variant: z.literal("set"), open: z.array(z.number()) }),
+]);
+export type BreakAction = z.infer<typeof breakActionZ>;
+
+export const breaksRequestZ = z.object({
+  action: breakActionZ,
+  /** The viewport the action applies to. */
+  viewport: box.box,
+  /** Views the plot holds to return to, in the same space as the viewport. */
+  held: z.array(box.box),
+  /** The selection, in the same space as the viewport. */
+  selection: box.box,
+});
+export type BreaksRequest = z.infer<typeof breaksRequestZ>;
+
+/** The open breaks after a break action, and the boxes of its request mapped so each
+ * holds the same values. */
+export const breaksChangeZ = breaksRequestZ
+  .omit({ action: true })
+  .extend({ openBreaks: z.array(z.number()) });
+export type BreaksChange = z.infer<typeof breaksChangeZ>;
+
+// A click opens or closes a break within this many pixels of its mark.
+const BREAK_HIT_DISTANCE = axis.BREAK_WIDTH / 2 + 2;
+
 /** The plot state that lays out an x axis. */
-export type LayoutProps = Pick<AxisRenderProps, "hold" | "viewport" | "gapsCollapsed">;
+export type LayoutProps = Pick<
+  AxisRenderProps,
+  "hold" | "viewport" | "gapsCollapsed" | "openBreaks"
+>;
 
 export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
@@ -37,20 +82,30 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   /**
    * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
    * raised lines to raised, and each range strip adds the draw of its tooltip.
+   * @returns the layout of the draw and the first error it met, or null for a deleted
+   * axis. An error does not stop the draw, so the axis still shows.
    */
-  render(props: AxisRenderProps, raised: Array<() => void>): void {
-    if (this.deleted) return;
-    const [layout, err] = this.iLayout(props);
+  render(
+    props: AxisRenderProps,
+    raised: Array<() => void>,
+  ): [Layout, Error | null] | null {
+    if (this.deleted) return null;
+    const [layout, traces, err] = this.iLayout(props);
     const segments = layout.segments.map(({ position, scale }) => ({
       position,
       decimalToDataScale: scale.reverse(),
     }));
-    this.renderAxis(props, segments[0].decimalToDataScale, segments);
-    this.renderYAxes({ ...props, layout }, raised);
-    this.renderRanges(props, layout, raised);
+    const openBreaks = layout.gaps.filter((g) => g.open).map((g) => layout.mark(g));
+    this.renderAxis(props, segments[0].decimalToDataScale, segments, openBreaks);
+    let yErr: Error | null = null;
+    try {
+      this.renderYAxes({ ...props, layout }, raised);
+    } catch (e) {
+      yErr = e as Error;
+    }
+    this.renderRanges(props, layout, traces, raised);
     this.renderBreaks(props, layout);
-    // Throw the error here to that the user still has a visible axis.
-    if (err != null) throw err;
+    return [layout, err ?? yErr];
   }
 
   findByXDecimal(
@@ -79,6 +134,39 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     const p = this.yAxisProps(props);
     const value = p.layout.reverse(target);
     return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
+  }
+
+  /**
+   * @returns the open breaks after the action of req, and the boxes of req mapped so
+   * each holds the same values, or null when the action changes nothing.
+   * @param plot - the plot region, in pixels from the top left of the canvas.
+   */
+  breaks(props: LayoutProps, req: BreaksRequest, plot: box.Box): BreaksChange | null {
+    const { action, viewport } = req;
+    const before = this.layout({ ...props, viewport });
+    const shown = before.gaps.filter((g) => g.open).map((g) => g.bounds.lower);
+    let openBreaks: number[];
+    if (action.variant === "all")
+      openBreaks = action.open ? before.gaps.map((g) => g.bounds.lower) : [];
+    else if (action.variant === "set") openBreaks = action.open;
+    else {
+      const width = box.width(plot);
+      const position = (action.x - box.left(plot)) / width;
+      const hit = BREAK_HIT_DISTANCE / width;
+      const gap = before.gapAt(position, hit, action.source === "plot");
+      if (gap == null) return null;
+      const { lower } = gap.bounds;
+      openBreaks = gap.open ? shown.filter((l) => l !== lower) : [...shown, lower];
+    }
+    if (array.equalAsSets(openBreaks, props.openBreaks)) return null;
+    const after = this.layout({ ...props, openBreaks, viewport: box.DECIMAL });
+    const view = (b: box.Box) => remap(before, after, b, true);
+    return {
+      openBreaks,
+      viewport: view(viewport),
+      held: req.held.map(view),
+      selection: remap(before, after, req.selection, false),
+    };
   }
 
   private yAxisProps(
@@ -115,35 +203,41 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   /** @returns the layout of the axis for the viewport. */
   layout(props: LayoutProps): Layout {
-    const [layout, err] = this.iLayout(props);
+    const [layout, , err] = this.iLayout(props);
     if (err != null) throw err;
     return layout;
   }
 
-  // iLayout returns the layout with the error that its traces or bounds met, so a
-  // render can draw the axis before it throws.
+  // iLayout returns the layout and the traces with the error that the traces or the
+  // bounds met, so a render can draw the axis before it reports the error.
   private iLayout({
     hold,
     viewport,
     gapsCollapsed,
-  }: LayoutProps): [Layout, Error | null] {
+    openBreaks,
+  }: LayoutProps): [Layout, Trace[], Error | null] {
     const { type } = this.state;
-    let traces: Trace[] = [];
-    let err: Error | null = null;
-    try {
-      traces = this.traces();
-    } catch (e) {
-      err = e as Error;
-    }
+    const [traces, err] = this.iTraces();
     const collapsed = gapsCollapsed && type === "time";
-    const [segments, boundsErr] = this.iSegments(hold, () => traces, collapsed);
+    const [pieces, boundsErr] = this.iSegments(hold, () => traces, collapsed);
+    const { segments, gaps } = join(pieces, openBreaks);
     const s = spans(align(traces), type, segments);
-    return [new Layout(segments, viewport, s), err ?? boundsErr];
+    return [new Layout(segments, viewport, s, gaps), traces, err ?? boundsErr];
+  }
+
+  // iTraces returns the traces, or none with the error that reading them met.
+  private iTraces(): [Trace[], Error | null] {
+    try {
+      return [this.traces(), null];
+    } catch (e) {
+      return [[], e as Error];
+    }
   }
 
   private renderRanges(
     props: AxisRenderProps,
     layout: Layout,
+    traces: Trace[],
     raised: Array<() => void>,
   ): void {
     const clampedBounds = bounds.intersection([
@@ -151,7 +245,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       TimeRange.MAX.numericBounds,
     ]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
-    const newest = newestSample(this.traces());
+    const newest = newestSample(traces);
     this.ranges.forEach((el) =>
       el.render({
         layout,
@@ -206,3 +300,20 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.yAxes.flatMap((el) => el.traces());
   }
 }
+
+// remap returns the box across the home view of after that holds the x values of b
+// across the home view of before. A view that falls inside a closed gap keeps its
+// width, centered on the seam.
+const remap = (before: Layout, after: Layout, b: box.Box, view: boolean): box.Box => {
+  const x = box.xBounds(b);
+  const values = before.reverseHomeSpan(x);
+  let lower = after.home(values.lower);
+  let upper = after.home(values.upper);
+  if (view && upper <= lower) {
+    const half = bounds.span(x) / 2;
+    lower -= half;
+    upper += half;
+  }
+  const { one, two, root } = box.construct(b);
+  return { root, one: { x: lower, y: one.y }, two: { x: upper, y: two.y } };
+};

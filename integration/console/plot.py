@@ -65,29 +65,34 @@ class Plot(ConsolePage):
 
         self.layout.press_escape()
 
-    def add_ranges(
-        self,
-        ranges: list[
-            Literal[
-                "Rolling 30s",
-                "Rolling 1min",
-                "Rolling 5min",
-                "Rolling 15min",
-                "Rolling 30min",
-            ]
-        ],
-    ) -> None:
-        """Add time ranges to the plot."""
-        ranges_label = self.page.locator("label").filter(has_text="Ranges")
-        trigger = ranges_label.locator("..").locator(".lyra-dialog__trigger")
-        trigger.click(timeout=5000)
+    def add_ranges(self, ranges: list[str]) -> None:
+        """Add ranges to the plot from its range picker.
 
+        :param ranges: The names of saved ranges, or rolling windows such as
+            "Rolling 30s".
+        """
+        self._range_picker().click(timeout=5000)
         for range_value in ranges:
             if range_value not in self.data["Ranges"]:
                 self.layout.select_from_dropdown(range_value)
                 self.data["Ranges"].append(range_value)
 
         self.layout.press_escape()
+
+    def remove_range(self, range_name: str) -> None:
+        """Remove a range from the plot with the remove button of its tag.
+
+        :param range_name: The name of the range.
+        """
+        remove_btn = self.get_range_tag(range_name).get_by_role(
+            "button", name=f"Remove {range_name}"
+        )
+        # The button takes the pointer only while its tag is hovered.
+        remove_btn.dispatch_event("click")
+        remove_btn.wait_for(state="detached", timeout=5000)
+        # A new plot shows a rolling window that this wrapper did not add.
+        if range_name in self.data["Ranges"]:
+            self.data["Ranges"].remove(range_name)
 
     def download_csv(self) -> str:
         """Download the plot data as a CSV file.
@@ -358,7 +363,8 @@ class Plot(ConsolePage):
             toggle.not_to_have_class(pattern, timeout=timeout)
 
     def _open_menu(self) -> None:
-        """Open the plot menu over the left quarter of the plot."""
+        """Open the plot menu over the left quarter of the plot, clear of the seam
+        between two ranges of equal length."""
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
         box = self.pane_locator.bounding_box()
@@ -379,6 +385,19 @@ class Plot(ConsolePage):
         items = menu.get_by_role("menuitem").filter(has_text=option)
         expect(items).to_have_count(1 if offered else 0, timeout=timeout)
         self.layout.ctx_menu.close()
+
+    def select_menu_option(self, option: str) -> None:
+        """Open the plot menu and click an option."""
+        self._open_menu()
+        self.layout.ctx_menu.click_option(option)
+
+    def reload_console(self) -> None:
+        """Reload the Console from the plot menu and wait for the plot to show."""
+        with self.page.expect_navigation(wait_until="load", timeout=30000):
+            self.select_menu_option("Reload Console")
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        self.pane_locator.wait_for(state="visible", timeout=10000)
 
     def get_range_strip(self) -> Locator:
         """Return the strip above the plot that shows the plot's ranges."""

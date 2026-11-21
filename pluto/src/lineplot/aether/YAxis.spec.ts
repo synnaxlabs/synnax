@@ -22,7 +22,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { Layout } from "@/lineplot/aether/layout";
-import { XAxis } from "@/lineplot/aether/XAxis";
+import { type BreakAction, type BreaksRequest, XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
@@ -170,6 +170,7 @@ describe("YAxis", () => {
           canvases: ["gl"],
           hold: false,
           gapsCollapsed: false,
+          openBreaks: [],
           layout: new Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
         },
         raised,
@@ -183,7 +184,7 @@ describe("YAxis", () => {
       expect(colors[0]).not.toEqual(color.rgba1(RAISED));
     });
 
-    it("should draw the x axis before it throws the error of an x source", () => {
+    it("should draw the x axis before it returns the error of an x source", () => {
       const m = mount();
       const failed = vi.spyOn(Line.prototype, "xBounds").mockImplementation(() => {
         throw new Error("x source failed");
@@ -198,8 +199,9 @@ describe("YAxis", () => {
         canvases: ["lower2d" as const],
         hold: false,
         gapsCollapsed: false,
+        openBreaks: [],
       };
-      expect(() => m.xAxis.render(props, [])).toThrow("x source failed");
+      expect(m.xAxis.render(props, [])?.[1]?.message).toBe("x source failed");
       expect(m.lower2d.calls.length).toBeGreaterThan(0);
     });
   });
@@ -573,10 +575,11 @@ describe("XAxis", () => {
         { x: { lower: DAY, upper: DAY + 60 * S } },
       ],
     };
-    const props = (gapsCollapsed: boolean) => ({
+    const props = (gapsCollapsed: boolean, openBreaks: number[] = []) => ({
       hold: false,
       viewport: box.DECIMAL,
       gapsCollapsed,
+      openBreaks,
     });
     const segmentBounds = (x: XAxis, gapsCollapsed = true) =>
       x.layout(props(gapsCollapsed)).segments.map((s) => s.bounds);
@@ -697,6 +700,144 @@ describe("XAxis", () => {
         .filter((c) => c.op === "lineTo")
         .map((c) => c.args[1]);
       expect(ends).toEqual([592, 592]);
+    });
+  });
+
+  describe("breaks", () => {
+    const S = Number(TimeSpan.SECOND.valueOf());
+    const DAY = Number(TimeSpan.DAY.valueOf());
+    const WINDOWS = {
+      y1: [
+        { x: { lower: 0, upper: 60 * S } },
+        { x: { lower: DAY, upper: DAY + 60 * S } },
+      ],
+    };
+    // The segments hold 63 seconds each, so the seam is at the middle of the plot.
+    const PLOT = box.construct(0, 0, 800, 600);
+    const SEAM_X = 400;
+    const GAP = 63 * S;
+    const props = (openBreaks: number[] = []) => ({
+      hold: false,
+      viewport: box.DECIMAL,
+      gapsCollapsed: true,
+      openBreaks,
+    });
+    const view = (lower: number, upper: number): box.Box =>
+      box.construct({ x: lower, y: 0 }, { x: upper, y: 1 }, 0, 0, box.DECIMAL.root);
+    const request = (
+      action: BreakAction,
+      viewport = box.DECIMAL,
+      selection = box.ZERO,
+    ): BreaksRequest => ({ action, viewport, held: [], selection });
+    const toggle = (x: number, source: "plot" | "axis" = "plot"): BreakAction => ({
+      variant: "toggle",
+      x,
+      source,
+    });
+    // shown returns the values at the x edges of a view, with openBreaks open.
+    const shown = (x: XAxis, openBreaks: number[], viewport: box.Box) => {
+      const layout = x.layout({ ...props(openBreaks), viewport });
+      return [layout.reverse(0), layout.reverse(1)];
+    };
+
+    it("should open the break under a click on the plot", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const change = x.breaks(props(), request(toggle(SEAM_X + 3)), PLOT);
+      expect(change?.openBreaks).toEqual([GAP]);
+    });
+
+    it("should change nothing for a click away from every break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      expect(x.breaks(props(), request(toggle(SEAM_X + 20)), PLOT)).toBeNull();
+    });
+
+    it("should keep the values at the edges of the view in view", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const zoomed = view(0.25, 0.75);
+      const before = shown(x, [], zoomed);
+      const change = x.breaks(props(), request(toggle(SEAM_X), zoomed), PLOT);
+      expect(change).not.toBeNull();
+      const after = shown(x, change!.openBreaks, change!.viewport);
+      expect(after[0]).toBeCloseTo(before[0], -3);
+      expect(after[1]).toBeCloseTo(before[1], -3);
+    });
+
+    it("should keep a selection that ends at a seam on its side of the break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const before = x.layout(props());
+      const selection = view(0.25, before.segments[1].position.lower);
+      const req = { ...request(toggle(SEAM_X)), selection };
+      const change = x.breaks(props(), req, PLOT);
+      expect(change).not.toBeNull();
+      const after = x.layout(props(change!.openBreaks));
+      const upper = after.reverseHome(box.right(change!.selection));
+      expect(upper).toBeCloseTo(before.segments[0].bounds.upper, -3);
+    });
+
+    it("should map the selection and the held views through time", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const selection = view(0.1, 0.2);
+      const req = { ...request(toggle(SEAM_X)), selection, held: [view(0.6, 0.9)] };
+      const change = x.breaks(props(), req, PLOT);
+      expect(change).not.toBeNull();
+      const before = x.layout(props());
+      const after = x.layout(props(change!.openBreaks));
+      const values = (l: Layout, b: box.Box) => {
+        const { lower, upper } = box.xBounds(b);
+        return [l.reverseHome(lower), l.reverseHome(upper)];
+      };
+      values(after, change!.selection).forEach((v, i) =>
+        expect(v).toBeCloseTo(values(before, selection)[i], -3),
+      );
+      values(after, change!.held[0]).forEach((v, i) =>
+        expect(v).toBeCloseTo(values(before, req.held[0])[i], -3),
+      );
+    });
+
+    it("should not close an open break on a click on the plot", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props([GAP]));
+      const mark = layout.mark(layout.gaps[0]) * box.width(PLOT);
+      expect(x.breaks(props([GAP]), request(toggle(mark)), PLOT)).toBeNull();
+    });
+
+    it("should close an open break on a click on its axis mark", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const layout = x.layout(props([GAP]));
+      const mark = layout.mark(layout.gaps[0]) * box.width(PLOT);
+      const change = x.breaks(props([GAP]), request(toggle(mark, "axis")), PLOT);
+      expect(change?.openBreaks).toEqual([]);
+    });
+
+    it("should open and close every break", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const all = (open: boolean): BreakAction => ({ variant: "all", open });
+      expect(x.breaks(props(), request(all(true)), PLOT)?.openBreaks).toEqual([GAP]);
+      expect(x.breaks(props([GAP]), request(all(false)), PLOT)?.openBreaks).toEqual([]);
+      expect(x.breaks(props(), request(all(false)), PLOT)).toBeNull();
+    });
+
+    it("should open the breaks that a set names", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const set: BreakAction = { variant: "set", open: [GAP] };
+      expect(x.breaks(props(), request(set), PLOT)?.openBreaks).toEqual([GAP]);
+      expect(x.breaks(props([GAP]), request(set), PLOT)).toBeNull();
+    });
+
+    it("should keep the width of a view inside a gap that closes", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const inGap = view(0.4, 0.6);
+      const action: BreakAction = { variant: "all", open: false };
+      const change = x.breaks(props([GAP]), request(action, inGap), PLOT);
+      const { lower, upper } = box.xBounds(change!.viewport);
+      expect(upper - lower).toBeCloseTo(0.2);
+      expect((lower + upper) / 2).toBeCloseTo(0.5);
+    });
+
+    it("should drop open breaks whose gaps the axis no longer has", () => {
+      const x = mount(WINDOWS, { type: "time" });
+      const close: BreakAction = { variant: "all", open: false };
+      expect(x.breaks(props([12345]), request(close), PLOT)?.openBreaks).toEqual([]);
     });
   });
 });
