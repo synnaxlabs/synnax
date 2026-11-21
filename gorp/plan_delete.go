@@ -71,16 +71,16 @@ type DeleteEffects struct {
 }
 
 // current reports whether e still describes the delete of the entries with keys from
-// the table named table in tx: e came from tx, and no write of tx after the plan added
-// a link to an entry that the delete removes.
+// the table named table in tx: e came from tx, and no write of tx after the plan left a
+// record that e names as a holder, or one that links to an entry the delete removes.
 func current[K Key](e DeleteEffects, tx Tx, table string, keys []K) bool {
 	st := tx.txIdentity()
 	if st == nil || st != e.tx {
 		return false
 	}
-	var removed set.Set[Target]
+	var removed, held set.Set[Target]
 	for _, c := range st.changes.entries {
-		if c.seq <= e.seq || len(c.after) == 0 {
+		if c.seq <= e.seq || !c.present {
 			continue
 		}
 		if removed == nil {
@@ -88,11 +88,24 @@ func current[K Key](e DeleteEffects, tx Tx, table string, keys []K) bool {
 			for _, k := range keys {
 				removed.Add(Target{Table: table, Key: FormatKey(k)})
 			}
-			for _, cascade := range e.Cascades {
-				removed.Add(cascade.Holder)
+			held = make(
+				set.Set[Target],
+				len(e.Cascades)+len(e.Detaches)+len(e.Restricts),
+			)
+			for _, effects := range [][]DeleteEffect{
+				e.Cascades,
+				e.Detaches,
+				e.Restricts,
+			} {
+				for _, d := range effects {
+					held.Add(d.Holder)
+				}
+			}
+			for _, d := range e.Cascades {
+				removed.Add(d.Holder)
 			}
 		}
-		if slices.ContainsFunc(c.after, func(l Link) bool {
+		if held.Contains(c.record) || slices.ContainsFunc(c.after, func(l Link) bool {
 			return removed.Contains(l.Target)
 		}) {
 			return false

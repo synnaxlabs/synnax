@@ -244,6 +244,39 @@ var _ = Describe("Planned delete breaker 2", func() {
 				Exists(ctx, db)).To(BeFalse())
 		})
 
+	It("Should keep a Cascade holder that the transaction points elsewhere after "+
+		"the plan", func(ctx SpecContext) {
+		Expect(statuses.NewCreate().
+			Entry(&b2Status{Key: "s", Channel: 1}).
+			Exec(ctx, db)).To(Succeed())
+		Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
+			return statuses.NewCreate().
+				Entry(&b2Status{Key: "s", Channel: 2}).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		var s b2Status
+		Expect(statuses.NewRetrieve().
+			Where(gorp.MatchKeys[string, b2Status]("s")).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		Expect(s.Channel).To(Equal(uint32(2)))
+		Expect(channelExists(ctx, 1)).To(BeFalse())
+	})
+
+	It("Should delete once the transaction drops a Restrict link after the plan",
+		func(ctx SpecContext) {
+			Expect(tasks.NewCreate().
+				Entry(&b2Task{Key: "t", Reads: []uint32{1}}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
+				return tasks.NewCreate().Entry(&b2Task{Key: "t"}).Exec(ctx, tx)
+			})).To(Succeed())
+			Expect(channelExists(ctx, 1)).To(BeFalse())
+			Expect(tasks.NewRetrieve().
+				Where(gorp.MatchKeys[string, b2Task]("t")).
+				Exists(ctx, db)).To(BeTrue())
+		})
+
 	It("Should refuse two references of one name when the table opens", func(
 		ctx SpecContext,
 	) {
