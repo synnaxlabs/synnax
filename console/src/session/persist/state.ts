@@ -740,7 +740,8 @@ export const flush = async (dispatch: (action: Action) => unknown): Promise<void
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
  * target's partitions load, and a single hydrate action applies them. Nothing else is
- * saved while the swap is in flight, so a change made then is lost.
+ * saved while the swap is in flight, so a change made then is lost. A failed swap stays
+ * in flight: nothing is saved until a later swap hydrates.
  */
 const createMiddleware = <S extends object>(
   engine: Engine<S>,
@@ -752,7 +753,7 @@ const createMiddleware = <S extends object>(
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
   // The swap in flight, or null. While one is, `current` names a context whose slices
-  // the store does not hold yet, so nothing is saved until it hydrates or ends.
+  // the store does not hold yet, so nothing is saved until a swap hydrates.
   let swap: { includeCore: boolean } | null = null;
   // Everything the store writes runs in turn. A swap flushes the partition it leaves,
   // so a purge of that partition has to wait behind it or the keys come back.
@@ -820,8 +821,7 @@ const createMiddleware = <S extends object>(
         swap = null;
         current = getContext(state);
         debouncedPersist();
-      } else if (type === endSwap.type) swap = null;
-      else {
+      } else {
         const ctx = getContext(state);
         if (!contextsEqual(ctx, current)) {
           const old = current;
