@@ -125,11 +125,37 @@ func (s *State) BeginDrop(key uint32, pre ...Preload) error {
 	return <-r.done
 }
 
+// pendingSeg is a segment with visible commits that are not durable yet, and the time
+// range of their pointers.
+type pendingSeg struct {
+	seg         *segState
+	first, last telem.TimeStamp
+}
+
+// pending returns the segments of c with visible commits that are not durable yet.
+func (c *chanState) pending() []pendingSeg {
+	var out []pendingSeg
+	for _, s := range c.segs {
+		if s.dur.length >= s.vis.Length {
+			continue
+		}
+		// The last durable pointer may grow with the commits after it.
+		ptrs := s.vis.Pointers[max(len(s.dur.pointers)-1, 0):]
+		p := pendingSeg{seg: s, first: ptrs[0].First, last: ptrs[0].Last}
+		for _, ptr := range ptrs[1:] {
+			p.first, p.last = min(p.first, ptr.First), max(p.last, ptr.Last)
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
 // carry hands seg, which a part now holds, to each step in progress that took its part
 // records before seg was tagged: a delete or a Drop of the clock of seg, and the
-// durable apply of a visible commit of the key of seg. Each would miss seg otherwise,
-// since its checks skip tagged segments.
-func (c *core) carry(seg *segState) {
+// durable apply of the visible commits of pending, the segments of the key of seg with
+// commits that are not durable. Each would miss seg otherwise, since its checks skip
+// tagged segments.
+func (c *core) carry(seg *segState, pending []pendingSeg) {
 	user := User{Key: seg.key, Segment: seg.vis}
 	if seg.vis.Clock != seg.key {
 		if ch := c.channels[seg.vis.Clock]; ch != nil {
@@ -143,9 +169,9 @@ func (c *core) carry(seg *segState) {
 			c.dropUsers[seg.vis.Clock] = append(users, user)
 		}
 	}
-	for _, s := range c.channels[seg.key].segs {
-		if s != seg && s.dur.length < s.vis.Length {
-			s.pre = union(s.pre, []Segment{seg.vis})
+	for _, p := range pending {
+		if p.seg != seg && overlaps(seg.vis.Pointers, p.first, p.last) {
+			p.seg.pre = append(p.seg.pre, seg.vis)
 		}
 	}
 }

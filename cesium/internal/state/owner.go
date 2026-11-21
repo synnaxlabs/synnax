@@ -319,13 +319,19 @@ func (r *partedRequest) run(s *State) {
 	r.swap()
 	s.core.head = r.generation
 	changed := set.New[uint32]()
+	pending := map[uint32][]pendingSeg{}
 	for _, t := range r.tags {
 		seg, ok := s.core.segments[t.Segment.ID]
 		if !ok || !sameRecord(seg.vis, t.Segment) {
 			continue
 		}
 		seg.vis.Part = t.Part
-		s.core.carry(seg)
+		p, found := pending[seg.key]
+		if !found {
+			p = s.core.channels[seg.key].pending()
+			pending[seg.key] = p
+		}
+		s.core.carry(seg, p)
 		changed.Add(seg.key)
 	}
 	folded := func(k Kill) bool { return k.Generation < r.generation }
