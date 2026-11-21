@@ -73,20 +73,17 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
-// ErrPlanChanged is the error of an Apply whose plan changed after the caller planned.
-var ErrPlanChanged = errors.New("the records that the change touches changed")
-
-// PlanChangedError wraps ErrPlanChanged with the plan as it is now.
+// PlanChangedError is the error of an Apply whose plan changed after the caller
+// planned.
 type PlanChangedError struct {
 	// Plan is the plan as it is now, as the caller may see it.
 	Plan Plan
 }
 
 // Error implements error.
-func (PlanChangedError) Error() string { return ErrPlanChanged.Error() }
-
-// Unwrap returns ErrPlanChanged.
-func (PlanChangedError) Unwrap() error { return ErrPlanChanged }
+func (PlanChangedError) Error() string {
+	return "the records that the change touches changed"
+}
 
 // PlanOptions are the inputs of the caller to Plan.
 type PlanOptions struct {

@@ -252,7 +252,7 @@ var _ = Describe("Routes", Ordered, func() {
 		}}
 		codec := errors.NewCodec(apiimpact.ErrorProvider())
 		decoded := codec.Decode(codec.Encode(changed, false))
-		Expect(decoded).To(MatchError(impact.ErrPlanChanged))
+		Expect(decoded).To(MatchError("the records that the change touches changed"))
 		got, ok := errors.AsType[impact.PlanChangedError](decoded)
 		Expect(ok).To(BeTrue())
 		Expect(got.Plan).To(Equal(changed.Plan))

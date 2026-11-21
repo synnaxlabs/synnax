@@ -345,7 +345,7 @@ var _ = Describe("Delete", Ordered, func() {
 			stale := plan(ctx, nil, ch.Key())
 			plot := createPlot(ctx, ch.Key())
 			_, err := apply(ctx, impact.ApplyOptions{Token: stale.Token}, ch.Key())
-			Expect(err).To(MatchError(impact.ErrPlanChanged))
+			Expect(err).To(MatchError("the records that the change touches changed"))
 			changed, ok := errors.AsType[impact.PlanChangedError](err)
 			Expect(ok).To(BeTrue())
 			Expect(changed.Plan.Entries).To(Equal([]impact.Entry{
