@@ -11,7 +11,7 @@ import "@/platform/notifications/Feed.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { usePopover } from "@synnaxlabs/lyra/hooks";
+import { POPOVER_SHOW_EVENT, usePopover } from "@synnaxlabs/lyra/hooks";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { getRootElement } from "@synnaxlabs/lyra/util";
@@ -61,17 +61,28 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
     if (overflow <= 0) setExpanded(false);
   }, [overflow]);
   const visible = showAll ? rendered : rendered.slice(0, VISIBLE_CAP);
-  // Portal.Above moves the feed when a modal opens or closes, which hides it.
-  const [moves, setMoves] = useState(0);
-  useEffect(() => {
-    const handleMove = (): void => setMoves((m) => m + 1);
-    document.addEventListener(Portal.MODAL_CHANGE_EVENT, handleMove);
-    return () => document.removeEventListener(Portal.MODAL_CHANGE_EVENT, handleMove);
-  }, []);
-  // A new notification shows over every overlay open when it arrives.
   const ref = useRef<HTMLDivElement>(null);
+  // The feed shows again, last in the top layer, when Portal.Above moves it (which
+  // hides it), when a notification arrives, and when another overlay shows. An overlay
+  // opened from the feed itself, under the pointer or the focus, stays over it.
+  const [raises, setRaises] = useState(0);
+  useEffect(() => {
+    const raise = (): void => setRaises((r) => r + 1);
+    const handleShow = ({ target }: Event): void => {
+      const feed = ref.current;
+      if (feed == null || target === feed || feed.matches(":hover, :focus-within"))
+        return;
+      raise();
+    };
+    document.addEventListener(Portal.MODAL_CHANGE_EVENT, raise);
+    document.addEventListener(POPOVER_SHOW_EVENT, handleShow);
+    return () => {
+      document.removeEventListener(Portal.MODAL_CHANGE_EVENT, raise);
+      document.removeEventListener(POPOVER_SHOW_EVENT, handleShow);
+    };
+  }, []);
   const shown = statuses.map(({ key, count }) => `${key}:${count}`).join();
-  usePopover(ref, true, `${moves}|${shown}`);
+  usePopover(ref, true, `${raises}|${shown}`);
   return (
     <Portal.Above element={getRootElement()}>
       <Flex.Box y className={CSS.B("notifications")} ref={ref} popover="manual">
