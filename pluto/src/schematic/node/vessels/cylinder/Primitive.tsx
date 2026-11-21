@@ -19,14 +19,11 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.CylinderNodeConfig,
-    | "dimensions"
-    | "borderRadius"
-    | "strokeColor"
-    | "fillColor"
-    | "orientation"
-    | "scale"
+    "dimensions" | "borderRadius" | "orientation" | "scale"
   >
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 

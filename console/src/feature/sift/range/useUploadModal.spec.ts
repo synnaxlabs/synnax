@@ -32,13 +32,14 @@ import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
 import { CaptureStatuses, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
 const createRange = async () =>
-  await client.ranges.create({
+  await createTestRange(client, {
     name: uniqueName("hotfire"),
     timeRange: new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2)),
   });

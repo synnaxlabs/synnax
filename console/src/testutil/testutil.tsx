@@ -37,6 +37,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import {
+  type CSSProperties,
   type FC,
   type PropsWithChildren,
   type ReactElement,
@@ -45,6 +46,7 @@ import {
 import { Provider } from "react-redux";
 import { assert } from "vitest";
 
+import { FileBrowser } from "@/platform/file-browser";
 import { Session } from "@/session";
 import {
   createAsyncSynnaxWrapper,
@@ -216,17 +218,30 @@ export const selectRange = (
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 
+// A browser lays the specs out, so they get a box the size of a window. A form or list
+// in a box of no height draws nothing.
+const WINDOW_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  width: 1280,
+  height: 800,
+};
+
 const composeConsole = (
   SynnaxWrapper: FC<PropsWithChildren>,
   store: EnhancedStore,
 ): FC<PropsWithChildren> => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
-      <Triggers.Provider>
-        <Provider store={store}>
-          <Session.Modals.Context>{children}</Session.Modals.Context>
-        </Provider>
-      </Triggers.Provider>
+      <FileBrowser.Provider>
+        <Triggers.Provider>
+          <Provider store={store}>
+            <Session.Modals.Context>
+              <div style={WINDOW_STYLE}>{children}</div>
+            </Session.Modals.Context>
+          </Provider>
+        </Triggers.Provider>
+      </FileBrowser.Provider>
     </SynnaxWrapper>
   );
   return Wrapper;

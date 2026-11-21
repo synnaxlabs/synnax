@@ -9,6 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
+import { ADAPTER } from "@/feature/labjack/device/hardware";
 import { Task } from "@/feature/labjack/task";
 import { Device as PlatformDevice } from "@/platform/device";
 
@@ -25,10 +26,17 @@ const TASK_CONTEXT_MENU_ITEMS = [
   }),
 ];
 
+const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(ADAPTER);
+
+const ChangeIdentifierMenuItem = PlatformDevice.createChangeIdentifierMenuItem({
+  adapter: ADAPTER,
+  icon: "Logo.LabJack",
+});
+
 export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
   <>
-    <PlatformDevice.ConfigureMenuItem {...props} />
-    <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.LabJack" />
+    <ConfigureMenuItem {...props} />
+    <ChangeIdentifierMenuItem {...props} />
     <Menu.Divider />
     <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
   </>

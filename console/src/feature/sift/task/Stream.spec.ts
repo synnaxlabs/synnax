@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Sift } from "@/feature/sift";
 import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
@@ -220,7 +221,7 @@ describe("Sift stream form", () => {
   it("should save the labels that the user picks", async () => {
     const dev = await createSiftDevice(client);
     const [, data] = await newIndexedPair(client);
-    const hotfire = await client.labels.create({
+    const hotfire = await createTestLabel(client, {
       name: uniqueName("hotfire"),
       color: "#FF0000",
     });

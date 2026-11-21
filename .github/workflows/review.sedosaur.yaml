@@ -28,15 +28,6 @@ on:
         description: "Pull request to review"
         type: number
         required: true
-      # The relay of a release branch cut from 0.62.0 or older still sends these two.
-      comment:
-        description: "Unused"
-        type: string
-        required: false
-      reply:
-        description: "Unused"
-        type: boolean
-        default: false
       head:
         description: "Commit to review, if not the head of the pull request"
         type: string

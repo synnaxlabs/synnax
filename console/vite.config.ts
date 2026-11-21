@@ -15,6 +15,7 @@ import { playwright } from "@vitest/browser-playwright";
 import * as fs from "node:fs/promises";
 import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
+import type { TestProjectInlineConfiguration } from "vitest/config";
 
 const isDev = process.env.VITE_IS_DEV === "true";
 // Builds compile workspace packages from source, so code splitting reaches into them.
@@ -27,7 +28,65 @@ const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 const BROWSER_SPECS = "src/**/*.browser.spec.{ts,tsx}";
+const DESKTOP_BROWSER_SPECS = "src/**/*.desktop.browser.spec.{ts,tsx}";
 const JSDOM = { environment: "jsdom", setupFiles: ["src/testutil/setuptests.ts"] };
+
+interface BrowserProjectProps {
+  name: string;
+  include?: string[];
+  exclude?: string[];
+  desktop?: boolean;
+}
+
+/**
+ * @returns a project that runs its specs in Chromium and WebKit. A desktop project
+ * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix.
+ */
+const browserProject = ({
+  name,
+  include = [BROWSER_SPECS],
+  exclude = [],
+  desktop = false,
+}: BrowserProjectProps): TestProjectInlineConfiguration => {
+  const prefix = desktop ? "desktop-" : "";
+  return {
+    extends: true,
+    define: { DESKTOP: desktop },
+    // The optimizer misses these until a spec loads them, then reloads the page and
+    // fails the specs that are running.
+    optimizeDeps: {
+      include: [
+        "@tauri-apps/plugin-deep-link",
+        "@tauri-apps/plugin-dialog",
+        "@tauri-apps/plugin-fs",
+        "@tauri-apps/plugin-shell",
+      ],
+    },
+    test: {
+      name,
+      setupFiles: ["src/testutil/browser.ts"],
+      include,
+      exclude,
+      // A browser has no `process` to read the test Core from.
+      provide: {
+        synnaxTestCore: {
+          host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+          port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+        },
+      },
+      browser: {
+        enabled: true,
+        headless: true,
+        provider: playwright(),
+        // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
+        instances: [
+          { browser: "chromium", name: `${prefix}chromium` },
+          { browser: "webkit", name: `${prefix}webkit` },
+        ],
+      },
+    },
+  };
+};
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -170,24 +229,12 @@ export default defineConfig({
         define: { DESKTOP: true },
         test: { ...JSDOM, name: "desktop", include: [DESKTOP_SPECS] },
       },
-      {
-        extends: true,
-        test: {
-          name: "browser",
-          setupFiles: ["src/testutil/browser.ts"],
-          include: [BROWSER_SPECS],
-          browser: {
-            enabled: true,
-            headless: true,
-            provider: playwright(),
-            // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
-            instances: [
-              { browser: "chromium", name: "chromium" },
-              { browser: "webkit", name: "webkit" },
-            ],
-          },
-        },
-      },
+      browserProject({ name: "browser", exclude: [DESKTOP_BROWSER_SPECS] }),
+      browserProject({
+        name: "desktop-browser",
+        include: [DESKTOP_BROWSER_SPECS],
+        desktop: true,
+      }),
     ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

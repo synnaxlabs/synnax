@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/color"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/symbol"
@@ -105,10 +106,10 @@ Segment struct {
 }
 
 SegmentedEdgeConfig struct {
-    stroke_color color.Color? {
-        @doc value "is the stroke color of the edge."
+    stroke_color color.Ref? {
+        @doc value "is the stroke color of the edge, a named color or a fixed color."
     }
-    segments     Segment[]    {
+    segments     Segment[]  {
         @doc value """
             is the ordered list of orthogonal runs that trace the connector path from
             the source handle to the target handle.
@@ -375,11 +376,11 @@ NodeConfig union on variant {
     flowmeter_float_sensor             StaticSymbolConfig
     flowmeter_orifice                  StaticSymbolConfig
     box extends LabeledConfig {
-        stroke_color  color.Color?       {
-            @doc value "is the border color of the box."
+        stroke_color  color.Ref?         {
+            @doc value "is the border color of the box, a named color or a fixed color."
         }
-        fill_color    color.Color?       {
-            @doc value "is the fill color of the box."
+        fill_color    color.Ref?         {
+            @doc value "is the fill color of the box, a named color or a fixed color."
         }
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the box in pixels."
@@ -415,8 +416,11 @@ NodeConfig union on variant {
         mode            ButtonMode = ButtonModeFire {
             @doc value "is the actuation behavior of the button."
         }
-        fill_color      color.Color?       {
-            @doc value "is the fill color of the button, which its border follows."
+        fill_color      color.Ref?         {
+            @doc value """
+                is the fill color of the button, which its border follows, a named color
+                or a fixed color.
+            """
         }
         control         ControlStateConfig = {} {
             @doc value "is the control state display configuration."
@@ -429,13 +433,17 @@ NodeConfig union on variant {
             @doc value    "is the radius of the circle in pixels."
             @validate min 1
         }
-        stroke_color color.Color? {
-            @doc value "is the border color of the circle."
+        stroke_color color.Ref? {
+            @doc value """
+                is the border color of the circle, a named color or a fixed color.
+            """
         }
-        fill_color   color.Color? {
-            @doc value "is the fill color of the circle."
+        fill_color   color.Ref? {
+            @doc value """
+                is the fill color of the circle, a named color or a fixed color.
+            """
         }
-        stroke_width uint8?       {
+        stroke_width uint8?     {
             @doc value    "is the border stroke width in pixels. Absent draws 2."
             @validate max 20
         }
@@ -446,8 +454,8 @@ NodeConfig union on variant {
         position     spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the gauge contents within the symbol."
         }
-        stroke_color color.Color?       {
-            @doc value "is the color of the gauge arc."
+        stroke_color color.Ref?         {
+            @doc value "is the color of the gauge arc, a named color or a fixed color."
         }
         bounds       spatial.Bounds = { lower = 0, upper = 100 } {
             @doc value "is the numeric range displayed by the gauge."
@@ -493,9 +501,10 @@ NodeConfig union on variant {
                 content.
             """
         }
-        fill_color      color.Color?       {
+        fill_color      color.Ref?         {
             @doc value """
-                is the fill color of the Set button, which the input border follows.
+                is the fill color of the Set button, which the input border follows, a
+                named color or a fixed color.
             """
         }
         disabled        bool = false {
@@ -539,8 +548,10 @@ NodeConfig union on variant {
         @doc value "is the configuration for indicator light symbols."
     }
     line {
-        stroke_color color.Color? {
-            @doc value "is the stroke color of the line."
+        stroke_color color.Ref? {
+            @doc value """
+                is the stroke color of the line, a named color or a fixed color.
+            """
         }
         start        spatial.XY = { x = 0, y = 0 } {
             @doc value "is the first endpoint, offset from the node position."
@@ -560,10 +571,10 @@ NodeConfig union on variant {
         orientation                      spatial.OuterLocation = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
         }
-        fill_color                       color.Color?          {
+        fill_color                       color.Ref?            {
             @doc value """
-                is the fill color of a linked reference. An unlinked reference draws its
-                outline in this color.
+                is the fill color of a linked reference, a named color or a fixed color.
+                An unlinked reference draws its outline in this color.
             """
         }
         page                             Page = { type = PageTypeSchematic, key = "" } {
@@ -592,13 +603,17 @@ NodeConfig union on variant {
         border_radius uint16 = 0 {
             @doc value "is the corner radius of the polygon in pixels."
         }
-        stroke_color  color.Color? {
-            @doc value "is the border color of the polygon."
+        stroke_color  color.Ref? {
+            @doc value """
+                is the border color of the polygon, a named color or a fixed color.
+            """
         }
-        fill_color    color.Color? {
-            @doc value "is the fill color of the polygon."
+        fill_color    color.Ref? {
+            @doc value """
+                is the fill color of the polygon, a named color or a fixed color.
+            """
         }
-        stroke_width  uint8?       {
+        stroke_width  uint8?     {
             @doc value    "is the border stroke width in pixels. Absent draws 2."
             @validate max 20
         }
@@ -621,9 +636,10 @@ NodeConfig union on variant {
                 does.
             """
         }
-        fill_color      color.Color?       {
+        fill_color      color.Ref?         {
             @doc value """
-                is the fill color of the Set button, which the select border follows.
+                is the fill color of the Set button, which the select border follows, a
+                named color or a fixed color.
             """
         }
         inline_size     uint16 = 100 {
@@ -691,9 +707,10 @@ NodeConfig union on variant {
                 content.
             """
         }
-        fill_color      color.Color?       {
+        fill_color      color.Ref?         {
             @doc value """
-                is the fill color of the Set button, which the setpoint border follows.
+                is the fill color of the Set button, which the setpoint border follows,
+                a named color or a fixed color.
             """
         }
         units           string = "" {
@@ -727,8 +744,10 @@ NodeConfig union on variant {
                 does.
             """
         }
-        stroke_color color.Color?   {
-            @doc value "is the border color of the indicator."
+        stroke_color color.Ref?     {
+            @doc value """
+                is the border color of the indicator, a named color or a fixed color.
+            """
         }
         inline_size  uint16 = 100 {
             @doc value    "is the inline size of the indicator in pixels."
@@ -744,11 +763,15 @@ NodeConfig union on variant {
         @doc value "is the configuration for multi-state indicator symbols."
     }
     string_display extends LabeledConfig, StalenessConfig {
-        stroke_color color.Color? {
-            @doc value "is the border color of the display."
+        stroke_color color.Ref?  {
+            @doc value """
+                is the border color of the display, a named color or a fixed color.
+            """
         }
-        text_color   color.Color? {
-            @doc value "is the color of the displayed text."
+        text_color   color.Ref?  {
+            @doc value """
+                is the color of the displayed text, a named color or a fixed color.
+            """
         }
         tooltip      string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
@@ -771,8 +794,8 @@ NodeConfig union on variant {
     }
     switch                             ToggleSymbolConfig
     text_box extends LabeledConfig {
-        text_color        color.Color?  {
-            @doc value "is the text color."
+        text_color        color.Ref?    {
+            @doc value "is the text color, a named color or a fixed color."
         }
         inline_size       uint16 = 75 {
             @doc value    "is the rendered inline size of the text box in pixels."
@@ -797,16 +820,21 @@ NodeConfig union on variant {
         position     spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the value contents within the symbol."
         }
-        stroke_color color.Color?       {
-            @doc value "is the color of the value's border and units divider."
-        }
-        text_color   color.Color?       {
-            @doc value "is the color of the displayed value."
-        }
-        fill_color   color.Color?       {
+        stroke_color color.Ref?         {
             @doc value """
-                is the fill behind the value where no redline band paints. When absent
-                the value paints no fill.
+                is the color of the value's border and units divider, a named color or a
+                fixed color.
+            """
+        }
+        text_color   color.Ref?         {
+            @doc value """
+                is the color of the displayed value, a named color or a fixed color.
+            """
+        }
+        fill_color   color.Ref?         {
+            @doc value """
+                is the fill behind the value where no redline band paints, a named color
+                or a fixed color. When absent the value paints no fill.
             """
         }
         tooltip      string[] = [] {
@@ -903,11 +931,15 @@ NodeConfig union on variant {
         border_radius border.Radius?     {
             @doc value "is the corner radius of the cylinder."
         }
-        stroke_color  color.Color?       {
-            @doc value "is the border color of the cylinder."
+        stroke_color  color.Ref?         {
+            @doc value """
+                is the border color of the cylinder, a named color or a fixed color.
+            """
         }
-        fill_color    color.Color?       {
-            @doc value "is the fill color of the cylinder."
+        fill_color    color.Ref?         {
+            @doc value """
+                is the fill color of the cylinder, a named color or a fixed color.
+            """
         }
 
         @doc value "is the configuration for cylinder vessel symbols."
@@ -918,11 +950,15 @@ NodeConfig union on variant {
         position      spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the tank contents within the symbol."
         }
-        stroke_color  color.Color?          {
-            @doc value "is the color of the tank's wall."
+        stroke_color  color.Ref?            {
+            @doc value """
+                is the color of the tank's wall, a named color or a fixed color.
+            """
         }
-        fill_color    color.Color?          {
-            @doc value "is the fill color of the tank body."
+        fill_color    color.Ref?            {
+            @doc value """
+                is the fill color of the tank body, a named color or a fixed color.
+            """
         }
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the tank in pixels."
@@ -1135,16 +1171,19 @@ ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
     bounds       spatial.Bounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
     }
-    level_color  color.Color?          {
+    level_color  color.Ref?            {
         @doc value """
-            is the color of the filled portion, the caret, and the value readout border.
+            is the color of the filled portion, the caret, and the value readout border,
+            a named color or a fixed color.
         """
     }
-    axis_color   color.Color?          {
-        @doc value "is the color of the axis and its ticks."
+    axis_color   color.Ref?            {
+        @doc value """
+            is the color of the axis and its ticks, a named color or a fixed color.
+        """
     }
-    text_color   color.Color?          {
-        @doc value "is the color of the tick labels."
+    text_color   color.Ref?            {
+        @doc value "is the color of the tick labels, a named color or a fixed color."
     }
     units        string = "" {
         @doc value "is the unit suffix displayed after each tick label."

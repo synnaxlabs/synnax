@@ -870,6 +870,34 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
+	Describe("Uses", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list the entries that hold a target through a use reference", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 1)
+			createLabels(ctx, "l1")
+			Expect(
+				createDevice(ctx, refDevice{Key: "a", Rack: 1, Labels: []string{"l1"}}),
+			).
+				To(Succeed())
+			Expect(labels.Uses(ctx, db, "l1")).
+				To(Equal([]gorp.Target{{Table: "device", Key: "a"}}))
+		})
+
+		It("Should leave out the entries that hold a target through a place reference",
+			func(ctx SpecContext) {
+				createRack(ctx, 1)
+				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+				Expect(statuses.NewCreate().
+					Entry(&refStatus{Key: "s", Owner: &refOwner{Table: "rack", Key: "1"}}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(racks.Uses(ctx, db, 1)).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("PlacedIn", func() {
 		BeforeEach(func(ctx SpecContext) { open(ctx) })
 

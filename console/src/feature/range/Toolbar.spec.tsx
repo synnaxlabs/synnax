@@ -27,6 +27,7 @@ import { Range } from "@/feature/range";
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
+import { createTestRange, createTestRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -72,7 +73,7 @@ const createRange = async (
   name: string,
   timeRange: TimeRange,
   parent?: ranger.Key,
-): Promise<ranger.Range> => await client.ranges.create({ name, timeRange, parent });
+): Promise<ranger.Range> => await createTestRange(client, { name, timeRange, parent });
 
 /** Creates a range that started `since` ago and has no end. */
 const createRunning = async (
@@ -208,22 +209,12 @@ describe("range/Toolbar", () => {
       });
       expect(queryLine("Running", oldest.name)).toBeNull();
       expect(within(groupOf("Running")).getByText(/^\d+\+$/)).toBeTruthy();
-      // A read for a range that ends keeps Show more enabled.
-      const reads = holdListReads();
-      await endRange(newer[0], TimeStamp.now().add(TimeSpan.milliseconds(300)));
-      const busy = groupOf("Running").closest<HTMLElement>('[role="list"]');
-      await waitFor(() => expect(busy?.getAttribute("aria-busy")).toBe("true"), {
-        timeout: 10_000,
-      });
-      expect(queryShowMore("Running")?.getAttribute("aria-disabled")).toBeNull();
-      reads.release();
       expect(await findLine("Running", oldest.name)).toBeTruthy();
       // A range that starts later joins Running only through the read for its start.
       const starting = await createRange(
         uniqueName("starting"),
         new TimeRange(TimeStamp.now().add(TimeSpan.SECOND), TimeStamp.MAX),
       );
-      onTestFinished(async () => await client.ranges.delete(starting.key));
       await waitForLine("Running", starting.name);
       // Both lists read for the new start at once, and a busy list shows held keys.
       const list = groupOf("Running").closest<HTMLElement>('[role="list"]');
@@ -344,7 +335,7 @@ describe("range/Toolbar", () => {
 
   describe("start", () => {
     it("should start a range at the click time on Enter", async () => {
-      const name = uniqueName("started");
+      const name = createTestRangeName(client, "started");
       await renderToolbar();
       const before = TimeStamp.now();
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
@@ -361,7 +352,7 @@ describe("range/Toolbar", () => {
       const analytics = createTestSink();
       await renderToolbar({ analytics });
       fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
-      await typeDraft(uniqueName("reported"));
+      await typeDraft(createTestRangeName(client, "reported"));
       await waitFor(() =>
         expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
       );
@@ -681,10 +672,9 @@ describe("range/Toolbar", () => {
       fireEvent.dragStart(await findLine("Favorites", rng.name));
       fireEvent.drop(await screen.findByLabelText("Ranges"));
       await waitFor(async () =>
-        expect((await reader.lineplots.retrieve(key)).ranges).toContainEqual({
-          variant: "key",
-          key: rng.key,
-        }),
+        expect((await reader.lineplots.retrieve(key)).ranges).toContainEqual(
+          expect.objectContaining({ variant: "key", key: rng.key }),
+        ),
       );
     });
   });

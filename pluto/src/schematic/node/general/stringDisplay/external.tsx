@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
@@ -20,13 +21,21 @@ const Preview = ({
   strokeColor,
   textColor,
   level,
-}: schematic.StringDisplayNodeConfig): ReactElement => (
-  <StringDisplay strokeColor={strokeColor} level={level}>
-    <Text.Text level={level} color={textColor} variant="code" overflow="fade">
-      Hello world!
-    </Text.Text>
-  </StringDisplay>
-);
+}: schematic.StringDisplayNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <StringDisplay strokeColor={resolve(strokeColor)} level={level}>
+      <Text.Text
+        level={level}
+        color={resolve(textColor)}
+        variant="code"
+        overflow="fade"
+      >
+        Hello world!
+      </Text.Text>
+    </StringDisplay>
+  );
+};
 
 export const spec: Spec<"string_display", schematic.StringDisplayNodeConfig> = {
   key: "string_display",

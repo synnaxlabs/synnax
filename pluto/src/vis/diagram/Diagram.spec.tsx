@@ -9,12 +9,15 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { render } from "@/testutil";
+import { Viewport } from "@/viewport";
 import { Diagram } from "@/vis/diagram";
 import { diagram } from "@/vis/diagram/aether";
 
@@ -43,6 +46,7 @@ interface HarnessProps {
   onViewportChange: (viewport: Diagram.Viewport) => void;
   editable?: boolean;
   onPaste?: () => void;
+  viewportMode?: Viewport.Mode;
 }
 
 // The diagram is controlled, so the harness feeds each selection back as the next
@@ -54,6 +58,7 @@ const Harness = ({
   children,
   editable = true,
   onPaste,
+  viewportMode = "zoom",
 }: HarnessProps): ReactElement => {
   const [selected, setSelected] = useState<string[]>([]);
   const handleSelectionChange = (next: string[]): void => {
@@ -63,26 +68,29 @@ const Harness = ({
   return (
     <Theming.Provider theme={{ key: themeKey }} applyCSSVars={false}>
       <Triggers.Provider>
-        <Base
-          nodes={NODES}
-          edges={[]}
-          onNodesChange={noop}
-          onEdgesChange={noop}
-          selected={selected}
-          onSelectionChange={handleSelectionChange}
-          editable={editable}
-          onEditableChange={noop}
-          onPaste={onPaste}
-          viewport={VIEWPORT}
-          onViewportChange={onViewportChange}
-          fitViewOnResize={false}
-          setFitViewOnResize={noop}
-          viewportMode="zoom"
-          onViewportModeChange={noop}
-          visible
-        >
-          {children}
-        </Base>
+        <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+          <Base
+            nodes={NODES}
+            edges={[]}
+            onNodesChange={noop}
+            onEdgesChange={noop}
+            selected={selected}
+            onSelectionChange={handleSelectionChange}
+            editable={editable}
+            onEditableChange={noop}
+            onPaste={onPaste}
+            viewport={VIEWPORT}
+            onViewportChange={onViewportChange}
+            fitViewOnResize={false}
+            setFitViewOnResize={noop}
+            viewportMode={viewportMode}
+            onViewportModeChange={noop}
+            triggers={Viewport.DEFAULT_TRIGGERS[viewportMode]}
+            visible
+          >
+            {children}
+          </Base>
+        </Tooltip.Config>
       </Triggers.Provider>
     </Theming.Provider>
   );
@@ -115,7 +123,7 @@ class ImmediateResizeObserver {
 
 const renderDiagram = async (
   children?: ReactNode,
-  props: Pick<HarnessProps, "editable" | "onPaste" | "themeKey"> = {},
+  props: Pick<HarnessProps, "editable" | "onPaste" | "themeKey" | "viewportMode"> = {},
 ) => {
   const onSelectionChange = vi.fn<(selected: string[]) => void>();
   const onViewportChange = vi.fn<(viewport: Diagram.Viewport) => void>();
@@ -168,6 +176,27 @@ describe("Diagram", () => {
         screen.getByRole("button", { name: "Fit view to contents" }),
       ).toBeDefined();
     });
+
+    it.each([
+      { mode: "pan", button: 0, keys: 1 },
+      { mode: "pan", button: 1, keys: 2 },
+      { mode: "select", button: 0, keys: 2 },
+      { mode: "select", button: 1, keys: 1 },
+    ] as const)(
+      "hints the gesture that pans or selects in $mode mode (button $button)",
+      async ({ mode, button, keys }) => {
+        await renderDiagram(<Diagram.Controls.SelectViewportMode />, {
+          viewportMode: mode,
+        });
+        const buttons = document.querySelectorAll(".lyra-select-btns button");
+        fireEvent.pointerEnter(buttons[button]);
+        await waitFor(() => {
+          const tip = document.querySelector(".lyra-tooltip");
+          if (tip == null) throw new Error("tooltip did not open");
+          expect(tip.querySelectorAll(".lyra-triggers__keys > *")).toHaveLength(keys);
+        });
+      },
+    );
   });
 
   describe("selection", () => {

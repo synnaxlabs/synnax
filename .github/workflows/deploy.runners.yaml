@@ -42,7 +42,7 @@ env:
   COMMENT: Deploy runners at ${{ github.sha }}
   TIMEOUT: 1800
   # The release that a Core deploy with no source installs.
-  PINNED_CORE: 0.61.0
+  PINNED_CORE: 0.62.0
 
 jobs:
   deploy:

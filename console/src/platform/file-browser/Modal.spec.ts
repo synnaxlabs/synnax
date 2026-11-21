@@ -9,6 +9,7 @@
 
 import { type certificate, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +19,7 @@ await vi.hoisted(async () => {
   pinOS("Windows");
 });
 
+import { createRunningRack } from "@/platform/device/testutil";
 import { FileBrowser } from "@/platform/file-browser";
 import {
   createFileRack,
@@ -70,13 +72,13 @@ const ETC = createListing({
 
 const openBrowser = async (listings: ReturnType<typeof createListing>[]) => {
   const files = await createFileRack(client);
-  await serveListings(client, files, listings);
+  const served = await serveListings(client, files, listings);
   const handle = await renderModalOpener(
     FileBrowser.useModal,
     [{ rack: files.rack.key }],
     { client },
   );
-  return { ...handle, rack: files.rack };
+  return { ...handle, rack: files.rack, served };
 };
 
 const openFolder = async (name: string): Promise<void> => {
@@ -97,6 +99,62 @@ const pressSave = (): void => {
 };
 
 describe("FileBrowser.useModal", () => {
+  it("should show the last listing of a folder at once when it opens again", async () => {
+    const { result, reopen, rack, served } = await openBrowser([TOP]);
+    await screen.findByText("secrets");
+    fireEvent.click(findButton("Cancel"));
+    await expect(result()).resolves.toBeNull();
+    // Nothing answers now, so the entries can only come from the last listing.
+    served.stop();
+    reopen();
+    await screen.findByText(rack.name);
+    expect(await screen.findByText("secrets")).toBeDefined();
+    expect(served.paths).toEqual([""]);
+  });
+
+  it("should list a reopened folder again and keep the selection", async () => {
+    const listings = [TOP];
+    const { result, reopen, served } = await openBrowser(listings);
+    await screen.findByText("secrets");
+    fireEvent.click(findButton("Cancel"));
+    await expect(result()).resolves.toBeNull();
+    const extra: FileBrowser.Entry = {
+      name: "extra",
+      path: "/extra",
+      kind: "directory",
+    };
+    listings[0] = { ...TOP, entries: [...TOP.entries, extra] };
+    served.hold();
+    reopen();
+    fireEvent.click(await screen.findByText("secrets"));
+    await screen.findByRole("option", { name: "secrets", selected: true });
+    await served.release();
+    await screen.findByText("extra");
+    expect(
+      screen.getByRole("option", { name: "secrets", selected: true }),
+    ).toBeDefined();
+  });
+
+  it("should find the file browser again once the rack gains it", async () => {
+    const r = await createRunningRack(client, "file");
+    const { result, reopen } = await renderModalOpener(
+      FileBrowser.useModal,
+      [{ rack: r.key }],
+      { client },
+    );
+    await screen.findByText("Failed to list files");
+    fireEvent.click(findButton("Cancel"));
+    await expect(result()).resolves.toBeNull();
+    const browser = await r.createTask({
+      name: uniqueName("file_browser"),
+      type: FileBrowser.TASK_TYPE,
+      config: {},
+    });
+    await serveListings(client, { rack: r, browser }, [TOP]);
+    reopen();
+    expect(await screen.findByText("secrets")).toBeDefined();
+  });
+
   it("should resolve with a certificate file picked in a folder", async () => {
     const { result, rack } = await openBrowser([TOP, ROOT, ETC]);
     await screen.findByText(rack.name);

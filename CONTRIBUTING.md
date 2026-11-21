@@ -61,8 +61,10 @@ a maintainer approves the head, and Sedosaur scores the head 5/5.
 ## Review tiers
 
 The author picks the tier. `Label - Classify` raises a PR to `review/human` when a
-report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
-label.
+report that `Check - Classify` compares changes or fails, and lowers it again when a
+later run passes. A reviewer can raise it by swapping the label, and the classifier
+never lowers a tier that a person set. To keep a tier the classifier raised, remove
+`review/human` and add it again.
 
 | Label          | Review                          | Covers                                                                                                                                                                                                                                                                                                                                 |
 | -------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,10 +86,8 @@ by its severity. A review starts two minutes after a PR opens, reopens, leaves d
 gets a push, or gets a new base, and a newer push in that time replaces the request. A
 head gets no second review on one base once one succeeds, and a push that leaves the
 diff the same, as a merge of the base does, gets the last review at once. To review that
-head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. A
-release branch cut from 0.62.0 or older still runs the old relay, so a push to a PR into
-it starts no review: run `gh workflow run review.sedosaur.yaml -f pr=<number>` after
-each push. To make Sedosaur stop reporting a finding, someone with write access replies
+head again, run `gh workflow run review.sedosaur.yaml -f pr=<number> -f repeat=true`. To
+make Sedosaur stop reporting a finding, someone with write access replies
 `@sedosaur dismiss` and a reason on its thread. A finding outside the diff has no
 thread: they run
 `gh workflow run dismiss.sedosaur.yaml -f pr=<number> -f finding='<title>' -f reason='<why>'`,
@@ -137,11 +137,11 @@ failure to avoid is a branch that grows for days and lands as one PR nobody can 
 
 Synnax Desktop is the free edition, where a feature ships first. The Console is the
 enterprise edition and gets it once it has proved itself. A static flag in
-`console/src/flags.ts` is on only where its expression says. To ship in Desktop, its
-expression names `DESKTOP`, so it is on in Desktop builds and off in the Console build.
-A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the owner,
-the Linear umbrella issue, and the release that removes it. A flag past that release is
-a bug: promote or delete.
+`console/src/flags/flags.ts` is on only where its expression says. To ship in Desktop,
+its expression names `DESKTOP`, so it is on in Desktop builds and off in the Console
+build. A flag for work that does not run yet leaves out `DESKTOP`. Its entry names the
+owner, the Linear umbrella issue, and the release that removes it. A flag past that
+release is a bug: promote or delete.
 
 1. **Land dark** in `review/human` PRs. The reviewer confirms the Console build
    tree-shakes the code out.

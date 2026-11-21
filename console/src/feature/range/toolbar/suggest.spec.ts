@@ -14,6 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { suggest } from "@/feature/range/toolbar/suggest";
+import { createTestRange } from "@/platform/range/testutil";
 
 const client = createTestClient();
 
@@ -26,7 +27,7 @@ const createAt = async (
   parent?: ranger.Key,
   c?: string,
 ): Promise<ranger.Range> =>
-  await client.ranges.create({
+  await createTestRange(client, {
     name,
     parent,
     color: c == null ? undefined : color.construct(c),

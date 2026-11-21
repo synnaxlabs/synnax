@@ -190,14 +190,19 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
-// dependents returns the entries that hold target through any registered reference.
+// dependents returns the entries that hold target through a registered reference that
+// keep accepts.
 func (r *registry) dependents(
 	ctx context.Context,
 	snap Snapshot,
 	target Target,
+	keep func(registeredReference) bool,
 ) ([]Target, error) {
 	var out []Target
 	for _, ref := range r.referencesTo(target.Table) {
+		if !keep(ref) {
+			continue
+		}
 		keys, err := ref.dependents(ctx, snap, target)
 		if err != nil {
 			return nil, err

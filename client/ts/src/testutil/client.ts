@@ -19,7 +19,7 @@ export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
 
 /**
  * @returns the params of a client that signs in to the test Core as root.
- * @throws where there is no `process`, as {@link testCoreAddress} does.
+ * @throws where {@link testCoreAddress} does.
  */
 export const testClientParams = (): SynnaxParams => ({
   ...testCoreAddress(),
