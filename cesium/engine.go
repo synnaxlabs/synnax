@@ -69,7 +69,7 @@ type engine struct {
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
-// root. It refuses a root that holds the old layout with ErrOldLayout.
+// root. It refuses a root that holds the old layout with errors.ErrUnsupported.
 func openEngine(o *options) (*engine, error) {
 	r := &recovery{fs: o.fs}
 	old, err := r.list()
@@ -78,8 +78,8 @@ func openEngine(o *options) (*engine, error) {
 	}
 	if old && len(r.heads) == 0 {
 		return nil, errors.Wrap(
-			ErrOldLayout,
-			"the pointer log cannot open it until the conversion exists",
+			errors.ErrUnsupported,
+			"the pointer log cannot open a root of the old layout",
 		)
 	}
 	snapshot, err := r.pickHead()

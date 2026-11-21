@@ -66,7 +66,7 @@ type Source interface {
 
 var (
 	_ Cursor      = (*Iterator)(nil)
-	_ RangeReader = (*Reader)(nil)
+	_ RangeReader = (*reader)(nil)
 	_ Source      = (*DB)(nil)
 )
 

@@ -27,10 +27,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-// ErrOldLayout is returned by an open on the pointer log of a root that holds the old
-// layout, which only a conversion opens.
-var ErrOldLayout = errors.New("the root holds the old storage layout")
-
 // recovery reads a root on the pointer log: the newest head that passes its checks,
 // then every log entry after it, in log order.
 type recovery struct {
