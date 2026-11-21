@@ -10,12 +10,12 @@
 package group
 
 import (
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,8 +31,8 @@ type Sibling struct {
 func siblingSpace(scope resource.Type) string { return "namespace." + string(scope) }
 
 // NewMemberIndex returns the index that keeps the name of each record of the namespaced
-// scope unique among the records and the groups in its group. sibling returns the
-// Sibling of a record.
+// scope unique among the records and the groups in its group, after NFC. sibling
+// returns the Sibling of a record.
 func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 	scope resource.Type,
 	sibling func(E) Sibling,
@@ -40,12 +40,17 @@ func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 	return gorp.NewUniqueIndex(
 		"sibling",
 		siblingSpace(scope),
-		func(e E) (Sibling, bool) { return sibling(e), true },
+		func(e E) (Sibling, bool, error) {
+			s := sibling(e)
+			s.Name = validate.NormalizeName(s.Name)
+			return s, true, nil
+		},
 	)
 }
 
 // SiblingError returns err as a validation error that names the kind of the holder of
 // the name when err is a clash of sibling names, and returns err unchanged otherwise.
+// The error still matches query.ErrUniqueViolation.
 func SiblingError(err error) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) {
@@ -59,47 +64,52 @@ func SiblingError(err error) error {
 	if s.Parent == uuid.Nil() {
 		where = "at the top level"
 	}
-	return validate.PathedError(errors.Wrapf(
+	return validate.PathedError(errors.Mark(errors.Wrapf(
 		validate.ErrValidation,
 		"a %s named '%s' already exists %s",
 		clash.Holder.Table,
 		s.Name,
 		where,
-	), "name")
+	), query.ErrUniqueViolation), "name")
 }
 
-// siblingIndexes returns the index of the names of the groups of each namespaced scope.
-func siblingIndexes() []gorp.Index[Key, Group] {
-	var scopes []resource.Type
+// siblingIndex is the index of the names of the groups of one namespaced scope.
+type siblingIndex = *gorp.UniqueIndex[Key, Group, Sibling]
+
+// newSiblingIndexes returns the index of the names of the groups of each namespaced
+// scope.
+func newSiblingIndexes() map[resource.Type]siblingIndex {
+	indexes := make(map[resource.Type]siblingIndex)
 	for _, r := range memberRules {
-		if r.namespaced && !slices.Contains(scopes, r.scope) {
-			scopes = append(scopes, r.scope)
+		if r.namespaced {
+			indexes[r.scope] = newSiblingIndex(r.scope)
 		}
-	}
-	slices.Sort(scopes)
-	indexes := make([]gorp.Index[Key, Group], len(scopes))
-	for i, scope := range scopes {
-		indexes[i] = newSiblingIndex(scope)
 	}
 	return indexes
 }
 
 // newSiblingIndex returns the index that keeps the names of the groups of the
-// namespaced scope unique among siblings. A group of that scope sits at the top or in
-// a group, since only a pinned scope takes another parent.
-func newSiblingIndex(scope resource.Type) *gorp.UniqueIndex[Key, Group, Sibling] {
+// namespaced scope unique among siblings, after NFC. A group of that scope sits at the
+// top or in a group, since only a pinned scope takes another parent, so a parent that
+// is not a group key is an error.
+func newSiblingIndex(scope resource.Type) siblingIndex {
 	return gorp.NewUniqueIndex(
 		"sibling_"+string(scope),
 		siblingSpace(scope),
-		func(g Group) (Sibling, bool) {
+		func(g Group) (Sibling, bool, error) {
 			if g.Scope != scope {
-				return Sibling{}, false
+				return Sibling{}, false, nil
 			}
-			s := Sibling{Name: g.Name}
-			if g.Parent != nil {
-				s.Parent = uuid.MustParse(g.Parent.Key)
+			s := Sibling{Name: validate.NormalizeName(g.Name)}
+			if g.Parent == nil {
+				return s, true, nil
 			}
-			return s, true
+			parent, err := KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return Sibling{}, false, errors.Wrapf(err, "group %s", g.Key)
+			}
+			s.Parent = parent
+			return s, true, nil
 		},
 	)
 }

@@ -29,6 +29,7 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		svc *group.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))

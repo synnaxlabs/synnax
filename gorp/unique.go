@@ -56,12 +56,18 @@ func (e UniqueError) Unwrap() error { return query.ErrUniqueViolation }
 // entry with a duplicate value from before the index stays writable. A Writer outside
 // the Table and NewUncheckedWriter check nothing. The check waits for every index of
 // the space to populate, and fails when one failed to.
+//
+// An entry whose value is an error fails the populate, so every later read and check
+// returns that error, and fails a write through the Table. A Writer outside the Table
+// stages it as holding no value.
 type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	name  string
 	space string
 	// value returns the value of an entry, and false when the entry holds none.
-	value func(e E) (V, bool)
+	value func(e E) (V, bool, error)
 	store *index.Lookup[*txState, K, V]
+	// invalid is the first error of a value during the populate.
+	invalid error
 	// members is the space of the index on the DB of its table, registry is the
 	// registry of that DB, and table is the name of that table. All are set when the
 	// index joins its space.
@@ -71,12 +77,13 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 }
 
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
-// returns the value of an entry, or false to exempt the entry. Every index of a space
-// must have the same value type V, and a table can have at most one index in a space.
+// returns the value of an entry, false to exempt the entry, or an error for an entry
+// that holds no valid value. Every index of a space must have the same value type V,
+// and a table can have at most one index in a space.
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
-	value func(e E) (V, bool),
+	value func(e E) (V, bool, error),
 ) *UniqueIndex[K, E, V] {
 	return &UniqueIndex[K, E, V]{
 		name:  name,
@@ -92,15 +99,25 @@ func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert, finish := u.store.Populate()
 	return func(entry E) {
-			if v, ok := u.value(entry); ok {
+			if u.invalid != nil {
+				return
+			}
+			v, ok, err := u.value(entry)
+			if err != nil {
+				u.invalid = err
+			} else if ok {
 				insert(entry.GorpKey(), v)
 			}
 		},
-		func(err error) { finish(populateErr(u.name, err)) }
+		func(err error) {
+			err = errors.Combine(err, u.invalid)
+			u.invalid = nil
+			finish(populateErr(u.name, err))
+		}
 }
 
 func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(entry); ok {
+	if v, ok, err := u.value(entry); ok && err == nil {
 		u.store.Set(entry.GorpKey(), v)
 		return
 	}
@@ -110,7 +127,7 @@ func (u *UniqueIndex[K, E, V]) set(entry E) {
 func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
 
 func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(entry); ok {
+	if v, ok, err := u.value(entry); ok && err == nil {
 		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
 		return
 	}
@@ -123,12 +140,13 @@ func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
 
 // Check returns the UniqueError that a write of e through the table of u would return:
 // when another entry of the space holds the value of e in tx, unless the entry of e
-// already holds that value in tx. Each write of the table runs it, so call it only to
+// already holds that value in tx. It returns the error of the value of e as is. Each
+// write of the table runs it, so call it only to
 // fail before work that a refused write would waste.
 func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
-	v, ok := u.value(*e)
-	if !ok {
-		return nil
+	v, ok, err := u.value(*e)
+	if err != nil || !ok {
+		return err
 	}
 	if err := u.store.Wait(ctx); err != nil {
 		return err
@@ -151,6 +169,22 @@ func (u *UniqueIndex[K, E, V]) Check(ctx context.Context, tx Tx, e *E) error {
 		}
 	}
 	return nil
+}
+
+// Holder returns the entry of any table of the space of u that holds v, as seen by
+// snap, and false when none does. It waits for every index of the space to populate.
+func (u *UniqueIndex[K, E, V]) Holder(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (Target, bool, error) {
+	scope := scopeOf(snap)
+	for _, m := range *u.members.members.Load() {
+		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
+			return holder, found, err
+		}
+	}
+	return Target{}, false, nil
 }
 
 // clash returns err, or else the UniqueError for holder and v.

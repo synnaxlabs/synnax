@@ -129,7 +129,8 @@ var folderKey = []byte("sy_metrics_folder")
 
 // openFolder returns the folder of the metrics channels, found by its stored key so
 // that a rename keeps it. When no folder is stored, or the stored one is gone, it finds
-// or creates a top-level channel folder named Metrics and stores its key.
+// or creates a top-level channel folder named Metrics, or the first free name after it
+// when a channel holds that name, and stores its key.
 func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
 	var (
 		g     group.Group
@@ -156,13 +157,30 @@ func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
 	}); err != nil || found {
 		return g, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Metrics", resource.TypeChannel)
+	g, err := createFolder(ctx, cfg.Group)
 	if err != nil {
 		return group.Group{}, err
 	}
 	return g, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return tx.Set(ctx, folderKey, []byte(g.Key.String()))
 	})
+}
+
+// folderName is the name of the folder of the metrics channels.
+const folderName = "Metrics"
+
+// createFolder finds or creates the top-level channel folder named folderName. When
+// another record holds that name, it takes the first free name of the form Metrics_2,
+// so a name never stops the Core from starting.
+func createFolder(ctx context.Context, groups *group.Service) (group.Group, error) {
+	name := folderName
+	for n := 2; ; n++ {
+		g, err := groups.CreateOrRetrieve(ctx, name, resource.TypeChannel)
+		if !errors.Is(err, query.ErrUniqueViolation) {
+			return g, err
+		}
+		name = fmt.Sprintf("%s_%d", folderName, n)
+	}
 }
 
 // OpenService opens a new metric.Service using the provided configuration. See the

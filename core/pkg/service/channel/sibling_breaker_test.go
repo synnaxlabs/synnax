@@ -32,6 +32,7 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		svc      *channel.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		cfg, gs := serviceConfig(ctx, node, node.DB)
