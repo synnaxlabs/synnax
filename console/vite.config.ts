@@ -53,6 +53,9 @@ const browserProject = ({
   webkit = true,
 }: BrowserProjectProps): TestProjectInlineConfiguration => {
   const prefix = desktop ? "desktop-" : "";
+  // A CI runner has 4 CPUs. Parallel browser pages starve the jsdom workers that share
+  // them, so their timers fire seconds late and their specs time out.
+  const pages = process.env.CI == null ? {} : { maxWorkers: 1 };
   return {
     extends: true,
     define: { DESKTOP: desktop },
@@ -86,10 +89,10 @@ const browserProject = ({
         // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
         instances: webkit
           ? [
-              { browser: "chromium", name: `${prefix}chromium` },
-              { browser: "webkit", name: `${prefix}webkit` },
+              { browser: "chromium", name: `${prefix}chromium`, ...pages },
+              { browser: "webkit", name: `${prefix}webkit`, ...pages },
             ]
-          : [{ browser: "chromium", name: `${name}-chromium` }],
+          : [{ browser: "chromium", name: `${name}-chromium`, ...pages }],
       },
     },
   };
