@@ -233,28 +233,28 @@ describe("Diagram", () => {
   });
 
   describe("zoom reset", () => {
-    const holdControl = (): void => {
-      const { left, top } = pane().getBoundingClientRect();
+    // A Control-click acts only when the cursor is inside the diagram's box, so the
+    // cursor waits for the box to have a size.
+    const holdControl = async (): Promise<void> => {
+      const root = (): DOMRect =>
+        document.querySelector(".react-flow")?.getBoundingClientRect() ?? new DOMRect();
+      await waitFor(() => expect(root().width * root().height).toBeGreaterThan(0));
+      const { left, top } = root();
       fireEvent.mouseMove(window, { clientX: left + 10, clientY: top + 10 });
       fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
     };
 
     it("resets the view on a Control-click of the canvas", async () => {
       const { onViewportChange } = await renderDiagram();
-      holdControl();
-      // The diagram learns its box from a resize observer, which reports on its own
-      // schedule.
-      await waitFor(() => {
-        onViewportChange.mockClear();
-        fireEvent.mouseDown(pane(), { button: 0 });
-        fireEvent.mouseUp(pane(), { button: 0 });
-        expect(onViewportChange).toHaveBeenCalled();
-      });
+      await holdControl();
+      onViewportChange.mockClear();
+      fireEvent.mouseDown(pane(), { button: 0 });
+      expect(onViewportChange).toHaveBeenCalled();
     });
 
     it("leaves the view alone on a Control-click of a node", async () => {
       const { onViewportChange } = await renderDiagram();
-      holdControl();
+      await holdControl();
       onViewportChange.mockClear();
       fireEvent.mouseDown(handle("a"), { button: 0 });
       expect(onViewportChange).not.toHaveBeenCalled();
