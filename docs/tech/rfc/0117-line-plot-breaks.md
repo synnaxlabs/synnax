@@ -12,7 +12,8 @@
 
 In absolute time, a line plot collapses the gaps between its ranges into narrow breaks.
 Each range keeps its true time scale and real time labels. The plot reads only the time
-it shows, and each channel draws once. A click on a break opens it.
+it shows, and each channel draws once. A click on a break opens it, and a toggle shows
+the plot in true time.
 
 ## 1 Motivation
 
@@ -185,6 +186,9 @@ plot with no breaks keeps today's axis.
   with every break closed, so a view saved with a break open can show other times. The
   conversion to closed coordinates is not worth its code for a view that the next reset
   replaces.
+- A toggle in the plot controls hides and shows the breaks. Hidden breaks lay out the
+  plot in true time as one segment, which shows a range that sits inside a gap. The
+  toggle resets the zoom, and it shows while the plot has breaks or hides them.
 
 ### 4.6 Tooltip, measure, and selection
 
@@ -225,7 +229,8 @@ with older ones, the user switches to relative mode.
 The plot export reads only the time the plot shows with every break closed: each range,
 and the time between ranges inside one segment. It never reads a gap. Open breaks are
 window state that the toolbar export cannot see; to export the time in an open break,
-the user selects it. The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059
+the user selects it. While the breaks are hidden, the export reads one span from the
+first range to the last. The read request (`core/pkg/api/framer/framer.go:184`, RFC 0059
 §4.0) takes a list of spans. The Core writes one file with one header, and the samples
 of the spans in time order. A shipped client that sends one `bounds` reads as before.
 The dialog shows one span as today, and lists several spans with no edit. To export
@@ -234,8 +239,10 @@ the same list.
 
 ### 4.10 Stored state
 
-No stored shape changes. Open breaks are window state in Pluto and never enter the
-Session store.
+No stored shape on the Core changes. Open breaks are window state in Pluto and never
+enter the Session store. The Session state of a plot gains `breaks.hidden`, which
+defaults to false. The Console parses stored Session state through its schema on load
+(`console/src/session/store.ts:62`), so a saved Session loads with the breaks shown.
 
 ## 5 Implementation phases
 
@@ -260,7 +267,8 @@ interaction, and the release.
 - **Phase 5b: Work across breaks.** The tooltip over a band, the measure across a break,
   and a selection that stops at a closed break.
 - **Phase 5c: Export the shown spans.** The plot export reads only the shown spans.
-- **Phase 6: Release.** The docs page, and removal of the flag and the Pluto prop.
+- **Phase 6: Release.** The docs page, removal of the flag, and the toggle that hides
+  and shows the breaks.
 
 Phases 4 to 5c hide behind a `breaks` flag in `console/src/flags.ts`, which the Console
 passes to Pluto as a prop. Console phases add their rules to `docs/claude/ux.md`. Phases
@@ -276,21 +284,23 @@ relative traces. Phase 2 stacks on RFC 0116 phase 2 and does not wait for it to 
 | 5a    | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                      | 4          |
 | 5b    | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                              | 5a         |
 | 5c    | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                             | 1, 5b      |
-| 6     | Document line plot breaks and remove their flag    | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`, `pluto/src/lineplot`                                  | 5c         |
+| 6     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags.ts`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 5c         |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
 
 ## 6 Resolved decisions
 
-1. **Collapse gaps in absolute time**: Rejected: real time with no breaks. Each range
-   would read only itself, but it would still fill 0.10% of the width.
+1. **Collapse gaps in absolute time, with a toggle back to true time**: Breaks are the
+   default. Rejected: real time with no breaks as the default. Each range would read
+   only itself, but it would still fill 0.10% of the width. The toggle serves the user
+   who needs to see how long the gaps are, or a range that sits inside one.
 2. **A seam with no width, and a band drawn over it**: The band keeps one width at every
    zoom, as in Seeq and TrendMiner, and the map stays continuous. Rejected: a break as a
    share of the axis, which grows as the user zooms in and fills the screen at 100x.
    Rejected: real pixels for each break, which needs a new viewport state; DevExtreme
    needs correction loops to keep a pan steady with it. The trade is real: the band
-   covers about 4 px of data on each side.
+   covers about 6 px of data on each side.
 3. **Every gap left after the margins collapses**: This is Seeq's rule, with one
    parameter. Rejected: a size threshold, which makes the plot jump when a gap passes it
    and needs hysteresis. Rejected: DevExtreme's rule (collapse the largest gap while it
