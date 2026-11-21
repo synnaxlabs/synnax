@@ -21,6 +21,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
+import pluralize from "pluralize";
 
 import { CSS } from "@/platform/css";
 
@@ -65,7 +66,7 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
         <Text.Text level="small" color={9}>
-          {region?.selectors?.length || 0} elements
+          {pluralize("element", region.selectors.length, true)}
         </Text.Text>
         <Color.Swatch
           value={region.strokeColor}
