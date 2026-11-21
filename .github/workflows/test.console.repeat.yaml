@@ -128,6 +128,12 @@ jobs:
           args=(--run --project "$PROJECT" --repeats "$REPEATS")
           if [ -n "$FILTER" ]; then args+=(-t "$FILTER"); fi
           mkdir -p "$RUNNER_TEMP/diagnostics"
+          (while true; do
+            ts=$(date +%s)
+            free -m | awk -v ts="$ts" '/Mem:/{print ts, "MEM", $3, $7}'
+            ps -eo pid=,rss=,comm= | awk -v ts="$ts" '/WebKit|chrome|node/{print ts, $1, int($2/1024), $3}'
+            sleep 2
+          done) > "$RUNNER_TEMP/diagnostics/rss.txt" 2>&1 &
           set -o pipefail
           pnpm test:console --log-order=stream --log-prefix=none -- "${args[@]}" \
             "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/diagnostics/vitest.log"
