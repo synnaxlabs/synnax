@@ -11,12 +11,14 @@ package v1
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
-	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	"go.uber.org/zap"
 )
 
 // MigrateICD lifts a v0 ICD to v1.
@@ -25,8 +27,8 @@ func MigrateICD(ctx context.Context, old v0.ICD) (ICD, error) {
 }
 
 // MigrateMessage lifts a v0 message to v1, with no cycle time. Each binary field takes
-// the variant of its kind, with no default. It fails on a binary field of any other
-// kind.
+// the variant of its kind, with no default. A binary field that is not a number becomes
+// unsigned, which reads the same bits.
 func MigrateMessage(ctx context.Context, old v0.Message) (Message, error) {
 	m, err := autoMigrateMessage(ctx, old)
 	if err != nil {
@@ -36,19 +38,15 @@ func MigrateMessage(ctx context.Context, old v0.Message) (Message, error) {
 	if !ok {
 		return m, nil
 	}
-	fields, err := lo.MapErr(oldBinary.Fields, migrateBinaryField)
-	if err != nil {
-		return Message{}, err
-	}
 	m.Payload.Variant = BinaryPayload{
 		Length:     oldBinary.Length,
 		Identifier: oldBinary.Identifier,
-		Fields:     fields,
+		Fields:     lo.Map(oldBinary.Fields, migrateBinaryField),
 	}
 	return m, nil
 }
 
-func migrateBinaryField(old v0.BinaryField, _ int) (BinaryField, error) {
+func migrateBinaryField(old v0.BinaryField, _ int) BinaryField {
 	base := BinaryBaseField{
 		BaseField:       old.BaseField,
 		StartBit:        old.StartBit,
@@ -59,23 +57,52 @@ func migrateBinaryField(old v0.BinaryField, _ int) (BinaryField, error) {
 	}
 	switch old.Kind {
 	case payload.KindFloat:
-		return BinaryField{Variant: FloatBinaryField{BinaryBaseField: base}}, nil
+		return BinaryField{Variant: FloatBinaryField{BinaryBaseField: base}}
 	case payload.KindInteger:
-		return BinaryField{Variant: IntegerBinaryField{BinaryBaseField: base}}, nil
-	case payload.KindUnsigned:
-		return BinaryField{Variant: UnsignedBinaryField{BinaryBaseField: base}}, nil
-	case payload.KindString,
+		return BinaryField{Variant: IntegerBinaryField{BinaryBaseField: base}}
+	case payload.KindUnsigned,
+		payload.KindString,
 		payload.KindBoolean,
 		payload.KindTimestamp,
 		payload.KindJSON,
 		payload.KindUUID,
 		payload.KindBytes:
 	}
-	return BinaryField{}, errors.Newf(
-		"binary field %q has kind %q, not float, integer, or unsigned",
-		old.Name,
-		old.Kind,
-	)
+	return BinaryField{Variant: UnsignedBinaryField{BinaryBaseField: base}}
+}
+
+var numberKinds = []payload.Kind{
+	payload.KindFloat,
+	payload.KindInteger,
+	payload.KindUnsigned,
+}
+
+// migrateStored lifts a stored v0 ICD and logs each binary field that is not a number,
+// so a field that reads as unsigned after the upgrade can be traced to its cause.
+func migrateStored(
+	ctx context.Context,
+	old v0.ICD,
+	ins alamos.Instrumentation,
+) (ICD, error) {
+	for _, m := range old.Messages {
+		b, ok := m.Payload.Variant.(v0.BinaryPayload)
+		if !ok {
+			continue
+		}
+		for _, f := range b.Fields {
+			if slices.Contains(numberKinds, f.Kind) {
+				continue
+			}
+			ins.L.Warn(
+				"lifted a binary field that is not a number to unsigned",
+				zap.Stringer("icd", old.Key),
+				zap.Stringer("message", m.Key),
+				zap.Stringer("field", f.Key),
+				zap.String("kind", string(f.Kind)),
+			)
+		}
+	}
+	return MigrateICD(ctx, old)
 }
 
 // MigrateTextField lifts a v0 text field to v1, with no default.
@@ -113,4 +140,4 @@ func MigrateJSONMatch(ctx context.Context, old v0.JSONMatch) (JSONMatch, error) 
 }
 
 // Migration lifts stored ICDs from v0 to v1.
-var Migration = migrate.NewEntry("v63_message_cycle_time", MigrateICD)
+var Migration = migrate.NewInstrumentedEntry("v63_message_cycle_time", migrateStored)

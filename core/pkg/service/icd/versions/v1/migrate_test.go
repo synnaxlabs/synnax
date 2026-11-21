@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
@@ -27,6 +28,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // v0Fixtures holds the valid Check fixtures as v0 wrote them.
@@ -118,6 +122,57 @@ var _ = Describe("Migration", func() {
 			}},
 		}))
 	})
+
+	DescribeTable(
+		"Should lift a stored binary field that is not a number to unsigned and log it",
+		func(ctx SpecContext, kind payload.Kind, bitLength uint8) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.ICD]{DB: db}))
+			field := v0Binary(kind)
+			field.BitLength = bitLength
+			old := v0.ICD{
+				Key:      uuid.New(),
+				Name:     "engine",
+				Messages: []v0.Message{binaryMessage(field)},
+			}
+			Expect(gorp.NewCreate[v0.Key, v0.ICD]().Entry(&old).Exec(ctx, db)).
+				To(Succeed())
+			core, logs := observer.New(zapcore.WarnLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.ICD]{
+				DB:              db,
+				Migrations:      []gorp.Migration{v1.Migration},
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			}))
+			var got v1.ICD
+			Expect(gorp.NewRetrieve[v1.Key, v1.ICD]().
+				Where(gorp.MatchKeys[v1.Key, v1.ICD](old.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Messages[0].Payload).To(Equal(v1.Payload{
+				Variant: v1.BinaryPayload{
+					Length: new(uint16(4)),
+					Fields: []v1.BinaryField{{Variant: v1.UnsignedBinaryField{
+						BinaryBaseField: v1BinaryBase(field),
+					}}},
+				},
+			}))
+			lifted := logs.FilterMessage(
+				"lifted a binary field that is not a number to unsigned",
+			).All()
+			Expect(lifted).To(HaveLen(1))
+			Expect(lifted[0].ContextMap()).To(And(
+				HaveKeyWithValue("icd", old.Key.String()),
+				HaveKeyWithValue("message", old.Messages[0].Key.String()),
+				HaveKeyWithValue("field", field.Key.String()),
+				HaveKeyWithValue("kind", string(kind)),
+			))
+		},
+		Entry("a boolean flag", payload.KindBoolean, uint8(1)),
+		Entry("a string", payload.KindString, uint8(16)),
+	)
 })
 
 var _ = Describe("MigrateICD", func() {
@@ -169,7 +224,7 @@ var _ = Describe("MigrateMessage", func() {
 	})
 
 	DescribeTable(
-		"Should lift a binary field to the variant of its kind, with no default",
+		"Should lift a binary field to the variant of its number kind, or else to unsigned",
 		func(ctx SpecContext, kind payload.Kind, want v1.BinaryField) {
 			field := v0Binary(kind)
 			want.SetBase(v1BinaryBase(field))
@@ -188,14 +243,25 @@ var _ = Describe("MigrateMessage", func() {
 		Entry("unsigned", payload.KindUnsigned, v1.BinaryField{
 			Variant: v1.UnsignedBinaryField{},
 		}),
+		Entry("string", payload.KindString, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
+		Entry("boolean", payload.KindBoolean, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
+		Entry("timestamp", payload.KindTimestamp, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
+		Entry("JSON", payload.KindJSON, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
+		Entry("UUID", payload.KindUUID, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
+		Entry("bytes", payload.KindBytes, v1.BinaryField{
+			Variant: v1.UnsignedBinaryField{},
+		}),
 	)
-
-	It("Should fail on a binary field that is not a number", func(ctx SpecContext) {
-		old := binaryMessage(v0Binary(payload.KindString))
-		Expect(v1.MigrateMessage(ctx, old)).Error().To(MatchError(
-			`binary field "speed" has kind "string", not float, integer, or unsigned`,
-		))
-	})
 })
 
 var _ = Describe("MigrateTextField", func() {
