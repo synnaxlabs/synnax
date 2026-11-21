@@ -195,11 +195,9 @@ func (f *format) sectionsOf(table []byte, h Header) ([sectionCount + 1]section, 
 		return out, f.corrupt("section table at %d does not follow the last section",
 			h.table)
 	}
-	for _, kind := range []int{sectionKills, sectionTombs} {
-		if out[kind].count != 0 {
-			return out, errors.Wrapf(ErrUnknown, "head with kills or tombstones "+
-				"(section %d)", kind)
-		}
+	if out[sectionKills].count != 0 {
+		return out, errors.Wrapf(ErrUnknown, "head with kills (section %d)",
+			sectionKills)
 	}
 	return out, nil
 }
@@ -213,7 +211,7 @@ func (f *format) parse(b []byte, h Header) (body, error) {
 	if bd.parts, err = f.parseParts(b, secs); err != nil {
 		return bd, err
 	}
-	if bd.channels, err = f.parseChannels(b, secs); err != nil {
+	if bd.channels, err = f.parseChannels(b, secs, bd.parts); err != nil {
 		return bd, err
 	}
 	clocks := clocksOf(bd.channels)
@@ -308,6 +306,7 @@ func (f *format) parseBitmaps(
 func (f *format) parseChannels(
 	b []byte,
 	secs [sectionCount + 1]section,
+	parts []Part,
 ) ([]*state.Channel, error) {
 	cs, ss := secs[sectionChans], secs[sectionSegs]
 	var channels []*state.Channel
@@ -337,17 +336,22 @@ func (f *format) parseChannels(
 				c.Key,
 				channels[i-1].Key,
 			)
-		case first != nextSeg || end <= first || end > ss.count:
+		case first != nextSeg || end < first || end > ss.count:
 			return nil, f.corrupt(
 				"key %d has segment records %d to %d",
 				c.Key,
 				first,
 				end,
 			)
-		case f.kind == kindHead && (binary.LittleEndian.Uint32(r[8:]) != 0 ||
-			binary.LittleEndian.Uint32(r[12:]) != noPart ||
-			binary.LittleEndian.Uint32(r[16:]) != noPart):
-			return nil, f.corrupt("key %d names tombstones or parts", c.Key)
+		}
+		if f.kind == kindHead {
+			var err error
+			if c.Oldest, c.Newest, err = f.partRange(c.Key, r, parts); err != nil {
+				return nil, err
+			}
+		}
+		if end == first && c.Oldest == 0 {
+			return nil, f.corrupt("key %d has no segment record and no part", c.Key)
 		}
 		if err := f.parseSegments(b, secs, &sl, c, first, end, &nextPtr); err != nil {
 			return nil, err
@@ -365,6 +369,24 @@ func (f *format) parseChannels(
 		)
 	}
 	return channels, nil
+}
+
+// partRange returns the identities of the oldest and newest part that the head channel
+// record r of key names, or 0 and 0 when it names none.
+func (f *format) partRange(
+	key uint32,
+	r []byte,
+	parts []Part,
+) (oldest, newest uint64, err error) {
+	lo, hi := binary.LittleEndian.Uint32(r[8:]), binary.LittleEndian.Uint32(r[12:])
+	switch {
+	case lo == noPart && hi == noPart:
+		return 0, 0, nil
+	case lo > hi || uint64(hi) >= uint64(len(parts)):
+		return 0, 0, f.corrupt("key %d names parts %d to %d of %d", key, lo, hi,
+			len(parts))
+	}
+	return parts[lo].ID, parts[hi].ID, nil
 }
 
 // slabs hold every channel, segment, and pointer of a file, so a parse allocates once

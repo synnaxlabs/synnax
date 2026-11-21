@@ -14,6 +14,7 @@ package checkpoint
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/binary"
 	"fmt"
 	"slices"
@@ -50,7 +51,6 @@ const (
 	sectionChans         = 4
 	sectionSegs          = 5
 	sectionPtrs          = 6
-	sectionTombs         = 7
 	sectionClocks        = 8
 	sectionIntent        = 9
 	sectionCount         = 9
@@ -73,8 +73,8 @@ var (
 	headFormat = format{
 		name:     "head",
 		kind:     kindHead,
-		sections: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
-		sizes:    [sectionCount + 1]uint32{0, 48, 1, 24, 20, 32, 36, 96, 4, 4},
+		sections: []int{1, 2, 3, 4, 5, 6, 8, 9},
+		sizes:    [sectionCount + 1]uint32{0, 48, 1, 24, 16, 32, 36, 0, 4, 4},
 		place:    place.Head,
 	}
 	partFormat = format{
@@ -160,7 +160,7 @@ func (f *format) encodeBody(db uint64, bd body) []byte {
 	l.place()
 	b := make([]byte, l.length)
 	putParts(b, &l, bd.parts)
-	putChannels(b, &l, bd.channels)
+	putChannels(b, &l, bd.channels, bd.parts)
 	putUint32s(b[l.offsets[sectionClocks]:], clocks)
 	putUint32s(b[l.offsets[sectionIntent]:], bd.intents)
 	for i, kind := range f.sections {
@@ -215,13 +215,14 @@ func putParts(b []byte, l *layout, parts []Part) {
 	}
 }
 
-func putChannels(b []byte, l *layout, channels []*state.Channel) {
+func putChannels(b []byte, l *layout, channels []*state.Channel, parts []Part) {
 	cAt, sAt := l.offsets[sectionChans], l.offsets[sectionSegs]
 	pAt := l.offsets[sectionPtrs]
 	var segs, ptrs uint32
 	for _, c := range channels {
 		if l.f.kind == kindHead {
-			putLE32(b[cAt:], c.Key, segs, 0, noPart, noPart)
+			putLE32(b[cAt:], c.Key, segs, partIndex(parts, c.Oldest),
+				partIndex(parts, c.Newest))
 		} else {
 			putLE32(b[cAt:], c.Key, segs)
 		}
@@ -244,6 +245,22 @@ func putChannels(b []byte, l *layout, channels []*state.Channel) {
 			segs++
 		}
 	}
+}
+
+// partIndex returns the index in parts of the part of identity id, or noPart for 0.
+// parts are in rising order of identity.
+func partIndex(parts []Part, id uint64) uint32 {
+	if id == 0 {
+		return noPart
+	}
+	i, found := slices.BinarySearchFunc(parts, id, func(p Part, id uint64) int {
+		return cmp.Compare(p.ID, id)
+	})
+	if !found {
+		panic(errors.Newf("checkpoint: a channel names part %d, which the head does "+
+			"not", id))
+	}
+	return uint32(i)
 }
 
 func (f *format) putSector(b []byte, l *layout, db uint64, bd body) {

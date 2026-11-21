@@ -59,9 +59,9 @@ var _ = Describe("Head", func() {
 			Expect(binary.LittleEndian.Uint64(b[16+8*i:])).To(Equal(want))
 		}
 		table := binary.LittleEndian.Uint64(b[72:])
-		Expect(binary.LittleEndian.Uint32(b[80:])).To(Equal(uint32(9)))
+		Expect(binary.LittleEndian.Uint32(b[80:])).To(Equal(uint32(8)))
 		chunks := binary.LittleEndian.Uint64(b[88:])
-		Expect(chunks).To(Equal(table + 9*24))
+		Expect(chunks).To(Equal(table + 8*24))
 		Expect(uint64(len(b))).To(Equal(chunks + 4))
 		Expect(b[100:508]).To(Equal(make([]byte, 408)))
 		Expect(b[512:4096]).To(Equal(make([]byte, 3584)))
@@ -71,23 +71,24 @@ var _ = Describe("Head", func() {
 			To(Equal(place.Head(db, generation, chunks).Sum(b[chunks:])))
 		Expect(binary.LittleEndian.Uint32(b[chunks:])).
 			To(Equal(place.Head(db, generation, 4096).Sum(b[4096:chunks])))
-		sizes := []uint32{48, 1, 24, 20, 32, 36, 96, 4, 4}
-		counts := []uint64{0, 0, 0, 3, 5, 5, 0, 2, 2}
-		for kind := 1; kind <= 9; kind++ {
-			e := b[table+uint64(kind-1)*24:]
+		kinds := []int{1, 2, 3, 4, 5, 6, 8, 9}
+		sizes := []uint32{48, 1, 24, 16, 32, 36, 4, 4}
+		counts := []uint64{0, 0, 0, 3, 5, 5, 2, 2}
+		for i, kind := range kinds {
+			e := b[table+uint64(i)*24:]
 			Expect(binary.LittleEndian.Uint16(e)).To(Equal(uint16(kind)))
 			Expect(binary.LittleEndian.Uint16(e[2:])).To(Equal(uint16(1)))
-			Expect(binary.LittleEndian.Uint32(e[4:])).To(Equal(sizes[kind-1]))
+			Expect(binary.LittleEndian.Uint32(e[4:])).To(Equal(sizes[i]))
 			off, count := section(b, kind)
 			Expect(off % 8).To(BeZero())
-			Expect(count).To(Equal(counts[kind-1]), "section %d", kind)
+			Expect(count).To(Equal(counts[i]), "section %d", kind)
 		}
 	})
 
 	It("Should write each record with the fields of the format in order", func() {
 		b := checkpoint.Encode(db, generation, sample(2))
 		chans, _ := section(b, 4)
-		Expect(b[chans+20 : chans+40]).To(Equal(le32(6, 2, 0, 0xFFFFFFFF, 0xFFFFFFFF)))
+		Expect(b[chans+16 : chans+32]).To(Equal(le32(6, 2, 0xFFFFFFFF, 0xFFFFFFFF)))
 		segs, _ := section(b, 5)
 		want := binary.LittleEndian.AppendUint64(nil, 12)
 		want = append(want, le32(5, 80, 0xABCD, 1)...)
@@ -151,6 +152,9 @@ var _ = Describe("Head", func() {
 	)
 })
 
+// headSections is the number of sections of a head.
+const headSections = 8
+
 // withRecord returns head b with record added at the end of section kind, the later
 // sections and tables moved to fit, and every checksum set again.
 func withRecord(b []byte, kind int, record []byte) []byte {
@@ -160,9 +164,9 @@ func withRecord(b []byte, kind int, record []byte) []byte {
 	grow := (size + 7) &^ 7
 	grown := slices.Concat(b[:at], record, make([]byte, grow-size), b[at:])
 	tab := binary.LittleEndian.Uint64(grown[72:]) + grow
-	for k := 1; k <= 9; k++ {
-		e := tab + uint64(k-1)*24
-		switch {
+	for i := range uint64(headSections) {
+		e := tab + i*24
+		switch k := int(binary.LittleEndian.Uint16(grown[e:])); {
 		case k == kind:
 			binary.LittleEndian.PutUint64(grown[e+16:], count+1)
 		case k > kind:
@@ -170,7 +174,7 @@ func withRecord(b []byte, kind int, record []byte) []byte {
 			binary.LittleEndian.PutUint64(grown[e+8:], o+grow)
 		}
 	}
-	chunks := tab + 9*24
+	chunks := tab + headSections*24
 	body := chunks - checkpoint.BodyStart
 	n := (body + checkpoint.ChunkSize - 1) / checkpoint.ChunkSize
 	grown = append(grown[:chunks], make([]byte, 4*n)...)
@@ -224,7 +228,7 @@ var _ = Describe("Head checks", func() {
 		headRefusalEntries(),
 	)
 
-	It("Should refuse a head with kills or tombstones as unknown", func() {
+	It("Should refuse a head with kills as unknown", func() {
 		b := withRecord(
 			checkpoint.Encode(db, generation, sample(2)),
 			3,
@@ -254,14 +258,14 @@ var _ = Describe("Head checks", func() {
 	It("Should refuse a section table inside the first 4 KiB", func() {
 		b := checkpoint.Encode(db, generation, &state.Snapshot{})
 		tab := binary.LittleEndian.Uint64(b[72:])
-		moved := slices.Concat(b[:4088], b[tab:tab+9*24], make([]byte, 4))
+		moved := slices.Concat(b[:4088], b[tab:tab+headSections*24], make([]byte, 4))
 		binary.LittleEndian.PutUint64(moved[64:], uint64(len(moved)))
 		binary.LittleEndian.PutUint64(moved[72:], 4088)
-		binary.LittleEndian.PutUint64(moved[88:], 4088+9*24)
+		binary.LittleEndian.PutUint64(moved[88:], 4088+headSections*24)
 		Expect(decodeErr(reseal(moved))).To(And(
 			MatchError(place.ErrCorrupt),
 			MatchError(
-				ContainSubstring("section table at 4088 and chunk table at 4304"),
+				ContainSubstring("section table at 4088 and chunk table at 4280"),
 			),
 		))
 	})
@@ -272,7 +276,7 @@ var _ = Describe("Head checks", func() {
 		grown := slices.Concat(b[:tab], make([]byte, 8), b[tab:])
 		binary.LittleEndian.PutUint64(grown[64:], uint64(len(grown)))
 		binary.LittleEndian.PutUint64(grown[72:], tab+8)
-		binary.LittleEndian.PutUint64(grown[88:], tab+8+9*24)
+		binary.LittleEndian.PutUint64(grown[88:], tab+8+headSections*24)
 		Expect(decodeErr(reseal(grown))).To(And(
 			MatchError(place.ErrCorrupt),
 			MatchError(ContainSubstring("does not follow the last section")),

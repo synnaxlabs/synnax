@@ -54,6 +54,9 @@ type Channel struct {
 	Key uint32
 	// Segments are in rising order of identity.
 	Segments []Segment
+	// Oldest and Newest are the identities of the oldest and newest part that hold
+	// records of the key, or 0 when no part does.
+	Oldest, Newest uint64
 }
 
 // Limits are the values below which the database gives out identities and numbers.
