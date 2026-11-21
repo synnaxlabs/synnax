@@ -157,7 +157,8 @@ describe("range/overview", () => {
     it("should offer the exports in the more menu and close it on a pick", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createTestRange(client);
-      const { statuses } = await renderOverview(rng.key);
+      // The exports fold into the More menu in a pane narrower than 56rem.
+      const { statuses } = await renderOverview(rng.key, client, { width: "40rem" });
       const expectToast = async (message: string): Promise<void> =>
         await waitFor(() =>
           expect(statuses()).toContainEqual(
