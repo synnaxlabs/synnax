@@ -302,6 +302,9 @@ line in every client, and Go calls `Match<Line>` once per value of the operator.
 ranks below the same match in the other `@search` fields, and an empty value indexes
 nothing. A type needs one `@search` field that is not secondary.
 
+`@request <name> "<doc>"` on a filter adds a retrieve option to its request: a bool that
+is false by default, with doc as its doc comment.
+
 `@index sorted` with several values on a struct field declares one sorted index per
 sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
 `OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with

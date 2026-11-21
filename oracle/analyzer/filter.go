@@ -539,6 +539,24 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 			request = append(request, flag)
 		}
 	}
+	// 	@request	<name> "<doc>" adds a retrieve option: a bool that is false by default.
+	for _, expr := range where.Domains["request"].Expressions {
+		if len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString {
+			c.report(diagnostics.Errorf(
+				filterDef(where),
+				"filter %s: @request %s takes one doc string",
+				where.Name,
+				expr.Name,
+			))
+			return
+		}
+		request = append(request, defaultField(
+			expr.Name,
+			resolution.TypeRef{Name: "bool"},
+			expr.Values[0].StringValue,
+			resolution.ExpressionValue{Kind: resolution.ValueKindBool},
+		))
+	}
 	// A client takes lines and retrieve options side by side, so no line may share a
 	// name with an option in any casing.
 	options := append(
