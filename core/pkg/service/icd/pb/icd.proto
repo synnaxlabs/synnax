@@ -245,6 +245,7 @@ message JSONMatchBooleanPayload {
   // value is the boolean the value must equal.
   bool value = 1;
 }
+message JSONMatchPresentPayload {}
 message PayloadBinaryPayload {
   // length is the payload length in bytes. When absent the length is variable.
   optional uint32 length = 1;
@@ -313,6 +314,7 @@ message JSONMatch {
     JSONMatchUnsignedPayload unsigned = 4;
     JSONMatchStringPayload string = 5;
     JSONMatchBooleanPayload boolean = 6;
+    JSONMatchPresentPayload present = 7;
   }
 }
 

@@ -38,10 +38,12 @@ sets its times, and the errors that clients raise.
   cannot be after the end, and neither can be zero.
 </Field.Item>
 
-<Field.Item name="color" type="string">
-  A hex color such as `"#FF0000"`. The client returns it as a color object. Python and
-  TypeScript can change or clear it later. Line plots show only ranges that have a
-  color. The Console cannot set it. An [Arc automation](/reference/ranges/arc) can.
+<Field.Item name="color" type="color.Ref">
+  A named color from the color library, or a fixed color. An [Arc
+  automation](/reference/ranges/arc) or the swatch in the Console can set it. Python
+  also takes a hex color such as `"#FF0000"` and stores it as a fixed color. The client
+  returns the reference. Python and TypeScript can change or clear it later. Line plots
+  show only ranges that have a color.
 </Field.Item>
 
 <Field.Item name="parent" type="Range | UUID">

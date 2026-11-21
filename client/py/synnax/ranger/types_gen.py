@@ -16,9 +16,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import color as color__, label
+from synnax import color as color_, label
 from synnax.resource import ID
-from x import color as color_, filter, telem
+from x import filter, telem
 from x.filter import shorthand
 
 STAGE_TO_DO: Literal["to_do"] = "to_do"
@@ -66,7 +66,7 @@ class Payload(BaseModel):
         time_range: Is the temporal extent of the range, defining its start and end
             timestamps.
         color: Is an optional display color for visual identification of the range in
-            user interfaces.
+            user interfaces, a named color or a fixed color.
         labels: Are the keys of the labels attached to the range.
         parent: Is the key of the range this range is nested in. Empty for a top-level
             range.
@@ -76,7 +76,7 @@ class Payload(BaseModel):
     name: str = Field(min_length=1)
     has_children: bool = False
     time_range: telem.TimeRange
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
     labels: list[label.Key] = Field(default_factory=list)
     parent: Key | None = None
 
@@ -182,7 +182,7 @@ class KeyRef(BaseModel):
     t0: telem.TimeStamp | None = Field(
         default=None, ge=-9223372036854775808, le=9223372036854775807
     )
-    color: color__.Ref | None = None
+    color: color_.Ref | None = None
 
 
 class WindowRef(BaseModel):
@@ -190,7 +190,7 @@ class WindowRef(BaseModel):
 
     variant: Literal["window"] = "window"
     window: telem.Window
-    color: color__.Ref | None = None
+    color: color_.Ref | None = None
 
 
 # Is the range a visualization shows: a range saved in the Core, or an inline

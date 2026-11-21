@@ -19,11 +19,10 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Explorer } from "@/feature/status/explorer/Explorer";
-import { TAB_TYPE } from "@/feature/status/explorer/external";
+import { Status } from "@/feature/status";
 import { createTestLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { createTabWrapper, findToolbarIconButton } from "@/platform/view/testutil";
@@ -33,12 +32,14 @@ import {
   createTestClientWithGrants,
   getBySelector,
   queryIconButton,
-  renderSuspended,
+  renderLazy,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const TAB = { variant: "view", type: TAB_TYPE } as const;
+const TAB = { variant: "view", type: Status.Explorer.TAB_TYPE } as const;
+
+const { Content: Explorer } = Status.Explorer.TAB;
 
 describe("status explorer", () => {
   it("should list statuses matching a search", async () => {
@@ -46,7 +47,7 @@ describe("status explorer", () => {
       status.create({ name: uniqueName("status"), variant: "info", message: "m" }),
     );
     const { wrapper } = await createTabWrapper({ client, tab: TAB });
-    render(
+    await renderLazy(
       <>
         <Explorer />
         <Modals.Stack />
@@ -61,7 +62,7 @@ describe("status explorer", () => {
   it("should show a chip for each field of a view saved by 0.61", async () => {
     const saved = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#F00000",
+      color: { type: "fixed", value: "#F00000" },
     });
     const stored = await client.views.create({
       name: uniqueName("view"),
@@ -72,7 +73,7 @@ describe("status explorer", () => {
       client,
       tab: { variant: "resource", resource: view.resourceID(stored.key) },
     });
-    await renderSuspended(<Explorer />, { wrapper });
+    await renderLazy(<Explorer />, { wrapper });
     expect(await screen.findByText(saved.name)).toBeTruthy();
     expect(screen.getByText("Labels")).toBeTruthy();
     expect(screen.getByText("Variants")).toBeTruthy();
@@ -84,7 +85,7 @@ describe("status explorer", () => {
       status.create({ name: uniqueName("status"), variant: "info", message: "m" }),
     );
     const { wrapper } = await createTabWrapper({ client, tab: TAB });
-    render(
+    await renderLazy(
       <>
         <Explorer />
         <Modals.Stack />
@@ -120,7 +121,7 @@ describe("status explorer permissions", () => {
 
   const renderExplorer = async (as: Client) => {
     const { wrapper } = await createTabWrapper({ client, as, tab: TAB });
-    render(
+    await renderLazy(
       <>
         <Explorer />
         <Modals.Stack />
