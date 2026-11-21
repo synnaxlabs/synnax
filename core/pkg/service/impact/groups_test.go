@@ -26,7 +26,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Delete folders", Ordered, func() {
+var _ = Describe("Delete groups", Ordered, func() {
 	var (
 		layer *service.Layer
 		db    *gorp.DB
@@ -63,7 +63,7 @@ var _ = Describe("Delete folders", Ordered, func() {
 		return layer.Impact.Apply(
 			ctx,
 			db,
-			impact.Change{Variant: impact.DeleteFoldersChange{Keys: keys}},
+			impact.Change{Variant: impact.DeleteGroupsChange{Keys: keys}},
 			opts,
 		)
 	}
@@ -97,7 +97,7 @@ var _ = Describe("Delete folders", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
-	It("Should refuse a pick, since a folder delete has no entries", func(
+	It("Should refuse a pick, since a group delete has no entries", func(
 		ctx SpecContext,
 	) {
 		folder := createFolder(ctx, "impact-picked", nil)
@@ -113,11 +113,8 @@ var _ = Describe("Delete folders", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
-	It("Should refuse a change of no known kind", func(ctx SpecContext) {
+	It("Should fail on a change of no known variant", func(ctx SpecContext) {
 		Expect(layer.Impact.Apply(ctx, db, impact.Change{}, impact.ApplyOptions{})).
-			Error().To(And(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("unknown change")),
-		))
+			Error().To(MatchError("[impact] - unknown change <nil>"))
 	})
 })
