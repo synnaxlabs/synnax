@@ -281,8 +281,9 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 // width, centered on the seam.
 const remap = (before: Layout, after: Layout, b: box.Box, view: boolean): box.Box => {
   const x = box.xBounds(b);
-  let lower = after.home(before.reverseHome(x.lower));
-  let upper = after.home(before.reverseHome(x.upper));
+  const values = before.reverseHomeSpan(x);
+  let lower = after.home(values.lower);
+  let upper = after.home(values.upper);
   if (view && upper <= lower) {
     const half = bounds.span(x) / 2;
     lower -= half;
