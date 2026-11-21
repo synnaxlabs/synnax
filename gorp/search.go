@@ -20,14 +20,15 @@ import (
 
 // SearchIndex is an in-memory full-text index on text extracted from entries of type
 // E. It matches each word of a search term against the words of that text exactly, by
-// prefix, or within one edit. Construct via NewSearchIndex and register on a Table
-// through TableConfig.Indexes.
+// prefix, or within one edit. Construct via NewSearchIndex or NewWeightedSearchIndex
+// and register on a Table through TableConfig.Indexes.
 type SearchIndex[K Key, E Entry[K]] struct {
 	// name is the human-readable index name, used in diagnostics.
 	name string
-	// text reads the indexed text from an entry.
-	text  func(e *E) []string
-	store *index.Search[*txState, K]
+	// text reads the indexed text from an entry, and secondary the text that ranks
+	// below it, or is nil.
+	text, secondary func(e *E) []string
+	store           *index.Search[*txState, K]
 }
 
 // NewSearchIndex constructs a SearchIndex over the text that text returns for each
@@ -45,9 +46,26 @@ func NewSearchIndex[K Key, E Entry[K]](
 	}
 }
 
+// NewWeightedSearchIndex constructs a SearchIndex as NewSearchIndex does, over the
+// text that text returns and the secondary text that secondary returns for each entry.
+// A match in secondary text ranks below the same match in text, and ties between
+// matches break on the words of text alone.
+func NewWeightedSearchIndex[K Key, E Entry[K]](
+	name string,
+	text, secondary func(e *E) []string,
+) *SearchIndex[K, E] {
+	s := NewSearchIndex[K, E](name, text)
+	s.secondary = secondary
+	return s
+}
+
 // textOf returns the indexed text of entry.
 func (s *SearchIndex[K, E]) textOf(entry *E) search.Text {
-	return search.Text{Primary: s.text(entry)}
+	t := search.Text{Primary: s.text(entry)}
+	if s.secondary != nil {
+		t.Secondary = s.secondary(entry)
+	}
+	return t
 }
 
 // Name implements Index.
