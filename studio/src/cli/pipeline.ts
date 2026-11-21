@@ -14,7 +14,7 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 
-import type { CaptureSession } from "@/capture/rig";
+import type { CaptureSession, OS } from "@/capture/rig";
 import { synthesize } from "@/director/cursor";
 import { direct } from "@/director/director";
 import { overlay } from "@/director/overlay";
@@ -86,6 +86,8 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     integrations?: string[];
     /** Shows the Console as Synnax Desktop. */
     desktop?: boolean;
+    /** The OS the Console draws for. The OS of a Mac when left out. */
+    os?: OS;
   };
   const desktop = mod.desktop ?? false;
   const { desktopUrl = DESKTOP_URL } = opts;
@@ -110,6 +112,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       theme: opts.theme,
       corePort: port,
       desktop,
+      ...(mod.os != null && { os: mod.os }),
       headed: opts.headed ?? false,
       insecure: opts.insecure ?? false,
       hideCaret: opts.hideCaret ?? false,
