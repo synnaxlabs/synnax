@@ -240,6 +240,7 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
     this->retrieve_rack_name();
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
+    x::errors::Error sync_err = x::errors::NIL;
     do {
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
@@ -262,13 +263,14 @@ x::errors::Error Manager::serve(const std::function<void()> &on_started) {
             this->missed = false;
             LOG(WARNING) << "the Core dropped task changes because the Driver fell "
                             "behind. Configuring the tasks again.";
-            if (const auto err = this->sync_tasks())
-                LOG(WARNING) << "failed to configure the tasks again: " << err;
+            // A failed sync ends the run, and the next run syncs again.
+            if (sync_err = this->sync_tasks(); sync_err) break;
         }
     } while (true);
     std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
+    if (sync_err) return sync_err;
     return c_err;
 }
 
