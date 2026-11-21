@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1107,6 +1108,126 @@ TEST(MathAvgTest, WorksWithI32) {
 
     auto checker = setup.make_target_node();
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 20);
+}
+
+/// @brief it should not drift on a running integer average.
+TEST(MathAvgTest, DoesNotDriftOnARunningIntegerAverage) {
+    TestSetup setup(types::Kind::I32, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    for (int32_t i = 1; i <= 100; i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {i}, {i * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
+}
+
+/// @brief it should clear the running sum when the count resets.
+TEST(MathAvgTest, ClearsTheRunningSumAfterACountReset) {
+    types::Param count_param;
+    count_param.name = "count";
+    count_param.type = types::Type{.kind = types::Kind::I64};
+    count_param.value = static_cast<int64_t>(3);
+
+    TestSetup setup(types::Kind::I32, "avg", {count_param});
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    const std::vector<int32_t> values{5, 5, 5, 1, 2, 3};
+    for (size_t i = 0; i < values.size(); i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {values[i]}, {static_cast<int64_t>(i + 1) * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 2);
+}
+
+/// @brief it should clear the running sum when the node resets.
+TEST(MathAvgTest, ClearsTheRunningSumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto first = setup.make_source_node();
+    write_source_i32(first, {5, 5, 5}, {sec, 2 * sec, 3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    for (int32_t i = 1; i <= 3; i++) {
+        auto source = setup.make_source_node();
+        write_source_i32(source, {i}, {(i + 3) * sec});
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 2);
+}
+
+/// @brief it should drop the old minimum when the node resets.
+TEST(MathMinTest, DropsTheOldMinimumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "min");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {1, 2}, {sec, 2 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {50}, {3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
+}
+
+/// @brief it should drop the old maximum when the node resets.
+TEST(MathMaxTest, DropsTheOldMaximumAfterANodeReset) {
+    TestSetup setup(types::Kind::I32, "max");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    auto source1 = setup.make_source_node();
+    write_source_i32(source1, {90, 80}, {sec, 2 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    node->reset(ctx);
+
+    auto source2 = setup.make_source_node();
+    write_source_i32(source2, {3}, {3 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 3);
 }
 
 TEST(MathMaxTest, WorksWithI32) {

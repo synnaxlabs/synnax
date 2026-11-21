@@ -120,11 +120,12 @@ describe("Label.Settings", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create" }));
     });
-    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
-    const names = screen
-      .getAllByRole("option")
-      .map((o) => o.getAttribute("aria-label"));
-    expect(names).toEqual([created, `${prefix}-a`]);
+    // The optimistic create lists the label in its sorted place until the Core answers.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("option").map((o) => o.getAttribute("aria-label")),
+      ).toEqual([created, `${prefix}-a`]),
+    );
   });
 
   it("should rename a label from its menu", async () => {
