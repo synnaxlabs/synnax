@@ -202,6 +202,7 @@ jobs:
           persist-credentials: false
 
       - name: Start Core
+        id: core
         if: runner.os == 'Linux' && inputs.core_image != '' && env.FORK != 'true'
         uses: ./.github/actions/start-service
         env:
@@ -411,9 +412,7 @@ jobs:
 
       # A spec that times out on a Core request shows no Core side in its own output.
       - name: Print the Core log
-        if:
-          failure() && runner.os == 'Linux' && inputs.core_image != '' && env.FORK !=
-          'true'
+        if: failure() && steps.core.outcome == 'success'
         run: docker logs --tail 2000 synnax
 
       - name: Stop the services
