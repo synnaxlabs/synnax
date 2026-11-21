@@ -44,7 +44,7 @@ import {
   useEffect,
   useImperativeHandle,
 } from "react";
-import { expect, onTestFinished } from "vitest";
+import { expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
 import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -447,6 +447,48 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
   tabKey: panel.TabKey;
 }
 
+interface Step {
+  name: string;
+  start: number;
+  end?: number;
+}
+
+const stepsByTest = new WeakMap<object, Step[]>();
+
+const formatStep = ({ name, start, end }: Step, now: number): string =>
+  end == null
+    ? `${name} still waiting after ${Math.round(now - start)} ms`
+    : `${name} ${Math.round(end - start)} ms`;
+
+/**
+ * Runs a wait of a task form spec and records how long it took, so a test that fails,
+ * a timeout included, reports the step it waited on.
+ */
+const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
+  const test = TestRunner.getCurrentTest();
+  if (test == null) return await run();
+  let steps = stepsByTest.get(test);
+  if (steps == null) {
+    const recorded: Step[] = [];
+    stepsByTest.set(test, recorded);
+    onTestFailed(() => {
+      const now = performance.now();
+      const report = recorded.map((s) => formatStep(s, now)).join("; ");
+      // The console check fails a test on console output, so the report writes to
+      // stderr directly.
+      process.stderr.write(`task form steps of "${test.name}": ${report}\n`);
+    });
+    steps = recorded;
+  }
+  const entry: Step = { name, start: performance.now() };
+  steps.push(entry);
+  try {
+    return await run();
+  } finally {
+    entry.end = performance.now();
+  }
+};
+
 interface LoadProbeProps {
   onLoad: () => void;
 }
@@ -466,6 +508,12 @@ const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
+): Promise<RenderTaskFormTabResult> =>
+  await step("form load", async () => await renderTaskFormTabSteps(Form, options));
+
+const renderTaskFormTabSteps = async (
+  Form: FC<FormTabProps>,
+  options: RenderTaskFormTabOptions,
 ): Promise<RenderTaskFormTabResult> => {
   const { onStatuses, onCaughtError, analytics = Analytics.NOOP } = options;
   const client = options.client ?? defaultClient;
@@ -548,16 +596,17 @@ export const awaitEditableForm = async (): Promise<void> => {
  * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
  * so clicking without the wait races the form's initial query.
  */
-export const clickDeploy = async (container: HTMLElement): Promise<void> => {
-  const button = await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
-    if (b.getAttribute("aria-disabled") === "true")
-      throw new Error("start button is disabled");
-    return b;
+export const clickDeploy = async (container: HTMLElement): Promise<void> =>
+  await step("clickDeploy", async () => {
+    const button = await waitFor(() => {
+      const b = within(container).getByRole("button", { name: "Start" });
+      if (b.getAttribute("aria-disabled") === "true")
+        throw new Error("start button is disabled");
+      return b;
+    });
+    // The click can re-render form parts that still suspend on their first query.
+    await act(async () => fireEvent.click(button));
   });
-  // The click can re-render form parts that still suspend on their first query.
-  await act(async () => fireEvent.click(button));
-};
 
 /**
  * Clicks Start on a task that cannot start, then waits until Start is enabled again, so
@@ -650,10 +699,14 @@ export const awaitCommand = async (
       }
     }
   };
-  return await sync.withTimeout(
-    read(),
-    TimeSpan.seconds(10),
-    () => new Error(`no command for task ${taskKey} received within 10s`),
+  return await step(
+    "awaitCommand",
+    async () =>
+      await sync.withTimeout(
+        read(),
+        TimeSpan.seconds(10),
+        () => new Error(`no command for task ${taskKey} received within 10s`),
+      ),
   );
 };
 
