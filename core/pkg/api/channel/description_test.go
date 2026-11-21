@@ -14,8 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,6 +27,12 @@ var _ = Describe("Description", func() {
 	It("Should keep the description of a channel through create and retrieve", func(
 		ctx SpecContext,
 	) {
+		grantOn(
+			ctx,
+			author.ResourceID(),
+			[]access.Action{access.ActionCreate, access.ActionRetrieve},
+			resource.ID{Type: resource.TypeChannel},
+		)
 		created := MustSucceed(createChannels(
 			AuthedCtx(ctx, author),
 			apichannel.CreateRequest{Channels: []apichannel.Channel{{
