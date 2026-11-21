@@ -30,6 +30,10 @@
 
 .console-impact__scroll {
     overscroll-behavior: contain;
+
+    &:focus-visible {
+        outline: 1px solid var(--pluto-primary-z);
+    }
 }
 
 /* a row is not a control: it keeps no hover or press tint */

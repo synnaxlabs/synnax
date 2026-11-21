@@ -34,7 +34,7 @@ import { type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { findButton } from "@/platform/modals/testutil";
+import { findLastButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 import {
   createHostItems,
@@ -85,8 +85,8 @@ const createReadTask = async (ch: channelClient.Key) => {
 
 /** Waits for the dialog's Delete button to finish planning, then clicks it. */
 const clickDelete = async () => {
-  await waitFor(() => expect(findButton("Delete").disabled).toBe(false));
-  fireEvent.click(findButton("Delete"));
+  await waitFor(() => expect(findLastButton("Delete").disabled).toBe(false));
+  fireEvent.click(findLastButton("Delete"));
 };
 
 const expectGone = async (retrieve: () => Promise<unknown>) =>
@@ -330,7 +330,7 @@ describe("channel/tree", () => {
       expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
     });
 
-    it("counts a task that the user cannot see", async () => {
+    it("tells the user to pick a hidden task that blocks the delete", async () => {
       const ch = await createChannel();
       await createReadTask(ch.key);
       const userClient = await createTestClientWithPolicy(client, {
@@ -346,6 +346,12 @@ describe("channel/tree", () => {
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText("1 record you cannot see.");
       expect(screen.queryByText("Blocks the delete")).toBeNull();
+      await clickDelete();
+      await screen.findByText(
+        `cannot delete channel ${ch.name} because a hidden task uses it. ` +
+          "Check Delete it too, or cancel.",
+      );
+      expect((await client.channels.retrieve(ch.key)).key).toBe(ch.key);
     });
 
     it("opens the calculation editor for a calculated channel", async () => {

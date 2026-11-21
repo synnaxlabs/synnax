@@ -15,6 +15,7 @@ import {
   PlanChangedError,
   resource,
   type Synnax as Client,
+  ValidationError,
 } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -32,7 +33,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, useEffect, useId, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -49,6 +50,8 @@ const ITEM_HEIGHT = 36;
 const DISPLAY_ITEMS = 8;
 /** Past this many entries, every group but the first starts closed. */
 const MANY_ENTRIES = 100;
+/** How long a plan loads before the loading line shows. */
+const LOADING_DELAY_MS = 150;
 
 interface GroupSpec {
   effect: impact.Effect;
@@ -80,11 +83,19 @@ const failureOf = (names: string[]): string =>
 const blockedOf = (count: number): string =>
   count === 1 ? "1 record blocks the delete" : `${count} records block the delete`;
 
+const ACCESS_DENIED =
+  "Your role cannot change a record that this delete changes. Ask an admin for " +
+  "access, or cancel.";
+
 const reasonOf = (err: unknown): string => {
   const text = err instanceof Error ? err.message : String(err);
   if (!AccessDeniedError.matches(err)) return text;
-  return `Your role cannot change every record that this delete changes. ${text}`;
+  return `${ACCESS_DENIED} ${text}`;
 };
+
+/** The next step when a record that the user cannot see and did not pick blocks. */
+const hiddenStepOf = (hidden: number): string =>
+  `Check ${hidden === 1 ? "Delete it too" : "Delete them too"}, or cancel.`;
 
 /** A plan with the records it names, as the dialog shows it. */
 interface View {
@@ -181,13 +192,18 @@ const Entry = ({
       {entry.effect === "restrict" && (
         <Flex.Box x align="center" gap="small" className={CSS.BE("impact", "pick")}>
           {unpicked && (
-            <Text.Text level="small" className={CSS.BE("impact", "error")}>
+            <Text.Text
+              id={`${id}-error`}
+              level="small"
+              className={CSS.BE("impact", "error")}
+            >
               Uses the channel
             </Text.Text>
           )}
           <Input.Checkbox
             id={id}
             aria-labelledby={`${id}-name ${id}-label`}
+            aria-describedby={unpicked ? `${id}-error` : undefined}
             value={picked}
             onChange={(v) => onPick(key, v)}
             autoFocus={autoFocus}
@@ -240,9 +256,12 @@ const Group = ({
         >
           <List.Scroll
             displayItems={DISPLAY_ITEMS}
-            tabIndex={0}
-            aria-label={title}
             className={CSS.BE("impact", "scroll")}
+            {...(rows.length > DISPLAY_ITEMS && {
+              tabIndex: 0,
+              role: "region",
+              "aria-label": `${title}, ${rows.length} records`,
+            })}
           >
             <List.Items<string>>
               {({ key, index, translate }) => (
@@ -310,7 +329,7 @@ interface SummaryProps {
 }
 
 const Summary = ({ status: { message, description } }: SummaryProps): ReactElement => (
-  <Flex.Box y empty className={CSS.BE("impact", "summary")}>
+  <Flex.Box y empty role="status" className={CSS.BE("impact", "summary")}>
     <Status.Summary variant="error" message={message} />
     <Text.Text level="small" color={9}>
       {description}
@@ -334,8 +353,15 @@ const Dialog = ({
   const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [applying, setApplying] = useState(false);
   const [footer, setFooter] = useState<FooterStatus | null>(null);
+  const [slow, setSlow] = useState(false);
   Modals.useBusy(applying);
   const hiddenPick = hidden ? "delete" : undefined;
+
+  useEffect(() => {
+    if (view != null) return;
+    const timer = setTimeout(() => setSlow(true), LOADING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [view]);
   const plural = names.length > 1;
 
   useAsyncEffect(
@@ -416,7 +442,10 @@ const Dialog = ({
     }
     if (!(failure instanceof PlanChangedError)) {
       setApplying(false);
-      setFooter({ message: failureOf(names), description: reasonOf(failure) });
+      let description = reasonOf(failure);
+      if (ValidationError.matches(failure) && view.plan.hidden > 0 && !hidden)
+        description = `${description}. ${hiddenStepOf(view.plan.hidden)}`;
+      setFooter({ message: failureOf(names), description });
       return;
     }
     const current = impact.planOf(failure);
@@ -448,7 +477,7 @@ const Dialog = ({
       <Modal.Header icon={<Icon.Channel />}>Channel.Delete</Modal.Header>
       <Modal.Body gap="medium" className={CSS.BE("impact", "body")}>
         {changed && (
-          <Note.Note variant="warning">
+          <Note.Note variant="warning" role="status">
             <Text.Text level="small">
               These records changed. Check them again.
             </Text.Text>
@@ -458,7 +487,7 @@ const Dialog = ({
           {messageOf(names)}
         </Text.Text>
         <Text.Text weight={450}>{descriptionOf(names, empty)}</Text.Text>
-        {view == null && planError == null && (
+        {view == null && planError == null && slow && (
           <Status.Summary
             variant="loading"
             message="Listing the records that this delete touches"
@@ -516,6 +545,7 @@ const Dialog = ({
           <Button.Button
             variant="outlined"
             triggerIndicator={PTriggers.ESCAPE}
+            disabled={applying}
             onClick={() => close()}
           >
             Cancel
@@ -523,7 +553,7 @@ const Dialog = ({
           <Button.Button
             variant="filled"
             status={applying ? "loading" : "error"}
-            disabled={view == null || planning}
+            disabled={view == null || planning || planError != null}
             trigger={Triggers.SAVE}
             triggerIndicator
             onClick={() => void handleDelete()}
