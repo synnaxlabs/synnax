@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFailed, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
@@ -32,6 +32,45 @@ import {
   UNLICENSED_STATUS,
 } from "@/testutil";
 
+interface Read {
+  start: number;
+  end?: number;
+}
+
+/**
+ * Times each license read of the client, so a failed test reports whether the Log in
+ * click reached its read and how long the read took.
+ */
+const reportLicenseReads = (client: Client): void => {
+  const reads: Read[] = [];
+  const retrieve = client.license.retrieve.bind(client.license);
+  vi.spyOn(client.license, "retrieve").mockImplementation(async () => {
+    const read: Read = { start: performance.now() };
+    reads.push(read);
+    try {
+      return await retrieve();
+    } finally {
+      read.end = performance.now();
+    }
+  });
+  const begun = performance.now();
+  onTestFailed(() => {
+    const now = performance.now();
+    const report =
+      reads.length === 0
+        ? "none"
+        : reads
+            .map(({ start, end }) =>
+              end == null
+                ? `at ${Math.round(start - begun)} ms, still waiting after ${Math.round(now - start)} ms`
+                : `at ${Math.round(start - begun)} ms, took ${Math.round(end - start)} ms`,
+            )
+            .join("; ");
+    // A browser spec has no process to write to stderr through.
+    console.error(`license reads: ${report}`);
+  });
+};
+
 interface RenderOptions {
   status?: connection.Status;
   account?: Session.Account.SliceState;
@@ -42,6 +81,7 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   store: TestStore;
 }> => {
   const client = createTestClient();
+  reportLicenseReads(client);
   const { wrapper, store } = await createStatusConsoleWrapper({
     client,
     status,
