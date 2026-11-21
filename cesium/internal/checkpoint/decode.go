@@ -48,12 +48,12 @@ func corrupt(format string, args ...any) error {
 }
 
 func decodeSector(b []byte) (Header, error) {
-	if len(b) < SectorSize {
-		return Header{}, corrupt("file of %d bytes has no header sector", len(b))
-	}
-	s := b[:SectorSize]
+	s := b[:min(len(b), SectorSize)]
 	if allZero(s) {
 		return Header{}, ErrIncomplete
+	}
+	if len(s) < SectorSize {
+		return Header{}, corrupt("file of %d bytes has no header sector", len(b))
 	}
 	h := Header{
 		DB:         binary.LittleEndian.Uint64(s[16:]),
