@@ -127,3 +127,48 @@ var _ = Describe("Put-back", func() {
 			}))
 		})
 })
+
+var _ = Describe("Replay preloads", func() {
+	// parted is a sealed record of key 6 that part 7 holds, and that the state lacks.
+	parted := state.Segment{
+		ID: 3, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 12,
+		TailCRC: 3, Part: 7,
+		Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+	}
+
+	It("Should cut a parted record that a replayed Tombstone reaches, through its "+
+		"preload", func() {
+		head := sample()
+		head.Channels[1] = &state.Channel{Key: 6, Oldest: 7, Newest: 7}
+		s := MustSucceed(state.Open(config(&appended{}), head))
+		Expect(s.Replay(10, []log.Record{&log.Tombstone{
+			Key: 6, Start: 15, End: 25, Left: cutOf(1, 10), Right: cutOf(2, 30),
+		}}, state.Preload{Key: 6, Segments: []state.Segment{parted}})).To(Succeed())
+		run(s)
+		snap := MustSucceed(s.Snapshot())
+		Expect(snap.Kills).To(Equal([]state.Kill{{Key: 6, Segment: 3, Generation: 1}}))
+		seg := s.Channel(6).Segments[0]
+		Expect(seg.Part).To(BeZero())
+		Expect(seg.Pointers).To(Equal([]state.Pointer{
+			pointer(1, 0, 10, 10, 0, 4, 1),
+			pointer(1, 2, 30, 30, 8, 4, 1),
+		}))
+	})
+
+	It("Should refuse a replayed commit over a parted record that its preload holds",
+		func() {
+			s := MustSucceed(state.Open(config(&appended{}), sample()))
+			over := state.Segment{
+				ID: 9, Clock: 5, Version: 1, DataType: 7, Sealed: true, Length: 8,
+				Part: 7, Pointers: []state.Pointer{pointer(1, 0, 30, 35, 0, 8, 2)},
+			}
+			Expect(s.Replay(10, []log.Record{commit(1, 3, 0, 32, 32, slot(4, 20))},
+				state.Preload{Key: 5, Segments: []state.Segment{over}})).To(SatisfyAll(
+				MatchError(state.ErrRefused),
+				MatchError(
+					ContainSubstring("from 32 to 32 overlaps its pointer from 30 "+
+						"to 35"),
+				),
+			))
+		})
+})

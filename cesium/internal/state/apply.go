@@ -74,12 +74,12 @@ func (c *core) channel(key uint32) *chanState {
 // apply applies the records of the durable entry of sequence, in order, or returns an
 // error that wraps ErrRefused, or log.ErrUnknown for a record this binary does not
 // apply. A refused entry may be applied in part.
-func (c *core) apply(sequence uint64, records []log.Record) error {
+func (c *core) apply(sequence uint64, records []log.Record, pre []Preload) error {
 	if sequence != c.sequence+1 {
 		return refuse("entry %d follows entry %d", sequence, c.sequence)
 	}
 	for _, r := range records {
-		if err := c.record(r); err != nil {
+		if err := c.record(r, pre); err != nil {
 			return errors.Wrapf(err, "entry %d", sequence)
 		}
 	}
@@ -87,14 +87,14 @@ func (c *core) apply(sequence uint64, records []log.Record) error {
 	return nil
 }
 
-func (c *core) record(r log.Record) error {
+func (c *core) record(r log.Record, pre []Preload) error {
 	switch r := r.(type) {
 	case *log.Reserve:
 		return c.reserve(r)
 	case *log.Create:
 		return c.create(r)
 	case *log.Commit:
-		return c.commit(r)
+		return c.commit(r, pre)
 	case *log.Seal:
 		return c.seal(r)
 	case *log.Drop:
@@ -105,7 +105,7 @@ func (c *core) record(r log.Record) error {
 	case *log.Intent:
 		return c.intent(r)
 	case *log.Tombstone:
-		return c.tombstone(r)
+		return c.tombstone(r, pre)
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}
@@ -173,7 +173,7 @@ func (c *core) checkCommit(r *log.Commit) error {
 	return nil
 }
 
-func (c *core) commit(r *log.Commit) error {
+func (c *core) commit(r *log.Commit, pre []Preload) error {
 	if err := c.checkCommit(r); err != nil {
 		return err
 	}
@@ -204,7 +204,13 @@ func (c *core) commit(r *log.Commit) error {
 		if err != nil {
 			return err
 		}
-		if p, ok := c.channels[s.key].overlapsDurable(first, last); ok {
+		p, ok := c.channels[s.key].overlapsDurable(
+			first,
+			last,
+			s.pre,
+			recordsOf(pre, s.key),
+		)
+		if ok {
 			return refuse(
 				"commit of key %d from %d to %d overlaps its pointer from %d "+
 					"to %d",
@@ -224,6 +230,9 @@ func (c *core) commit(r *log.Commit) error {
 			s.dur.length, slot.Length, r.Samples)
 		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
+		if s.dur.length == s.vis.Length {
+			s.pre = nil
+		}
 	}
 	return nil
 }

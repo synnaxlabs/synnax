@@ -118,10 +118,21 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 }
 
 // Replay applies the records of the durable entry of sequence, in replay mode, before
-// Run. It returns an error that wraps ErrRefused for a record that breaks a rule, or
+// Run. pre holds, in rising order of key, the part records that the records reach. It
+// returns an error that wraps ErrRefused for a record that breaks a rule, or
 // log.ErrUnknown for one this binary does not apply.
-func (s *State) Replay(sequence uint64, records []log.Record) error {
-	return s.core.apply(sequence, records)
+func (s *State) Replay(sequence uint64, records []log.Record, pre ...Preload) error {
+	return s.core.apply(sequence, records, pre)
+}
+
+// KeyOf returns the key of segment, and false when the state does not hold it. Call it
+// in replay mode, before Run.
+func (s *State) KeyOf(segment uint64) (uint32, bool) {
+	seg, ok := s.core.segments[segment]
+	if !ok {
+		return 0, false
+	}
+	return seg.key, true
 }
 
 // Run ends replay mode, publishes the visible state of every key, and runs one step of
@@ -276,7 +287,7 @@ type durableRequest struct {
 func (*durableRequest) fail(error) {}
 
 func (r *durableRequest) run(s *State) {
-	if err := s.core.apply(r.sequence, r.records); err != nil {
+	if err := s.core.apply(r.sequence, r.records, nil); err != nil {
 		s.fail(err)
 		return
 	}

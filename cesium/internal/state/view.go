@@ -28,6 +28,10 @@ type segState struct {
 	dur durable
 	// holder is the writer that holds the open segment, or nil.
 	holder *Writer
+	// pre holds the part records that visible commits of the segment were checked
+	// against, which their durable apply checks again. It empties once every visible
+	// commit is durable.
+	pre []Segment
 }
 
 // durable is the part of a segment that the log covers.
@@ -127,11 +131,25 @@ func (c *chanState) publish() {
 }
 
 // overlapsDurable returns the first durable pointer of c that shares a stamp with
-// [first, last], and false when there is none.
-func (c *chanState) overlapsDurable(first, last telem.TimeStamp) (Pointer, bool) {
+// [first, last], and false when there is none. A segment that a part holds counts
+// through its record in records.
+func (c *chanState) overlapsDurable(
+	first, last telem.TimeStamp,
+	records ...[]Segment,
+) (Pointer, bool) {
 	for _, s := range c.segs {
+		if s.vis.Part != 0 {
+			continue
+		}
 		if p, ok := overlap(s.dur.pointers, first, last); ok {
 			return p, true
+		}
+	}
+	for _, segs := range records {
+		for _, s := range segs {
+			if p, ok := overlap(s.Pointers, first, last); ok {
+				return p, true
+			}
 		}
 	}
 	return Pointer{}, false

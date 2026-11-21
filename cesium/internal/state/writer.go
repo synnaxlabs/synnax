@@ -509,6 +509,7 @@ func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
 	}
 	for _, slot := range c.Slots {
 		seg := s.core.segments[slot.Segment]
+		seg.pre = union(seg.pre, recordsOf(pre, seg.key))
 		p, extended := grow(seg.vis.Pointers, telem.Alignment(c.Alignment), first, last,
 			seg.vis.Length, slot.Length, c.Samples)
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)

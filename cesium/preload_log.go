@@ -10,6 +10,8 @@
 package cesium
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
@@ -39,6 +41,33 @@ func (e *engine) withPreloads(
 			return pre, err
 		}
 	}
+}
+
+// addPreload adds the part records of key whose pointers reach [first, last] to the
+// preload of key in pre.
+func (e *engine) addPreload(
+	pre []state.Preload,
+	key ChannelKey,
+	first, last telem.TimeStamp,
+) ([]state.Preload, error) {
+	p, err := e.preload(key, first, last)
+	if err != nil || len(p.Segments) == 0 {
+		return pre, err
+	}
+	for i := range pre {
+		if pre[i].Key != key {
+			continue
+		}
+		for _, rec := range p.Segments {
+			if !slices.ContainsFunc(pre[i].Segments, func(s state.Segment) bool {
+				return s.ID == rec.ID
+			}) {
+				pre[i].Segments = append(pre[i].Segments, rec)
+			}
+		}
+		return pre, nil
+	}
+	return append(pre, p), nil
 }
 
 // preload returns the live part records of key whose pointers reach [first, last].

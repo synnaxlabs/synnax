@@ -147,12 +147,14 @@ func openEngine(o *options) (*engine, error) {
 	}, snapshot); err != nil {
 		return nil, err
 	}
-	if err = e.recover(r); err != nil {
-		return nil, err
-	}
+	// Replay preloads the part records that its records reach.
+	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
 	e.parts.Store(&partSets{
 		live: headParts{generation: r.head.Generation, parts: r.head.Parts},
 	})
+	if err = e.recover(r); err != nil {
+		return nil, err
+	}
 	if e.budget, err = segment.NewBudget(handleLimit, syncWidth, e.exec); err != nil {
 		return nil, err
 	}
@@ -236,7 +238,6 @@ func (e *engine) recover(r *recovery) (err error) {
 	if err != nil {
 		return err
 	}
-	e.cache = checkpoint.NewCache(e.fs, r.db, partCacheSize)
 	e.ckpt, err = checkpoint.New(checkpoint.Config{
 		FS:       e.fs,
 		DB:       r.db,
@@ -400,15 +401,46 @@ func (e *engine) fail(err error) {
 // replay applies the records of one recovered entry to the state, and keeps stored
 // current.
 func (e *engine) replay(sequence uint64, records []log.Record) error {
+	var (
+		pre     []state.Preload
+		err     error
+		created map[uint64]ChannelKey
+	)
 	for _, r := range records {
 		switch r := r.(type) {
 		case *log.Create:
 			e.stored.Add(r.Key)
+			if created == nil {
+				created = make(map[uint64]ChannelKey)
+			}
+			created[r.Segment] = r.Key
 		case *log.Drop:
 			e.stored.Remove(r.Key)
+		case *log.Commit:
+			first, last := telem.TimeStamp(r.First), telem.TimeStamp(r.Last)
+			for _, slot := range r.Slots {
+				key, ok := e.state.KeyOf(slot.Segment)
+				if !ok {
+					key, ok = created[slot.Segment]
+				}
+				if ok {
+					if pre, err = e.addPreload(pre, key, first, last); err != nil {
+						return err
+					}
+				}
+			}
+		case *log.Tombstone:
+			start, end := telem.TimeStamp(r.Start), telem.TimeStamp(r.End)
+			if pre, err = e.addPreload(pre, r.Key, start, end-1); err != nil {
+				return err
+			}
 		}
 	}
-	return e.state.Replay(sequence, records)
+	slices.SortFunc(
+		pre,
+		func(a, b state.Preload) int { return cmp.Compare(a.Key, b.Key) },
+	)
+	return e.state.Replay(sequence, records, pre...)
 }
 
 // close closes the owners once.

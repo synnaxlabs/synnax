@@ -331,6 +331,53 @@ var _ = Describe("Reads through parts", func() {
 })
 
 var _ = Describe("Claims over parts", func() {
+	It("Should write in a gap between parted segments, and replay the commit to the "+
+		"same state", func(ctx SpecContext) {
+		fs := xfs.NewMem()
+		db := partedDB(ctx, fs)
+		stop := StartRun(db.Run)
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      idx,
+				Name:     "time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		writeParted(ctx, db, fs, idx, data, 3, 10)
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = partedDB(ctx, fs)
+		stop = StartRun(db.Run)
+		// Seconds 10 and 11 end and start two parted segments, so the commit reaches
+		// the bounds of their part and its check preloads their records.
+		gap := []telem.TimeStamp{10*telem.SecondTS + 250, 10*telem.SecondTS + 500}
+		Expect(db.Write(ctx, gap[0], telem.MultiFrame(
+			[]cesium.ChannelKey{idx, data},
+			[]telem.Series{telem.NewSeries(gap), telem.NewSeries([]int64{-1, -2})},
+		))).To(Succeed())
+		read := func() []int64 {
+			GinkgoHelper()
+			frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+			var got []int64
+			for _, s := range frame.Get(data).Series {
+				got = append(got, s.Unmarshal[int64]()...)
+			}
+			return got
+		}
+		live := read()
+		Expect(live).To(HaveLen(32))
+		stop()
+		Expect(db.Close()).To(Succeed())
+		db = partedDB(ctx, fs)
+		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		DeferCleanup(StartRun(db.Run))
+		Expect(read()).To(Equal(live))
+	})
+
 	It("Should refuse a writer that starts in parted data, and a commit that reaches "+
 		"it", func(ctx SpecContext) {
 		fs := xfs.NewMem()

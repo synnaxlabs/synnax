@@ -37,9 +37,7 @@ type Preload struct {
 // key. It returns ErrStale for a preload from the parts of a head that c no longer
 // reads, and refuses a step with none when c has a part range.
 func (c *chanState) preloadOf(pre []Preload) ([]Segment, error) {
-	i, found := slices.BinarySearchFunc(pre, c.key, func(p Preload, key uint32) int {
-		return cmp.Compare(p.Key, key)
-	})
+	i, found := search(pre, c.key)
 	switch {
 	case !found && c.oldest == 0:
 		return nil, nil
@@ -70,6 +68,32 @@ func (c *chanState) stored(first, last telem.TimeStamp, pre []Segment) (Pointer,
 		}
 	}
 	return Pointer{}, false
+}
+
+// search returns the index of the preload of key in pre, which is in rising order of
+// key, and whether pre holds one.
+func search(pre []Preload, key uint32) (int, bool) {
+	return slices.BinarySearchFunc(pre, key, func(p Preload, key uint32) int {
+		return cmp.Compare(p.Key, key)
+	})
+}
+
+// recordsOf returns the records of the preload of key in pre, or none.
+func recordsOf(pre []Preload, key uint32) []Segment {
+	if i, found := search(pre, key); found {
+		return pre[i].Segments
+	}
+	return nil
+}
+
+// union returns segs with each record of more whose segment segs lacks.
+func union(segs, more []Segment) []Segment {
+	for _, rec := range more {
+		if !slices.ContainsFunc(segs, func(s Segment) bool { return s.ID == rec.ID }) {
+			segs = append(segs, rec)
+		}
+	}
+	return segs
 }
 
 // putBack puts each record of records, which parts of key hold, back into the state as

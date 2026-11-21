@@ -113,7 +113,10 @@ func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
 
 // tombstone applies t to both views, which a durable Tombstone changes at once, and
 // buries each sealed segment that no live pointer is left in.
-func (c *core) tombstone(t *log.Tombstone) error {
+func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
+	if c.channels[t.Key] != nil {
+		c.putBack(t.Key, recordsOf(pre, t.Key))
+	}
 	if err := c.checkTombstone(t); err != nil {
 		return err
 	}
