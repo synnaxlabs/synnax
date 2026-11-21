@@ -33,7 +33,7 @@ var _ = Describe("Check: a crash in a create that writes parts", func() {
 			im := &crashImages{disk: disk, runKey: runKey}
 			s := withSealed(sealed(1, 10), sealed(2, 20), sealed(3, 30), sealed(4, 40))
 			want := []uint64{1, 2, 3, 4, 100}
-			MustSucceed(checkpoint.Create(imageFS{FS: disk, im: im}, db, s, 1))
+			MustSucceed(checkpoint.Create(imageFS{FS: disk, im: im}, db, 1, s, 1))
 			h, _ := MustSucceed2(checkpoint.Read(disk, 1))
 			Expect(h.Parts).To(HaveLen(4))
 			Expect(created(disk, s)).To(Equal(want))
@@ -66,7 +66,7 @@ var _ = Describe("Check: switches after a create that writes parts", func() {
 			for g := uint64(1); g <= 3; g++ {
 				Expect(log.Prepare(fs, g, logSize)).To(Succeed())
 			}
-			x := MustSucceed(checkpoint.Create(fs, db, withSealed(
+			x := MustSucceed(checkpoint.Create(fs, db, 1, withSealed(
 				sealed(1, 10), sealed(2, 20), sealed(3, 30), sealed(4, 40),
 			), partSize))
 			c := MustSucceed(checkpoint.New(checkpoint.Config{
@@ -157,6 +157,6 @@ func createAgain(fs xfs.FS, s *state.Snapshot) error {
 			return err
 		}
 	}
-	_, err = checkpoint.Create(fs, db, s, 1)
+	_, err = checkpoint.Create(fs, db, 1, s, 1)
 	return errors.Wrap(err, "create again")
 }

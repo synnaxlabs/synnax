@@ -83,7 +83,7 @@ var _ = Describe("Check: logs while heads fail", func() {
 		for _, g := range []uint64{1, 2, 3} {
 			Expect(log.Prepare(fs, g, logSize)).To(Succeed())
 		}
-		MustSucceed(checkpoint.Create(fs, db, &state.Snapshot{
+		MustSucceed(checkpoint.Create(fs, db, 1, &state.Snapshot{
 			Sequence: 1,
 		}, 0))
 		c := MustSucceed(checkpoint.New(checkpoint.Config{
@@ -117,7 +117,7 @@ var _ = Describe("Check: logs while heads fail", func() {
 		const size = 64 << 10
 		fs := xfs.NewMem()
 		Expect(log.Prepare(fs, 1, size)).To(Succeed())
-		MustSucceed(checkpoint.Create(fs, db, &state.Snapshot{
+		MustSucceed(checkpoint.Create(fs, db, 1, &state.Snapshot{
 			Sequence: 1,
 		}, 0))
 		p := &prepared{}

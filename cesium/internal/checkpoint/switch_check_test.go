@@ -32,7 +32,7 @@ func owners(fs xfs.FS, exec func(func())) (*log.Log, *state.State) {
 	GinkgoHelper()
 	errs := &ownerErrs{}
 	Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
-	MustSucceed(checkpoint.Create(fs, db, &state.Snapshot{
+	MustSucceed(checkpoint.Create(fs, db, 1, &state.Snapshot{
 		Limits: state.Limits{Segments: 1, Alignments: 1},
 	}, 0))
 	var (
