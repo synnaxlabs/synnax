@@ -281,13 +281,16 @@ interaction, and the release.
 - **Phase 6: Work across breaks.** The tooltip over a band, the measure across a break,
   and a selection that stops at a closed break.
 - **Phase 7: Export the shown spans.** The plot export reads only the shown spans.
-- **Phase 8: Release.** The docs page, removal of the flag, and the toggle that hides
-  and shows the breaks.
+- **Phase 8: Ship in Desktop.** The docs page, the toggle that hides and shows the
+  breaks, and a `breaks` flag whose expression names `DESKTOP`.
+- **Phase 9: Release.** After at least one stable Desktop release, the flag and its dark
+  branches go away, so the Console gets breaks too.
 
-Phases 4 to 7 hide behind a `breaks` flag in `console/src/flags`, which the Console
-passes to Pluto as a prop. Console phases add their rules to `docs/claude/ux.md`. Phases
-2 to 7 change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`,
-and phase 3 bounds its relative traces.
+Phases 4 to 8 hide behind a `breaks` flag in `console/src/flags`, which the Console
+passes to Pluto as a prop. Phase 8 turns it on in Desktop, as `CONTRIBUTING.md` asks for
+a new feature. Console phases add their rules to `docs/claude/ux.md`. Phases 2 to 7
+change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`, and phase
+3 bounds its relative traces.
 
 | Phase | Scope                                              | Touches                                                                                                              | Depends on |
 | ----- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -298,7 +301,8 @@ and phase 3 bounds its relative traces.
 | 5     | Open and close line plot breaks                    | `pluto/src/lineplot`, `pluto/src/vis/axis`, `pluto/src/vis/canvas`, `console/src/feature/lineplot`                   | 4          |
 | 6     | Work across line plot breaks                       | `pluto/src/lineplot`, `pluto/src/viewport`                                                                           | 5          |
 | 7     | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                          | 1, 6       |
-| 8     | Release line plot breaks with a toggle             | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 7          |
+| 8     | Ship line plot breaks in Desktop with a toggle     | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`  | 7          |
+| 9     | Release line plot breaks to the Console            | `console/src/flags`, `console/src/feature/lineplot`                                                                  | 8          |
 
 Compatibility: no stored shape changes. The read request accepts one `bounds` from
 shipped clients.
