@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -420,7 +419,10 @@ var _ = Describe("Write task", func() {
 			Channels: []kafka.WriteChannel{{Key: "c1", Channel: 999999}},
 		}
 		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1")).
-			Error().To(MatchError(query.ErrNotFound))
+			Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`channel "c1": channel 999999 does not exist`)),
+		))
 	})
 
 	DescribeTable("Should reject output pointers that collide",
