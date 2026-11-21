@@ -30,7 +30,7 @@ func parted(fs xfs.FS, generation uint64, key cesium.ChannelKey) []uint64 {
 	MustSucceed(checkpoint.LoadParts(fs, h.DB, h)).Merge(s)
 	var parts []uint64
 	for _, ch := range s.Channels {
-		if ch.Key == uint32(key) {
+		if ch.Key == key {
 			for _, seg := range ch.Segments {
 				parts = append(parts, seg.Part)
 			}
