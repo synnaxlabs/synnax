@@ -96,6 +96,8 @@ a color picker has no "+".
 
 - A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
   it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+  `scripts/compound_icon.py` makes the glyph of a base and a modifier. For a line base,
+  give it the line width (`--line-width`), so the cut ends get round caps.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
 - Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
