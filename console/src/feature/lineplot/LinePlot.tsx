@@ -77,6 +77,36 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
+interface BreaksMenuItemsProps {
+  linePlotRef: RefObject<Base.FrameRef | null>;
+  breaks: pLineplot.BreakCounts;
+}
+
+const BreaksMenuItems = ({
+  linePlotRef,
+  breaks,
+}: BreaksMenuItemsProps): ReactElement => (
+  <>
+    {breaks.closed > 0 && (
+      <Menu.Item
+        itemKey="openBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(true)}
+      >
+        <Icon.Expand /> Open all breaks
+      </Menu.Item>
+    )}
+    {breaks.open > 0 && (
+      <Menu.Item
+        itemKey="closeBreaks"
+        onClick={() => linePlotRef.current?.setAllBreaks(false)}
+      >
+        <Icon.Collapse /> Close all breaks
+      </Menu.Item>
+    )}
+    {breaks.open + breaks.closed > 0 && <Menu.Divider />}
+  </>
+);
+
 interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
@@ -128,23 +158,7 @@ const ContextMenuContent = ({
           <Menu.Divider />
         </>
       )}
-      {breaks.closed > 0 && (
-        <Menu.Item
-          itemKey="openBreaks"
-          onClick={() => linePlotRef.current?.setAllBreaks(true)}
-        >
-          <Icon.Expand /> Open all breaks
-        </Menu.Item>
-      )}
-      {breaks.open > 0 && (
-        <Menu.Item
-          itemKey="closeBreaks"
-          onClick={() => linePlotRef.current?.setAllBreaks(false)}
-        >
-          <Icon.Collapse /> Close all breaks
-        </Menu.Item>
-      )}
-      {breaks.open + breaks.closed > 0 && <Menu.Divider />}
+      {FLAGS.breaks && <BreaksMenuItems breaks={breaks} linePlotRef={linePlotRef} />}
       {!box.areaIsZero(selection) && (
         <>
           <Menu.CopyItem
