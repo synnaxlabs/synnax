@@ -647,6 +647,15 @@ describe("XAxis", () => {
       expect(segmentBounds(x)).toEqual([{ lower: 0, upper: 63 * S }]);
     });
 
+    it("should keep a manual window inside one gap as set", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: true },
+        bounds: { lower: 3600 * S, upper: 7200 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: 3600 * S, upper: 7200 * S }]);
+    });
+
     it("should keep a manual lower bound before the first segment", () => {
       const x = mount(WINDOWS, {
         type: "time",
