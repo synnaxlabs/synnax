@@ -88,7 +88,9 @@ var _ = Describe("Compile", func() {
 			Name:       "calc2",
 			DataType:   telem.Int64T,
 			Expression: "return base2 + 1",
-			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
+			Operations: []calculation.Operation{{Variant: calculation.AvgOperation{
+				Window: calculation.Window{Duration: 5 * telem.Second},
+			}}},
 		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
@@ -136,7 +138,9 @@ var _ = Describe("Compile", func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float64T,
 			Expression: "return " + base.Name,
-			Operations: []channel.Operation{{Type: "derivative"}},
+			Operations: []calculation.Operation{
+				{Variant: calculation.DerivativeOperation{}},
+			},
 		}))
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,

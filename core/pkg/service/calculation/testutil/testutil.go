@@ -26,7 +26,7 @@ type Calculation struct {
 	// Expression is the Arc expression that the calculation evaluates.
 	Expression string
 	// Operations are the operations of the calculation.
-	Operations []channel.Operation
+	Operations []calculation.Operation
 	// DataType is not read: the data type of Expression types the output.
 	DataType telem.DataType
 }
@@ -63,13 +63,9 @@ func (c Creator) CreateMany(
 	if err := c.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		w := c.Calculation.NewWriter(tx)
 		for i, calc := range calcs {
-			ops, err := calculation.FromChannelOperations(calc.Operations)
-			if err != nil {
-				return err
-			}
 			record := calculation.Calculation{
 				Expression: calc.Expression,
-				Operations: ops,
+				Operations: calc.Operations,
 			}
 			created, err := w.CreateOutput(ctx, &record, calc.Name, nil)
 			if err != nil {
@@ -97,15 +93,18 @@ func (c Creator) CalculationOf(
 	return calc, err
 }
 
-// Apply applies acts to the output channel with key and writes its calculation, as the
-// old channel API does.
+// Apply applies acts to the calculation that writes the channel with key output.
 func (c Creator) Apply(
 	ctx context.Context,
-	key channel.Key,
-	acts ...channel.Action,
+	output channel.Key,
+	acts ...calculation.Action,
 ) error {
+	calc, err := c.CalculationOf(ctx, output)
+	if err != nil {
+		return err
+	}
 	return c.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		_, err := c.Calculation.NewWriter(tx).ApplyChannel(ctx, key, acts...)
+		_, err := c.Calculation.NewWriter(tx).Apply(ctx, calc.Key, acts...)
 		return err
 	})
 }

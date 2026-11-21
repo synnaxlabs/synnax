@@ -94,8 +94,8 @@ func rename(ctx context.Context, key channel.Key, name string) {
 // setExpression applies a set of expr to the expression of ch, then reads ch back.
 func setExpression(ctx context.Context, ch *channel.Channel, expr string) {
 	GinkgoHelper()
-	Expect(creator.Apply(ctx, ch.Key(), channel.NewSetAction(
-		channel.SetPayload{Path: []string{"expression"}, Value: expr},
+	Expect(creator.Apply(ctx, ch.Key(), calculation.NewSetAction(
+		calculation.SetPayload{Path: []string{"expression"}, Value: expr},
 	))).To(Succeed())
 	Expect(channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(ch.Key())).

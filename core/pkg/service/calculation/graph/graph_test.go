@@ -137,8 +137,8 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 // setExpression applies a set of the expression of the calculated channel with key.
 func setExpression(ctx context.Context, key channel.Key, expr string) {
 	GinkgoHelper()
-	Expect(creator.Apply(ctx, key, channel.NewSetAction(
-		channel.SetPayload{Path: []string{"expression"}, Value: expr},
+	Expect(creator.Apply(ctx, key, calculation.NewSetAction(
+		calculation.SetPayload{Path: []string{"expression"}, Value: expr},
 	))).To(Succeed())
 }
 

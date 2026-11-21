@@ -12,7 +12,6 @@ package compiler_test
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -46,7 +46,7 @@ type formula struct {
 	Leaseholder node.Key
 	LocalKey    channel.LocalKey
 	Expression  string
-	Operations  []channel.Operation
+	Operations  []calculation.Operation
 }
 
 func (f formula) output() channel.Channel {
@@ -67,10 +67,12 @@ func analyze(
 	a *compiler.Analyzer,
 	c formula,
 ) (compiler.AnalysisResult, error) {
-	derivative := slices.ContainsFunc(c.Operations, func(op channel.Operation) bool {
-		return op.Type == channel.OperationTypeDerivative
-	})
-	return a.AnalyzeExpression(ctx, c.output(), c.Expression, derivative)
+	return a.AnalyzeExpression(
+		ctx,
+		c.output(),
+		c.Expression,
+		compiler.HasDerivative(c.Operations),
+	)
 }
 
 var _ = Describe("Analyze", func() {
@@ -429,7 +431,7 @@ var _ = Describe("Analyze", func() {
 	Describe("Derivative Operation Type Override", func() {
 		DescribeTable(
 			"Should infer the DataType from the operations",
-			func(ctx SpecContext, ops []channel.Operation, expected telem.DataType) {
+			func(ctx SpecContext, ops []calculation.Operation, expected telem.DataType) {
 				r := StaticResolver{
 					{
 						Name: "sensor",
@@ -450,28 +452,28 @@ var _ = Describe("Analyze", func() {
 			},
 			Entry(
 				"derivative",
-				[]channel.Operation{{Type: channel.OperationTypeDerivative}},
+				[]calculation.Operation{{Variant: calculation.DerivativeOperation{}}},
 				telem.Float64T,
 			),
 			Entry(
-				"derivative then none",
-				[]channel.Operation{
-					{Type: channel.OperationTypeDerivative},
-					{Type: channel.OperationTypeNone},
+				"derivative then max",
+				[]calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
+					{Variant: calculation.MaxOperation{}},
 				},
 				telem.Float64T,
 			),
 			Entry(
 				"derivative then avg",
-				[]channel.Operation{
-					{Type: channel.OperationTypeDerivative},
-					{Type: channel.OperationTypeAvg},
+				[]calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
+					{Variant: calculation.AvgOperation{}},
 				},
 				telem.Float64T,
 			),
 			Entry(
 				"avg",
-				[]channel.Operation{{Type: channel.OperationTypeAvg}},
+				[]calculation.Operation{{Variant: calculation.AvgOperation{}}},
 				telem.Int32T,
 			),
 		)
