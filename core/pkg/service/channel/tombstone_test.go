@@ -224,6 +224,27 @@ var _ = Describe("Tombstone", Ordered, func() {
 		},
 	)
 
+	It("Should skip a tombstone path in the folder of a channel it rehomes", func(
+		ctx SpecContext,
+	) {
+		g := createFolder(ctx)
+		name := UniqueChannelName()
+		dead := deleteHeld(ctx, channel.Channel{Name: name + "_2", Group: &g.Key})
+		user := create(ctx, channel.Channel{Name: name, Group: &g.Key})
+		builtIn := channel.Channel{Name: name, DataType: telem.JSONT, Virtual: true}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Declare(ctx, &builtIn)
+		})).To(Succeed())
+		var renamed channel.Channel
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchKeys(user.Key())).
+			Entry(&renamed).
+			Exec(ctx, db)).To(Succeed())
+		Expect(renamed.Name).To(Equal(name + "_3"))
+		_, ok := tombstoneOf(ctx, dead.Key())
+		Expect(ok).To(BeTrue())
+	})
+
 	It("Should skip a tombstone path when it picks a suffix for a built-in", func(
 		ctx SpecContext,
 	) {
