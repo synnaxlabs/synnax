@@ -31,7 +31,7 @@ var _ domain.Source = logSource{}
 
 // OpenCursor implements domain.Source.
 func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return &logCursor{e: s.e, key: s.key, bounds: cfg.Bounds}
+	return domain.NewCursor(&logCursor{e: s.e, key: s.key, bounds: cfg.Bounds})
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it.
@@ -61,7 +61,7 @@ type logCursor struct {
 	cur logRange
 }
 
-var _ domain.Cursor = (*logCursor)(nil)
+var _ domain.Ranges = (*logCursor)(nil)
 
 // load loads the visible pointers of the key in time order.
 func (c *logCursor) load() {
@@ -91,22 +91,22 @@ func (c *logCursor) at(pos int) bool {
 	return c.valid
 }
 
-// SetBounds implements domain.Cursor.
+// SetBounds implements domain.Ranges.
 func (c *logCursor) SetBounds(bounds telem.TimeRange) {
 	c.bounds, c.valid = bounds, false
 }
 
-// SeekFirst implements domain.Cursor.
+// SeekFirst implements domain.Ranges.
 func (c *logCursor) SeekFirst(ctx context.Context) bool {
 	return c.SeekGE(ctx, c.bounds.Start)
 }
 
-// SeekLast implements domain.Cursor.
+// SeekLast implements domain.Ranges.
 func (c *logCursor) SeekLast(ctx context.Context) bool {
 	return c.SeekLE(ctx, c.bounds.End-1)
 }
 
-// SeekLE implements domain.Cursor.
+// SeekLE implements domain.Ranges.
 func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 	c.load()
 	pos, _ := slices.BinarySearchFunc(
@@ -119,7 +119,7 @@ func (c *logCursor) SeekLE(_ context.Context, stamp telem.TimeStamp) bool {
 	return c.at(pos - 1)
 }
 
-// SeekGE implements domain.Cursor.
+// SeekGE implements domain.Ranges.
 func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 	c.load()
 	pos, _ := slices.BinarySearchFunc(
@@ -132,25 +132,25 @@ func (c *logCursor) SeekGE(_ context.Context, stamp telem.TimeStamp) bool {
 	return c.at(pos)
 }
 
-// Next implements domain.Cursor.
+// Next implements domain.Ranges.
 func (c *logCursor) Next() bool { return c.valid && c.at(c.pos+1) }
 
-// Prev implements domain.Cursor.
+// Prev implements domain.Ranges.
 func (c *logCursor) Prev() bool { return c.valid && c.at(c.pos-1) }
 
-// Valid implements domain.Cursor.
+// Valid implements domain.Ranges.
 func (c *logCursor) Valid() bool { return c.valid }
 
-// TimeRange implements domain.Cursor.
+// TimeRange implements domain.Ranges.
 func (c *logCursor) TimeRange() telem.TimeRange { return c.cur.timeRange() }
 
-// Alignment implements domain.Cursor.
+// Alignment implements domain.Ranges.
 func (c *logCursor) Alignment() telem.Alignment { return c.cur.ptr.Alignment }
 
-// Size implements domain.Cursor.
+// Size implements domain.Ranges.
 func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 
-// OpenReader implements domain.Cursor.
+// OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	return &logReader{
@@ -161,7 +161,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	}, nil
 }
 
-// Close implements domain.Cursor.
+// Close implements domain.Ranges.
 func (c *logCursor) Close() error {
 	c.valid = false
 	return nil

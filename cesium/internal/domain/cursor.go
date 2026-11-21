@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Cursor moves over the committed ranges of one channel in time order. An Iterator is
-// the Cursor of the old layout, and the pointer log layout has its own.
-type Cursor interface {
+// Ranges moves over the committed ranges of one channel in time order. The pointer log
+// layout implements it, and a Cursor holds it.
+type Ranges interface {
 	// SetBounds sets the bounds of the cursor and invalidates it.
 	SetBounds(bounds telem.TimeRange)
 	// SeekFirst moves to the first range in the bounds, and returns false when none is.
@@ -64,16 +64,137 @@ type Source interface {
 	OpenCursor(cfg IteratorConfig) Cursor
 }
 
+// Cursor is the cursor of one channel on either layout: an Iterator of the old layout,
+// held by value so that a cursor of a read stays off the heap, or the Ranges of another
+// layout. A Cursor is not safe to copy once it is in use.
+type Cursor struct {
+	it     Iterator
+	ranges Ranges
+}
+
+// NewCursor returns the Cursor of r.
+func NewCursor(r Ranges) Cursor { return Cursor{ranges: r} }
+
 var (
-	_ Cursor      = (*Iterator)(nil)
+	_ Ranges      = (*Iterator)(nil)
 	_ RangeReader = (*reader)(nil)
 	_ Source      = (*DB)(nil)
 )
 
 // OpenCursor implements Source.
-func (db *DB) OpenCursor(cfg IteratorConfig) Cursor { return db.OpenIterator(cfg) }
+func (db *DB) OpenCursor(cfg IteratorConfig) Cursor {
+	db.resourceCount.Add(1)
+	c := Cursor{it: Iterator{db: db}}
+	c.it.SetBounds(cfg.Bounds)
+	return c
+}
 
-// Alignment implements Cursor. On the old layout, the position of a domain in the index
+// SetBounds sets the bounds of the cursor and invalidates it.
+func (c *Cursor) SetBounds(bounds telem.TimeRange) {
+	if c.ranges == nil {
+		c.it.SetBounds(bounds)
+		return
+	}
+	c.ranges.SetBounds(bounds)
+}
+
+// SeekFirst moves to the first range in the bounds.
+func (c *Cursor) SeekFirst(ctx context.Context) bool {
+	if c.ranges == nil {
+		return c.it.SeekFirst(ctx)
+	}
+	return c.ranges.SeekFirst(ctx)
+}
+
+// SeekLast moves to the last range in the bounds.
+func (c *Cursor) SeekLast(ctx context.Context) bool {
+	if c.ranges == nil {
+		return c.it.SeekLast(ctx)
+	}
+	return c.ranges.SeekLast(ctx)
+}
+
+// SeekLE moves to the range that holds stamp, or else to the last range before it.
+func (c *Cursor) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if c.ranges == nil {
+		return c.it.SeekLE(ctx, stamp)
+	}
+	return c.ranges.SeekLE(ctx, stamp)
+}
+
+// SeekGE moves to the range that holds stamp, or else to the first range after it.
+func (c *Cursor) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if c.ranges == nil {
+		return c.it.SeekGE(ctx, stamp)
+	}
+	return c.ranges.SeekGE(ctx, stamp)
+}
+
+// Next moves to the next range.
+func (c *Cursor) Next() bool {
+	if c.ranges == nil {
+		return c.it.Next()
+	}
+	return c.ranges.Next()
+}
+
+// Prev moves to the previous range.
+func (c *Cursor) Prev() bool {
+	if c.ranges == nil {
+		return c.it.Prev()
+	}
+	return c.ranges.Prev()
+}
+
+// Valid returns true when the cursor is at a range in its bounds.
+func (c *Cursor) Valid() bool {
+	if c.ranges == nil {
+		return c.it.Valid()
+	}
+	return c.ranges.Valid()
+}
+
+// TimeRange returns the time range of the current range.
+func (c *Cursor) TimeRange() telem.TimeRange {
+	if c.ranges == nil {
+		return c.it.TimeRange()
+	}
+	return c.ranges.TimeRange()
+}
+
+// Alignment returns the alignment of the first sample of the current range.
+func (c *Cursor) Alignment() telem.Alignment {
+	if c.ranges == nil {
+		return c.it.Alignment()
+	}
+	return c.ranges.Alignment()
+}
+
+// Size returns the bytes of the current range.
+func (c *Cursor) Size() telem.Size {
+	if c.ranges == nil {
+		return c.it.Size()
+	}
+	return c.ranges.Size()
+}
+
+// OpenReader returns a reader of the bytes of the current range.
+func (c *Cursor) OpenReader(ctx context.Context) (RangeReader, error) {
+	if c.ranges == nil {
+		return c.it.OpenReader(ctx)
+	}
+	return c.ranges.OpenReader(ctx)
+}
+
+// Close closes the cursor.
+func (c *Cursor) Close() error {
+	if c.ranges == nil {
+		return c.it.Close()
+	}
+	return c.ranges.Close()
+}
+
+// Alignment implements Ranges. On the old layout, the position of a domain in the index
 // is its alignment number.
 func (i *Iterator) Alignment() telem.Alignment {
 	return telem.NewAlignment(uint32(i.position), 0)

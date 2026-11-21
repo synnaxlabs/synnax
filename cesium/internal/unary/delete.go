@@ -50,14 +50,14 @@ func (db *DB) resolveByteOffset(
 	domainStart telem.TimeStamp,
 	sampleOffset int64,
 ) (off telem.Size, err error) {
-	iter := db.domain.OpenIterator(
+	iter := db.domain.OpenCursor(
 		domain.IterRange(domainStart.SpanRange(telem.TimeSpanMax)),
 	)
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekGE(ctx, domainStart) {
 		return 0, errors.Newf("cannot find domain starting at %s", domainStart)
 	}
-	return db.resolver.byteOffset(ctx, iter, sampleOffset)
+	return db.resolver.byteOffset(ctx, &iter, sampleOffset)
 }
 
 // claimForNonWriteOp claims tr for an operation that no writer may overlap.

@@ -842,11 +842,11 @@ func (i *Iterator) readSegment(
 	start int64,
 	tr telem.TimeRange,
 ) (segmentRead, error) {
-	offset, err := i.resolver.byteOffset(ctx, i.internal, start)
+	offset, err := i.resolver.byteOffset(ctx, &i.internal, start)
 	if err != nil {
 		return segmentRead{}, err
 	}
-	endOffset, err := i.resolver.byteOffset(ctx, i.internal, start+seg.Len)
+	endOffset, err := i.resolver.byteOffset(ctx, &i.internal, start+seg.Len)
 	if err != nil {
 		return segmentRead{}, err
 	}
@@ -1363,7 +1363,7 @@ func (i *Iterator) approximateStart(
 func (i *Iterator) approximateEnd(
 	ctx context.Context,
 ) (endApprox index.DistanceApproximation, err error) {
-	total, err := i.resolver.domainSampleCount(ctx, i.internal)
+	total, err := i.resolver.domainSampleCount(ctx, &i.internal)
 	if err != nil {
 		return index.DistanceApproximation{}, err
 	}
