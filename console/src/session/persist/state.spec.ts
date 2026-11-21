@@ -28,7 +28,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 import { Persist } from "@/session/persist";
 import { Window } from "@/session/window";
-import { MemoryKV, mockLocationReload } from "@/testutil";
+import { MemoryKV } from "@/testutil";
 
 interface MockState {
   core: { selected?: string };
@@ -1269,9 +1269,9 @@ describe("Persist.middleware", () => {
     it("should reload without stepping back the swap target's ring on a revert", async () => {
       const store = new CountingKV();
       const p2 = new GatedKV(store, P2_STATE);
-      const driver = await createDriver(store, { openKV: () => p2 });
+      const reload = vi.fn<() => void>();
+      const driver = await createDriver(store, { openKV: () => p2, reload });
       await swapToHeldP2(driver, p2);
-      const reload = mockLocationReload();
       const written = store.writes.length;
       driver.dispatch(Persist.revertState());
       p2.release();

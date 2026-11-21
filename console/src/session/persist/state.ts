@@ -180,6 +180,8 @@ export interface Config<S extends object> {
    * Receives each storage failure the session recovers from. Defaults to console.error.
    */
   onError?: (error: Error) => void;
+  /** Reloads the page after a revert or clear. Defaults to window.location.reload. */
+  reload?: () => void;
 }
 
 export const revertState = createAction("persist/revertState");
@@ -403,6 +405,7 @@ class Engine<S extends object> {
   /** Whether composing state on open failed outright. */
   unreadable = false;
   readonly onError: (error: Error) => void;
+  readonly reload: () => void;
 
   private readonly db: SugaredKV;
   private readonly partitions = new Map<string, Partition<S>>();
@@ -437,6 +440,7 @@ class Engine<S extends object> {
     migrate,
     openKV = openSugaredKV,
     onError = console.error,
+    reload = () => window.location.reload(),
   }: Config<S>) {
     this.initial = deep.copy(initial);
     this.scopes = scopes;
@@ -457,6 +461,7 @@ class Engine<S extends object> {
     this.exclude = exclude;
     this.migrate = migrate;
     this.onError = onError;
+    this.reload = reload;
     this.db = openKV(STORE_NAME);
     this.initialState = deep.copy(initial);
     this.context = getContext(this.initialState);
@@ -786,14 +791,14 @@ const createMiddleware = <S extends object>(
         // Mid-swap, no partition holds what the store shows. The swap's flush already
         // selected the target, so the reload alone composes it.
         (swap == null ? engine.revert(current, state) : queue)
-          .then(() => window.location.reload())
+          .then(() => engine.reload())
           .catch((err: unknown) => {
             engine.onError(new Error("failed to revert state", { cause: err }));
           });
       else if (type === clearState.type)
         engine
           .clear()
-          .then(() => window.location.reload())
+          .then(() => engine.reload())
           .catch((err: unknown) => {
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
