@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -32,7 +32,7 @@ type ServiceConfig struct {
 	// channels.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -72,7 +72,7 @@ func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, updates: observe.New[Update]()}
-	s.disconnectStorage = cfg.TS.OnControlUpdate(func(u ts.ControlUpdate) {
+	s.disconnectStorage = cfg.TS.OnControlUpdate(func(u cesium.ControlUpdate) {
 		// Storage gives no context. Subscribers use their own.
 		s.updates.Notify(context.Background(), updateFromStorage(u))
 	})
