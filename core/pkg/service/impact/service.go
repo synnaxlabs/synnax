@@ -212,13 +212,14 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 
 // Apply carries out c in tx with the picks of opts. With no picks, no hidden pick, and
 // no token, it deletes as channel.Writer.DeleteMany does with allowInternal false,
-// which applies the default of every record, and returns an empty plan. Otherwise it
-// plans c with the picks in tx, as Plan does, and fails with a PlanChangedError before
-// any write when opts.Token names another plan. It returns the entries that it applied,
-// as opts.Visible lets the caller see them. A restrict entry that takes cancel fails
-// Apply with the gorp.RestrictError of its record. A delete pick on a record other than
-// a channel deletes it through ServiceConfig.Delete before the channels go. Picks fail
-// as they fail Plan. Given a gorp.DB, Apply runs in a transaction of its own.
+// which applies the default of every record, and returns a plan of c with no entries.
+// Otherwise it plans c with the picks in tx, as Plan does, and fails with a
+// PlanChangedError before any write when opts.Token names another plan. It returns the
+// entries that it applied, as opts.Visible lets the caller see them. A restrict entry
+// that takes cancel fails Apply with the gorp.RestrictError of its record. A delete
+// pick on a record other than a channel deletes it through ServiceConfig.Delete before
+// the channels go. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a
+// transaction of its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -238,7 +239,10 @@ func (s *Service) Apply(
 	}
 	w := s.cfg.Channel.NewWriter(tx)
 	if len(opts.Picks) == 0 && opts.Hidden == nil && opts.Token == "" {
-		return Plan{}, w.DeleteMany(ctx, keys, false)
+		if err = w.DeleteMany(ctx, keys, false); err != nil {
+			return Plan{}, err
+		}
+		return Plan{Change: c}, nil
 	}
 	chosen, err := newPicks(PlanOptions{
 		Picks:   opts.Picks,
