@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
@@ -297,19 +298,19 @@ var _ = Describe("Sweep crash check", func() {
 					var kept2 []cesium.KeptChannel
 					kept2, _, err = re.Sweep(ctx, records)
 					if err == nil && len(kept2) > 0 {
-						err = fmt.Errorf("kept %v", kept2)
+						err = errors.Newf("kept %v", kept2)
 					}
 				}
 				if err == nil {
 					if _, rErr := re.RetrieveChannel(ctx, dropped); rErr == nil {
-						err = fmt.Errorf("dropped channel still open")
+						err = errors.Newf("dropped channel still open")
 					}
 				}
 				if err == nil {
 					var fr cesium.Frame
 					if fr, err = re.Read(ctx, telem.TimeRangeMax, kept); err == nil &&
 						fr.Get(kept).Len() != 3 {
-						err = fmt.Errorf("kept channel holds %d samples",
+						err = errors.Newf("kept channel holds %d samples",
 							fr.Get(kept).Len())
 					}
 				}

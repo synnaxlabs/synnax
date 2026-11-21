@@ -24,7 +24,6 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -40,7 +39,7 @@ func openLog(ctx context.Context, fs xfs.FS) (*cesium.DB, func() error, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	stop := testutil.GoRun(ctx, db.Run)
+	stop := GoRun(ctx, db.Run)
 	return db, func() error {
 		if err := stop(); err != nil {
 			return err
@@ -166,7 +165,7 @@ var _ = Describe("Pointer log open check", func() {
 	It("Should open each crash image of the first open of a database", func(
 		ctx SpecContext,
 	) {
-		var failures []string
+		failures := make([]string, 0, 4)
 		for runKey := range uint64(4) {
 			im := &images{disk: MustSucceed(fault.New(fault.Config{})), runKey: runKey}
 			im.taking.Store(true)
@@ -182,7 +181,7 @@ var _ = Describe("Pointer log open check", func() {
 	})
 
 	It("Should open each crash image of a channel create", func(ctx SpecContext) {
-		var failures []string
+		failures := make([]string, 0, 4)
 		for runKey := range uint64(4) {
 			im := &images{disk: MustSucceed(fault.New(fault.Config{})), runKey: runKey}
 			db, closeDB := MustSucceed2(openLog(ctx, durableFS{
