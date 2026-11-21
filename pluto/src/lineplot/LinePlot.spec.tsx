@@ -896,6 +896,17 @@ describe("LinePlot", () => {
       });
     });
 
+    it("should not toggle a break on a click on the x2 axis", async () => {
+      const { getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.XAxis axisKey="x2" location="top" type="time" />
+      ));
+      const axis = document.querySelector(".pluto-axis");
+      expect(axis).not.toBeNull();
+      fireEvent.click(axis!, { clientX: 120 });
+      await act(async () => {});
+      expect(getBreakChange).not.toHaveBeenCalled();
+    });
+
     it("should open every break from its ref", async () => {
       const { ref, getBreakChange, view } = await renderFrame();
       act(() => ref.current?.setAllBreaks(true));
