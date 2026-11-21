@@ -81,12 +81,12 @@ func owners(
 	return l, st
 }
 
-// fill appends 12 entries of 10,000 intents to l, which passes three quarters of a log
-// of logSize.
+// fill appends entries of 10,000 intents to l, of 160 KB each, until they pass three
+// quarters of a log of logSize.
 func fill(l *log.Log) chan error {
 	done := make(chan error, 1)
 	go func() {
-		for i := range uint32(12) {
+		for i := range uint32(logSize/4*3/(16*10_000) + 2) {
 			var e log.Entry
 			for k := range uint32(10_000) {
 				e.Add(&log.Intent{Key: 1_000_000 + i*10_000 + k})
