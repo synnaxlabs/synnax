@@ -650,9 +650,13 @@ describe("Cache", () => {
       const table = cache.createTable<string, Doc>({ name: "docs", fetch });
       table.set("k", { key: "k", name: "stale" });
       await cache.ensureStreaming();
+      const missed = vi.fn();
+      cache.onMissed(missed);
       name = "fresh";
       state.onMissed?.();
-      expect(cache.epoch).toBe(2);
+      // The stream stays open, so the epoch holds.
+      expect(cache.epoch).toBe(1);
+      expect(missed).toHaveBeenCalledTimes(1);
       await expect.poll(() => table.get("k")).toEqual({ key: "k", name: "fresh" });
       expect(state.opens).toBe(1);
       expect(cache.live).toBe(true);
@@ -673,7 +677,7 @@ describe("Cache", () => {
       state.onMissed?.();
       state.onMissed?.();
       state.onMissed?.();
-      expect(cache.epoch).toBe(4);
+      expect(cache.epoch).toBe(1);
       gate.resolve();
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
       await sleep.sleep(TimeSpan.milliseconds(20));
