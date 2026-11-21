@@ -16,8 +16,7 @@
 //
 //  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the ts.TS interface) for writing frames of
-//     telemetry.
+//  2. A time-series engine (Cesium) for writing frames of telemetry.
 //
 // It's important to note that the storage package does NOT manage any sort of
 // distributed storage implementation.
@@ -37,7 +36,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
@@ -517,16 +515,17 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 	return pebblekv.Wrap(db, logger), nil
 }
 
-func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
 			"[storage] - unsupported time-series engine: %s",
 			cfg.TSEngine,
 		)
 	}
-	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
-		FS:              fs,
-	})
+	return cesium.Open(
+		ctx,
+		filepath.Join(cfg.Dirname, cesiumDir),
+		cesium.WithFS(fs),
+		cesium.WithInstrumentation(cfg.Child("ts")),
+	)
 }
