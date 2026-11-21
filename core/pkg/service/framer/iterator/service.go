@@ -270,7 +270,7 @@ func (s *Service) newCalculationTransform(
 	if err != nil {
 		return nil, nil, err
 	}
-	channels, calcs, err := s.retrieveCalculations(ctx, channels)
+	channels, calcs, err := s.retrieveCalculations(ctx, cfg.Keys, channels)
 	if err != nil || len(calcs) == 0 {
 		return nil, nil, err
 	}
@@ -338,11 +338,13 @@ func (s *Service) retrieveChannels(
 	return channels, nil
 }
 
-// retrieveCalculations returns channels with the calculated channels that write their
-// free indexes added, since a free index has no calculation of its own. It also returns
-// the calculations that write any of those channels, by output.
+// retrieveCalculations returns channels, the stored channels of keys, with the
+// calculated channels that write their free indexes added, since a free index has no
+// calculation of its own. It also returns the calculations that write any of those
+// channels, by output.
 func (s *Service) retrieveCalculations(
 	ctx context.Context,
+	keys []channel.Key,
 	channels []channel.Channel,
 ) ([]channel.Channel, map[channel.Key]calculation.Calculation, error) {
 	freeIndexes := lo.FilterMap(
@@ -351,18 +353,20 @@ func (s *Service) retrieveCalculations(
 			return ch.Key(), ch.IsIndex && ch.Key().Free()
 		},
 	)
+	if len(freeIndexes) == 0 {
+		calcs, err := s.cfg.Calculation.Outputs(ctx, s.cfg.DB, keys...)
+		return channels, calcs, err
+	}
 	var (
 		indexed []channel.Channel
 		calcs   map[channel.Key]calculation.Calculation
 	)
 	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		if len(freeIndexes) > 0 {
-			if err = s.cfg.Channel.NewRetrieve().
-				Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
-				Entries(&indexed).
-				Exec(ctx, snap); err != nil {
-				return err
-			}
+		if err = s.cfg.Channel.NewRetrieve().
+			Where(s.cfg.Channel.MatchIndexes(freeIndexes...)).
+			Entries(&indexed).
+			Exec(ctx, snap); err != nil {
+			return err
 		}
 		calcs, err = s.cfg.Calculation.Outputs(
 			ctx,
