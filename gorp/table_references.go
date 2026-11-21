@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,10 +27,22 @@ func (t *Table[K, E]) register(named bool) error {
 	if !named && len(t.references) == 0 {
 		return nil
 	}
+	names := make(set.Set[string], len(t.references))
 	for i, r := range t.references {
-		if err := r.validate(t.name); err != nil {
+		err := r.validate(t.name)
+		if err == nil && names.Contains(r.referenceName()) {
+			err = validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"names another reference of the table",
+				),
+				"name",
+			)
+		}
+		if err != nil {
 			return validate.PathedError(err, t.name, "references", strconv.Itoa(i))
 		}
+		names.Add(r.referenceName())
 		r.bind(t.name, i)
 	}
 	if err := t.db.registry.register(t.name, t.keyPrefix, t); err != nil {

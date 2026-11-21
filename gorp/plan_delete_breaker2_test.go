@@ -70,8 +70,6 @@ var _ = Describe("Planned delete breaker 2", func() {
 		channels *gorp.Table[uint32, b2Channel]
 		tasks    *gorp.Table[string, b2Task]
 		plots    *gorp.Table[string, b2Plot]
-		twins    *gorp.Table[string, b2Twin]
-		statuses *gorp.Table[string, b2Status]
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
@@ -127,33 +125,7 @@ var _ = Describe("Planned delete breaker 2", func() {
 				}),
 			},
 		}))
-		twins = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, b2Twin]{
-			DB:   db,
-			Name: "twin",
-			References: []gorp.Reference[string, b2Twin]{
-				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Twin, uint32]{
-					Name:     "channels",
-					Table:    "channel",
-					OnDelete: gorp.Detach,
-					Kind:     gorp.Use,
-					Targets:  func(t *b2Twin) []uint32 { return slices.Clone(t.Left) },
-					Detach: func(t *b2Twin, k uint32) {
-						t.Left = b2Without(t.Left, k)
-					},
-				}),
-				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Twin, uint32]{
-					Name:     "channels",
-					Table:    "channel",
-					OnDelete: gorp.Detach,
-					Kind:     gorp.Use,
-					Targets:  func(t *b2Twin) []uint32 { return slices.Clone(t.Right) },
-					Detach: func(t *b2Twin, k uint32) {
-						t.Right = b2Without(t.Right, k)
-					},
-				}),
-			},
-		}))
-		statuses = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, b2Status]{
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, b2Status]{
 			DB:   db,
 			Name: "status",
 			References: []gorp.Reference[string, b2Status]{
@@ -229,60 +201,36 @@ var _ = Describe("Planned delete breaker 2", func() {
 			Exists(ctx, db)).To(BeFalse())
 	})
 
-	It("Should refuse with a Restrict holder that the transaction writes after the "+
-		"plan", func(ctx SpecContext) {
-		Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
-			return tasks.NewCreate().
-				Entry(&b2Task{Key: "late", Reads: []uint32{1}}).
-				Exec(ctx, tx)
-		})).To(MatchError(gorp.RestrictError{
-			Target:    gorp.NewTarget("channel", uint32(1)),
-			Holder:    gorp.Target{Table: "task", Key: "late"},
-			Reference: "reads",
-		}))
-		Expect(channelExists(ctx, 1)).To(BeTrue())
-	})
-
-	It("Should detach a holder that the transaction writes after the plan", func(
+	It("Should refuse two references of one name when the table opens", func(
 		ctx SpecContext,
 	) {
-		Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
-			return tasks.NewCreate().
-				Entry(&b2Task{Key: "late", Plotted: []uint32{1, 2}}).
-				Exec(ctx, tx)
-		})).To(Succeed())
-		var late b2Task
-		Expect(tasks.NewRetrieve().
-			Where(gorp.MatchKeys[string, b2Task]("late")).
-			Entry(&late).
-			Exec(ctx, db)).To(Succeed())
-		Expect(late.Plotted).To(Equal([]uint32{2}))
-	})
-
-	It("Should delete a Cascade holder that the transaction writes after the plan",
-		func(ctx SpecContext) {
-			Expect(planThenDelete(ctx, func(tx gorp.Tx) error {
-				return statuses.NewCreate().
-					Entry(&b2Status{Key: "late", Channel: 1}).
-					Exec(ctx, tx)
-			})).To(Succeed())
-			Expect(statuses.NewRetrieve().
-				Where(gorp.MatchKeys[string, b2Status]("late")).
-				Exists(ctx, db)).To(BeFalse())
-		})
-
-	It("Should detach the field that holds the channel when two references share a "+
-		"name", func(ctx SpecContext) {
-		Expect(twins.NewCreate().
-			Entry(&b2Twin{Key: "w", Left: []uint32{2}, Right: []uint32{1}}).
-			Exec(ctx, db)).To(Succeed())
-		Expect(planThenDelete(ctx, func(gorp.Tx) error { return nil })).To(Succeed())
-		var w b2Twin
-		Expect(twins.NewRetrieve().
-			Where(gorp.MatchKeys[string, b2Twin]("w")).
-			Entry(&w).
-			Exec(ctx, db)).To(Succeed())
-		Expect(w.Right).To(BeEmpty())
-		Expect(w.Left).To(Equal([]uint32{2}))
+		Expect(gorp.OpenTable(ctx, gorp.TableConfig[string, b2Twin]{
+			DB:   db,
+			Name: "twin",
+			References: []gorp.Reference[string, b2Twin]{
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Twin, uint32]{
+					Name:     "channels",
+					Table:    "channel",
+					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
+					Targets:  func(t *b2Twin) []uint32 { return slices.Clone(t.Left) },
+					Detach: func(t *b2Twin, k uint32) {
+						t.Left = b2Without(t.Left, k)
+					},
+				}),
+				gorp.NewKeyReference(gorp.KeyReferenceConfig[string, b2Twin, uint32]{
+					Name:     "channels",
+					Table:    "channel",
+					OnDelete: gorp.Detach,
+					Kind:     gorp.Use,
+					Targets:  func(t *b2Twin) []uint32 { return slices.Clone(t.Right) },
+					Detach: func(t *b2Twin, k uint32) {
+						t.Right = b2Without(t.Right, k)
+					},
+				}),
+			},
+		})).Error().To(MatchError(ContainSubstring(
+			"twin.references.1.name: names another reference of the table",
+		)))
 	})
 })

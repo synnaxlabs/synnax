@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -346,6 +347,9 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
+	// planned is true for a plan that PlanDelete made before the caller removed the
+	// Restrict holders, which can remove a Detach holder too.
+	planned bool
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
@@ -468,6 +472,7 @@ func (r *registry) planned(
 		}
 	}
 	p := newDeletePlan(table)
+	p.planned = true
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
 	}
@@ -653,7 +658,11 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		if err != nil {
 			return err
 		}
-		if err := t.detach(ctx, tx, dep.Key, ops); err != nil {
+		err = t.detach(ctx, tx, dep.Key, ops)
+		if p.planned && errors.Is(err, query.ErrNotFound) {
+			continue
+		}
+		if err != nil {
 			return err
 		}
 	}
