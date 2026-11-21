@@ -385,6 +385,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.docs.intercept({
       base: (key) => (this.writing ? undefined : this.rebases.get(key)?.base),
       apply: (key, doc) => this.overlay(key, doc),
+      keys: () => this.rebases.keys(),
     });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
     opts.onStreamDown(() => {
@@ -664,6 +665,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (held) {
       this.markFetch(key);
       this.docs.stampWrite(key);
+      // A list that the Core answered before it applied the entry places the key again.
+      this.docs.renotify(key);
     } else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets: applied?.targets ?? [] };

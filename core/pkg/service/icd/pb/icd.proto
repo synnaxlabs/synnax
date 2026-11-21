@@ -117,6 +117,9 @@ message Message {
   string name = 2;
   // payload is the layout of the message's payload.
   Payload payload = 3;
+  // cycle_time is the send cycle that the protocol states for the message. When absent
+  // the protocol states none.
+  optional int64 cycle_time = 4;
 }
 
 // ICD is an interface control document: the messages a system sends and receives, and

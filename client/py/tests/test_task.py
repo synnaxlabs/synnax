@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from typing import Any, assert_type
 from uuid import UUID, uuid4
 
@@ -41,6 +42,27 @@ def _ai_channel(
     return sy.ni.AIVoltageChannel(port=port, channel=ch.key, device=device)
 
 
+class _Driver:
+    """Runs a fake Driver on a thread. join raises the error that ended the thread, so
+    an assertion in the Driver fails the test."""
+
+    def __init__(self, target: Callable[..., None], *args: object) -> None:
+        self._error: BaseException | None = None
+        self._thread = threading.Thread(target=self._run, args=(target, *args))
+        self._thread.start()
+
+    def _run(self, target: Callable[..., None], *args: object) -> None:
+        try:
+            target(*args)
+        except BaseException as e:
+            self._error = e
+
+    def join(self) -> None:
+        self._thread.join()
+        if self._error is not None:
+            raise self._error
+
+
 def _reply_to_next_command(
     client: sy.Synnax,
     ready: threading.Event,
@@ -63,6 +85,87 @@ def _reply_to_next_command(
                 owner=sy.task.resource_id(cmd.task),
             )
         )
+
+
+@pytest.fixture(scope="module")
+def silent_rack(client: sy.Synnax) -> sy.Rack:
+    """A rack that no Driver serves, whose outage the Core has already reported. The
+    outage comes 5 to 10 seconds after the create, and it ends any command wait it
+    lands in."""
+    r = client.racks.create(name=random_name())
+    owner = sy.rack.resource_id(r.key)
+    [created] = client.statuses.retrieve(owners=[owner])
+
+    def outage_reported() -> None:
+        [current] = client.statuses.retrieve(owners=[owner])
+        assert current.time != created.time
+
+    assert_eventually(outage_reported, timeout=15)
+    return r
+
+
+class _ManualTimer:
+    """A timer that passes only when a test sets passed."""
+
+    def __init__(self, span: sy.TimeSpan) -> None:
+        self.span = span
+        self.passed = False
+
+    def remaining(self) -> sy.TimeSpan:
+        return sy.TimeSpan.ZERO if self.passed else self.span
+
+
+class _ManualTimers:
+    """Starts manual timers and lets a test wait for each one to start."""
+
+    def __init__(self) -> None:
+        self._timers: list[_ManualTimer] = []
+        self._started = threading.Condition()
+
+    def __call__(self, span: sy.TimeSpan) -> _ManualTimer:
+        with self._started:
+            self._timers.append(_ManualTimer(span))
+            self._started.notify_all()
+            return self._timers[-1]
+
+    def started(self, index: int) -> _ManualTimer:
+        """Returns the timer started at the index, once it starts."""
+        with self._started:
+            assert self._started.wait_for(lambda: len(self._timers) > index, 10)
+            return self._timers[index]
+
+    @contextmanager
+    def released(self, client: sy.Synnax) -> Generator[None]:
+        """Passes every timer when the block raises, so a failed Driver does not leave
+        the command waiting."""
+        try:
+            yield
+        except BaseException:
+            with self._started:
+                for timer in self._timers:
+                    timer.passed = True
+            _wake(client)
+            raise
+
+
+def _wake(client: sy.Synnax) -> None:
+    """Writes a status that no command waits for, so a waiting command reads its
+    timer again."""
+    client.statuses.set(sy.Status(variant=sy.status.VARIANT_INFO, message="Wake"))
+
+
+def _set_reply(
+    client: sy.Synnax, cmd: sy.task.Command, variant: sy.status.Variant
+) -> None:
+    """Writes the status a Driver sends in reply to the command."""
+    client.statuses.set(
+        sy.task.Status(
+            variant=variant,
+            message="Starting task",
+            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
+            owner=sy.task.resource_id(cmd.task),
+        )
+    )
 
 
 @pytest.mark.task
@@ -291,8 +394,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         ev.wait()
         tsk.execute_command_sync("test", args={"key": "value"})
@@ -350,8 +452,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         timer = sy.Timer()
         with pytest.raises(RuntimeError) as err:
@@ -398,8 +499,7 @@ class TestTaskClient:
                 )
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         status = tsk.execute_command_sync("test", timeout=60)
         assert status.message == "Command executed."
@@ -434,8 +534,7 @@ class TestTaskClient:
                     sy.sleep(2)
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
         status = tsk.execute_command_sync("start", timeout=1)
         assert status.variant == sy.status.VARIANT_SUCCESS
@@ -450,11 +549,14 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_ERROR, "Failed", "slave 1 refused"),
+        t = _Driver(
+            _reply_to_next_command,
+            client,
+            ready,
+            sy.status.VARIANT_ERROR,
+            "Failed",
+            "slave 1 refused",
         )
-        t.start()
         ready.wait()
         with pytest.raises(RuntimeError) as err:
             tsk.start(timeout=5)
@@ -470,11 +572,14 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert")
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_ERROR, "Failed to read data", ""),
+        t = _Driver(
+            _reply_to_next_command,
+            client,
+            ready,
+            sy.status.VARIANT_ERROR,
+            "Failed to read data",
+            "",
         )
-        t.start()
         ready.wait()
         tsk.stop(timeout=5)
         t.join()
@@ -488,24 +593,22 @@ class TestTaskClient:
             client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
         )
         ready = threading.Event()
-        t = threading.Thread(
-            target=_reply_to_next_command,
-            args=(client, ready, sy.status.VARIANT_SUCCESS, "Done", ""),
+        t = _Driver(
+            _reply_to_next_command, client, ready, sy.status.VARIANT_SUCCESS, "Done", ""
         )
-        t.start()
         ready.wait()
         getattr(tsk, command)(timeout=5)
         t.join()
 
     def test_execute_command_sync_ends_when_no_final_status_follows_a_loading_reply(
-        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
+        self, client: sy.Synnax, silent_rack: sy.Rack
     ) -> None:
         """A Driver that restarts after a loading reply never sends the final status,
-        so the wait ends at its limit."""
-        monkeypatch.setattr(
-            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        so the wait ends two minutes after the reply."""
+        tsk = client.tasks.create(
+            name="test", type="pagerduty_alert", rack=silent_rack.key
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        timers = _ManualTimers()
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -513,35 +616,29 @@ class TestTaskClient:
                 f = s.read(timeout=5)
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
-                client.statuses.set(
-                    sy.task.Status(
-                        variant=sy.status.VARIANT_LOADING,
-                        message="Starting task",
-                        details=sy.task.StatusDetails(running=False, cmd=cmd.key),
-                        owner=sy.task.resource_id(cmd.task),
-                    )
-                )
+                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                with timers.released(client):
+                    final = timers.started(1)
+                    assert final.span == 2 * sy.TimeSpan.MINUTE
+                    final.passed = True
+                    _wake(client)
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
-        timer = sy.Timer()
         with pytest.raises(TimeoutError) as err:
-            tsk.execute_command_sync("start", timeout=0.5)
+            tsk.execute_command_sync("start", timeout=5, timer=timers)
         assert str(err.value) == "timed out waiting for driver to finish start command"
-        assert timer.elapsed() < 5 * sy.TimeSpan.SECOND
         t.join()
 
-    def test_execute_command_sync_waits_while_loading_statuses_arrive(
-        self, client: sy.Synnax, rack: sy.Rack, monkeypatch: pytest.MonkeyPatch
+    def test_execute_command_sync_restarts_the_wait_on_each_loading_reply(
+        self, client: sy.Synnax, silent_rack: sy.Rack
     ) -> None:
-        """Each loading status restarts the wait, so a command whose loading statuses
-        span more than the limit still gets its final status."""
-        monkeypatch.setattr(
-            "synnax.task.client._FINAL_STATUS_TIMEOUT", sy.TimeSpan.SECOND
+        """Each loading reply restarts the wait for the final status."""
+        tsk = client.tasks.create(
+            name="test", type="pagerduty_alert", rack=silent_rack.key
         )
-        tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
+        timers = _ManualTimers()
 
         def driver(ev: threading.Event) -> None:
             with client.open_streamer("sy_task_cmd") as s:
@@ -549,23 +646,19 @@ class TestTaskClient:
                 f = s.read(timeout=5)
                 assert f is not None
                 cmd = sy.task.Command.model_validate(f["sy_task_cmd"][0])
-                replies = [sy.status.VARIANT_LOADING] * 4 + [sy.status.VARIANT_SUCCESS]
-                for variant in replies:
-                    client.statuses.set(
-                        sy.task.Status(
-                            variant=variant,
-                            message="Starting task",
-                            details=sy.task.StatusDetails(running=False, cmd=cmd.key),
-                            owner=sy.task.resource_id(cmd.task),
-                        )
-                    )
-                    sy.sleep(0.6)
+                _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                with timers.released(client):
+                    first = timers.started(1)
+                    _set_reply(client, cmd, sy.status.VARIANT_LOADING)
+                    timers.started(2)
+                    first.passed = True
+                    _wake(client)
+                    _set_reply(client, cmd, sy.status.VARIANT_SUCCESS)
 
         ev = threading.Event()
-        t = threading.Thread(target=driver, args=(ev,))
-        t.start()
+        t = _Driver(driver, ev)
         ev.wait()
-        status = tsk.execute_command_sync("start", timeout=0.5)
+        status = tsk.execute_command_sync("start", timeout=5, timer=timers)
         assert status.variant == sy.status.VARIANT_SUCCESS
         t.join()
 

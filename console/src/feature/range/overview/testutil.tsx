@@ -27,6 +27,7 @@ import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   CaptureStatuses,
   createTestStore,
+  preload,
   renderSuspended,
   type TestStore,
 } from "@/testutil";
@@ -96,3 +97,7 @@ export const renderOverview = async (
     });
   return { store, project: proj.key, setTabResource, statuses: () => statuses };
 };
+
+/** Loads the module of the lazy overview before the specs of a file run. */
+export const preloadOverview = (): void =>
+  preload(async () => await import("@/feature/range/overview/Overview"));
