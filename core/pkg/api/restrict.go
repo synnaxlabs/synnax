@@ -25,8 +25,8 @@ import (
 )
 
 // restrictMiddleware rewrites the error of a delete that a restrict reference refuses,
-// so it names the records involved instead of their tables and keys. It names only the
-// records that the caller can retrieve.
+// so it names the records involved instead of their tables and keys. A record that the
+// caller cannot retrieve shows only its type.
 func restrictMiddleware(
 	db *gorp.DB,
 	res *resource.Service,
@@ -80,9 +80,13 @@ func describeRestrict(
 			Key:  restrict.Holder.Key,
 		}
 	}
-	var found []resource.Resource
+	var (
+		found   []resource.Resource
+		allowed func(resource.ID) bool
+	)
 	if rErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		allowed, err := rbacSvc.NewEnforcer(snap).Allowed(
+		var err error
+		allowed, err = rbacSvc.NewEnforcer(snap).Allowed(
 			ctx,
 			auth.GetSubject(ctx),
 			access.ActionRetrieve,
@@ -102,16 +106,18 @@ func describeRestrict(
 	for _, r := range found {
 		names[r.ID] = r.Name
 	}
-	// A record shows its key when the caller cannot retrieve it, or when a concurrent
-	// delete removes it between the refusal and the lookup.
+	// A record that the caller cannot retrieve shows only its type. One that a
+	// concurrent delete removes between the refusal and the lookup shows its key.
 	name := func(id resource.ID) string {
-		if n, ok := names[id]; ok {
-			return n
+		if !allowed(id) {
+			return "a hidden " + string(id.Type)
 		}
-		return id.Key
+		if n, ok := names[id]; ok {
+			return string(id.Type) + " " + n
+		}
+		return string(id.Type) + " " + id.Key
 	}
-	msg := "cannot delete " + string(target.Type) + " " + name(target) + " because " +
-		string(holder.Type) + " " + name(holder) + " uses it"
+	msg := "cannot delete " + name(target) + " because " + name(holder) + " uses it"
 	if !ofTask {
 		msg += " as its " + restrict.Reference
 	}
