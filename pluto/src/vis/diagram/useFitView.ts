@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import { useEffect, useRef } from "react";
 
-import { type diagram } from "@/vis/diagram/aether";
+import type { diagram } from "@/vis/diagram/aether";
 import { selectNodesScreenBounds } from "@/vis/diagram/util";
 
 /**

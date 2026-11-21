@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license as client } from "@synnaxlabs/client";
+import type { license as client } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
-import { type Activation, type License } from "@/server/db/schema";
+import type { Activation, License } from "@/server/db/schema";
 
 export const NOW = new Date("2026-09-17T12:00:00Z");
 

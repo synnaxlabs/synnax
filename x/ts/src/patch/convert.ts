@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type Action } from "@/patch/patch";
-import { type Guard } from "@/patch/types.gen";
+import type { Action } from "@/patch/patch";
+import type { Guard } from "@/patch/types.gen";
 import { zod } from "@/zod";
 
 type PathConverter = typeof caseconv.snakeToCamelPath;

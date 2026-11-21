@@ -1,0 +1,158 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs Console browser specs many times against a Core on the runner of the Console
+# tests, to reproduce a flake. The run tests the ref it is dispatched on, and keeps the
+# Core log, the failure screenshots, and the Vitest output.
+
+name: Test - Console repeat
+
+on:
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: Space-separated spec paths in console, or empty for every spec
+        required: false
+        type: string
+        default: ""
+      filter:
+        description: A Vitest -t pattern for the test names, or empty for every test
+        required: false
+        type: string
+        default: ""
+      project:
+        description:
+          The Vitest browser projects, such as webkit, desktop-webkit, or *webkit for
+          both
+        required: false
+        type: string
+        default: "*webkit"
+      repeats:
+        description: How many more times Vitest runs each test after the first
+        required: false
+        type: number
+        default: 20
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs before the Core image build, so a bad dispatch fails at once. Every browser
+  # spec, run 20 more times, outlasts the job.
+  check:
+    name: Check the selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the selection
+        env:
+          FILTER: ${{ inputs.filter }}
+          SPECS: ${{ inputs.specs }}
+        run: |
+          blank() { [[ -n $1 && -z ${1//[[:space:]]/} ]]; }
+          if blank "$SPECS" || blank "$FILTER"; then
+            echo "::error::specs and filter must not be only whitespace."
+            exit 1
+          fi
+          if [[ -z $SPECS && -z $FILTER ]]; then
+            echo "::error::Set specs, filter, or both."
+            exit 1
+          fi
+
+  core-image:
+    needs: check
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: core
+      repository: ghcr.io/synnaxlabs/synnax
+
+  repeat:
+    name: Repeat (${{ inputs.project }})
+    needs: core-image
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Start Core
+        uses: ./.github/actions/start-service
+        env:
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        with:
+          name: synnax
+          image: ${{ needs.core-image.outputs.image }}
+          port: 9090
+          token: ${{ github.token }}
+          variables: SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Install browsers
+        uses: ./.github/actions/setup-browsers
+        timeout-minutes: 20
+        with:
+          package: console
+
+      - name: Test
+        timeout-minutes: 90
+        env:
+          FILTER: ${{ inputs.filter }}
+          PROJECT: ${{ inputs.project }}
+          REPEATS: ${{ inputs.repeats }}
+          SPECS: ${{ inputs.specs }}
+          SYNNAX_TEST_CACHE_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          read -ra specs <<< "$SPECS"
+          args=(--run --project "$PROJECT" --repeats "$REPEATS")
+          if [ -n "$FILTER" ]; then args+=(-t "$FILTER"); fi
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          set -o pipefail
+          pnpm test:console --log-order=stream --log-prefix=none -- "${args[@]}" \
+            "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/diagnostics/vitest.log"
+
+      - name: Collect the diagnostics
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          if docker inspect synnax &> /dev/null; then
+            docker logs synnax &> "$RUNNER_TEMP/diagnostics/core.log"
+          fi
+          if [ -d console/.vitest/attachments ]; then
+            cp -R console/.vitest/attachments "$RUNNER_TEMP/diagnostics/attachments"
+          fi
+
+      - name: Upload the diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: console-repeat-diagnostics
+          path: ${{ runner.temp }}/diagnostics
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
+
+      - name: Stop the Core
+        if: always()
+        run: docker rm --force synnax 2> /dev/null || true

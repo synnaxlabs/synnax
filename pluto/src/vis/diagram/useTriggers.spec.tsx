@@ -9,7 +9,7 @@
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useTriggers, type UseTriggersProps } from "@/vis/diagram/useTriggers";

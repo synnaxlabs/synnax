@@ -1837,6 +1837,8 @@ describe("TimeSpan", () => {
 describe("Rate", () => {
   test("construct", () => expect(new Rate(1).equals(1)).toBe(true));
 
+  test("toString", () => expect(new Rate(5).toString()).toEqual("5 Hz"));
+
   test("period", () => expect(new Rate(1).period.equals(TimeSpan.SECOND)).toBe(true));
 
   test("period", () =>

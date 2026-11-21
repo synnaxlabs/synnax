@@ -35,6 +35,10 @@ describe("media", () => {
       expect(check(`<img src="${IMAGE}" alt="">`)).toEqual([]);
     });
 
+    it("should pass an image with a bare alt attribute", () => {
+      expect(check(`<img src="${IMAGE}" alt>`)).toEqual([]);
+    });
+
     it("should fail an image with no alt text", () => {
       expect(check(`<img src="${IMAGE}">`)).toEqual([
         `${ROUTE} - image has no alt text: ${IMAGE}`,
@@ -44,6 +48,13 @@ describe("media", () => {
     it("should fail a video with no label", () => {
       expect(check(`<video loop><source src="${VIDEO}"></video>`)).toEqual([
         `${ROUTE} - video has no label: ${VIDEO}`,
+      ]);
+    });
+
+    it("should name an image that Vercel resizes by its original", () => {
+      const resized = `/_vercel/image?url=${encodeURIComponent(IMAGE)}&amp;w=640&amp;q=100`;
+      expect(check(`<img src="${resized}">`)).toEqual([
+        `${ROUTE} - image has no alt text: ${IMAGE}`,
       ]);
     });
   });

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type theme } from "@synnaxlabs/lyra/theme";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
-import { type telem } from "@/telem/aether";
+import type { telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
@@ -104,7 +104,7 @@ const providerStateZ = z.object({
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE = "staleness.Provider";
   static readonly z = providerStateZ;
-  schema = Provider.z;
+  override schema = Provider.z;
 
   private readonly entries = new Set<Entry>();
   private interval?: ReturnType<typeof setInterval>;
@@ -113,7 +113,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   // Ages samples with the measured clock skew removed.
   private now: () => TimeStamp = () => TimeStamp.now();
 
-  afterUpdate(ctx: aether.Context): void {
+  override afterUpdate(ctx: aether.Context): void {
     const connection = synnax.use(ctx)?.connection;
     this.now = () =>
       TimeStamp.now().sub(connection?.status.details.clockSkew ?? TimeSpan.ZERO);
@@ -121,7 +121,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     ctx.set(CONTEXT_KEY, this, false);
   }
 
-  afterDelete(): void {
+  override afterDelete(): void {
     this.entries.clear();
     this.stop();
   }

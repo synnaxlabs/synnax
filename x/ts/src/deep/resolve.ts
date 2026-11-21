@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { SEPARATOR } from "@/deep/path";
-import { type record } from "@/record";
+import type { record } from "@/record";
 
 /** @returns the array index a path part names, or null when it is not one. */
 export const getIndex = (part: string): number | null => {

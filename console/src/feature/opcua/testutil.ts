@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, type task } from "@synnaxlabs/client";
+import type { rack, Synnax, task } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import {
   type Device,
@@ -24,7 +24,8 @@ import {
   SCAN_TYPE,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createRunningRack, startRackHeartbeat } from "@/platform/device/testutil";
+import { dragOnto, preload } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {
@@ -89,11 +90,15 @@ export const createVariableNode = (dataType: string = ""): ScannedNode => {
   };
 };
 
-/** Creates a running rack with an OPC UA scan task, and a device on that rack. */
+/**
+ * Creates a rack that reports as running until the test ends, with an OPC UA scan task
+ * and a device on that rack.
+ */
 export const createScannedDevice = async (
   client: Synnax,
 ): Promise<{ scan: task.Task; device: Device }> => {
   const rack = await createRunningRack(client, "opc");
+  await startRackHeartbeat(client, rack);
   const scan = await rack.createTask({
     name: uniqueName("opcua_scan"),
     type: SCAN_TYPE,
@@ -116,7 +121,12 @@ export const createMember = (
 });
 
 /** Drags the browser node with the name onto the element that shows the target. */
-export const dragNode = async (name: string, target: string): Promise<void> => {
-  fireEvent.dragStart(await screen.findByText(name));
-  fireEvent.drop(await screen.findByText(new RegExp(target)));
-};
+export const dragNode = async (name: string, target: string): Promise<void> =>
+  dragOnto(await screen.findByText(name), await screen.findByText(new RegExp(target)));
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/opcua/task/Read"),
+    async () => await import("@/feature/opcua/task/Write"),
+  );

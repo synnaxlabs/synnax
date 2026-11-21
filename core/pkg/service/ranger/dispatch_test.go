@@ -18,10 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -57,12 +55,12 @@ var _ = Describe("Dispatch", func() {
 		Expect(dispatch(ctx, hotFire.Key, "dk", []ranger.Action{
 			set([]string{"name"}, "Cold flow"),
 			set([]string{"time_range", "end"}, "9000000000"),
-			set([]string{"color"}, "#ff0000"),
+			set([]string{"color"}, fixed("#ff0000")),
 		})).To(Succeed())
 		res := retrieve(ctx, hotFire.Key)
 		Expect(res.Name).To(Equal("Cold flow"))
 		Expect(res.TimeRange).To(Equal(telem.NewRangeSeconds(1, 9)))
-		Expect(res.Color).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
+		Expect(res.Color).To(Equal(fixed("#ff0000")))
 	})
 
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {

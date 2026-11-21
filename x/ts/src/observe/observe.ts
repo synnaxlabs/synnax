@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@/destructor";
+import type { destructor } from "@/destructor";
 import { withTimeout } from "@/sync/timeout";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 

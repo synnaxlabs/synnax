@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type Component } from "@synnaxlabs/lyra/component";
+import type { Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { act, render, type RenderResult, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";

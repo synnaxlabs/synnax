@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type deep } from "@synnaxlabs/x";
+import type { deep } from "@synnaxlabs/x";
 
 export interface MinMaxValueFieldsProps {
   path: deep.Path<{ minVal: number; maxVal: number }>;

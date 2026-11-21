@@ -18,14 +18,14 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import {
-  type CallersFromSchema,
-  type EmptyMethodsSchema,
-  type MethodsSchema,
+import type {
+  CallersFromSchema,
+  EmptyMethodsSchema,
+  MethodsSchema,
 } from "@/aether/aether/aether";
-import { type MainComms } from "@/aether/aether/message";
+import type { MainComms } from "@/aether/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */

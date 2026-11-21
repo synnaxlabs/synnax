@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { math } from "@/math";
-import { type numeric } from "@/numeric";
+import type { numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
-import { type dimensions } from "@/spatial/dimensions";
+import type { dimensions } from "@/spatial/dimensions";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
 

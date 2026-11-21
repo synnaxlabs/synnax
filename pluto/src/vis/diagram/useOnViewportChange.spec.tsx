@@ -17,7 +17,7 @@ import {
   useReactFlowStoreApi,
   type Viewport,
 } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";

@@ -10,7 +10,7 @@
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Value } from "@/vis/value/aether/value";

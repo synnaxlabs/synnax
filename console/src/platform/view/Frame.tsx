@@ -152,7 +152,7 @@ const Body = ({
   const searchValue: SearchContextValue = { term: searchTerm, setTerm: setSearchTerm };
 
   return (
-    <Flex.Box full="y" empty>
+    <Flex.Box full="y" empty className={CSS.BE("view", "frame")}>
       <Context value={contextValue}>
         <SearchContext value={searchValue}>
           <Selector

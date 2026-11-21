@@ -10,11 +10,11 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import {
-  type AstroUserConfig,
-  type ClientDirectiveConfig,
-  type InjectedRoute,
-  type InjectedType,
+import type {
+  AstroUserConfig,
+  ClientDirectiveConfig,
+  InjectedRoute,
+  InjectedType,
 } from "astro";
 import { beforeAll, describe, expect, it } from "vitest";
 

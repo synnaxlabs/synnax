@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { aether } from "@/aether/aether";
 
@@ -22,9 +22,9 @@ export const createRegistry = <S extends { stale: boolean }>(
   onUpdate?: (state: S) => void,
 ): aether.ComponentRegistry => {
   class Stale extends aether.Leaf<typeof schema> {
-    schema = schema;
+    override schema = schema;
 
-    afterUpdate(): void {
+    override afterUpdate(): void {
       onUpdate?.(this.state);
       if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
     }

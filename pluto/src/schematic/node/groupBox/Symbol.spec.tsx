@@ -11,13 +11,13 @@ import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useOptionsStore } from "@xyflow/react";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { type Config } from "@/schematic/node/groupBox/config";
+import type { Config } from "@/schematic/node/groupBox/config";
 import { MembersProvider } from "@/schematic/node/groupBox/context";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 const initialNodes: Node[] = [
   { id: "g1", position: { x: -20, y: -40 }, data: {} },

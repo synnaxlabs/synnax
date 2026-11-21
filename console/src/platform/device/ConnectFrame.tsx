@@ -10,7 +10,7 @@
 import "@/platform/device/ConnectFrame.css";
 
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
