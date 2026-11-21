@@ -311,6 +311,16 @@ describe("render.Context", () => {
       outer();
     });
 
+    it("should give two boxes that meet the same edge in device pixels", () => {
+      const m = mount();
+      m.calls.length = 0;
+      m.renderCtx.scissor(box.construct(10.6, 0, 39.9, 100), xy.ZERO, ["gl"])();
+      m.renderCtx.scissor(box.construct(50.5, 0, 40, 100), xy.ZERO, ["gl"])();
+      const [left, right] = scissors(m.calls) as number[][];
+      expect([...left, ...right].every(Number.isInteger)).toBe(true);
+      expect(left[0] + left[2]).toBe(right[0]);
+    });
+
     it("should put back the box before it when an inner scissor ends", () => {
       const m = mount();
       const outer = m.renderCtx.scissor(box.construct(0, 0, 60, 100), xy.ZERO, ["gl"]);

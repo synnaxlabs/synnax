@@ -323,6 +323,9 @@ describe("LinePlot getXBounds", () => {
     expect(plot.getXBounds({ lower: 0.25, upper: 0.5 })).toEqual({
       x1: { lower: 250, upper: 500 },
     });
+    expect(plot.getXPositions({ lower: 250, upper: 500 })).toEqual({
+      x1: { lower: 0.25, upper: 0.5 },
+    });
   });
 });
 
