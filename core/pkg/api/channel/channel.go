@@ -508,7 +508,7 @@ func (s *Service) Dispatch(
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
-		return DispatchResponse{}, err
+		return DispatchResponse{}, s.describe(ctx, tx, err)
 	}
 	return DispatchResponse{Actions: computed}, nil
 }

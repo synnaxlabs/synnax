@@ -73,7 +73,8 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 // Resolve resolves a single cluster channel by numeric key, by path when name holds
 // validate.PathSeparator, or else by name. A resolved path is the name of its symbol. A
 // name that several channels hold returns an AmbiguousNameError, described for the
-// subject of r.
+// subject of r. Every holder of a bare name counts, and the one holder binds only when
+// the subject can retrieve it.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
@@ -90,13 +91,20 @@ func (r *symbolResolver) Resolve(
 		return r.toSymbol(ch), nil
 	}
 	path := strings.IndexByte(name, validate.PathSeparator) >= 0
-	match := MatchNames(validate.NormalizeName(name))
-	if path {
-		match = MatchPaths(name)
+	match := MatchPaths(name)
+	if !path {
+		// Every holder of a bare name counts, as a compile with no subject counts them.
+		// Access decides only whether one holder binds.
+		q, match = r.svc.NewRetrieve(), MatchNames(validate.NormalizeName(name))
 	}
 	var chs []Channel
 	if err = q.Where(match).Entries(&chs).Exec(ctx, r.snap); err != nil {
 		return nil, err
+	}
+	if len(chs) == 1 && !path {
+		if chs, err = r.visible(ctx, chs); err != nil {
+			return nil, err
+		}
 	}
 	switch len(chs) {
 	case 0:
@@ -114,6 +122,23 @@ func (r *symbolResolver) Resolve(
 		}
 		return nil, r.svc.DescribeAmbiguity(ctx, r.snap, ambiguous, r.access)
 	}
+}
+
+// visible returns the channels of chs that the subject of r can retrieve.
+func (r *symbolResolver) visible(
+	ctx context.Context,
+	chs []Channel,
+) ([]Channel, error) {
+	if r.access == nil {
+		return chs, nil
+	}
+	allowed, err := r.access(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Filter(chs, func(ch Channel, _ int) bool {
+		return allowed(ch.ResourceID())
+	}), nil
 }
 
 // Search fuzzy-searches non-internal cluster channels by name.

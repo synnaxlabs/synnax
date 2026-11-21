@@ -223,13 +223,8 @@ func openChannels(
 		err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return cfg.Channel.NewWriter(tx).Create(ctx, &chs[i])
 		})
-		if ambiguous, ok := errors.AsType[channel.AmbiguousNameError](err); ok {
-			off[i] = ambiguous
-		} else if _, ok = errors.AsType[gorp.UniqueError](err); ok {
-			off[i] = channel.AmbiguousNameError{
-				Name:    name,
-				Holders: channel.KeysFromChannels(holders[name]),
-			}
+		if blocked, isBlocked := nameBlock(err, name, holders[name]); isBlocked {
+			off[i] = blocked
 		} else if err != nil {
 			return nil, err
 		}
@@ -251,6 +246,31 @@ func openChannels(
 	})
 }
 
+// nameBlock returns the warning of a create of the channel named name that failed
+// with err, and whether a name blocked it: an ambiguous name, or a record that holds
+// the name. holders are the channels that hold the name.
+func nameBlock(err error, name string, holders []channel.Channel) (error, bool) {
+	if ambiguous, ok := errors.AsType[channel.AmbiguousNameError](err); ok {
+		return ambiguous, true
+	}
+	clash, ok := errors.AsType[gorp.UniqueError](err)
+	if !ok {
+		return nil, false
+	}
+	if len(holders) > 1 {
+		return channel.AmbiguousNameError{
+			Name:    name,
+			Holders: channel.KeysFromChannels(holders),
+		}, true
+	}
+	return errors.Newf(
+		"%s %s holds the name '%s'",
+		clash.Holder.Table,
+		clash.Holder.Key,
+		name,
+	), true
+}
+
 // findChannels sets each of chs whose key is stored to its stored channel. It returns
 // the position of each other channel by name, and the channels that hold each of those
 // names.
@@ -266,16 +286,24 @@ func findChannels(
 	return missing, holders, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		unfound := make([]string, 0, len(chs))
 		for i, ch := range chs {
-			stored, found, err := storedChannel(ctx, tx, cfg.Channel, ch.Name)
+			stored, keyStored, exists, err := storedChannel(
+				ctx,
+				tx,
+				cfg.Channel,
+				ch.Name,
+			)
 			if err != nil {
 				return err
 			}
-			if found {
+			if exists {
 				chs[i] = stored
 				continue
 			}
 			missing[ch.Name] = i
-			unfound = append(unfound, ch.Name)
+			// Only a store from before stored keys looks a channel up by name.
+			if !keyStored {
+				unfound = append(unfound, ch.Name)
+			}
 		}
 		var held []channel.Channel
 		if err := cfg.Channel.NewRetrieve().
@@ -314,31 +342,30 @@ func adoptChannels(
 	}
 }
 
-// storedChannel returns the channel whose key is stored for name, and whether it
-// exists.
+// storedChannel returns the channel whose key is stored for name, whether a key is
+// stored, and whether its channel exists.
 func storedChannel(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *channel.Service,
 	name string,
-) (channel.Channel, bool, error) {
+) (ch channel.Channel, stored, exists bool, err error) {
 	b, closer, err := tx.Get([]byte(channelKeyPrefix + name))
 	if errors.Is(err, query.ErrNotFound) {
-		return channel.Channel{}, false, nil
+		return channel.Channel{}, false, false, nil
 	}
 	if err != nil {
-		return channel.Channel{}, false, err
+		return channel.Channel{}, false, false, err
 	}
 	key, err := channel.ParseKey(string(b))
 	if err = errors.Combine(err, closer.Close()); err != nil {
-		return channel.Channel{}, false, err
+		return channel.Channel{}, true, false, err
 	}
-	var ch channel.Channel
 	err = channels.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, tx)
 	if errors.Is(err, query.ErrNotFound) {
-		return channel.Channel{}, false, nil
+		return channel.Channel{}, true, false, nil
 	}
-	return ch, err == nil, err
+	return ch, true, err == nil, err
 }
 
 // offErrors returns the errors of off at positions below n, in order.
@@ -423,14 +450,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			return nil, err
 		}
 		warnings = append(warnings, offErrors(off, len(chs))...)
+		opened := make(map[string]channel.Channel, len(metrics))
 		for i, m := range metrics {
 			if _, isOff := off[i]; !isOff {
+				opened[m.ch.Name] = chs[i]
 				m.ch = chs[i]
 				c.metrics = append(c.metrics, m)
 				metricsChannels = append(metricsChannels, chs[i])
 			}
 		}
-		calculated := createCalculatedMetrics(namePrefix)
+		calculated := createCalculatedMetrics(namePrefix, opened)
 		for i := range calculated {
 			calculated[i].Group = &s.group.Key
 		}
