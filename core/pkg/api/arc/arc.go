@@ -30,6 +30,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -51,7 +52,7 @@ type (
 // ServiceConfig is the configuration for the Arc API service.
 type ServiceConfig struct {
 	// DB holds the channels and modules that compilation reads. Compilation reads it as
-	// channel.CompileConsistent describes.
+	// resolver.CompileConsistent describes.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -264,7 +265,7 @@ type (
 )
 
 // PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction, as
-// channel.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
+// resolver.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
 // when the arc to compile does not exist.
 func (s *Service) PrepareUpdateTask(
 	ctx context.Context,
@@ -273,7 +274,7 @@ func (s *Service) PrepareUpdateTask(
 	if req.Rack != nil && *req.Rack == 0 {
 		return arc.Build{}, nil
 	}
-	return channel.RetryChanged(ctx, func() (arc.Build, error) {
+	return resolver.RetryChanged(ctx, func() (arc.Build, error) {
 		return s.internal.Build(ctx, req.Key)
 	})
 }
@@ -471,17 +472,18 @@ func materialize(a Arc) Arc {
 }
 
 // compile compiles the source of an automation into its program and the calculated
-// channels that the program reads, as channel.RetryChanged does, and leaves a module as
+// channels that the program reads, as resolver.RetryChanged does, and leaves a module
+// as
 // is. Returns an error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := channel.RetryChanged(ctx, func() (arclang.Program, error) {
-		return channel.CompileConsistent(ctx, s.db, func(
+	prog, err := resolver.RetryChanged(ctx, func() (arclang.Program, error) {
+		return resolver.CompileConsistent(ctx, s.db, func(
 			snap gorp.Snapshot,
-			lookups *channel.Lookups,
+			lookups *resolver.Lookups,
 		) (arclang.Program, error) {
 			root := s.internal.NewRoot(snap, lookups)
 			switch src := automation.Source.Variant.(type) {
@@ -501,7 +503,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 	if err != nil {
 		return err
 	}
-	calculations, err := channel.RetryChanged(ctx, func() ([]arc.Calculation, error) {
+	calculations, err := resolver.RetryChanged(ctx, func() ([]arc.Calculation, error) {
 		return s.compileCalculations(ctx, prog)
 	})
 	if err != nil {

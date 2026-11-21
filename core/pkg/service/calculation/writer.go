@@ -272,7 +272,7 @@ func (w Writer) compile(
 // through other calculations.
 func (w Writer) checkCycle(
 	ctx context.Context,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 	output channel.Channel,
 	deps channel.Keys,
 ) error {
@@ -340,7 +340,7 @@ func (w Writer) cycleError(ctx context.Context, path channel.Keys) error {
 	), "expression")
 }
 
-func (w Writer) newAnalyzer() *channel.CalculationAnalyzer { return w.svc.newAnalyzer(w.tx) }
+func (w Writer) newAnalyzer() *compiler.Analyzer { return w.svc.newAnalyzer(w.tx) }
 
 // SetReads stores reads, in order and each once, as the reads of c, and broadcasts a
 // set

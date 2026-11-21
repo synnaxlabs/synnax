@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
@@ -410,9 +411,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, virtCh.Name),
 				}
 
-				resolver := channelSvc.NewArcSymbolResolver(db)
+				symbols := resolver.New(channelSvc, db)
 				compiled := MustSucceed(
-					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
+					arc.CompileText(ctx, prog, arc.NewRoot(symbols)),
 				)
 
 				deps := MustSucceed(
@@ -459,9 +460,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 				}
 
-				resolver := channelSvc.NewArcSymbolResolver(db)
+				symbols := resolver.New(channelSvc, db)
 				compiled := MustSucceed(
-					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
+					arc.CompileText(ctx, prog, arc.NewRoot(symbols)),
 				)
 
 				deps := MustSucceed(

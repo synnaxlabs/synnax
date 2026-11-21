@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	calculation "github.com/synnaxlabs/synnax/pkg/service/calculation/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/config"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/override"
@@ -82,17 +83,17 @@ func PreProcess(
 	return preProcess(
 		ctx,
 		cfg,
-		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+		resolver.NewConsistent(resolver.New(cfg.ChannelService, snap)),
 	)
 }
 
 func preProcess(
 	ctx context.Context,
 	cfg Config,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 ) (arc.Program, error) {
-	ana := channel.NewCalculationAnalyzer(resolver, parser.Config{
-		AllowDashedNames: !cfg.ChannelService.ShouldValidateNames(),
+	ana := NewAnalyzer(symbols, parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(cfg.ChannelService),
 	})
 	result, err := ana.AnalyzeExpression(
 		ctx,
@@ -113,8 +114,8 @@ func preProcess(
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Calculation.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
-		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
+	return arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 }
 
 // Check compiles the calculation of cfg against snap, as Compile does without its
@@ -128,7 +129,7 @@ func Check(ctx context.Context, snap gorp.Snapshot, cfgs ...Config) error {
 		ctx,
 		snap,
 		cfg,
-		channel.NewConsistentResolver(cfg.ChannelService.NewArcSymbolResolver(snap)),
+		resolver.NewConsistent(resolver.New(cfg.ChannelService, snap)),
 	)
 	return err
 }
@@ -149,21 +150,21 @@ type Module struct {
 // Compile builds a full execution Module for the given calculated channel. The module
 // includes WASM bytecode, an execution graph with operation nodes, and the channel
 // dependencies the calculation reads from and writes to. It reads db as
-// channel.CompileConsistent describes.
+// resolver.CompileConsistent describes.
 func Compile(ctx context.Context, db *gorp.DB, cfgs ...Config) (Module, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
-	return channel.CompileConsistent(ctx, db, func(
+	return resolver.CompileConsistent(ctx, db, func(
 		snap gorp.Snapshot,
-		lookups *channel.Lookups,
+		lookups *resolver.Lookups,
 	) (Module, error) {
 		return compile(
 			ctx,
 			snap,
 			cfg,
-			cfg.ChannelService.NewCheckedResolver(snap, lookups),
+			resolver.NewChecked(cfg.ChannelService, snap, lookups),
 		)
 	})
 }
@@ -254,11 +255,11 @@ func addOperations(g *arc.Graph, ops []calculation.Operation) {
 func addReads(
 	ctx context.Context,
 	g *arc.Graph,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 	reads map[uint32]string,
 ) error {
 	for k, v := range reads {
-		sym, err := resolver.Resolve(ctx, v)
+		sym, err := symbols.Resolve(ctx, v)
 		if err != nil {
 			return err
 		}
@@ -280,9 +281,9 @@ func compile(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	cfg Config,
-	resolver arc.SymbolResolver,
+	symbols arc.SymbolResolver,
 ) (Module, error) {
-	preProcessed, err := preProcess(ctx, cfg, resolver)
+	preProcessed, err := preProcess(ctx, cfg, symbols)
 	if err != nil {
 		return Module{}, err
 	}
@@ -300,11 +301,11 @@ func compile(
 	addNode(&g, calculationKey, calculationKey, nil)
 	addNode(&g, writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	addOperations(&g, cfg.Calculation.Operations)
-	if err = addReads(ctx, &g, resolver, calcFn.Channels.Read); err != nil {
+	if err = addReads(ctx, &g, symbols, calcFn.Channels.Read); err != nil {
 		return Module{}, err
 	}
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver),
-		arc.WithAllowDashedNames(!cfg.ChannelService.ShouldValidateNames()))
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(symbols),
+		arc.WithAllowDashedNames(resolver.AllowDashedNames(cfg.ChannelService)))
 	if err != nil {
 		return Module{}, err
 	}

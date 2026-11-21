@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -313,7 +314,7 @@ func (s *Service) updateLocked(
 	switch {
 	case err == nil:
 		s.acceptDefinition(ctx, ch.Key())
-	case errors.Is(err, channel.ErrLookupsChanged):
+	case errors.Is(err, resolver.ErrLookupsChanged):
 		s.retries.Trigger(ch.Key())
 	// A cancelled compile says nothing about the definition of ch.
 	case ctx.Err() == nil:
@@ -329,7 +330,7 @@ func (s *Service) request(
 	c calculation.Calculation,
 ) {
 	err := s.mu.graph.Add(ctx, ch, c)
-	if errors.Is(err, channel.ErrLookupsChanged) {
+	if errors.Is(err, resolver.ErrLookupsChanged) {
 		s.mu.pending[ch.Key()]++
 		s.retries.Trigger(ch.Key())
 		return

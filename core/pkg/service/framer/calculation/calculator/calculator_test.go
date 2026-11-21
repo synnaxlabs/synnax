@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -1415,7 +1416,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
+				compiler.NewAnalyzer(resolver.New(channelSvc, db)).
 					AnalyzeExpression(
 						ctx,
 						channel.Channel{Name: calc.Name, Virtual: true},

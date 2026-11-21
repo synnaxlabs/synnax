@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
@@ -96,8 +97,7 @@ type Config struct {
 	DB *gorp.DB
 	// Channel is the service-layer channel service. The graph retrieves and writes
 	// channels through its embedded distribution service and builds the Arc symbol
-	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
-	// expressions.
+	// resolver (via resolver.New) used to analyze calculated channel expressions.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
@@ -760,9 +760,9 @@ func (g *Graph) clearNodeStatus(
 	}
 }
 
-func (g *Graph) newAnalyzer(tx gorp.Tx) *channel.CalculationAnalyzer {
-	return channel.NewCalculationAnalyzer(g.svc.NewArcSymbolResolver(tx), parser.Config{
-		AllowDashedNames: !g.svc.ShouldValidateNames(),
+func (g *Graph) newAnalyzer(tx gorp.Tx) *compiler.Analyzer {
+	return compiler.NewAnalyzer(resolver.New(g.svc, tx), parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(g.svc),
 	})
 }
 
@@ -771,7 +771,7 @@ func (g *Graph) inspectNode(
 	tx gorp.Tx,
 	ch channel.Channel,
 	c calculation.Calculation,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = g.newAnalyzer(tx)
@@ -801,7 +801,7 @@ func (g *Graph) reconcileQueued(
 	tx gorp.Tx,
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 ) (updates, valid []channel.Channel) {
 	g.enqueueUnresolved(unresolvedNames, queued)
 	if len(queued) > 0 {

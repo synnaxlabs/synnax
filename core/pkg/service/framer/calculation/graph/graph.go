@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -1143,14 +1144,14 @@ func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 
 // logCompileError logs detailed diagnostic information when a calculated channel
 // fails to compile, including its expression, data type, and dependency graph. It logs
-// nothing for channel.ErrLookupsChanged, which the caller retries.
+// nothing for resolver.ErrLookupsChanged, which the caller retries.
 func (g *Graph) logCompileError(
 	ctx context.Context,
 	err error,
 	ch channel.Channel,
 	c calculation.Calculation,
 ) {
-	if errors.Is(err, channel.ErrLookupsChanged) {
+	if errors.Is(err, resolver.ErrLookupsChanged) {
 		return
 	}
 	fields := []zap.Field{

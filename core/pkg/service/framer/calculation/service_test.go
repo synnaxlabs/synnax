@@ -29,6 +29,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -1648,7 +1649,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
 						changes.Add(-1) >= 0 {
 						changed <- struct{}{}
-						return compiler.Module{}, channel.ErrLookupsChanged
+						return compiler.Module{}, resolver.ErrLookupsChanged
 					}
 					return compiler.Compile(ctx, db, cfgs...)
 				},

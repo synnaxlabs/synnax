@@ -16,7 +16,6 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -238,17 +237,6 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 		}
 	}
 	return nil
-}
-
-// NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
-// numeric key, for analyzing and compiling Arc expressions such as calculations.
-// The resolver looks up channels in snap and sees only the channels that every filter
-// matches.
-func (s *Service) NewArcSymbolResolver(
-	snap gorp.Snapshot,
-	filters ...Filter,
-) arc.SymbolResolver {
-	return &symbolResolver{svc: s, snap: snap, filters: filters}
 }
 
 // freeIndexResolver adapts the Service to the distribution framer writer's
