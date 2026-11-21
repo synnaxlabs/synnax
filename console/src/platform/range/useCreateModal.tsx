@@ -11,12 +11,14 @@ import "@/platform/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { primitive, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
@@ -80,6 +82,7 @@ const Create = ({
     },
   });
   Modals.useBusy(variant === "loading");
+  const { colors } = Theming.use();
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
@@ -118,6 +121,17 @@ const Create = ({
                     icon={<Ranger.ParentIcon />}
                     triggerProps={PARENT_TRIGGER_PROPS}
                     allowNone
+                  />
+                )}
+              </Form.Field>
+              <Form.Field path={path.color} showLabel={false} showHelpText={false}>
+                {(p) => (
+                  <Color.Swatch
+                    variant="shadow"
+                    fallback={colors.gray.l8}
+                    tooltip="Color"
+                    aria-label="Color"
+                    {...p}
                   />
                 )}
               </Form.Field>
