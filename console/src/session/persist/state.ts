@@ -726,8 +726,8 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 /**
  * Saves every change dispatched so far without waiting out the debounce, and resolves
  * once storage holds them. During a session swap it saves nothing and resolves once the
- * swap is done. Only the main window persists: elsewhere, and in a store without
- * persistence, it resolves at once.
+ * swap is done. After a failed swap it saves only the global slices. Only the main
+ * window persists: elsewhere, and in a store without persistence, it resolves at once.
  * @throws {Error} if the write fails.
  */
 export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
