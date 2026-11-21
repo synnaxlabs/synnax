@@ -135,11 +135,7 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchPaths(*l.Eq))
 		}
 		if l.In != nil {
-			in := make([]Filter, len(l.In))
-			for i, v := range l.In {
-				in[i] = MatchPaths(v)
-			}
-			fs = append(fs, Or(in...))
+			fs = append(fs, MatchPaths(l.In...))
 		}
 	}
 	if l := w.Groups; l != nil {
