@@ -56,13 +56,15 @@ var _ = Describe("AnalogWriteRangeMigration", func() {
 			v3.AnalogWriteRangeMigration,
 			v3.AnalogWriteConfig{Key: uuid.New(), Channels: []v3.AOChannel{
 				{Variant: v3.AOVoltageChannel{
-					MinMaxVal:   v3.MinMaxVal{MinVal: 10, MaxVal: -10},
+					MinVal:      10,
+					MaxVal:      -10,
 					CustomScale: noScale,
 				}},
 			}},
 		)
 		Expect(got.Channels[0].Variant).To(Equal(v3.AOVoltageChannel{
-			MinMaxVal:   v3.MinMaxVal{MinVal: -10, MaxVal: 10},
+			MinVal:      -10,
+			MaxVal:      10,
 			CustomScale: noScale,
 		}))
 	})
@@ -77,14 +79,16 @@ var _ = Describe("CounterReadRangeMigration", func() {
 				v3.CounterReadRangeMigration,
 				v3.CounterReadConfig{Key: uuid.New(), Channels: []v3.CIChannel{
 					{Variant: v3.CIFrequencyChannel{
-						MinMaxVal:   v3.MinMaxVal{MinVal: 50, MaxVal: 50},
+						MinVal:      50,
+						MaxVal:      50,
 						CustomScale: noScale,
 						Divisor:     4,
 					}},
 				}},
 			)
 			Expect(got.Channels[0].Variant).To(Equal(v3.CIFrequencyChannel{
-				MinMaxVal:   v3.MinMaxVal{MinVal: 2, MaxVal: 100},
+				MinVal:      2,
+				MaxVal:      100,
 				CustomScale: noScale,
 				Divisor:     4,
 			}))
