@@ -210,7 +210,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return bound;
   }
 
-  /** @returns the gaps of layout, or while the breaks are hidden, the gaps they hide. */
+  /** @returns the gaps of layout, or the gaps that the breaks hide while hidden. */
   gaps(layout: Layout, { breaksHidden, openBreaks }: LayoutProps): readonly Gap[] {
     const { type, autoBoundPadding } = this.state;
     if (!breaksHidden || type !== "time") return layout.gaps;
