@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -80,6 +81,8 @@ type detachOp struct {
 // registry holds the tables of a DB that take part in references, by name, and the
 // open tables that have indexes, by key prefix.
 type registry struct {
+	// version counts the changes to the registered tables and their references.
+	version atomic.Uint64
 	// mu guards tables, names, referencing, and indexed.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
@@ -136,6 +139,7 @@ func (r *registry) indexedTables(prefix []byte) []any {
 func (r *registry) register(name string, prefix []byte, table registeredTable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	if _, ok := r.tables[name]; ok {
 		return errors.Newf("[gorp] - table %q is already open", name)
 	}
@@ -170,6 +174,7 @@ func (r *registry) tableName(prefix []byte) (string, bool) {
 func (r *registry) addReferences(refs []registeredReference) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	for _, ref := range refs {
 		for _, target := range ref.targetTables() {
 			if t, ok := r.tables[target]; ok {
@@ -204,6 +209,7 @@ func checkIssues(ref registeredReference, name string, table registeredTable) er
 func (r *registry) unregister(name string, prefix []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.version.Add(1)
 	delete(r.tables, name)
 	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
@@ -346,9 +352,6 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
-	// planned is true for a plan that PlanDelete made before the caller removed the
-	// Restrict holders, which can remove a Detach holder too.
-	planned bool
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
@@ -467,12 +470,14 @@ func (r *registry) planned(
 		table:    table,
 		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
 		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
-		planned:  true,
 	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
 	}
 	for _, e := range effects.Detaches {
+		if deletedIn(tx, e.Holder) {
+			continue
+		}
 		holder, err := r.table(e.Holder.Table)
 		if err != nil {
 			return nil, err
@@ -526,6 +531,9 @@ type planWalk struct {
 func (w *planWalk) record(ref registeredReference, dep, target Target) {
 	if w.effects != nil {
 		p := ref.onDeletePolicy()
+		if p == Inline {
+			p = Detach
+		}
 		w.effects[p] = append(w.effects[p], newDeleteEffect(ref, dep, target))
 	}
 }
@@ -596,7 +604,6 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		if w.plan.contains(dep) {
 			return nil
 		}
-		w.record(ref, dep, target)
 		if w.restricted.Contains(dep) {
 			return nil
 		}
@@ -653,9 +660,6 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		t, err := r.table(dep.Table)
 		if err != nil {
 			return err
-		}
-		if p.planned && deletedIn(tx, dep) {
-			continue
 		}
 		if err = t.detach(ctx, tx, dep.Key, ops); err != nil {
 			return err

@@ -194,7 +194,7 @@ func (t *Table[K, E]) delete(
 			plan *deletePlan
 			err  error
 		)
-		if planned != nil && current(*planned, tx, t.name, keys) {
+		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
 			plan, err = t.db.registry.planned(tx, t.name, *planned)
 		} else {
 			formatted := make([]string, len(keys))
