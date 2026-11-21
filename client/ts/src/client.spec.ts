@@ -14,7 +14,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { trustCA } from "@synnaxlabs/freighter";
+import { type Middleware, trustCA } from "@synnaxlabs/freighter";
 import { TimeSpan, url } from "@synnaxlabs/x";
 import {
   afterAll,
@@ -327,6 +327,16 @@ describe("connect", () => {
     await client.connect();
     await client.close();
     expect(client.connection.status.variant).toEqual("disabled");
+  });
+});
+
+describe("middleware", () => {
+  it("should run the middleware on each request", async () => {
+    const middleware = vi.fn<Middleware>(async (ctx, next) => await next(ctx));
+    const client = createTestClient({ middleware: [middleware] });
+    await client.channels.retrieve(["no-such-channel"]);
+    const targets = middleware.mock.calls.map(([ctx]) => ctx.target);
+    expect(targets.some((t) => t.endsWith("/channel/retrieve"))).toBe(true);
   });
 });
 

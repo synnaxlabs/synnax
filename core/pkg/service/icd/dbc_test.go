@@ -79,15 +79,16 @@ func binaryFields(m icd.Message) []icd.BinaryField {
 	return binaryPayloadOf(m).Fields
 }
 
-func fieldNamed(m icd.Message, name string) icd.BinaryField {
+// fieldNamed returns the shared parts of the binary field of m with the given name.
+func fieldNamed(m icd.Message, name string) icd.BinaryBaseField {
 	GinkgoHelper()
 	for _, f := range binaryFields(m) {
-		if f.Name == name {
-			return f
+		if b := f.Base(); b.Name == name {
+			return b
 		}
 	}
 	Fail("no field named " + name)
-	return icd.BinaryField{}
+	return icd.BinaryBaseField{}
 }
 
 // toExpected converts parsed messages to the shape of the cantools decoding.
@@ -110,15 +111,16 @@ func toExpected(messages []icd.Message) []expectedMessage {
 		fields := binaryFields(m)
 		names := make(map[icd.FieldKey]string, len(fields))
 		for _, f := range fields {
-			names[f.Key] = f.Name
+			names[f.Base().Key] = f.Base().Name
 		}
-		for _, f := range fields {
+		for _, field := range fields {
+			f := field.Base()
 			ef := expectedField{
 				Name:            f.Name,
 				StartBit:        f.StartBit,
 				BitLength:       f.BitLength,
 				ByteOrder:       f.ByteOrder,
-				Kind:            f.Kind,
+				Kind:            payload.Kind(field.Kind()),
 				Scale:           f.Scale,
 				Offset:          f.Offset,
 				Units:           f.Units,
@@ -212,7 +214,7 @@ var _ = Describe("Import DBC", func() {
 		for _, m := range messages {
 			keys.Add(m.Key)
 			for _, f := range binaryFields(m) {
-				keys.Add(f.Key)
+				keys.Add(f.Base().Key)
 			}
 		}
 		Expect(messages).To(HaveLen(5))
@@ -446,7 +448,7 @@ SIG_VALTYPE_ 256 A : 1;
 				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"Engine",
 			)
-			Expect(binaryFields(m)[0].Kind).To(Equal(payload.KindFloat))
+			Expect(binaryFields(m)[0].Kind()).To(Equal(icd.FloatBinaryFieldType))
 		},
 	)
 

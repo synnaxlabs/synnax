@@ -15,7 +15,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
-import { createSiftDevice, preloadForms } from "@/feature/sift/testutil";
+import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { createTestLabel } from "@/platform/label/testutil";
 import {
@@ -23,6 +23,7 @@ import {
   awaitEditableForm,
   createTaskReadOnlyClient,
   deployAndAwaitTask,
+  preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -30,7 +31,7 @@ import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
-preloadForms();
+preloadForms(Sift.Task.FORMS);
 
 const ZERO_DRAFT: task.New<Sift.Task.StreamSchemas> = {
   name: "Sift stream task",

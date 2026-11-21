@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { traceResizeLoops } from "@/testutil";
 
@@ -23,6 +23,9 @@ const box = (parent: Element, className: string, height: number): HTMLDivElement
   parent.append(element);
   return element;
 };
+
+const isLoopError = (value: unknown): boolean =>
+  value instanceof Error && value.message.startsWith("ResizeObserver loop");
 
 const observe = (element: Element, callback: () => void): void => {
   const observer = new ResizeObserver(callback);
@@ -41,6 +44,14 @@ describe("traceResizeLoops", () => {
   let root: HTMLDivElement;
 
   beforeEach(() => {
+    // Vitest logs each loop error that these specs make on purpose.
+    const record = console.error;
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        if (!isLoopError(args[0])) record(...args);
+      });
+    onTestFinished(() => error.mockRestore());
     reports = [];
     onTestFinished(traceResizeLoops((report) => reports.push(report)));
     root = box(document.body, "root", 100);

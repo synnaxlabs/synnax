@@ -28,12 +28,12 @@ export interface TagsProps {
  */
 export const Tags = ({ keys, size = "small" }: TagsProps): ReactElement | null => {
   const labels = useResultMultiple({ keys }).data;
-  const resolve = Color.useResolve();
+  const colors = Color.useValues(labels?.map(({ color }) => color) ?? []);
   if (labels == null || labels.length === 0) return null;
   return (
     <>
-      {labels.map(({ key, name, color }) => (
-        <Tag.Tag key={key} color={resolve(color)} size={size}>
+      {labels.map(({ key, name }, i) => (
+        <Tag.Tag key={key} color={colors[i]} size={size}>
           {name}
         </Tag.Tag>
       ))}
