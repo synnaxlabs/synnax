@@ -162,6 +162,11 @@ Channel struct {
         @ref kind         place
         @ref on_delete    detach
     }
+    description string = "" {
+        @doc value           "is free text that says what the channel holds."
+        @search
+        @validate max_length 1024
+    }
 
     action Create {
         channel Channel
@@ -282,6 +287,10 @@ APIChannel struct {
     group       group.Key?          {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
+    }
+    description string = "" {
+        @doc value           "is free text that says what the channel holds."
+        @validate max_length 1024
     }
     uses        Use[]?              {
         @cpp omit

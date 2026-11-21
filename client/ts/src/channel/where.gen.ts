@@ -185,6 +185,7 @@ export const LIST_FIELDS: readonly string[] = [
   "data_type",
   "is_index",
   "group",
+  "description",
 ];
 
 const compareNumbers = (a: number | bigint, b: number | bigint): number =>

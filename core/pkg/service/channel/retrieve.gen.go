@@ -63,7 +63,7 @@ func newIndexes() indexes {
 		search: gorp.NewSearchIndex[Key, Channel](
 			"search",
 			func(e *Channel) []string {
-				return []string{string(e.Name)}
+				return []string{string(e.Name), e.Description}
 			},
 		),
 		sibling: group.NewMemberIndex[Key, Channel](

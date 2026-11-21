@@ -107,6 +107,7 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		LocalIndex:  uint32(r.LocalIndex),
 		Virtual:     r.Virtual,
 		Expression:  r.Expression,
+		Description: r.Description,
 		Concurrency: concurrencyVal,
 		Operations:  operationsVal,
 	}
@@ -118,11 +119,15 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 }
 
 // ChannelFromPB converts Channel to Channel.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	var r channel.Channel
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Concurrency, err = controlpb.ConcurrencyFromPB(pb.Concurrency)
 	if err != nil {
@@ -140,6 +145,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	r.LocalIndex = channel.LocalKey(pb.LocalIndex)
 	r.Virtual = pb.Virtual
 	r.Expression = pb.Expression
+	r.Description = pb.Description
 	if pb.Group != nil {
 		v, err := uuid.Parse(*pb.Group)
 		if err != nil {
@@ -147,6 +153,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 		}
 		r.Group = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

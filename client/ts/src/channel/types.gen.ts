@@ -235,6 +235,8 @@ export const payloadZ = z.object({
   status: statusZ.optional(),
   /** group is the group the channel sits in, if any. */
   group: group.keyZ.optional(),
+  /** description is free text that says what the channel holds. */
+  description: z.string().check(zod.maxLength(1024)).default(""),
   /**
    * uses are the records that read or write the channel and that the caller can
    * retrieve, filled only when a retrieve request asks for them. A task config shows as

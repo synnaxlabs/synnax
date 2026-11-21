@@ -90,6 +90,8 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Description is free text that says what the channel holds.
+	Description string `json:"description" msgpack:"description"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -97,6 +99,7 @@ type Channel struct {
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	v.NotEmptyString("name", c.Name)
+	v.MaxLength("description", c.Description, 1024)
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}

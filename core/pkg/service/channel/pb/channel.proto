@@ -74,6 +74,8 @@ message Channel {
   string expression = 10;
   // group is the group the channel sits in, if any.
   optional string group = 11;
+  // description is free text that says what the channel holds.
+  string description = 12;
 }
 message WhereList {
   repeated Where values = 1;

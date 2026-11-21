@@ -191,7 +191,9 @@ type Channel struct {
 	// automatically configured as virtual.
 	Expression string `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
 	// group is the group the channel sits in, if any.
-	Group         *string `protobuf:"bytes,11,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group *string `protobuf:"bytes,11,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	// description is free text that says what the channel holds.
+	Description   string `protobuf:"bytes,12,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -299,6 +301,13 @@ func (x *Channel) GetExpression() string {
 func (x *Channel) GetGroup() string {
 	if x != nil && x.Group != nil {
 		return *x.Group
+	}
+	return ""
+}
+
+func (x *Channel) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -955,7 +964,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\x90\x03\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\xb2\x03\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -973,7 +982,8 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"expression\x18\n" +
 	" \x01(\tR\n" +
 	"expression\x12\x19\n" +
-	"\x05group\x18\v \x01(\tH\x00R\x05group\x88\x01\x01B\b\n" +
+	"\x05group\x18\v \x01(\tH\x00R\x05group\x88\x01\x01\x12 \n" +
+	"\vdescription\x18\f \x01(\tR\vdescriptionB\b\n" +
 	"\x06_group\">\n" +
 	"\tWhereList\x121\n" +
 	"\x06values\x18\x01 \x03(\v2\x19.service.channel.pb.WhereR\x06values\"!\n" +

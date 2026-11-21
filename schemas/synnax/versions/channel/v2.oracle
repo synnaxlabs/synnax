@@ -24,4 +24,7 @@ Operation = v0.Operation
 
 Channel struct extends v1.Channel {
     -internal
+    description string = "" {
+        @doc value "is free text that says what the channel holds."
+    }
 }

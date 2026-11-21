@@ -66,6 +66,8 @@ type Channel struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Description is free text that says what the channel holds.
+	Description string `json:"description" msgpack:"description"`
 	// Uses are the records that read or write the channel and that the caller can
 	// retrieve, filled only when a retrieve request asks for them. A task config shows
 	// as its task.
@@ -81,6 +83,7 @@ type Channel struct {
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	v.NotEmptyString("name", c.Name)
+	v.MaxLength("description", c.Description, 1024)
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}

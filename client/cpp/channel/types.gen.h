@@ -221,6 +221,8 @@ struct Channel {
     ::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive;
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;
+    /// @brief description is free text that says what the channel holds.
+    std::string description = "";
     /// @brief path is the names of the channel's folders from the top, then its name,
     /// joined by '.'. It is filled only when a retrieve request asks for it, and only
     /// when the caller can retrieve every folder on it.

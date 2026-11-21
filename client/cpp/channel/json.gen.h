@@ -66,6 +66,7 @@ inline Channel Channel::parse(x::json::Parser parser) {
             ::x::control::Concurrency::Exclusive
         ),
         .status = parser.field<std::optional<Status>>("status"),
+        .description = parser.field<std::string>("description", ""),
         .path = parser.field<std::optional<std::string>>("path"),
     };
 }
@@ -84,6 +85,7 @@ inline x::json::json Channel::to_json() const {
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    j["description"] = this->description;
     if (this->path.has_value()) j["path"] = *this->path;
     return j;
 }

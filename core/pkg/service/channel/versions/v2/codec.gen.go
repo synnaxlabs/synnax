@@ -45,6 +45,7 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.String(c.Description)
 	return nil
 }
 
@@ -128,6 +129,9 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 			}
 			c.Group = &hv
 		}
+	}
+	if c.Description, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }

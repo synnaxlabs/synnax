@@ -54,8 +54,9 @@ var _ = Describe("Codec", func() {
 						Duration:     telem.TimeSpan(13),
 					},
 				},
-				Expression: "test_13",
-				Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Expression:  "test_13",
+				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Description: "test_15",
 			}),
 			Entry("zero values", v2.Channel{
 				Name:        "",
@@ -69,6 +70,7 @@ var _ = Describe("Codec", func() {
 				Operations:  []v2.Operation{},
 				Expression:  "",
 				Group:       nil,
+				Description: "",
 			}),
 			Entry("empty collections", v2.Channel{
 				Name:        "test_1",
@@ -82,6 +84,7 @@ var _ = Describe("Codec", func() {
 				Operations:  []v2.Operation{},
 				Expression:  "test_10",
 				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+				Description: "test_12",
 			}),
 		)
 	})
@@ -104,8 +107,9 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 				Duration:     telem.TimeSpan(13),
 			},
 		},
-		Expression: "test_13",
-		Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+		Expression:  "test_13",
+		Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+		Description: "test_15",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -140,8 +144,9 @@ func FuzzDecodeChannel(f *testing.F) {
 					Duration:     telem.TimeSpan(13),
 				},
 			},
-			Expression: "test_13",
-			Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Expression:  "test_13",
+			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Description: "test_15",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -162,6 +167,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Operations:  []v2.Operation{},
 			Expression:  "",
 			Group:       nil,
+			Description: "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -182,6 +188,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Operations:  []v2.Operation{},
 			Expression:  "test_10",
 			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+			Description: "test_12",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

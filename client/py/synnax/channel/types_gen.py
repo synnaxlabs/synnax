@@ -224,6 +224,7 @@ class Payload(BaseModel):
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
         group: Is the group the channel sits in, if any.
+        description: Is free text that says what the channel holds.
         uses: Are the records that read or write the channel and that the caller can
             retrieve, filled only when a retrieve request asks for them. A task config
             shows as its task.
@@ -245,6 +246,7 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
     group: group_.Key | None = None
+    description: str = Field(max_length=1024, default="")
     uses: list[Use] | None = None
     path: str | None = None
 
