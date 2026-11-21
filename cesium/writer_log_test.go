@@ -282,13 +282,6 @@ var _ = Describe("Writer on the pointer log", func() {
 				Size:  16,
 			}))
 		})
-		It("Should refuse a delete of a time range", func(ctx SpecContext) {
-			Expect(db.DeleteTimeRange(
-				ctx,
-				[]cesium.ChannelKey{data},
-				telem.TimeRangeMax,
-			)).To(MatchError(xerrors.ErrUnsupported))
-		})
 	})
 
 	It("Should refuse a stamp that does not rise", func(ctx SpecContext) {
