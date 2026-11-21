@@ -32,6 +32,7 @@ import {
   type Secret,
   secretZ,
   storedSecretZ,
+  TYPE_RESOURCE_ID,
 } from "@/secret/types.gen";
 import {
   compareCursors,
@@ -88,11 +89,6 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  /**
-   * The channels that announce changes to resources that can use a secret. A change on
-   * one refetches the uses that a maintained query watches.
-   */
-  usesChannels: string[];
 }
 
 export class Client extends query.Retriever<
@@ -121,7 +117,7 @@ export class Client extends query.Retriever<
       key: keyZ,
       retrieve: async (req) => await this.execRetrieve(req),
       request: (key) => ({ where: { key }, includeUses: true }),
-      channels: cfg.usesChannels,
+      type: TYPE_RESOURCE_ID.type,
     });
     // Every write to a secret reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Secret, Action>({

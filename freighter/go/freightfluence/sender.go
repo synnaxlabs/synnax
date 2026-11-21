@@ -30,6 +30,9 @@ type Sender[M freighter.Payload] struct {
 	// NewKeepAlive constructs the message emitted every KeepAliveInterval. Required
 	// when KeepAliveInterval is positive.
 	NewKeepAlive func() M
+	// Merged, when set, is a second source of messages. Sender sends each of them
+	// between the messages of the inlet, so the stream keeps one writer.
+	Merged <-chan M
 	confluence.UnarySink[M]
 }
 
@@ -52,6 +55,7 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 		defer ticker.Stop()
 		keepAlive = ticker.C
 	}
+	merged := s.Merged
 	for {
 		select {
 		case <-ctx.Done():
@@ -63,6 +67,14 @@ func (s *Sender[M]) send(ctx context.Context) (err error) {
 		case res, ok := <-s.In.Outlet():
 			if !ok {
 				return nil
+			}
+			if err = s.sendMsg(res); err != nil {
+				return err
+			}
+		case res, ok := <-merged:
+			if !ok {
+				merged = nil
+				continue
 			}
 			if err = s.sendMsg(res); err != nil {
 				return err

@@ -10,6 +10,8 @@
 package index_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
@@ -175,6 +177,76 @@ var _ = Describe("Multi", func() {
 			_, finish := failed.Populate()
 			finish(errLoad)
 			Expect(failed.Holding(nil, false)).Error().To(MatchError(errLoad))
+		})
+	})
+
+	Describe("A key that a scope stages with no value and that held nothing", func() {
+		It("Should hold none only in its scope until the scope commits", func() {
+			m.Stage(txn, 5, nil)
+			Expect(m.Holding(txn, false)).To(ConsistOf(5))
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Current(txn, 5, nil)).To(BeTrue())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(5))
+		})
+
+		It("Should be dropped when the scope does not commit", func() {
+			m.Stage(txn, 5, nil)
+			txn.end(false)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
+		})
+
+		It("Should hold the values that the scope stages for it later", func() {
+			m.Stage(txn, 5, nil)
+			m.Stage(txn, 5, []string{"e"})
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Get(nil, "e")).To(ConsistOf(5))
+		})
+
+		It("Should be gone when the scope deletes it later", func() {
+			m.Stage(txn, 5, nil)
+			m.StageDelete(txn, 5)
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
+		})
+
+		It("Should hold none when the scope staged values for it first", func() {
+			m.Stage(txn, 5, []string{"e"})
+			m.Stage(txn, 5, nil)
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(5))
+			Expect(m.Get(nil, "e")).To(BeEmpty())
+		})
+
+		It("Should be among the keys of a scope in its commit", func() {
+			m.Stage(txn, 5, nil)
+			Expect(m.CommittingHolding(false)).To(BeEmpty())
+			txn.committing = true
+			Expect(m.CommittingHolding(false)).To(ConsistOf(5))
+		})
+
+		It("Should be staged with no allocation", func() {
+			txn.cleanups = make([]func(bool), 0, 1)
+			key := 100
+			stage := func() {
+				key++
+				m.Stage(txn, key, nil)
+				for _, fn := range txn.cleanups {
+					fn(false)
+				}
+				txn.cleanups = txn.cleanups[:0]
+			}
+			stage()
+			Expect(testing.AllocsPerRun(100, stage)).To(BeZero())
 		})
 	})
 

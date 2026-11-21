@@ -84,15 +84,13 @@ type staged[V comparable] struct {
 type delta[K, V comparable] struct {
 	// state is the staged state of each key. A key in state overrides committed state.
 	state map[K]staged[V]
-	// forward maps each staged value to the keys that hold it.
+	// forward maps each staged value to the keys that hold it. It is nil until a staged
+	// key holds a value.
 	forward map[V]holders[K]
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
-	return &delta[K, V]{
-		state:   make(map[K]staged[V]),
-		forward: make(map[V]holders[K]),
-	}
+	return &delta[K, V]{state: make(map[K]staged[V])}
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
@@ -101,6 +99,9 @@ func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 func (d *delta[K, V]) set(key K, values []V) {
 	d.unstage(key)
 	d.state[key] = staged[V]{values: values}
+	if len(values) > 0 && d.forward == nil {
+		d.forward = make(map[V]holders[K])
+	}
 	for _, v := range values {
 		addHolder(d.forward, v, key)
 	}

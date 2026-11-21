@@ -454,7 +454,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: []gorp.Migration{l.Calculation.Migration(
 			l.Status,
-			cfg.Distribution.Channel.IssuedAtOpen,
+			cfg.Distribution.Channel.IssuedAtFirstOpen,
 		)},
 	}); !ok(err, nil) {
 		return nil, err
@@ -1130,7 +1130,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			ClearUnissuedChannelLinks(
 				l.Schematic,
 				l.Table,
-				cfg.Distribution.Channel.IssuedAtOpen,
+				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
 		),
 	}); !ok(err, nil) {
@@ -1157,6 +1157,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Group:           l.Group,
 		},
 	); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	if err = l.Signals.PublishReferenceChanges(
+		ctx,
+		taskconfig.RecordOf,
+	); !ok(err, nil) {
 		return nil, err
 	}
 	// The change channels send no commit before Start, so the migrations above send

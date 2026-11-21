@@ -48,10 +48,13 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *ReadConfig) []icd.Key {
-				targets := make([]icd.Key, 0, len(e.Entries))
+				var targets []icd.Key
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
+						if targets == nil {
+							targets = make([]icd.Key, 0, len(e.Entries))
+						}
 						targets = append(targets, v2.ICD)
 					}
 				}
@@ -76,13 +79,16 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Entries))
+				var targets []channel.Key
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
 						for _, v3 := range v2.Messages {
 							for _, v4 := range v3.Bindings {
 								if v4.Channel != 0 {
+									if targets == nil {
+										targets = make([]channel.Key, 0, len(e.Entries))
+									}
 									targets = append(targets, v4.Channel)
 								}
 							}
@@ -114,11 +120,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Entries))
+				var targets []channel.Key
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case SparkplugReadEntry:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Entries))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -168,11 +177,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Targets))
+				var targets []channel.Key
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case PlainWriteTarget:
 						if v2.Channel.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Targets))
+							}
 							targets = append(targets, v2.Channel.Channel)
 						}
 					}
@@ -198,11 +210,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Targets))
+				var targets []channel.Key
 				for _, v1 := range e.Targets {
 					switch v2 := v1.Variant.(type) {
 					case SparkplugWriteTarget:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Targets))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -252,9 +267,12 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *EdgeConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Tags))
+				var targets []channel.Key
 				for _, v1 := range e.Tags {
 					if v1.Channel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Tags))
+						}
 						targets = append(targets, v1.Channel)
 					}
 				}
@@ -275,9 +293,12 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 			Kind:     gorp.Use,
 			Tag:      2, // direction write
 			Targets: func(e *EdgeConfig) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Tags))
+				var targets []channel.Key
 				for _, v1 := range e.Tags {
 					if v1.CommandChannel != 0 {
+						if targets == nil {
+							targets = make([]channel.Key, 0, len(e.Tags))
+						}
 						targets = append(targets, v1.CommandChannel)
 					}
 				}

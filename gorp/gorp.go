@@ -105,7 +105,9 @@ func (db *DB) OpenTx() Tx {
 			zap.Duration("wait", wait),
 		)
 	}
-	return &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t := &tx{Tx: db.DB.OpenTx(), options: db.options, db: db, unlock: db.lock.Unlock}
+	t.state.cleanups = t.state.inline[:0]
+	return t
 }
 
 // Set sets key to value in a transaction of its own.
@@ -248,6 +250,10 @@ func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
+// ReferencedTables returns the names of the tables that a reference of an open table
+// may point at, in ascending order.
+func (db *DB) ReferencedTables() []string { return db.registry.referenced() }
+
 // KV returns the underlying key-value storage backing the DB.
 func (db *DB) KV() kv.DB { return db.DB }
 
@@ -310,6 +316,9 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// inline holds the first cleanups of a transaction, so that registering them
+	// allocates nothing.
+	inline [8]func(committed bool)
 	// committing is true during a commit attempt.
 	committing atomic.Bool
 	// changes is what the typed writes through the transaction changed. Only the

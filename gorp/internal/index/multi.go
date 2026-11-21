@@ -22,16 +22,29 @@ import (
 // that hold them. Unlike Lookup, one key can hold any number of values. Multi is safe
 // for concurrent use.
 type Multi[S Scope, K, V comparable] struct {
-	// mu guards forward, reverse, none, and population.err. Populate holds it for
-	// writing until the load finishes.
+	// mu guards forward, reverse, none, fresh, and population.err. Populate holds it
+	// for writing until the load finishes.
 	mu         sync.RWMutex
 	population population
 	forward    map[V]holders[K]
 	reverse    map[K][]V
 	// none holds the keys that hold no value.
-	none    set.Set[K]
-	overlay overlay[S, *delta[K, V]]
+	none set.Set[K]
+	// fresh holds the keys that a transaction staged with no value and that held
+	// nothing before, so that such a key needs no delta. Transactions write one at a
+	// time, so one list serves them all.
+	fresh struct {
+		scope      S
+		keys       set.Set[K]
+		registered bool
+	}
+	// endFresh is finishFresh, bound once so that registering it allocates nothing.
+	endFresh func(committed bool)
+	overlay  overlay[S, *delta[K, V]]
 }
+
+// freshRetained is the most keys that fresh keeps room for between transactions.
+const freshRetained = 1024
 
 // NewMulti returns an empty Multi that waits for its bulk load.
 func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
@@ -42,6 +55,7 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 		none:       make(set.Set[K]),
 	}
 	m.overlay.create, m.overlay.flush = newDelta[K, V], m.flush
+	m.endFresh = m.finishFresh
 	return m
 }
 
@@ -83,7 +97,78 @@ func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 		m.Set(key, values)
 		return
 	}
+	if len(values) == 0 && m.stageFresh(scope, key) {
+		return
+	}
+	m.unstageFresh(scope, key)
 	m.overlay.load(scope).set(key, slices.Clone(values))
+}
+
+// stageFresh adds key to fresh when key holds nothing in committed state or in the
+// changes of scope. It returns false when key holds something, or before the bulk load
+// finishes.
+func (m *Multi[S, K, V]) stageFresh(scope S, key K) bool {
+	select {
+	case <-m.population.done:
+	default:
+		return false
+	}
+	if d, ok := m.overlay.get(scope); ok {
+		if _, staged := d.state[key]; staged {
+			return false
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.population.err != nil || m.none.Contains(key) {
+		return false
+	}
+	if _, held := m.reverse[key]; held {
+		return false
+	}
+	if !m.fresh.registered {
+		m.fresh.scope, m.fresh.registered = scope, true
+		scope.OnCleanup(m.endFresh)
+	}
+	if m.fresh.keys == nil {
+		m.fresh.keys = make(set.Set[K])
+	}
+	m.fresh.keys.Add(key)
+	return true
+}
+
+// unstageFresh removes key from fresh for scope and reports whether fresh held it. Only
+// the goroutine of the writing transaction changes fresh, so it reads fresh unlocked.
+func (m *Multi[S, K, V]) unstageFresh(scope S, key K) bool {
+	if !m.fresh.registered || m.fresh.scope != scope || !m.fresh.keys.Contains(key) {
+		return false
+	}
+	m.mu.Lock()
+	m.fresh.keys.Remove(key)
+	m.mu.Unlock()
+	return true
+}
+
+// finishFresh moves fresh into none when its transaction committed, and drops fresh
+// otherwise.
+func (m *Multi[S, K, V]) finishFresh(committed bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if committed {
+		maps.Copy(m.none, m.fresh.keys)
+	}
+	if len(m.fresh.keys) > freshRetained {
+		m.fresh.keys = nil
+	} else {
+		clear(m.fresh.keys)
+	}
+	var none S
+	m.fresh.scope, m.fresh.registered = none, false
+}
+
+// freshOf reports whether key is in fresh for scope. Call it with mu held.
+func (m *Multi[S, K, V]) freshOf(scope S, key K) bool {
+	return m.fresh.registered && m.fresh.scope == scope && m.fresh.keys.Contains(key)
 }
 
 // Current reports whether key holds exactly values, with the changes of scope applied,
@@ -108,7 +193,7 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 	if prev, ok := m.reverse[key]; ok {
 		return slices.Equal(prev, values)
 	}
-	return len(values) == 0 && m.none.Contains(key)
+	return len(values) == 0 && (m.none.Contains(key) || m.freshOf(scope, key))
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -116,6 +201,10 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 func (m *Multi[S, K, V]) StageDelete(scope S, key K) {
 	if isNone(scope) {
 		m.Delete(key)
+		return
+	}
+	// A key in fresh holds nothing in committed state, so its delete changes nothing.
+	if m.unstageFresh(scope, key) {
 		return
 	}
 	m.overlay.load(scope).delete(key)
@@ -202,6 +291,9 @@ func (m *Multi[S, K, V]) Holding(scope S, holding bool) ([]K, error) {
 		}
 	} else {
 		maps.Copy(keys, m.none)
+		if m.fresh.registered && m.fresh.scope == scope {
+			maps.Copy(keys, m.fresh.keys)
+		}
 	}
 	if d, ok := m.overlay.get(scope); ok {
 		d.applyHolding(keys, holding)
@@ -213,13 +305,20 @@ func (m *Multi[S, K, V]) Holding(scope S, holding bool) ([]K, error) {
 // at least one value when holding is true, or holding none when holding is false. See
 // Lookup.Committing for its contract.
 func (m *Multi[S, K, V]) CommittingHolding(holding bool) []K {
-	m.overlay.mu.RLock()
-	defer m.overlay.mu.RUnlock()
 	keys := make(set.Set[K])
+	m.overlay.mu.RLock()
 	for scope, d := range m.overlay.deltas {
 		if scope.Committing() {
 			d.applyHolding(keys, holding)
 		}
+	}
+	m.overlay.mu.RUnlock()
+	if !holding {
+		m.mu.RLock()
+		if m.fresh.registered && m.fresh.scope.Committing() {
+			maps.Copy(keys, m.fresh.keys)
+		}
+		m.mu.RUnlock()
 	}
 	return keys.Slice()
 }

@@ -74,6 +74,8 @@ type Link struct {
 	Target Target
 	// Kind is what the link says about the record that holds it.
 	Kind LinkKind
+	// Tag is the tag of the reference that holds the link. Gorp never reads it.
+	Tag uint8
 }
 
 // FormatKey returns the text form of k: the string itself for a string key, base 10
@@ -426,7 +428,7 @@ func (r *reference[K, E, T]) targets(e *E) []Target {
 
 func (r *reference[K, E, T]) links(out []Link, e *E) []Link {
 	for _, t := range r.targetsOf(e) {
-		out = append(out, Link{Target: r.format(t), Kind: r.kind})
+		out = append(out, Link{Target: r.format(t), Kind: r.kind, Tag: r.tag})
 	}
 	return out
 }
@@ -437,7 +439,7 @@ func (r *reference[K, E, T]) indexedLinks(out []Link, tx Tx, k K) ([]Link, bool)
 		return out, false
 	}
 	for _, t := range held {
-		out = append(out, Link{Target: r.format(t), Kind: r.kind})
+		out = append(out, Link{Target: r.format(t), Kind: r.kind, Tag: r.tag})
 	}
 	return out, true
 }

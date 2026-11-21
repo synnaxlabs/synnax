@@ -12,33 +12,84 @@ package channel
 import (
 	"context"
 	"fmt"
-	"maps"
+	mathbits "math/bits"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
-// IsBuiltIn reports whether a Core service declared the channel with key k for its own
-// work through Writer.Declare.
-func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().Contains(k) }
+// builtInSet holds the keys of the built-in channels, shaped so that a key needs one
+// bit test or two compares: a bit for each local key of a free built-in channel, and
+// the few leased built-in channels in ascending order.
+type builtInSet struct {
+	free   []uint64
+	leased []Key
+}
 
-// BuiltIns returns the keys of the channels that Core services declared, in ascending
-// order.
-func (s *Service) BuiltIns() Keys {
-	keys := Keys(s.builtIns.Load().Slice())
-	slices.Sort(keys)
+func (b *builtInSet) contains(k Key) bool {
+	if k.Free() {
+		local := uint32(k.LocalKey())
+		word := int(local / 64)
+		return word < len(b.free) && b.free[word]&(1<<(local%64)) != 0
+	}
+	n := len(b.leased)
+	if n == 0 || k < b.leased[0] || k > b.leased[n-1] {
+		return false
+	}
+	_, found := slices.BinarySearch(b.leased, k)
+	return found
+}
+
+// with returns a copy of b that holds k.
+func (b *builtInSet) with(k Key) *builtInSet {
+	next := &builtInSet{free: b.free, leased: b.leased}
+	if !k.Free() {
+		if i, found := slices.BinarySearch(b.leased, k); !found {
+			next.leased = slices.Insert(slices.Clone(b.leased), i, k)
+		}
+		return next
+	}
+	local := uint32(k.LocalKey())
+	word := int(local / 64)
+	next.free = slices.Clone(b.free)
+	if word >= len(next.free) {
+		next.free = append(next.free, make([]uint64, word+1-len(next.free))...)
+	}
+	next.free[word] |= 1 << (local % 64)
+	return next
+}
+
+// keys returns the keys of b in ascending order.
+func (b *builtInSet) keys() Keys {
+	keys := slices.Clone(Keys(b.leased))
+	for word, bits := range b.free {
+		for ; bits != 0; bits &= bits - 1 {
+			local := LocalKey(word*64 + mathbits.TrailingZeros64(bits))
+			keys = append(keys, distchannel.NewKey(node.KeyFree, local))
+		}
+	}
 	return keys
 }
 
+// IsBuiltIn reports whether a Core service declared the channel with key k for its own
+// work through Writer.Declare.
+func (s *Service) IsBuiltIn(k Key) bool { return s.builtIns.Load().contains(k) }
+
+// BuiltIns returns the keys of the channels that Core services declared, in ascending
+// order.
+func (s *Service) BuiltIns() Keys { return s.builtIns.Load().keys() }
+
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the
-// data type and virtual flag of ch, becomes the built-in. Declare renames any other
-// channel of that name with the first free suffix (_2, _3) and writes a warning status
-// for it. Declare fills ch with the stored channel. It returns an error when another
-// built-in holds the name.
+// data type and virtual flag of ch, that is not free, becomes the built-in. Declare
+// renames any other channel of that name with the first free suffix (_2, _3) and writes
+// a warning status for it. Declare fills ch with the stored channel. It returns an
+// error when another built-in holds the name.
 func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	var holders []Channel
 	if err := w.svc.newRetrieve().
@@ -48,7 +99,10 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return err
 	}
 	match := slices.IndexFunc(holders, func(h Channel) bool {
-		return h.Group == nil && h.DataType == ch.DataType && h.Virtual == ch.Virtual
+		return h.Group == nil &&
+			h.DataType == ch.DataType &&
+			h.Virtual == ch.Virtual &&
+			!h.Free()
 	})
 	for i, h := range holders {
 		if i == match {
@@ -69,9 +123,7 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 	gorp.BeforeCommit(w.tx, func(context.Context) error {
 		w.svc.mu.Lock()
 		defer w.svc.mu.Unlock()
-		next := maps.Clone(*w.svc.builtIns.Load())
-		next.Add(key)
-		w.svc.builtIns.Store(&next)
+		w.svc.builtIns.Store(w.svc.builtIns.Load().with(key))
 		w.svc.mu.externalNonVirtualSet.Remove(key)
 		return nil
 	})
