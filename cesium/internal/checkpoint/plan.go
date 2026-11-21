@@ -220,8 +220,7 @@ func (f *flat) sealedSize() int {
 		for k, seg := range ch.Segments {
 			if seg.Sealed && !f.parted[f.first[i]+k] {
 				held = true
-				size += int(headFormat.sizes[sectionSegs]) +
-					len(seg.Pointers)*int(headFormat.sizes[sectionPtrs])
+				size += recordSize(seg)
 			}
 		}
 		if held {
@@ -229,6 +228,12 @@ func (f *flat) sealedSize() int {
 		}
 	}
 	return size
+}
+
+// recordSize returns the size in a head of the records of seg and its pointers.
+func recordSize(seg state.Segment) int {
+	return int(headFormat.sizes[sectionSegs]) +
+		len(seg.Pointers)*int(headFormat.sizes[sectionPtrs])
 }
 
 func sameSegment(a, b state.Segment) bool {

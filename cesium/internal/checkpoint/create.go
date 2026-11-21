@@ -81,9 +81,7 @@ func split(channels []*state.Channel, size int) [][]*state.Channel {
 	for _, ch := range channels {
 		start := 0
 		for k, seg := range ch.Segments {
-			filled += int(headFormat.sizes[sectionSegs]) +
-				len(seg.Pointers)*int(headFormat.sizes[sectionPtrs])
-			if filled < size {
+			if filled += recordSize(seg); filled < size {
 				continue
 			}
 			group = append(
