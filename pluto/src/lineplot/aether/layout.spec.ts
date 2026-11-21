@@ -427,7 +427,7 @@ describe("shownSpans", () => {
   const NOW = new TimeStamp(1000 * HOUR);
 
   it("should leave out the gaps between windows far apart", () => {
-    const shown = shownSpans([window(0, 1), window(100, 1)], NOW);
+    const shown = shownSpans([window(0, 1), window(100, 1)], NOW, NOW);
     expect(shown).toHaveLength(2);
     expect(ns(shown[0].start)).toEqual(0);
     expect(ns(shown[1].end)).toEqual(101 * HOUR);
@@ -436,7 +436,7 @@ describe("shownSpans", () => {
   });
 
   it("should hold the time between windows close together in one span", () => {
-    const shown = shownSpans([window(0, 1), window(1.05, 1)], NOW);
+    const shown = shownSpans([window(0, 1), window(1.05, 1)], NOW, NOW);
     expect(shown).toHaveLength(1);
     expect(ns(shown[0].end)).toBeCloseTo(2.05 * HOUR, -1);
   });
@@ -448,14 +448,15 @@ describe("shownSpans", () => {
       start.add(TimeSpan.days(2)),
       start.add(TimeSpan.days(2)).add(TimeSpan.HOUR).add(3n),
     );
-    const shown = shownSpans([first, later], NOW);
+    const shown = shownSpans([first, later], NOW, NOW);
     expect(shown[0].start).toEqual(first.start);
     expect(shown[1].end).toEqual(later.end);
   });
 
   it("should leave the span of a running window open", () => {
     const running = new TimeRange(100 * HOUR, TimeStamp.MAX);
-    const shown = shownSpans([window(0, 1), running], new TimeStamp(101 * HOUR));
+    const at101 = new TimeStamp(101 * HOUR);
+    const shown = shownSpans([window(0, 1), running], at101, at101);
     expect(shown).toHaveLength(2);
     expect(ns(shown[0].end)).toBeLessThan(2 * HOUR);
     expect(ns(shown[1].start)).toBeGreaterThan(99 * HOUR);
@@ -465,23 +466,36 @@ describe("shownSpans", () => {
   it("should hold the time of an open break in one span", () => {
     // The gap starts a margin of 5% of the first window after its end.
     const lower = HOUR + HOUR * 0.05;
-    const shown = shownSpans([window(0, 1), window(100, 1)], NOW, [lower]);
+    const shown = shownSpans([window(0, 1), window(100, 1)], NOW, NOW, [lower]);
     expect(shown).toHaveLength(1);
     expect(ns(shown[0].start)).toEqual(0);
     expect(ns(shown[0].end)).toEqual(101 * HOUR);
   });
 
-  it("should lay out a window that ends after the newest sample as running", () => {
+  it("should lay out a window that ends after now as running", () => {
     // A fixed margin of 5% of eight hours would join the two windows.
     const planned = new TimeRange(1.25 * HOUR, 9.25 * HOUR);
-    const shown = shownSpans([window(0, 1), planned], new TimeStamp(2 * HOUR));
+    const at2 = new TimeStamp(2 * HOUR);
+    const shown = shownSpans([window(0, 1), planned], at2, at2);
     expect(shown).toHaveLength(2);
     expect(ns(shown[1].start)).toEqual(1.25 * HOUR - Number(TimeSpan.SECOND.valueOf()));
     expect(shown[1].end).toEqual(planned.end);
   });
 
+  it("should lay out a window that ends before now in full", () => {
+    // The channels stopped before the second window ended. As a running window, its
+    // margin of 1 s would leave the gap between the windows out.
+    const shown = shownSpans(
+      [window(0, 1), window(1.08, 1)],
+      new TimeStamp(3 * HOUR),
+      new TimeStamp(1.5 * HOUR),
+    );
+    expect(shown).toHaveLength(1);
+    expect(ns(shown[0].end)).toEqual(2.08 * HOUR);
+  });
+
   it("should list the spans in time order", () => {
-    const shown = shownSpans([window(100, 1), window(0, 1)], NOW);
+    const shown = shownSpans([window(100, 1), window(0, 1)], NOW, NOW);
     expect(ns(shown[0].start)).toBeLessThan(ns(shown[1].start));
   });
 });
