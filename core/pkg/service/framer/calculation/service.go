@@ -188,10 +188,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// report saves a status a calculator reports for the channel with the given key.
-func (s *Service) report(ctx context.Context, key channel.Key, st Status) bool {
+// report saves a status that a calculator, which ran expression, reports for the
+// channel with the given key.
+func (s *Service) report(
+	ctx context.Context,
+	key channel.Key,
+	expression string,
+	st Status,
+) bool {
 	st.Time = telem.Now()
-	if err := s.cfg.ChannelGraph.SetRuntimeStatus(ctx, key, &st); err != nil {
+	if err := s.cfg.ChannelGraph.SetRuntimeStatus(
+		ctx,
+		key,
+		expression,
+		&st,
+	); err != nil {
 		s.cfg.L.Error(
 			"failed to set status",
 			zap.Error(err),
