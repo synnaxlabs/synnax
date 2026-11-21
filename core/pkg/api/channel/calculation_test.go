@@ -24,8 +24,10 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Calculation records", func() {
@@ -69,6 +71,26 @@ var _ = Describe("Calculation records", func() {
 			Operations: ops,
 		}
 	}
+
+	It("Should give a failed create the position of its channel in the request", func(
+		ctx SpecContext,
+	) {
+		input := createChannel(ctx, telem.Float32T)
+		pathOf := func(channels ...apichannel.Channel) []string {
+			GinkgoHelper()
+			_, err := createChannels(
+				AuthedCtx(ctx, u),
+				apichannel.CreateRequest{Channels: channels},
+			)
+			pathErr, ok := errors.AsType[validate.PathError](err)
+			Expect(ok).To(BeTrue(), "%v is a path error", err)
+			return pathErr.Path
+		}
+		unnamed := apichannel.Channel{DataType: telem.Float32T, Virtual: true}
+		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
+		unnamed.Expression = "return 2"
+		Expect(pathOf(calculated(input), unnamed)).To(Equal([]string{"1", "name"}))
+	})
 
 	It("Should write the record of a calculated channel", func(ctx SpecContext) {
 		input := createChannel(ctx, telem.Float32T)

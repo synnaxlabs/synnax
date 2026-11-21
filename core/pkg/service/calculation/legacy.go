@@ -12,6 +12,7 @@ package calculation
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
@@ -83,7 +84,9 @@ func (w Writer) CreateChannels(
 		if err := w.channels.NewWriter(w.tx).
 			WithDispatchKey(w.dispatchKey).
 			CreateMany(ctx, &plain, opts...); err != nil {
-			return err
+			return reindex(err, func(j int) []string {
+				return []string{strconv.Itoa(plainAt[j])}
+			})
 		}
 		for j, i := range plainAt {
 			(*channels)[i] = plain[j]
@@ -104,7 +107,7 @@ func (w Writer) CreateChannels(
 		}
 		created, err := w.CreateOutput(ctx, &c, ch.Name, ch.Group)
 		if err != nil {
-			return err
+			return validate.PathedError(err, strconv.Itoa(i))
 		}
 		(*channels)[i] = created[0]
 		indexes = append(indexes, created[1:]...)

@@ -12,6 +12,7 @@ package calculation
 import (
 	"context"
 	"slices"
+	"strconv"
 	"strings"
 	"uuid"
 
@@ -76,10 +77,9 @@ func (w Writer) Create(ctx context.Context, c *Calculation) error {
 
 // CreateOutput creates c with a new output: a virtual channel named name in the group
 // with key group, or at the root when group is nil, typed by the expression of c, with
-// a
-// free index that timestamps it. It returns the output, then its index. It returns an
-// error wrapping validate.ErrValidation when c names an output, and fails as Create
-// does.
+// a free index that timestamps it. It returns the output, then its index. It returns an
+// error wrapping validate.ErrValidation when c names an output or the output is not
+// valid, with the path of the field at fault, and fails as Create does.
 func (w Writer) CreateOutput(
 	ctx context.Context,
 	c *Calculation,
@@ -112,7 +112,7 @@ func (w Writer) CreateOutput(
 	if err = w.channels.NewWriter(w.tx).
 		WithDispatchKey(w.dispatchKey).
 		CreateMany(ctx, &created, channel.FreeIndex()); err != nil {
-		return nil, err
+		return nil, reindex(err, func(int) []string { return nil })
 	}
 	c.Output = created[0].Key()
 	return created, w.Create(ctx, c)
@@ -368,4 +368,19 @@ func (w Writer) storedChannels(
 		return nil, err
 	}
 	return slices.Concat(byName, byKey), nil
+}
+
+// reindex replaces the position p that leads the path of err, an error from
+// channel.Writer.CreateMany, with at(p).
+func reindex(err error, at func(p int) []string) error {
+	pathErr, ok := errors.AsType[validate.PathError](err)
+	if !ok || len(pathErr.Path) == 0 {
+		return err
+	}
+	p, convErr := strconv.Atoi(pathErr.Path[0])
+	if convErr != nil {
+		return err
+	}
+	pathErr.Path = slices.Concat(at(p), pathErr.Path[1:])
+	return pathErr
 }
