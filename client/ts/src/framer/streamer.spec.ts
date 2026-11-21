@@ -1469,6 +1469,32 @@ describe("Streamer", () => {
     });
   });
 
+  describe("hardened missed hook", () => {
+    it("should hand the config's onMissed to every stream it opens", async () => {
+      const configs: framer.StreamerConfig[] = [];
+      const onMissed = vi.fn();
+      const reopened = new MockStreamer();
+      reopened.responses.push([new framer.Frame(), null]);
+      const streams = [new MockStreamer(), reopened];
+      const hardened = new framer.HardenedStreamer(
+        async (config) => {
+          configs.push(config);
+          return streams.shift() ?? new MockStreamer();
+        },
+        { channels: [1], onMissed },
+        { breaker: { baseInterval: TimeSpan.milliseconds(1) } },
+      );
+      await hardened.start();
+      await hardened.read();
+      expect(configs).toHaveLength(2);
+      configs.forEach((config) => {
+        if (typeof config === "object" && "onMissed" in config) config.onMissed?.();
+      });
+      expect(onMissed).toHaveBeenCalledTimes(2);
+      hardened.close();
+    });
+  });
+
   describe("observable", () => {
     it("should notify observers when frames are received", async () => {
       const mockStreamer = new MockStreamer();
