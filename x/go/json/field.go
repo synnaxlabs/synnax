@@ -317,7 +317,7 @@ func appendBase64(dst, text []byte) ([]byte, error) {
 	}
 	dst, err := strictBase64.AppendDecode(dst, text)
 	if err != nil {
-		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+		return nil, errors.Wrap(validate.ErrValidation, "not canonical base64")
 	}
 	return dst, nil
 }

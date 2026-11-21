@@ -474,7 +474,7 @@ var _ = Describe("JSONEncoder", func() {
 				Pointer: "/blob",
 				Default: new("AQI"),
 			}}}),
-			"message command: field blob: default: illegal base64 data at input byte 0: "+
+			"message command: field blob: default: not canonical base64: "+
 				"validation error",
 		),
 		Entry("a JSON default that is not valid JSON",

@@ -26,5 +26,5 @@
       ]
     }
   ],
-  "error": "message reading: field v: default: illegal base64 data at input byte 0: validation error"
+  "error": "message reading: field v: default: not canonical base64: validation error"
 }
