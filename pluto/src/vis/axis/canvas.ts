@@ -14,6 +14,7 @@ import {
   type AxisProps,
   type AxisState,
   axisStateZ,
+  BREAK_HEIGHT,
   BREAK_WIDTH,
   type ParsedAxisState,
   type RenderResult,
@@ -31,10 +32,10 @@ const TICK_LINE_SIZE = 5;
 const TICK_PADDING = 6;
 // The space in pixels that a label keeps from a seam or an anchor.
 const LABEL_GAP = 8;
-// The offset in pixels of each stroke of a break's mark from its seam, and the half
-// size of a stroke.
-const BREAK_STROKES = [-2, 2];
-const BREAK_STROKE_SIZE = 4;
+// The offset in pixels of each stroke of a break's mark from its seam, and the width of
+// a stroke.
+const BREAK_STROKES = [-3, 3];
+const BREAK_STROKE_WIDTH = 5;
 const OPEN_BREAK_ALPHA = 0.35;
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
@@ -109,8 +110,8 @@ export class Base {
     BREAK_STROKES.forEach((offset) => {
       const x = start.x + position + offset;
       this.drawLine(
-        { x: x - BREAK_STROKE_SIZE / 2, y: start.y + BREAK_STROKE_SIZE },
-        { x: x + BREAK_STROKE_SIZE / 2, y: start.y - BREAK_STROKE_SIZE },
+        { x: x - BREAK_STROKE_WIDTH / 2, y: start.y + BREAK_HEIGHT / 2 },
+        { x: x + BREAK_STROKE_WIDTH / 2, y: start.y - BREAK_HEIGHT / 2 },
       );
     });
   }
