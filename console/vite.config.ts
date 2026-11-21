@@ -42,7 +42,8 @@ interface BrowserProjectProps {
 
 /**
  * @returns a project that runs its specs in Chromium and WebKit. A desktop project
- * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix.
+ * builds the specs as Synnax Desktop, and its browsers carry a `desktop-` prefix. With
+ * `webkit` false, the project runs Chromium alone, as `<name>-chromium`.
  */
 const browserProject = ({
   name,
