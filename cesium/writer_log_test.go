@@ -12,6 +12,8 @@ package cesium_test
 import (
 	"context"
 	"math/rand/v2"
+	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -199,6 +201,93 @@ var _ = Describe("Writer on the pointer log", func() {
 			Expect(read(ctx, text).Series[0]).To(
 				telem.MatchSeriesDataV("hello", "world"),
 			)
+		})
+	})
+
+	Describe("Deletes", func() {
+		commit := func(ctx context.Context) {
+			GinkgoHelper()
+			w := openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		segments := func(key cesium.ChannelKey) []string {
+			GinkgoHelper()
+			ok := MustSucceed(fs.Exists(strconv.Itoa(int(key))))
+			if !ok {
+				return nil
+			}
+			var names []string
+			for _, info := range MustSucceed(fs.List(strconv.Itoa(int(key)))) {
+				if strings.HasSuffix(info.Name(), ".seg") {
+					names = append(names, info.Name())
+				}
+			}
+			return names
+		}
+		It("Should drop a key, its samples, and its files, across a reopen", func(
+			ctx SpecContext,
+		) {
+			commit(ctx)
+			Expect(segments(data)).To(HaveLen(1))
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.Drop([]cesium.ChannelKey{data})).To(Succeed())
+			Expect(db.RetrieveChannel(ctx, data)).Error().
+				To(MatchError(cesium.ErrChannelNotFound))
+			Expect(fs.Exists(strconv.Itoa(int(data)))).To(BeFalse())
+			reopen(ctx)
+			Expect(db.RetrieveChannel(ctx, data)).Error().
+				To(MatchError(cesium.ErrChannelNotFound))
+			Expect(MustSucceed(db.RetrieveChannel(ctx, idx)).Key).To(Equal(idx))
+		})
+		It("Should keep an index that a channel outside the drop uses", func(
+			ctx SpecContext,
+		) {
+			commit(ctx)
+			Expect(db.Drop([]cesium.ChannelKey{idx})).To(Succeed())
+			Expect(MustSucceed(db.RetrieveChannel(ctx, idx)).Key).To(Equal(idx))
+			Expect(segments(idx)).To(HaveLen(1))
+		})
+		It("Should keep a key with samples and no record, and drop one with an intent",
+			func(ctx SpecContext) {
+				commit(ctx)
+				Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+				reopen(ctx)
+				kept, highest := MustSucceed2(db.Sweep(ctx, nil))
+				Expect(kept).To(ConsistOf(cesium.KeptChannel{
+					Key:  idx,
+					Size: 16,
+				}))
+				Expect(highest).To(Equal(idx))
+				Expect(segments(data)).To(BeEmpty())
+				Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+					Channels: []cesium.ChannelKey{idx},
+					Start:    20 * telem.SecondTS,
+				})).Error().To(MatchError(cesium.ErrChannelNotFound))
+			},
+		)
+		It("Should clear the intent of a key that keeps its record", func(
+			ctx SpecContext,
+		) {
+			commit(ctx)
+			Expect(db.Intend([]cesium.ChannelKey{data})).To(Succeed())
+			reopen(ctx)
+			MustSucceed2(db.Sweep(ctx, []cesium.ChannelKey{idx, data}))
+			reopen(ctx)
+			kept, _ := MustSucceed2(db.Sweep(ctx, []cesium.ChannelKey{idx}))
+			Expect(kept).To(ConsistOf(cesium.KeptChannel{
+				Key:   data,
+				Index: idx,
+				Size:  16,
+			}))
+		})
+		It("Should refuse a delete of a time range", func(ctx SpecContext) {
+			Expect(db.DeleteTimeRange(
+				ctx,
+				[]cesium.ChannelKey{data},
+				telem.TimeRangeMax,
+			)).To(MatchError(xerrors.ErrUnsupported))
 		})
 	})
 

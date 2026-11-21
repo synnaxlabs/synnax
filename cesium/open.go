@@ -55,6 +55,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		if db.mu.channels, err = loadChannels(ctx, o); err != nil {
 			return nil, errors.Join(err, db.Close())
 		}
+		db.mu.hiddenChannels = make(map[ChannelKey]Channel)
 		return db, nil
 	}
 

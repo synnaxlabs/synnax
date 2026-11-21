@@ -49,6 +49,9 @@ func (db *DB) Sweep(
 	if db.closed.Load() {
 		return nil, 0, ErrDBClosed
 	}
+	if db.engine != nil {
+		return db.sweepLog(records)
+	}
 	if db.mu.swept {
 		if db.mu.sweepErr != nil {
 			return nil, 0, db.mu.sweepErr
@@ -63,6 +66,23 @@ func (db *DB) Sweep(
 	}
 	db.mu.kept = kept
 	return db.keptChannels(kept), db.highestKey(), nil
+}
+
+// sweepLog is Sweep on the pointer log layout. The caller holds db.mu.
+func (db *DB) sweepLog(records []ChannelKey) ([]KeptChannel, ChannelKey, error) {
+	if !db.mu.swept {
+		db.mu.swept = true
+		db.mu.kept, db.mu.sweepErr = db.decideLog(set.New(records...))
+	}
+	if db.mu.sweepErr != nil {
+		return nil, 0, db.mu.sweepErr
+	}
+	kept, err := db.keptLogChannels(db.mu.kept)
+	if err != nil {
+		return nil, 0, err
+	}
+	highest, err := db.highestLogKey()
+	return kept, highest, err
 }
 
 // decide drops, keeps, and hides the channels of the DB against records, and returns
