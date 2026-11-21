@@ -120,24 +120,33 @@ export class Base {
     const seams = seamPositions(props.segments, size);
     if (seams.length === 0) return { ticks, seams };
     const kept = ticks.filter((t) => !nearSeam(seams, t.position));
-    const labels = this.labels(kept, seams);
+    const ends = {
+      lower: box.left(props.container) - props.position.x,
+      upper: box.right(props.container) - props.position.x,
+    };
+    const labels = this.labels(kept, seams, ends);
     return { ticks: kept.map((t) => ({ ...t, label: labels.get(t) ?? "" })), seams };
   }
 
   // labels returns the label that each tick draws. The first tick of each segment whose
-  // anchor label is clear of the seams and of the anchors before it draws its anchor
-  // label. Any other tick after the anchor of its segment draws its label when it is
-  // clear of the seams and anchors.
-  private labels(ticks: Tick[], seams: number[]): Map<Tick, string> {
+  // anchor label is clear of the seams and of the anchors before it, and inside ends,
+  // draws its anchor label. Any other tick after the anchor of its segment draws its
+  // label when it is clear of the seams and anchors, and inside ends.
+  private labels(
+    ticks: Tick[],
+    seams: number[],
+    ends: bounds.Bounds,
+  ): Map<Tick, string> {
     const { lower2d: canvas } = this.renderCtx;
     const extent = (position: number, label: string): bounds.Bounds => {
       const half = canvas.textDimensions(label, FILL_TEXT_OPTIONS).width / 2;
       return { lower: position - half, upper: position + half };
     };
-    const taken = seams.map((s) => ({
-      lower: s - BREAK_WIDTH / 2,
-      upper: s + BREAK_WIDTH / 2,
-    }));
+    const taken = [
+      { lower: -Infinity, upper: ends.lower - LABEL_GAP },
+      ...seams.map((s) => ({ lower: s - BREAK_WIDTH / 2, upper: s + BREAK_WIDTH / 2 })),
+      { lower: ends.upper + LABEL_GAP, upper: Infinity },
+    ];
     const clear = (e: bounds.Bounds): boolean =>
       taken.every(
         (o) => e.upper + LABEL_GAP <= o.lower || e.lower >= o.upper + LABEL_GAP,

@@ -151,6 +151,16 @@ export class Layout {
     const i = lastAtOrBelow(this.positionLowers, position);
     return this.reverseHomes[i].pos(position);
   }
+
+  /**
+   * @returns the values that a span of decimal positions across the home view holds.
+   * An edge where two segments meet gives the bound of the segment inside the span.
+   */
+  reverseHomeSpan({ lower, upper }: bounds.Bounds): bounds.Bounds {
+    let i = lastAtOrBelow(this.positionLowers, upper);
+    if (i > 0 && this.positionLowers[i] === upper) i--;
+    return { lower: this.reverseHome(lower), upper: this.reverseHomes[i].pos(upper) };
+  }
 }
 
 // The margin on each side of a window is a share of the window's span, and at least the

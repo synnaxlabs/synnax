@@ -75,6 +75,24 @@ describe("Layout", () => {
       expect(layout.reverseHome(0.4)).toBeCloseTo(5000);
     });
 
+    it("should map a span that ends where two segments meet to the earlier one", () => {
+      const s = layout.reverseHomeSpan({
+        lower: 0.05,
+        upper: layout.segments[1].position.lower,
+      });
+      expect(s.lower).toBeCloseTo(5);
+      expect(s.upper).toBeCloseTo(10);
+    });
+
+    it("should map a span that starts where two segments meet to the later one", () => {
+      const s = layout.reverseHomeSpan({
+        lower: layout.segments[1].position.lower,
+        upper: 0.25,
+      });
+      expect(s.lower).toBeCloseTo(1000);
+      expect(s.upper).toBeCloseTo(1015);
+    });
+
     it("should map positions inside each segment back to their values", () => {
       [5, 1020, 5030].forEach((v) =>
         expect(layout.reverseHome(layout.home(v))).toBeCloseTo(v),
