@@ -149,7 +149,9 @@ class Server(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
     connection: Connection
-    read_indexes: list[channel_.Key] = Field(default_factory=list)
+    read_indexes: list[Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=list
+    )
     read_channels: dict[str, Annotated[channel_.Key, Field(ge=0, le=4294967295)]] = (
         Field(default_factory=dict)
     )
