@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -82,29 +85,45 @@ public:
     [[nodiscard]] x::errors::Error close() override { return this->server->close(); }
 };
 
+/// @brief returns the channels with the given keys.
+using RetrieveChannels = std::function<
+    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>(
+        const std::vector<synnax::channel::Key> &
+    )>;
+
 /// @brief a WriterFactory that wraps writers with bus publish capability. Injects the
 /// group identity into writer configs for Core-side deduplication and threads
-/// control::States into writers for short-circuit authority updates.
+/// control::States into writers for short-circuit authority updates. It registers the
+/// clock of each channel it opens a writer on, so the bus stamps clocks as the Core
+/// does.
 class WriterFactory final : public ::driver::pipeline::WriterFactory {
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     std::uint32_t group;
+    RetrieveChannels retrieve_channels;
 
 public:
     WriterFactory(
         std::shared_ptr<::driver::pipeline::WriterFactory> server,
         const std::shared_ptr<Bus> &bus,
         const std::shared_ptr<control::States> &states,
-        const std::uint32_t group
+        const std::uint32_t group,
+        RetrieveChannels retrieve_channels
     ):
-        server(std::move(server)), bus(bus), states(states), group(group) {}
+        server(std::move(server)),
+        bus(bus),
+        states(states),
+        group(group),
+        retrieve_channels(std::move(retrieve_channels)) {}
 
     std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
         auto cfg = config;
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
-        this->bus->register_channels(cfg.channels);
+        auto [channels, retrieve_err] = this->retrieve_channels(cfg.channels);
+        if (retrieve_err) return {nullptr, retrieve_err};
+        this->bus->register_channels(channels);
         auto [writer, err] = this->server->open_writer(cfg);
         if (err) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()

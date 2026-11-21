@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -1474,17 +1473,16 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(10, 20)),
 						).To(Succeed())
 
-						w, _ := MustSucceed2(indexDB.OpenWriter(
+						w := MustSucceed(indexDB.OpenWriter(
 							ctx,
 							unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								End:     18 * telem.SecondTS,
-								Subject: control.Subject{Key: "test_writer"},
+								Start: 10 * telem.SecondTS,
+								End:   18 * telem.SecondTS,
 							},
 						))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						Expect(
 							indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20)),
@@ -1561,10 +1559,9 @@ var _ = Describe("Delete", func() {
 							}))
 						)
 						db2.SetIndex(indexDB2.Index())
-						w, _ := MustSucceed2(
+						w := MustSucceed(
 							indexDB2.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "test"},
+								Start: 10 * telem.SecondTS,
 							}),
 						)
 						MustSucceed(
@@ -1575,7 +1572,7 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						Expect(unary.Write(
 							ctx,
 							db2,
@@ -1643,12 +1640,11 @@ var _ = Describe("Delete", func() {
 							}))
 						)
 						db2.SetIndex(indexDB2.Index())
-						w, _ := MustSucceed2(
+						w := MustSucceed(
 							indexDB2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1660,13 +1656,12 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
-						w, _ = MustSucceed2(
+						Expect(w.Close()).To(Succeed())
+						w = MustSucceed(
 							db2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test2"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1678,7 +1673,7 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesV[int64](20, 22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						Expect(
 							db2.Delete(
 								ctx,
@@ -1733,12 +1728,11 @@ var _ = Describe("Delete", func() {
 							}))
 						)
 						db2.SetIndex(indexDB2.Index())
-						w, _ := MustSucceed2(
+						w := MustSucceed(
 							indexDB2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1750,13 +1744,12 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
-						w, _ = MustSucceed2(
+						Expect(w.Close()).To(Succeed())
+						w = MustSucceed(
 							db2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test2"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1768,7 +1761,7 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						Expect(
 							db2.Delete(
 								ctx,
@@ -1820,12 +1813,11 @@ var _ = Describe("Delete", func() {
 							}))
 						)
 						db2.SetIndex(indexDB2.Index())
-						w, _ := MustSucceed2(
+						w := MustSucceed(
 							indexDB2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1837,13 +1829,12 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesSecondsTSV(22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
-						w, _ = MustSucceed2(
+						Expect(w.Close()).To(Succeed())
+						w = MustSucceed(
 							db2.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									Subject: control.Subject{Key: "test2"},
+									Start: 10 * telem.SecondTS,
 								},
 							),
 						)
@@ -1855,7 +1846,7 @@ var _ = Describe("Delete", func() {
 							w.Write(telem.NewSeriesV[int64](22, 24, 26, 28, 30)),
 						)
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						Expect(
 							db2.Delete(
 								ctx,
@@ -1927,9 +1918,8 @@ var _ = Describe("Delete", func() {
 				It(
 					"Should return true when there is a writer starting before the given time range",
 					func(ctx SpecContext) {
-						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   5 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo_writer"},
+						w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 5 * telem.SecondTS,
 						}))
 
 						hasData := MustSucceed(
@@ -1940,7 +1930,7 @@ var _ = Describe("Delete", func() {
 						)
 						Expect(hasData).To(BeTrue())
 
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						hasData = MustSucceed(
 							dataDB.HasDataFor(
@@ -1954,9 +1944,8 @@ var _ = Describe("Delete", func() {
 				It(
 					"Should return true when there is a writer starting in the middle of the given time range",
 					func(ctx SpecContext) {
-						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   15 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo_writer"},
+						w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 15 * telem.SecondTS,
 						}))
 
 						hasData := MustSucceed(
@@ -1967,7 +1956,7 @@ var _ = Describe("Delete", func() {
 						)
 						Expect(hasData).To(BeTrue())
 
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 
 						hasData = MustSucceed(
 							dataDB.HasDataFor(
@@ -1981,9 +1970,8 @@ var _ = Describe("Delete", func() {
 				It(
 					"Should return false when there is a writer starting after the given time range",
 					func(ctx SpecContext) {
-						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   25 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo_writer"},
+						w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 25 * telem.SecondTS,
 						}))
 
 						hasData := MustSucceed(
@@ -1994,7 +1982,7 @@ var _ = Describe("Delete", func() {
 						)
 						Expect(hasData).To(BeFalse())
 
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 					},
 				)
 			})

@@ -41,10 +41,6 @@ var _ = Describe("Restore", func() {
 
 			l = openLayer(ctx, dir, "0.60.0")
 			Expect(l.KV.Set(ctx, []byte("key"), []byte("after"))).To(Succeed())
-			Expect(l.TS.RenameChannels(
-				ctx,
-				map[cesium.ChannelKey]string{dataCh.Key: "renamed"},
-			)).To(Succeed())
 			Expect(l.TS.CreateChannel(ctx, addedCh)).To(Succeed())
 			write(ctx, l, 10, indexCh.Key, dataCh.Key, addedCh.Key)
 			Expect(l.Close()).To(Succeed())
@@ -62,8 +58,6 @@ var _ = Describe("Restore", func() {
 			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("before"))
 			Expect(closer.Close()).To(Succeed())
-			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, dataCh.Key)).Name).
-				To(Equal("data"))
 			Expect(l.TS.RetrieveChannel(ctx, addedCh.Key)).Error().
 				To(MatchError(cesium.ErrChannelNotFound))
 			frame := MustSucceed(l.TS.Read(ctx, telem.TimeRangeMax, dataCh.Key))

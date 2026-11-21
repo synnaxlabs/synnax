@@ -108,8 +108,9 @@ var _ = Describe("WriteTask", func() {
 	open := func() *driver.WriteTask {
 		GinkgoHelper()
 		wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
-			Sink: sink,
-			DB:   db, Status: statusSvc,
+			Channel: channelSvc,
+			Sink:    sink,
+			DB:      db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{cmdCh.Key()},
 			Task:     t,
@@ -139,6 +140,7 @@ var _ = Describe("WriteTask", func() {
 	Describe("NewWriteTask", func() {
 		It("Should reject a configuration with no sink", func() {
 			Expect(driver.NewWriteTask(driver.WriteTaskConfig{
+				Channel:  channelSvc,
 				DB:       db,
 				Status:   statusSvc,
 				Framer:   framerSvc,
@@ -191,8 +193,9 @@ var _ = Describe("WriteTask", func() {
 		It("Should close the writer of the sink when the streamer fails to open",
 			func(ctx SpecContext) {
 				wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
-					Sink: sink,
-					DB:   db, Status: statusSvc,
+					Channel: channelSvc,
+					Sink:    sink,
+					DB:      db, Status: statusSvc,
 					Framer:   framerSvc,
 					Channels: channel.Keys{channel.Key(1<<31 - 1)},
 					Task:     t,

@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -386,9 +385,8 @@ var _ = Describe("Variable-length channel", func() {
 						)).To(Succeed())
 
 						// Open one data writer session that crosses a rollover.
-						iw, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:   800 * telem.SecondTS,
-							Subject: xcontrol.Subject{Key: "rollover-flush"},
+						iw := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 800 * telem.SecondTS,
 						}))
 						// First batch: enough length-prefixed bytes to push the data
 						// file past the 40-byte rollover threshold on the next commit.
@@ -399,7 +397,7 @@ var _ = Describe("Variable-length channel", func() {
 						// Second batch lands in the second domain.
 						MustSucceed(iw.Write(telem.NewSeriesV("sampleF")))
 						MustSucceed(iw.Commit(ctx))
-						MustSucceed(iw.Close())
+						Expect(iw.Close()).To(Succeed())
 
 						rec.Reset()
 						frame := MustSucceed(
@@ -467,9 +465,8 @@ var _ = Describe("Variable-length channel", func() {
 							telem.NewSeriesSecondsTSV(1000, 1001, 1002, 1003, 1004),
 						)).To(Succeed())
 
-						iw, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:   1000 * telem.SecondTS,
-							Subject: xcontrol.Subject{Key: "multi-commit-flush"},
+						iw := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 1000 * telem.SecondTS,
 						}))
 						MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
 						MustSucceed(iw.Commit(ctx))
@@ -478,7 +475,7 @@ var _ = Describe("Variable-length channel", func() {
 						// invalidate it via the size gate.
 						MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
 						MustSucceed(iw.Commit(ctx))
-						MustSucceed(iw.Close())
+						Expect(iw.Close()).To(Succeed())
 
 						rec.Reset()
 						frame := MustSucceed(
@@ -534,9 +531,8 @@ var _ = Describe("Variable-length channel", func() {
 							telem.NewSeriesSecondsTSV(600, 601, 602, 603, 604),
 						)).To(Succeed())
 
-						iw, _ := MustSucceed2(data2.OpenWriter(ctx, unary.WriterConfig{
-							Start:   600 * telem.SecondTS,
-							Subject: xcontrol.Subject{Key: "cache-refresh"},
+						iw := MustSucceed(data2.OpenWriter(ctx, unary.WriterConfig{
+							Start: 600 * telem.SecondTS,
 						}))
 						MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
 						MustSucceed(iw.Commit(ctx))
@@ -556,7 +552,7 @@ var _ = Describe("Variable-length channel", func() {
 						// Append two more samples against the same domain and commit.
 						MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
 						MustSucceed(iw.Commit(ctx))
-						MustSucceed(iw.Close())
+						Expect(iw.Close()).To(Succeed())
 
 						// Sub-range read of the first four samples. The iterator view
 						// ends inside the domain, so approximateEnd resolves endSample
@@ -585,28 +581,26 @@ var _ = Describe("Variable-length channel", func() {
 						Expect(unary.Write(ctx, indexDB, 60*telem.SecondTS,
 							telem.NewSeriesSecondsTSV(60, 61, 62, 63, 64),
 						)).To(Succeed())
-						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   60 * telem.SecondTS,
-							Subject: xcontrol.Subject{Key: "alignment-test"},
+						w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 60 * telem.SecondTS,
 						}))
 						a1 := MustSucceed(w.Write(telem.NewSeriesV("a", "b")))
 						Expect(a1.SampleIndex()).To(Equal(uint32(0)))
 						a2 := MustSucceed(w.Write(telem.NewSeriesV("c", "d", "e")))
 						Expect(a2.SampleIndex()).To(Equal(uint32(2)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 					},
 				)
 				It("Should reject writes with wrong data type", func(ctx SpecContext) {
-					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   70 * telem.SecondTS,
-						Subject: xcontrol.Subject{Key: "wrong-type"},
+					w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+						Start: 70 * telem.SecondTS,
 					}))
 					Expect(
 						w.Write(telem.NewSeriesV[int64](1, 2, 3)),
 					).Error().
 						To(MatchError(validate.ErrValidation))
-					MustSucceed(w.Close())
+					Expect(w.Close()).To(Succeed())
 				})
 			})
 
@@ -646,12 +640,9 @@ var _ = Describe("Variable-length channel", func() {
 
 						// Lower-authority writer takes initial control and commits
 						// three samples, populating the cache for this domain.
-						w1, t1 := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     700 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute - 1,
-							Subject:   xcontrol.Subject{Key: "w1"},
+						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 700 * telem.SecondTS,
 						}))
-						Expect(t1.Occurred()).To(BeTrue())
 						a1 := MustSucceed(w1.Write(telem.NewSeriesV("a", "b", "c")))
 						Expect(a1.SampleIndex()).To(Equal(uint32(0)))
 						MustSucceed(w1.Commit(ctx))
@@ -660,17 +651,14 @@ var _ = Describe("Variable-length channel", func() {
 						// control. With shared tracker state, its first write must
 						// see the prior cumulative sample count and its writes must
 						// be addressed at the correct domain byte offsets.
-						w2, t2 := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     700 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute,
-							Subject:   xcontrol.Subject{Key: "w2"},
+						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 700 * telem.SecondTS,
 						}))
-						Expect(t2.Occurred()).To(BeTrue())
 						a2 := MustSucceed(w2.Write(telem.NewSeriesV("d", "e")))
 						Expect(a2.SampleIndex()).To(Equal(uint32(3)))
 						MustSucceed(w2.Commit(ctx))
-						MustSucceed(w2.Close())
-						MustSucceed(w1.Close())
+						Expect(w2.Close()).To(Succeed())
+						Expect(w1.Close()).To(Succeed())
 
 						rec.Reset()
 						frame := MustSucceed(
@@ -728,26 +716,22 @@ var _ = Describe("Variable-length channel", func() {
 							telem.NewSeriesSecondsTSV(800, 801, 802, 803),
 						)).To(Succeed())
 
-						w1, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     800 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute - 1,
-							Subject:   xcontrol.Subject{Key: "w1"},
+						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 800 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
 
 						// Handoff happens before w1 commits. w2's first write must
 						// continue from w1's cumulative byte position so the on-
 						// disk records remain addressable.
-						w2, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     800 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute,
-							Subject:   xcontrol.Subject{Key: "w2"},
+						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 800 * telem.SecondTS,
 						}))
 						a := MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
 						Expect(a.SampleIndex()).To(Equal(uint32(2)))
 						MustSucceed(w2.Commit(ctx))
-						MustSucceed(w2.Close())
-						MustSucceed(w1.Close())
+						Expect(w2.Close()).To(Succeed())
+						Expect(w1.Close()).To(Succeed())
 
 						frame := MustSucceed(
 							ReadUnary(
@@ -793,22 +777,18 @@ var _ = Describe("Variable-length channel", func() {
 							telem.NewSeriesSecondsTSV(900, 901, 902, 903, 904, 905),
 						)).To(Succeed())
 
-						w1, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     900 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute - 1,
-							Subject:   xcontrol.Subject{Key: "w1"},
+						w1 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 900 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
 						MustSucceed(w1.Commit(ctx))
 
-						w2, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
-							Start:     900 * telem.SecondTS,
-							Authority: xcontrol.AuthorityAbsolute,
-							Subject:   xcontrol.Subject{Key: "w2"},
+						w2 := MustSucceed(data.OpenWriter(ctx, unary.WriterConfig{
+							Start: 900 * telem.SecondTS,
 						}))
 						MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
 						MustSucceed(w2.Commit(ctx))
-						MustSucceed(w2.Close())
+						Expect(w2.Close()).To(Succeed())
 
 						// w1 regains control. Its next write must continue from
 						// the post-handoff cumulative count, not reset back to its
@@ -816,7 +796,7 @@ var _ = Describe("Variable-length channel", func() {
 						a := MustSucceed(w1.Write(telem.NewSeriesV("e", "f")))
 						Expect(a.SampleIndex()).To(Equal(uint32(4)))
 						MustSucceed(w1.Commit(ctx))
-						MustSucceed(w1.Close())
+						Expect(w1.Close()).To(Succeed())
 
 						frame := MustSucceed(
 							ReadUnary(

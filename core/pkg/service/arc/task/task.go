@@ -596,7 +596,7 @@ func (t *impl) handleWriterResponse(
 			status.VariantError,
 			false,
 			"Failed to write channel data",
-			res.Err.Error(),
+			t.factoryCfg.Channel.NameErrors(ctx, res.Err, nil).Error(),
 		)
 		return res.Err
 	} else if !res.Authorized {

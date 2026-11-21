@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
@@ -125,6 +126,105 @@ func BenchmarkOpen(b *testing.B) {
 					}
 				},
 			)
+		}
+	}
+}
+
+// openStored opens a node with an index channel and n data channels on it, all stored,
+// and returns the keys of the index and then of the data channels.
+func openStored(b *testing.B, n int) (testutil.Node, channel.Keys) {
+	b.Helper()
+	gomega.RegisterTestingT(b)
+	dist := testutil.OpenNode(b.Context())
+	b.Cleanup(func() {
+		if err := dist.Close(); err != nil {
+			b.Error(err)
+		}
+	})
+	idx := xtestutil.MustSucceed(dist.CreateChannels(b.Context(), []channel.Channel{{
+		Name:     "time",
+		DataType: telem.TimestampT,
+		IsIndex:  true,
+	}}))[0]
+	data := make([]channel.Channel, n)
+	for i := range data {
+		data[i] = channel.Channel{
+			Name:       fmt.Sprintf("data_%d", i),
+			DataType:   telem.Int64T,
+			LocalIndex: idx.LocalKey,
+		}
+	}
+	data = xtestutil.MustSucceed(dist.CreateChannels(b.Context(), data))
+	return dist, append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
+}
+
+// storedFrame returns a frame of one sample at ts for the index and each data channel
+// of keys.
+func storedFrame(keys channel.Keys, ts telem.TimeStamp) frame.Frame {
+	series := make([]telem.Series, len(keys))
+	series[0] = telem.NewSeries([]telem.TimeStamp{ts})
+	for i := 1; i < len(series); i++ {
+		series[i] = telem.NewSeries([]int64{int64(i)})
+	}
+	return frame.NewMulti(keys, series)
+}
+
+// BenchmarkWriteStored writes stored channels through the skip predicate. With
+// contended set, a writer with less authority writes the same channels once before each
+// write of the holder, and Cesium skips its every write. The steps are in turn, so the
+// allocations of an op do not move with scheduling.
+func BenchmarkWriteStored(b *testing.B) {
+	for _, contended := range []bool{false, true} {
+		for _, channels := range []int{1, 100} {
+			name := fmt.Sprintf("channels=%d", channels)
+			if contended {
+				name += "/contended"
+			}
+			b.Run(name, func(b *testing.B) {
+				dist, keys := openStored(b, channels)
+				open := func(subject string, auth control.Authority) *writer.Writer {
+					return xtestutil.MustSucceed(dist.Framer.OpenWriter(
+						b.Context(),
+						writer.Config{
+							ControlSubject: control.Subject{Key: subject},
+							Keys:           keys,
+							Start:          10 * telem.SecondTS,
+							Authorities:    []control.Authority{auth},
+						},
+					))
+				}
+				w := open("holder", control.AuthorityAbsolute)
+				var (
+					lw    *writer.Writer
+					lower frame.Frame
+				)
+				if contended {
+					lw = open("contender", 1)
+					lower = storedFrame(keys, 10*telem.SecondTS)
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := range b.N {
+					if lw != nil {
+						if _, err := lw.Write(lower); err != nil {
+							b.Fatal(err)
+						}
+					}
+					fr := storedFrame(keys, telem.TimeStamp(i+10)*telem.SecondTS)
+					if authorized, err := w.Write(fr); err != nil || !authorized {
+						b.Fatalf("write failed: authorized=%v, err=%v", authorized, err)
+					}
+				}
+				b.StopTimer()
+				if lw != nil {
+					if err := lw.Close(); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if err := w.Close(); err != nil {
+					b.Fatal(err)
+				}
+			})
 		}
 	}
 }

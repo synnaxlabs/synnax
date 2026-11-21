@@ -10,8 +10,8 @@
 package frame
 
 import (
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -43,26 +43,13 @@ func NewMulti(keys []channel.Key, series []telem.Series) Frame {
 // expected number of series is known.
 func Alloc(capacity int) Frame { return Frame{telem.AllocFrame[channel.Key](capacity)} }
 
-// SplitFree splits the frame into the series of channels that have storage and the
-// series of free channels.
-func (f Frame) SplitFree() (stored, free Frame) {
-	for key, series := range f.Entries() {
-		if key.Free() {
-			free = free.Append(key, series)
-		} else {
-			stored = stored.Append(key, series)
-		}
-	}
-	return stored, free
-}
-
 // Extend appends the keys and series from another frame to this frame.
 func (f Frame) Extend(frame Frame) Frame { return Frame{f.Frame.Extend(frame.Frame)} }
 
 // ToStorage converts the frame to the storage layer frame format. This is used when
 // persisting the frame to storage.
-func (f Frame) ToStorage() ts.Frame {
-	return f.UnsafeReinterpretKeysAs[ts.ChannelKey]()
+func (f Frame) ToStorage() cesium.Frame {
+	return f.UnsafeReinterpretKeysAs[cesium.ChannelKey]()
 }
 
 // KeepKeys returns a new frame containing only the series for the keys in the given
@@ -101,6 +88,6 @@ func Merge(frames []Frame) Frame {
 }
 
 // NewFromStorage creates a new distribution layer frame from a storage layer frame.
-func NewFromStorage(frame ts.Frame) Frame {
+func NewFromStorage(frame cesium.Frame) Frame {
 	return Frame{frame.UnsafeReinterpretKeysAs[channel.Key]()}
 }

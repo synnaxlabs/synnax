@@ -274,12 +274,10 @@ var _ = Describe("Metrics", func() {
 				CollectionInterval: 100 * time.Millisecond,
 			}))
 			Eventually(func() []string {
-				states := dist.Storage.TS.ControlStates()
-				holders := make([]string, 0, len(states.Transfers))
-				for _, t := range states.Transfers {
-					if t.To != nil {
-						holders = append(holders, t.To.Subject.Name)
-					}
+				states := dist.Framer.ControlStates()
+				holders := make([]string, 0, len(states))
+				for _, s := range states {
+					holders = append(holders, s.Subject.Name)
 				}
 				return holders
 			}).Should(ContainElement(fmt.Sprintf(

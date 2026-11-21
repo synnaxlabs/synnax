@@ -3408,6 +3408,9 @@ TEST(ArcTests, ForwardsStampFromBeforeStart) {
     input_idx_series.alignment = x::telem::Alignment(1, 0);
     auto input_val_series = x::telem::Series(5.0f);
     input_val_series.alignment = x::telem::Alignment(1, 0);
+    // The mock streamer stands in for the Core, which stamps each series' clock.
+    input_idx_series.clock = input_idx.key;
+    input_val_series.clock = input_idx.key;
     input_fr.emplace(input_idx.key, std::move(input_idx_series));
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
@@ -3680,7 +3683,10 @@ TEST(ArcTests, ReadsItsOwnFirstWrite) {
                 mock_writer,
                 bus,
                 std::make_shared<control::States>(),
-                0
+                0,
+                [client](const std::vector<synnax::channel::Key> &keys) {
+                    return client->channels.retrieve(keys);
+                }
             ),
             std::make_shared<bypass::pipeline::StreamerFactory>(
                 mock_streamer,

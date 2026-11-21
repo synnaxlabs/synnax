@@ -10,8 +10,8 @@
 package writer
 
 import (
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -34,16 +34,20 @@ const (
 )
 
 // Mode configures the persistence and streaming behavior of a writer.
-type Mode = ts.WriterMode
+type Mode = cesium.WriterMode
 
 const (
 	// ModePersistStream persists and streams written frames.
-	ModePersistStream = ts.WriterModePersistStream
+	ModePersistStream = cesium.WriterModePersistStream
 	// ModePersistOnly persists written frames and does not stream them.
-	ModePersistOnly = ts.WriterModePersistOnly
+	ModePersistOnly = cesium.WriterModePersistOnly
 	// ModeStreamOnly streams written frames and does not persist them.
-	ModeStreamOnly = ts.WriterModeStreamOnly
+	ModeStreamOnly = cesium.WriterModeStreamOnly
 )
+
+// AlwaysIndexPersistOnAutoCommit is the AutoIndexPersistInterval of a writer that syncs
+// every auto commit.
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Request represents a streaming call to a Writer.
 type Request struct {

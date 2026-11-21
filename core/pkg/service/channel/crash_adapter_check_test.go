@@ -32,7 +32,7 @@ import (
 
 // storageKey returns the Cesium key of the channel with the local key.
 func storageKey(local distchannel.LocalKey) cesium.ChannelKey {
-	return distchannel.NewKey(1, local).StorageKey()
+	return cesium.ChannelKey(distchannel.NewKey(1, local))
 }
 
 // dataKey and scratchKey return the Cesium keys of d<k> and s<k>. The clock takes the
@@ -69,9 +69,9 @@ func writePair(
 ) error {
 	return e.cesium.Write(ctx, telem.TimeStamp(id)*telem.SecondTS, telem.MultiFrame(
 		[]cesium.ChannelKey{
-			e.clock.Key().StorageKey(),
-			data.Key().StorageKey(),
-			scratch.Key().StorageKey(),
+			cesium.ChannelKey(e.clock.Key()),
+			cesium.ChannelKey(data.Key()),
+			cesium.ChannelKey(scratch.Key()),
 		},
 		[]telem.Series{
 			stamps(id, len(payload)),
@@ -135,7 +135,9 @@ func (e recordFirst) Commit(
 	}); err != nil {
 		return 0, err
 	}
-	if err := e.cesium.DeleteChannel(scratch.Key().StorageKey()); err != nil {
+	if err := e.cesium.Drop(
+		[]cesium.ChannelKey{cesium.ChannelKey(scratch.Key())},
+	); err != nil {
 		return 0, err
 	}
 	return crash.Visible, e.removed()
@@ -198,7 +200,7 @@ var _ = Describe("Crash adapter check", func() {
 				f := MustSucceed(disk.Open("kv/probe", os.O_CREATE|os.O_WRONLY))
 				MustSucceed(f.Write([]byte("taco")))
 				Expect(f.Close()).To(Succeed())
-				dir := strconv.FormatUint(uint64(e.clock.Key().StorageKey()), 10)
+				dir := strconv.FormatUint(uint64(e.clock.Key()), 10)
 				MustSucceed(e.ts.Sub(dir))
 				image := MustSucceed(disk.Crash(fault.CrashConfig{}))
 				Expect(image.Exists("kv/probe")).To(BeFalse())

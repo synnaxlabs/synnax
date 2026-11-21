@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
@@ -306,13 +305,10 @@ var _ = Describe("Relay", func() {
 			"Should warn once per drop episode, ending it when the buffer empties",
 			func(ctx SpecContext) {
 				ins, logs := alamostestutil.ObservedInstrumentation(zapcore.WarnLevel)
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
-				freeWrites := confluence.NewStream[relay.Response](10)
+				writes := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
 					Instrumentation:    ins,
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             writes,
 					StreamerBufferSize: 4,
 				}))
 				DeferCleanup(r.Close)
@@ -341,7 +337,7 @@ var _ = Describe("Relay", func() {
 				send := func(n int) {
 					GinkgoHelper()
 					for v := range int64(n) {
-						freeWrites.Inlet() <- relay.Response{
+						writes.Inlet() <- relay.Response{
 							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
 						}
 						Eventually(live.Outlet()).Should(Receive())
@@ -1006,6 +1002,46 @@ var _ = Describe("Relay", func() {
 				validReq.Close()
 				confluence.Drain(mixedRes)
 				confluence.Drain(validRes)
+			},
+		)
+
+		It(
+			"Should deliver frames for valid keys after a key update adds an unknown key",
+			func(ctx SpecContext) {
+				keys := channel.KeysFromChannels(newUniqueChannels(ctx, 1))
+				unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFD)
+
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var ack relay.Response
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
+
+				req.Inlet() <- relay.Request{
+					Keys:         append(channel.Keys{unknown}, keys...),
+					AckRequested: true,
+				}
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Ack).To(BeTrue())
+
+				w := MustOpen(svc.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+
+				var got relay.Response
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Frame.KeysSlice()).To(ConsistOf(keys))
+				req.Close()
+				confluence.Drain(res)
 			},
 		)
 	})

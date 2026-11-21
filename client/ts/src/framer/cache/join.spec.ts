@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeRange, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { alignmentOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
+import { alignmentOf, RAW_LEVEL, rawTile } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
@@ -19,7 +19,7 @@ import { Store } from "@/framer/cache/store";
 const INDEX = 1;
 const DATA = 2;
 const BLOCK = 100;
-const RANGE = tileRange({ level: RAW_LEVEL, index: BLOCK });
+const RANGE = tileRange({ level: RAW_LEVEL, tile: BLOCK });
 
 const at = (seconds: number): TimeStamp => RANGE.start.add(TimeSpan.seconds(seconds));
 
@@ -32,13 +32,16 @@ const createIndex = (seconds: number[], alignment: bigint): Series =>
     dataType: DataType.TIMESTAMP,
     alignment,
     timeRange: spanOf(seconds),
+    clock: INDEX,
   });
 
 const createData = (
   values: number[],
   alignment: bigint,
   timeRange: TimeRange = TimeRange.ZERO,
-): Series => new Series({ data: new Float32Array(values), alignment, timeRange });
+): Series =>
+  // The Core stamps each streamed series with the clock of its channel.
+  new Series({ data: new Float32Array(values), alignment, timeRange, clock: INDEX });
 
 const createFrame = (...entries: Array<[channel.Key, Series]>) =>
   new Map(entries.map(([k, s]) => [k, [s]]));
@@ -298,6 +301,87 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
+    // D-111 as amended and D-141: a series on another clock fails, and the status
+    // names the channels and no clock key.
+    const unpaired = {
+      variant: "error",
+      name: "pressure",
+      message: "Samples do not pair with time",
+      description:
+        "Channel pressure has samples that do not pair with the time of its index " +
+        "channel pressure_time.",
+    };
+
+    // Records the names of DATA and INDEX in the store.
+    const name = (store: Store): void => {
+      store.setChannel(
+        new channel.Channel({
+          key: INDEX,
+          name: "pressure_time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      store.setChannel(
+        new channel.Channel({
+          key: DATA,
+          name: "pressure",
+          dataType: DataType.FLOAT32,
+          index: INDEX,
+        }).payload,
+      );
+    };
+
+    it("should throw on a data series whose clock is not its index", () => {
+      const { store, joins } = createJoined();
+      name(store);
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      expect(() =>
+        joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other])),
+      ).toThrow(
+        expect.objectContaining({
+          message: unpaired.message,
+          description: unpaired.description,
+        }),
+      );
+    });
+
+    it("should give a stray clock to the fail callback and keep its samples out", () => {
+      const { store, joins } = createJoined();
+      name(store);
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      const fail = vi.fn();
+      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
+      expect(fail).toHaveBeenCalledWith(DATA, expect.objectContaining(unpaired));
+      expect(streamed(store, DATA)).toEqual([10, 20]);
+    });
+
+    it("should name a channel the store has no record of by its key", () => {
+      const { joins } = createJoined();
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      const fail = vi.fn();
+      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
+      expect(fail).toHaveBeenCalledWith(
+        DATA,
+        expect.objectContaining({
+          name: `${DATA}`,
+          description: `Channel ${DATA} has samples that do not pair with the time of its index channel.`,
+        }),
+      );
+    });
+
     it("should place data written in the same frame ahead of its index", () => {
       const { store, joins } = createJoined();
       joins.write(
@@ -458,6 +542,11 @@ describe("Joins", () => {
       expect(streamed(store, DATA)).toEqual([10, 20, 30]);
     });
 
+    it("should keep the clock of the streamed samples", () => {
+      const { store } = createJoined();
+      expect(leadingOf(store, DATA)?.clock).toBe(INDEX);
+    });
+
     it("should send back only a data member whose alignment has no index samples", () => {
       const { store, joins } = createJoined();
       const waiting = joins.write(createFrame([DATA, createData([90], 50n)]));
@@ -472,7 +561,10 @@ describe("Joins", () => {
       const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -486,7 +578,10 @@ describe("Joins", () => {
       const waiting = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -505,7 +600,7 @@ describe("Joins", () => {
 
     it("should keep a member joined when the change misses its open block", () => {
       const { joins } = createJoined();
-      const earlier = tileRange({ level: RAW_LEVEL, index: BLOCK - 1 });
+      const earlier = tileRange({ level: RAW_LEVEL, tile: BLOCK - 1 });
       expect(joins.invalidate(DATA, earlier).size).toBe(0);
       expect(joins.joined(DATA)).toBe(true);
     });
@@ -523,7 +618,7 @@ describe("Joins", () => {
       expect(joins.flush(DATA)).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(store.open(DATA)).toBeNull();
-      expect(joins.catchUpFrom(DATA, at(1000))).toBe(rawIndex(at(1000)));
+      expect(joins.catchUpFrom(DATA, at(1000))).toBe(rawTile(at(1000)));
     });
   });
 

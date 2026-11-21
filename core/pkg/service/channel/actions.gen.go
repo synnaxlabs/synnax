@@ -51,8 +51,7 @@ type InsertPayload patch.Insert
 // MovePayload moves an entry in a list. It does nothing when the entry is missing.
 type MovePayload patch.Move
 
-// RenamePayload renames the channel. The Core also renames the channel's storage when
-// the transaction commits.
+// RenamePayload renames the channel.
 type RenamePayload struct {
 	Name Name `json:"name" msgpack:"name"`
 }

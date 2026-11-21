@@ -76,25 +76,26 @@ var _ = Describe("History", func() {
 			) *cesium.Writer {
 				GinkgoHelper()
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels:         []cesium.ChannelKey{key},
-					Start:            start,
-					EnableAutoCommit: new(false),
+					Channels: []cesium.ChannelKey{key},
+					Start:    start,
 				}))
 				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
 				return w
 			}
 
 			writeAndCommit := func(
+				ctx context.Context,
 				w *cesium.Writer,
 				key cesium.ChannelKey,
 				stamps ...telem.TimeStamp,
 			) {
 				GinkgoHelper()
-				Expect(w.Write(telem.UnaryFrame(
+				mustWrite(ctx, w, telem.UnaryFrame(
 					key,
 					telem.NewSeriesSecondsTSV(stamps...),
-				))).To(BeTrue())
-				MustCommit(w)
+				))
+
+				mustCommit(ctx, w)
 			}
 
 			It(
@@ -109,7 +110,7 @@ var _ = Describe("History", func() {
 					)).To(Succeed())
 					changes := observeHistory(db)
 					w := openWriter(ctx, key, 10*telem.SecondTS)
-					writeAndCommit(w, key, 10, 11)
+					writeAndCommit(ctx, w, key, 10, 11)
 					Expect(changes).ToNot(Receive())
 				},
 			)
@@ -119,9 +120,9 @@ var _ = Describe("History", func() {
 				func(ctx SpecContext) {
 					key := createIndex(ctx)
 					w := openWriter(ctx, key, 10*telem.SecondTS)
-					writeAndCommit(w, key, 10, 11)
+					writeAndCommit(ctx, w, key, 10, 11)
 					changes := observeHistory(db)
-					writeAndCommit(w, key, 12, 13)
+					writeAndCommit(ctx, w, key, 12, 13)
 					Expect(changes).ToNot(Receive())
 				},
 			)
@@ -162,11 +163,11 @@ var _ = Describe("History", func() {
 					)).To(Succeed())
 					changes := observeHistory(db)
 					w := openWriter(ctx, key, 10*telem.SecondTS)
-					writeAndCommit(w, key, 10, 11)
+					writeAndCommit(ctx, w, key, 10, 11)
 					Expect(changes).To(Receive(Equal(
 						historyChange(key, 10*telem.SecondTS, 11*telem.SecondTS+1),
 					)))
-					writeAndCommit(w, key, 12, 13)
+					writeAndCommit(ctx, w, key, 12, 13)
 					Expect(changes).To(Receive(Equal(
 						historyChange(key, 11*telem.SecondTS+1, 13*telem.SecondTS+1),
 					)))
@@ -180,9 +181,9 @@ var _ = Describe("History", func() {
 					changes := observeHistory(db)
 					w := openWriter(ctx, key, 10*telem.SecondTS)
 					// Five timestamps fill the 40 byte file, so this commit rolls over.
-					writeAndCommit(w, key, 10, 11, 12, 13, 14)
-					writeAndCommit(w, key, 15, 16)
-					writeAndCommit(w, key, 17, 18)
+					writeAndCommit(ctx, w, key, 10, 11, 12, 13, 14)
+					writeAndCommit(ctx, w, key, 15, 16)
+					writeAndCommit(ctx, w, key, 17, 18)
 					Expect(changes).ToNot(Receive())
 				},
 			)

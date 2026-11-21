@@ -10,10 +10,14 @@
 package cesium
 
 import (
+	crand "crypto/rand"
+	"encoding/binary"
 	jsonv2 "encoding/json/v2"
+	"math/rand/v2"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -25,31 +29,30 @@ import (
 
 type Option func(*options)
 
+// defaultChunkSize keeps a chunk of a fixed-span read at about 64 MB of 8-byte samples.
+const defaultChunkSize = 1 << 23
+
 type options struct {
 	alamos.Instrumentation
-	fs               xfs.FS
-	metaCodec        encoding.Codec
-	dirname          string
-	gcCfg            GCConfig
-	fileSize         telem.Size
-	relayBufferSize  int
-	streamBufferSize int
-	// slowConsumerTimeout bounds how long the relay waits for a streamer to receive a
-	// frame before dropping it.
-	slowConsumerTimeout time.Duration
-	chunkSize           int64
-	clock               xtime.Clock
+	fs        xfs.FS
+	metaCodec encoding.Codec
+	dirname   string
+	gcCfg     GCConfig
+	fileSize  telem.Size
+	chunkSize int64
+	clock     xtime.Clock
+	random    rand.Source
+	executor  func(f func())
+	// pointerLog opens the database on the pointer log layout.
+	pointerLog bool
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{
-		dirname:             dirname,
-		relayBufferSize:     defaultRelayBufferSize,
-		streamBufferSize:    defaultStreamBufferSize,
-		slowConsumerTimeout: defaultSlowConsumerTimeout,
-		chunkSize:           defaultChunkSize,
+		dirname:   dirname,
+		chunkSize: defaultChunkSize,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -69,6 +72,20 @@ func mergeAndValidateOptions(o *options) error {
 		o.metaCodec,
 	)
 	o.fs = override.Nil(xfs.Default, o.fs)
+	o.clock = override.Nil(xtime.Real, o.clock)
+	if o.random == nil {
+		var seed [16]byte
+		if _, err := crand.Read(seed[:]); err != nil {
+			return err
+		}
+		o.random = rand.NewPCG(
+			binary.LittleEndian.Uint64(seed[:8]),
+			binary.LittleEndian.Uint64(seed[8:]),
+		)
+	}
+	if o.executor == nil {
+		o.executor = segment.GoExecutor
+	}
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,
 		TryInterval:  30 * time.Second,
@@ -80,9 +97,6 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
-	v.Positive("relay_buffer_size", o.relayBufferSize)
-	v.Positive("stream_buffer_size", o.streamBufferSize)
-	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	v.Positive("chunk_size", o.chunkSize)
 	return v.Error()
 }
@@ -90,6 +104,25 @@ func mergeAndValidateOptions(o *options) error {
 // WithFS sets the file system that cesium will use to store data. This defaults to the
 // OS file system.
 func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
+
+// WithClock sets the clock that Cesium reads the time from. It must be monotonic. This
+// defaults to the system clock.
+func WithClock(clock xtime.Clock) Option { return func(o *options) { o.clock = clock } }
+
+// WithRandom sets the source of every random choice of the DB, such as its identity.
+// This defaults to a source seeded by the operating system.
+func WithRandom(src rand.Source) Option { return func(o *options) { o.random = src } }
+
+// WithExecutor sets the executor that runs each step of the owners of the DB and each
+// sync of its segment files. It must run every function it gets, and no function may
+// wait for another that it runs. This defaults to one goroutine per function.
+func WithExecutor(exec func(f func())) Option {
+	return func(o *options) { o.executor = exec }
+}
+
+// WithPointerLog opens the DB on the pointer log layout, which commits writes through
+// one log and syncs them, in place of the old layout.
+func WithPointerLog() Option { return func(o *options) { o.pointerLog = true } }
 
 // WithGCConfig sets the garbage collection configuration for the DB. See the GCConfig
 // struct for more details.
@@ -109,25 +142,6 @@ func WithFileSizeCap(size telem.Size) Option {
 	return func(o *options) { o.fileSize = size }
 }
 
-// WithRelayBufferSize sets the buffer size, in frames, of the relay's main pipe. Every
-// written frame moves through this pipe, and writers block when it fills. Defaults to
-// 1000 frames.
-func WithRelayBufferSize(size int) Option {
-	return func(o *options) { o.relayBufferSize = size }
-}
-
-// WithStreamBufferSize sets the buffer size, in frames, of each streamer's connection
-// to the relay pipe. Defaults to 100 frames.
-func WithStreamBufferSize(size int) Option {
-	return func(o *options) { o.streamBufferSize = size }
-}
-
-// WithSlowConsumerTimeout sets the maximum amount of time the relay will wait for a
-// streamer to receive a frame before dropping it. Defaults to 20ms.
-func WithSlowConsumerTimeout(timeout time.Duration) Option {
-	return func(o *options) { o.slowConsumerTimeout = timeout }
-}
-
 // WithChunkSize sets the most samples, summed over an iterator's channels, that one
 // chunk of a fixed-span Next or Prev holds. A run of equal timestamps can exceed it.
 // Defaults to 8,388,608 samples. IteratorConfig.AutoChunkSize sets the chunk size of
@@ -135,7 +149,3 @@ func WithSlowConsumerTimeout(timeout time.Duration) Option {
 func WithChunkSize(size int64) Option {
 	return func(o *options) { o.chunkSize = size }
 }
-
-// WithClock sets the clock that times the AutoIndexPersistInterval of each writer. It
-// must be monotonic. Defaults to xtime.Real.
-func WithClock(clock xtime.Clock) Option { return func(o *options) { o.clock = clock } }

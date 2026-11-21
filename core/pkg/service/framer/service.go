@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -55,26 +55,27 @@ type (
 )
 
 const (
-	IteratorResponseVariantAck  = iterator.ResponseVariantAck
-	IteratorResponseVariantData = iterator.ResponseVariantData
-	IteratorCommandNext         = iterator.CommandNext
-	IteratorCommandPrev         = iterator.CommandPrev
-	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
-	IteratorCommandSeekLast     = iterator.CommandSeekLast
-	IteratorCommandSeekLE       = iterator.CommandSeekLE
-	IteratorCommandSeekGE       = iterator.CommandSeekGE
-	IteratorCommandValid        = iterator.CommandValid
-	IteratorCommandError        = iterator.CommandError
-	IteratorCommandSetBounds    = iterator.CommandSetBounds
-	IteratorAutoSpan            = iterator.AutoSpan
-	WriterCommandOpen           = writer.CommandOpen
-	WriterCommandWrite          = writer.CommandWrite
-	WriterCommandCommit         = writer.CommandCommit
-	WriterCommandSetAuthority   = writer.CommandSetAuthority
-	WriterCommandEndDomain      = writer.CommandEndDomain
-	WriterModePersistStream     = writer.ModePersistStream
-	WriterModePersistOnly       = writer.ModePersistOnly
-	WriterModeStreamOnly        = writer.ModeStreamOnly
+	IteratorResponseVariantAck     = iterator.ResponseVariantAck
+	IteratorResponseVariantData    = iterator.ResponseVariantData
+	IteratorCommandNext            = iterator.CommandNext
+	IteratorCommandPrev            = iterator.CommandPrev
+	IteratorCommandSeekFirst       = iterator.CommandSeekFirst
+	IteratorCommandSeekLast        = iterator.CommandSeekLast
+	IteratorCommandSeekLE          = iterator.CommandSeekLE
+	IteratorCommandSeekGE          = iterator.CommandSeekGE
+	IteratorCommandValid           = iterator.CommandValid
+	IteratorCommandError           = iterator.CommandError
+	IteratorCommandSetBounds       = iterator.CommandSetBounds
+	IteratorAutoSpan               = iterator.AutoSpan
+	WriterCommandOpen              = writer.CommandOpen
+	WriterCommandWrite             = writer.CommandWrite
+	WriterCommandCommit            = writer.CommandCommit
+	WriterCommandSetAuthority      = writer.CommandSetAuthority
+	WriterCommandEndDomain         = writer.CommandEndDomain
+	WriterModePersistStream        = writer.ModePersistStream
+	WriterModePersistOnly          = writer.ModePersistOnly
+	WriterModeStreamOnly           = writer.ModeStreamOnly
+	AlwaysIndexPersistOnAutoCommit = writer.AlwaysIndexPersistOnAutoCommit
 )
 
 // ServiceConfig is the configuration for opening a framer Service. All fields are
@@ -96,7 +97,7 @@ type ServiceConfig struct {
 	// The calculation service subscribes to it and reports through it.
 	//
 	// [REQUIRED]
-	ChannelGraph *channelgraph.Graph
+	ChannelGraph *calcgraph.Graph
 	// Reserved reports whether only the Core writes a channel. OpenWriter and
 	// NewStreamWriter refuse a reserved channel.
 	//

@@ -10,14 +10,22 @@
 package telem_test
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
+	"reflect"
+	"testing"
+	"unsafe"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/unsafe"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,6 +35,21 @@ func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
 		ExpectWithOffset(1, s.DataType).To(Equal(dt))
 		ExpectWithOffset(1, s.ValueAt[T](0)).To(Equal(value))
 	}
+}
+
+// unclocked has the msgpack fields of a Series apart from its clock.
+type unclocked struct {
+	TimeRange         telem.TimeRange `msgpack:"time_range"`
+	DataType          telem.DataType  `msgpack:"data_type"`
+	Data              []byte          `msgpack:"data"`
+	Alignment         telem.Alignment `msgpack:"alignment"`
+	AlignmentMultiple uint32          `msgpack:"alignment_multiple,omitempty"`
+}
+
+// unclockedFrame has the msgpack fields of a frame whose series have no clock.
+type unclockedFrame struct {
+	Keys   []uint32    `msgpack:"keys"`
+	Series []unclocked `msgpack:"series"`
 }
 
 var _ = Describe("Series", func() {
@@ -1049,7 +1072,7 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
 			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
@@ -1068,7 +1091,7 @@ var _ = Describe("Series", func() {
 			values := make([]int64, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
 				count++
 				if count > 2 {
 					break
@@ -1317,5 +1340,147 @@ var _ = Describe("Series", func() {
 			Expect(dst.DataType).To(Equal(telem.StringT))
 			Expect(dst.Unmarshal[string]()).To(Equal([]string{"foo", "bar"}))
 		})
+	})
+
+	Describe("Clock", func() {
+		It("Should keep the series at 72 bytes", func() {
+			Expect(unsafe.Sizeof(telem.Series{})).To(Equal(uintptr(72)))
+		})
+
+		DescribeTable("Should carry the clock into a derived series",
+			func(derive func(telem.Series) telem.Series) {
+				s := telem.NewSeriesV[int64](1, 2, 3, 4)
+				s.Clock = 5
+				Expect(derive(s).Clock).To(Equal(uint32(5)))
+			},
+			Entry("Last", telem.Series.Last),
+			Entry("DeepCopy", telem.Series.DeepCopy),
+			Entry("Resized", func(s telem.Series) telem.Series { return s.Resized(2) }),
+			Entry("Downsample", func(s telem.Series) telem.Series {
+				return s.Downsample(2)
+			}),
+			Entry("Downsample of a variable series", func(s telem.Series) telem.Series {
+				v := telem.NewSeriesV("a", "b", "c")
+				v.Clock = s.Clock
+				return v.Downsample(2)
+			}),
+			Entry("CopiedFrom", func(s telem.Series) telem.Series {
+				return telem.Series{}.CopiedFrom(s)
+			}),
+			Entry("ReduceCut", func(s telem.Series) telem.Series {
+				reduced, _, _ := s.ReduceCut(telem.AggregationMinMax, 2)
+				return reduced
+			}),
+		)
+
+		It("Should leave a zero clock out of the JSON form", func() {
+			encoded := MustSucceed(json.Codec.Encode(telem.NewSeriesV[int64](1)))
+			Expect(string(encoded)).ToNot(ContainSubstring(`"clock"`))
+		})
+
+		It("Should leave a zero clock out of the msgpack form", func() {
+			s := telem.NewSeriesV[int64](1)
+			var fields map[string]any
+			Expect(msgpack.Codec.Decode(
+				MustSucceed(msgpack.Codec.Encode(s)),
+				&fields,
+			)).To(Succeed())
+			Expect(fields).To(HaveKey("data"))
+			Expect(fields).ToNot(HaveKey("clock"))
+		})
+
+		It(
+			"Should write a frame's series with no clock as the library writes them",
+			func() {
+				s := telem.NewSeriesV[int64](1)
+				u := unclockedFrame{
+					Keys: []uint32{7},
+					Series: []unclocked{{
+						TimeRange: s.TimeRange,
+						DataType:  s.DataType,
+						Data:      s.Data,
+						Alignment: s.Alignment,
+					}},
+				}
+				Expect(msgpack.Codec.Encode(telem.UnaryFrame[uint32](7, s))).
+					To(Equal(MustSucceed(msgpack.Codec.Encode(u))))
+			},
+		)
+
+		It("Should encode every field of a series in a frame through msgpack", func() {
+			var (
+				s    telem.Series
+				n    int64
+				fill func(v reflect.Value)
+			)
+			// fill sets each field to a value that no other field holds, so a field
+			// that the encoder leaves out or swaps fails the match.
+			fill = func(v reflect.Value) {
+				n++
+				switch v.Kind() {
+				case reflect.Struct:
+					for _, field := range v.Fields() {
+						fill(field)
+					}
+				case reflect.Int64:
+					v.SetInt(n)
+				case reflect.Uint32, reflect.Uint64:
+					v.SetUint(uint64(n))
+				case reflect.String:
+					v.SetString(fmt.Sprintf("field %d", n))
+				case reflect.Slice:
+					v.SetBytes([]byte{byte(n)})
+				default:
+					Fail(fmt.Sprintf("fill sets no field of kind %s", v.Kind()))
+				}
+			}
+			fill(reflect.ValueOf(&s).Elem())
+			var decoded telem.Frame[uint32]
+			Expect(msgpack.Codec.Decode(
+				MustSucceed(msgpack.Codec.Encode(telem.UnaryFrame[uint32](7, s))),
+				&decoded,
+			)).To(Succeed())
+			Expect(decoded.SeriesSlice()).To(Equal([]telem.Series{s}))
+		})
+
+		It(
+			"Should encode a clock in a frame through msgpack with no allocation of its own",
+			func() {
+				s := telem.NewSeriesV[int64](1)
+				s.Clock = 300
+				u := unclockedFrame{
+					Keys:   []uint32{7},
+					Series: []unclocked{{DataType: s.DataType, Data: s.Data}},
+				}
+				var (
+					buf bytes.Buffer
+					err error
+				)
+				allocs := func(v any) float64 {
+					return testing.AllocsPerRun(100, func() {
+						buf.Reset()
+						err = msgpack.Codec.EncodeStream(&buf, v)
+					})
+				}
+				Expect(allocs(telem.UnaryFrame[uint32](7, s))).
+					To(BeNumerically("<=", allocs(u)))
+				Expect(err).To(Succeed())
+			},
+		)
+
+		DescribeTable("Should carry a set clock through the encoded form",
+			func(codec encoding.Codec) {
+				s := telem.NewSeriesV[int64](1)
+				s.Clock = 300
+				var decoded telem.Series
+				Expect(codec.Decode(
+					MustSucceed(codec.Encode(s)),
+					&decoded,
+				)).To(Succeed())
+				Expect(decoded).To(telem.MatchSeries(s))
+			},
+			Entry("JSON", json.Codec),
+			Entry("msgpack", msgpack.Codec),
+		)
 	})
 })

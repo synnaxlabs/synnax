@@ -10,9 +10,9 @@
 package iterator
 
 import (
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -23,7 +23,7 @@ type Command uint8
 
 // AutoSpan instructs Next and Prev to automatically size each chunk so the iterator
 // returns all data in the current view in a single step.
-const AutoSpan = ts.AutoSpan
+const AutoSpan = cesium.AutoSpan
 
 const (
 	// CommandNext advances the iterator forward by a span and returns the data in

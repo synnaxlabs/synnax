@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -117,17 +118,50 @@ struct CodecFlags {
 /// @brief Codec for encoding and decoding frames efficiently using the Frame Flight
 /// Protocol.
 class Codec {
-    struct State {
-        /// @brief the ordered set of channel keys for the codec.
-        std::set<channel::Key> keys;
-        /// @brief the data types for each channel in keys.
-        std::unordered_map<channel::Key, x::telem::DataType> key_data_types;
-        /// @brief whether the codec has any channels with variable density data types.
-        bool has_variable_data_types = false;
+    /// @brief the values that the frames of one state agree on, as one side sees them.
+    struct Agreement {
+        /// @brief true once a frame of the state declared the agreed types.
+        bool types_declared = false;
+        /// @brief true once a frame of the state failed to decode.
+        bool dropped = false;
+        /// @brief the agreed type of each requested key, in key order.
+        std::vector<x::telem::DataType> data_types;
+        /// @brief the agreed clock of each requested key, in key order. Zero is no
+        /// clock.
+        std::vector<std::uint32_t> clocks;
+        /// @brief the declared clock keys, ascending.
+        std::vector<channel::Key> declared;
+        /// @brief the ascending union of the requested and the declared keys.
+        std::vector<channel::Key> all;
     };
-    /// @brief a cached set of sorting indices for ensuring that encoded/decoded
-    /// frames are properly sorted.
-    std::vector<std::pair<channel::Key, size_t>> sorting_indices;
+    struct State {
+        /// @brief the requested keys, ascending.
+        std::vector<channel::Key> keys;
+        /// @brief the position of each requested key in keys.
+        std::unordered_map<channel::Key, std::size_t> index;
+        Agreement enc, dec;
+
+        State() = default;
+        /// @brief builds the state of the given keys and their data types, in any
+        /// order. The data types are the encoder's agreed types; the decoder reads its
+        /// own from the first frame of the state.
+        State(
+            const std::vector<channel::Key> &keys,
+            const std::vector<x::telem::DataType> &data_types
+        );
+    };
+    /// @brief one series of a frame being encoded.
+    struct Entry {
+        channel::Key key;
+        std::size_t raw;
+        /// @brief the position of key in the requested keys, or -1 for a declared
+        /// clock.
+        std::int64_t index;
+    };
+    /// @brief the series of the frame being encoded, in key order.
+    std::vector<Entry> entries;
+    /// @brief the declared clocks of the frame being encoded.
+    std::vector<channel::Key> declared;
 
     /// @brief the current sequence number for the codec. This is used to identify
     /// which codec state to use when encoding/decoding frames.

@@ -68,6 +68,10 @@ type WriteTaskConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Channel names the channels in the error of a failed run.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	alamos.Instrumentation
 	// Channels are the keys of the channels to stream to the sink.
 	//
@@ -88,6 +92,7 @@ func (c WriteTaskConfig) Override(other WriteTaskConfig) WriteTaskConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Channels = override.Slice(c.Channels, other.Channels)
 	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
@@ -127,6 +132,7 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 	t.Runner, err = NewRunner(RunnerConfig{
 		DB:              cfg.DB,
 		Status:          cfg.Status,
+		Channel:         cfg.Channel,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
 		Open:            t.open,

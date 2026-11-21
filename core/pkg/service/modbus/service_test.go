@@ -59,6 +59,8 @@ var _ = Describe("Service", func() {
 		}))
 		channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
+			Framer:  node.Framer,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
@@ -440,6 +442,8 @@ var _ = Describe("Service", func() {
 					ctx,
 					svcchannel.ServiceConfig{
 						Channel: stored.Channel,
+						TS:      stored.Storage.TS,
+						Framer:  stored.Framer,
 						DB:      stored.DB,
 						HostKey: stored.Identity.HostKey,
 						Status:  statusSvc,

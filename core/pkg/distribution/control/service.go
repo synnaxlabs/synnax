@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -28,11 +28,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// TS is the storage-layer time-series database that arbitrates control over
-	// channels.
+	// Framer is the framer whose writers arbitrate control over channels.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	Framer *framer.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -40,18 +39,18 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.control")
-	v.NotNil("ts", c.TS)
+	v.NotNil("framer", c.Framer)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.TS = override.Nil(c.TS, other.TS)
+	c.Framer = override.Nil(c.Framer, other.Framer)
 	return c
 }
 
-// Service reads and observes the control state of channels, which the storage engine
+// Service reads and observes the control state of channels, which the framer
 // arbitrates.
 //
 // The Service must be closed after use.
@@ -72,10 +71,9 @@ func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, updates: observe.New[Update]()}
-	s.disconnectStorage = cfg.TS.OnControlUpdate(func(u ts.ControlUpdate) {
-		// Storage gives no context. Subscribers use their own.
-		s.updates.Notify(context.Background(), updateFromStorage(u))
-	})
+	s.disconnectStorage = cfg.Framer.OnControlUpdate(
+		func(ctx context.Context, u Update) { s.updates.Notify(ctx, u) },
+	)
 	return s, nil
 }
 
@@ -83,7 +81,7 @@ func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // state of every controlled channel. Channels that no subject controls are absent from
 // the result.
 func (s *Service) Retrieve(_ context.Context, keys ...channel.Key) ([]State, error) {
-	states := statesFromStorage(s.cfg.TS.ControlStates())
+	states := s.cfg.Framer.ControlStates()
 	if len(keys) == 0 {
 		return states, nil
 	}

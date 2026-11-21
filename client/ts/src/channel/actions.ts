@@ -41,10 +41,7 @@ export const createPayloadZ = z.object({ channel: storedZ });
 
 export type CreatePayload = z.infer<typeof createPayloadZ>;
 
-/**
- * Rename renames the channel. The Core also renames the channel's storage when the
- * transaction commits.
- */
+/** Rename renames the channel. */
 export const renamePayloadZ = z.object({ name: nameZ });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;

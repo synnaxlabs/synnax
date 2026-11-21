@@ -51,9 +51,10 @@ var _ = Describe("Runner", func() {
 	open := func(run func(context.Context) error) *driver.Runner {
 		GinkgoHelper()
 		r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-			DB:     db,
-			Status: statusSvc,
-			Task:   t,
+			Channel: channelSvc,
+			DB:      db,
+			Status:  statusSvc,
+			Task:    t,
 			Open: func(context.Context) (func(context.Context) error, error) {
 				opened++
 				return run, nil
@@ -71,10 +72,22 @@ var _ = Describe("Runner", func() {
 	Describe("NewRunner", func() {
 		It("Should reject a configuration with no open", func() {
 			Expect(driver.NewRunner(driver.RunnerConfig{
+				Channel: channelSvc,
+				DB:      db,
+				Status:  statusSvc,
+				Task:    t,
+			})).Error().To(MatchError(ContainSubstring("open: must be non-nil")))
+		})
+
+		It("Should reject a configuration with no channel service", func() {
+			Expect(driver.NewRunner(driver.RunnerConfig{
 				DB:     db,
 				Status: statusSvc,
 				Task:   t,
-			})).Error().To(MatchError(ContainSubstring("open: must be non-nil")))
+				Open: func(context.Context) (func(context.Context) error, error) {
+					return func(context.Context) error { return nil }, nil
+				},
+			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 	})
 
@@ -113,9 +126,10 @@ var _ = Describe("Runner", func() {
 		It("Should answer the start with the error of a failed open",
 			func(ctx SpecContext) {
 				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-					DB:     db,
-					Status: statusSvc,
-					Task:   t,
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Task:    t,
 					Open: func(context.Context) (func(context.Context) error, error) {
 						return nil, errors.New("port is in use")
 					},
@@ -133,9 +147,10 @@ var _ = Describe("Runner", func() {
 		It("Should return no error from Exec for a start it answered",
 			func(ctx SpecContext) {
 				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-					DB:     db,
-					Status: statusSvc,
-					Task:   t,
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Task:    t,
 					Open: func(context.Context) (func(context.Context) error, error) {
 						return nil, errors.New("port is in use")
 					},
@@ -157,9 +172,10 @@ var _ = Describe("Runner", func() {
 					return err
 				})
 				r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
-					DB:     db,
-					Status: statusSvc,
-					Task:   t,
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Task:    t,
 					Open: func(context.Context) (func(context.Context) error, error) {
 						return nil, errors.New("port is in use")
 					},

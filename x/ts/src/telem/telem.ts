@@ -13,7 +13,7 @@ import { math } from "@/math";
 import { type numeric } from "@/numeric";
 import { type primitive } from "@/primitive";
 import { type bounds } from "@/spatial";
-import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
+import { DataTypeCode, type TimestampFormat, type TimeZone } from "@/telem/types.gen";
 
 export type CrudeValueExtension<V extends NonNullable<primitive.Value>> = {
   value: V;
@@ -1553,6 +1553,16 @@ export class DataType
     return DataType.BIG_INT_TYPES.some((t) => t.equals(this));
   }
 
+  /** @returns the type code of the data type, or the unknown code when it has none. */
+  get code(): DataTypeCode {
+    return DataType.CODES.get(this.valueOf()) ?? DataTypeCode.unknown;
+  }
+
+  /** @returns the data type of a type code, or UNKNOWN for a code with no data type. */
+  static fromCode(code: number): DataType {
+    return DataType.BY_CODE.get(code) ?? DataType.UNKNOWN;
+  }
+
   /** Represents an Unknown/Invalid DataType. */
   static readonly UNKNOWN = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
@@ -1591,6 +1601,29 @@ export class DataType
   /** Represents a boolean data type. Samples are a single byte with canonical values
    * 0x00 (false) and 0x01 (true). */
   static readonly BOOLEAN = new DataType("boolean");
+
+  private static readonly BY_CODE = new Map<number, DataType>([
+    [DataTypeCode.uint8, DataType.UINT8],
+    [DataTypeCode.uint16, DataType.UINT16],
+    [DataTypeCode.uint32, DataType.UINT32],
+    [DataTypeCode.uint64, DataType.UINT64],
+    [DataTypeCode.int8, DataType.INT8],
+    [DataTypeCode.int16, DataType.INT16],
+    [DataTypeCode.int32, DataType.INT32],
+    [DataTypeCode.int64, DataType.INT64],
+    [DataTypeCode.float32, DataType.FLOAT32],
+    [DataTypeCode.float64, DataType.FLOAT64],
+    [DataTypeCode.timestamp, DataType.TIMESTAMP],
+    [DataTypeCode.uuid, DataType.UUID],
+    [DataTypeCode.string, DataType.STRING],
+    [DataTypeCode.bytes, DataType.BYTES],
+    [DataTypeCode.json, DataType.JSON],
+    [DataTypeCode.boolean, DataType.BOOLEAN],
+  ]);
+
+  private static readonly CODES = new Map<string, DataTypeCode>(
+    [...DataType.BY_CODE].map(([code, dt]) => [dt.valueOf(), code]),
+  );
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([

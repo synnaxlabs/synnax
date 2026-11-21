@@ -320,6 +320,9 @@ type txState struct {
 	// beforeCommit holds the work of BeforeCommit in registration order. Only the
 	// goroutine that writes through the transaction touches it.
 	beforeCommit []func(context.Context) error
+	// afterEnd holds the hooks of AfterEnd in registration order. Only the goroutine
+	// that writes through the transaction touches it.
+	afterEnd []func(committed bool)
 }
 
 // BeforeCommit registers work to run when tx commits, before its writes reach the
@@ -335,6 +338,28 @@ func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
 		panic("[gorp] - BeforeCommit needs a transaction, not a DB")
 	}
 	state.beforeCommit = append(state.beforeCommit, work)
+}
+
+// AfterEnd registers fn to run once when tx ends. committed is true when the store
+// commit of tx returned with its writes durable, and false when tx closes without a
+// commit or its commit fails. Hooks run in registration order, after tx releases the
+// write lock and before Commit or Close returns. Call AfterEnd on the goroutine that
+// writes through tx. It panics when tx is a DB.
+func AfterEnd(tx Tx, fn func(committed bool)) {
+	state := tx.txIdentity()
+	if state == nil {
+		panic("[gorp] - AfterEnd needs a transaction, not a DB")
+	}
+	state.afterEnd = append(state.afterEnd, fn)
+}
+
+// runAfterEnd runs the hooks of AfterEnd once.
+func (s *txState) runAfterEnd(committed bool) {
+	hooks := s.afterEnd
+	s.afterEnd = nil
+	for _, fn := range hooks {
+		fn(committed)
+	}
 }
 
 // Committing reports whether a commit attempt is in flight.
@@ -402,12 +427,13 @@ func (t *tx) txIdentity() *txState { return &t.state }
 // store syncs its writes. An error from the work rolls the transaction back. The write
 // lock releases before the sync, once the writes are visible to reads. Hooks registered
 // via state.OnCleanup run before the release, with committed=true once the writes are
-// visible and committed=false otherwise. Then the readers of DB.Observe run. The
-// release comes before them, because a reader can open a transaction.
+// visible and committed=false otherwise. Then the hooks of AfterEnd and the readers of
+// DB.Observe run. The release comes before them, because they can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {
 			t.end(false)
+			t.state.runAfterEnd(false)
 			return err
 		}
 	}
@@ -416,6 +442,7 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	err := t.Tx.Commit(ctx, append(slices.Clip(opts), applied)...)
 	t.end(err == nil)
 	t.state.committing.Store(false)
+	t.state.runAfterEnd(err == nil)
 	t.db.delivery.run(ctx, t.ticket, &t.state)
 	return err
 }
@@ -426,6 +453,7 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 func (t *tx) Close() error {
 	err := t.Tx.Close()
 	t.end(false)
+	t.state.runAfterEnd(false)
 	return err
 }
 

@@ -19,6 +19,7 @@ from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
 from x.codec import Codec as XCodec, JSONCodec
+from x.telem import DataTypeCode, code_of, data_type_of
 
 _EXTENDED_FLAG_POS = 7
 _MULTIPLES_PRESENT_FLAG_POS = 6
@@ -59,64 +60,123 @@ def _unpack_bool_bits(src: memoryview, sample_count: int) -> bytes:
     return np.unpackbits(packed, count=sample_count, bitorder="little").tobytes()
 
 
-class _CodecFlags:
-    def __init__(self) -> None:
-        self.eq_len: bool = True
-        self.eq_tr: bool = True
-        self.time_ranges_zero: bool = True
-        self.all_channels_present: bool = True
-        self.eq_align: bool = True
-        self.zero_alignments: bool = True
-        self.multiples_present: bool = False
+_TYPES_DECLARED = 1 << 0
+_OVERRIDES_PRESENT = 1 << 1
+_CLOCKS_DECLARED = 1 << 3
+# The extension bits and override kinds that no codec sets yet.
+_RESERVED_EXTENSION_FLAGS = 0b1111_0100
+_TYPE_KIND = 1 << 0
+_CLOCK_KIND = 1 << 1
+_RESERVED_KINDS = 0b1111_1100
+# The next override ordinal that ends the chain.
+_NO_OVERRIDE = 0xFFFFFFFF
 
-    def encode(self) -> int:
-        b = 0
-        if self.eq_len:
-            b |= 1 << _EQUAL_LENGTHS_FLAG_POS
-        if self.eq_tr:
-            b |= 1 << _EQUAL_TIME_RANGES_FLAG_POS
-        if self.time_ranges_zero:
-            b |= 1 << _TIME_RANGES_ZERO_FLAG_POS
-        if self.all_channels_present:
-            b |= 1 << _ALL_CHANNELS_PRESENT_FLAG_POS
-        if self.eq_align:
-            b |= 1 << _EQUAL_ALIGNMENTS_FLAG_POS
-        if self.zero_alignments:
-            b |= 1 << _ZERO_ALIGNMENTS_FLAG_POS
-        if self.multiples_present:
-            b |= 1 << _MULTIPLES_PRESENT_FLAG_POS
-        return b
 
-    @classmethod
-    def decode(cls, b: int) -> _CodecFlags:
-        if (b >> _EXTENDED_FLAG_POS) & 1:
-            raise ValidationError(
-                "remote sent an extended flags byte, which this codec does not support"
-            )
-        flags = cls()
-        flags.eq_len = bool((b >> _EQUAL_LENGTHS_FLAG_POS) & 1)
-        flags.eq_tr = bool((b >> _EQUAL_TIME_RANGES_FLAG_POS) & 1)
-        flags.time_ranges_zero = bool((b >> _TIME_RANGES_ZERO_FLAG_POS) & 1)
-        flags.all_channels_present = bool((b >> _ALL_CHANNELS_PRESENT_FLAG_POS) & 1)
-        flags.eq_align = bool((b >> _EQUAL_ALIGNMENTS_FLAG_POS) & 1)
-        flags.zero_alignments = bool((b >> _ZERO_ALIGNMENTS_FLAG_POS) & 1)
-        flags.multiples_present = bool((b >> _MULTIPLES_PRESENT_FLAG_POS) & 1)
-        return flags
+def _is_int64_like(dt: DataType) -> bool:
+    return dt == DataType.INT64 or dt == DataType.TIMESTAMP
+
+
+def _needs_type_override(agreed: DataType, dt: DataType) -> bool:
+    return agreed != dt and not (_is_int64_like(agreed) and _is_int64_like(dt))
+
+
+def _code_of(key: channel.Key, dt: DataType) -> int:
+    code = code_of(dt)
+    if code == DataTypeCode.unknown:
+        raise ValidationError(f'data type "{dt}" of channel {key} has no type code')
+    return int(code)
+
+
+class _Agreement:
+    """The values that the frames of one state agree on, as one side sees them."""
+
+    def __init__(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
+        self.types_declared = False
+        # dropped is true once a frame of the state failed to decode.
+        self.dropped = False
+        self.data_types = data_types
+        # The agreed clock of each requested key. Zero is no clock.
+        self.clocks = [0] * len(keys)
+        self.declared: list[channel.Key] = []
+        # The ascending union of the requested and the declared keys.
+        self.all = keys
 
 
 class CodecState:
     keys: list[channel.Key]
-    data_types: dict[channel.Key, DataType]
-    has_variable_data_types: bool
+    index: dict[channel.Key, int]
 
     def __init__(self, *, keys: list[channel.Key], data_types: list[DataType]) -> None:
-        self.keys = sorted(keys)
-        self.data_types = dict(zip(keys, data_types, strict=True))
-        self.has_variable_data_types = any(dt.is_variable for dt in data_types)
+        self.keys = sorted(set(keys))
+        self.index = {k: i for i, k in enumerate(self.keys)}
+        agreed = [DataType.UNKNOWN] * len(self.keys)
+        for k, dt in zip(keys, data_types, strict=True):
+            agreed[self.index[k]] = dt
+        self.enc = _Agreement(self.keys, agreed)
+        self.dec = _Agreement(self.keys, [DataType.UNKNOWN] * len(self.keys))
+
+
+class _Plan:
+    def __init__(self, ag: _Agreement) -> None:
+        self.ext = 0
+        self.codes: list[int] = []
+        self.kinds: list[int] = []
+        self.clocks = ag.clocks
+        self.declared = ag.declared
+        self.all = ag.all
+
+
+class _Reader:
+    """Reads a frame, failing on any read past its end."""
+
+    def __init__(self, data: memoryview, offset: int) -> None:
+        self.buf = data
+        self.idx = offset
+
+    @property
+    def remaining(self) -> int:
+        return len(self.buf) - self.idx
+
+    def _need(self, n: int) -> None:
+        if n > self.remaining:
+            raise ValidationError("remote sent a frame that ends early")
+
+    def unpack(self, fmt: str, size: int) -> tuple[int, ...]:
+        self._need(size)
+        v = struct.unpack_from(fmt, self.buf, self.idx)
+        self.idx += size
+        return v
+
+    def uint8(self) -> int:
+        return self.unpack("<B", 1)[0]
+
+    def uint32(self) -> int:
+        return self.unpack("<I", 4)[0]
+
+    def uint64(self) -> int:
+        return self.unpack("<Q", 8)[0]
+
+    def bytes(self, n: int) -> memoryview:
+        self._need(n)
+        b = self.buf[self.idx : self.idx + n]
+        self.idx += n
+        return b
+
+    def data_type(self) -> DataType:
+        code = self.uint8()
+        dt = data_type_of(code)
+        if dt == DataType.UNKNOWN:
+            raise ValidationError(
+                f"remote sent data type code {code}, which this codec does not know"
+            )
+        return dt
+
+
+def _union(a: list[channel.Key], b: list[channel.Key]) -> list[channel.Key]:
+    return a if len(b) == 0 else sorted(a + b)
 
 
 class Codec:
-    _has_variable_data_types: bool
     _seq_num: int
     _states: dict[int, CodecState]
     _curr_state: CodecState | None = None
@@ -133,6 +193,9 @@ class Codec:
             self.update(keys=keys, data_types=data_types)
 
     def update(self, *, keys: list[channel.Key], data_types: list[DataType]) -> None:
+        """Starts a new state of the given keys and their data types. The data types
+        are the encoder's agreed types; the decoder reads its own from the first frame
+        of the state."""
         self._seq_num += 1
         self._curr_state = CodecState(keys=keys, data_types=data_types)
         self._states[self._seq_num] = self._curr_state
@@ -144,258 +207,381 @@ class Codec:
                 f"Please call update() before calling {op_name}()."
             )
 
-    def encode(self, frame: Frame | FramePayload, *, start_offset: int = 0) -> bytes:
-        self.throw_if_not_updated("encode")
-        assert self._curr_state is not None
-        pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
-        indices = sorted(range(len(pld.keys)), key=lambda i: pld.keys[i])
-        sorted_keys = [pld.keys[i] for i in indices]
-        sorted_series = [pld.series[i] for i in indices]
-
-        flg = _CodecFlags()
-        flg.eq_len = not self._curr_state.has_variable_data_types
-        curr_data_size = -1
-        ref_tr = None
-        ref_align = None
-        byte_array_size = start_offset + _FLAGS_SIZE + _SEQ_NUM_SIZE
-
-        if len(sorted_keys) != len(self._curr_state.keys):
-            flg.all_channels_present = False
-            byte_array_size += len(sorted_keys) * _KEY_SIZE
-
-        for i, ser in enumerate(sorted_series):
-            key = sorted_keys[i]
-            dt = self._curr_state.data_types.get(key, None)
-            if dt is None:
+    @staticmethod
+    def _entries(
+        pld: FramePayload, state: CodecState
+    ) -> list[tuple[channel.Key, Series, int]]:
+        entries = []
+        for key, ser in zip(pld.keys, pld.series, strict=True):
+            i = state.index.get(key)
+            if i is not None:
+                entries.append((key, ser, i))
+            elif ser.clock == key and _is_int64_like(ser.data_type):
+                entries.append((key, ser, -1))
+            else:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
                 )
-            if dt != ser.data_type:
-                raise ValidationError(
-                    f"data type {ser.data_type} for key {key} does not match codec "
-                    f"state data type {dt}."
-                )
-            if curr_data_size == -1:
-                curr_data_size = len(ser)
-                ref_tr = ser.time_range
-                ref_align = ser.alignment
-            else:
-                if len(ser) != curr_data_size:
-                    flg.eq_len = False
-                if ser.time_range != ref_tr:
-                    flg.eq_tr = False
-                if ser.alignment != ref_align:
-                    flg.eq_align = False
-            if ser.alignment_multiple > 1:
-                flg.multiples_present = True
+        # A stable sort keeps the producer's order within a key.
+        entries.sort(key=lambda e: e[0])
+        return entries
 
-            byte_array_size += _series_wire_byte_length(ser)
-
-        flg.time_ranges_zero = flg.eq_tr and (
-            ref_tr is None or ref_tr == TimeRange.ZERO
+    @staticmethod
+    def _plan(
+        entries: list[tuple[channel.Key, Series, int]], state: CodecState
+    ) -> _Plan:
+        ag = state.enc
+        plan = _Plan(ag)
+        if not ag.types_declared:
+            plan.ext |= _TYPES_DECLARED
+            plan.codes = [
+                _code_of(k, dt) for k, dt in zip(state.keys, ag.data_types, strict=True)
+            ]
+        overrides = any(
+            i >= 0
+            and (
+                ser.clock != ag.clocks[i]
+                or _needs_type_override(ag.data_types[i], ser.data_type)
+            )
+            for _, ser, i in entries
         )
-        flg.zero_alignments = flg.eq_align and ref_align == 0
-        byte_array_size += (int(flg.eq_len) or len(sorted_keys)) * _DATA_LENGTH_SIZE
-        if not flg.time_ranges_zero:
-            byte_array_size += (int(flg.eq_tr) or len(sorted_keys)) * _TIME_RANGE_SIZE
-        if not flg.zero_alignments:
-            byte_array_size += (int(flg.eq_align) or len(sorted_keys)) * _ALIGNMENT_SIZE
-        if flg.multiples_present:
-            byte_array_size += len(sorted_keys) * _MULTIPLE_SIZE
+        if overrides:
+            plan.ext |= _OVERRIDES_PRESENT
+            plan.clocks = list(ag.clocks)
+            for key, ser, i in entries:
+                kinds = 0
+                if i >= 0:
+                    if _needs_type_override(ag.data_types[i], ser.data_type):
+                        _code_of(key, ser.data_type)
+                        kinds |= _TYPE_KIND
+                    if ser.clock != plan.clocks[i]:
+                        kinds |= _CLOCK_KIND
+                        plan.clocks[i] = ser.clock
+                plan.kinds.append(kinds)
+        if any(i < 0 for _, _, i in entries) or len(ag.declared) > 0:
+            in_frame = {k for k, _, i in entries if i < 0}
+            declared = sorted(
+                in_frame
+                | {k for k in ag.declared if k not in in_frame and k in plan.clocks}
+            )
+            if declared != ag.declared:
+                plan.ext |= _CLOCKS_DECLARED
+                plan.declared = declared
+                plan.all = _union(state.keys, declared)
+        return plan
 
-        buffer = bytearray(byte_array_size)
-        offset = start_offset
+    def encode(self, frame: Frame | FramePayload, *, start_offset: int = 0) -> bytes:
+        self.throw_if_not_updated("encode")
+        assert self._curr_state is not None
+        state = self._curr_state
+        pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
+        entries = self._entries(pld, state)
+        plan = self._plan(entries, state)
+        n = len(entries)
 
-        buffer[offset] = flg.encode()
-        offset += _FLAGS_SIZE
+        eq_len = True
+        eq_tr = True
+        eq_align = True
+        multiples_present = False
+        ref_len = -1
+        ref_tr = TimeRange.ZERO
+        ref_align = 0
+        size = start_offset + _FLAGS_SIZE + _SEQ_NUM_SIZE
+        all_present = [k for k, _, _ in entries] == plan.all
+        if not all_present:
+            size += n * _KEY_SIZE
+        for _, ser, _ in entries:
+            tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
+            if ser.data_type.is_variable:
+                eq_len = False
+            if ser.alignment_multiple > 1:
+                multiples_present = True
+            size += _series_wire_byte_length(ser)
+            if ref_len == -1:
+                ref_len, ref_tr, ref_align = len(ser), tr, int(ser.alignment)
+                continue
+            if len(ser) != ref_len:
+                eq_len = False
+            if tr != ref_tr:
+                eq_tr = False
+            if int(ser.alignment) != ref_align:
+                eq_align = False
+        tr_zero = eq_tr and ref_tr == TimeRange.ZERO
+        zero_align = eq_align and ref_align == 0
+        size += (1 if eq_len else n) * _DATA_LENGTH_SIZE
+        if not tr_zero:
+            size += (1 if eq_tr else n) * _TIME_RANGE_SIZE
+        if not zero_align:
+            size += (1 if eq_align else n) * _ALIGNMENT_SIZE
+        if multiples_present:
+            size += n * _MULTIPLE_SIZE
+        if plan.ext != 0:
+            size += 1 + len(plan.codes)
+        if plan.ext & _CLOCKS_DECLARED:
+            size += _KEY_SIZE * (1 + len(plan.declared))
+        if plan.ext & _OVERRIDES_PRESENT:
+            size += 4
+        for kinds in plan.kinds:
+            if kinds:
+                size += 5 + (1 if kinds & _TYPE_KIND else 0)
+                size += 4 if kinds & _CLOCK_KIND else 0
 
-        struct.pack_into("<I", buffer, offset, self._seq_num)
-        offset += _SEQ_NUM_SIZE
+        buf = bytearray(size)
+        off = start_offset
 
-        if flg.eq_len:
-            struct.pack_into("<I", buffer, offset, curr_data_size)
-            offset += _DATA_LENGTH_SIZE
+        def put(fmt: str, *v: int) -> None:
+            nonlocal off
+            struct.pack_into(fmt, buf, off, *v)
+            off += struct.calcsize(fmt)
 
-        if flg.eq_tr and not flg.time_ranges_zero and ref_tr:
-            struct.pack_into("<QQ", buffer, offset, ref_tr.start, ref_tr.end)
-            offset += _TIME_RANGE_SIZE
+        flags = (
+            (int(plan.ext != 0) << _EXTENDED_FLAG_POS)
+            | (int(multiples_present) << _MULTIPLES_PRESENT_FLAG_POS)
+            | (int(zero_align) << _ZERO_ALIGNMENTS_FLAG_POS)
+            | (int(eq_align) << _EQUAL_ALIGNMENTS_FLAG_POS)
+            | (int(eq_len) << _EQUAL_LENGTHS_FLAG_POS)
+            | (int(eq_tr) << _EQUAL_TIME_RANGES_FLAG_POS)
+            | (int(tr_zero) << _TIME_RANGES_ZERO_FLAG_POS)
+            | (int(all_present) << _ALL_CHANNELS_PRESENT_FLAG_POS)
+        )
+        put("<B", flags)
+        put("<I", self._seq_num)
+        if plan.ext != 0:
+            put("<B", plan.ext)
+            for code in plan.codes:
+                put("<B", code)
+        if plan.ext & _CLOCKS_DECLARED:
+            put("<I", len(plan.declared))
+            for k in plan.declared:
+                put("<I", k)
+        if eq_len:
+            put("<I", max(ref_len, 0) if ref_len != -1 else 0xFFFFFFFF)
+        if eq_tr and not tr_zero:
+            put("<QQ", int(ref_tr.start), int(ref_tr.end))
+        if eq_align and not zero_align:
+            put("<Q", ref_align)
 
-        if flg.eq_align and not flg.zero_alignments and ref_align:
-            struct.pack_into("<Q", buffer, offset, ref_align)
-            offset += _ALIGNMENT_SIZE
+        def next_override(start: int) -> int:
+            for i in range(start, len(plan.kinds)):
+                if plan.kinds[i]:
+                    return i
+            return _NO_OVERRIDE
 
-        for i, ser in enumerate(sorted_series):
-            k = sorted_keys[i]
-            dt = self._curr_state.data_types.get(k, None)
-            if dt is None:
-                raise ValidationError(
-                    f"Codec state does not contain data type for key {k}."
-                )
-            if dt != ser.data_type:
-                raise ValidationError(
-                    f"Series data type {ser.data_type} for key {k} does not match "
-                    f"codec state data type {dt}."
-                )
-
-            if not flg.all_channels_present:
-                struct.pack_into("<I", buffer, offset, sorted_keys[i])
-                offset += _KEY_SIZE
-
-            if not flg.eq_len:
-                len_or_size = len(ser)
-                if ser.data_type.is_variable:
-                    len_or_size = len(ser.data)
-                struct.pack_into("<I", buffer, offset, len_or_size)
-                offset += _DATA_LENGTH_SIZE
-
-            if ser.data_type == DataType.BOOLEAN:
-                packed = _pack_bool_bits(ser.data)
-                buffer[offset : offset + len(packed)] = packed
-                offset += len(packed)
-            else:
-                buffer[offset : offset + len(ser.data)] = ser.data
-                offset += len(ser.data)
-
-            if not flg.eq_tr and not flg.time_ranges_zero:
+        if plan.ext & _OVERRIDES_PRESENT:
+            put("<I", next_override(0))
+        for i, (key, ser, _) in enumerate(entries):
+            if not all_present:
+                put("<I", key)
+            kinds = plan.kinds[i] if i < len(plan.kinds) else 0
+            if kinds:
+                put("<B", kinds)
+                if kinds & _TYPE_KIND:
+                    put("<B", int(code_of(ser.data_type)))
+                if kinds & _CLOCK_KIND:
+                    put("<I", ser.clock)
+                put("<I", next_override(i + 1))
+            if not eq_len:
+                put("<I", len(ser.data) if ser.data_type.is_variable else len(ser))
+            data = (
+                _pack_bool_bits(ser.data)
+                if ser.data_type == DataType.BOOLEAN
+                else ser.data
+            )
+            buf[off : off + len(data)] = data
+            off += len(data)
+            if not eq_tr:
                 tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
-                struct.pack_into("<QQ", buffer, offset, tr.start, tr.end)
-                offset += _TIME_RANGE_SIZE
-
-            if not flg.eq_align and not flg.zero_alignments:
-                struct.pack_into("<Q", buffer, offset, ser.alignment)
-                offset += _ALIGNMENT_SIZE
-
-            if flg.multiples_present:
-                struct.pack_into("<I", buffer, offset, ser.alignment_multiple)
-                offset += _MULTIPLE_SIZE
-
-        return bytes(buffer)
+                put("<QQ", int(tr.start), int(tr.end))
+            if not eq_align:
+                put("<Q", int(ser.alignment))
+            if multiples_present:
+                put("<I", ser.alignment_multiple)
+        ag = state.enc
+        ag.types_declared = True
+        ag.clocks, ag.declared, ag.all = plan.clocks, plan.declared, plan.all
+        return bytes(buf)
 
     def decode(self, data: bytes, *, offset: int = 0) -> FramePayload:
+        """Decodes a frame. A frame that fails to decode drops its state, so every
+        later frame of the state fails."""
         self.throw_if_not_updated("decode")
-        assert self._curr_state is not None
-        buffer = memoryview(data)
-        idx = offset
-        flags = _CodecFlags.decode(buffer[idx])
-        idx += 1
-
-        curr_seq_num = struct.unpack_from("<I", buffer, idx)[0]
-        idx += _SEQ_NUM_SIZE
-
-        state = self._states.get(curr_seq_num)
+        r = _Reader(memoryview(data), offset)
+        flags = r.uint8()
+        seq_num = r.uint32()
+        state = self._states.get(seq_num)
         if state is None:
-            raise ValidationError(f"remote sent invalid sequence number {curr_seq_num}")
+            raise ValidationError(f"remote sent invalid sequence number {seq_num}")
+        # The remote never encodes with an older state again.
+        for old in [s for s in self._states if s < seq_num]:
+            del self._states[old]
+        if state.dec.dropped:
+            raise ValidationError(
+                f"remote sent a frame for state {seq_num} after a frame of it failed "
+                "to decode"
+            )
+        try:
+            return self._decode(r, flags, seq_num, state)
+        except BaseException:
+            state.dec.dropped = True
+            raise
 
-        to_del = None
-        for seq_num in self._states:
-            if seq_num < curr_seq_num:
-                if to_del is None:
-                    to_del = set()
-                to_del.add(seq_num)
+    @staticmethod
+    def _decode(
+        r: _Reader, flags: int, seq_num: int, state: CodecState
+    ) -> FramePayload:
+        def bit(pos: int) -> bool:
+            return bool((flags >> pos) & 1)
 
-        if to_del is not None:
-            for seq_num in to_del:
-                del self._states[seq_num]
-
-        data_len = 0
-        start_time = 0
-        end_time = 0
-        alignment = Alignment(0)
-
-        if flags.eq_len:
-            data_len = struct.unpack_from("<I", buffer, idx)[0]
-            idx += _DATA_LENGTH_SIZE
-
-        if flags.eq_tr and not flags.time_ranges_zero:
-            start_time, end_time = struct.unpack_from("<QQ", buffer, idx)
-            idx += _TIME_RANGE_SIZE
-
-        if flags.eq_align and not flags.zero_alignments:
-            alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
-            idx += _ALIGNMENT_SIZE
-
-        keys = []
-        series_list = []
-
-        def decode_series(key: channel.Key) -> bool:
-            nonlocal idx
-            data_type = state.data_types.get(key)
-            if data_type is None:
-                return False
-            curr_len = data_len
-            if not flags.eq_len:
-                if idx + _DATA_LENGTH_SIZE > len(buffer):
-                    return False
-                curr_len = struct.unpack_from("<I", buffer, idx)[0]
-                idx += _DATA_LENGTH_SIZE
-
-            data_byte_len = curr_len
-            if not data_type.is_variable:
-                data_byte_len = curr_len * data_type.density
-
-            if data_type == DataType.BOOLEAN:
-                wire_bytes = _bit_packed_byte_count(curr_len)
-                if idx + wire_bytes > len(buffer):
-                    return False
-                series_data = _unpack_bool_bits(
-                    buffer[idx : idx + wire_bytes], curr_len
+        eq_len = bit(_EQUAL_LENGTHS_FLAG_POS)
+        eq_tr = bit(_EQUAL_TIME_RANGES_FLAG_POS)
+        tr_zero = bit(_TIME_RANGES_ZERO_FLAG_POS)
+        eq_align = bit(_EQUAL_ALIGNMENTS_FLAG_POS)
+        zero_align = bit(_ZERO_ALIGNMENTS_FLAG_POS)
+        multiples_present = bit(_MULTIPLES_PRESENT_FLAG_POS)
+        all_present = bit(_ALL_CHANNELS_PRESENT_FLAG_POS)
+        ag = state.dec
+        ext = 0
+        if bit(_EXTENDED_FLAG_POS):
+            ext = r.uint8()
+            if ext == 0:
+                raise ValidationError("remote sent extension flags of 0")
+            if ext & _RESERVED_EXTENSION_FLAGS:
+                raise ValidationError(
+                    f"remote sent extension flags {ext:08b}, which hold a reserved bit"
                 )
-                idx += wire_bytes
+        if not ext & _TYPES_DECLARED:
+            if not ag.types_declared:
+                raise ValidationError(
+                    f"remote sent no type declaration for state {seq_num}, so it runs "
+                    "an older codec, which this codec does not support"
+                )
+        else:
+            if ag.types_declared:
+                raise ValidationError(
+                    f"remote declared the types of state {seq_num} twice"
+                )
+            ag.data_types = [r.data_type() for _ in state.keys]
+            ag.types_declared = True
+        if ext & _CLOCKS_DECLARED:
+            n = r.uint32()
+            if n > r.remaining // _KEY_SIZE:
+                raise ValidationError("remote sent a frame that ends early")
+            declared: list[channel.Key] = []
+            for i in range(n):
+                key = r.uint32()
+                if key in state.index:
+                    raise ValidationError(
+                        f"remote declared clock {key}, which the request names"
+                    )
+                if i > 0 and key <= declared[-1]:
+                    raise ValidationError(
+                        f"remote declared clock {key} after clock {declared[-1]}, "
+                        "so the list is not ascending"
+                    )
+                declared.append(key)
+            ag.declared = declared
+            ag.all = _union(state.keys, declared)
+        shared_len = r.uint32() if eq_len else 0
+        tr = TimeRange.ZERO
+        if eq_tr and not tr_zero:
+            start, end = r.unpack("<QQ", _TIME_RANGE_SIZE)
+            tr = TimeRange(start=start, end=end)
+        alignment = (
+            Alignment(r.uint64()) if eq_align and not zero_align else Alignment(0)
+        )
+        nxt = r.uint32() if ext & _OVERRIDES_PRESENT else _NO_OVERRIDE
+        ordinal = 0
+
+        def read_kinds() -> int:
+            kinds = r.uint8()
+            if kinds == 0:
+                raise ValidationError(
+                    f"remote sent override kinds of 0 for series {ordinal}"
+                )
+            if kinds & _RESERVED_KINDS:
+                raise ValidationError(
+                    f"remote sent override kinds {kinds:08b} for series {ordinal}, "
+                    "which hold a reserved bit"
+                )
+            return kinds
+
+        def agreement_of(key: channel.Key) -> tuple[DataType, int]:
+            nonlocal nxt
+            i = state.index.get(key)
+            if i is None:
+                if key not in ag.declared:
+                    raise ValidationError(f"unknown channel key: {key}")
+                if ordinal == nxt:
+                    read_kinds()
+                    raise ValidationError(
+                        f"remote sent an override for declared clock {key}"
+                    )
+                return DataType.TIMESTAMP, key
+            dt = ag.data_types[i]
+            if ordinal == nxt:
+                kinds = read_kinds()
+                if kinds & _TYPE_KIND:
+                    dt = r.data_type()
+                if kinds & _CLOCK_KIND:
+                    ag.clocks[i] = r.uint32()
+                nxt = r.uint32()
+                if nxt != _NO_OVERRIDE and nxt <= ordinal:
+                    raise ValidationError(
+                        f"remote sent next override {nxt}, which is not after series "
+                        f"{ordinal}"
+                    )
+            return dt, ag.clocks[i]
+
+        keys: list[channel.Key] = []
+        series: list[Series] = []
+
+        def decode_series(key: channel.Key) -> None:
+            nonlocal ordinal
+            dt, clock = agreement_of(key)
+            ordinal += 1
+            if eq_len and dt.is_variable:
+                raise ValidationError(
+                    f"remote sent variable data type {dt} under a shared length"
+                )
+            length = shared_len if eq_len else r.uint32()
+            if dt == DataType.BOOLEAN:
+                data = _unpack_bool_bits(
+                    r.bytes(_bit_packed_byte_count(length)), length
+                )
             else:
-                if idx + data_byte_len > len(buffer):
-                    return False
-                series_data = bytes(buffer[idx : idx + data_byte_len])
-                idx += data_byte_len
-
-            if flags.time_ranges_zero:
-                tr = TimeRange.ZERO
-            elif flags.eq_tr:
-                tr = TimeRange(start=start_time, end=end_time)
-            else:
-                if idx + _TIME_RANGE_SIZE > len(buffer):
-                    return False
-                s, e = struct.unpack_from("<QQ", buffer, idx)
-                tr = TimeRange(start=s, end=e)
-                idx += _TIME_RANGE_SIZE
-
-            curr_alignment = alignment
-            if not flags.eq_align and not flags.zero_alignments:
-                if idx + _ALIGNMENT_SIZE > len(buffer):
-                    return False
-                curr_alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
-                idx += _ALIGNMENT_SIZE
-
-            multiple = 1
-            if flags.multiples_present:
-                if idx + _MULTIPLE_SIZE > len(buffer):
-                    return False
-                multiple = max(struct.unpack_from("<I", buffer, idx)[0], 1)
-                idx += _MULTIPLE_SIZE
-
+                n = length if dt.is_variable else length * int(dt.density)
+                data = bytes(r.bytes(n))
+            s_tr = tr
+            if not eq_tr:
+                start, end = r.unpack("<QQ", _TIME_RANGE_SIZE)
+                s_tr = TimeRange(start=start, end=end)
+            s_align = Alignment(r.uint64()) if not eq_align else alignment
+            multiple = max(r.uint32(), 1) if multiples_present else 1
             keys.append(key)
-            series_list.append(
+            series.append(
                 Series(
-                    data_type=data_type,
-                    data=series_data,
-                    time_range=tr,
-                    alignment=curr_alignment,
+                    data_type=dt,
+                    data=data,
+                    time_range=s_tr,
+                    alignment=s_align,
                     alignment_multiple=multiple,
+                    clock=clock,
                 )
             )
-            return True
 
-        if flags.all_channels_present:
-            for key in state.keys:
-                if not decode_series(key):
-                    break
+        if all_present:
+            for key in ag.all:
+                decode_series(key)
+            if r.remaining > 0:
+                raise ValidationError("remote sent bytes after the last series")
         else:
-            while idx + _KEY_SIZE <= len(buffer):
-                frame_key = struct.unpack_from("<I", buffer, idx)[0]
-                idx += _KEY_SIZE
-                if not decode_series(frame_key):
-                    break
-
-        return FramePayload(keys=keys, series=series_list)
+            while r.remaining > 0:
+                decode_series(r.uint32())
+        if nxt != _NO_OVERRIDE:
+            raise ValidationError(
+                f"remote ended the frame with the override for series {nxt} pending"
+            )
+        return FramePayload(keys=keys, series=series)
 
 
 LOW_PERF_SPECIAL_CHAR = 254

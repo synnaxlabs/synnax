@@ -127,7 +127,8 @@ func (g *csvGroup) time() (telem.TimeStamp, bool) {
 
 // appendRow appends the cells of the group's next row and moves its columns past the
 // samples it writes. A data channel's cell is empty unless its next sample shares the
-// alignment of the index's. Only valid when the group has a row.
+// alignment of the index's. It fails when a data channel's samples are on another
+// clock. Only valid when the group has a row.
 func (g *csvGroup) appendRow(dst []byte) ([]byte, error) {
 	index := &g.columns[0]
 	alignment := index.alignment()
@@ -140,6 +141,9 @@ func (g *csvGroup) appendRow(dst []byte) ([]byte, error) {
 		c := &g.columns[i]
 		if _, n := c.sample(); n == 0 {
 			continue
+		}
+		if err = c.clockError(index); err != nil {
+			return nil, err
 		}
 		if a := c.alignment(); a > alignment {
 			continue

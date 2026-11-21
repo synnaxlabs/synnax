@@ -12,9 +12,9 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
@@ -49,11 +49,6 @@ var _ = Describe("Key", func() {
 		It("Should return false if the channel is leased to a node", func() {
 			k := channel.NewKey(node.Key(1), 1)
 			Expect(k.Free()).To(BeFalse())
-		})
-	})
-	Describe("StorageKey", func() {
-		It("Should return the storage representation of the key", func() {
-			Expect(channel.Key(42).StorageKey()).To(Equal(ts.ChannelKey(42)))
 		})
 	})
 	DescribeTable("String", func(k channel.Key, expected string) {
@@ -100,12 +95,6 @@ var _ = Describe("Keys", func() {
 		It("Should correctly reinterpret the keys as a slice of uint32", func() {
 			keys := channel.Keys{1, 2, 3}
 			Expect(keys.Uint32()).To(Equal([]uint32{1, 2, 3}))
-		})
-	})
-	Describe("Storage", func() {
-		It("Should correctly return the storage representation of the keys", func() {
-			keys := channel.Keys{1, 2, 3}
-			Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
 		})
 	})
 	Describe("Contains", func() {
@@ -162,38 +151,66 @@ var _ = Describe("Channel", func() {
 			Expect(c.String()).To(Equal("<5>"))
 		})
 	})
-	Describe("Storage", func() {
-		It("Should map the channel to its storage representation", func() {
+	DescribeTable(
+		"Should report whether a channel has a storage channel",
+		func(ch channel.Channel, stored bool) {
+			Expect(ch.Stored()).To(Equal(stored))
+		},
+		Entry("stored", channel.Channel{Leaseholder: 1, LocalKey: 5}, true),
+		Entry(
+			"virtual",
+			channel.Channel{Leaseholder: 1, LocalKey: 5, Virtual: true},
+			false,
+		),
+		Entry("free", channel.Channel{Leaseholder: node.KeyFree, LocalKey: 5}, false),
+	)
+
+	Describe("ToStorage", func() {
+		It("Should map each channel to its storage representation", func() {
 			c := channel.Channel{
 				Name:        "sensor",
 				LocalKey:    2,
 				LocalIndex:  3,
 				DataType:    telem.Float32T,
 				IsIndex:     true,
-				Virtual:     true,
 				Concurrency: control.ConcurrencyShared,
 			}
-			Expect(c.Storage()).To(Equal(ts.Channel{
-				Key:         ts.ChannelKey(2),
+			Expect(channel.ToStorage([]channel.Channel{c})).To(Equal([]cesium.Channel{{
+				Key:         cesium.ChannelKey(2),
 				Name:        "sensor",
 				IsIndex:     true,
 				DataType:    telem.Float32T,
-				Index:       ts.ChannelKey(3),
-				Virtual:     true,
-				Concurrency: control.ConcurrencyShared,
-			}))
+				Index:       cesium.ChannelKey(3),
+				Concurrency: cesium.ConcurrencyShared,
+			}}))
 		})
-		It("Should preserve virtuality in a channel's storage registration", func() {
-			ch := channel.Channel{
+		It("Should leave out a virtual channel", func() {
+			virtual := channel.Channel{
+				Name:        "command",
+				LocalKey:    3,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+				Virtual:     true,
+			}
+			Expect(channel.ToStorage([]channel.Channel{virtual})).To(BeEmpty())
+		})
+		It("Should leave out a free channel", func() {
+			free := channel.Channel{
 				Name:        "free_ch",
 				LocalKey:    1,
 				Leaseholder: node.KeyFree,
 				DataType:    telem.Int64T,
 				Virtual:     true,
 			}
-			stored := ch.Storage()
-			Expect(stored.Key).To(Equal(ch.Key().StorageKey()))
-			Expect(stored.Virtual).To(BeTrue())
+			leased := channel.Channel{
+				Name:        "leased_ch",
+				LocalKey:    2,
+				Leaseholder: 1,
+				DataType:    telem.Int64T,
+			}
+			stored := channel.ToStorage([]channel.Channel{free, leased})
+			Expect(stored).To(HaveLen(1))
+			Expect(stored[0].Key).To(Equal(uint32(leased.Key())))
 		})
 		It(
 			"Should not mark a stored channel's storage registration as virtual",
@@ -204,7 +221,9 @@ var _ = Describe("Channel", func() {
 					Leaseholder: 1,
 					DataType:    telem.Int64T,
 				}
-				Expect(ch.Storage().Virtual).To(BeFalse())
+				Expect(
+					channel.ToStorage([]channel.Channel{ch})[0].Virtual,
+				).To(BeFalse())
 			},
 		)
 	})

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -352,7 +351,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:  keys,
 				Start: 12 * telem.SecondTS,
-				Mode:  ts.WriterModePersistOnly,
+				Mode:  cesium.WriterModePersistOnly,
 				Sync:  new(true),
 			}))
 			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
@@ -378,7 +377,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             ts.WriterModePersistOnly,
+				Mode:             cesium.WriterModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -495,6 +494,44 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
+	It("Should set the clock of each written series to its channel's index", func(
+		ctx SpecContext,
+	) {
+		idxCh, dataCh := createIndexed(ctx, telem.Float32T)
+		virtualCh := createVirtual(ctx)
+		keys := channel.Keys{idxCh.Key(), dataCh.Key(), virtualCh.Key()}
+		streamer := MustSucceed(mockNode.Framer.NewStreamer(framer.StreamerConfig{
+			Keys:        keys,
+			SendOpenAck: new(true),
+		}))
+		_, out := confluence.Attach(streamer, 10)
+		sCtx, cancel := signal.WithCancel(ctx)
+		defer cancel()
+		streamer.Flow(sCtx)
+		var res framer.StreamerResponse
+		Eventually(out.Outlet()).Should(Receive(&res))
+		w := MustOpen(writerSvc.Open(ctx, writer.Config{
+			Keys:  keys,
+			Start: 10 * telem.SecondTS,
+		}))
+		Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11),
+			telem.NewSeriesV[float32](1, 2),
+			telem.NewSeriesV[int64](3, 4),
+		}))).To(BeTrue())
+		// The stored and the virtual channels stream in separate frames.
+		var streamed frame.Frame
+		for !streamed.HasData() || len(streamed.Get(virtualCh.Key()).Series) == 0 ||
+			len(streamed.Get(idxCh.Key()).Series) == 0 {
+			Eventually(out.Outlet()).Should(Receive(&res))
+			streamed = streamed.Extend(res.Frame)
+		}
+		clock := uint32(idxCh.Key())
+		Expect(streamed.Get(idxCh.Key()).Series[0].Clock).To(Equal(clock))
+		Expect(streamed.Get(dataCh.Key()).Series[0].Clock).To(Equal(clock))
+		Expect(streamed.Get(virtualCh.Key()).Series[0].Clock).To(BeZero())
+	})
+
 	Describe("Free Channel Writes", func() {
 		It(
 			"Should stamp alignments on free writes and stream them through the relay",
@@ -553,7 +590,9 @@ var _ = Describe("Writer", func() {
 				groupDomain := firstAlignment.DomainIndex()
 				Expect(groupDomain).To(BeNumerically(
 					">=",
-					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+					MustSucceed(
+						telem.NewAlignmentCounter(telem.LeadingDomain).Next(),
+					).DomainIndex(),
 				))
 				Expect(firstAlignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(firstAlignment))

@@ -27,7 +27,8 @@ var validateCommand = validate.NewInclusiveBoundsChecker(
 
 // validator checks every request against the writer's key set and channel metadata
 // before forwarding it to the distribution-layer writer, failing the pipeline with a
-// validation error on the first invalid request.
+// validation error on the first invalid request. It sets the clock of each written
+// series to the index of its channel, or zero for a channel with no index.
 type validator struct {
 	confluence.LinearTransform[Request, Request]
 	// channels maps each channel key the writer was opened with to its metadata.
@@ -75,6 +76,8 @@ func (v *validator) validate(req Request) error {
 		if err := validateSeriesDataType(ch, s); err != nil {
 			return err
 		}
+		s.Clock = uint32(ch.Index())
+		req.Frame.SetRawSeriesAt(rawI, s)
 	}
 	return nil
 }

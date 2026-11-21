@@ -25,9 +25,27 @@ func NewNotFoundError(ch Key) error {
 	return errors.Wrapf(ErrNotFound, "channel with key %d not found", ch)
 }
 
-// NewErrorWrapper returns a function that wraps an error with information about the
-// channel that caused the error.
+// Error is an error of one channel. It carries the key of the channel, never its name.
+type Error struct {
+	Err error
+	Key Key
+}
+
+// Error implements error.
+func (e Error) Error() string { return fmt.Sprintf("channel <%d>: %v", e.Key, e.Err) }
+
+// Unwrap returns the error of the channel.
+func (e Error) Unwrap() error { return e.Err }
+
+// Wrap returns err as an Error of the channel with key, or nil when err is nil.
+func Wrap(key Key, err error) error {
+	if err == nil {
+		return nil
+	}
+	return Error{Key: key, Err: err}
+}
+
+// NewErrorWrapper returns a function that wraps an error as an Error of ch.
 func NewErrorWrapper(ch Channel) func(error) error {
-	msg := fmt.Sprintf("channel %v", ch)
-	return func(err error) error { return errors.Wrap(err, msg) }
+	return func(err error) error { return Wrap(ch.Key, err) }
 }

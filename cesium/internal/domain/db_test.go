@@ -128,6 +128,32 @@ var _ = Describe("DB", func() {
 				})
 			})
 
+			Describe("Drop", func() {
+				It(
+					"Should run free once, in the Close of the last iterator",
+					func() {
+						db := MustOpen(domain.Open(domain.Config{
+							FS:              openFS(),
+							Instrumentation: PanicLogger(),
+						}))
+						first := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						second := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						freed := 0
+						Expect(db.Drop(func() error {
+							freed++
+							return nil
+						})).To(Succeed())
+						Expect(freed).To(BeZero())
+						Expect(first.Close()).To(Succeed())
+						Expect(freed).To(BeZero())
+						Expect(second.Close()).To(Succeed())
+						Expect(freed).To(Equal(1))
+						Expect(second.Close()).To(Succeed())
+						Expect(freed).To(Equal(1))
+					},
+				)
+			})
+
 			Describe("Release", func() {
 				It(
 					"Should persist the data of a marked DB",

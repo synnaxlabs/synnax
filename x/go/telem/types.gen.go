@@ -107,6 +107,50 @@ const (
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
 
+// DataTypeCode is the one-byte code of a data type in the frame codec and in Cesium
+// segments. A code never changes once a stable release ships it. Code 255 is reserved
+// for a wider code.
+type DataTypeCode uint8
+
+//go:generate stringer -type=DataTypeCode
+
+const (
+	// DataTypeCodeUnknown is never valid on the wire.
+	DataTypeCodeUnknown DataTypeCode = iota
+	// DataTypeCodeUint8 is the code of uint8.
+	DataTypeCodeUint8
+	// DataTypeCodeUint16 is the code of uint16.
+	DataTypeCodeUint16
+	// DataTypeCodeUint32 is the code of uint32.
+	DataTypeCodeUint32
+	// DataTypeCodeUint64 is the code of uint64.
+	DataTypeCodeUint64
+	// DataTypeCodeInt8 is the code of int8.
+	DataTypeCodeInt8
+	// DataTypeCodeInt16 is the code of int16.
+	DataTypeCodeInt16
+	// DataTypeCodeInt32 is the code of int32.
+	DataTypeCodeInt32
+	// DataTypeCodeInt64 is the code of int64.
+	DataTypeCodeInt64
+	// DataTypeCodeFloat32 is the code of float32.
+	DataTypeCodeFloat32
+	// DataTypeCodeFloat64 is the code of float64.
+	DataTypeCodeFloat64
+	// DataTypeCodeTimestamp is the code of timestamp.
+	DataTypeCodeTimestamp
+	// DataTypeCodeUUID is the code of uuid.
+	DataTypeCodeUUID
+	// DataTypeCodeString is the code of string.
+	DataTypeCodeString
+	// DataTypeCodeBytes is the code of bytes.
+	DataTypeCodeBytes
+	// DataTypeCodeJSON is the code of json.
+	DataTypeCodeJSON
+	// DataTypeCodeBoolean is the code of boolean.
+	DataTypeCodeBoolean
+)
+
 // Aggregation selects how a limited read collapses each group of samples into points.
 // min_max keeps the lowest and highest sample of each group in the order they occurred,
 // average keeps the mean of each group, and decimate keeps the first sample of each

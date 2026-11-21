@@ -529,6 +529,7 @@ export class SyntheticCore {
         dataType: DataType.STRING,
         timeRange,
         alignment,
+        clock: this.clockOf(key),
       });
     let data:
       | BigInt64Array<ArrayBuffer>
@@ -548,7 +549,20 @@ export class SyntheticCore {
       for (let i = 0; i < n; i++) values[i] = this.value(key, from + i);
       data = values;
     }
-    return new Series({ data, dataType, timeRange, alignment });
+    return new Series({
+      data,
+      dataType,
+      timeRange,
+      alignment,
+      clock: this.clockOf(key),
+    });
+  }
+
+  // Returns the clock that the Core stamps the series of key with: its index.
+  private clockOf(key: channel.Key): number {
+    const ch = this.all().find((c) => c.key === key);
+    if (ch == null) return 0;
+    return ch.isIndex ? ch.key : ch.index;
   }
 
   // reduced returns the samples in [first, last) in groups of size samples anchored at
@@ -590,6 +604,7 @@ export class SyntheticCore {
       timeRange: bound(this.range(0, this.written()), tr),
       alignment: DOMAIN + BigInt(head * size),
       alignmentMultiple: BigInt(minMax ? size / 2 : size),
+      clock: this.clockOf(key),
     });
   }
 }
@@ -679,6 +694,7 @@ const seriesProps = (s: Series) => ({
   dataType: s.dataType,
   timeRange: s.timeRange,
   alignment: s.alignment,
+  clock: s.clock,
 });
 
 const toKeys = (channels: channel.Params): channel.Key[] =>

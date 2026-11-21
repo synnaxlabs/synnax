@@ -10,21 +10,22 @@
 package cesium_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil"
 )
 
 // BenchmarkWrite writes and commits 100 samples to an index and a data channel per
-// iteration. With contended set, a lower-authority writer retries writes to the same
-// channels for the whole run.
+// iteration. With contended set, a second writer writes the same channels for the whole
+// run with every channel skipped, as the framer writes for a writer without control.
 func BenchmarkWrite(b *testing.B) {
 	for _, fsName := range []string{"mem", "os"} {
 		for _, contended := range []bool{false, true} {
@@ -44,10 +45,10 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	db := openBenchDB(b, mem)
 	keys := []cesium.ChannelKey{1, 2}
 	createBenchChannels(b, db, keys)
-	w := openBenchWriter(b, db, keys, control.AuthorityAbsolute)
+	w := openBenchWriter(b, db, keys)
 	stop := func() {}
 	if contended {
-		lw := openBenchWriter(b, db, keys, control.AuthorityAbsolute-1)
+		lw := openBenchWriter(b, db, keys)
 		stop = retryWrites(b, lw, keys)
 		defer func() {
 			if err := lw.Close(); err != nil {
@@ -61,13 +62,86 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	b.ReportAllocs()
 	start := telem.SecondTS
 	for b.Loop() {
-		if _, err := w.Write(benchFrame(keys, start)); err != nil {
+		if _, _, err := w.Write(b.Context(), benchFrame(keys, start), nil); err != nil {
+			b.Fatal(err)
+		}
+		if _, _, err := w.Commit(b.Context(), nil); err != nil {
 			b.Fatal(err)
 		}
 		start += benchFrameSamples
 	}
 	b.StopTimer()
 	stop()
+	if err := w.Close(); err != nil {
+		b.Error(err)
+	}
+}
+
+// BenchmarkCommit writes one frame of float32 samples and commits it to the index files
+// on the OS file system, per iteration.
+func BenchmarkCommit(b *testing.B) {
+	for _, c := range []struct{ indexes, channels, samples int }{
+		{indexes: 1, channels: 32, samples: 125},
+		{indexes: 10, channels: 990, samples: 100},
+	} {
+		name := fmt.Sprintf(
+			"indexes=%d/channels=%d/samples=%d",
+			c.indexes,
+			c.channels,
+			c.samples,
+		)
+		b.Run(name, func(b *testing.B) {
+			benchmarkCommit(b, c.indexes, c.channels, c.samples)
+		})
+	}
+}
+
+func benchmarkCommit(b *testing.B, indexes, channels, samples int) {
+	b.Helper()
+	perIndex := channels / indexes
+	db := openBenchDB(b, false)
+	keys := createIndexedChannels(b, db, indexes, perIndex)
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Start:    telem.SecondTS,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	data := telem.NewSeries(make([]float32, samples))
+	stamps := make([]telem.TimeStamp, samples)
+	start := telem.SecondTS
+	b.ReportAllocs()
+	for b.Loop() {
+		for i := range stamps {
+			stamps[i] = start + telem.TimeStamp(i)
+		}
+		// Write returns its frame to the caller, who may keep it, so each write gets
+		// its own series slice and stamps.
+		series := make([]telem.Series, len(keys))
+		for i := range series {
+			series[i] = data
+		}
+		time := telem.NewSeries(stamps)
+		for i := 0; i < len(series); i += perIndex + 1 {
+			series[i] = time
+		}
+		if _, _, err := w.Write(
+			b.Context(),
+			telem.MultiFrame(keys, series),
+			nil,
+		); err != nil {
+			b.Fatal(err)
+		}
+		if _, _, err := w.Commit(b.Context(), nil); err != nil {
+			b.Fatal(err)
+		}
+		if err := w.Sync(); err != nil {
+			b.Fatal(err)
+		}
+		start += telem.TimeStamp(samples)
+	}
+	b.StopTimer()
 	if err := w.Close(); err != nil {
 		b.Error(err)
 	}
@@ -138,14 +212,11 @@ func openBenchWriter(
 	b *testing.B,
 	db *cesium.DB,
 	keys []cesium.ChannelKey,
-	a control.Authority,
 ) *cesium.Writer {
 	b.Helper()
 	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-		Channels:    keys,
-		Start:       telem.SecondTS,
-		Authorities: []control.Authority{a},
-		Sync:        new(true),
+		Channels: keys,
+		Start:    telem.SecondTS,
 	})
 	if err != nil {
 		b.Fatal(err)
@@ -153,7 +224,8 @@ func openBenchWriter(
 	return w
 }
 
-// retryWrites writes the same frame to w in a loop until the returned function runs.
+// retryWrites writes the same frame to w with every channel skipped, in a loop until
+// the returned function runs.
 func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func() {
 	b.Helper()
 	var (
@@ -162,13 +234,14 @@ func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func(
 	)
 	wg.Go(func() {
 		f := benchFrame(keys, telem.SecondTS)
+		skip := set.New(keys...)
 		for {
 			select {
 			case <-done:
 				return
 			default:
 			}
-			if _, err := w.Write(f); err != nil {
+			if _, _, err := w.Write(b.Context(), f, skip.Contains); err != nil {
 				b.Error(err)
 				return
 			}

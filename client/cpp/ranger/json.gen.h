@@ -20,7 +20,7 @@
 #include "x/cpp/color/color.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::ranger {
 

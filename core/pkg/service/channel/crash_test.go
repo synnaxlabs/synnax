@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -184,7 +185,6 @@ func (e *crashEngine) openServices(ctx context.Context, store kv.DB) (err error)
 	dist, err := distchannel.NewService(ctx, distchannel.ServiceConfig{
 		HostKey: 1,
 		KV:      store,
-		TS:      e.cesium,
 	})
 	if err != nil {
 		return err
@@ -204,11 +204,19 @@ func (e *crashEngine) openServices(ctx context.Context, store kv.DB) (err error)
 		return err
 	}
 	e.closers = append(e.closers, statuses.Close)
+	frames, err := framer.OpenService(ctx, framer.ServiceConfig{TS: e.cesium})
+	if err != nil {
+		return err
+	}
+	e.closers = append(e.closers, frames.Close)
 	if e.svc, err = channel.OpenService(ctx, channel.ServiceConfig{
-		Channel: dist,
-		DB:      e.db,
-		HostKey: 1,
-		Status:  statuses,
+		Channel:      dist,
+		DB:           e.db,
+		HostKey:      1,
+		Status:       statuses,
+		TS:           e.cesium,
+		Framer:       frames,
+		DropExecutor: func(work func()) { work() },
 	}); err != nil {
 		return err
 	}
@@ -257,9 +265,9 @@ func (e *crashEngine) Commit(
 	}
 	frame := telem.MultiFrame(
 		[]cesium.ChannelKey{
-			e.clock.Key().StorageKey(),
-			data.Key().StorageKey(),
-			scratch.Key().StorageKey(),
+			cesium.ChannelKey(e.clock.Key()),
+			cesium.ChannelKey(data.Key()),
+			cesium.ChannelKey(scratch.Key()),
 		},
 		[]telem.Series{
 			stamps(r.ID, len(r.Payload)),
@@ -295,7 +303,7 @@ func (e *crashEngine) removed() error {
 			return err
 		}
 		if !slices.ContainsFunc(infos, func(info xfs.FileInfo) bool {
-			return strings.Contains(info.Name(), "-DELETE-")
+			return strings.HasSuffix(info.Name(), "-DELETE")
 		}) {
 			return nil
 		}
@@ -307,7 +315,7 @@ func (e *crashEngine) removed() error {
 // read returns the samples of the channel in Cesium, or nil when Cesium has no such
 // channel.
 func (e *crashEngine) read(ctx context.Context, ch channel.Channel) ([]byte, error) {
-	frame, err := e.cesium.Read(ctx, telem.TimeRangeMax, ch.Key().StorageKey())
+	frame, err := e.cesium.Read(ctx, telem.TimeRangeMax, cesium.ChannelKey(ch.Key()))
 	if errors.Is(err, cesium.ErrChannelNotFound) {
 		return nil, nil
 	}
@@ -332,7 +340,7 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 	stored := set.Set[cesium.ChannelKey]{}
 	byName := map[string]channel.Channel{}
 	for _, ch := range channels {
-		stored.Add(ch.Key().StorageKey())
+		stored.Add(cesium.ChannelKey(ch.Key()))
 		byName[ch.Name] = ch
 	}
 	infos, err := e.ts.List("")
@@ -433,14 +441,18 @@ func (e *crashEngine) Close() error {
 }
 
 // runOnCore runs the harness under Strict on the adapter, and checks each crash image.
-func runOnCore(ctx context.Context, dirsDurable bool) (crash.Result, error) {
+func runOnCore(
+	ctx context.Context,
+	dirsDurable bool,
+	wrap func(*crashEngine) crash.Engine,
+) (crash.Result, error) {
 	return crash.Run(ctx, crash.Config{
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 			e, err := openEngine(ctx, fs, dirsDurable)
 			if err != nil {
 				return nil, err
 			}
-			return e, nil
+			return wrap(e), nil
 		},
 		Commits:    4,
 		Stride:     1,
@@ -454,7 +466,7 @@ func runOnCore(ctx context.Context, dirsDurable bool) (crash.Result, error) {
 func orphans(locals ...distchannel.LocalKey) []string {
 	out := make([]string, len(locals))
 	for i, local := range locals {
-		key := distchannel.NewKey(1, local).StorageKey()
+		key := cesium.ChannelKey(distchannel.NewKey(1, local))
 		out[i] = fmt.Sprintf(
 			"R5: the audit failed: cesium channel %d has no record",
 			key,
@@ -472,7 +484,7 @@ func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
 			"R4: %s: error decoding meta in folder for channel %d: failed to decode "+
 				"channel.Channel: EOF",
 			cause,
-			distchannel.NewKey(1, local).StorageKey(),
+			cesium.ChannelKey(distchannel.NewKey(1, local)),
 		)
 	}
 	return out
@@ -486,8 +498,17 @@ func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
 // samples of a record that stays, and a crash stops the open on a channel directory
 // with no meta file or with an empty one.
 var _ = DescribeTable("Crash harness on the channel services",
-	func(ctx SpecContext, dirsDurable bool, want []string) {
-		result, err := runOnCore(ctx, dirsDurable)
+	func(
+		ctx SpecContext,
+		dirsDurable bool,
+		wrap func(*crashEngine) crash.Engine,
+		want []string,
+	) {
+		result, err := runOnCore(ctx, dirsDurable, wrap)
+		if len(want) == 0 {
+			Expect(err).ToNot(HaveOccurred())
+			return
+		}
 		var first *crash.Violation
 		Expect(errors.As(err, &first)).To(BeTrue(), "no violation: %v", err)
 		Expect(result.Violations[0]).To(Equal(*first))
@@ -497,20 +518,46 @@ var _ = DescribeTable("Crash harness on the channel services",
 		}
 		Expect(found.Slice()).To(ConsistOf(want))
 	},
-	Entry("plain", false, orphans(3, 5, 7, 9)),
-	Entry("with durable Cesium directories", true, slices.Concat(
+	Entry("plain", false, asEngine, nil),
+	Entry("plain, with a refused delete of the index", false, withRefusedDelete, nil),
+	Entry("with durable Cesium directories", true, asEngine, slices.Concat(
 		emptyMeta("the engine did not recover", 1, 4, 6, 8),
 		emptyMeta("the engine did not recover after a crash in recovery", 1, 2),
 		[]string{
 			"R4: the engine did not recover: data_type: required\nname: required\n" +
 				"index: non-indexed channel must have an index",
-			"R5: the audit failed: s1 kept its record and lost its samples",
-			"R5: the audit failed: s2 kept its record and lost its samples",
-			"R5: the audit failed: s3 kept its record and lost its samples",
-			"R5: the audit failed: s4 kept its record and lost its samples",
 		},
 	)),
 )
+
+func asEngine(e *crashEngine) crash.Engine { return e }
+
+func withRefusedDelete(e *crashEngine) crash.Engine { return refusedDelete{e} }
+
+// refusedDelete is a crashEngine whose every commit then runs a transaction that
+// creates the channel x<k> and tries to delete the clock, which d<k> uses as its
+// index. The delete is refused, and the transaction commits the create.
+type refusedDelete struct{ *crashEngine }
+
+func (e refusedDelete) Commit(
+	ctx context.Context,
+	r crash.Record,
+	ack crash.Ack,
+) (crash.Ack, error) {
+	got, err := e.crashEngine.Commit(ctx, r, ack)
+	if err != nil {
+		return 0, err
+	}
+	other := e.samples("x" + strconv.FormatUint(r.ID, 10))
+	return got, e.db.WithTx(ctx, func(tx gorp.Tx) error {
+		w := e.svc.NewWriter(tx)
+		var restricted gorp.RestrictError
+		if err := w.Delete(ctx, e.clock.Key(), false); !errors.As(err, &restricted) {
+			return errors.Newf("the delete of the clock was not refused: %v", err)
+		}
+		return w.Create(ctx, &other)
+	})
+}
 
 var _ = Describe("Crash adapter on the channel services", func() {
 	var (
@@ -533,9 +580,9 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		Expect(e.create(ctx, &scratch)).To(Succeed())
 		Expect(e.cesium.Write(ctx, telem.SecondTS, telem.MultiFrame(
 			[]cesium.ChannelKey{
-				e.clock.Key().StorageKey(),
-				data.Key().StorageKey(),
-				scratch.Key().StorageKey(),
+				cesium.ChannelKey(e.clock.Key()),
+				cesium.ChannelKey(data.Key()),
+				cesium.ChannelKey(scratch.Key()),
 			},
 			[]telem.Series{
 				stamps(1, len(payload)),
@@ -574,7 +621,7 @@ var _ = Describe("Crash adapter on the channel services", func() {
 			))).To(Succeed())
 			image := MustSucceed(disk.Crash(fault.CrashConfig{}))
 			Expect(names(image, "cesium/99")).To(Equal(names(disk, "cesium/99")))
-			Expect(e.cesium.DeleteChannel(99)).To(Succeed())
+			Expect(e.cesium.Drop([]cesium.ChannelKey{99})).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			image = MustSucceed(disk.Crash(fault.CrashConfig{}))
 			Expect(MustSucceed(image.List("cesium"))).ToNot(ContainElement(
@@ -598,7 +645,9 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		func(ctx SpecContext) {
 			_, scratch := write(ctx, []byte("taco"))
 			Expect(e.store.Set(ctx, written(scratch), nil)).To(Succeed())
-			Expect(e.cesium.DeleteChannel(scratch.Key().StorageKey())).To(Succeed())
+			Expect(
+				e.cesium.Drop([]cesium.ChannelKey{cesium.ChannelKey(scratch.Key())}),
+			).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			MustSucceed(e.Recovered(ctx))
 			Expect(

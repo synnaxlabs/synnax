@@ -12,7 +12,7 @@ import { array, map, math, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Dynamic } from "@/framer/cache/dynamic";
-import { index as tileIndex, tileRange } from "@/framer/cache/grid";
+import { tileAt, tileRange } from "@/framer/cache/grid";
 import { buildInsertionPlan } from "@/framer/cache/insertion";
 
 /** The grid level of raw blocks: 2^16 milliseconds, about 65.5 seconds. */
@@ -38,11 +38,11 @@ export interface Block {
   pins: number;
 }
 
-/** @returns the index of the raw block that holds the timestamp. */
-export const rawIndex = (ts: TimeStamp): number => tileIndex(ts, RAW_LEVEL);
+/** @returns the tile of the raw block that holds the timestamp. */
+export const rawTile = (ts: TimeStamp): number => tileAt(ts, RAW_LEVEL);
 
-/** @returns the store key of the channel's raw block at the index. */
-export const rawKey = (ch: channel.Key, index: number): string => `${ch}/raw/${index}`;
+/** @returns the store key of the channel's raw block at the tile. */
+export const rawKey = (ch: channel.Key, tile: number): string => `${ch}/raw/${tile}`;
 
 const OFFSET_MASK = (1n << 32n) - 1n;
 
@@ -50,7 +50,7 @@ const OFFSET_MASK = (1n << 32n) - 1n;
 export const alignmentOf = (domain: number | bigint, offset: number): bigint =>
   (BigInt(domain) << 32n) | BigInt(offset);
 
-/** @returns the domain of the alignment: a Core domain, or a raw block index. */
+/** @returns the domain of the alignment: a Core domain, or a raw block tile. */
 export const domainOf = (alignment: bigint): bigint => alignment >> 32n;
 
 /** @returns the sample offset of the alignment in its domain. */
@@ -70,6 +70,7 @@ const derive = (
     sampleOffset: s.sampleOffset,
     alignment,
     alignmentMultiple: s.alignmentMultiple,
+    clock: s.clock,
   });
 
 // A run of index samples with consecutive Core alignments.
@@ -81,8 +82,8 @@ interface Segment {
 
 /**
  * Sets block alignment on a fetch's series of one channel in one block. Block alignment
- * is (index << 32) | offset, where offset counts index samples from the block start.
- * @param index - The raw block the series are in.
+ * is (tile << 32) | offset, where offset counts index samples from the block start.
+ * @param tile - The raw block the series are in.
  * @param base - The index samples in the block before the fetch's start.
  * @param timestamps - The fetch's series of the channel's index in the block, in time
  * order.
@@ -91,7 +92,7 @@ interface Segment {
  * @throws {UnexpectedError} if a series has no index samples with its Core alignment.
  */
 export const align = (
-  index: number,
+  tile: number,
   base: number,
   timestamps: Series[],
   series: Series[],
@@ -112,10 +113,10 @@ export const align = (
       const seg = segments.find((g) => g.start <= lower && upper <= g.end);
       if (seg == null)
         throw new UnexpectedError(
-          `no index samples share alignment ${lower} in raw block ${index}`,
+          `no index samples share alignment ${lower} in raw block ${tile}`,
         );
       return derive(s, {
-        alignment: alignmentOf(index, seg.offset + Number(lower - seg.start)),
+        alignment: alignmentOf(tile, seg.offset + Number(lower - seg.start)),
       });
     });
 };
@@ -152,7 +153,7 @@ const cut = (s: Series, tr: TimeRange): Series =>
  * same Core alignment stay out, as when the Core commits a channel before its index.
  * @param timestamps - The fetch's series of the channel's index, in time order.
  * @param series - The fetch's series of the channel, in time order.
- * @returns the part of each raw block that holds index samples, by block index, in
+ * @returns the part of each raw block that holds index samples, by block tile, in
  * block order.
  */
 export const split = (timestamps: Series[], series: Series[]): Map<number, Part> => {
@@ -162,10 +163,10 @@ export const split = (timestamps: Series[], series: Series[]): Map<number, Part>
     [];
   for (const ts of timestamps)
     for (let lo = 0; lo < ts.length;) {
-      const index = rawIndex(new TimeStamp(ts.data[lo]));
-      const range = tileRange({ level: RAW_LEVEL, index });
+      const tile = rawTile(new TimeStamp(ts.data[lo]));
+      const range = tileRange({ level: RAW_LEVEL, tile });
       const hi = search(ts, range.end.valueOf(), lo);
-      const part = map.getOrInsert(parts, index, () => ({
+      const part = map.getOrInsert(parts, tile, () => ({
         timestamps: [],
         series: [],
       }));
@@ -214,10 +215,10 @@ export class RawBlock implements Block {
 
   constructor(
     readonly channel: channel.Key,
-    readonly index: number,
+    readonly tile: number,
     private readonly now: () => TimeStamp = () => TimeStamp.now(),
   ) {
-    this.range = tileRange({ level: RAW_LEVEL, index });
+    this.range = tileRange({ level: RAW_LEVEL, tile });
     this.coveredStart = this.range.start;
     this.coveredEnd = this.range.start;
   }
@@ -342,7 +343,7 @@ export class RawBlock implements Block {
       .filter(({ span }) => span.overlapsWith(tr))
       .flatMap(({ s, span }) => {
         if (index == null || !span.end.after(tr.end)) return [s];
-        end ??= alignmentOf(this.index, index.offsetAt(tr.end.valueOf()));
+        end ??= alignmentOf(this.tile, index.offsetAt(tr.end.valueOf()));
         const count = Math.min(Number(end - s.alignment), s.length);
         if (count <= 0) return [];
         const { start } = s.timeRange;

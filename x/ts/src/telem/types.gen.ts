@@ -11,6 +11,27 @@
 
 import { z } from "zod";
 
+export enum DataTypeCode {
+  unknown = 0,
+  uint8 = 1,
+  uint16 = 2,
+  uint32 = 3,
+  uint64 = 4,
+  int8 = 5,
+  int16 = 6,
+  int32 = 7,
+  int64 = 8,
+  float32 = 9,
+  float64 = 10,
+  timestamp = 11,
+  uuid = 12,
+  string = 13,
+  bytes = 14,
+  json = 15,
+  boolean = 16,
+}
+export const dataTypeCodeZ = z.enum(DataTypeCode);
+
 export const AGGREGATIONS = ["min_max", "average", "decimate"] as const;
 export const aggregationZ = z.enum(AGGREGATIONS);
 export type Aggregation = z.infer<typeof aggregationZ>;

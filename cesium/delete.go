@@ -11,13 +11,14 @@ package cesium
 
 import (
 	"context"
-	"math/rand/v2"
-	"slices"
+	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -73,148 +74,247 @@ func dirNameToKey(name string) (ChannelKey, error) {
 	return ChannelKey(key), nil
 }
 
-// DeleteChannel deletes a channel by its key. It returns once the channel is detached
-// and removes its data in the background. Close waits for the removal to finish.
-//
-// This method returns an error if there are other channels depending on the current
-// channel, or if the current channel is being written to or read from.
-//
-// DeleteChannel is idempotent.
-func (db *DB) DeleteChannel(ch ChannelKey) error {
-	return db.DeleteChannels([]ChannelKey{ch})
-}
-
-// DeleteChannels deletes the channels with the given keys and skips keys with no
-// channel. It returns an error and deletes none of them if one is being written to or
-// read from, or is the index of a channel outside chs. A file system error stops it and
-// can leave some of them deleted. It deletes index channels last. It returns once the
-// channels are detached and removes their data in the background. Close waits for the
-// removal to finish.
-func (db *DB) DeleteChannels(chs []ChannelKey) error {
+// Drop removes the channels with the given keys and skips keys with no channel. A new
+// writer or iterator on a dropped key fails at once. Drop removes the files of a unary
+// channel when no writer or iterator is open on it: in Drop, or in the Close of the
+// last one. A virtual channel holds no files for its writers, so its directory goes at
+// once. The files of an index go after the files of its dropped data channels, and stay
+// when the removal of one of those fails. Drop keeps an index that a channel outside
+// keys still uses. A failed removal does not stop Drop, which returns the error of each
+// removal that runs in Drop and logs a later one. The next Open removes a directory
+// that a failed removal renamed. A directory that keeps its name loads again at Open.
+func (db *DB) Drop(keys []ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	// Close waits for removals under db.mu, so the check must hold the lock.
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	// Index channels detach last, so that a failed detach never keeps a data channel
-	// whose index it deleted.
-	data, indexes := lo.FilterReject(lo.Uniq(chs), func(ch ChannelKey, _ int) bool {
-		uDB, ok := db.mu.dbs.unary[ch]
-		return !ok || !uDB.Channel().IsIndex
-	})
-	chs = slices.Concat(data, indexes)
-	deleting := set.New(chs...)
-	for i, ch := range chs {
-		if err := db.markClosed(ch, deleting); err != nil {
-			for _, marked := range chs[:i] {
-				db.unmarkClosed(marked)
-			}
-			return err
+	if db.engine != nil {
+		return db.dropLog(keys)
+	}
+	return db.dropLocked(keys)
+}
+
+// dropLocked drops keys as Drop does. The caller must hold db.mu.
+func (db *DB) dropLocked(keys []ChannelKey) error {
+	keys = lo.Uniq(keys)
+	// A key that Sweep keeps drops as any other.
+	for _, k := range keys {
+		if u, ok := db.mu.dbs.hidden[k]; ok {
+			db.mu.dbs.unary[k] = u
+			delete(db.mu.dbs.hidden, k)
 		}
 	}
-	dirs := make([]string, 0, len(chs))
-	defer func() { db.removeDirs(dirs...) }()
-	for i, ch := range chs {
-		dir, err := db.detach(ch)
-		if err != nil {
-			for _, marked := range chs[i+1:] {
-				db.unmarkClosed(marked)
+	dropping := set.New(keys...)
+	indexes := make(map[ChannelKey]*latch)
+	for _, key := range keys {
+		uDB, ok := db.mu.dbs.unary[key]
+		if !ok || !uDB.Channel().IsIndex || db.indexesKept(key, dropping) {
+			continue
+		}
+		// The index holds one count, given up after its data channels drop.
+		indexes[key] = &latch{n: 1}
+	}
+	var (
+		err error
+		rm  = &removals{}
+	)
+	for _, key := range keys {
+		if db.mu.virtualDirs.Contains(key) {
+			db.mu.virtualDirs.Remove(key)
+			err = errors.Join(err, rm.remove(db, key))
+			continue
+		}
+		uDB, ok := db.mu.dbs.unary[key]
+		if !ok || uDB.Channel().IsIndex {
+			continue
+		}
+		idx, waits := indexes[uDB.Channel().Index]
+		if waits {
+			idx.add()
+		}
+		delete(db.mu.dbs.unary, key)
+		err = errors.Join(err, uDB.Drop(func() error {
+			rmErr := rm.remove(db, key)
+			if !waits {
+				return rmErr
 			}
+			if rmErr != nil {
+				idx.keep()
+			}
+			return errors.Join(rmErr, idx.done())
+		}))
+	}
+	// An iterator on a data channel reads its index, so the index drops only once its
+	// dropped data channels have freed their files.
+	for key, idx := range indexes {
+		uDB := db.mu.dbs.unary[key]
+		delete(db.mu.dbs.unary, key)
+		idx.run = func(keep bool) error {
+			return uDB.Drop(func() error {
+				if keep {
+					return nil
+				}
+				return rm.remove(db, key)
+			})
+		}
+		err = errors.Join(err, idx.done())
+	}
+	return errors.Join(err, rm.close(db))
+}
+
+// indexesKept reports whether a channel outside dropping uses index as its index. The
+// caller must hold db.mu.
+func (db *DB) indexesKept(index ChannelKey, dropping set.Set[ChannelKey]) bool {
+	for _, dbs := range []map[ChannelKey]unary.DB{db.mu.dbs.unary, db.mu.dbs.hidden} {
+		for key, other := range dbs {
+			if other.Channel().Index == index && !dropping.Contains(key) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// latch runs run in the call to done that brings n to zero. run gets true when keep
+// was called.
+type latch struct {
+	run  func(keep bool) error
+	mu   sync.Mutex
+	n    int
+	kept bool
+}
+
+func (l *latch) keep() {
+	l.mu.Lock()
+	l.kept = true
+	l.mu.Unlock()
+}
+
+func (l *latch) add() {
+	l.mu.Lock()
+	l.n++
+	l.mu.Unlock()
+}
+
+func (l *latch) done() error {
+	l.mu.Lock()
+	l.n--
+	last, kept := l.n == 0, l.kept
+	l.mu.Unlock()
+	if !last {
+		return nil
+	}
+	return l.run(kept)
+}
+
+// deletedDirSuffix marks the directory of a dropped channel that waits for removal.
+// Keys are never reused, so only a leftover of the same key can hold the name.
+const deletedDirSuffix = "-DELETE"
+
+// removals collects the keys whose files a drop removes in line, so their intents clear
+// in one append. A removal that runs after the batch closes clears its own intent.
+type removals struct {
+	keys   []ChannelKey
+	mu     sync.Mutex
+	closed bool
+}
+
+// remove removes the files of key and adds key to the batch, or clears its intent when
+// the batch has closed.
+func (r *removals) remove(db *DB, key ChannelKey) error {
+	if err := db.removeDir(key); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	if !r.closed {
+		r.keys = append(r.keys, key)
+		r.mu.Unlock()
+		return nil
+	}
+	r.mu.Unlock()
+	return db.clearRemoved(key)
+}
+
+// close closes the batch and clears the intents of its keys.
+func (r *removals) close(db *DB) error {
+	r.mu.Lock()
+	r.closed = true
+	keys := r.keys
+	r.mu.Unlock()
+	return db.clearRemoved(keys...)
+}
+
+// clearRemoved syncs the root, so that the removals of keys are durable, then clears
+// their intents in one append. A crash then never brings back files that no intent
+// names.
+func (db *DB) clearRemoved(keys ...ChannelKey) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	if err := db.fs.SyncDir(""); err != nil {
+		return err
+	}
+	return db.intents.clear(keys...)
+}
+
+// removeDir renames the directory of key to its deleted name, then removes its data
+// files, its metadata file, and the directory, in that order. It first removes a
+// leftover of an earlier removal of key.
+func (db *DB) removeDir(key ChannelKey) error {
+	name := keyToDirName(key)
+	deleted := name + deletedDirSuffix
+	if err := db.fs.Remove(deleted); err != nil {
+		return err
+	}
+	exists, err := db.fs.Exists(name)
+	if err != nil {
+		return err
+	}
+	if exists {
+		if err = db.fs.Rename(name, deleted); err != nil {
 			return err
 		}
-		if dir != "" {
-			dirs = append(dirs, dir)
-		}
+		return db.removeFiles(deleted)
 	}
 	return nil
 }
 
-// markClosed marks the DB of ch closed for a delete of the channels in deleting. It
-// returns an error if ch is being written to or read from, or is the index of a channel
-// outside deleting. The caller must hold db.mu.
-func (db *DB) markClosed(ch ChannelKey, deleting set.Set[ChannelKey]) error {
-	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
-		return vDB.MarkClosed()
+// removeFiles removes the files of the channel directory dir other than its metadata
+// file, then the metadata file, then dir.
+func (db *DB) removeFiles(dir string) error {
+	infos, err := db.fs.List(dir)
+	if err != nil {
+		return err
 	}
-	uDB, ok := db.mu.dbs.unary[ch]
-	if !ok {
+	for _, f := range infos {
+		if f.Name() == meta.File {
+			continue
+		}
+		if err = db.fs.Remove(path.Join(dir, f.Name())); err != nil {
+			return err
+		}
+	}
+	if err = db.fs.Remove(path.Join(dir, meta.File)); err != nil {
+		return err
+	}
+	return db.fs.Remove(dir)
+}
+
+// Intend makes delete intents for keys durable, with one write and one sync of the
+// intents file. Open skips the directory of a key with an intent, Sweep decides its
+// fate, and Drop clears the intent after it removes the files of the key.
+func (db *DB) Intend(keys []ChannelKey) error {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+	if len(keys) == 0 {
 		return nil
 	}
-	if uDB.Channel().IsIndex {
-		for key, other := range db.mu.dbs.unary {
-			if other.Channel().Index == ch && !deleting.Contains(key) {
-				return errors.Newf(
-					"cannot delete channel %v because it indexes data in channel %v",
-					uDB.Channel(),
-					other.Channel(),
-				)
-			}
-		}
+	if db.engine != nil {
+		return db.engine.intend(keys, false)
 	}
-	return uDB.MarkClosed()
-}
-
-// unmarkClosed opens the DB of ch that markClosed marked closed. The caller must hold
-// db.mu.
-func (db *DB) unmarkClosed(ch ChannelKey) {
-	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
-		vDB.UnmarkClosed()
-	} else if uDB, ok := db.mu.dbs.unary[ch]; ok {
-		uDB.UnmarkClosed()
-	}
-}
-
-// detach releases the DB of ch that markClosed marked closed, removes it from db, and
-// renames its directory for removal. It returns the new name, or "" if ch does not
-// exist. The caller must hold db.mu.
-func (db *DB) detach(ch ChannelKey) (string, error) {
-	if uDB, ok := db.mu.dbs.unary[ch]; ok {
-		// The data of the channel is deleted anyway, so a close error loses nothing.
-		if err := uDB.Release(); err != nil {
-			db.L.Error(
-				"failed to release a deleted channel",
-				zap.Stringer("channel", uDB.Channel()),
-				zap.Error(err),
-			)
-		}
-		delete(db.mu.dbs.unary, ch)
-	} else if _, ok = db.mu.dbs.virtual[ch]; ok {
-		delete(db.mu.dbs.virtual, ch)
-	} else {
-		return "", nil
-	}
-	// The random suffix lets a channel be created and deleted again while an earlier
-	// removal runs.
-	name := keyToDirName(ch)
-	detached := name + deletedDirInfix + strconv.Itoa(rand.Int())
-	if err := db.fs.Rename(name, detached); err != nil {
-		return "", err
-	}
-	return detached, nil
-}
-
-// deletedDirInfix marks a channel directory that a delete detached and that waits for
-// removal.
-const deletedDirInfix = "-DELETE-"
-
-// removeDirs removes the named detached channel directories in the background. A
-// failed removal logs the error, and the next Open retries it.
-func (db *DB) removeDirs(names ...string) {
-	if len(names) == 0 {
-		return
-	}
-	db.removals.Go(func() {
-		for _, name := range names {
-			if err := db.fs.Remove(name); err != nil {
-				db.L.Error(
-					"failed to remove deleted channel data",
-					zap.String("dir", name),
-					zap.Error(err),
-				)
-			}
-		}
-	})
+	return db.intents.add(keys)
 }
 
 // DeleteTimeRange deletes a time range of data in the database in the given channels
@@ -232,6 +332,12 @@ func (db *DB) DeleteTimeRange(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if db.engine != nil {
+		return errors.Wrap(
+			errors.ErrUnsupported,
+			"the pointer log does not delete a time range yet",
+		)
+	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))
@@ -244,9 +350,6 @@ func (db *DB) DeleteTimeRange(
 			} else {
 				dataChannels = append(dataChannels, ch)
 			}
-			continue
-		}
-		if _, ok := db.mu.dbs.virtual[ch]; ok {
 			continue
 		}
 		return channel.NewNotFoundError(ch)
@@ -268,13 +371,12 @@ func (db *DB) DeleteTimeRange(
 			}
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf(
-					"cannot delete index channel %v "+
-						"with channel %v depending on it on the time range %s",
-					idxDB.Channel(),
+				return channel.Wrap(ch, errors.Newf(
+					"cannot delete the index with channel %v depending on it on the "+
+						"time range %s",
 					otherDB.Channel(),
 					tr,
-				)
+				))
 			}
 		}
 		if err := idxDB.Delete(ctx, tr); err != nil {

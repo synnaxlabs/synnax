@@ -158,6 +158,7 @@ func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 		},
 		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
+		Channel:            f.cfg.Channel,
 		Device:             f.cfg.Device,
 		Make:               Make,
 		ReachableMessage:   "Device connected",

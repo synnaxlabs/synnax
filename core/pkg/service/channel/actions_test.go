@@ -119,16 +119,16 @@ var _ = Describe("Actions", Ordered, func() {
 		},
 	)
 
-	It("Should rename the channel and its storage channel", func(ctx SpecContext) {
+	It("Should rename the channel and keep its name in storage", func(ctx SpecContext) {
 		ch := create(ctx, index)
 		name := UniqueChannelName()
 		rename := channel.NewRenameAction(channel.RenamePayload{Name: name})
 		Expect(apply(ctx, ch.Key(), rename)).To(BeEmpty())
 		Expect(retrieve(ctx, ch.Key()).Name).To(Equal(name))
 		stored := MustSucceed(
-			dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 		)
-		Expect(stored.Name).To(Equal(name))
+		Expect(stored.Name).To(Equal(ch.Name))
 		frames := rec.Snapshot()
 		Expect(frames[len(frames)-1].DispatchKey).To(Equal("dk"))
 		Expect(frames[len(frames)-1].Actions).To(Equal([]channel.Action{rename}))

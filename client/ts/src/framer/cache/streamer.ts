@@ -510,6 +510,11 @@ export class MultiplexedStreamer {
 
   private async run(streamer: Streamer): Promise<void> {
     const { joins, onWait, instrumentation: ins } = this.props;
+    const failed = new Set<channel.Key>();
+    const fail = (k: channel.Key, failure: status.Status): void => {
+      failed.add(k);
+      this.setStatus(k, failure);
+    };
     try {
       for await (const frame of streamer) {
         // Group series by key in one pass; per-key get() scans the whole frame.
@@ -517,8 +522,11 @@ export class MultiplexedStreamer {
         frame.forEach((k, s) => {
           map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
         });
-        onWait(joins.write(grouped));
-        grouped.forEach((_, k) => this.setStatus(k, STREAMING));
+        failed.clear();
+        onWait(joins.write(grouped, fail));
+        grouped.forEach((_, k) => {
+          if (!failed.has(k)) this.setStatus(k, STREAMING);
+        });
         if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;

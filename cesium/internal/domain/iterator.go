@@ -143,7 +143,7 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.currPtr.TimeRange }
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain. Note that the caller is responsible for
 // closing the reader.
-func (i *Iterator) OpenReader(ctx context.Context) (*Reader, error) {
+func (i *Iterator) OpenReader(ctx context.Context) (RangeReader, error) {
 	if i.closed {
 		return nil, ErrIteratorClosed
 	}
@@ -160,7 +160,7 @@ func (i *Iterator) Close() error {
 	}
 	i.closed = true
 	i.valid = false
-	i.db.resourceCount.Add(-1)
+	i.db.unpin()
 	return nil
 }
 

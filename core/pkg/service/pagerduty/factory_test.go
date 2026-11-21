@@ -30,25 +30,34 @@ var _ = Describe("Factory", func() {
 	Describe("Config", func() {
 		Describe("Validate", func() {
 			It("Should return an error when DB is nil", func() {
-				cfg := pd.FactoryConfig{Status: statusSvc, Sender: newMockSender()}
+				cfg := pd.FactoryConfig{
+					Channel: channelSvc,
+					Status:  statusSvc,
+					Sender:  newMockSender(),
+				}
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
 			})
 
 			It("Should return an error when Status is nil", func() {
-				cfg := pd.FactoryConfig{DB: db, Sender: newMockSender()}
+				cfg := pd.FactoryConfig{
+					Channel: channelSvc,
+					DB:      db,
+					Sender:  newMockSender(),
+				}
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("status")))
 			})
 
 			It("Should return an error when Sender is nil", func() {
-				cfg := pd.FactoryConfig{DB: db, Status: statusSvc}
+				cfg := pd.FactoryConfig{Channel: channelSvc, DB: db, Status: statusSvc}
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("sender")))
 			})
 
 			It("Should return an error when Secret is nil", func() {
 				cfg := pd.FactoryConfig{
-					DB:     db,
-					Status: statusSvc,
-					Sender: newMockSender(),
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Sender:  newMockSender(),
 				}
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring("secret")))
 			})
@@ -64,10 +73,11 @@ var _ = Describe("Factory", func() {
 
 			It("Should succeed when every required field is set", func() {
 				cfg := pd.FactoryConfig{
-					DB:     db,
-					Status: statusSvc,
-					Secret: secretSvc,
-					Sender: newMockSender(),
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Secret:  secretSvc,
+					Sender:  newMockSender(),
 				}
 				Expect(cfg.Validate()).To(Succeed())
 			})
@@ -77,10 +87,11 @@ var _ = Describe("Factory", func() {
 			It("Should override nil fields with the provided values", func() {
 				sender := newMockSender()
 				cfg := pd.FactoryConfig{}.Override(pd.FactoryConfig{
-					DB:     db,
-					Status: statusSvc,
-					Secret: secretSvc,
-					Sender: sender,
+					Channel: channelSvc,
+					DB:      db,
+					Status:  statusSvc,
+					Secret:  secretSvc,
+					Sender:  sender,
 				})
 				Expect(cfg.DB).To(Equal(db))
 				Expect(cfg.Status).To(Equal(statusSvc))
@@ -92,8 +103,9 @@ var _ = Describe("Factory", func() {
 				func() {
 					sender := newMockSender()
 					cfg := pd.FactoryConfig{
-						Status: statusSvc,
-						Sender: sender,
+						Channel: channelSvc,
+						Status:  statusSvc,
+						Sender:  sender,
 					}.Override(pd.FactoryConfig{})
 					Expect(cfg.Status).To(Equal(statusSvc))
 					Expect(cfg.Sender).To(Equal(sender))
@@ -103,17 +115,27 @@ var _ = Describe("Factory", func() {
 	})
 
 	Describe("New", func() {
+		It("Should fail when Channel is nil", func() {
+			Expect(pd.NewFactory(pd.FactoryConfig{
+				DB:     db,
+				Status: statusSvc,
+				Secret: secretSvc,
+			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
+		})
+
 		It("Should fail when Status is nil", func() {
 			Expect(pd.NewFactory(pd.FactoryConfig{
-				Sender: newMockSender(),
+				Channel: channelSvc,
+				Sender:  newMockSender(),
 			})).Error().To(MatchError(ContainSubstring("status")))
 		})
 
 		It("Should use the default event sender when Sender is nil", func() {
 			Expect(pd.NewFactory(pd.FactoryConfig{
-				DB:     db,
-				Status: statusSvc,
-				Secret: secretSvc,
+				Channel: channelSvc,
+				DB:      db,
+				Status:  statusSvc,
+				Secret:  secretSvc,
 			})).ToNot(BeNil())
 		})
 	})
@@ -128,10 +150,11 @@ var _ = Describe("Factory", func() {
 		BeforeEach(func(ctx SpecContext) {
 			sender = newMockSender()
 			factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
-				DB:     db,
-				Status: statusSvc,
-				Secret: secretSvc,
-				Sender: sender,
+				Channel: channelSvc,
+				DB:      db,
+				Status:  statusSvc,
+				Secret:  secretSvc,
+				Sender:  sender,
 			}))
 			routingKey = createRoutingKey(ctx, strings.Repeat("a", 32))
 		})

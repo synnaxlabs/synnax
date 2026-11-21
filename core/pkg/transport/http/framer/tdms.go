@@ -437,7 +437,8 @@ func (g *tdmsGroup) read() (int, error) {
 		}
 		g.index.skip(k)
 		for i := range g.channels {
-			if err := g.channels[i].read(start, step, k, g.times[from:]); err != nil {
+			err := g.channels[i].read(&g.index, start, step, k, g.times[from:])
+			if err != nil {
 				return 0, err
 			}
 		}
@@ -446,9 +447,11 @@ func (g *tdmsGroup) read() (int, error) {
 	return n, nil
 }
 
-// read appends the channel's samples at the n index alignments from start, step apart
-// and in one domain. times holds the TDMS timestamps of those alignments.
+// read appends the channel's samples at the n alignments of index from start, step
+// apart and in one domain. times holds the TDMS timestamps of those alignments. It
+// fails when the channel's samples are on another clock.
 func (c *tdmsChannel) read(
+	index *column,
 	start telem.Alignment,
 	step uint32,
 	n int,
@@ -458,6 +461,9 @@ func (c *tdmsChannel) read(
 		if _, size := c.sample(); size == 0 {
 			c.appendMissing(n - i)
 			return nil
+		}
+		if err := c.clockError(index); err != nil {
+			return err
 		}
 		at, a := start.AddSamples(uint32(i)*step), c.alignment()
 		if a < at {

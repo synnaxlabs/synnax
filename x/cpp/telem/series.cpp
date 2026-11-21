@@ -18,6 +18,7 @@ pb::Series Series::to_proto() const {
     pb.set_data_type(this->type.name());
     pb.set_data(this->buffer.get(), byte_size());
     pb.set_alignment(this->alignment.uint64());
+    pb.set_clock(this->clock);
     return pb;
 }
 

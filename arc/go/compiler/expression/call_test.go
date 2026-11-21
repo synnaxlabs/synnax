@@ -109,7 +109,7 @@ var _ = Describe("CompileCall", func() {
 
 	DescribeTable("should bind arguments to parameters",
 		func(name string, sources []string, out types.Type, expected ...any) {
-			Expect(expression.CompileCall(ctx, name, "", args(sources...))).
+			Expect(expression.CompileCall(ctx, []string{name}, args(sources...))).
 				To(Equal(out))
 			Expect(FinalizeContext(ctx)).To(MatchOpcodes(expected...))
 		},
@@ -138,36 +138,36 @@ var _ = Describe("CompileCall", func() {
 	)
 
 	DescribeTable("should dispatch the len builtins without resolving a symbol",
-		func(head, tail, source string) {
-			Expect(expression.CompileCall(ctx, head, tail, args(source))).
+		func(parts []string, source string) {
+			Expect(expression.CompileCall(ctx, parts, args(source))).
 				To(Equal(types.I64()))
 			Expect(FinalizeContext(ctx)).ToNot(BeEmpty())
 		},
-		Entry("len", "len", "", `"hello"`),
-		Entry("string.len", "string", "len", `"hello"`),
-		Entry("series.len", "series", "len", "s"),
+		Entry("len", []string{"len"}, `"hello"`),
+		Entry("string.len", []string{"string", "len"}, `"hello"`),
+		Entry("series.len", []string{"series", "len"}, "s"),
 	)
 
 	DescribeTable("should reject a call that cannot bind",
-		func(head, tail string, sources []string, substr string) {
-			Expect(expression.CompileCall(ctx, head, tail, args(sources...))).Error().
-				To(MatchError(ContainSubstring(substr)))
+		func(name string, sources []string, substr string) {
+			Expect(expression.CompileCall(ctx, []string{name}, args(sources...))).
+				Error().To(MatchError(ContainSubstring(substr)))
 		},
-		Entry("missing a required parameter", "pow", "", []string{"exp=4"},
+		Entry("missing a required parameter", "pow", []string{"exp=4"},
 			"function pow is missing an argument for parameter base"),
-		Entry("more arguments than parameters", "pow", "", []string{"3", "4", "5"},
+		Entry("more arguments than parameters", "pow", []string{"3", "4", "5"},
 			"function pow expects at most 2 arguments"),
-		Entry("unknown parameter name", "pow", "", []string{"nope=3"},
+		Entry("unknown parameter name", "pow", []string{"nope=3"},
 			"function pow has no parameter nope"),
-		Entry("default value of the wrong type", "bad_default", "", []string{},
+		Entry("default value of the wrong type", "bad_default", []string{},
 			"unexpected default value type string for i64"),
-		Entry("callee is not a function", "v", "", []string{},
+		Entry("callee is not a function", "v", []string{},
 			"v is not a function"),
-		Entry("callee is flow-only", "flow_only", "", []string{},
+		Entry("callee is flow-only", "flow_only", []string{},
 			"cannot be called inside a func block"),
-		Entry("callee is undefined", "nope", "", []string{},
+		Entry("callee is undefined", "nope", []string{},
 			"undefined symbol: nope"),
-		Entry("len with two arguments", "len", "", []string{`"a"`, `"b"`},
+		Entry("len with two arguments", "len", []string{`"a"`, `"b"`},
 			"len() requires exactly 1 argument, got 2"),
 	)
 
@@ -177,7 +177,7 @@ var _ = Describe("CompileCall", func() {
 		ctx := ccontext.NewRoot(
 			bCtx, root, map[antlr.ParserRuleContext]types.Type{}, resolve.NewResolver(),
 		)
-		Expect(expression.CompileCall(ctx, "time", "now", nil)).
+		Expect(expression.CompileCall(ctx, []string{"time", "now"}, nil)).
 			To(Equal(types.TimeStamp()))
 		Expect(FinalizeContext(ctx)).To(MatchOpcodes(OpCall, uint32(0)))
 	})

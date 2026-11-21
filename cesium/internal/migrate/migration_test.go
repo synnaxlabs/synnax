@@ -69,7 +69,9 @@ var _ = Describe("Migration Test", func() {
 				By("Asserting that the version got migrated and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
-					if ch.Key == testdata.LegacyRateKey {
+					// Cesium leaves the directory of a virtual channel and opens
+					// nothing.
+					if ch.Key == testdata.LegacyRateKey || ch.Virtual {
 						Expect(err).To(MatchError(query.ErrNotFound))
 						continue
 					} else {

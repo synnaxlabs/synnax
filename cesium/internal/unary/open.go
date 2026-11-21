@@ -14,9 +14,8 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
@@ -30,9 +29,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// errVirtual is returned when the caller tried to open a unary database on a virtual
+// ErrVirtual is returned when the caller tried to open a unary database on a virtual
 // channel.
-var errVirtual = errors.New("cannot open a unary database on a virtual channel")
+var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -65,7 +64,8 @@ type Config struct {
 	// block or call back into the DB.
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
-	// Clock times the AutoIndexPersistInterval of each writer. See domain.Config.Clock.
+	// Clock is the time of a writer that opens with no start, and times the
+	// AutoIndexPersistInterval of each writer. See domain.Config.Clock.
 	// [OPTIONAL] Default: xtime.Real
 	Clock xtime.Clock
 }
@@ -99,6 +99,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{
 		FileSize:    1 * telem.Gigabyte,
 		GCThreshold: 0.2,
+		Clock:       xtime.Real,
 	}, configs...)
 	if err != nil {
 		return nil, err
@@ -109,7 +110,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
-		return nil, wrapError(errVirtual)
+		return nil, wrapError(ErrVirtual)
 	}
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
@@ -122,20 +123,13 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, err := control.New[*controlledWriter](control.Config{
-		Concurrency:     cfg.Channel.Concurrency,
-		Instrumentation: cfg.Instrumentation,
-	})
-	if err != nil {
-		return nil, err
-	}
 	db := &DB{
 		cfg:              cfg,
 		domain:           domainDB,
-		controller:       c,
+		claims:           &claim.Set[*sharedWriter]{},
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
+		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
 	if cfg.Channel.IsIndex {

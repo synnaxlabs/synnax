@@ -10,9 +10,9 @@
 package channel_test
 
 import (
-	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -1350,11 +1349,12 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Delete(ctx, ch.Key(), true)
 					})).To(Succeed())
-					Expect(
-						dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()),
-					).
-						Error().
-						To(MatchError(ts.ErrChannelNotFound))
+					// The drop runs on the service's worker after the commit.
+					Eventually(func(g Gomega) {
+						g.Expect(
+							dist.Storage.TS.RetrieveChannels(ctx, uint32(ch.Key())),
+						).Error().To(MatchError(cesium.ErrChannelNotFound))
+					}).Should(Succeed())
 				},
 			)
 		})
@@ -1395,7 +1395,7 @@ var _ = Describe("Writer", func() {
 						})
 					}()
 					Eventually(removing).Should(BeClosed())
-					// The removal can start before the delete commits.
+					// The worker can start the removal before WithTx returns.
 					Eventually(deleted).Should(Receive(BeNil()))
 					read := make(chan bool, 1)
 					go func() {
@@ -1432,13 +1432,13 @@ var _ = Describe("Writer", func() {
 					kept, open := chs[0].Key(), chs[1].Key()
 					Expect(dist.Storage.TS.WriteSeries(
 						ctx,
-						kept.StorageKey(),
+						uint32(kept),
 						10*telem.SecondTS,
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 					)).To(Succeed())
-					w := MustSucceed(dist.Storage.TS.OpenWriter(ctx, ts.WriterConfig{
-						Start:    20 * telem.SecondTS,
-						Channels: []ts.ChannelKey{open.StorageKey()},
+					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+						Start: 20 * telem.SecondTS,
+						Keys:  channel.Keys{open},
 					}))
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteMany(
@@ -1446,7 +1446,7 @@ var _ = Describe("Writer", func() {
 							channel.Keys{kept, open},
 							true,
 						)
-					})).To(MatchError(ContainSubstring("unclosed writers/iterators")))
+					})).To(MatchError(ContainSubstring("unclosed writers")))
 					Expect(w.Close()).To(Succeed())
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(kept)).
@@ -1455,11 +1455,11 @@ var _ = Describe("Writer", func() {
 						dist.Storage.TS.Read(
 							ctx,
 							telem.TimeRangeMax,
-							kept.StorageKey(),
+							uint32(kept),
 						),
 					)
 					Expect(
-						fr.Get(kept.StorageKey()).Series[0],
+						fr.Get(uint32(kept)).Series[0],
 					).To(telem.MatchSeriesDataV(
 						10*telem.SecondTS,
 						11*telem.SecondTS,
@@ -1753,39 +1753,6 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
 			It(
-				"Should send the renames of several writers to storage in one call",
-				func(ctx SpecContext) {
-					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
-					before := MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
-					)
-					first, second := UniqueChannelName(), UniqueChannelName()
-					var between ts.Channel
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						if err := svc.NewWriter(tx).
-							Rename(ctx, keys[0], first, false); err != nil {
-							return err
-						}
-						// Storage takes no rename before the hook of the last one.
-						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
-							between, err = dist.Storage.TS.RetrieveChannel(
-								ctx,
-								keys[0].StorageKey(),
-							)
-							return err
-						})
-						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
-					})).To(Succeed())
-					Expect(between.Name).To(Equal(before.Name))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
-					).Name).To(Equal(first))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[1].StorageKey()),
-					).Name).To(Equal(second))
-				},
-			)
-			It(
 				"Should rename a channel created after an earlier rename",
 				func(ctx SpecContext) {
 					keys := MustSucceed(CreateVirtual(ctx, db, svc, 1))
@@ -1805,15 +1772,15 @@ var _ = Describe("Writer", func() {
 						}
 						return w.Rename(ctx, created.Key(), second, false)
 					})).To(Succeed())
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
-					).Name).To(Equal(first))
-					Expect(MustSucceed(
-						dist.Storage.TS.RetrieveChannel(
-							ctx,
-							created.Key().StorageKey(),
-						),
-					).Name).To(Equal(second))
+					var res []channel.Channel
+					Expect(svc.NewRetrieve().
+						Where(channel.MatchKeys(keys[0], created.Key())).
+						Entries(&res).
+						Exec(ctx, db)).To(Succeed())
+					Expect(res).To(ConsistOf(
+						HaveField("Name", first),
+						HaveField("Name", second),
+					))
 				},
 			)
 		})
@@ -1999,8 +1966,8 @@ var _ = Describe("Writer", func() {
 				// The rejected create must not leave an orphaned storage channel behind
 				// at the key it would have been allocated.
 				nextKey := distchannel.NewKey(1, channels[limit-1].LocalKey+1)
-				Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+				Expect(dist.Storage.TS.RetrieveChannels(ctx, uint32(nextKey))).
+					Error().To(MatchError(cesium.ErrChannelNotFound))
 
 				// The rejected create must not burn a local key: after freeing
 				// capacity, the next create receives the next sequential key.
@@ -2020,7 +1987,7 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
-			"Should not edit the channel limit if a deletion fails in TS",
+			"Should not edit the channel limit if a deletion is refused for an open writer",
 			func(ctx SpecContext) {
 				createdChannels := make([]channel.Channel, limit)
 				for i := range limit {
@@ -2042,7 +2009,7 @@ var _ = Describe("Writer", func() {
 					return limitSvc.NewWriter(tx).
 						Delete(ctx, createdChannels[0].Key(), false)
 				})).
-					To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+					To(MatchError(ContainSubstring("1 unclosed writers")))
 				newCh := channel.Channel{
 					IsIndex:     true,
 					DataType:    telem.TimestampT,
@@ -2075,16 +2042,29 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				return ch
 			}
-			stored = func(ctx SpecContext, ch channel.Channel) ts.Channel {
+			createFree = func(ctx SpecContext) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float32T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				return ch
+			}
+			stored = func(ctx SpecContext, ch channel.Channel) cesium.Channel {
 				GinkgoHelper()
 				return MustSucceed(
-					dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+					dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key())),
 				)
 			}
 			expectNotStored = func(ctx SpecContext, ch channel.Channel) {
 				GinkgoHelper()
-				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(ts.ErrChannelNotFound))
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
+					Error().To(MatchError(cesium.ErrChannelNotFound))
 			}
 		)
 		BeforeAll(func(ctx SpecContext) {
@@ -2093,6 +2073,82 @@ var _ = Describe("Writer", func() {
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
+		It(
+			"Should keep the storage of a channel whose delete was refused in a "+
+				"transaction that commits",
+			func(ctx SpecContext) {
+				ch := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Internal:    true,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				stored(ctx, ch)
+				tx := db.OpenTx()
+				Expect(svc.NewWriter(tx).Delete(ctx, ch.Key(), false)).
+					To(MatchError(ContainSubstring("can't delete internal channel")))
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeTrue())
+				Consistently(func() error {
+					_, err := dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))
+					return err
+				}).WithTimeout(500 * time.Millisecond).Should(Succeed())
+			},
+		)
+		It(
+			"Should keep the storage of an index whose delete a restrict link refused "+
+				"in a transaction that writes another record",
+			func(ctx SpecContext) {
+				idx := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &idx)
+				})).To(Succeed())
+				data := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float64T,
+					LocalIndex:  idx.LocalKey,
+					Leaseholder: 1,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &data)
+				})).To(Succeed())
+				other := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.TimestampT,
+					IsIndex:     true,
+					Leaseholder: 1,
+				}
+				tx := db.OpenTx()
+				Expect(svc.NewWriter(tx).Delete(ctx, idx.Key(), false)).
+					To(MatchError(gorp.RestrictError{
+						Target:    gorp.NewTarget("channel", idx.Key()),
+						Holder:    gorp.NewTarget("channel", data.Key()),
+						Reference: "index",
+					}))
+				Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(idx.Key(), other.Key())).
+					Count(ctx, db)).To(Equal(2))
+				Consistently(func() error {
+					_, err := dist.Storage.TS.RetrieveChannel(ctx, uint32(idx.Key()))
+					return err
+				}).WithTimeout(500 * time.Millisecond).Should(Succeed())
+			},
+		)
 		It(
 			"Should create the storage channel when the transaction commits",
 			func(ctx SpecContext) {
@@ -2141,7 +2197,11 @@ var _ = Describe("Writer", func() {
 					stored(ctx, ch)
 					return nil
 				})).To(Succeed())
-				expectNotStored(ctx, ch)
+				// The drop runs on the service's worker after the commit.
+				Eventually(func(g Gomega) {
+					g.Expect(dist.Storage.TS.RetrieveChannel(ctx, uint32(ch.Key()))).
+						Error().To(MatchError(cesium.ErrChannelNotFound))
+				}).Should(Succeed())
 			},
 		)
 		It(
@@ -2158,8 +2218,39 @@ var _ = Describe("Writer", func() {
 				stored(ctx, ch)
 			},
 		)
+		It("Should not register a free channel in storage", func(ctx SpecContext) {
+			ch := createFree(ctx)
+			Expect(ch.Key().Lease()).To(Equal(node.KeyFree))
+			expectNotStored(ctx, ch)
+		})
+		It("Should return the error of a failed storage create", func(ctx SpecContext) {
+			ch := channel.Channel{Name: UniqueChannelName(), DataType: telem.Float32T}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(MatchError(ContainSubstring("non-indexed channel must have an index")))
+		})
 		It(
-			"Should keep the channel when its storage channel cannot be deleted",
+			"Should delete a free channel with no storage delete",
+			func(ctx SpecContext) {
+				ch := createFree(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should rename a free channel with no storage rename",
+			func(ctx SpecContext) {
+				ch := createFree(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						Rename(ctx, ch.Key(), UniqueChannelName(), false)
+				})).To(Succeed())
+				expectNotStored(ctx, ch)
+			},
+		)
+		It(
+			"Should keep the channel when a writer holds it",
 			func(ctx SpecContext) {
 				ch := create(ctx)
 				MustOpen(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
@@ -2167,26 +2258,21 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Delete(ctx, ch.Key(), false)
-				})).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+				})).To(MatchError(ContainSubstring("1 unclosed writers")))
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Exists(ctx, db)).To(BeTrue())
 			},
 		)
 		It(
-			"Should rename the storage channel when the transaction commits",
+			"Should rename the record and keep the name in storage",
 			func(ctx SpecContext) {
 				ch := create(ctx)
 				name := UniqueChannelName()
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					if err := svc.NewWriter(tx).
-						Rename(ctx, ch.Key(), name, false); err != nil {
-						return err
-					}
-					Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
-					return nil
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), name, false)
 				})).To(Succeed())
-				Expect(stored(ctx, ch).Name).To(Equal(name))
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
 				var res channel.Channel
 				Expect(svc.NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).

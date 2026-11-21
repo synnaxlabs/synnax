@@ -142,6 +142,8 @@ public:
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.
     Alignment alignment;
+    /// @brief the key of the clock that timed the samples. Zero means no clock.
+    std::uint32_t clock = 0;
 
 private:
     /// @brief validates that the count samples from index are within the series. A
@@ -169,7 +171,8 @@ private:
         sample_count(other.sample_count),
         buffer(alloc(other.byte_cap())),
         time_range(other.time_range),
-        alignment(other.alignment) {
+        alignment(other.alignment),
+        clock(other.clock) {
         memcpy(this->buffer.get(), other.buffer.get(), other.byte_size());
     }
 
@@ -184,7 +187,8 @@ private:
         sample_count(other.sample_count),
         buffer(other.buffer),
         time_range(other.time_range),
-        alignment(other.alignment) {}
+        alignment(other.alignment),
+        clock(other.clock) {}
 
     /// @brief division that throws on an integer zero divisor.
     struct Divide {
@@ -550,7 +554,8 @@ public:
         sample_count(other.sample_count),
         buffer(std::move(other.buffer)),
         time_range(other.time_range),
-        alignment(other.alignment) {
+        alignment(other.alignment),
+        clock(other.clock) {
         other.buffer = nullptr;
     }
 
@@ -565,6 +570,7 @@ public:
             this->buffer = std::move(other.buffer);
             time_range = other.time_range;
             alignment = other.alignment;
+            clock = other.clock;
             other.buffer = nullptr;
         }
         return *this;
@@ -804,7 +810,8 @@ private:
         cached_byte_size(pb.data().size()),
         sample_count(0),
         time_range(tr),
-        alignment(pb.alignment()) {
+        alignment(pb.alignment()),
+        clock(pb.clock()) {
         // Calculate size based on data type
         if (!this->type.is_variable()) {
             this->sample_count = pb.data().size() / this->type.density();
@@ -1662,6 +1669,7 @@ public:
             this->alignment.sample_index() + offset
         );
         out.time_range = this->time_range;
+        out.clock = this->clock;
         return out;
     }
 
@@ -1715,6 +1723,7 @@ public:
                            : this->cached_byte_cap / this->type.density();
         this->time_range = src.time_range;
         this->alignment = src.alignment;
+        this->clock = src.clock;
     }
 
     void resize(size_t new_size) {

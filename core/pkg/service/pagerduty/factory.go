@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -37,6 +38,10 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Secret *secret.Service
+	// Channel names the channels in the error of a failed run.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// Sender is an optional EventSender for testability.
 	//
 	// [OPTIONAL] - Defaults to the real PagerDuty API.
@@ -52,6 +57,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Secret = override.Nil(c.Secret, other.Secret)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Sender = override.Nil(c.Sender, other.Sender)
 	return c
 }
@@ -62,6 +68,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("secret", c.Secret)
+	v.NotNil("channel", c.Channel)
 	v.NotNil("sender", c.Sender)
 	return v.Error()
 }

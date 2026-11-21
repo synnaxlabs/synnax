@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
@@ -45,11 +47,25 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Channel is the distribution-layer channel service the service drives to assign
-	// local keys and create, rename, and delete storage channels.
+	// Channel is the distribution-layer channel allocator, which assigns local keys.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// TS is the time-series database that holds the storage channels.
+	//
+	// [REQUIRED]
+	TS *cesium.DB
+	// Framer claims the channels of a delete, so that no writer opens on them until the
+	// delete drops their storage.
+	//
+	// [REQUIRED]
+	Framer *framer.Service
+	// DropExecutor runs the storage drop of each committed delete. A commit never waits
+	// on it.
+	//
+	// [OPTIONAL] - Defaults to one goroutine of the service that runs the drops in
+	// order.
+	DropExecutor func(work func())
 	// DB is the metadata database backing the channel table.
 	//
 	// [REQUIRED]
@@ -79,6 +95,8 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("ts", c.TS)
+	v.NotNil("framer", c.Framer)
 	v.NotNil("db", c.DB)
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("limit", c.Limit)
@@ -91,6 +109,9 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.TS = override.Nil(c.TS, other.TS)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.DropExecutor = override.Nil(c.DropExecutor, other.DropExecutor)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.Limit = override.Nil(c.Limit, other.Limit)
@@ -100,9 +121,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 // Service is the top-level channel service. It owns the channel metadata table,
-// retrieval, search integration, and the create/delete/rename orchestration, driving
-// the distribution-layer allocator for key assignment and storage. It also infers
-// DataTypes for calculated channels on write.
+// retrieval, search integration, and the create/delete/rename orchestration. It takes
+// keys from the distribution-layer allocator and creates and deletes the storage
+// channels. It also infers DataTypes for calculated channels on write.
 type Service struct {
 	cfg     ServiceConfig
 	db      *gorp.DB
@@ -111,9 +132,6 @@ type Service struct {
 	indexes indexes
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
-	// renames holds the renames of each transaction. The hook of the last one sends all
-	// of them to storage in one call.
-	renames *gorp.Attachment[rename]
 	mu      struct {
 		sync.RWMutex
 		// externalNonVirtualSet holds the keys of external (non-internal, non-virtual)
@@ -137,10 +155,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		indexes: newIndexes(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
-		renames: gorp.NewAttachment[rename](),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.cfg.DropExecutor == nil {
+		q := openDropQueue()
+		s.cfg.DropExecutor = q.push
+		ok(nil, q)
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:   cfg.DB,
 		Name: tableName,
@@ -168,6 +190,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
+	if err = s.sweep(ctx); !ok(err, nil) {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -321,14 +346,15 @@ func calculationReads(
 	return reads, nil
 }
 
-// freeIndexResolver adapts the Service to the distribution framer writer's
-// FreeIndexResolver interface without exposing resolution on the Service itself.
-type freeIndexResolver struct{ svc *Service }
+// channelResolver adapts the Service to the distribution framer writer's
+// ChannelResolver interface without exposing resolution on the Service itself.
+type channelResolver struct{ svc *Service }
 
-func (r freeIndexResolver) ResolveFreeIndexes(
+// Resolve implements writer.ChannelResolver.
+func (r channelResolver) Resolve(
 	ctx context.Context,
 	keys Keys,
-) (map[Key]Key, error) {
+) (map[Key]writer.Facts, error) {
 	var channels []Channel
 	if err := r.svc.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return r.svc.NewRetrieve().
@@ -338,19 +364,17 @@ func (r freeIndexResolver) ResolveFreeIndexes(
 	}); err != nil {
 		return nil, err
 	}
-	indexes := make(map[Key]Key)
+	facts := make(map[Key]writer.Facts, len(channels))
 	for _, ch := range channels {
-		if ch.Free() && ch.Index() != 0 {
-			indexes[ch.Key()] = ch.Index()
-		}
+		facts[ch.Key()] = writer.FactsOf(ch.Distribution())
 	}
-	return indexes, nil
+	return facts, nil
 }
 
-// FreeIndexResolver returns the resolver the distribution framer writer uses to stamp
-// free frames with per-index alignments.
-func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
-	return freeIndexResolver{svc: s}
+// ChannelResolver returns the resolver the distribution framer writer uses for the
+// records of free and virtual channels.
+func (s *Service) Resolver() writer.ChannelResolver {
+	return channelResolver{svc: s}
 }
 
 // NewWriter returns a Writer scoped to tx.

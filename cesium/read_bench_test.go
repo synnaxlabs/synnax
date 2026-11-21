@@ -56,11 +56,9 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 	if open {
 		start, fr := frame(count)
 		count++
-		// A synchronous writer has committed the write when Write returns.
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
 			Start:    start,
-			Sync:     new(true),
 		})
 		if err != nil {
 			b.Fatal(err)
@@ -70,7 +68,10 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 				b.Error(err)
 			}
 		}()
-		if _, err := w.Write(fr); err != nil {
+		if _, _, err := w.Write(ctx, fr, nil); err != nil {
+			b.Fatal(err)
+		}
+		if _, _, err := w.Commit(ctx, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -169,7 +170,7 @@ func BenchmarkStreamFixedSpan(b *testing.B) {
 		name := fmt.Sprintf("samples=%d/channels=%d", c.samples, c.channels)
 		b.Run(name, func(b *testing.B) {
 			db := openBenchDB(b, true)
-			keys := createStreamChannels(b, db, c.channels)
+			keys := createIndexedChannels(b, db, 1, c.channels)
 			stamps := writeBenchStamps(b, db, keys[0], c.samples)
 			data := telem.NewSeriesV(make([]float32, c.samples)...)
 			for _, key := range keys[1:] {
@@ -194,29 +195,39 @@ func BenchmarkStreamFixedSpan(b *testing.B) {
 	}
 }
 
-// createStreamChannels creates an index channel and n float32 data channels that it
-// indexes. It returns their keys, index first.
-func createStreamChannels(b *testing.B, db *cesium.DB, n int) []cesium.ChannelKey {
+// createIndexedChannels creates the given number of index channels, each with perIndex
+// float32 data channels that it indexes. It returns their keys, each index followed by
+// its data channels.
+func createIndexedChannels(
+	b *testing.B,
+	db *cesium.DB,
+	indexes, perIndex int,
+) []cesium.ChannelKey {
 	b.Helper()
-	keys := append(make([]cesium.ChannelKey, 0, 1+n), 1)
-	channels := append(make([]cesium.Channel, 0, 1+n), cesium.Channel{
-		Key:      1,
-		Name:     "time",
-		IsIndex:  true,
-		DataType: telem.TimestampT,
-	})
-	for i := range n {
-		key := cesium.ChannelKey(i + 2)
-		keys = append(keys, key)
+	channels := make([]cesium.Channel, 0, indexes*(1+perIndex))
+	for i := range indexes {
+		index := cesium.ChannelKey(len(channels) + 1)
 		channels = append(channels, cesium.Channel{
-			Key:      key,
-			Name:     fmt.Sprintf("data_%d", i),
-			Index:    1,
-			DataType: telem.Float32T,
+			Key:      index,
+			Name:     fmt.Sprintf("time_%d", i),
+			IsIndex:  true,
+			DataType: telem.TimestampT,
 		})
+		for j := range perIndex {
+			channels = append(channels, cesium.Channel{
+				Key:      cesium.ChannelKey(len(channels) + 1),
+				Name:     fmt.Sprintf("data_%d_%d", i, j),
+				Index:    index,
+				DataType: telem.Float32T,
+			})
+		}
 	}
 	if err := db.CreateChannel(b.Context(), channels...); err != nil {
 		b.Fatal(err)
+	}
+	keys := make([]cesium.ChannelKey, len(channels))
+	for i, ch := range channels {
+		keys[i] = ch.Key
 	}
 	return keys
 }

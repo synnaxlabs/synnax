@@ -440,6 +440,7 @@ func (f *Factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 		Scanner:            scanner{cfg: f.cfg, rack: t.Rack},
 		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
+		Channel:            f.cfg.Channel,
 		Device:             f.cfg.Device,
 		Make:               Make,
 		ReachableMessage:   "Connected to Sift",

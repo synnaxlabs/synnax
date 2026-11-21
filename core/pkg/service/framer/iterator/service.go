@@ -16,9 +16,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -144,7 +146,11 @@ func (s *Service) NewStream(
 		return nil, err
 	}
 	p := plumber.New()
-	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
+	channels, err := s.retrieveChannels(ctx, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg, channels)
 	if err != nil {
 		return nil, err
 	}
@@ -251,16 +257,16 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 }
 
 // newCalculationTransform returns a transform that runs the calculations cfg requests,
-// and rewrites cfg.Keys to the concrete channels those calculations read. When cfg
-// aggregates, it also returns the group sizer for the transform's output. It returns
-// nil for both when cfg requests no calculated channels.
+// whose channels are channels, and rewrites cfg.Keys to the concrete channels those
+// calculations read. When cfg aggregates, it also returns the group sizer for the
+// transform's output. It returns nil for both when cfg requests no calculated channels.
 func (s *Service) newCalculationTransform(
 	ctx context.Context,
 	cfg *Config,
+	channels []channel.Channel,
 ) (*calculationTransform, *groupSizer, error) {
 	originalKeys := slices.Clone(cfg.Keys)
-	channels, err := s.retrieveChannels(ctx, cfg.Keys)
-	if err != nil {
+	if err := refuseVirtual(channels); err != nil {
 		return nil, nil, err
 	}
 	// A free index has no expression, so add the calculated channel that writes it.
@@ -287,6 +293,9 @@ func (s *Service) newCalculationTransform(
 			ctx,
 			concreteBaseKeys.Slice(),
 		); err != nil {
+			return nil, nil, err
+		}
+		if err = refuseVirtual(concreteBaseChannels); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -424,6 +433,21 @@ func openCalculationTransform(
 		transform.calculators = append(transform.calculators, calc)
 	}
 	return transform, nil
+}
+
+// refuseVirtual returns an error for the first leased virtual channel of channels that
+// no calculation writes. Such a channel has no storage to read. A free channel reads
+// through the calculation that writes it.
+func refuseVirtual(channels []channel.Channel) error {
+	for _, ch := range channels {
+		if ch.Virtual && !ch.IsCalculated() && !ch.Key().Free() {
+			return distchannel.Error{Key: ch.Key(), Err: errors.Wrap(
+				query.ErrUnsupported,
+				"cannot open an iterator on a virtual channel",
+			)}
+		}
+	}
+	return nil
 }
 
 // newGroupSizer returns a group sizer for the requested channels. A concrete channel

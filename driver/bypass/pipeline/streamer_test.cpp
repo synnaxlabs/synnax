@@ -28,6 +28,15 @@ const x::breaker::Config TEST_BREAKER{
 };
 
 namespace {
+/// @brief returns channels with no index for the given keys.
+std::vector<synnax::channel::Channel>
+unindexed(const std::vector<synnax::channel::Key> &keys) {
+    std::vector<synnax::channel::Channel> channels(keys.size());
+    for (size_t i = 0; i < keys.size(); i++)
+        channels[i].key = keys[i];
+    return channels;
+}
+
 std::shared_ptr<::driver::pipeline::testutil::StreamerFactory> failing_core_factory(
     std::vector<x::errors::Error> open_errors,
     std::vector<::driver::pipeline::testutil::StreamerConfig> configs = {
@@ -378,7 +387,7 @@ TEST(StreamerTest, DoubleCloseIsIdempotent) {
 
 TEST(StreamerTest, ServerFramesAdvanceBusAlignment) {
     auto bus = std::make_shared<Bus>();
-    bus->register_channels({1});
+    bus->register_channels(unindexed({1}));
 
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame server_frame;

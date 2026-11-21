@@ -160,10 +160,8 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 // awaitOpenAck waits for the relay to confirm the opening demand, then signals
-// readiness. This is a true happens-before barrier: updateTaps opens the storage tap
-// with the demanded keys or sends the updated key set before the ack fires, and the
-// cesium streamer applies pending key updates to every frame written afterward, so a
-// write issued after the open ack is guaranteed to be delivered.
+// readiness. The tapper filters in the demanded keys before the ack fires, so a write
+// issued after the open ack is delivered.
 func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
 	select {
 	case <-ctx.Done():

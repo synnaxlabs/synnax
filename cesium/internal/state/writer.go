@@ -15,7 +15,6 @@ import (
 	"math"
 	"slices"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -259,7 +258,7 @@ func (r *alignmentRequest) run(s *State) {
 		s.nextAlign++
 		s.reserveAhead()
 		r.w.done <- nil
-	case s.core.limits.Alignments >= uint64(alignment.ZeroLeading):
+	case s.core.limits.Alignments >= uint64(telem.LeadingDomain):
 		r.w.done <- ErrExhausted
 	default:
 		s.park(r)
@@ -337,7 +336,7 @@ func (s *State) reserveAhead() {
 		s.idBlocks++
 		next.Segments = max(l.Segments, s.nextID) + block(s.idBlocks)
 	}
-	zero := uint64(alignment.ZeroLeading)
+	zero := uint64(telem.LeadingDomain)
 	if l.Alignments < zero &&
 		room(s.nextAlign, l.Alignments) <= block(s.alignBlocks)/2 {
 		s.alignBlocks++

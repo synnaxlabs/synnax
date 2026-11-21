@@ -20,6 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -32,7 +34,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestPagerDuty(t *testing.T) {
@@ -43,22 +44,31 @@ func TestPagerDuty(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db        *gorp.DB
-	statusSvc *status.Service
-	tasks     *gorp.Table[task.Key, task.Task]
-	secretSvc *secret.Service
-	alertSvc  *pd.Service
+	db         *gorp.DB
+	statusSvc  *status.Service
+	channelSvc *channel.Service
+	tasks      *gorp.Table[task.Key, task.Task]
+	secretSvc  *secret.Service
+	alertSvc   *pd.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node := testutil.NewNode(ctx)
+	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		Framer:  node.Framer,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	}))
 	// Task statuses and configs reference their task, so the task table must be open.
 	tasks = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[task.Key, task.Task]{

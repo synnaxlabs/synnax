@@ -11,7 +11,7 @@ import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { framer } from "@/framer";
-import { createCodec, createKeys, createPayload } from "@/framer/testutil";
+import { createCodec, createKeys, createPayload, steady } from "@/framer/testutil";
 
 // SHAPES are [channels, samples per channel]. They bracket the realistic range of
 // streamed frames: a few high-rate channels, wide dashboards, and control-state
@@ -31,6 +31,7 @@ test("encode", async ({ bench }) => {
       const keys = createKeys(shape[0]);
       const codec = createCodec(keys);
       const payload = createPayload(keys, shape[1]);
+      steady(codec, payload);
       return bench(label(shape), () => {
         codec.encode(payload);
       });
@@ -45,6 +46,7 @@ test("encode from frame", async ({ bench }) => {
       const keys = createKeys(shape[0]);
       const codec = createCodec(keys);
       const frame = new framer.Frame(createPayload(keys, shape[1]));
+      steady(codec, frame);
       return bench(label(shape), () => {
         codec.encode(frame);
       });
@@ -57,6 +59,7 @@ test("encode varied", async ({ bench }) => {
   const keys = createKeys(shape[0]);
   const codec = createCodec(keys);
   const payload = createPayload(keys, shape[1], { varied: true });
+  steady(codec, payload);
   await bench(label(shape), () => {
     codec.encode(payload);
   }).run();
@@ -67,7 +70,7 @@ test("decode", async ({ bench }) => {
     ...SHAPES.map((shape) => {
       const keys = createKeys(shape[0]);
       const codec = createCodec(keys);
-      const wire = codec.encode(createPayload(keys, shape[1]));
+      const wire = steady(codec, createPayload(keys, shape[1]));
       return bench(label(shape), () => {
         codec.decode(wire);
       });
@@ -79,8 +82,18 @@ test("decode varied", async ({ bench }) => {
   const shape: [number, number] = [100, 10];
   const keys = createKeys(shape[0]);
   const codec = createCodec(keys);
-  const wire = codec.encode(createPayload(keys, shape[1], { varied: true }));
+  const wire = steady(codec, createPayload(keys, shape[1], { varied: true }));
   await bench(label(shape), () => {
+    codec.decode(wire);
+  }).run();
+});
+
+// A read can return many series for one channel, such as one for each stored domain.
+test("decode one channel", async ({ bench }) => {
+  const [key] = createKeys(1);
+  const codec = createCodec([key]);
+  const wire = steady(codec, createPayload(Array<number>(100).fill(key), 10));
+  await bench("100ser x 10smp", () => {
     codec.decode(wire);
   }).run();
 });
@@ -90,7 +103,7 @@ test("decode varied", async ({ bench }) => {
   const codec = createCodec(keys);
   const payload = createPayload(keys, 10);
   const frame = new framer.Frame(createPayload(keys, 10));
-  const wire = codec.encode(createPayload(keys, 10));
+  const wire = steady(codec, createPayload(keys, 10));
   allocSuite("codec 100ch x 10smp", [
     ["encode", () => void codec.encode(payload)],
     ["encode from frame", () => void codec.encode(frame)],

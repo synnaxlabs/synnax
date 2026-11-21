@@ -16,7 +16,7 @@
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/types.gen.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace x::payload {
 

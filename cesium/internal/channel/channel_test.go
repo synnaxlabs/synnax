@@ -24,7 +24,7 @@ var _ = Describe("Channel", func() {
 			"Should return a nicely formatting string with the channel's key and name",
 			func() {
 				c := channel.Channel{Key: 1, Name: "foo"}
-				Expect(c.String()).To(Equal("[foo]<1>"))
+				Expect(c.String()).To(Equal("<1>"))
 			},
 		)
 		It("Should only return the key if the name is not present", func() {
@@ -43,7 +43,7 @@ var _ = Describe("Channel", func() {
 					And(
 						MatchError(
 							ContainSubstring(
-								"invalid data type for channel [cat]<1>, expected int64, got float64",
+								"invalid data type, expected int64, got float64",
 							),
 						),
 						MatchError(validate.ErrValidation),

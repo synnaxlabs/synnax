@@ -12,7 +12,6 @@ package relay
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
 // Request opens or updates a relay subscription, streaming live samples for the given
@@ -39,12 +38,4 @@ type Response struct {
 	// Ack marks the empty response that answers a Request with AckRequested set. Acks
 	// arrive in the order of their requests.
 	Ack bool `json:"ack" msgpack:"ack"`
-}
-
-func reqToStorage(req Request) ts.StreamerRequest {
-	return ts.StreamerRequest{Channels: req.Keys.Storage()}
-}
-
-func resFromStorage(res ts.StreamerResponse) Response {
-	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
 }

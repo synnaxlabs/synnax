@@ -769,7 +769,7 @@ var _ = Describe("TDMS", func() {
 			).data).To(Equal(telem.NewSeriesV[int16](3, 5).Data))
 		})
 
-		It("Should return an error when a sample has no index sample", func(
+		It("Should return an error when a channel's samples are on another clock", func(
 			ctx SpecContext,
 		) {
 			index, _ := createIndexed(ctx)
@@ -797,9 +797,10 @@ var _ = Describe("TDMS", func() {
 					svcframer.IteratorConfig{},
 				),
 			)).Error().To(MatchError(fmt.Sprintf(
-				"[api.Read] channel %s has a sample at alignment 0-5 with no "+
-					"index sample",
+				"[api.Read] channel %s has samples that do not pair with the time of its "+
+					"index channel %s",
 				misindexed.Name,
+				index.Name,
 			)))
 		})
 

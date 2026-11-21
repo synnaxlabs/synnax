@@ -83,7 +83,7 @@ func (c *offsetCache) invalidateAll() {
 
 func buildOffsetTable(
 	ins alamos.Instrumentation,
-	r *domain.Reader,
+	r domain.RangeReader,
 	domainSize telem.Size,
 	tr telem.TimeRange,
 ) (*offsetTable, error) {
@@ -183,7 +183,7 @@ func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetRes
 // byte offset.
 func (r *offsetResolver) byteOffset(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 	sampleIdx int64,
 ) (telem.Size, error) {
 	if r.cache == nil {
@@ -205,7 +205,7 @@ func (r *offsetResolver) byteOffset(
 
 func (r *offsetResolver) domainSampleCount(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 ) (int64, error) {
 	if r.cache == nil {
 		return r.density.SampleCount(iter.Size()), nil
@@ -225,7 +225,7 @@ func (r *offsetResolver) invalidate() {
 
 func (r *offsetResolver) tableFor(
 	ctx context.Context,
-	iter *domain.Iterator,
+	iter domain.Cursor,
 ) (*offsetTable, error) {
 	tr := iter.TimeRange()
 	// A pointer's Start is immutable; its End advances on commit. Match End
@@ -290,15 +290,13 @@ func (r *offsetResolver) newTracker() *offsetTracker {
 	return t
 }
 
-// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker
-// is owned by the controlledWriter, so all Writers that share that resource (i.e. that
-// take control of the same region across handoffs) observe the same tracker state.
-// Fixed-density and variable-length channels share the cumulative-count behavior at
-// the alignment math site by deriving it from the underlying domain.Writer for
+// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker is
+// owned by the sharedWriter, so all Writers of one claim observe the same tracker
+// state. Fixed-density and variable-length channels share the cumulative-count behavior
+// at the alignment math site by deriving it from the underlying domain.Writer for
 // fixed-density and from the tracker's running counter for variable-length, both of
-// which advance monotonically across handoff. Variable-length channels additionally
-// track per-domain byte offsets so they can publish them to the offset cache on
-// commit.
+// which advance monotonically across writers. Variable-length channels additionally
+// track per-domain byte offsets so they can publish them to the offset cache on commit.
 type offsetTracker struct {
 	// resolver is the offsetResolver this tracker was created from. Used by publish to
 	// install committed offsets into the resolver's cache.
@@ -318,11 +316,10 @@ type offsetTracker struct {
 	// domainOffsets is the running list of per-sample byte offsets within the current
 	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
 	domainOffsets []uint32
-	// sessionSamples is the cumulative sample count for variable-length trackers
-	// across every domain in the controlled resource's lifetime. Used for alignment
-	// math and the end-timestamp lookup at commit time. Survives control handoff
-	// because the tracker is shared across Writers via controlledWriter. Unused for
-	// fixed-density (count derives from dw.Len() instead).
+	// sessionSamples is the cumulative sample count for variable-length trackers across
+	// every domain in the shared resource's lifetime. Used for alignment math and the
+	// end-timestamp lookup at commit time. The writers of a claim share it through
+	// sharedWriter. Unused for fixed-density (count derives from dw.Len() instead).
 	sessionSamples int64
 }
 

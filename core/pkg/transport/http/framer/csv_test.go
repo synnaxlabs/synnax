@@ -13,12 +13,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/gorp"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -67,6 +68,42 @@ var _ = Describe("CSV", func() {
 				channels[0].Name,
 				channels[1].Name,
 			)))
+		})
+
+		It("Should pair each channel with the time of its own clock", func(
+			ctx SpecContext,
+		) {
+			first, a := createIndexed(ctx, telem.Float32T)
+			second, b := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				first,
+				telem.NewSeriesSecondsTSV(1, 3),
+				a,
+				telem.NewSeriesV[float32](10, 30),
+			)
+			write(
+				ctx,
+				second,
+				telem.NewSeriesSecondsTSV(2, 4),
+				b,
+				telem.NewSeriesV[float32](20, 40),
+			)
+			res := response(
+				append(slices.Clone(a), b...),
+				[]svcchannel.Channel{first, second},
+				svcframer.IteratorConfig{},
+			)
+			Expect(
+				csvRows(MustSucceed(framer.NewCSVEncoder(ctx).Encode(res))),
+			).To(Equal(
+				[]string{
+					"1000000000,10,,",
+					",,2000000000,20",
+					"3000000000,30,,",
+					",,4000000000,40",
+				},
+			))
 		})
 
 		It("Should encode the newest rows of a latest read", func(ctx SpecContext) {
@@ -626,14 +663,11 @@ var _ = Describe("CSV", func() {
 				telem.SecondTS*3,
 				telem.NewSeriesV[float32](3, 4),
 			)
-			calculated := svcchannel.Channel{
+			calculated := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				Expression: "return " + channels[0].Name + " * 2",
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calculated)
-			})).To(Succeed())
+			}))
 			var calculatedIndex svcchannel.Channel
 			Expect(channelSvc.NewRetrieve().
 				Entry(&calculatedIndex).
@@ -645,7 +679,7 @@ var _ = Describe("CSV", func() {
 			Expect(csvRows(b)).To(Equal([]string{"3000000000,6", "4000000000,8"}))
 		})
 
-		It("Should return an error when a sample has no index sample", func(
+		It("Should return an error when a channel's samples are on another clock", func(
 			ctx SpecContext,
 		) {
 			index, _ := createIndexed(ctx)
@@ -676,10 +710,11 @@ var _ = Describe("CSV", func() {
 				),
 			).Error().
 				To(MatchError(fmt.Sprintf(
-					"[api.Read] channel %s has a sample at alignment 0-5 with no index sample",
+					"[api.Read] channel %s has samples that do not pair with the time of "+
+						"its index channel %s",
 					misindexed.Name,
-				),
-				))
+					index.Name,
+				)))
 		})
 
 		It("Should write a large read in bounded pieces", func(ctx SpecContext) {

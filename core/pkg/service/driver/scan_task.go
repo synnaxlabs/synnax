@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -105,6 +106,10 @@ type ScanTaskConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// Channel names the channels in the error of a failed run.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// Device retrieves and observes the devices to check.
 	//
 	// [REQUIRED]
@@ -153,6 +158,7 @@ func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 	c.Scanner = override.Nil(c.Scanner, other.Scanner)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Make = override.String(c.Make, other.Make)
 	c.ReachableMessage = override.String(c.ReachableMessage, other.ReachableMessage)
@@ -213,6 +219,7 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 	t.Runner, err = NewRunner(RunnerConfig{
 		DB:              cfg.DB,
 		Status:          cfg.Status,
+		Channel:         cfg.Channel,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
 		Open: func(context.Context) (func(context.Context) error, error) {

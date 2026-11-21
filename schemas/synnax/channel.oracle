@@ -187,8 +187,7 @@ Channel struct {
         name Name
 
         @doc value """
-            renames the channel. The Core also renames the channel's storage when the
-            transaction commits.
+            renames the channel.
         """
     }
 

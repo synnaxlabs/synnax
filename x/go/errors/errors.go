@@ -184,6 +184,9 @@ func joinMembers(err error) ([]error, bool) {
 // multi-error unwrapping (errors.Is and errors.As detect the same method set).
 type multiCause interface{ Unwrap() []error }
 
+// UnwrapOnce returns the error that err wraps, or nil when err wraps no single error.
+func UnwrapOnce(err error) error { return errors.UnwrapOnce(err) }
+
 // UnwrapMulti returns the individual errors carried by a multi-cause error produced by
 // Join, or nil if err is not a multi-cause error. It looks through single-cause
 // wrappers (such as the stack wrapper Join adds) to find the underlying join, so
