@@ -16,9 +16,16 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  getConfig,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { FC } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -818,32 +825,41 @@ describe("wrapForm", () => {
           details: { running: true },
         });
       await beat();
+      // Cleanup runs even when the test times out, so a hung test leaves no fake
+      // clock or heartbeat behind for the tests after it.
       const heartbeat = setInterval(() => void beat(), 1000);
+      onTestFinished(() => clearInterval(heartbeat));
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldAdvanceTime: true,
+      onTestFinished(() => streamer.close());
+      const { container } = await renderTaskFormTab(createRenderer(), {
+        client,
+        taskKey: draft.key,
       });
-      try {
-        const { container } = await renderTaskFormTab(createRenderer(), {
-          client,
-          taskKey: draft.key,
-        });
-        await clickDeploy(container);
-        await awaitCommand(streamer, draft.key);
-        await screen.findByText("Sending start command");
-        await act(
-          async () =>
-            await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds),
-        );
-        await screen.findByText("No response to the start command");
-        await clickDeploy(container);
-        expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
-      } finally {
-        vi.useRealTimers();
-        clearInterval(heartbeat);
-        streamer.close();
-      }
+      const start = await waitFor(() => {
+        const b = within(container).getByRole("button", { name: "Start" });
+        if (b.getAttribute("aria-disabled") === "true")
+          throw new Error("start button is disabled");
+        return b;
+      });
+      // Only the start's reply timer runs on the fake clock. vi.waitFor moves the
+      // clock with each check, so no wait depends on how fast a busy runner ticks.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      onTestFinished(() => vi.useRealTimers());
+      await act(async () => fireEvent.click(start));
+      await awaitCommand(streamer, draft.key);
+      await vi.waitFor(() => screen.getByText("Sending start command"), {
+        timeout: getConfig().asyncUtilTimeout,
+      });
+      await act(
+        async () =>
+          await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds),
+      );
+      await vi.waitFor(() => screen.getByText("No response to the start command"), {
+        timeout: getConfig().asyncUtilTimeout,
+      });
+      vi.useRealTimers();
+      await clickDeploy(container);
+      expect((await awaitCommand(streamer, draft.key)).type).toBe("start");
     });
 
     it("should start a task whose status fails its status data schema", async () => {
