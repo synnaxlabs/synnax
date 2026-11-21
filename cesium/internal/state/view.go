@@ -28,10 +28,6 @@ type segState struct {
 	dur durable
 	// holder is the writer that holds the open segment, or nil.
 	holder *Writer
-	// pre holds the part records that visible commits of the segment were checked
-	// against, which their durable apply checks again. It empties once every visible
-	// commit is durable.
-	pre []Segment
 }
 
 // durable is the part of a segment that the log covers.
@@ -61,6 +57,8 @@ type chanState struct {
 	kills []Kill
 	// parts holds the range and kills of c for the Channels that c publishes.
 	parts *Parts
+	// pending holds the segments of c with visible commits that are not durable yet.
+	pending []*segState
 }
 
 // partsGeneration returns the generation of the head whose parts the range of c names,

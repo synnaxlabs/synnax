@@ -132,13 +132,11 @@ type pendingSeg struct {
 	first, last telem.TimeStamp
 }
 
-// pending returns the segments of c with visible commits that are not durable yet.
-func (c *chanState) pending() []pendingSeg {
-	var out []pendingSeg
-	for _, s := range c.segs {
-		if s.dur.length >= s.vis.Length {
-			continue
-		}
+// pendingSegs returns the segments of c with visible commits that are not durable yet,
+// with the time range of the pointers of those commits.
+func (c *chanState) pendingSegs() []pendingSeg {
+	out := make([]pendingSeg, 0, len(c.pending))
+	for _, s := range c.pending {
 		// The last durable pointer may grow with the commits after it.
 		ptrs := s.vis.Pointers[max(len(s.dur.pointers)-1, 0):]
 		p := pendingSeg{seg: s, first: ptrs[0].First, last: ptrs[0].Last}
@@ -171,7 +169,7 @@ func (st *carried) find(c *core, key, clock uint32) {
 		key:     key,
 		clock:   clock,
 		found:   true,
-		pending: c.channels[key].pending(),
+		pending: c.channels[key].pendingSegs(),
 	}
 	st.busy = len(st.pending) > 0
 	if clock == key {
@@ -204,7 +202,7 @@ func (st *carried) carry(c *core, seg *segState) {
 	}
 	for _, p := range st.pending {
 		if p.seg != seg && overlaps(seg.vis.Pointers, p.first, p.last) {
-			p.seg.pre = append(p.seg.pre, seg.vis)
+			c.checked[p.seg.vis.ID] = append(c.checked[p.seg.vis.ID], seg.vis)
 		}
 	}
 }

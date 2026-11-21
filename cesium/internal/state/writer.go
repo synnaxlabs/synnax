@@ -512,11 +512,16 @@ func (s *State) commit(w *Writer, c *log.Commit, pre []Preload) error {
 	}
 	for _, slot := range c.Slots {
 		seg := s.core.segments[slot.Segment]
-		seg.pre = union(seg.pre, recordsOf(pre, seg.key))
+		if records := recordsOf(pre, seg.key); len(records) > 0 {
+			s.core.checked[seg.vis.ID] = union(s.core.checked[seg.vis.ID], records)
+		}
 		p, extended := grow(seg.vis.Pointers, telem.Alignment(c.Alignment), first, last,
 			seg.vis.Length, slot.Length, c.Samples)
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
+		if ch := s.core.channels[seg.key]; !slices.Contains(ch.pending, seg) {
+			ch.pending = append(ch.pending, seg)
+		}
 		s.core.channels[seg.key].checkViews()
 		s.core.channels[seg.key].publish()
 	}
