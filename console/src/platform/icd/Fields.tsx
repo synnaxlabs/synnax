@@ -126,33 +126,27 @@ const toFloat = (text: string): number | null => {
   return Number.isNaN(value) && text !== "NaN" ? null : value;
 };
 
-const withFloatDefault = <F extends { default?: number }>(
+/**
+ * Sets the default that cell text names, or removes it when the text is blank. Text
+ * that is not a number of the field's kind stays as typed: the form holds it, and Check
+ * marks it as not valid.
+ */
+const withDefault = <F extends icd.BinaryField | icd.TextField>(
   field: F,
   text: string,
 ): F => {
-  const value = toFloat(text);
-  return value == null ? field : { ...field, default: value };
+  if (text === "") return { ...field, default: undefined };
+  const float = !("kind" in field) || field.kind === "float";
+  return { ...field, default: float ? (toFloat(text) ?? text) : text };
 };
 
-/** An integer default is decimal text, which Check verifies. */
-const withBinaryDefault = (field: icd.BinaryField, text: string): icd.BinaryField =>
-  field.kind === "float" ? withFloatDefault(field, text) : { ...field, default: text };
-
-/**
- * The default as text, empty when the field has none. Text that is not a number leaves
- * a float default as it was.
- */
-const defaultColumn = <F extends icd.BinaryField | icd.TextField>(
-  withDefault: (field: F, text: string) => F,
-): Column<F> => ({
+/** The default as text, empty when the field has none. */
+const defaultColumn = <F extends icd.BinaryField | icd.TextField>(): Column<F> => ({
   name: "Default",
   render: "default",
   width: 16,
   get: (f) => (f.default == null ? "" : String(f.default)),
-  set: (f, cell) => {
-    const text = String(cell).trim();
-    return text === "" ? { ...f, default: undefined } : withDefault(f, text);
-  },
+  set: (f, cell) => withDefault(f, String(cell).trim()),
 });
 
 /** The kinds a binary field can hold. */
@@ -280,7 +274,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
-    defaultColumn(withBinaryDefault),
+    defaultColumn(),
     multiplexor,
     multiplexValues,
   ],
@@ -294,7 +288,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
     ...conversion<icd.DelimitedTextField>(),
-    defaultColumn<icd.DelimitedTextField>(withFloatDefault),
+    defaultColumn<icd.DelimitedTextField>(),
   ],
   tagged: [
     name(),
@@ -306,7 +300,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
     ...conversion<icd.TaggedTextField>(),
-    defaultColumn<icd.TaggedTextField>(withFloatDefault),
+    defaultColumn<icd.TaggedTextField>(),
   ],
   json: [
     name(),

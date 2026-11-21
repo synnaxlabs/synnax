@@ -560,17 +560,51 @@ describe("ICD editor", () => {
     );
   });
 
-  it("should keep a float default when its cell holds no number", async () => {
-    const ic = await createICD([
-      createMessage([
+  it.each([
+    {
+      kind: "a float",
+      message: createMessage([
         { ...createBinaryField("Gain", 0), kind: "float", bitLength: 32, default: 0.5 },
       ]),
-    ]);
+    },
+    {
+      kind: "an unsigned",
+      message: createMessage([
+        { ...createBinaryField("Gear", 0), kind: "unsigned", default: "3" },
+      ]),
+    },
+    {
+      kind: "a text",
+      message: {
+        key: uuid.create(),
+        name: "Line",
+        payload: {
+          format: "text",
+          delimiter: ",",
+          prefix: "",
+          fields: [
+            {
+              key: uuid.create(),
+              name: "Speed",
+              scale: 1,
+              offset: 0,
+              units: "",
+              encoding: "delimited",
+              position: 0,
+              default: 0.5,
+            },
+          ],
+        },
+      } satisfies icd.Message,
+    },
+  ])("should keep and mark $kind default that is not a number", async ({ message }) => {
+    const ic = await createICD([message]);
     await renderEditor(ic);
     await commit("Default", 1, "fast");
-    await waitFor(() => expect(cell("Default", 1).value).toBe("0.5"));
+    expect(await screen.findByText("Field 1: default is not valid")).toBeTruthy();
+    expect(cell("Default", 1).value).toBe("fast");
     expect((await retrieveMessage(ic.key)).payload.fields[0]).toMatchObject({
-      default: 0.5,
+      default: "fast",
     });
   });
 
