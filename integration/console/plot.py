@@ -65,29 +65,34 @@ class Plot(ConsolePage):
 
         self.layout.press_escape()
 
-    def add_ranges(
-        self,
-        ranges: list[
-            Literal[
-                "Rolling 30s",
-                "Rolling 1min",
-                "Rolling 5min",
-                "Rolling 15min",
-                "Rolling 30min",
-            ]
-        ],
-    ) -> None:
-        """Add time ranges to the plot."""
-        ranges_label = self.page.locator("label").filter(has_text="Ranges")
-        trigger = ranges_label.locator("..").locator(".lyra-dialog__trigger")
-        trigger.click(timeout=5000)
+    def add_ranges(self, ranges: list[str]) -> None:
+        """Add ranges to the plot from its range picker.
 
+        :param ranges: The names of saved ranges, or rolling windows such as
+            "Rolling 30s".
+        """
+        self._range_picker().click(timeout=5000)
         for range_value in ranges:
             if range_value not in self.data["Ranges"]:
                 self.layout.select_from_dropdown(range_value)
                 self.data["Ranges"].append(range_value)
 
         self.layout.press_escape()
+
+    def remove_range(self, range_name: str) -> None:
+        """Remove a range from the plot with the remove button of its tag.
+
+        :param range_name: The name of the range.
+        """
+        remove_btn = self.get_range_tag(range_name).get_by_role(
+            "button", name=f"Remove {range_name}"
+        )
+        # The button takes the pointer only while its tag is hovered.
+        remove_btn.dispatch_event("click")
+        remove_btn.wait_for(state="detached", timeout=5000)
+        # A new plot shows a rolling window that this wrapper did not add.
+        if range_name in self.data["Ranges"]:
+            self.data["Ranges"].remove(range_name)
 
     def download_csv(self) -> str:
         """Download the plot data as a CSV file.
@@ -352,6 +357,57 @@ class Plot(ConsolePage):
             toggle.to_have_class(pattern, timeout=timeout)
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def get_breaks_toggle(self) -> Locator:
+        """Return the button that hides and shows the breaks between ranges.
+
+        The button only exists while the plot has breaks or hides them.
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(
+            ".console-controls button:has(.lyra-icon--split-x)"
+        )
+
+    def toggle_breaks(self) -> None:
+        """Click the button that hides and shows the breaks."""
+        self.get_breaks_toggle().click(timeout=5000)
+
+    def expect_breaks_shown(self, *, shown: bool = True, timeout: int = 5000) -> None:
+        """Assert the breaks toggle shows, and that it is on when shown is True."""
+        pattern = re.compile(r"lyra--selected")
+        toggle = expect(self.get_breaks_toggle())
+        if shown:
+            toggle.to_have_class(pattern, timeout=timeout)
+        else:
+            toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def expect_no_breaks_toggle(self, *, timeout: int = 5000) -> None:
+        """Assert the plot shows no breaks toggle."""
+        expect(self.get_breaks_toggle()).to_have_count(0, timeout=timeout)
+
+    def expect_menu_option(
+        self, option: str, *, offered: bool = True, timeout: int = 5000
+    ) -> None:
+        """Open the plot menu and assert whether it offers an option.
+
+        The menu opens over the left quarter of the plot, clear of the seam between
+        two ranges of equal length.
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        box = self.pane_locator.bounding_box()
+        if box is None:
+            raise RuntimeError("Could not get plot bounding box")
+        self.pane_locator.click(
+            button="right",
+            position={"x": box["width"] * 0.25, "y": box["height"] * 0.6},
+        )
+        menu = self.page.get_by_role("menu").first
+        menu.wait_for(state="visible", timeout=5000)
+        items = menu.get_by_role("menuitem").filter(has_text=option)
+        expect(items).to_have_count(1 if offered else 0, timeout=timeout)
+        self.layout.ctx_menu.close()
 
     def get_range_strip(self) -> Locator:
         """Return the strip above the plot that shows the plot's ranges."""
