@@ -10,8 +10,9 @@
 import { color, type group } from "@synnaxlabs/client";
 import type { Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color as xcolor, compare } from "@synnaxlabs/x";
+import { type color as xcolor, compare } from "@synnaxlabs/x";
 
+import { color as aetherColor } from "@/color/aether";
 import { useResultList } from "@/color/queries";
 import { Group } from "@/group";
 
@@ -69,10 +70,5 @@ export const useSeriesValues = (): xcolor.Color[] => {
 export const useResolve = (): ((ref?: color.Ref) => xcolor.Color | undefined) => {
   const t = Theming.use();
   const named = new Map(useAll().map((c) => [c.key, c]));
-  return (ref) => {
-    if (ref == null) return undefined;
-    if (ref.type === "fixed") return xcolor.construct(ref.value);
-    const n = named.get(ref.key);
-    return n == null ? undefined : Theming.resolve(n, t);
-  };
+  return (ref) => (ref == null ? undefined : aetherColor.resolve(ref, named, t));
 };

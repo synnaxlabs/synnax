@@ -17,7 +17,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
-import { createTestLabel, createTestLabelName } from "@/platform/label/testutil";
+import {
+  createTestLabel,
+  createTestLabelName,
+  dotColorBeside,
+} from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import {
@@ -109,7 +113,7 @@ describe("Range.ContextMenu", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
       const lbl = await createTestLabel(client, {
         name: uniqueName("label"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const held = await createTestRange(client, {
         name: uniqueName("held"),
@@ -129,6 +133,23 @@ describe("Range.ContextMenu", () => {
         expect(await labelsOf(held)).toEqual([]);
         expect(await labelsOf(bare)).toEqual([]);
       });
+    });
+
+    it("should paint each label in its named color", async () => {
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#123456",
+      });
+      const lbl = await createTestLabel(client, {
+        name: uniqueName("label"),
+        color: { type: "named", key: named.key },
+      });
+      const rng = await createTestRange(client, { name: uniqueName("painted") });
+      await renderMenu([rng]);
+      const labels = await openSubmenu("Labels");
+      searchIn(labels, "Search labels...", lbl.name);
+      const item = await within(labels).findByText(lbl.name);
+      await waitFor(() => expect(dotColorBeside(item)).toBe("#123456"));
     });
 
     it("should create a label named after the search text and add it to the ranges", async () => {
@@ -423,8 +444,39 @@ describe("Range.ContextMenu", () => {
       ];
       await renderMenu(ranges);
       const dialog = await openSubmenu("Color");
-      const swatch = within(dialog).getAllByLabelText(/^#/)[0];
-      const hex = swatch.getAttribute("aria-label");
+      fireEvent.click(await within(dialog).findByText("Custom"));
+      fireEvent.change(within(dialog).getByLabelText("Hex"), {
+        target: { value: "0000ff" },
+      });
+      fireEvent.keyDown(dialog, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          expect(stored).toEqual({ type: "fixed", value: color.construct("#0000ff") });
+        }
+      });
+    });
+
+    it("should link every range to a named color picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#00ff00",
+        group: palette.key,
+      });
+      const ranges = [
+        await createTestRange(client, { name: uniqueName("linked") }),
+        await createTestRange(client, { name: uniqueName("linked") }),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      const swatch = await within(dialog).findByRole("button", { name: named.name });
       fireEvent.click(swatch);
       fireEvent.keyDown(swatch, { key: "ArrowLeft" });
       await waitFor(() =>
@@ -433,7 +485,51 @@ describe("Range.ContextMenu", () => {
       await waitFor(async () => {
         for (const r of ranges) {
           const { color: stored } = await client.ranges.retrieve(r.key);
-          expect(stored == null ? null : color.hex(stored)).toBe(hex);
+          expect(stored).toEqual({ type: "named", key: named.key });
+        }
+      });
+    });
+
+    it("should create a named color from a palette and commit once on close", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const ranges = [
+        await createTestRange(client, { name: uniqueName("created") }),
+        await createTestRange(client, { name: uniqueName("created") }),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      fireEvent.click(
+        await within(dialog).findByRole("button", {
+          name: `Create a color in ${palette.name}`,
+        }),
+      );
+      const name = uniqueName("color");
+      const input = await within(dialog).findByPlaceholderText("Color name");
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() =>
+        expect(within(dialog).queryByPlaceholderText("Color name")).toBeNull(),
+      );
+      const swatch = within(dialog).getByRole("button", { name });
+      fireEvent.contextMenu(swatch);
+      await act(async () => {});
+      expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+      for (const r of ranges)
+        expect((await client.ranges.retrieve(r.key)).color).toBeUndefined();
+      fireEvent.keyDown(swatch, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          if (stored?.type !== "named") throw new Error("the range is not linked");
+          const created = await client.colors.retrieve(stored.key);
+          expect(created.name).toBe(name);
+          expect(created.group).toBe(palette.key);
         }
       });
     });

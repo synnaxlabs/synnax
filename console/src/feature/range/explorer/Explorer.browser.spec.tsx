@@ -116,7 +116,7 @@ const createLabeled = async (
 }> => {
   const label = await createTestLabel(client, {
     name: uniqueName("label"),
-    color: "#000000",
+    color: { type: "fixed", value: "#000000" },
   });
   const labeled = await createRange(`${token} labeled`, { labels: [label.key] });
   const other = await createRange(`${token} other`);
@@ -726,7 +726,7 @@ describe("range/explorer/Explorer", () => {
     it("should add a label that the menu search finds", async () => {
       const lbl = await createTestLabel(client, {
         name: uniqueName("found"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(uniqueName("found"));
       await renderExplorer();
@@ -844,7 +844,7 @@ describe("range/explorer/Explorer", () => {
       const token = uniqueToken();
       const label = await createTestLabel(client, {
         name: uniqueName("label"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(`${token} labeled`);
       // A list narrower than 80rem hides the labels.
@@ -871,12 +871,14 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Color" }));
+      // A range with no color opens the picker on its palettes.
+      fireEvent.click(await screen.findByText("Custom"));
       const hex = await screen.findByLabelText("Hex");
       fireEvent.change(hex, { target: { value: "123456" } });
       fireEvent.keyDown(hex, { code: "Escape" });
       await waitFor(async () => {
         const { color: stored } = await client.ranges.retrieve(rng.key);
-        expect(stored == null ? null : color.hex(stored)).toBe("#123456");
+        expect(stored).toEqual({ type: "fixed", value: color.construct("#123456") });
       });
     });
   });

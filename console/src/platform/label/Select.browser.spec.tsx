@@ -54,7 +54,7 @@ describe("Label.Select", () => {
   it("should pass the clicked label's key to onChange in SelectMultiple", async () => {
     const label = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#00FF00",
+      color: { type: "fixed", value: "#00FF00" },
     });
     const onChange = vi.fn();
     await renderSelect(<Label.SelectMultiple value={[]} onChange={onChange} />);
@@ -66,7 +66,7 @@ describe("Label.Select", () => {
   it("should show the labels of its value before it first opens", async () => {
     const label = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
     expect(await screen.findByText(label.name)).toBeTruthy();
@@ -76,7 +76,7 @@ describe("Label.Select", () => {
   it("should remove a label from its tag before it first opens", async () => {
     const label = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     const onChange = vi.fn();
     await renderSelect(
@@ -90,7 +90,7 @@ describe("Label.Select", () => {
   it("should keep the tag that first opens it, so it can open beside it", async () => {
     const label = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#FF0000",
+      color: { type: "fixed", value: "#FF0000" },
     });
     await renderSelect(<Label.SelectMultiple value={[label.key]} onChange={vi.fn()} />);
     const tag = await screen.findByText(label.name);
@@ -109,11 +109,11 @@ describe("Label.Select", () => {
   it("should add a created label to the value the field holds when it closes", async () => {
     const createdBefore = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#00FF00",
+      color: { type: "fixed", value: "#00FF00" },
     });
     const addedMeanwhile = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#0000FF",
+      color: { type: "fixed", value: "#0000FF" },
     });
     const onChange = vi.fn();
     const renderField = (value: label.Key[]): ReactElement => (
@@ -146,7 +146,7 @@ describe("Label.Select", () => {
   it("should add a label created from the field to the selection", async () => {
     const existing = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#00FF00",
+      color: { type: "fixed", value: "#00FF00" },
     });
     const onChange = vi.fn();
     await renderSelect(
@@ -170,7 +170,7 @@ describe("Label.Select", () => {
   it("should create a label named after the search text in the create modal", async () => {
     const existing = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#00FF00",
+      color: { type: "fixed", value: "#00FF00" },
     });
     const onChange = vi.fn();
     await renderSelect(
@@ -195,7 +195,7 @@ describe("Label.Select", () => {
   it("should hide the create option while the search matches a label name in any case", async () => {
     const existing = await createTestLabel(client, {
       name: uniqueName("label"),
-      color: "#00FF00",
+      color: { type: "fixed", value: "#00FF00" },
     });
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
     await openAndSearch(existing.name.toUpperCase());
@@ -217,7 +217,7 @@ describe("Label.Select permissions", () => {
     const token = uniqueToken();
     const { name } = await createTestLabel(client, {
       name: `${token} listed`,
-      color: "#0000FF",
+      color: { type: "fixed", value: "#0000FF" },
     });
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />, as);
     await openAndSearch(token);
