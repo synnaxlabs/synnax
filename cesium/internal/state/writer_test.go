@@ -504,8 +504,9 @@ var _ = Describe("Writer", func() {
 
 		It("Should fail a request that comes after the state failed", func() {
 			w := open(clockWriter(100, false, 5))
-			fault := s.Durable(a.last()+5, []log.Record{&log.Intent{Key: 1}})
-			Expect(fault).To(Succeed())
+			Expect(
+				s.Durable(a.last()+5, []log.Record{&log.Intent{Key: 1}}),
+			).To(Succeed())
 			Eventually(s.Err).Should(MatchError(ContainSubstring("follows entry")))
 			Expect(s.Snapshot()).Error().To(MatchError(s.Err()))
 			Expect(w.Held(5)).Error().To(MatchError(s.Err()))

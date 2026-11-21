@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -145,6 +147,21 @@ var _ = Describe("Load", func() {
 			h.Channels[0].Segments[1].Pointers[0] = pointer(2, 0, 30, 50, 0, 16, 2)
 		}, state.ErrRefused, "key 5 has pointers that overlap at 30"),
 	)
+})
+
+var _ = Describe("Run", func() {
+	It("Should return the error that fails the state, and refuse later calls with it",
+		func() {
+			s := MustSucceed(state.Open(config(&appended{}), head(1, 1)))
+			ran := make(chan error, 1)
+			go func() { ran <- s.Run(context.Background()) }()
+			Expect(s.Durable(5, nil)).To(Succeed())
+			Eventually(ran).Should(Receive(MatchError(ContainSubstring(
+				"entry 5 follows entry 0",
+			))))
+			Expect(s.Snapshot()).Error().To(MatchError(ContainSubstring("entry 5")))
+			Expect(s.Close()).To(MatchError(ContainSubstring("entry 5")))
+		})
 })
 
 var _ = Describe("Replay", func() {
