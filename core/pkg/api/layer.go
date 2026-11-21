@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
+	ethercatmaster "github.com/synnaxlabs/synnax/pkg/api/ethercat/master"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -254,6 +255,9 @@ type Transport struct {
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
 	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, struct{}]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
+
+	// ETHERCAT MASTER
+	EtherCATMasterRetrieve freighter.UnaryServer[ethercatmaster.RetrieveRequest, ethercatmaster.RetrieveResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -315,44 +319,45 @@ type Transport struct {
 // Layer wraps all implemented API services into a single container. Protocol-specific
 // Layer implementations should use this struct during instantiation.
 type Layer struct {
-	Project      *project.Service
-	LinePlot     *lineplot.Service
-	ICD          *icd.Service
-	User         *user.Service
-	Framer       *framer.Service
-	Channel      *channel.Service
-	Control      *control.Service
-	Connectivity *connectivity.Service
-	License      *license.Service
-	Resource     *apiresource.Service
-	Range        *ranger.Service
-	KV           *kv.Service
-	Group        *group.Service
-	Log          *log.Service
-	Auth         *auth.Service
-	Schematic    *schematic.Service
-	Symbol       *symbol.Service
-	View         *view.Service
-	Secret       *secret.Service
-	Certificate  *certificate.Service
-	Table        *table.Service
-	Panel        *panel.Service
-	Label        *label.Service
-	Color        *color.Service
-	Enumeration  *enumeration.Service
-	Rack         *rack.Service
-	Task         *task.Service
-	Device       *device.Service
-	NIDevice     *nidevice.Service
-	NIChassis    *nichassis.Service
-	Policy       *policy.Service
-	Role         *role.Service
-	Arc          *arc.Service
-	Status       *status.Service
-	ImEx         *imex.Service
-	Batch        *batch.Service
-	binder       *bind.Service
-	config       config.LayerConfig
+	Project        *project.Service
+	LinePlot       *lineplot.Service
+	ICD            *icd.Service
+	User           *user.Service
+	Framer         *framer.Service
+	Channel        *channel.Service
+	Control        *control.Service
+	Connectivity   *connectivity.Service
+	License        *license.Service
+	Resource       *apiresource.Service
+	Range          *ranger.Service
+	KV             *kv.Service
+	Group          *group.Service
+	Log            *log.Service
+	Auth           *auth.Service
+	Schematic      *schematic.Service
+	Symbol         *symbol.Service
+	View           *view.Service
+	Secret         *secret.Service
+	Certificate    *certificate.Service
+	Table          *table.Service
+	Panel          *panel.Service
+	Label          *label.Service
+	Color          *color.Service
+	Enumeration    *enumeration.Service
+	Rack           *rack.Service
+	Task           *task.Service
+	Device         *device.Service
+	NIDevice       *nidevice.Service
+	NIChassis      *nichassis.Service
+	EtherCATMaster *ethercatmaster.Service
+	Policy         *policy.Service
+	Role           *role.Service
+	Arc            *arc.Service
+	Status         *status.Service
+	ImEx           *imex.Service
+	Batch          *batch.Service
+	binder         *bind.Service
+	config         config.LayerConfig
 }
 
 // Errors returns the codec that encodes the errors the API sends to clients.
@@ -567,6 +572,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisRetrieve,
 		t.NIChassisUpdate,
 		t.NIChassisDelete,
+
+		// ETHERCAT MASTER
+		t.EtherCATMasterRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -841,6 +849,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
+	// ETHERCAT MASTER
+	t.EtherCATMasterRetrieve.BindHandler(bind.Read(l.binder, l.EtherCATMaster.Retrieve))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
 	t.AccessDeletePolicy.BindHandler(bind.Write(l.binder, l.Policy.Delete))
@@ -1079,6 +1090,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Device: cfg.Service.Device,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.EtherCATMaster, err = ethercatmaster.NewService(ethercatmaster.ServiceConfig{
+		Master: cfg.Service.EtherCAT.Masters,
+		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err
 	}
