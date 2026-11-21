@@ -200,29 +200,74 @@ func (idx *Index[K]) Search(q Query[K]) Result[K] {
 	}
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
+	if *idx.trie.secondaryEntries() > 0 {
+		return idx.searchWeighted(q, words)
+	}
 	s := idx.scratch()
-	weighted := *idx.trie.secondaryEntries() > 0
 	if n := len(idx.entries) - len(s.slots); n > 0 {
 		s.slots = append(s.slots, make([]uint32, n)...)
 	}
 	for i, word := range words {
-		if weighted {
-			s.matchWeighted(&idx.trie, word, uint32(i+1))
-		} else {
-			s.match(&idx.trie, word, uint32(i+1))
-		}
+		s.match(&idx.trie, word, uint32(i+1))
 	}
 	complete := false
 	for _, m := range s.matches {
 		if m.matched == uint32(len(words)) && idx.kept(m.id, q.Except) {
-			s.ranked = append(s.ranked, idx.rank(m.id, m.score, weighted))
+			s.ranked = append(s.ranked, idx.rank(m.id, m.score))
 			complete = true
 		}
 	}
 	if !complete {
 		for _, m := range s.matches {
 			if idx.kept(m.id, q.Except) {
-				s.ranked = append(s.ranked, idx.rank(m.id, m.score, weighted))
+				s.ranked = append(s.ranked, idx.rank(m.id, m.score))
+			}
+		}
+	}
+	slices.Sort(s.ranked)
+	kept := s.ranked[:limited(len(s.ranked), q.Limit)]
+	res := Result[K]{
+		Keys:     make([]K, len(kept)),
+		ranks:    make([]uint32, len(kept)),
+		complete: complete,
+	}
+	for i, r := range kept {
+		res.Keys[i] = idx.entries[uint32(r)].key
+		res.ranks[i] = uint32(r >> 32)
+	}
+	for _, m := range s.matches {
+		s.slots[m.id] = 0
+	}
+	s.matches, s.ranked = s.matches[:0], s.ranked[:0]
+	select {
+	case idx.scratches <- s:
+	default:
+	}
+	return res
+}
+
+// searchWeighted is Search for an index that holds secondary text, with words already
+// read and the read lock held. Search keeps the plain loop, so that an index with no
+// secondary text pays nothing for weighting.
+func (idx *Index[K]) searchWeighted(q Query[K], words []string) Result[K] {
+	s := idx.scratch()
+	if n := len(idx.entries) - len(s.slots); n > 0 {
+		s.slots = append(s.slots, make([]uint32, n)...)
+	}
+	for i, word := range words {
+		s.matchWeighted(&idx.trie, word, uint32(i+1))
+	}
+	complete := false
+	for _, m := range s.matches {
+		if m.matched == uint32(len(words)) && idx.kept(m.id, q.Except) {
+			s.ranked = append(s.ranked, idx.rankWeighted(m.id, m.score))
+			complete = true
+		}
+	}
+	if !complete {
+		for _, m := range s.matches {
+			if idx.kept(m.id, q.Except) {
+				s.ranked = append(s.ranked, idx.rankWeighted(m.id, m.score))
 			}
 		}
 	}
@@ -263,15 +308,18 @@ func (idx *Index[K]) kept(id uint32, except func(K) bool) bool {
 }
 
 // rank packs the rank of an entry in its high 32 bits and its id in its low 32 bits,
-// so the packed values sort by rank, then by id. A weighted index counts only the
-// primary tokens of the entry.
-func (idx *Index[K]) rank(id uint32, score int32, weighted bool) uint64 {
+// so the packed values sort by rank, then by id.
+func (idx *Index[K]) rank(id uint32, score int32) uint64 {
+	return uint64(newRank(score, len(idx.entries[id].terms)))<<32 | uint64(id)
+}
+
+// rankWeighted packs the rank of an entry as rank does, counting only its primary
+// tokens.
+func (idx *Index[K]) rankWeighted(id uint32, score int32) uint64 {
 	terms := idx.entries[id].terms
 	tokens := len(terms)
-	if weighted {
-		if i := slices.IndexFunc(terms, isSecondary); i >= 0 {
-			tokens = i
-		}
+	if i := slices.IndexFunc(terms, isSecondary); i >= 0 {
+		tokens = i
 	}
 	return uint64(newRank(score, tokens))<<32 | uint64(id)
 }
@@ -311,7 +359,13 @@ func (s *scratch) addTree(t *trie, n, w uint32) {
 
 func (s *scratch) add(t *trie, n uint32, weight int32, w uint32) {
 	for _, p := range t.node(n).postings {
-		if m := s.matchOf(p.id); m.word != w {
+		slot := s.slots[p.id]
+		if slot == 0 {
+			s.matches = append(s.matches, match{id: p.id})
+			slot = uint32(len(s.matches))
+			s.slots[p.id] = slot
+		}
+		if m := &s.matches[slot-1]; m.word != w {
 			m.score, m.matched, m.word = m.score+weight, m.matched+1, w
 		}
 	}
