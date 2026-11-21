@@ -568,9 +568,10 @@ private:
     void retrieve_initial_control_states();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
-    /// @brief removes the tasks the Core no longer has and deploys each task it has. A
-    /// deploy of a task whose instance runs the same config keeps it running.
-    x::errors::Error sync_tasks();
+    /// @brief removes the tasks the Core no longer has and deploys each task it has.
+    /// With known_kept set, a task that already has an entry only gets its row
+    /// updated, so its instance runs on, as it does after a set event.
+    x::errors::Error sync_tasks(bool known_kept);
     /// @brief stops all running tasks and cancels their running starts.
     void stop_all_tasks();
     /// @brief re-reads this rack's name so a rename made before the streamer opened
