@@ -490,13 +490,22 @@ export class Lists<
     return this.config.cursor(last, entry.ranked ? undefined : entry.query.order);
   }
 
-  /** Admits a page and the keys that changed while it was in flight. */
+  /**
+   * Admits a page, the keys that changed while it was in flight, and the keys with
+   * local edits. The Core answers without those edits, so the client places each one
+   * that it can match.
+   */
   private admitPage(
     entry: Entry<Q, K, D, V, C>,
     { records, rechecks }: { records: V[]; rechecks: Set<K> },
   ): void {
+    const { table, matches } = this.config;
     const keys = records.map(({ key }) => key);
-    this.admit(entry, [...keys, ...rechecks], new Set(keys));
+    const edited = [...table.overlaid()].filter((key) => {
+      const record = table.get(key);
+      return record != null && matches?.(record, entry.query) != null;
+    });
+    this.admit(entry, [...keys, ...rechecks, ...edited], new Set(keys));
   }
 
   /**
@@ -522,6 +531,17 @@ export class Lists<
       moved = true;
     }
     entry.keys = kept;
+    return moved;
+  }
+
+  /**
+   * Admits the keys of a change. A window that the change leaves short of its limit
+   * fetches again, so the matches past its end fill it.
+   */
+  private admitChange(entry: Entry<Q, K, D, V, C>, keys: Iterable<K>): boolean {
+    const moved = this.admit(entry, keys);
+    if (entry.end != null && entry.keys.length < entry.limit)
+      this.scheduleRefetch(entry);
     return moved;
   }
 
@@ -557,7 +577,7 @@ export class Lists<
     if (entry.rechecks != null) keys.forEach((key) => entry.rechecks?.add(key));
     if (!entry.fetched) return;
     if (!entry.ranked) {
-      if (this.admit(entry, keys)) this.deliver(entry);
+      if (this.admitChange(entry, keys)) this.deliver(entry);
       return;
     }
     // Only the Core knows relevance. A change to a member shows at once, so a local
@@ -611,7 +631,7 @@ export class Lists<
     if (result.some((key) => members.has(key))) entry.composed = undefined;
     if (trigger.contentOnly !== true)
       if (entry.ranked) this.scheduleRefetch(entry);
-      else this.admit(entry, result);
+      else this.admitChange(entry, result);
     const admitted = new Set(entry.keys);
     if (!result.some((key) => admitted.has(key))) return;
     this.deliver(entry);

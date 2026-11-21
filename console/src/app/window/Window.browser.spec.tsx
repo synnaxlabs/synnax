@@ -32,9 +32,12 @@ import {
   renderWithStatus,
 } from "@/testutil";
 
-// effectAllowed marks an OS file drag rather than an internal haul.
+// effectAllowed marks an OS file drag rather than an internal haul. A browser ignores a
+// write to it outside dragstart, so the spec defines it.
 const fireFileDragOver = (target: HTMLElement): void => {
-  fireEvent.dragOver(target, { dataTransfer: { effectAllowed: "all" } });
+  const dataTransfer = new DataTransfer();
+  Object.defineProperty(dataTransfer, "effectAllowed", { value: "all" });
+  fireEvent(target, new DragEvent("dragover", { dataTransfer, bubbles: true }));
 };
 
 describe("app/window/Window", () => {

@@ -639,8 +639,12 @@ describe("Tree.Tree", () => {
       });
       fireEvent.click(await findTreeRow(names[PAGE_SIZE - 1]));
       withControlHeld(() => fireEvent.click(getTreeRow(SHOW_MORE)));
-      fireEvent.dragStart(getTreeRow(names[PAGE_SIZE - 1]));
-      fireEvent.drop(await findTreeRow(destination.name));
+      fireEvent.dragStart(getTreeRow(names[PAGE_SIZE - 1]), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(await findTreeRow(destination.name), {
+        dataTransfer: new DataTransfer(),
+      });
       await waitFor(() =>
         expect(dropped).toEqual([[resource.idToString(channel.resourceID(lastKey))]]),
       );
@@ -925,8 +929,8 @@ describe("Tree.Tree", () => {
     await screen.findByText(source.name);
     expandTreeRow(source.name);
     await screen.findByText(moved.name);
-    fireEvent.dragStart(getTreeRow(moved.name));
-    fireEvent.drop(getTreeRow(destination.name));
+    fireEvent.dragStart(getTreeRow(moved.name), { dataTransfer: new DataTransfer() });
+    fireEvent.drop(getTreeRow(destination.name), { dataTransfer: new DataTransfer() });
     await waitFor(async () =>
       expect(
         await retrieveChildGroupKeys(client, group.resourceID(destination.key)),
@@ -962,8 +966,9 @@ describe("Tree.Tree", () => {
     };
 
     const copy = (target: HTMLElement) => {
-      const setData = vi.fn();
-      const allowed = fireEvent.copy(target, { clipboardData: { setData } });
+      const clipboardData = new DataTransfer();
+      const setData = vi.spyOn(clipboardData, "setData");
+      const allowed = fireEvent.copy(target, { clipboardData });
       return { setData, allowed };
     };
 
@@ -1095,7 +1100,9 @@ describe("Tree.Tree", () => {
         root: containerID,
         items: { group: createGroupItem({ canDrop: () => true, typeName: "Group" }) },
       });
-      fireEvent.dragStart(await findTreeRow(folder.name));
+      fireEvent.dragStart(await findTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
       expect(previewText()).toBe(`${folder.name}Group`);
     });
 
@@ -1107,7 +1114,7 @@ describe("Tree.Tree", () => {
       await renderLiveTree({ client, root: containerID, items: DROPPABLE });
       fireEvent.click(await findTreeRow(a.name));
       withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
-      fireEvent.dragStart(getTreeRow(b.name));
+      fireEvent.dragStart(getTreeRow(b.name), { dataTransfer: new DataTransfer() });
       expect(previewText()).toBe(`${b.name}2`);
     });
 
@@ -1126,8 +1133,10 @@ describe("Tree.Tree", () => {
       // shut and take the child's row with it.
       fireEvent.click(getTreeRow(report.name));
       withControlHeld(() => fireEvent.click(getTreeRow(folder.name)));
-      fireEvent.dragStart(getTreeRow(folder.name));
-      fireEvent.drop(getTreeRow(dest.name));
+      fireEvent.dragStart(getTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
       await waitFor(async () =>
         expect(await childKeysOf(group.resourceID(dest.key))).toContain(folder.key),
       );
@@ -1151,8 +1160,8 @@ describe("Tree.Tree", () => {
       await screen.findByText(nested.name);
       fireEvent.click(getTreeRow(loose.name));
       withControlHeld(() => fireEvent.click(getTreeRow(nested.name)));
-      fireEvent.dragStart(getTreeRow(loose.name));
-      fireEvent.drop(getTreeRow(dest.name));
+      fireEvent.dragStart(getTreeRow(loose.name), { dataTransfer: new DataTransfer() });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
       await waitFor(async () =>
         expect(await childKeysOf(group.resourceID(dest.key))).toContain(loose.key),
       );
@@ -1179,8 +1188,10 @@ describe("Tree.Tree", () => {
       await screen.findByText(reportB.name);
       fireEvent.click(getTreeRow(reportA.name));
       withControlHeld(() => fireEvent.click(getTreeRow(reportB.name)));
-      fireEvent.dragStart(getTreeRow(reportA.name));
-      fireEvent.drop(getTreeRow(dest.name));
+      fireEvent.dragStart(getTreeRow(reportA.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
       await waitFor(async () =>
         expect(await childKeysOf(group.resourceID(dest.key))).toContain(reportA.key),
       );
@@ -1244,8 +1255,10 @@ describe("Tree.Tree", () => {
       await waitFor(() =>
         expect(getTreeRow(folder.name).getAttribute("draggable")).toBe("false"),
       );
-      fireEvent.dragStart(getTreeRow(folder.name));
-      fireEvent.drop(getTreeRow(dest.name));
+      fireEvent.dragStart(getTreeRow(folder.name), {
+        dataTransfer: new DataTransfer(),
+      });
+      fireEvent.drop(getTreeRow(dest.name), { dataTransfer: new DataTransfer() });
       expect(
         await retrieveChildGroupKeys(client, group.resourceID(dest.key)),
       ).not.toContain(folder.key);
@@ -1366,7 +1379,7 @@ describe("Tree.Tree search", () => {
     await findTreeRow(itemName(names.charlie));
     fireEvent.keyDown(screen.getByPlaceholderText("Search groups"), { key: "Escape" });
     await waitFor(() => expect(countHiddenTrees()).toBe(0));
-    expect(getTreeRow(names.bravo)).toBeTruthy();
+    expect(await findTreeRow(names.bravo)).toBeTruthy();
     expect(screen.queryByPlaceholderText("Search groups")).toBeNull();
   });
 
@@ -1471,6 +1484,8 @@ describe("Tree.Tree search", () => {
         const tree = results();
         expect(countHiddenTrees()).toBe(0);
         expect(document.activeElement).toBe(tree);
+        // The tree lays out its rows again once it is shown.
+        await findTreeRow(names.alpha);
         fireEvent.keyDown(tree, arrowDown);
         fireEvent.keyUp(tree, arrowDown);
         const [first] = tree.querySelectorAll(".lyra-tree__item");
