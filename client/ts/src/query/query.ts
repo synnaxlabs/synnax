@@ -31,6 +31,11 @@ import { Deleted } from "@/query/deleted";
 import { isChange, type Table, type TableEvent } from "@/query/table";
 import type { Data, FetchOptions, Params } from "@/query/types";
 
+// A reconnect refetches every maintained answer, so a background fetch need not report
+// a lost connection. A timeout gets no reconnect.
+const isConnectionLost = (exc: unknown): boolean =>
+  DisconnectedError.matches(exc) || Unreachable.matches(exc);
+
 const hashes = new WeakMap<object, string>();
 
 /**
@@ -869,13 +874,12 @@ export class Space<
   /**
    * Starts a fetch that subscribers have no caller for and that reads join. A not-found
    * for a key that the table holds as deleted is no failure: the table delivers the
-   * deletion to subscribers. A lost connection is none either: the reconnect refetches.
-   * A timeout is reported, since no reconnect follows it.
+   * deletion to subscribers. Neither is a lost connection.
    */
   private fetchUncovered(query: Query<P, K, D, V>): void {
     if (query.state.variant === "loading") return;
     this.fetch(query).catch((exc: unknown) => {
-      if (DisconnectedError.matches(exc) || Unreachable.matches(exc)) return;
+      if (isConnectionLost(exc)) return;
       const key = this.config.keyOf?.(query.params);
       const deleted = key != null && this.config.table.status(key) === "tombstoned";
       if (!(deleted && NotFoundError.matches(exc))) this.report(exc);
@@ -1216,7 +1220,10 @@ export class Space<
     if (this.applyRechecks(query, keys)) this.touch(query);
   }
 
-  /** Missing records are expected during backfill; other failures are reported. */
+  /**
+   * Missing records are expected during backfill, and so is a lost connection. Other
+   * failures are reported.
+   */
   private async recheckMany(query: Query<P, K, D, V>, keys: K[]): Promise<void> {
     const { table } = this.config;
     this.recheckKeys(query, keys);
@@ -1228,7 +1235,11 @@ export class Space<
       missing.map(async (key) => await table.retrieve([key])),
     );
     results.forEach((result) => {
-      if (result.status === "rejected" && !NotFoundError.matches(result.reason))
+      if (
+        result.status === "rejected" &&
+        !NotFoundError.matches(result.reason) &&
+        !isConnectionLost(result.reason)
+      )
         this.report(result.reason, `failed to hydrate ${this.config.name} answers`);
     });
     this.recheckKeys(query, missing);

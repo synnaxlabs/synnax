@@ -2643,6 +2643,33 @@ describe("Answers", () => {
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: error }));
     });
 
+    it("does not report a backfill that a closed table rejects", async () => {
+      const primary = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => keys.map((k) => rec(k, 10)),
+      });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      const onError = vi.fn();
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table: primary,
+          fetch: async () => [],
+          compose: (records) => records,
+          matches: (r) => foreign.has(r.key),
+          triggers: [query.trigger(foreign, (event) => [event.key])],
+        },
+        { onError },
+      );
+      answers.onChange({ tag: "t" }, vi.fn());
+      await answers.retrieve({ tag: "t" });
+      primary.close();
+      foreign.set("b", { key: "b" });
+      await expect(primary.retrieve(["b"])).rejects.toThrow(DisconnectedError);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(onError).not.toHaveBeenCalled();
+    });
+
     it("schedules a wholesale refetch when a watch projects refetch", async () => {
       const table = newTable();
       const foreign = new query.Table<string, Rel>({ onError: () => {} });
