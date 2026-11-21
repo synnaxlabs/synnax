@@ -445,25 +445,20 @@ func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
 }
 
 // planned returns the plan that effects describe, for a delete from the table named
-// table that PlanDelete planned in tx. It fails with the RestrictError of a holder in
-// effects.Restricts that tx still holds, and on a detach through a reference that its
-// holder's table does not have.
+// table that PlanDelete planned in tx and that is still current. It fails with the
+// RestrictError of a holder in effects.Restricts that tx has not deleted since, and on
+// a detach through a reference that its holder's table does not have.
 func (r *registry) planned(
-	ctx context.Context,
 	tx Tx,
 	table string,
 	effects DeleteEffects,
 ) (*deletePlan, error) {
+	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
+	// since still exists.
+	changes := &tx.txIdentity().changes
 	for _, e := range effects.Restricts {
-		holder, err := r.table(e.Holder.Table)
-		if err != nil {
-			return nil, err
-		}
-		held, err := holder.exists(ctx, tx, e.Holder.Key)
-		if err != nil {
-			return nil, err
-		}
-		if held {
+		at, written := changes.at[e.Holder]
+		if !written || changes.entries[at].present {
 			return nil, RestrictError{
 				Target:    e.Target,
 				Holder:    e.Holder,
@@ -473,7 +468,7 @@ func (r *registry) planned(
 	}
 	p := &deletePlan{
 		table:    table,
-		cascades: make(map[string]set.Set[string]),
+		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
 		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
 		planned:  true,
 	}
