@@ -27,9 +27,9 @@ Take three 1-minute tests, each one day after the last, at 1 kHz. Today:
   Core keeps no rollups, so each tile scans every sample in its span. The plot scans
   268M to 403M samples per channel to show 0.18M samples of test data.
 - **Copies**: The plot draws one trace per range
-  (`pluto/src/lineplot/LinePlot.tsx:153`), and each trace draws the whole view. Three
-  ranges draw three copies of each channel, and the tooltip lists each channel three
-  times.
+  (`pluto/src/lineplot/LinePlot.tsx:230-242`), and each trace draws the whole view.
+  Three ranges draw three copies of each channel, and the tooltip lists each channel
+  three times.
 - **Export**: The plot export merges its ranges into one span
   (`console/src/feature/lineplot/useDownloadAsCSV.tsx:77`), so it downloads about 172M
   samples per channel.
@@ -75,7 +75,7 @@ between intervals of interest, and each tool that knows the spans loads only the
 ### 4.0 Segments
 
 The layout of each x axis takes the window of each visible trace, with its live edge
-(`pluto/src/lineplot/aether/axis.ts:89-113`), and adds a margin on each side.
+(`pluto/src/lineplot/aether/axis.ts:91-114`), and adds a margin on each side.
 Overlapping windows merge into one segment. Every gap between segments collapses into a
 seam. The margin is the only parameter, and it decides which gaps are large enough to
 collapse: a gap shorter than the two margins merges.
@@ -109,7 +109,7 @@ own affine `scale.Scale` (`x/ts/src/spatial/scale/scale.ts`). It gives:
 
 Breaks have no width, so the map is continuous. The step from home decimal to the
 viewport stays one affine map, as in `BaseAxis.dataToDecimalScale`
-(`pluto/src/lineplot/aether/axis.ts:216-231`). The viewport, the zoom history, and the
+(`pluto/src/lineplot/aether/axis.ts:220-235`). The viewport, the zoom history, and the
 saved view keep their code. ECharts, Plotly, and DevExtreme also keep a sorted list of
 pieces, each with its own offset. A binary search, as in d3's piecewise scale, makes a
 lookup cost O(log n).
@@ -118,7 +118,7 @@ The layout replaces `dataToDecimalScale` for x. The y axes keep it. `XAxis` pass
 layout to the ticks, the lines, the range strip, and the find calls. A hold keeps a copy
 of the layout with the bounds. The Console's selection menu maps the selection through
 the layout, in place of its own affine map
-(`console/src/feature/lineplot/LinePlot.tsx:99-101`).
+(`console/src/feature/lineplot/LinePlot.tsx:270-271`).
 
 Only x1 collapses its gaps and takes break clicks. An x2 axis lays out in true time with
 one segment. The x axes share one viewport, so a break change can map the view through
@@ -158,7 +158,7 @@ over the whole x axis (`pluto/src/telem/aether/remote.ts:476-478`).
 Each trace draws with the scale of its segment: true time minus the collapsed time
 before the segment. This is the same per-trace translate that relative mode uses for a
 zero (RFC 0116 §2.2). GL binds a transform for each draw operation
-(`pluto/src/vis/line/aether/line.ts:569-570`), so the shaders do not change.
+(`pluto/src/vis/line/aether/line.ts:639-640`), so the shaders do not change.
 
 The scissor of §4.2 cuts each trace to its span, which stays inside its segment, so a
 series that recorded through a gap stops at the seam. Today, a series joins all of its
@@ -179,9 +179,9 @@ All segments share one tick interval, from the visible span and the plot width, 
 time tick factory picks it today (`pluto/src/vis/axis/ticks.ts`). Each segment places
 ticks at that interval. The first label of each segment is an anchor with the full date
 and time, for example "Nov 18 10:00:30". The other labels keep the short form
-(`ticks.ts:108`). When the anchor of the first tick does not fit, the next tick that
-fits becomes the anchor. A label that would overlap a seam or an anchor is dropped. A
-plot with no breaks keeps today's axis.
+(`pluto/src/vis/axis/ticks.ts:109`). When the anchor of the first tick does not fit, the
+next tick that fits becomes the anchor. A label that would overlap a seam or an anchor
+is dropped. A plot with no breaks keeps today's axis.
 
 ### 4.5 Opening and closing breaks
 
@@ -191,7 +191,7 @@ plot with no breaks keeps today's axis.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
   while one is open. A separate break menu adds nothing that these two items do not.
 - On an open or a close, the layout maps the viewport, the selection, and the zoom
-  history (`pluto/src/lineplot/Frame.tsx:133`) through time, so the same times stay in
+  history (`pluto/src/lineplot/Frame.tsx:239`) through time, so the same times stay in
   view.
 - Reset zoom closes all breaks. A change to the plot's ranges resets the zoom, so it
   closes them too.
@@ -216,21 +216,21 @@ plot with no breaks keeps today's axis.
 | Zoom box          | Crosses seams                                         | As today                             |
 
 Today the tooltip averages the x of every trace's nearest point
-(`pluto/src/lineplot/tooltip/aether/tooltip.ts:88-90`). With breaks, each line gives the
-trace that owns the time under the pointer, within the 12 px limit
-(`pluto/src/vis/line/aether/line.ts:621`). The measure oblique line is at
-`pluto/src/lineplot/measure/aether/measure.ts:586`.
+(`pluto/src/lineplot/tooltip/aether/tooltip.ts:150-152`). With breaks, each line gives
+the trace that owns the time under the pointer, within the 12 px limit
+(`pluto/src/vis/line/aether/line.ts:691`). The measure oblique line is at
+`pluto/src/lineplot/measure/aether/measure.ts:588`.
 
 ### 4.7 Range strip
 
 - The strip shows only Core ranges that overlap a visible segment. A range wholly inside
   a closed gap is hidden until the break opens.
 - A range that crosses a seam draws a bar on each side, cut at the seam. A cut side gets
-  square corners and the 40 px fade, as at the plot edge (`docs/claude/ux.md:831`):
+  square corners and the 40 px fade, as at the plot edge (`docs/claude/ux.md:855`):
   hidden time counts as outside the view.
 - The strip asks the Core only for the time of the segments, with one `overlaps` filter
   per segment joined by `or`. Today a gap makes the query span days and can pass the
-  100-range cap (`pluto/src/lineplot/range/aether/provider.ts:77`).
+  100-range cap (`pluto/src/lineplot/range/aether/provider.ts:79`).
 - A click on a cut bar zooms to the range as laid out, with its breaks closed.
 
 ### 4.8 Live ranges
@@ -303,6 +303,9 @@ a new feature. Console phases add their rules to `docs/claude/ux.md`. Phases 2 t
 change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`, and phase
 3 bounds its relative traces.
 
+Compatibility: no stored shape on the Core changes, and the Session state of a plot
+gains `breaks`. The read request accepts one `bounds` from shipped clients.
+
 | Phase | Scope                                              | Touches                                                                                                                            | Depends on |
 | ----- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Read a list of time spans in one file read         | `core/pkg/api/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `console/src/platform/framer`                            | -          |
@@ -314,9 +317,6 @@ change `line.ts` and `axis.ts`, which RFC 0116 phase 2 also changed on `main`, a
 | 7     | Export only the shown spans of a line plot         | `pluto/src/lineplot/aether`, `console/src/feature/lineplot`                                                                        | 1, 6       |
 | 8     | Ship line plot breaks in Desktop with a toggle     | `site/docs/src/docs/reference/visualize`, `console/src/flags`, `console/src/session/lineplot`, `pluto/src/lineplot`                | 7          |
 | 9     | Release line plot breaks to the Console            | `console/src/flags`, `console/src/feature/lineplot`                                                                                | 8          |
-
-Compatibility: no stored shape on the Core changes, and the Session state of a plot
-gains `breaks`. The read request accepts one `bounds` from shipped clients.
 
 ## 6 Resolved decisions
 
