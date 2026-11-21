@@ -211,13 +211,7 @@ func (c *core) commit(r *log.Commit, pre []Preload) error {
 		if err != nil {
 			return err
 		}
-		p, ok := c.channels[s.key].overlapsDurable(
-			first,
-			last,
-			s.pre,
-			recordsOf(pre, s.key),
-		)
-		if ok {
+		if p, ok := c.durableOverlap(s, first, last, pre); ok {
 			return refuse(
 				"commit of key %d from %d to %d overlaps its pointer from %d "+
 					"to %d",
@@ -242,6 +236,18 @@ func (c *core) commit(r *log.Commit, pre []Preload) error {
 		}
 	}
 	return nil
+}
+
+// durableOverlap returns the first durable pointer of the key of s that shares a stamp
+// with
+// [first, last]. It reads the part records that the visible commits of s preloaded,
+// and those of the key in pre.
+func (c *core) durableOverlap(
+	s *segState,
+	first, last telem.TimeStamp,
+	pre []Preload,
+) (Pointer, bool) {
+	return c.channels[s.key].overlapsDurable(first, last, s.pre, recordsOf(pre, s.key))
 }
 
 func (c *core) seal(r *log.Seal) error {

@@ -37,40 +37,8 @@ func (c *core) checkTombstone(t *log.Tombstone, users []User) error {
 	case ch == nil:
 		return refuse("tombstone of key %d, which holds no segment", t.Key)
 	}
-	uses := func(key uint32, ptrs []Pointer) error {
-		for _, p := range ptrs {
-			if p.First < end && p.Last >= start {
-				return refuse(
-					"tombstone of clock %d from %d to %d, which "+
-						"key %d uses from %d to %d",
-					t.Key,
-					start,
-					end,
-					key,
-					p.First,
-					p.Last,
-				)
-			}
-		}
-		return nil
-	}
-	// A segment that a part holds counts through its record in users.
-	for _, s := range c.segments {
-		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created || s.vis.Part != 0 {
-			continue
-		}
-		if err := uses(s.key, s.dur.pointers); err != nil {
-			return err
-		}
-	}
-	for _, u := range users {
-		// The records of a key that a Drop took out are dead.
-		if c.channels[u.Key] == nil {
-			continue
-		}
-		if err := uses(u.Key, u.Segment.Pointers); err != nil {
-			return err
-		}
+	if err := c.checkClock(t, users); err != nil {
+		return err
 	}
 	for _, s := range ch.segs {
 		for i, p := range s.dur.pointers {
@@ -159,6 +127,40 @@ func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
 		c.bury(s)
 	}
 	ch.publish()
+	return nil
+}
+
+// checkClock refuses t when a segment of another key that names the key of t as its
+// clock holds data in the range of t. A segment that a part holds counts through its
+// record in users.
+func (c *core) checkClock(t *log.Tombstone, users []User) error {
+	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
+	uses := func(key uint32, ptrs []Pointer) error {
+		for _, p := range ptrs {
+			if p.First < end && p.Last >= start {
+				return refuse("tombstone of clock %d from %d to %d, which key %d uses "+
+					"from %d to %d", t.Key, start, end, key, p.First, p.Last)
+			}
+		}
+		return nil
+	}
+	for _, s := range c.segments {
+		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created || s.vis.Part != 0 {
+			continue
+		}
+		if err := uses(s.key, s.dur.pointers); err != nil {
+			return err
+		}
+	}
+	for _, u := range users {
+		// The records of a key that a Drop took out are dead.
+		if c.channels[u.Key] == nil {
+			continue
+		}
+		if err := uses(u.Key, u.Segment.Pointers); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

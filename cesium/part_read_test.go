@@ -398,7 +398,7 @@ var _ = Describe("Claims over parts", func() {
 		read := func() []int64 {
 			GinkgoHelper()
 			frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-			var got []int64
+			got := make([]int64, 0, 32)
 			for _, s := range frame.Get(data).Series {
 				got = append(got, s.Unmarshal[int64]()...)
 			}
