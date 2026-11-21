@@ -25,7 +25,11 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   static readonly TYPE = "XAxis";
   override schema = baseAxisStateZ;
 
-  render(props: AxisRenderProps): void {
+  /**
+   * Draws the axis, its y axes, and its ranges. Each y axis adds a draw of each of its
+   * raised lines to raised.
+   */
+  render(props: AxisRenderProps, raised: Array<() => void>): void {
     if (this.deleted) return;
     const [dataToDecimal, xBounds, err] = this.dataToDecimalScale(
       props.hold,
@@ -33,7 +37,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
       props.viewport,
     );
     this.renderAxis(props, dataToDecimal.reverse());
-    this.renderYAxes(props, dataToDecimal, xBounds);
+    this.renderYAxes(props, dataToDecimal, xBounds, raised);
     this.renderRanges(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
@@ -89,9 +93,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: AxisRenderProps,
     xDataToDecimalScale: scale.Scale,
     xBounds: bounds.Bounds,
+    raised: Array<() => void>,
   ): void {
     const p = { ...props, xDataToDecimalScale, xBounds };
-    this.yAxes.forEach((el) => el.render(p));
+    this.yAxes.forEach((el) => el.render(p, raised));
   }
 
   get yAxes(): readonly YAxis[] {
