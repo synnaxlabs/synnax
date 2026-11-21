@@ -112,6 +112,29 @@ const FIVE_MIN = TimeSpan.minutes(5);
 const FORTY_FIVE_MIN = TimeSpan.minutes(45);
 
 describe("lineplot/toolbar/Data", () => {
+  describe("time mode", () => {
+    const expectTimeMode = async (key: string, mode?: lineplot.TimeMode) =>
+      await waitFor(async () =>
+        expect((await reader.lineplots.retrieve(key)).axes.x1.timeMode).toBe(mode),
+      );
+
+    it("saves relative time on the x axis, then absolute time as no mode", async () => {
+      const { key } = await renderData();
+      fireEvent.click(screen.getByText("Relative"));
+      await expectTimeMode(key, "relative");
+      fireEvent.click(screen.getByText("Absolute"));
+      await expectTimeMode(key, undefined);
+    });
+
+    it("does not offer relative time on an x axis that does not show time", async () => {
+      await renderLinePlot(Toolbar, {
+        linePlot: { axes: { x1: { key: "x1", type: "linear" } } },
+      });
+      await screen.findByText("Ranges");
+      expect(screen.queryByText("Relative")).toBeNull();
+    });
+  });
+
   describe("rolling window", () => {
     it("lists the presets as a row, apart from the ranges", async () => {
       await renderData([]);
@@ -250,7 +273,7 @@ describe("lineplot/toolbar/Data", () => {
         fireEvent.keyDown(window, { code: "ArrowDown" });
         fireEvent.keyDown(window, { code: "Enter" });
       });
-      const pressed = screen
+      const pressed = within(screen.getByRole("dialog"))
         .getAllByRole("button")
         .filter((b) => b.getAttribute("aria-pressed") === "true")
         .map((b) => b.textContent);

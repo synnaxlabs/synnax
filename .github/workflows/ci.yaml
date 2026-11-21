@@ -1161,6 +1161,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'portal')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       coverage_flag: portal
       directory: site/portal
       macos: *full
