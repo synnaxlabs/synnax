@@ -172,12 +172,11 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				Expect(createItem(ctx, tx, uniqueItem{Key: 1, Name: "pt"})).
 					To(Succeed())
-				k, found, err := index.Holder(ctx, tx, uniqueSibling{Name: "pt"})
-				Expect(err).ToNot(HaveOccurred())
+				pt, ox := uniqueSibling{Name: "pt"}, uniqueSibling{Name: "ox"}
+				k, found := MustSucceed2(index.Holder(ctx, tx, pt))
 				Expect(found).To(BeTrue())
 				Expect(k).To(Equal(uint32(1)))
-				_, found, err = index.Holder(ctx, tx, uniqueSibling{Name: "ox"})
-				Expect(err).ToNot(HaveOccurred())
+				_, found = MustSucceed2(index.Holder(ctx, tx, ox))
 				Expect(found).To(BeFalse())
 				return nil
 			})).To(Succeed())

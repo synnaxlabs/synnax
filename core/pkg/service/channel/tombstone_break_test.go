@@ -32,6 +32,7 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 		holders  *gorp.Table[string, displayHolder]
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		StartRun(db.Run)
 		var cfg channel.ServiceConfig

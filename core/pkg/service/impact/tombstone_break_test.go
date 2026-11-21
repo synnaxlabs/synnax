@@ -35,6 +35,7 @@ var _ = Describe("Tombstone break", Ordered, ContinueOnFailure, func() {
 		proj  project.Project
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
