@@ -86,6 +86,10 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(targetSym, err)
+	// Only a channel has a quoted form, so any other symbol takes a bare identifier.
+	if targetSym.Kind != symbol.KindChannel && !isIdentifier(params.NewName) {
+		return nil, errors.Newf("'%s' is not a valid name", params.NewName)
+	}
 	// Reference matching for global symbols (no AST) re-resolves each identifier
 	// through GlobalResolver, so it must run before OnRename — otherwise an
 	// OnRename that renames the backing resource (e.g., a Synnax channel) makes
@@ -111,9 +115,10 @@ func (s *Server) Rename(
 	}, nil
 }
 
-// renameTextEdits walks every identifier and quoted channel name token in doc, keeps
-// the ones that resolve to the same symbol as targetSym, and emits a TextEdit per
-// occurrence that replaces the token with newName, quoted for a quoted token.
+// renameTextEdits walks every identifier and quoted channel name token in doc,
+// including those in format string placeholders, keeps the ones that resolve to the
+// same symbol as targetSym, and emits a TextEdit per occurrence that replaces the token
+// with newName, quoted for a quoted token. Edit ranges are in UTF-16 units.
 func (s *Server) renameTextEdits(
 	ctx context.Context,
 	doc *document,
@@ -123,35 +128,93 @@ func (s *Server) renameTextEdits(
 	if doc.IR.Symbols == nil || targetSym == nil {
 		return nil
 	}
-	// Source-defined symbols match by AST identity. Global symbols (e.g.,
-	// channels) have no AST and instead match by kind + name, since every
-	// in-scope reference to the same name resolves to the same global symbol.
-	matchByAST := targetSym.AST != nil
+	lines := newLineText(doc.Content)
 	var edits []protocol.TextEdit
-	for _, t := range tokenizeContent(doc.Content) {
-		n := parser.TokenName(t)
+	rename := func(n parser.Name, r protocol.Range) {
 		if n.Head == "" || n.Head != targetSym.Name {
-			continue
+			return
 		}
-		r := tokenRange(t)
-		scope := doc.findScopeAtPosition(r.Start)
+		scope := findScopeAt(doc.IR.Symbols, doc.isBlock(), r.Start)
 		sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
 		if !isRenameable(sym, err) {
-			continue
+			return
 		}
 		s.logUnexpectedSymbolError(sym, err)
-		if matchByAST {
-			if sym.AST != targetSym.AST {
-				continue
-			}
-		} else if sym.Kind != targetSym.Kind || sym.AST != nil {
-			continue
+		if !sameSymbol(sym, targetSym) {
+			return
 		}
 		text := newName
-		if n.Quoted {
+		if n.Quoted || !bareFits(ctx, scope, newName, targetSym) {
 			text = parser.QuoteChannelName(newName)
 		}
-		edits = append(edits, protocol.TextEdit{Range: r, NewText: text})
+		edits = append(
+			edits,
+			protocol.TextEdit{Range: lines.rangeToUTF16(r), NewText: text},
+		)
+	}
+	for _, t := range tokenizeContent(doc.Content) {
+		switch t.GetTokenType() {
+		case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
+			f, ok := parseFormatString(t)
+			if !ok {
+				continue
+			}
+			for _, seg := range f.segs {
+				if !seg.IsPlaceholder {
+					continue
+				}
+				inner, spans := f.innerTokens(seg)
+				for i, it := range inner {
+					rename(
+						parser.TokenName(it),
+						protocol.Range{
+							Start: f.at[spans[i][0]],
+							End:   f.at[spans[i][1]],
+						},
+					)
+				}
+			}
+		default:
+			rename(parser.TokenName(t), tokenRange(t))
+		}
 	}
 	return edits
+}
+
+// sameSymbol reports whether sym is target. Source-defined symbols match by AST
+// identity. Global symbols, such as channels, have no AST and match by kind, since
+// every in-scope reference to one name resolves to the same global symbol.
+func sameSymbol(sym, target *symbol.Symbol) bool {
+	if target.AST != nil {
+		return sym.AST == target.AST
+	}
+	return sym.Kind == target.Kind && sym.AST == nil
+}
+
+// bareFits reports whether a bare reference to target can take the name newName in
+// scope: newName lexes as one identifier, and no other symbol in scope holds it, so the
+// reference keeps resolving to target.
+func bareFits(
+	ctx context.Context,
+	scope *symbol.Symbol,
+	newName string,
+	target *symbol.Symbol,
+) bool {
+	if !isIdentifier(newName) {
+		return false
+	}
+	sym, err := scope.ResolveName(
+		ctx,
+		parser.Name{Head: newName},
+		symbol.WithoutUsageTracking,
+	)
+	return errors.Is(err, query.ErrNotFound) || err == nil && sameSymbol(sym, target)
+}
+
+// isIdentifier reports whether name lexes as one identifier, and not as a keyword.
+func isIdentifier(name string) bool {
+	tokens := tokenizeContent(name)
+	return len(tokens) == 1 &&
+		tokens[0].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[0].GetText() == name
 }
