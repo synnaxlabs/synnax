@@ -28,6 +28,7 @@ import (
 var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 	var proj project.Project
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		proj = project.Project{Name: "tombstone-break-r2"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Project.NewWriter(tx).Create(ctx, &proj)
