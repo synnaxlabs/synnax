@@ -112,7 +112,7 @@ describe("channel", () => {
       );
     });
 
-    it("should show the key of a task the caller cannot retrieve", async () => {
+    it("should name a task the caller cannot retrieve by its type alone", async () => {
       const ch = await client.channels.create({
         name: id.create(),
         leaseholder: 1,
@@ -144,7 +144,7 @@ describe("channel", () => {
       });
       await expect(userClient.channels.delete(ch.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${ch.name} because task ${task.key} uses it`,
+          `cannot delete channel ${ch.name} because a hidden task uses it`,
         ),
       );
       await client.tasks.delete(task.key);
