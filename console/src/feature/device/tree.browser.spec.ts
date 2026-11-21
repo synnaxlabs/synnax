@@ -285,7 +285,9 @@ describe("device drag preview", () => {
     });
     await renderDeviceTree(hostDevices(dev));
     await screen.findByText("10.0.0.5");
-    fireEvent.dragStart(await findTreeRow(dev.name));
+    fireEvent.dragStart(await findTreeRow(dev.name), {
+      dataTransfer: new DataTransfer(),
+    });
     const layer = document.querySelector(".lyra-haul__layer");
     expect(layer?.textContent).toBe(`${dev.name}OPC UA server`);
   });
