@@ -927,6 +927,19 @@ describe("LinePlot", () => {
       });
     });
 
+    it("should not toggle a break on a click on a strip with breaks disabled", async () => {
+      const { getBreakChange } = await renderFrame(CHANGE, () => (
+        <LinePlot.XAxis axisKey="x2" location="top" type="time">
+          <LinePlot.Range.Provider breaksDisabled />
+        </LinePlot.XAxis>
+      ));
+      const strip = document.querySelector(".pluto-lineplot-range-provider");
+      expect(strip).not.toBeNull();
+      fireEvent.click(strip!, { clientX: 120 });
+      await act(async () => {});
+      expect(getBreakChange).not.toHaveBeenCalled();
+    });
+
     it("should not toggle a break on a click on the x2 axis", async () => {
       const { getBreakChange } = await renderFrame(CHANGE, () => (
         <LinePlot.XAxis axisKey="x2" location="top" type="time" />
