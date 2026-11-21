@@ -75,19 +75,6 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 			Entry(&displayHolder{Key: UniqueChannelName(), Channel: k}).
 			Exec(ctx, db)).To(Succeed())
 	}
-	// storeName writes name to the channel with key k past the writer, as a Core that
-	// ran core/v0.62.0 with channel name validation off could store a duplicate.
-	storeName := func(ctx SpecContext, k channel.Key, name string) {
-		GinkgoHelper()
-		var ch channel.Channel
-		Expect(svc.NewRetrieve().
-			Where(channel.MatchKeys(k)).
-			Entry(&ch).
-			Exec(ctx, db)).To(Succeed())
-		ch.Name = name
-		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, ch)).
-			To(Succeed())
-	}
 	createFolder := func(ctx SpecContext) group.Group {
 		GinkgoHelper()
 		g := group.Group{Name: UniqueChannelName(), Scope: resource.TypeChannel}
@@ -96,54 +83,6 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		})).To(Succeed())
 		return g
 	}
-
-	DescribeTable(
-		"Should delete each of two stored duplicates at one path that displays hold",
-		func(ctx SpecContext, inFolder bool) {
-			Skip("stored duplicates: 9c-2 lands after 7d, whose migration renames them")
-			var g *group.Key
-			if inFolder {
-				f := createFolder(ctx)
-				g = &f.Key
-			}
-			a := create(ctx, channel.Channel{Group: g})
-			b := create(ctx, channel.Channel{Group: g})
-			name := UniqueChannelName()
-			storeName(ctx, a.Key(), name)
-			storeName(ctx, b.Key(), name)
-			hold(ctx, a.Key())
-			hold(ctx, b.Key())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, a.Key(), false)
-			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Delete(ctx, b.Key(), false)
-			})).To(Succeed())
-			Expect(allTombstones(ctx, db)).To(ContainElement(SatisfyAll(
-				HaveField("Key", b.Key()),
-				HaveField("Name", name),
-			)))
-		},
-		Entry("at the root", false),
-		Entry("in a folder", true),
-	)
-
-	It("Should delete two stored duplicates at one path in one delete", func(
-		ctx SpecContext,
-	) {
-		Skip("stored duplicates: 9c-2 lands after 7d, whose migration renames them")
-		a := create(ctx, channel.Channel{})
-		b := create(ctx, channel.Channel{})
-		name := UniqueChannelName()
-		storeName(ctx, a.Key(), name)
-		storeName(ctx, b.Key(), name)
-		hold(ctx, a.Key())
-		hold(ctx, b.Key())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).
-				DeleteMany(ctx, []channel.Key{a.Key(), b.Key()}, false)
-		})).To(Succeed())
-	})
 
 	tombstoneOf := func(ctx SpecContext, k channel.Key) (channel.Tombstone, bool) {
 		GinkgoHelper()
