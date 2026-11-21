@@ -73,6 +73,7 @@
     "dompurify": "catalog:",
     "error-stack-parser": "catalog:",
     "eslint": "catalog:",
+    "fractional-indexing": "catalog:",
     "jsdom": "catalog:",
     "playwright": "catalog:",
     "react": "catalog:",

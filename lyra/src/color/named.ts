@@ -42,6 +42,11 @@ export interface Library {
    * In it, `usePalette` gives the color of the swatch.
    */
   swatchMenu?: ReactNode;
+  /**
+   * Whether the swatch of the named color with the key opens `swatchMenu`, asked when
+   * the menu would open. Defaults to every swatch.
+   */
+  hasSwatchMenu?: (key: string) => boolean;
   /** Shown under the palettes. */
   footer?: ReactNode;
 }

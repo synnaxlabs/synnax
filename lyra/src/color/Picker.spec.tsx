@@ -15,7 +15,13 @@ import {
   type RenderResult,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Color } from "@/color";
@@ -649,6 +655,52 @@ describe("Picker", () => {
         expect(c.getByText("menu for Moss in Series")).toBeTruthy();
       });
 
+      const OPENERS: [string, (swatch: HTMLElement) => boolean][] = [
+        ["a right click", (swatch) => fireEvent.contextMenu(swatch)],
+        [
+          "Shift+F10",
+          (swatch) =>
+            fireEvent.keyDown(swatch, { key: "F10", code: "F10", shiftKey: true }),
+        ],
+        [
+          "the Menu key",
+          (swatch) => {
+            const key = { key: "ContextMenu", code: "ContextMenu" };
+            const down = fireEvent.keyDown(swatch, key);
+            return fireEvent.keyUp(swatch, key) && down;
+          },
+        ],
+      ];
+
+      const onlyAlarm = (key: string): boolean => key === "alarm";
+
+      it.each(OPENERS)(
+        "should open swatchMenu on %s where hasSwatchMenu allows",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          expect(open(c.getByLabelText("Alarm"))).toBe(false);
+          expect(c.getByText("menu for Alarm in Status")).toBeTruthy();
+        },
+      );
+
+      it.each(OPENERS)(
+        "should leave %s to the platform where hasSwatchMenu refuses",
+        (_, open) => {
+          const c = renderSlots({
+            swatchMenu: <SwatchMenu />,
+            hasSwatchMenu: onlyAlarm,
+          });
+          const moss = c.getByLabelText("Moss");
+          act(() => moss.focus());
+          expect(open(moss)).toBe(true);
+          expect(c.queryByRole("menu")).toBeNull();
+          expect(document.activeElement).toBe(moss);
+        },
+      );
+
       it("should leave a right click to the platform without swatchMenu", () => {
         const c = renderSlots({});
         expect(fireEvent.contextMenu(c.getByLabelText("Alarm"))).toBe(true);
@@ -663,6 +715,68 @@ describe("Picker", () => {
       it("should give slots the fallback while the value is absent", () => {
         const c = renderSlots({ footer: <ViewOpener /> }, { fallback: "#123456" });
         expect(c.getByText("open from #123456")).toBeTruthy();
+      });
+
+      it("should clear the search and focus a hidden swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        search(c, "oc");
+        expect(c.queryByLabelText("Moss")).toBeNull();
+        fireEvent.click(c.getByText("link Moss"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should focus a shown swatch that a slot links", () => {
+        const Linker = (): ReactElement => {
+          const { link } = Color.usePicker();
+          return <button onClick={() => link("moss")}>link Moss</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Linker /> });
+        fireEvent.click(c.getByText("link Moss"));
+        expect(document.activeElement).toBe(c.getByLabelText("Moss"));
+      });
+
+      it("should move the focus into the end of a palette that a slot names", () => {
+        const End = (): ReactElement => {
+          const { palette, focused } = Color.usePalette();
+          const ref = useRef<HTMLButtonElement>(null);
+          useEffect(() => {
+            if (focused) ref.current?.focus();
+          }, [focused]);
+          return (
+            <button ref={ref}>
+              {focused ? `${palette.name} end, focused` : `${palette.name} end`}
+            </button>
+          );
+        };
+        const Focuser = (): ReactElement => {
+          const { focusPalette } = Color.usePicker();
+          return <button onClick={() => focusPalette("status")}>focus Status</button>;
+        };
+        const c = renderSlots({ paletteEnd: <End />, footer: <Focuser /> });
+        fireEvent.click(c.getByText("focus Status"));
+        // The focus entered the palette, so the flag is clear again.
+        expect(document.activeElement).toBe(c.getByText("Status end"));
+      });
+
+      it("should clear the search from a slot", () => {
+        const Clearer = (): ReactElement => {
+          const { clearSearch } = Color.usePicker();
+          return <button onClick={clearSearch}>clear</button>;
+        };
+        const c = renderSlots({ named: "ocean", footer: <Clearer /> });
+        search(c, "oc");
+        fireEvent.click(c.getByText("clear"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("");
+        expect(c.getByLabelText("Moss")).toBeTruthy();
       });
 
       it("should keep the search under a view", () => {
@@ -694,6 +808,22 @@ describe("Picker", () => {
         fireEvent.click(c.getByLabelText("Back"));
         expect(c.queryByText("view body")).toBeNull();
         expect(picker?.classList.contains(viewing)).toBe(false);
+      });
+
+      it("should give a slot the linked color and link the value through the library", () => {
+        const onNamedChange = vi.fn();
+        const Linker = (): ReactElement => {
+          const { linked, link } = Color.usePicker();
+          return (
+            <button onClick={() => link("moss")}>{`linked ${linked?.name}`}</button>
+          );
+        };
+        const c = renderSlots(
+          { named: "ocean", onNamedChange, footer: <Linker /> },
+          { value: "#3e8bff" },
+        );
+        fireEvent.click(c.getByText("linked Ocean"));
+        expect(onNamedChange).toHaveBeenCalledExactlyOnceWith("moss");
       });
 
       it("should focus the picker after Back when the opener is gone", () => {

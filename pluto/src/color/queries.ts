@@ -9,13 +9,14 @@
 
 import { color, type group } from "@synnaxlabs/client";
 import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
+import { generateKeyBetween } from "fractional-indexing";
 import type z from "zod";
 
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 
-const RESOURCE_NAME = "named color";
-const PLURAL_RESOURCE_NAME = "named colors";
+const RESOURCE_NAME = "color";
+const PLURAL_RESOURCE_NAME = "colors";
 
 export type RetrieveQuery = color.RetrieveSingleParams;
 
@@ -67,7 +68,7 @@ export const { useResult: useResultBuiltins } = Flux.createRetrieve<
   Record<string, never>,
   color.Named[]
 >({
-  name: "built-in named colors",
+  name: "built-in colors",
   retrieve: async ({ client }) => await client.colors.retrieveBuiltins(),
 });
 
@@ -107,10 +108,25 @@ export const useForm = Flux.createDocumentForm<
   toValues: ({ name, light, dark }) => ({ name, light, dark }),
 });
 
+/**
+ * Creates a named color. With no position, it goes after every color of its palette
+ * that has a position, and the colors with no position stay after it.
+ */
 export const { useUpdate: useCreate } = Flux.createUpdate<color.New, color.Named>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.colors.create(data),
+  update: async ({ client, data }) => {
+    if (data.position != null) return await client.colors.create(data);
+    const where = data.group == null ? { grouped: false } : { groups: [data.group] };
+    const last = (await client.colors.retrieve({ where }))
+      .filter((c) => c.position != null)
+      .sort(color.compare)
+      .at(-1);
+    return await client.colors.create({
+      ...data,
+      position: generateKeyBetween(last?.position ?? null, null),
+    });
+  },
 });
 
 export interface RenameParams extends Pick<color.Named, "key" | "name"> {}
@@ -172,6 +188,21 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
     await client.colors.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
+    return data;
+  },
+});
+
+export interface CreatePaletteParams {
+  key: group.Key;
+  name: string;
+}
+
+/** Creates a palette with no colors. */
+export const { useUpdate: useCreatePalette } = Flux.createUpdate<CreatePaletteParams>({
+  name: "palette",
+  verbs: verbs.CREATE,
+  update: async ({ client, data }) => {
+    await client.groups.create({ ...data, scope: color.TYPE_RESOURCE_ID.type });
     return data;
   },
 });

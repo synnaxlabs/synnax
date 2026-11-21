@@ -13,6 +13,7 @@ import { color, TimeSpan } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -60,6 +61,20 @@ export interface PickerProps
 export interface PickerContextValue {
   /** The color that the picker shows: its value, else its fallback. */
   value: color.Color;
+  /** The named color that the value links to. */
+  linked?: Named;
+  /**
+   * Links the value to the named color with the key, as a click on its swatch does. The
+   * search clears, and the focus moves to the swatch, at once or when it renders.
+   */
+  link: (key: string) => void;
+  /** Clears the search, so that every palette and color shows. */
+  clearSearch: () => void;
+  /**
+   * Moves the focus into the `paletteEnd` slot of the palette with the key, once that
+   * palette renders. The slot reads `focused` from `usePalette` and takes the focus.
+   */
+  focusPalette: (key: string) => void;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
    * returns to the tabs as they were, with the focus on the element that opened the
@@ -86,6 +101,11 @@ export interface PaletteContextValue {
   palette: Palette;
   /** In `swatchMenu`, the color of the swatch that the menu opened on. */
   swatch?: Named;
+  /**
+   * In `paletteEnd`, true if the slot takes the focus. It stays true until the focus
+   * enters the palette.
+   */
+  focused: boolean;
 }
 
 const [PaletteContext, usePaletteContext] = context.create<PaletteContextValue>({
@@ -178,9 +198,33 @@ const Tabbed = ({
     linked != null || value == null ? "library" : "custom",
   );
   const [search, setSearch] = useState("");
+  const swatches = useRef(new Map<string, HTMLElement>());
+  // The key of a linked swatch that takes the focus when it renders.
+  const focusing = useRef<string>(undefined);
+  const [focusedPalette, setFocusedPalette] = useState<string>();
+  const registerSwatch = (key: string, swatch: HTMLElement | null): void => {
+    if (swatch == null) {
+      swatches.current.delete(key);
+      return;
+    }
+    swatches.current.set(key, swatch);
+    if (focusing.current !== key) return;
+    focusing.current = undefined;
+    swatch.focus();
+  };
   const autoSelected = value == null && linked == null;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
+    linked,
+    link: (key) => {
+      setSearch("");
+      onNamedChange(key);
+      const swatch = swatches.current.get(key);
+      if (swatch == null) focusing.current = key;
+      else swatch.focus();
+    },
+    clearSearch: () => setSearch(""),
+    focusPalette: setFocusedPalette,
     openView: (title, content, clicked) => {
       const active = document.activeElement;
       if (!(active instanceof HTMLElement)) opener.current = clicked ?? null;
@@ -292,6 +336,9 @@ const Tabbed = ({
               search={search}
               linked={linked?.key}
               onPick={onNamedChange}
+              registerSwatch={registerSwatch}
+              focusedPalette={focusedPalette}
+              onPaletteFocus={() => setFocusedPalette(undefined)}
               {...slots}
             />
           </>
@@ -352,12 +399,21 @@ const Section = ({ title, name, children, ...rest }: SectionProps): ReactElement
   </Flex.Box>
 );
 
-interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchMenu"> {
+interface PaletteSectionProps extends Pick<
+  Library,
+  "paletteEnd" | "swatchMenu" | "hasSwatchMenu"
+> {
   palette: Palette;
   /** The colors of the palette that match the search. */
   colors: Named[];
   linked?: string;
   onPick: (key: string) => void;
+  /** Records the swatch of a named color when it renders, and null when it goes. */
+  registerSwatch: (key: string, swatch: HTMLElement | null) => void;
+  /** If true, the `paletteEnd` slot takes the focus. */
+  focused: boolean;
+  /** Called when the focus enters the palette while it is focused. */
+  onFocus: () => void;
 }
 
 /**
@@ -370,8 +426,12 @@ const PaletteSection = ({
   colors,
   linked,
   onPick,
+  registerSwatch,
+  focused,
+  onFocus,
   paletteEnd,
   swatchMenu,
+  hasSwatchMenu,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
   const [hovered, setHovered] = useState<string>();
@@ -385,23 +445,32 @@ const PaletteSection = ({
     find(hovered) ??
     find(focusedSwatch) ??
     find(linked);
-  const menuProps =
-    swatchMenu == null
-      ? {}
-      : {
-          onContextMenu: menu.open,
-          onKeyDown: (e: KeyboardEvent<HTMLElement>) =>
-            menuKeyDown(e, () => openContextMenu(e.currentTarget)),
-          onKeyUp: (e: KeyboardEvent<HTMLElement>) =>
-            menuKeyUp(e, () => openContextMenu(e.currentTarget)),
-        };
+  const menuPropsOf = (key: string) => {
+    if (swatchMenu == null) return {};
+    const opens = (): boolean => hasSwatchMenu?.(key) ?? true;
+    return {
+      onContextMenu: (e: MouseEvent<HTMLElement>) => {
+        if (opens()) menu.open(e);
+      },
+      onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+        if (opens()) menuKeyDown(e, () => openContextMenu(e.currentTarget));
+      },
+      onKeyUp: (e: KeyboardEvent<HTMLElement>) => {
+        if (opens()) menuKeyUp(e, () => openContextMenu(e.currentTarget));
+      },
+    };
+  };
   return (
-    <PaletteContext value={{ palette }}>
+    <PaletteContext value={{ palette, focused }}>
       <Menu.ContextMenu
         {...menu}
         menu={({ keys }) => (
           <PaletteContext
-            value={{ palette, swatch: palette.colors.find((c) => c.key === keys[0]) }}
+            value={{
+              palette,
+              swatch: palette.colors.find((c) => c.key === keys[0]),
+              focused: false,
+            }}
           >
             {swatchMenu}
           </PaletteContext>
@@ -413,6 +482,9 @@ const PaletteSection = ({
           role="group"
           aria-label={palette.name}
           onPointerLeave={() => setHovered(undefined)}
+          onFocus={() => {
+            if (focused) onFocus();
+          }}
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) setFocusedSwatch(undefined);
           }}
@@ -429,10 +501,11 @@ const PaletteSection = ({
               )}
               data-menu-key={c.key}
               onClick={() => onPick(c.key)}
+              ref={(el: HTMLElement | null) => registerSwatch(c.key, el)}
               onPointerEnter={() => setHovered(c.key)}
               onFocus={() => setFocusedSwatch(c.key)}
               aria-label={c.name}
-              {...menuProps}
+              {...menuPropsOf(c.key)}
             />
           ))}
           {paletteEnd}
@@ -442,12 +515,19 @@ const PaletteSection = ({
   );
 };
 
-interface PalettesProps extends Pick<Library, "paletteEnd" | "swatchMenu" | "footer"> {
+interface PalettesProps
+  extends
+    Pick<Library, "paletteEnd" | "swatchMenu" | "hasSwatchMenu" | "footer">,
+    Pick<PaletteSectionProps, "registerSwatch"> {
   palettes: Palette[];
   search: string;
   /** The key of the named color that the value follows. */
   linked?: string;
   onPick: (key: string) => void;
+  /** The key of the palette whose `paletteEnd` slot takes the focus. */
+  focusedPalette?: string;
+  /** Called when the focus enters the focused palette. */
+  onPaletteFocus: () => void;
 }
 
 /** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
@@ -456,8 +536,12 @@ const Palettes = ({
   search,
   linked,
   onPick,
+  registerSwatch,
+  focusedPalette,
+  onPaletteFocus,
   paletteEnd,
   swatchMenu,
+  hasSwatchMenu,
   footer,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
@@ -491,8 +575,12 @@ const Palettes = ({
           colors={colors}
           linked={linked}
           onPick={onPick}
+          registerSwatch={registerSwatch}
+          focused={palette.key === focusedPalette}
+          onFocus={onPaletteFocus}
           paletteEnd={paletteEnd}
           swatchMenu={swatchMenu}
+          hasSwatchMenu={hasSwatchMenu}
         />
       ))}
       {footer}
