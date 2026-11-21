@@ -414,6 +414,8 @@ type Dead struct {
 	Segment uint64
 	// Key is the key whose samples the segment held.
 	Key uint32
+	// Part is the part that held the record of the segment, or zero.
+	Part uint64
 }
 
 type deadRequest struct {

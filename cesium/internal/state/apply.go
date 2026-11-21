@@ -303,7 +303,7 @@ func (c *core) bury(s *segState) {
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
-	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key})
+	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key, Part: s.vis.Part})
 	ch.publish()
 }
 

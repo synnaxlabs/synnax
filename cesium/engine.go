@@ -129,7 +129,7 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		partSize: o.partSize,
 	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
+	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
 	e.pins.parts = make(map[uint64]int)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {

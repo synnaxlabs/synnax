@@ -114,18 +114,20 @@ func (c *core) tombstone(t *log.Tombstone, pre []Preload) error {
 		s.vis.Pointers = cut(s.vis.Pointers, t)
 		s.dur.pointers = cut(s.dur.pointers, t)
 		// A part may hold the record of a sealed segment before the cut.
-		if !slices.Equal(before, s.vis.Pointers) {
-			s.vis.Part = 0
-			if s.dur.sealed {
-				ch.kills = append(ch.kills, Kill{
-					Key:        t.Key,
-					Segment:    s.vis.ID,
-					Generation: c.generation,
-				})
-				ch.repart()
-			}
+		changed := !slices.Equal(before, s.vis.Pointers)
+		if changed && s.dur.sealed {
+			ch.kills = append(ch.kills, Kill{
+				Key:        t.Key,
+				Segment:    s.vis.ID,
+				Generation: c.generation,
+			})
+			ch.repart()
 		}
+		// A buried segment keeps the part of its record, which a reader may pin.
 		c.bury(s)
+		if changed {
+			s.vis.Part = 0
+		}
 	}
 	ch.publish()
 	return nil

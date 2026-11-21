@@ -19,12 +19,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// pins counts the readers of each segment, and holds the key of each dead segment that
-// waits for its last reader before the engine unlinks its file.
+// pins counts the readers of each segment, and holds each dead segment that waits for
+// its last reader before the engine unlinks its file.
 type pins struct {
 	mu      sync.Mutex
 	readers map[uint64]int
-	dead    map[uint64]ChannelKey
+	dead    map[uint64]state.Dead
 	// parts counts the readers of each part, which a switch keeps.
 	parts map[uint64]int
 }
@@ -83,13 +83,13 @@ func (e *engine) unpin(h held) error {
 }
 
 // release unlinks the file of each segment of dead, which left the state, once no
-// reader pins it.
+// reader pins it or the part that held its record.
 func (e *engine) release(dead []state.Dead) error {
 	var free []state.Dead
 	e.pins.mu.Lock()
 	for _, d := range dead {
-		if e.pins.readers[d.Segment] > 0 {
-			e.pins.dead[d.Segment] = d.Key
+		if e.pins.held(d) {
+			e.pins.dead[d.Segment] = d
 		} else {
 			free = append(free, d)
 		}
@@ -120,21 +120,44 @@ func (p *pins) pin(h held) {
 // unpin drops a reader of each segment and part of h, and returns the dead segments
 // that no reader pins after it. The caller holds p.mu.
 func (p *pins) unpin(h held) []state.Dead {
+	unpinned := false
 	for _, part := range h.parts {
 		if p.parts[part.ID]--; p.parts[part.ID] == 0 {
 			delete(p.parts, part.ID)
+			unpinned = true
 		}
 	}
-	var free []state.Dead
 	for _, id := range h.segments {
-		if p.readers[id]--; p.readers[id] > 0 {
-			continue
+		if p.readers[id]--; p.readers[id] == 0 {
+			delete(p.readers, id)
 		}
-		delete(p.readers, id)
-		if key, dead := p.dead[id]; dead {
-			delete(p.dead, id)
-			free = append(free, state.Dead{Segment: id, Key: key})
+	}
+	if len(p.dead) == 0 {
+		return nil
+	}
+	var free []state.Dead
+	take := func(d state.Dead) {
+		if !p.held(d) {
+			delete(p.dead, d.Segment)
+			free = append(free, d)
+		}
+	}
+	if unpinned {
+		for _, d := range p.dead {
+			take(d)
+		}
+		return free
+	}
+	for _, id := range h.segments {
+		if d, dead := p.dead[id]; dead {
+			take(d)
 		}
 	}
 	return free
+}
+
+// held reports whether a reader pins the dead segment d, or the part that held its
+// record. The caller holds p.mu.
+func (p *pins) held(d state.Dead) bool {
+	return p.readers[d.Segment] > 0 || (d.Part != 0 && p.parts[d.Part] > 0)
 }
