@@ -296,9 +296,9 @@ func (e *engine) reap() error {
 func (e *engine) run(ctx context.Context) error {
 	owners, cancel := signal.Isolated()
 	defer cancel()
-	owners.Go(e.state.Run)
-	owners.Go(e.log.Run)
-	owners.Go(e.ckpt.Run)
+	owners.Go(e.state.Run, signal.CancelOnFail())
+	owners.Go(e.log.Run, signal.CancelOnFail())
+	owners.Go(e.ckpt.Run, signal.CancelOnFail())
 	if e.switched != 0 {
 		e.switchedTo(e.switched)
 	}
