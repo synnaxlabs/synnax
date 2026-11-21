@@ -1597,7 +1597,7 @@ describe("Input.Table", () => {
     it("should drop a dragged row in the place of the row it lands on", () => {
       const onMove = vi.fn();
       renderDraggable(onMove);
-      fireEvent.dragStart(handle("1"));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
       fireEvent.drop(rowOf("3"));
       expect(onMove).toHaveBeenCalledWith(0, 2);
     });
@@ -1605,7 +1605,7 @@ describe("Input.Table", () => {
     it("should not drag a row from one of its cells", () => {
       const onMove = vi.fn();
       renderDraggable(onMove);
-      fireEvent.dragStart(cell("Raw", "1"));
+      fireEvent.dragStart(cell("Raw", "1"), { dataTransfer: new DataTransfer() });
       fireEvent.drop(rowOf("3"));
       expect(onMove).not.toHaveBeenCalled();
     });
@@ -1632,7 +1632,7 @@ describe("Input.Table", () => {
           </Input.Table>
         </Haul.Provider>,
       );
-      fireEvent.dragStart(handle("1", 0));
+      fireEvent.dragStart(handle("1", 0), { dataTransfer: new DataTransfer() });
       fireEvent.drop(rowOf("3", 1));
       expect(onMove).not.toHaveBeenCalled();
     });
@@ -1697,7 +1697,7 @@ describe("Input.Table", () => {
     it("should move a mark with its row on a drop", () => {
       render(<Movable initial={ROWS} />);
       paste(cell("Raw", "1"), "x\t11");
-      fireEvent.dragStart(handle("1"));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
       fireEvent.drop(rowOf("3"));
       expect(marked(cell("Raw", "3"))).toBe(true);
       expect(marked(cell("Raw", "1"))).toBe(false);
@@ -1731,7 +1731,7 @@ describe("Input.Table", () => {
     it("should drop the dragged row by its key after the rows above it change", () => {
       const onMove = vi.fn();
       const { rerender } = render(renderKeyed(ROWS, ["a", "b", "c"], onMove));
-      fireEvent.dragStart(handle("1"));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
       rerender(renderKeyed([[0, 0], ...ROWS], ["z", "a", "b", "c"], onMove));
       fireEvent.drop(rowOf("4"));
       expect(onMove).toHaveBeenCalledWith(1, 3);
@@ -1739,15 +1739,15 @@ describe("Input.Table", () => {
 
     it("should draw the drop line on the side the row lands on", () => {
       renderDraggable(vi.fn());
-      fireEvent.dragStart(handle("1"));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
       fireEvent.dragOver(rowOf("3"));
       expect(rowOf("3").classList).toContain(CSS.BEM("input", "table-row", "below"));
       fireEvent.dragLeave(rowOf("3"));
       expect(rowOf("3").classList).not.toContain(
         CSS.BEM("input", "table-row", "below"),
       );
-      fireEvent.dragEnd(handle("1"));
-      fireEvent.dragStart(handle("3"));
+      fireEvent.dragEnd(handle("1"), { dataTransfer: new DataTransfer() });
+      fireEvent.dragStart(handle("3"), { dataTransfer: new DataTransfer() });
       fireEvent.dragOver(rowOf("1"));
       expect(rowOf("1").classList).toContain(CSS.BEM("input", "table-row", "above"));
       fireEvent.drop(rowOf("1"));
@@ -1758,7 +1758,7 @@ describe("Input.Table", () => {
 
     it("should picture a dragged row with its name by default", () => {
       renderDraggable(vi.fn());
-      fireEvent.dragStart(handle("2"));
+      fireEvent.dragStart(handle("2"), { dataTransfer: new DataTransfer() });
       expect(screen.getByText("Row 2")).toBeTruthy();
     });
 
@@ -1766,7 +1766,7 @@ describe("Input.Table", () => {
       render(
         <Movable initial={ROWS} renderHaulPreview={(i) => <span>Pump {i}</span>} />,
       );
-      fireEvent.dragStart(handle("2"));
+      fireEvent.dragStart(handle("2"), { dataTransfer: new DataTransfer() });
       expect(screen.getByText("Pump 1")).toBeTruthy();
     });
 
@@ -1784,7 +1784,7 @@ describe("Input.Table", () => {
           </Input.Table>
         </Haul.Provider>,
       );
-      fireEvent.dragStart(handle("1"));
+      fireEvent.dragStart(handle("1"), { dataTransfer: new DataTransfer() });
       const target = rowOf("3");
       rerender(
         <Haul.Provider>
