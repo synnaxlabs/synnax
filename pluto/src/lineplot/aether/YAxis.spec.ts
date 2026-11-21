@@ -430,9 +430,15 @@ describe("XAxis", () => {
     teardowns.length = 0;
   });
 
+  type XSource = telemTest.TestSource<[bounds.Bounds, MultiSeries]>;
+
   // Mounts an x axis with a y axis per entry, each holding lines of the given x bounds.
+  // A line given a source reads its x bounds from it.
   const mount = (
-    yAxes: Record<string, Array<{ x: bounds.Bounds; edge?: telem.Edge }>>,
+    yAxes: Record<
+      string,
+      Array<{ x: bounds.Bounds; edge?: telem.Edge; source?: XSource }>
+    >,
     xState: Record<string, unknown> = {},
     recorder: canvasTest.Recorder = canvasTest.record(),
   ): XAxis => {
@@ -456,11 +462,8 @@ describe("XAxis", () => {
     Object.entries(yAxes).forEach(([yKey, lines]) => {
       const yPath = [...xPath, yKey];
       stack.driver.update(yPath, YAxis.TYPE, { location: "left", autoBoundPadding: 0 });
-      lines.forEach(({ x: b, edge }, i) => {
-        const x = telemTest.source<[bounds.Bounds, MultiSeries]>([
-          b,
-          new MultiSeries(),
-        ]);
+      lines.forEach(({ x: b, edge, source }, i) => {
+        const x: XSource = source ?? telemTest.source([b, new MultiSeries()]);
         x.edge = edge;
         stack.driver.update([...yPath, `line${i}`], Line.TYPE, {
           x: specOf(x),
@@ -599,6 +602,19 @@ describe("XAxis", () => {
         bounds: { lower: DAY - S, upper: DAY + 60 * S },
       });
       expect(segmentBounds(x)).toEqual([{ lower: DAY - S, upper: DAY + 60 * S }]);
+    });
+
+    it("should keep its segments while it holds", () => {
+      const moved = telemTest.source<[bounds.Bounds, MultiSeries]>([
+        WINDOWS.y1[1].x,
+        new MultiSeries(),
+      ]);
+      const x = mount({ y1: [WINDOWS.y1[0], { ...WINDOWS.y1[1], source: moved }] });
+      const before = segmentBounds(x);
+      moved.setValue([{ lower: 2 * DAY, upper: 2 * DAY + 60 * S }, new MultiSeries()]);
+      const held = x.layout({ ...props(), hold: true }).segments.map((s) => s.bounds);
+      expect(held).toEqual(before);
+      expect(segmentBounds(x)).not.toEqual(before);
     });
 
     it("should draw a band over each seam in view", () => {

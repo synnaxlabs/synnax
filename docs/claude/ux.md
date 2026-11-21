@@ -869,8 +869,8 @@ says why in a sentence, then gives the raw error.
 - A click on a band, or on its `//` on the axis, opens the break in every plot mode. An
   open gap keeps a faint `//` at its middle, and a click on it closes the gap. A click
   on the plot never closes a gap, so a click on data stays a click on data.
-- An open or a close keeps the times at the edges of the view in view. The zoom history
-  and the selection keep their times too.
+- When a break opens or closes, the times at the edges of the view stay in view. The
+  zoom history and the selection keep their times too.
 - The plot menu holds "Open all breaks" while a break is closed, and "Close all breaks"
   while one is open. Reset zoom closes all breaks. Open breaks are window state.
 - Over a band, the tooltip lists the hidden time ("Hidden", "From", "To") and "Click to
