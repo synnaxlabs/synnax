@@ -252,6 +252,15 @@ func openUpgraded(ctx context.Context, create func(n testutil.Node)) testutil.No
 	first := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
 	create(first)
 	Expect(first.Close()).To(Succeed())
+	// v0.62 recorded no counter value at a first open, so the upgrade's first open
+	// counts each key that v0.62 issued.
+	host := first.Identity.HostKey.String()
+	for _, counter := range []string{
+		".distribution.channel.leasedCounter",
+		".distribution.channel.counter.free",
+	} {
+		Expect(store.KV.Delete(ctx, []byte(host+counter+".firstOpen"))).To(Succeed())
+	}
 	return testutil.NewNode(ctx, distribution.LayerConfig{Storage: store.Layer})
 }
 

@@ -86,7 +86,8 @@ func (s *Service) BuiltIns() Keys { return s.builtIns.Load().keys() }
 
 // Declare finds the channel named ch.Name or creates ch, and makes its key a built-in
 // channel when the transaction commits. A channel of that name at the root, with the
-// data type and virtual flag of ch, that is not free, becomes the built-in. Declare
+// data type and virtual flag of ch, that is not the output of a calculation (one that
+// owns a free index), becomes the built-in. Declare
 // renames any other channel of that name with the first free suffix (_2, _3) and writes
 // a warning status for it. Declare fills ch with the stored channel. It returns an
 // error when another built-in holds the name.
@@ -102,7 +103,7 @@ func (w Writer) Declare(ctx context.Context, ch *Channel) error {
 		return h.Group == nil &&
 			h.DataType == ch.DataType &&
 			h.Virtual == ch.Virtual &&
-			!h.Free()
+			!ownsFreeIndex(h)
 	})
 	for i, h := range holders {
 		if i == match {
@@ -172,4 +173,11 @@ func (w Writer) freeName(ctx context.Context, name string) (string, error) {
 			return candidate, err
 		}
 	}
+}
+
+// ownsFreeIndex reports whether ch owns a free index, as the output of a calculation
+// does.
+func ownsFreeIndex(ch Channel) bool {
+	_, ok := freeIndexOf(ch)
+	return ok
 }
