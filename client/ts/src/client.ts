@@ -39,6 +39,7 @@ import { framer } from "@/framer";
 import { group } from "@/group";
 import { icd } from "@/icd";
 import { imex } from "@/imex";
+import { impact } from "@/impact";
 import { label } from "@/label";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
@@ -231,6 +232,7 @@ export default class Synnax extends framer.Client {
   readonly access: access.Client;
   readonly connection: connection.Handle;
   readonly resources: resource.Client;
+  readonly impact: impact.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
   readonly colors: color.Client;
@@ -386,6 +388,7 @@ export default class Synnax extends framer.Client {
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
+    this.impact = new impact.Client(unary);
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
       unary,

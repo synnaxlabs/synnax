@@ -51,6 +51,7 @@ export {
   MultipleFoundError,
   NotFoundError,
   PathError,
+  PlanChangedError,
   QueryError,
   RouteError,
   SessionEndedError,
@@ -66,6 +67,7 @@ export { group } from "@/group";
 export { http } from "@/http";
 export { icd } from "@/icd";
 export { imex } from "@/imex";
+export { impact } from "@/impact";
 export { kafka } from "@/kafka";
 export { label } from "@/label";
 export { labjack } from "@/labjack";

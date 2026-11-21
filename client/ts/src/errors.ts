@@ -49,6 +49,20 @@ export class PathError extends ValidationError.sub("path") {
   }
 }
 
+/**
+ * Raised by an apply whose plan changed after the caller planned it. `impact.planOf`
+ * parses the plan as it is now.
+ */
+export class PlanChangedError extends SynnaxError.sub("impact.plan_changed") {
+  /** plan is the plan as it is now, as the Core sent it. */
+  readonly plan: string;
+
+  constructor(plan: string) {
+    super("the records that the change touches changed");
+    this.plan = plan;
+  }
+}
+
 /** AuthError is raised when an authentication error occurs. */
 export class AuthError extends SynnaxError.sub("auth") {}
 
@@ -189,6 +203,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new UnauthorizedError(payload.data);
     return new ControlError(payload.data);
   }
+
+  if (payload.type === PlanChangedError.TYPE) return new PlanChangedError(payload.data);
 
   if (payload.type.startsWith(RouteError.TYPE))
     return new RouteError(payload.data, payload.data);
