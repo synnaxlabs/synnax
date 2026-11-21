@@ -452,6 +452,16 @@ export class Table<
     return this.interceptor?.keys() ?? [];
   }
 
+  /**
+   * Notifies the subscribers of the key with its value, though the value is unchanged.
+   * The value can come to answer differently at the Core, such as when the Core applies
+   * an edit that the table already shows, so lists place the key again.
+   */
+  renotify(key: Key): void {
+    const value = this.entries.get(key);
+    if (value != null) this.notify({ variant: "set", key, value });
+  }
+
   private base(key: Key): Value | undefined {
     return this.interceptor?.base(key) ?? this.entries.get(key);
   }
