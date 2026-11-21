@@ -112,7 +112,8 @@ export const synnaxParamsZ = z.object({
     .function({ input: z.tuple([z.instanceof(Error)]), output: z.unknown() })
     .optional(),
   /** The clock that the cache's teardown grace reads. Defaults to the system clock. */
-  clock: z.function({ input: z.tuple([]), output: z.instanceof(TimeStamp) }).optional(),
+  // custom, not z.function: parse would wrap the clock and check every reading
+  clock: z.custom<() => TimeStamp>((v) => typeof v === "function").optional(),
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
