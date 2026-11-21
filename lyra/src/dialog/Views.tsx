@@ -9,7 +9,14 @@
 
 import "@/dialog/Views.css";
 
-import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { context } from "@/context";
@@ -26,6 +33,13 @@ export interface ViewsContextValue {
    * since a click in WebKit focuses no button.
    */
   open: (title: string, content: ReactNode, opener?: HTMLElement) => void;
+  /**
+   * Returns to the children, as Back does. A given callback runs once the children
+   * show, in place of the return of the focus to the opener. From a view that no longer
+   * shows, such as one that Back closed or that unmounted, it closes nothing, and the
+   * callback runs at once.
+   */
+  back: (then?: () => void) => void;
 }
 
 const [ViewsContext, useViewsContext] = context.create<ViewsContextValue>({
@@ -63,10 +77,28 @@ export const Views = ({
   ...rest
 }: ViewsProps): ReactElement => {
   const [view, setView] = useState<View | null>(null);
+  const titleID = useId();
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
+  const after = useRef<(() => void) | undefined>(undefined);
+  // A ref, so that a callback from a view that closed sees that it no longer shows.
+  const shown = useRef<View | null>(null);
+  useEffect(
+    () => () => {
+      shown.current = null;
+    },
+    [],
+  );
   useEffect(() => {
-    if (view != null || opener.current == null) return;
+    if (view != null) return;
+    const then = after.current;
+    after.current = undefined;
+    if (then != null) {
+      opener.current = null;
+      then();
+      return;
+    }
+    if (opener.current == null) return;
     if (opener.current.isConnected) opener.current.focus();
     else root.current?.focus();
     opener.current = null;
@@ -80,17 +112,23 @@ export const Views = ({
     else opener.current = active;
     // offsetWidth ignores the scale of the dialog's entrance animation.
     const width = root.current?.offsetWidth ?? 0;
-    setView({ title, content, width });
+    const next = { title, content, width };
+    shown.current = next;
+    setView(next);
     onViewingChange?.(true);
   };
-  const back = (): void => {
+  const close = (from: View | null, then?: () => void): void => {
+    if (from == null || from !== shown.current) return then?.();
+    shown.current = null;
+    after.current = then;
     setView(null);
     onViewingChange?.(false);
   };
+  const back = (then?: () => void): void => close(shown.current, then);
   const viewStyle: CSS.VarProperties | undefined =
     view == null ? undefined : { "--pluto-dialog-views-width": `${view.width}px` };
   return (
-    <ViewsContext value={{ open }}>
+    <ViewsContext value={{ open, back }}>
       <Flex.Box
         y
         gap={0}
@@ -117,19 +155,27 @@ export const Views = ({
                 size="small"
                 square
                 textColor={9}
-                onClick={back}
+                onClick={() => close(view)}
                 autoFocus
                 tooltip="Back"
                 aria-label="Back"
               >
                 <Icon.Arrow.Left />
               </Button.Button>
-              <Text.Text level="small" weight={500} overflow="fade">
+              <Text.Text id={titleID} level="small" weight={500} overflow="fade">
                 {view.title}
               </Text.Text>
             </Flex.Box>
-            <Flex.Box y gap="medium" className={CSS.BE("dialog-views", "view")}>
-              {view.content}
+            <Flex.Box
+              y
+              gap="medium"
+              role="group"
+              aria-labelledby={titleID}
+              className={CSS.BE("dialog-views", "view")}
+            >
+              <ViewsContext value={{ open, back: (then) => close(view, then) }}>
+                {view.content}
+              </ViewsContext>
             </Flex.Box>
           </>
         )}

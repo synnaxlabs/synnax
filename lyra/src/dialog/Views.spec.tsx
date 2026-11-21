@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -56,7 +57,7 @@ describe("Views", () => {
     fireEvent.change(c.getByLabelText("Name"), { target: { value: "pump" } });
     fireEvent.click(c.getByText("open"));
     expect(c.getByText("Edit item")).toBeTruthy();
-    expect(c.getByText("view body")).toBeTruthy();
+    expect(c.getByRole("group", { name: "Edit item" }).textContent).toBe("view body");
     expect(boxOf(c)?.classList.contains(viewing)).toBe(true);
     fireEvent.click(c.getByLabelText("Back"));
     expect(c.queryByText("view body")).toBeNull();
@@ -105,6 +106,71 @@ describe("Views", () => {
     expect(onViewingChange.mock.calls).toEqual([[true]]);
     fireEvent.click(c.getByLabelText("Back"));
     expect(onViewingChange.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("should run the callback of back once the children show, not the focus return", () => {
+    let childrenShown: boolean | undefined;
+    const Done = (): ReactElement => {
+      const { back } = Dialog.useViews();
+      return (
+        <button
+          onClick={() =>
+            back(() => {
+              childrenShown = c.queryByText("done") == null;
+            })
+          }
+        >
+          done
+        </button>
+      );
+    };
+    const c = renderViews(<Opener content={<Done />} />);
+    const opener = c.getByText("open");
+    fireEvent.click(opener);
+    fireEvent.click(c.getByText("done"));
+    expect(childrenShown).toBe(true);
+    expect(document.activeElement).not.toBe(opener);
+  });
+
+  it("should run the callback of back at once from a view that closed, and keep the view that shows", () => {
+    let back: ((then?: () => void) => void) | undefined;
+    const Late = (): ReactElement => {
+      back = Dialog.useViews().back;
+      return <span>view body</span>;
+    };
+    const Second = (): ReactElement => {
+      const { open } = Dialog.useViews();
+      return (
+        <button onClick={() => open("Second", <span>second body</span>)}>second</button>
+      );
+    };
+    const c = renderViews(
+      <>
+        <Opener content={<Late />} />
+        <Second />
+      </>,
+    );
+    fireEvent.click(c.getByText("open"));
+    fireEvent.click(c.getByLabelText("Back"));
+    fireEvent.click(c.getByText("second"));
+    const then = vi.fn();
+    act(() => back?.(then));
+    expect(then).toHaveBeenCalledOnce();
+    expect(c.getByText("second body")).toBeTruthy();
+  });
+
+  it("should run the callback of back at once after the views unmount", () => {
+    let back: ((then?: () => void) => void) | undefined;
+    const Late = (): ReactElement => {
+      back = Dialog.useViews().back;
+      return <span>view body</span>;
+    };
+    const c = renderViews(<Opener content={<Late />} />);
+    fireEvent.click(c.getByText("open"));
+    c.unmount();
+    const then = vi.fn();
+    back?.(then);
+    expect(then).toHaveBeenCalledOnce();
   });
 
   it("should throw from useViews outside a Dialog.Views", () => {

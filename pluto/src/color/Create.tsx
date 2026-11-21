@@ -7,29 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/color/Create.css";
-
 import { color, group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { uuid } from "@synnaxlabs/x";
+import { color as xcolor, uuid } from "@synnaxlabs/x";
 import {
   type KeyboardEvent,
   type ReactElement,
-  type ReactNode,
   useEffect,
   useRef,
   useState,
 } from "react";
 
 import { Access } from "@/access";
-import { NO_PALETTE } from "@/color/library";
-import { useCreate, useCreatePalette } from "@/color/queries";
-import { CSS } from "@/css";
+import { NO_PALETTE, usePalettes } from "@/color/library";
+import { createFormSchema, useCreate, useCreatePalette } from "@/color/queries";
+import { Fields } from "@/color/View";
 
 interface NameEntryProps {
   placeholder: string;
@@ -38,7 +39,6 @@ interface NameEntryProps {
   onCancel: () => void;
   /** If true, the create is saving, and nothing cancels it. */
   saving: boolean;
-  children?: ReactNode;
 }
 
 /** Asks for a name in place. Enter saves, Escape cancels, and a blank name cancels. */
@@ -47,7 +47,6 @@ const NameEntry = ({
   onSave,
   onCancel,
   saving,
-  children,
 }: NameEntryProps): ReactElement => {
   const [name, setName] = useState("");
   const save = (): void => {
@@ -67,8 +66,7 @@ const NameEntry = ({
     }
   };
   return (
-    <Flex.Box x align="center" gap="small" className={CSS.B("color-name-entry")}>
-      {children}
+    <Flex.Box x align="center" gap="small">
       <Input.Text
         value={name}
         onChange={setName}
@@ -105,66 +103,122 @@ const NameEntry = ({
   );
 };
 
+interface CreateViewProps {
+  /** The palette that the new color starts in. */
+  palette: group.Key;
+}
+
 /**
- * The "+" that ends a palette, and the name entry that it opens. A create moves the
- * focus to the new swatch, and a cancel moves it back to the "+".
+ * Creates a named color from a view of the picker, and links the value to it. It starts
+ * with the color that the picker shows. In the light theme, Dark starts on Auto, so an
+ * edit of Light carries to it.
  */
+const CreateView = ({ palette: initialPalette }: CreateViewProps): ReactElement => {
+  const { value, linked, link } = Color.usePicker();
+  const { back } = Dialog.useViews();
+  const { dark } = Theming.use();
+  const all = usePalettes().filter(
+    ({ key }) => key !== color.SERIES_PALETTE && key !== NO_PALETTE,
+  );
+  const updatable = Access.useUpdatable(all.map(({ key }) => group.resourceID(key)));
+  const palettes = all.filter(({ key }) => updatable.some((id) => id.key === key));
+  const [palette, setPalette] = useState(initialPalette);
+  const methods = Form.use<typeof createFormSchema>({
+    schema: createFormSchema,
+    values: {
+      name: "",
+      light: xcolor.construct(linked?.light ?? value),
+      dark: !dark
+        ? undefined
+        : linked == null
+          ? value
+          : linked.dark == null
+            ? undefined
+            : xcolor.construct(linked.dark),
+    },
+  });
+  const { updateAsync: create, variant } = useCreate();
+  const creating = variant === "loading";
+  const handleCreate = (): void => {
+    if (creating || !methods.validate()) return;
+    const { name, light, dark: darkValue } = methods.value();
+    const key = uuid.create();
+    void create({
+      key,
+      name: name.trim(),
+      light,
+      dark: darkValue,
+      ...(palette === NO_PALETTE ? {} : { group: palette }),
+    }).then((created) => {
+      if (created) back(() => link(key));
+    });
+  };
+  return (
+    <Form.Form<typeof createFormSchema> {...methods}>
+      <Fields
+        onEnter={handleCreate}
+        palette={
+          <Select.Simple<group.Key>
+            resourceName="palette"
+            searchHidden
+            value={palette}
+            onChange={setPalette}
+            triggerProps={{ size: "small" }}
+            grow
+            footer={
+              <>
+                <Menu.Divider />
+                <Select.Item<group.Key> itemKey={NO_PALETTE} textValue="No palette">
+                  <Icon.None />
+                  No palette
+                </Select.Item>
+              </>
+            }
+          >
+            {palettes.map(({ key, name }) => (
+              <Select.Item key={key} itemKey={key}>
+                {name}
+              </Select.Item>
+            ))}
+          </Select.Simple>
+        }
+        footer={
+          <Button.Button
+            variant="filled"
+            size="small"
+            status={creating ? "loading" : undefined}
+            onClick={handleCreate}
+          >
+            Create
+          </Button.Button>
+        }
+      />
+    </Form.Form>
+  );
+};
+
+/** The "+" that ends a palette. It opens a view that creates a color in the palette. */
 const Add = (): ReactElement => {
   const { palette, focused } = Color.usePalette();
-  const { value, linked, link } = Color.usePicker();
-  const { dark } = Theming.use();
-  const [naming, setNaming] = useState(false);
-  const { updateAsync: create, variant } = useCreate();
-  const saving = variant === "loading";
+  const { open } = Dialog.useViews();
   const plus = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (focused) plus.current?.focus();
   }, [focused]);
-  const cancel = (): void => {
-    plus.current?.focus();
-    setNaming(false);
-  };
-  const add = (
+  return (
     <Button.Button
       ref={plus}
       variant="text"
       square
       textColor={9}
-      className={CSS.cls(CSS.selected(naming))}
       tooltip="Create color"
       aria-label={`Create a color in ${palette.name}`}
-      disabled={saving}
-      onClick={() => setNaming((n) => !n)}
+      onClick={(e) =>
+        open("New color", <CreateView palette={palette.key} />, e.currentTarget)
+      }
     >
       <Icon.Add />
     </Button.Button>
-  );
-  if (!naming) return add;
-  const handleSave = async (name: string): Promise<void> => {
-    const key = uuid.create();
-    const created = await create({
-      key,
-      name,
-      light: linked?.light ?? value,
-      dark: linked == null ? (dark ? value : undefined) : linked.dark,
-      ...(palette.key === NO_PALETTE ? {} : { group: palette.key }),
-    });
-    if (!created) return;
-    setNaming(false);
-    link(key);
-  };
-  return (
-    <>
-      {add}
-      <NameEntry
-        placeholder="Color name"
-        onSave={handleSave}
-        onCancel={cancel}
-        saving={saving}
-      >
-        <Color.Swatch value={value} size="small" aria-label="New color" />
-      </NameEntry>
-    </>
   );
 };
 
@@ -176,8 +230,8 @@ const PaletteAdd = ({ palette }: PaletteAddProps): ReactElement | null =>
   Access.useUpdateGranted(group.resourceID(palette)) ? <Add /> : null;
 
 /**
- * Ends a palette with a "+" that creates a named color at its end and links the value
- * to it. The Series palette and palettes that the user cannot update get none.
+ * Ends a palette with a "+" that opens a view to create a named color at its end. The
+ * Series palette and palettes that the user cannot update get none.
  */
 export const CreateSwatch = (): ReactElement | null => {
   const { palette } = Color.usePalette();
