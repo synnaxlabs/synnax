@@ -31,8 +31,8 @@ import {
   RUNNING,
   type Status,
 } from "@/feature/embedded/testutil";
-import { License } from "@/platform/license";
-import { stubHub } from "@/platform/license/testutil";
+import type { Portal } from "@/platform/portal";
+import { createTestPortal, TEST_URL } from "@/platform/portal/testutil";
 import { Session } from "@/session";
 import { CaptureStatuses } from "@/testutil";
 
@@ -130,13 +130,14 @@ const stubScrolling = (log: HTMLElement): void => {
 const openDiagnostics = async (
   status: Status,
   handlers: Record<string, CommandHandler> = {},
+  portal?: Portal.Client,
 ) => {
   const supervisor = mockSupervisor(() => status, {
     supervisor_diagnostics: () => DIAGNOSTICS,
     supervisor_log_tail: () => LOG,
     ...handlers,
   });
-  const { wrapper, store } = await createDesktopWrapper();
+  const { wrapper, store } = await createDesktopWrapper(portal);
   let statuses: LyraStatus.NotificationSpec[] = [];
   render(
     <>
@@ -391,13 +392,19 @@ describe("Embedded diagnostics", () => {
   });
 
   it("should log the machine out before it erases the data", async () => {
-    const hub = stubHub(async () => new Response(null, { status: 204 }));
+    const { client: portal, fetch: hub } = createTestPortal(
+      async () => new Response(null, { status: 204 }),
+    );
     let atReset: Session.Account.SliceState | undefined;
-    const { store, statuses } = await openDiagnostics(RUNNING, {
-      supervisor_reset: () => {
-        atReset = Session.Account.selectSliceState(store.getState());
+    const { store, statuses } = await openDiagnostics(
+      RUNNING,
+      {
+        supervisor_reset: () => {
+          atReset = Session.Account.selectSliceState(store.getState());
+        },
       },
-    });
+      portal,
+    );
     store.dispatch(Session.Account.link(LINK));
     await holdErase();
     await waitFor(() => expect(atReset).toEqual(Session.Account.ZERO_SLICE_STATE));
@@ -406,19 +413,19 @@ describe("Embedded diagnostics", () => {
       expect(statuses().map(({ message }) => message)).toContain("Erasing all data"),
     );
     expect(hub).toHaveBeenCalledWith(
-      License.UNLINK_URL,
+      `${TEST_URL}/api/desktop/unlink`,
       expect.objectContaining({ headers: { authorization: "Bearer shh" } }),
     );
   });
 
   it("should erase the data when the hub cannot be reached", async () => {
     const offline = new TypeError("Failed to fetch");
-    stubHub(async () => {
+    const { client: portal } = createTestPortal(async () => {
       throw offline;
     });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     onTestFinished(() => logged.mockRestore());
-    const { commands, store } = await openDiagnostics(RUNNING);
+    const { commands, store } = await openDiagnostics(RUNNING, {}, portal);
     store.dispatch(Session.Account.link(LINK));
     await holdErase();
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_reset"));

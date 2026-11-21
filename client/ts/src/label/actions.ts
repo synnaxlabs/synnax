@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, patch, type record, zod } from "@synnaxlabs/x";
+import { patch, type record, zod } from "@synnaxlabs/x";
 import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { color } from "@/color";
 import {
   type Action,
   createReduceAll,
@@ -22,11 +23,14 @@ import type { Label } from "@/label/types.gen";
 
 // The part of a label that path actions edit. It checks shape but not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.
-const documentZ = z.object({ name: z.string(), color: color.colorZ }).strict();
+const documentZ = z.object({ name: z.string(), color: color.refZ }).strict();
 
 const applyPath = (state: Draft<Label>, action: patch.Action): HandlerResult => {
-  // The copy of the color keeps draft proxies out of the inverse.
-  const doc: record.Unknown = { name: state.name, color: [...state.color] };
+  // The snapshot of the color keeps draft proxies out of the inverse.
+  const doc: record.Unknown = {
+    name: state.name,
+    color: actions.snapshotDraft(state.color),
+  };
   const inverse = patch.apply(doc, action);
   if (inverse.length === 0) return actions.NO_OP_RESULT;
   const next = zod.parse(documentZ, doc, { label: "label" });

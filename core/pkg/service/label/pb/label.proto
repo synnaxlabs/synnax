@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package service.label.pb;
 
-import "x/go/color/pb/color.proto";
+import "core/pkg/service/color/pb/color.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/label/pb";
 
@@ -24,6 +24,7 @@ message Label {
   string key = 1;
   // name is a human-readable name for the label.
   string name = 2;
-  // color is the display color for visual identification of the label.
-  .x.color.pb.Color color = 3;
+  // color is the display color for visual identification of the label, a named color or
+  // a fixed color.
+  .service.color.pb.Ref color = 3;
 }

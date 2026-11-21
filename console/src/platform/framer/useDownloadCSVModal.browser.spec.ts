@@ -15,12 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Framer } from "@/platform/framer";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import {
-  captureBrowserDownloads,
-  type CapturedDownloads,
-  readBlob,
-  removeSaveFilePicker,
-} from "@/testutil";
+import { captureBrowserDownloads, type CapturedDownloads, readBlob } from "@/testutil";
 
 const TIME_RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(10));
 const MARCH_RANGE = new TimeRange(
@@ -135,7 +130,6 @@ describe("useDownloadCSVModal", () => {
   describe("with test client", () => {
     let downloads: CapturedDownloads;
     beforeEach(() => {
-      removeSaveFilePicker();
       downloads = captureBrowserDownloads();
     });
     afterEach(() => {

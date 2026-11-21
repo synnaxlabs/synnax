@@ -40,8 +40,6 @@ import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
-  Suspense,
-  useEffect,
   useImperativeHandle,
 } from "react";
 import { expect, onTestFailed, onTestFinished, TestRunner } from "vitest";
@@ -62,6 +60,7 @@ import {
   findDialogTriggerByText,
   HaulProvider,
   renderHookWithConsole,
+  renderLazy,
   renderSuspended,
   renderWithConsole,
   type RenderWithConsoleOptions,
@@ -491,16 +490,6 @@ const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
   }
 };
 
-interface LoadProbeProps {
-  onLoad: () => void;
-}
-
-// Commits with the form in its Suspense boundary, so it runs once the form loads.
-const LoadProbe = ({ onLoad }: LoadProbeProps): null => {
-  useEffect(onLoad, [onLoad]);
-  return null;
-};
-
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
@@ -537,48 +526,19 @@ const renderTaskFormTabSteps = async (
     onTestFinished(as.panels.watch(created.panelKey).onChange(() => {}));
     await as.panels.retrieve(created.panelKey);
   }
-  let loaded = false;
-  let loadError: unknown;
-  const result = await renderSuspended(
+  const result = await renderLazy(
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
         <HaulProvider>
           <Modals.Stack />
           <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-            <Suspense fallback={null}>
-              <Form taskKey={taskKey} />
-              <LoadProbe
-                onLoad={() => {
-                  loaded = true;
-                }}
-              />
-            </Suspense>
+            <Form taskKey={taskKey} />
             {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
           </PanelScopes>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
-    {
-      wrapper,
-      onCaughtError: (error, info) => {
-        loadError ??= error;
-        // React logs a caught error when the root sets no handler.
-        if (onCaughtError == null) console.error(error);
-        else onCaughtError(error, info);
-      },
-    },
-  );
-  // A lazy form loads its module after the first render. waitFor runs outside act,
-  // since act holds React's retry until its callback returns.
-  // A cold module load under coverage can outlast the default wait, so the wait ends
-  // only short of the test timeout.
-  await waitFor(
-    () => {
-      if (loaded) return;
-      // A boundary that caught an error in place of the form holds the cause.
-      throw new Error("The task form did not load", { cause: loadError });
-    },
-    { timeout: 10_000 },
+    { wrapper, onCaughtError },
   );
   return { ...result, ...created, store, tabKey: tab.key };
 };

@@ -17,6 +17,7 @@ import { License } from "@/feature/license";
 import { findPortalLink, HANDOFF_CODE } from "@/feature/license/testutil";
 import { License as PlatformLicense } from "@/platform/license";
 import { findButton } from "@/platform/modals/testutil";
+import { Portal } from "@/platform/portal";
 import { createConsoleWrapper } from "@/testutil";
 
 const renderInfo = async (client: Synnax): Promise<void> => {
@@ -60,9 +61,7 @@ describe("License.Info", () => {
     await waitFor(() => expect(button.getAttribute("aria-disabled")).toBeNull());
     fireEvent.click(button);
     await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(
-        PlatformLicense.joinFingerprint(info.fingerprint),
-      ),
+      expect(writeText).toHaveBeenCalledWith(Portal.joinFingerprint(info.fingerprint)),
     );
     await waitFor(() =>
       expect(button.querySelector(".lyra-icon--check")).not.toBeNull(),

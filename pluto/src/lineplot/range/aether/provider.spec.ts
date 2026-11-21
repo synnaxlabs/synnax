@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ranger as rangerClient } from "@synnaxlabs/client";
+import { color, type ranger as rangerClient } from "@synnaxlabs/client";
 import { createTestClient, testClientParams } from "@synnaxlabs/client/testutil";
-import { box, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  color as xcolor,
+  id,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -101,7 +108,7 @@ const createRanges = async (start: TimeStamp, spans: [number, number][]) =>
         start.add(TimeSpan.seconds(from)),
         start.add(TimeSpan.seconds(to)),
       ),
-      color: "#7C3AED",
+      color: { type: "fixed" as const, value: "#7C3AED" },
     })),
   );
 
@@ -117,7 +124,7 @@ describe("Provider", () => {
         Array.from({ length: count }, () => ({
           name: `annotation-${id.create()}`,
           timeRange,
-          color: "#7C3AED",
+          color: { type: "fixed" as const, value: "#7C3AED" },
         })),
       );
     await createMany(5);
@@ -139,7 +146,7 @@ describe("Provider", () => {
       {
         name: `open-${id.create()}`,
         timeRange: new TimeRange(start, TimeStamp.MAX),
-        color: "#7C3AED",
+        color: { type: "fixed", value: "#7C3AED" },
       },
     ]);
     // A fresh provider per viewport, since a requery keeps the previous answer until
@@ -282,6 +289,63 @@ describe("Provider", () => {
     provider.setState((s) => ({ ...s, cursor: { x: 650, y: -14 } }));
     provider.render(props);
     expect(provider.state.hovered).toBeNull();
+  });
+
+  it("draws a bar for a range with a named color", async () => {
+    const start = createAnchor();
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    onTestFinished(async () => await client.colors.delete(named.key));
+    await create([
+      {
+        name: `named-${id.create()}`,
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+        color: { type: "named", key: named.key },
+      },
+    ]);
+    const provider = mount();
+    const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+    await pollDrawn(() => {
+      provider.render(props);
+      return provider.state.count;
+    }).toEqual(1);
+  });
+
+  it("repaints a bar when its named color changes", async () => {
+    const start = createAnchor();
+    const named = await client.colors.create({
+      name: `strip-${id.create()}`,
+      light: "#7C3AED",
+    });
+    onTestFinished(async () => await client.colors.delete(named.key));
+    await create([
+      {
+        name: `repaint-${id.create()}`,
+        timeRange: new TimeRange(start, start.add(TimeSpan.seconds(4))),
+        color: { type: "named", key: named.key },
+      },
+    ]);
+    const recorder = canvasTest.record();
+    const provider = mount(recorder);
+    const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+    const fills = (): unknown[] => {
+      recorder.upper2d.calls.length = 0;
+      provider.render(props);
+      return recorder.upper2d.calls
+        .filter(({ op }) => op === "set:fillStyle")
+        .map(({ args }) => args[0]);
+    };
+    let before: unknown[] = [];
+    await pollDrawn(() => {
+      before = fills();
+      return provider.state.count;
+    }).toEqual(1);
+    await client.colors.dispatch(named.key, [
+      color.set({ path: ["light"], value: xcolor.construct("#123456") }),
+    ]);
+    await expect.poll(fills).not.toEqual(before);
   });
 
   it("keeps a range below the range that holds it", async () => {
@@ -429,7 +493,7 @@ describe("Provider", () => {
             now.sub(TimeSpan.seconds(90)),
             now.add(TimeSpan.hours(1)),
           ),
-          color: "#7C3AED",
+          color: { type: "fixed", value: "#7C3AED" },
         },
       ]);
       return rng;
@@ -572,7 +636,7 @@ describe("Provider", () => {
             now.add(TimeSpan.seconds(30)),
             now.add(TimeSpan.minutes(10)),
           ),
-          color: "#7C3AED",
+          color: { type: "fixed", value: "#7C3AED" },
         },
       ]);
       await expectRedrawAt(now, ahead(now), rng.timeRange.start);
