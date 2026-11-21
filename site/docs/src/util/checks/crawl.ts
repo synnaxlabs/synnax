@@ -23,7 +23,7 @@ const listFiles = (root: string): string[] => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const child = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(child);
-      else files.push(path.relative(root, child));
+      else files.push(path.relative(root, child).split(path.sep).join("/"));
     }
   };
   walk(root);
