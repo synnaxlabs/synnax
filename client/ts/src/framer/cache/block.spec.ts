@@ -22,8 +22,8 @@ import {
   countBefore,
   RAW_LEVEL,
   RawBlock,
-  rawIndex,
   rawKey,
+  rawTile,
   split,
 } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
@@ -54,14 +54,14 @@ describe("block", () => {
   describe("rawIndex", () => {
     it("should return the index of the raw block that holds a timestamp", () => {
       const span = tileSpan(RAW_LEVEL);
-      expect(rawIndex(TimeStamp.ZERO)).toBe(0);
-      expect(rawIndex(new TimeStamp(span.valueOf() - 1n))).toBe(0);
-      expect(rawIndex(new TimeStamp(span.valueOf()))).toBe(1);
-      expect(rawIndex(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
+      expect(rawTile(TimeStamp.ZERO)).toBe(0);
+      expect(rawTile(new TimeStamp(span.valueOf() - 1n))).toBe(0);
+      expect(rawTile(new TimeStamp(span.valueOf()))).toBe(1);
+      expect(rawTile(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
     });
 
     it("should round the index of a timestamp before the epoch down", () => {
-      expect(rawIndex(new TimeStamp(-1n))).toBe(-1);
+      expect(rawTile(new TimeStamp(-1n))).toBe(-1);
     });
   });
 

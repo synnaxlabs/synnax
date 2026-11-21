@@ -12,7 +12,6 @@ package state
 import (
 	"math"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -107,9 +106,9 @@ func (c *core) record(r log.Record) error {
 
 func (c *core) reserve(r *log.Reserve) error {
 	switch {
-	case r.Alignments > uint64(alignment.ZeroLeading):
+	case r.Alignments > uint64(telem.LeadingDomain):
 		return refuse("reserve of alignment number limit %d, above %d", r.Alignments,
-			alignment.ZeroLeading)
+			telem.LeadingDomain)
 	case r.Segments < c.limits.Segments || r.Alignments < c.limits.Alignments:
 		return refuse("reserve of limits %d and %d, below %d and %d", r.Segments,
 			r.Alignments, c.limits.Segments, c.limits.Alignments)

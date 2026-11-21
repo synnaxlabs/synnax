@@ -14,10 +14,25 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
+
+// Reserve raises the key counter of the host so that no new channel gets the key of a
+// channel in keys that the host leases. It ignores the keys of other leaseholders.
+func (s *Service) Reserve(ctx context.Context, keys Keys) error {
+	var highest LocalKey
+	for _, k := range keys {
+		if k.Lease() == s.cfg.HostKey {
+			highest = max(highest, k.LocalKey())
+		}
+	}
+	if current := LocalKey(s.leasedCounter.ctr.Value()); highest > current {
+		_, err := s.leasedCounter.add(ctx, highest-current)
+		return err
+	}
+	return nil
+}
 
 // Allocate assigns local keys to the provided new channels (those with a zero
 // LocalKey). The returned channels carry their assigned keys, in the same order as the
@@ -57,16 +72,6 @@ func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, 
 		}
 	}
 	return out, nil
-}
-
-// Create creates the storage channels for the provided channels, which carry the keys
-// that Allocate assigned. Free channels have no storage registration and are skipped.
-func (s *Service) Create(ctx context.Context, channels []Channel) error {
-	stored := lo.Reject(channels, func(c Channel, _ int) bool { return c.Key().Free() })
-	return s.cfg.TS.CreateChannel(
-		ctx,
-		lo.Map(stored, func(c Channel, _ int) ts.Channel { return c.Storage() })...,
-	)
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter

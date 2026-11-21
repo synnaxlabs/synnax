@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -102,14 +101,12 @@ var _ = Describe("ReadUnary", func() {
 
 	It("Should return the samples that overlap the range", func(ctx SpecContext) {
 		db := DeferClose(open(ctx))
-		w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-			Start:     10 * telem.SecondTS,
-			Authority: control.AuthorityAbsolute,
-			Subject:   control.Subject{Key: "writer"},
+		w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+			Start: 10 * telem.SecondTS,
 		}))
 		MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 		MustSucceed(w.Commit(ctx))
-		MustSucceed(w.Close())
+		Expect(w.Close()).To(Succeed())
 		frame := MustSucceed(testutil.ReadUnary(
 			ctx,
 			db,

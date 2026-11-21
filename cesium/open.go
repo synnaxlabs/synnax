@@ -18,10 +18,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ import (
 // Open opens a Cesium database on the specified directory. If the directory is not
 // empty, Open attempts to parse its subdirectories into Cesium channels. If any of the
 // subdirectories are not in the Cesium format, an error is logged and Open continues
-// execution. ctx covers only the open. Writes and streamers need DB.Run to run.
+// execution. ctx covers only the open.
 func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	o, err := newOptions(dirname, opts...)
 	if err != nil {
@@ -41,6 +41,22 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
+	if o.pointerLog {
+		e, err := openEngine(o)
+		if err != nil {
+			return nil, err
+		}
+		db := &DB{
+			options:        o,
+			closed:         &atomic.Bool{},
+			historyChanges: observe.New[HistoryChange](),
+			engine:         e,
+		}
+		if db.mu.channels, err = loadChannels(ctx, o); err != nil {
+			return nil, errors.Join(err, db.Close())
+		}
+		return db, nil
+	}
 
 	info, err := o.fs.List("")
 	if err != nil {
@@ -52,9 +68,23 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		historyChanges: observe.New[HistoryChange](),
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
-	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
+	db.mu.virtualDirs = set.New[channel.Key]()
+	db.mu.dbs.hidden = make(map[channel.Key]unary.DB)
+	db.mu.skipped = set.New[channel.Key]()
+	if db.intents, db.corruptIntents, err = openIntents(o.fs); err != nil {
+		return nil, err
+	}
+	if db.corruptIntents > 0 {
+		db.L.Warn(
+			"skipped corrupt delete intents, whose data Sweep keeps",
+			zap.Int("records", db.corruptIntents),
+		)
+	}
 	var detached []string
 	for _, i := range info {
+		if i.Name() == intentsFile {
+			continue
+		}
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
 				"found unknown file %s in database root directory",
@@ -62,7 +92,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		if strings.Contains(i.Name(), deletedDirInfix) {
+		// The suffix of a v0.61 or v0.62 removal also carries a random number.
+		if strings.Contains(i.Name(), deletedDirSuffix) {
 			detached = append(detached, i.Name())
 			continue
 		}
@@ -77,31 +108,26 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
+		// A delete intends to drop the key, so Sweep decides its fate.
+		if db.intents.has(key) {
+			db.mu.skipped.Add(key)
+			continue
+		}
+		if err = db.openChannel(ctx, Channel{Key: key}); err != nil {
 			return nil, err
 		}
 	}
 
-	db.relay = newRelay(o)
-	db.removeDirs(detached...)
+	for _, name := range detached {
+		if err := db.fs.Remove(name); err != nil {
+			db.L.Error(
+				"failed to remove deleted channel data",
+				zap.String("dir", name),
+				zap.Error(err),
+			)
+		}
+	}
 	return db, nil
-}
-
-func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
-		return nil
-	}
-	v, err := virtual.Open(ctx, virtual.Config{
-		MetaCodec:       db.metaCodec,
-		FS:              fs,
-		Channel:         ch,
-		Instrumentation: db.Instrumentation,
-	})
-	if err != nil {
-		return err
-	}
-	db.mu.dbs.virtual[ch.Key] = *v
-	return nil
 }
 
 func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
@@ -155,7 +181,7 @@ func (db *DB) openIndex(ctx context.Context, key ChannelKey) (unary.DB, error) {
 	if idxDB, ok := db.mu.dbs.unary[key]; ok {
 		return idxDB, nil
 	}
-	if err := db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
+	if err := db.openChannel(ctx, Channel{Key: key}); err != nil {
 		return unary.DB{}, err
 	}
 	idxDB, ok := db.mu.dbs.unary[key]
@@ -165,14 +191,18 @@ func (db *DB) openIndex(ctx context.Context, key ChannelKey) (unary.DB, error) {
 	return idxDB, nil
 }
 
-func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
+// openChannel opens the channel in the directory of ch.Key. A directory whose metadata
+// names a virtual channel holds no storage: openChannel records its key and leaves the
+// directory in place.
+func (db *DB) openChannel(ctx context.Context, ch Channel) error {
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
-	err = db.openVirtual(ctx, ch, fs)
-	if errors.Is(err, virtual.ErrNotVirtual) {
-		err = db.openUnary(ctx, ch, fs)
+	err = db.openUnary(ctx, ch, fs)
+	if errors.Is(err, unary.ErrVirtual) {
+		db.mu.virtualDirs.Add(ch.Key)
+		return nil
 	}
 	return errors.Skip(err, meta.ErrIgnoreChannel)
 }

@@ -33,7 +33,10 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
         factory,
         ctx->bus(),
         ctx->control_states(),
-        ctx->rack_key()
+        ctx->rack_key(),
+        [client = ctx->client](const std::vector<synnax::channel::Key> &keys) {
+            return client->channels.retrieve(keys);
+        }
     );
 }
 

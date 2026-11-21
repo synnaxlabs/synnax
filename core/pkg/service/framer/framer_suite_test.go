@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -52,6 +52,8 @@ func newFramerConfig(ctx context.Context, n testutil.Node) framer.ServiceConfig 
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: n.Channel,
+		TS:      n.Storage.TS,
+		Framer:  n.Framer,
 		DB:      n.DB,
 		HostKey: n.Identity.HostKey,
 		Status:  statusSvc,

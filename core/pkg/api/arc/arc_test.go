@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -333,27 +334,28 @@ var _ = Describe("Service", func() {
 				out := channel.Channel{
 					Name: "cc_out", DataType: telem.Int64T, Virtual: true,
 				}
-				inner := channel.Channel{
-					Name:       "cc_inner",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cc_base + 1",
-				}
-				outer := channel.Channel{
-					Name:       "cc_outer",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cc_inner * 2",
-				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
-					for _, ch := range []*channel.Channel{&base, &out, &inner, &outer} {
+					for _, ch := range []*channel.Channel{&base, &out} {
 						if err := w.Create(ctx, ch); err != nil {
 							return err
 						}
 					}
 					return nil
 				})).To(Succeed())
+				calcs := MustSucceed(creator.CreateMany(ctx, []calctestutil.Calculation{
+					{
+						Name:       "cc_inner",
+						DataType:   telem.Int64T,
+						Expression: "return cc_base + 1",
+					},
+					{
+						Name:       "cc_outer",
+						DataType:   telem.Int64T,
+						Expression: "return cc_inner * 2",
+					},
+				}))
+				inner, outer := calcs[0], calcs[1]
 				a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "cc_automation",
 					Source: arc.Source{Variant: arc.TextSource{

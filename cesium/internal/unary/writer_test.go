@@ -13,7 +13,6 @@ import (
 	"context"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,12 +20,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -66,76 +64,66 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
-					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"},
+					w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+						Start: 10 * telem.SecondTS,
 					}))
-					Expect(t.Occurred()).To(BeTrue())
 					v := MustSucceed(
 						w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)),
 					)
-					Expect(v).To(Equal(alignment.Leading(1, 0)))
+					Expect(v).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(
 						MustSucceed(
 							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21)),
 						),
-					).To(Equal(alignment.Leading(1, 6)))
+					).To(Equal(telem.LeadingAlignment(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(21*telem.SecondTS + 1))
-					t = MustSucceed(w.Close())
-					Expect(t.Occurred()).To(BeTrue())
-					Expect(db.LeadingControlState()).To(BeNil())
+					Expect(w.Close()).To(Succeed())
 				})
 				Specify("WriteCursor", func(ctx SpecContext) {
 					By(
 						"Reserving a fresh leading domain when nothing controls the channel",
 					)
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(1, 0)))
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(2, 0)))
-					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "leading"},
+					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(1, 0)))
+					Expect(db.WriteCursor(0)).To(Equal(telem.LeadingAlignment(2, 0)))
+					w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+						Start: 10 * telem.SecondTS,
 					}))
-					Expect(t.Occurred()).To(BeTrue())
 
 					By("Tracking the controlling writer's next write position")
 					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10)))).
-						To(Equal(alignment.Leading(3, 0)))
+						To(Equal(telem.LeadingAlignment(3, 0)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(alignment.Leading(3, 1)))
+					).To(Equal(telem.LeadingAlignment(3, 1)))
 					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(11, 12)))).
-						To(Equal(alignment.Leading(3, 1)))
+						To(Equal(telem.LeadingAlignment(3, 1)))
 					Expect(
 						db.WriteCursor(10 * telem.SecondTS),
-					).To(Equal(alignment.Leading(3, 3)))
+					).To(Equal(telem.LeadingAlignment(3, 3)))
 
-					t = MustSucceed(w.Close())
-					Expect(t.Occurred()).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
 				})
 				Specify(
 					"WriteCursor only tracks the region covering the timestamp",
 					func(ctx SpecContext) {
-						w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							End:     15 * telem.SecondTS,
-							Subject: control.Subject{Key: "bounded"},
+						w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
+							End:   15 * telem.SecondTS,
 						}))
-						Expect(t.Occurred()).To(BeTrue())
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 
 						By("Tracking the bounded region for a timestamp inside it")
 						Expect(
 							db.WriteCursor(11 * telem.SecondTS),
-						).To(Equal(alignment.Leading(1, 3)))
+						).To(Equal(telem.LeadingAlignment(1, 3)))
 
 						By(
 							"Reserving a fresh domain for a timestamp the region does not cover",
 						)
 						Expect(
 							db.WriteCursor(20 * telem.SecondTS),
-						).To(Equal(alignment.Leading(2, 0)))
-						t = MustSucceed(w.Close())
-						Expect(t.Occurred()).To(BeTrue())
+						).To(Equal(telem.LeadingAlignment(2, 0)))
+						Expect(w.Close()).To(Succeed())
 					},
 				)
 				Describe("Order", func() {
@@ -144,18 +132,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						cfg unary.WriterConfig,
 					) *unary.Writer {
 						GinkgoHelper()
-						w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+						w := MustSucceed(db.OpenWriter(ctx, cfg))
 						return w
 					}
-					config := func(
-						start telem.TimeStamp,
-						key string,
-						authority control.Authority,
-					) unary.WriterConfig {
+					config := func(start telem.TimeStamp) unary.WriterConfig {
 						return unary.WriterConfig{
-							Start:     start,
-							Subject:   control.Subject{Key: key},
-							Authority: authority,
+							Start: start,
 						}
 					}
 					outOfOrder := SatisfyAll(
@@ -170,7 +152,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					DescribeTable(
 						"Should reject an index series that goes back",
 						func(ctx SpecContext, prior, rejected telem.Series) {
-							w := open(ctx, config(10*telem.SecondTS, "foo", 1))
+							w := open(ctx, config(10*telem.SecondTS))
 							if prior.Len() > 0 {
 								MustSucceed(w.Write(prior))
 								MustSucceed(w.Commit(ctx))
@@ -179,7 +161,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
 							Expect(MustSucceed(w.Commit(ctx))).
 								To(Equal(20*telem.SecondTS + 1))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							expectStored(ctx, telem.NewSeriesV(append(
 								prior.Unmarshal[telem.TimeStamp](),
 								20*telem.SecondTS,
@@ -197,47 +179,47 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						),
 					)
 					It("Should allow equal timestamps", func(ctx SpecContext) {
-						w := open(ctx, config(10*telem.SecondTS, "foo", 1))
+						w := open(ctx, config(10*telem.SecondTS))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 10)))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
 						Expect(MustSucceed(w.Commit(ctx))).
 							To(Equal(11*telem.SecondTS + 1))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						expectStored(ctx, telem.NewSeriesSecondsTSV(10, 10, 10, 11))
 					})
 					It(
 						"Should not check the order of stream only writes",
 						func(ctx SpecContext) {
-							live := open(ctx, config(10*telem.SecondTS, "live", 1))
+							live := open(ctx, config(10*telem.SecondTS))
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
 							MustSucceed(live.Commit(ctx))
-							cfg := config(10*telem.SecondTS, "stream", 2)
+							cfg := config(10 * telem.SecondTS)
 							cfg.Persist = new(false)
 							stream := open(ctx, cfg)
 							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(100)))
 							MustSucceed(stream.Write(telem.NewSeriesSecondsTSV(99)))
-							MustSucceed(stream.Close())
+							Expect(stream.Close()).To(Succeed())
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(11)))
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
-							MustSucceed(live.Close())
+							Expect(live.Close()).To(Succeed())
 							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
 						},
 					)
 					It(
 						"Should reject a writer that writes behind the data of another",
 						func(ctx SpecContext) {
-							live := open(ctx, config(100*telem.SecondTS, "live", 1))
+							live := open(ctx, config(100*telem.SecondTS))
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(100, 101)))
 							MustSucceed(live.Commit(ctx))
-							high := open(ctx, config(10*telem.SecondTS, "high", 2))
+							high := open(ctx, config(10*telem.SecondTS))
 							Expect(high.Write(telem.NewSeriesSecondsTSV(10, 11))).
 								Error().To(outOfOrder)
-							MustSucceed(high.Close())
+							Expect(high.Close()).To(Succeed())
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(102, 103)))
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(103*telem.SecondTS + 1))
-							MustSucceed(live.Close())
+							Expect(live.Close()).To(Succeed())
 							expectStored(
 								ctx,
 								telem.NewSeriesSecondsTSV(100, 101, 102, 103),
@@ -247,43 +229,35 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should commit to the last sample of any writer after a handoff",
 						func(ctx SpecContext) {
-							live := open(ctx, config(10*telem.SecondTS, "live", 1))
+							live := open(ctx, config(10*telem.SecondTS))
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							high := open(ctx, config(10*telem.SecondTS, "high", 2))
+							high := open(ctx, config(10*telem.SecondTS))
 							Expect(MustSucceed(high.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
-							MustSucceed(high.Close())
-							MustSucceed(live.Close())
+							Expect(high.Close()).To(Succeed())
+							Expect(live.Close()).To(Succeed())
 							expectStored(ctx, telem.NewSeriesSecondsTSV(10, 11))
 						},
 					)
 				})
 				Describe("EndDomain", func() {
-					open := func(
-						ctx SpecContext,
-						key string,
-						authority control.Authority,
-					) *unary.Writer {
+					open := func(ctx SpecContext) *unary.Writer {
 						GinkgoHelper()
-						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
-							Subject:   control.Subject{Key: key},
-							Authority: authority,
+						w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						}))
 						return w
 					}
 					boundedConfig := func(start telem.TimeStamp) unary.WriterConfig {
 						return unary.WriterConfig{
-							Start:     start,
-							Subject:   control.Subject{Key: "backfill"},
-							Authority: 1,
-							Bounded:   new(true),
+							Start:   start,
+							Bounded: new(true),
 						}
 					}
 					It(
 						"Should start a new domain in a new alignment domain",
 						func(ctx SpecContext) {
-							w := open(ctx, "live", 2)
+							w := open(ctx)
 							first := MustSucceed(
 								w.Write(telem.NewSeriesSecondsTSV(10, 11)),
 							)
@@ -301,7 +275,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								To(Equal(second.AddSamples(2)))
 							Expect(MustSucceed(w.Commit(ctx))).
 								To(Equal(21*telem.SecondTS + 1))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							Expect(MustSucceed(db.HasDataFor(
 								ctx,
 								(12 * telem.SecondTS).Range(20*telem.SecondTS),
@@ -311,7 +285,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should hold the time between the domains until the next write",
 						func(ctx SpecContext) {
-							w := open(ctx, "live", 2)
+							w := open(ctx)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
 							MustSucceed(w.Commit(ctx))
 							Expect(w.EndDomain(ctx)).To(Succeed())
@@ -319,7 +293,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								ctx,
 								boundedConfig(15*telem.SecondTS),
 							)).Error().To(And(
-								MatchError(control.ErrUnauthorized),
+								MatchError(claim.ErrClaimed),
 								MatchError(ContainSubstring(
 									"cannot access time range",
 								)),
@@ -327,7 +301,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							w.SetDomainStart(20 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
 							MustSucceed(w.Commit(ctx))
-							backfill, _ := MustSucceed2(
+							backfill := MustSucceed(
 								db.OpenWriter(ctx, boundedConfig(15*telem.SecondTS)),
 							)
 							MustSucceed(
@@ -341,45 +315,25 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									ContainSubstring("cannot write to time range"),
 								),
 							))
-							MustSucceed(backfill.Close())
-							MustSucceed(w.Close())
+							Expect(backfill.Close()).To(Succeed())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should do nothing when the domain holds no data",
 						func(ctx SpecContext) {
-							w := open(ctx, "live", 2)
+							w := open(ctx)
 							Expect(w.EndDomain(ctx)).To(Succeed())
 							Expect(db.WriteCursor(10 * telem.SecondTS)).
-								To(Equal(alignment.Leading(1, 0)))
+								To(Equal(telem.LeadingAlignment(1, 0)))
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
 							MustSucceed(w.Commit(ctx))
-							MustSucceed(w.Close())
-						},
-					)
-					It(
-						"Should fail while another writer holds control",
-						func(ctx SpecContext) {
-							low := open(ctx, "lo", 1)
-							high := open(ctx, "hi", 2)
-							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							MustSucceed(high.Commit(ctx))
-							Expect(low.EndDomain(ctx)).To(And(
-								MatchError(control.ErrUnauthorized),
-								MatchError(
-									ContainSubstring("has no control authority"),
-								),
-							))
-							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(12)))
-							Expect(MustSucceed(high.Commit(ctx))).
-								To(Equal(12*telem.SecondTS + 1))
-							MustSucceed(high.Close())
-							MustSucceed(low.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It("Should fail on a closed writer", func(ctx SpecContext) {
-						w := open(ctx, "live", 2)
-						MustSucceed(w.Close())
+						w := open(ctx)
+						Expect(w.Close()).To(Succeed())
 						Expect(w.EndDomain(ctx)).To(MatchError(unary.ErrWriterClosed))
 					})
 				})
@@ -388,10 +342,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should move forward to the first sample",
 						func(ctx SpecContext) {
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Subject:   control.Subject{Key: "live"},
-								Authority: 2,
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(20 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
@@ -402,26 +354,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.Delete(
 								ctx,
 								(20 * telem.SecondTS).Range(21*telem.SecondTS),
-							)).To(MatchError(control.ErrUnauthorized))
-							MustSucceed(w.Close())
+							)).To(MatchError(claim.ErrClaimed))
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should stay at the start of a domain the writer did not open",
 						func(ctx SpecContext) {
-							low, _ := MustSucceed2(
+							low := MustSucceed(
 								db.OpenWriter(ctx, unary.WriterConfig{
-									Start:     10 * telem.SecondTS,
-									Subject:   control.Subject{Key: "lo"},
-									Authority: 2,
+									Start: 10 * telem.SecondTS,
 								}),
 							)
 							MustSucceed(low.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							high, _ := MustSucceed2(
+							high := MustSucceed(
 								db.OpenWriter(ctx, unary.WriterConfig{
-									Start:     10 * telem.SecondTS,
-									Subject:   control.Subject{Key: "hi"},
-									Authority: 3,
+									Start: 10 * telem.SecondTS,
 								}),
 							)
 							high.SetDomainStart(20 * telem.SecondTS)
@@ -429,33 +377,25 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.Delete(
 								ctx,
 								(10 * telem.SecondTS).Range(11*telem.SecondTS),
-							)).To(MatchError(control.ErrUnauthorized))
-							MustSucceed(high.Close())
-							MustSucceed(low.Close())
+							)).To(MatchError(claim.ErrClaimed))
+							Expect(high.Close()).To(Succeed())
+							Expect(low.Close()).To(Succeed())
 						},
 					)
 				})
 
 				Describe("Bounded", func() {
-					openLive := func(
-						ctx SpecContext,
-						start telem.TimeStamp,
-						authority control.Authority,
-					) *unary.Writer {
+					openLive := func(ctx SpecContext, start telem.TimeStamp) *unary.Writer {
 						GinkgoHelper()
-						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     start,
-							Subject:   control.Subject{Key: "live"},
-							Authority: authority,
+						w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+							Start: start,
 						}))
 						return w
 					}
 					boundedConfig := func(start telem.TimeStamp) unary.WriterConfig {
 						return unary.WriterConfig{
-							Start:     start,
-							Subject:   control.Subject{Key: "backfill"},
-							Authority: 1,
-							Bounded:   new(true),
+							Start:   start,
+							Bounded: new(true),
 						}
 					}
 					openBounded := func(
@@ -463,11 +403,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						start telem.TimeStamp,
 					) *unary.Writer {
 						GinkgoHelper()
-						w, _ := MustSucceed2(db.OpenWriter(ctx, boundedConfig(start)))
+						w := MustSucceed(db.OpenWriter(ctx, boundedConfig(start)))
 						return w
 					}
 					It("Should write behind a live writer", func(ctx SpecContext) {
-						live := openLive(ctx, 10*telem.SecondTS, 2)
+						live := openLive(ctx, 10*telem.SecondTS)
 						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
 						Expect(MustSucceed(live.Commit(ctx))).
 							To(Equal(11*telem.SecondTS + 1))
@@ -478,8 +418,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(12)))
 						Expect(MustSucceed(live.Commit(ctx))).
 							To(Equal(12*telem.SecondTS + 1))
-						MustSucceed(w.Close())
-						MustSucceed(live.Close())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
 						Expect(MustSucceed(db.HasDataFor(
 							ctx,
 							(1 * telem.SecondTS).Range(3*telem.SecondTS),
@@ -487,66 +427,61 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 					It("Should let a live writer open after it", func(ctx SpecContext) {
 						w := openBounded(ctx, 1*telem.SecondTS)
-						live := openLive(ctx, 10*telem.SecondTS, 1)
+						live := openLive(ctx, 10*telem.SecondTS)
 						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
 						MustSucceed(live.Commit(ctx))
 						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Close())
-						MustSucceed(live.Close())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
 					})
 					It(
 						"Should run next to another bounded writer",
 						func(ctx SpecContext) {
 							w1 := openBounded(ctx, 1*telem.SecondTS)
 							cfg := boundedConfig(5 * telem.SecondTS)
-							cfg.Subject.Key = "other"
-							w2, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+							w2 := MustSucceed(db.OpenWriter(ctx, cfg))
 							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(5, 6)))
 							MustSucceed(w2.Commit(ctx))
 							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(1, 2)))
 							MustSucceed(w1.Commit(ctx))
-							MustSucceed(w1.Close())
-							MustSucceed(w2.Close())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
 						},
 					)
-					DescribeTable(
+					It(
 						"Should fail to open where a live writer holds the start",
-						func(ctx SpecContext, authority control.Authority) {
-							live := openLive(ctx, 10*telem.SecondTS, 2)
+						func(ctx SpecContext) {
+							live := openLive(ctx, 10*telem.SecondTS)
 							cfg := boundedConfig(15 * telem.SecondTS)
-							cfg.Authority = authority
 							Expect(db.OpenWriter(ctx, cfg)).Error().To(And(
-								MatchError(control.ErrUnauthorized),
+								MatchError(claim.ErrClaimed),
 								MatchError(ContainSubstring(
 									"cannot access time range",
 								)),
 							))
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
 							MustSucceed(live.Commit(ctx))
-							MustSucceed(live.Close())
+							Expect(live.Close()).To(Succeed())
 						},
-						Entry("with less authority", control.Authority(1)),
-						Entry("with equal authority", control.Authority(2)),
-						Entry("with more authority", control.AuthorityAbsolute),
 					)
 					It(
 						"Should fail to open with no start next to a live writer",
 						func(ctx SpecContext) {
-							live := openLive(ctx, 10*telem.SecondTS, 2)
+							live := openLive(ctx, 10*telem.SecondTS)
 							Expect(db.OpenWriter(ctx, boundedConfig(0))).Error().To(And(
-								MatchError(control.ErrUnauthorized),
+								MatchError(claim.ErrClaimed),
 								MatchError(ContainSubstring(
 									"cannot access time range",
 								)),
 							))
-							MustSucceed(live.Close())
+							Expect(live.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should fail a commit that reaches a live writer",
 						func(ctx SpecContext) {
-							live := openLive(ctx, 10*telem.SecondTS, 2)
+							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 10)))
 							Expect(w.Commit(ctx)).Error().To(And(
@@ -555,24 +490,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									ContainSubstring("cannot write to time range"),
 								),
 							))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(11*telem.SecondTS + 1))
-							MustSucceed(live.Close())
+							Expect(live.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should commit up to the start of a live writer",
 						func(ctx SpecContext) {
-							live := openLive(ctx, 10*telem.SecondTS, 2)
+							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
 							Expect(
 								w.CommitWithEnd(ctx, 10*telem.SecondTS, nil),
 							).To(Succeed())
-							MustSucceed(w.Close())
-							MustSucceed(live.Close())
+							Expect(w.Close()).To(Succeed())
+							Expect(live.Close()).To(Succeed())
 						},
 					)
 					It(
@@ -590,7 +525,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(it.SeekFirst(ctx)).To(BeFalse())
 							g.Publish()
 							Expect(it.SeekFirst(ctx)).To(BeTrue())
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
@@ -610,13 +545,13 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									ContainSubstring("overlaps with existing data"),
 								),
 							))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should give way to a live writer that moves back over uncommitted time",
 						func(ctx SpecContext) {
-							live := openLive(ctx, 10*telem.SecondTS, 2)
+							live := openLive(ctx, 10*telem.SecondTS)
 							w := openBounded(ctx, 1*telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 8)))
 							live.SetDomainStart(5 * telem.SecondTS)
@@ -629,20 +564,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									ContainSubstring("cannot write to time range"),
 								),
 							))
-							MustSucceed(w.Close())
-							MustSucceed(live.Close())
+							Expect(w.Close()).To(Succeed())
+							Expect(live.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should move back to a first sample before its start",
 						func(ctx SpecContext) {
-							w, _ := MustSucceed2(db.OpenWriter(ctx, boundedConfig(0)))
+							w := MustSucceed(db.OpenWriter(ctx, boundedConfig(0)))
 							w.SetDomainStart(1 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
 							MustSucceed(w.Commit(ctx))
-							live := openLive(ctx, 10*telem.SecondTS, 2)
-							MustSucceed(w.Close())
-							MustSucceed(live.Close())
+							live := openLive(ctx, 10*telem.SecondTS)
+							Expect(w.Close()).To(Succeed())
+							Expect(live.Close()).To(Succeed())
 						},
 					)
 					It(
@@ -654,35 +589,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.Delete(
 								ctx,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
-							)).To(MatchError(control.ErrUnauthorized))
-							MustSucceed(w.Close())
+							)).To(MatchError(claim.ErrClaimed))
+							Expect(w.Close()).To(Succeed())
 							Expect(db.Delete(
 								ctx,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
 							)).To(Succeed())
-						},
-					)
-					It("Should report no control transfers", func(ctx SpecContext) {
-						w, t := MustSucceed2(db.OpenWriter(
-							ctx,
-							boundedConfig(1*telem.SecondTS),
-						))
-						Expect(t.Occurred()).To(BeFalse())
-						Expect(w.SetAuthority(control.AuthorityAbsolute).Occurred()).
-							To(BeFalse())
-						Expect(MustSucceed(w.Close()).Occurred()).To(BeFalse())
-					})
-					It(
-						"Should be absent from the control state",
-						func(ctx SpecContext) {
-							w := openBounded(ctx, 1*telem.SecondTS)
-							Expect(db.LeadingControlState()).To(BeNil())
-							live := openLive(ctx, 10*telem.SecondTS, 2)
-							Expect(
-								db.LeadingControlState().Subject.Key,
-							).To(Equal("live"))
-							MustSucceed(w.Close())
-							MustSucceed(live.Close())
 						},
 					)
 				})
@@ -696,14 +608,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								1*telem.SecondTS,
 								telem.NewSeriesSecondsTSV(1, 2, 3),
 							)).To(Succeed())
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Subject: control.Subject{Key: "foo"},
-							}))
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
 							Expect(db.Delete(
 								ctx,
 								(1 * telem.SecondTS).Range(4*telem.SecondTS),
 							)).To(Succeed())
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
@@ -719,27 +629,23 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									now.Add(telem.Hour),
 								),
 							)).To(Succeed())
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Subject: control.Subject{Key: "foo"},
-							}))
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{}))
 							first := now.Add(2 * telem.Hour)
 							w.SetDomainStart(first)
 							MustSucceed(w.Write(telem.NewSeriesV(first)))
 							Expect(MustSucceed(w.Commit(ctx))).To(Equal(first + 1))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should fail when the domain start reaches another region",
 						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   1 * telem.SecondTS,
-								End:     3 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
+							w1 := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 1 * telem.SecondTS,
+								End:   3 * telem.SecondTS,
 							}))
-							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "bar"},
+							w2 := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 10 * telem.SecondTS,
 							}))
 							w2.SetDomainStart(2 * telem.SecondTS)
 							Expect(
@@ -750,16 +656,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 									ContainSubstring("cannot write to time range"),
 								),
 							))
-							MustSucceed(w2.Close())
-							MustSucceed(w1.Close())
+							Expect(w2.Close()).To(Succeed())
+							Expect(w1.Close()).To(Succeed())
 						},
 					)
 					It(
 						"Should not delete a domain that starts before the claim",
 						func(ctx SpecContext) {
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(5 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
@@ -767,12 +672,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.Delete(
 								ctx,
 								(5 * telem.SecondTS).Range(7*telem.SecondTS),
-							)).To(MatchError(control.ErrUnauthorized))
+							)).To(MatchError(claim.ErrClaimed))
 							Expect(db.Delete(
 								ctx,
 								(1 * telem.SecondTS).Range(5*telem.SecondTS),
 							)).To(Succeed())
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							Expect(db.Delete(
 								ctx,
 								(5 * telem.SecondTS).Range(7*telem.SecondTS),
@@ -782,16 +687,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should start the domain where SetDomainStart sets it",
 						func(ctx SpecContext) {
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 10 * telem.SecondTS,
 							}))
 							w.SetDomainStart(5 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
 							Expect(
 								MustSucceed(w.Commit(ctx)),
 							).To(Equal(7*telem.SecondTS + 1))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 							Expect(MustSucceed(db.HasDataFor(
 								ctx,
 								(5 * telem.SecondTS).Range(6*telem.SecondTS),
@@ -807,9 +711,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								10*telem.SecondTS,
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 							)).To(Succeed())
-							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   20 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
+							w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+								Start: 20 * telem.SecondTS,
 							}))
 							w.SetDomainStart(12 * telem.SecondTS)
 							Expect(
@@ -818,7 +721,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								MatchError(domain.ErrWriteConflict),
 								MatchError(ContainSubstring("cannot start writer")),
 							))
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						},
 					)
 				})
@@ -829,21 +732,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(db.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10,
-									End:     3,
-									Subject: control.Subject{Key: "foo"},
+									Start: 10,
+									End:   3,
 								},
 							)).Error().To(MatchError(ContainSubstring("end timestamp must be after")))
-						},
-					)
-
-					It(
-						"Should not allow opening a writer without a subject key",
-						func(ctx SpecContext) {
-							Expect(db.OpenWriter(
-								ctx,
-								unary.WriterConfig{Start: 3, End: 10},
-							)).Error().To(MatchError(ContainSubstring("subject.key: required")))
 						},
 					)
 				})
@@ -912,15 +804,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							),
 						),
 					).To(Succeed())
-					w, t := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"},
+					w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+						Start: 10 * telem.SecondTS,
 					}))
-					By("Taking control of the DB")
-					Expect(
-						dataDB.LeadingControlState().Subject,
-					).To(Equal(control.Subject{Key: "foo"}))
-					Expect(t.Occurred()).To(BeTrue())
 					Expect(
 						MustSucceed(
 							w.Write(
@@ -929,12 +815,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								),
 							),
 						),
-					).To(Equal(alignment.Leading(1, 0)))
+					).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
-					t = MustSucceed(w.Close())
-					Expect(t.Occurred()).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
 					By("Releasing control of the DB")
-					Expect(dataDB.LeadingControlState()).To(BeNil())
 				})
 				Specify(
 					"Commit end after a control handoff",
@@ -945,26 +829,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							10*telem.SecondTS,
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15),
 						)).To(Succeed())
-						w1, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
-							Authority: control.AuthorityAbsolute - 1,
-							Subject:   control.Subject{Key: "foo"},
+						w1 := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write(telem.NewSeries([]int64{0, 1})))
 						Expect(
 							MustSucceed(w1.Commit(ctx)),
 						).To(Equal(11*telem.SecondTS + 1))
-						w2, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:     12 * telem.SecondTS,
-							Authority: control.AuthorityAbsolute,
-							Subject:   control.Subject{Key: "bar"},
+						w2 := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start: 12 * telem.SecondTS,
 						}))
 						MustSucceed(w2.Write(telem.NewSeries([]int64{2, 3})))
 						Expect(
 							MustSucceed(w2.Commit(ctx)),
 						).To(Equal(13*telem.SecondTS + 1))
-						MustSucceed(w2.Close())
-						MustSucceed(w1.Close())
+						Expect(w2.Close()).To(Succeed())
+						Expect(w1.Close()).To(Succeed())
 					},
 				)
 				Specify("Open Writer domain overlap", func(ctx SpecContext) {
@@ -988,21 +868,19 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							),
 						),
 					).To(Succeed())
-					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"},
+					w := MustSucceed(dataDB.OpenWriter(ctx, unary.WriterConfig{
+						Start: 10 * telem.SecondTS,
 					}))
 					Expect(
 						MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4}))),
-					).To(Equal(alignment.Leading(1, 0)))
+					).To(Equal(telem.LeadingAlignment(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
-					MustSucceed(w.Close())
+					Expect(w.Close()).To(Succeed())
 
 					Expect(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   12 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo"},
+						Start: 12 * telem.SecondTS,
 					})).Error().To(And(
-						MatchError(ContainSubstring("channel [Maxwell]<%d>", data)),
+						MatchError(ContainSubstring("channel <%d>", data)),
 						MatchError(ContainSubstring("overlaps")),
 					))
 				})
@@ -1010,21 +888,19 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Specify(
 						"File cutoff on commit with no preset end",
 						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(
+							w1 := MustSucceed(
 								indexDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "foo"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
-							w2, _ := MustSucceed2(
+							w2 := MustSucceed(
 								dataDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "moo"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
@@ -1128,8 +1004,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 							Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-							MustSucceed(w1.Close())
-							MustSucceed(w2.Close())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
 
 							By("Asserting that the data is correct", func() {
 								i := MustSucceed(dataDB.OpenIterator(
@@ -1157,21 +1033,19 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Specify(
 						"Special case where the file exceeds limit by 1",
 						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(
+							w1 := MustSucceed(
 								indexDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "foo"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
-							w2, _ := MustSucceed2(
+							w2 := MustSucceed(
 								dataDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										Subject: control.Subject{Key: "moo"},
+										Start: 10 * telem.SecondTS,
 									},
 								),
 							)
@@ -1275,8 +1149,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 							Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-							MustSucceed(w1.Close())
-							MustSucceed(w2.Close())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
 
 							By("Asserting that the data is correct", func() {
 								i := MustSucceed(dataDB.OpenIterator(
@@ -1303,23 +1177,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Specify(
 						"File cutoff on commit with preset end",
 						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(
+							w1 := MustSucceed(
 								indexDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										End:     100 * telem.SecondTS,
-										Subject: control.Subject{Key: "foo"},
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
 									},
 								),
 							)
-							w2, _ := MustSucceed2(
+							w2 := MustSucceed(
 								dataDB.OpenWriter(
 									ctx,
 									unary.WriterConfig{
-										Start:   10 * telem.SecondTS,
-										End:     100 * telem.SecondTS,
-										Subject: control.Subject{Key: "moo"},
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
 									},
 								),
 							)
@@ -1393,8 +1265,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								[]int64{l[0].Size(), l[1].Size(), l[2].Size()},
 							).To(ConsistOf(int64(11*telem.Int64T.Density()), int64(5*telem.Int64T.Density()), int64(0)))
 
-							MustSucceed(w1.Close())
-							MustSucceed(w2.Close())
+							Expect(w1.Close()).To(Succeed())
+							Expect(w2.Close()).To(Succeed())
 
 							By("Asserting that the data is correct", func() {
 								i := MustSucceed(dataDB.OpenIterator(
@@ -1420,23 +1292,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					)
 
 					Specify("Just enough data to switch files", func(ctx SpecContext) {
-						w1, _ := MustSucceed2(
+						w1 := MustSucceed(
 							indexDB.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									End:     100 * telem.SecondTS,
-									Subject: control.Subject{Key: "foo"},
+									Start: 10 * telem.SecondTS,
+									End:   100 * telem.SecondTS,
 								},
 							),
 						)
-						w2, _ := MustSucceed2(
+						w2 := MustSucceed(
 							dataDB.OpenWriter(
 								ctx,
 								unary.WriterConfig{
-									Start:   10 * telem.SecondTS,
-									End:     100 * telem.SecondTS,
-									Subject: control.Subject{Key: "moo"},
+									Start: 10 * telem.SecondTS,
+									End:   100 * telem.SecondTS,
 								},
 							),
 						)
@@ -1498,8 +1368,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							[]int64{l[0].Size(), l[1].Size()},
 						).To(ConsistOf(int64(10*telem.Int64T.Density()), int64(0)))
 
-						MustSucceed(w1.Close())
-						MustSucceed(w2.Close())
+						Expect(w1.Close()).To(Succeed())
+						Expect(w2.Close()).To(Succeed())
 
 						By("Asserting that the data is correct", func() {
 							i := MustSucceed(dataDB.OpenIterator(
@@ -1521,7 +1391,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 			})
 
-			Describe("Control", func() {
+			Describe("Open writers", func() {
 				var (
 					db *unary.DB
 					fs fs.FS
@@ -1540,139 +1410,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 				})
-				Describe("Index", func() {
-					Specify("Control Handoff", func(ctx SpecContext) {
-						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
-							Authority: control.AuthorityAbsolute - 1,
-							Subject:   control.Subject{Key: "foo"},
-						}))
-						Expect(t.Occurred()).To(BeTrue())
-						Expect(
-							MustSucceed(
-								w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)),
-							),
-						).To(Equal(alignment.Leading(1, 0)))
-						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
-							Authority: control.AuthorityAbsolute,
-							Subject:   control.Subject{Key: "bar"},
-						}))
-						Expect(t.Occurred()).To(BeTrue())
-						Expect(
-							MustSucceed(
-								w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)),
-							),
-						).To(Equal(alignment.Leading(1, 6)))
-						a, err := w1.Write(
-							telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17),
-						)
-						Expect(err).To(MatchError(control.ErrUnauthorized))
-						Expect(a).To(Equal(telem.Alignment(0)))
-						Expect(
-							w1.Commit(ctx),
-						).Error().
-							To(MatchError(control.ErrUnauthorized))
-						t = MustSucceed(w2.Close())
-						Expect(t.Occurred()).To(BeTrue())
-						Expect(
-							MustSucceed(
-								w1.Write(
-									telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17),
-								),
-							),
-						).To(Equal(alignment.Leading(1, 12)))
-						Expect(
-							MustSucceed(w1.Commit(ctx)),
-						).To(Equal(17*telem.SecondTS + 1))
-						t = MustSucceed(w1.Close())
-						Expect(t.Occurred()).To(BeTrue())
-					})
-
-					Specify(
-						"Concurrent writes and commits across a control handoff",
-						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Authority: control.AuthorityAbsolute - 1,
-								Subject:   control.Subject{Key: "foo"},
-							}))
-							started := make(chan struct{})
-							stopped := make(chan struct{})
-							go func() {
-								defer GinkgoRecover()
-								defer close(stopped)
-								for i := range telem.TimeStamp(1_000_000) {
-									if i == 10 {
-										close(started)
-									}
-									ts := 10*telem.SecondTS + i
-									a, err := w1.Write(telem.NewSeriesV(ts))
-									if err != nil {
-										Expect(
-											err,
-										).To(MatchError(control.ErrUnauthorized))
-										Expect(a).To(Equal(telem.Alignment(0)))
-										return
-									}
-									end, err := w1.Commit(ctx)
-									if err != nil {
-										Expect(
-											err,
-										).To(MatchError(control.ErrUnauthorized))
-										Expect(end).To(Equal(telem.TimeStamp(0)))
-										return
-									}
-								}
-							}()
-							Eventually(started).Should(BeClosed())
-							w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     20 * telem.SecondTS,
-								Authority: control.AuthorityAbsolute,
-								Subject:   control.Subject{Key: "bar"},
-							}))
-							Expect(t.From).ToNot(BeNil())
-							Expect(t.To).ToNot(BeNil())
-							for i := range telem.TimeStamp(10) {
-								MustSucceed(
-									w2.Write(telem.NewSeriesV(20*telem.SecondTS + i)),
-								)
-								MustSucceed(w2.Commit(ctx))
-							}
-							Eventually(stopped).Should(BeClosed())
-							MustSucceed(w2.Close())
-							MustSucceed(w1.Close())
-						},
-					)
-
-					Specify(
-						"Domain start of a region another writer has written",
-						func(ctx SpecContext) {
-							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Authority: control.AuthorityAbsolute - 1,
-								Subject:   control.Subject{Key: "foo"},
-							}))
-							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     20 * telem.SecondTS,
-								Authority: control.AuthorityAbsolute,
-								Subject:   control.Subject{Key: "bar"},
-							}))
-							w2.SetDomainStart(20 * telem.SecondTS)
-							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(12, 13)))
-							Expect(
-								MustSucceed(w2.Commit(ctx)),
-							).To(Equal(13*telem.SecondTS + 1))
-							MustSucceed(w2.Close())
-							MustSucceed(w1.Close())
-							Expect(MustSucceed(db.HasDataFor(
-								ctx,
-								(10 * telem.SecondTS).Range(11*telem.SecondTS),
-							))).To(BeTrue())
-						},
-					)
-				})
 				Describe("Waiting for a file descriptor", func() {
 					var (
 						writers []*unary.Writer
@@ -1681,10 +1418,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					open := func(ctx context.Context, i int) *unary.Writer {
 						GinkgoHelper()
 						start := telem.TimeStamp(i+1) * telem.SecondTS
-						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   start,
-							End:     start + telem.SecondTS,
-							Subject: control.Subject{Key: strconv.Itoa(i)},
+						w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+							Start: start,
+							End:   start + telem.SecondTS,
 						}))
 						return w
 					}
@@ -1697,9 +1433,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						GinkgoHelper()
 						var waiting *unary.Writer
 						Eventually(opened).Should(Receive(&waiting))
-						MustSucceed(waiting.Close())
+						Expect(waiting.Close()).To(Succeed())
 						for _, w := range writers[1:] {
-							MustSucceed(w.Close())
+							Expect(w.Close()).To(Succeed())
 						}
 					}
 					BeforeEach(func(ctx SpecContext) {
@@ -1719,7 +1455,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						go func() {
 							defer GinkgoRecover()
 							defer close(closed)
-							MustSucceed(writers[0].Close())
+							Expect(writers[0].Close()).To(Succeed())
 						}()
 						Eventually(closed).Should(BeClosed())
 						closeWriters()
@@ -1731,60 +1467,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							cursor <- MustSucceed(db.WriteCursor(101 * telem.SecondTS))
 						}()
 						Consistently(cursor, 50*time.Millisecond).ShouldNot(Receive())
-						MustSucceed(writers[0].Close())
+						Expect(writers[0].Close()).To(Succeed())
 						Eventually(
 							cursor,
-						).Should(Receive(Equal(alignment.Leading(101, 0))))
+						).Should(Receive(Equal(telem.LeadingAlignment(101, 0))))
 						closeWriters()
 					})
-				})
-				Describe("ErrOnUnauthorizedOpen", func() {
-					It(
-						"Should return an error if the write does not acquire control",
-						func(ctx SpecContext) {
-							w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:                 10 * telem.SecondTS,
-								Authority:             control.AuthorityAbsolute,
-								Subject:               control.Subject{Key: "foo"},
-								ErrOnUnauthorizedOpen: new(true),
-							}))
-							Expect(t.Occurred()).To(BeTrue())
-							w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
-								Start:                 10 * telem.SecondTS,
-								Authority:             control.AuthorityAbsolute - 1,
-								Subject:               control.Subject{Key: "bar"},
-								ErrOnUnauthorizedOpen: new(true),
-							})
-							Expect(t.Occurred()).To(BeFalse())
-							Expect(err).To(MatchError(control.ErrUnauthorized))
-							Expect(w2).To(BeNil())
-							t = MustSucceed(w1.Close())
-							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.IsRelease()).To(BeTrue())
-						},
-					)
-				})
-				Describe("Control Subjects", func() {
-					It(
-						"Should return an error when attempting to open a writer with a duplicate control subject key",
-						func(ctx SpecContext) {
-							w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
-							}))
-							Expect(t.Occurred()).To(BeTrue())
-							w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
-								Start:   10 * telem.SecondTS,
-								Subject: control.Subject{Key: "foo"},
-							})
-							Expect(t.Occurred()).To(BeFalse())
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("already registered in the region")))
-							Expect(w2).To(BeNil())
-							MustSucceed(w1.Close())
-						},
-					)
 				})
 			})
 
@@ -1811,36 +1499,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It(
 					"Should not allow operations on a closed writer",
 					func(ctx SpecContext) {
-						w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo"},
+						w := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						},
 						))
-						Expect(t.Occurred()).To(BeTrue())
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 						Expect(w.Commit(ctx)).Error().To(SatisfyAll(
 							MatchError(unary.ErrWriterClosed),
-							MatchError(ContainSubstring("channel [gauss]<%d>", key)),
+							MatchError(ContainSubstring("channel <%d>", key)),
 						),
 						)
 						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
 							Error().To(MatchError(unary.ErrWriterClosed))
-						MustSucceed(w.Close())
+						Expect(w.Close()).To(Succeed())
 					},
 				)
 				It(
 					"Should not open a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo"},
+						_, err := db.OpenWriter(ctx, unary.WriterConfig{
+							Start: 10 * telem.SecondTS,
 						},
 						)
 						Expect(err).To(MatchError(unary.ErrDBClosed))
 						Expect(
 							err,
-						).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
+						).To(MatchError(ContainSubstring("channel <%d>", key)))
 					},
 				)
 				It("Should not write on a closed database", func(ctx SpecContext) {

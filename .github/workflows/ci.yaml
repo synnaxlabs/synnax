@@ -396,7 +396,7 @@ jobs:
       directory: client/py
       free_threaded: true
       macos: *full
-      type_check_dir: ./synnax ./examples ./tests
+      type_check_dir: ./synnax ./examples ./tests ./benchmarks
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -413,7 +413,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       directory: client/py
       lowest: true
-      type_check_dir: ./synnax ./examples ./tests
+      type_check_dir: ./synnax ./examples ./tests ./benchmarks
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

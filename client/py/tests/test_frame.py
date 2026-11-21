@@ -788,6 +788,24 @@ class TestReadFrameAdapter:
         adapter.update([data_ch.name])
         assert adapter.keys == [data_ch.key, idx_ch.key]
 
+    def test_adapt_takes_indexes_from_clocks(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should take the index of each channel from the clock of its series."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        adapter.update([idx_ch.key, data_ch.key])
+        fr = adapter.adapt(
+            sy.Frame(
+                [idx_ch.key, data_ch.key],
+                [
+                    sy.Series([1], data_type=sy.DataType.TIMESTAMP, clock=idx_ch.key),
+                    sy.Series([1.0], data_type=sy.DataType.FLOAT32, clock=99),
+                ],
+            )
+        )
+        assert fr.indexes == {idx_ch.key: idx_ch.key, data_ch.key: 99}
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:

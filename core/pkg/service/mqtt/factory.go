@@ -424,6 +424,7 @@ func (f *Factory) openRead(
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
+		Channel:         f.cfg.Channel,
 		Channels:        writerKeys,
 		Task:            t,
 		Mode:            mode,
@@ -632,6 +633,7 @@ func (f *Factory) configureWrite(
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
+		Channel:         f.cfg.Channel,
 		Channels:        keys.Unique(),
 		Task:            t,
 	})
@@ -751,6 +753,7 @@ func (f *Factory) configureEdge(
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
+		Channel:         f.cfg.Channel,
 		Channels:        streamKeys.Unique(),
 		Task:            t,
 	})
@@ -839,6 +842,7 @@ func (f *Factory) configureScan(t task.Task) (autoStarter, bool, error) {
 		},
 		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
+		Channel:            f.cfg.Channel,
 		Device:             f.cfg.Device,
 		Make:               Make,
 		ReachableMessage:   "Broker connected",

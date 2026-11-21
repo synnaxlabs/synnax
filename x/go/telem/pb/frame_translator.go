@@ -55,6 +55,7 @@ func SeriesToPB(r telem.Series) (*Series, error) {
 		Data:              r.Data,
 		Alignment:         uint64(r.Alignment),
 		AlignmentMultiple: r.AlignmentMultiple,
+		Clock:             r.Clock,
 		TimeRange:         timeRangeVal,
 	}
 	return pb, nil
@@ -75,6 +76,7 @@ func SeriesFromPB(pb *Series) (telem.Series, error) {
 	r.Data = pb.Data
 	r.Alignment = telem.Alignment(pb.Alignment)
 	r.AlignmentMultiple = pb.AlignmentMultiple
+	r.Clock = pb.Clock
 	return r, nil
 }
 

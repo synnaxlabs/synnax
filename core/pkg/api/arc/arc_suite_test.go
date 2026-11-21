@@ -31,6 +31,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -57,6 +58,7 @@ var (
 	userSvc    *user.Service
 	arcSvc     *arc.Service
 	channelSvc *channel.Service
+	creator    calctestutil.Creator
 	taskSvc    *task.Service
 	statusSvc  *status.Service
 	apiSvc     *apiarc.Service
@@ -102,6 +104,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rackSvc = svc.Rack
 	taskSvc = svc.Task
 	channelSvc = svc.Channel
+	creator = calctestutil.Creator{DB: db, Channel: channelSvc}
 	arcSvc = svc.Arc
 	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{

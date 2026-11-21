@@ -23,6 +23,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -119,15 +120,11 @@ var _ = Describe("Framer", func() {
 	}
 	createCalculated := func(ctx SpecContext, input channel.Channel) channel.Channel {
 		GinkgoHelper()
-		ch := channel.Channel{
+		return MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 			Name:       UniqueChannelName(),
 			DataType:   telem.Float32T,
 			Expression: fmt.Sprintf("return %s * 2", input.Name),
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		return ch
+		}))
 	}
 	// readerCtx returns a context whose subject may retrieve only the given channels.
 	readerCtx := func(
@@ -218,14 +215,11 @@ var _ = Describe("Framer", func() {
 				telem.NewSeriesV[float32](1, 2, 3, 4),
 			}))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
-			calc := channel.Channel{
+			calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Channel.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
+			}))
 			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,

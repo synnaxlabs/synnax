@@ -12,38 +12,14 @@ package frame_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Frame", func() {
-	Describe("SplitFree", func() {
-		It("Should split a frame into a stored and a free frame", func() {
-			storedCh := channel.NewKey(1, 1)
-			freeCh := channel.NewKey(node.KeyFree, 1)
-			f := frame.NewMulti(
-				[]channel.Key{storedCh, freeCh},
-				[]telem.Series{
-					telem.NewSeriesV[int64](1, 2, 3),
-					telem.NewSeriesV[int64](4, 5, 6),
-				},
-			)
-			stored, free := f.SplitFree()
-			Expect(stored).To(Equal(frame.NewUnary(
-				storedCh,
-				telem.NewSeriesV[int64](1, 2, 3),
-			)))
-			Expect(free).To(Equal(frame.NewUnary(
-				freeCh,
-				telem.NewSeriesV[int64](4, 5, 6),
-			)))
-		})
-	})
-
 	Describe("ToStorage", func() {
 		It("Should convert to storage frame", func() {
 			f := frame.NewMulti(
@@ -54,7 +30,7 @@ var _ = Describe("Frame", func() {
 				},
 			)
 			sf := f.ToStorage()
-			Expect(sf.KeysSlice()).To(Equal([]ts.ChannelKey{1, 2}))
+			Expect(sf.KeysSlice()).To(Equal([]cesium.ChannelKey{1, 2}))
 			Expect(sf.SeriesSlice()).To(Equal(f.SeriesSlice()))
 		})
 	})
@@ -254,7 +230,7 @@ var _ = Describe("Frame", func() {
 
 	Describe("NewFromStorage", func() {
 		It("Should create a new frame from its storage later representation", func() {
-			storageFrame := telem.UnaryFrame[ts.ChannelKey](
+			storageFrame := telem.UnaryFrame[cesium.ChannelKey](
 				1,
 				telem.NewSeriesV[float32](1, 2, 3, 4),
 			)

@@ -45,6 +45,8 @@ type Series struct {
 	// It is above one when each sample stands for a group of stored samples. Zero means
 	// one.
 	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
+	// Clock is the key of the clock that timed the samples. Zero means no clock.
+	Clock uint32 `json:"clock,omitzero" msgpack:"clock,omitempty"`
 }
 
 // Multiple returns the number of alignment steps between consecutive samples.
@@ -235,6 +237,7 @@ func (s Series) Last() Series {
 		Data:      data,
 		Alignment: s.Alignment.AddSamples(uint32(s.Len()-1) * s.Multiple()),
 		TimeRange: s.TimeRange,
+		Clock:     s.Clock,
 	}
 }
 
@@ -295,6 +298,7 @@ func (s Series) Downsample(factor uint32) Series {
 			TimeRange: s.TimeRange,
 			DataType:  s.DataType,
 			Alignment: s.Alignment.AddSamples(uint32(skip)),
+			Clock:     s.Clock,
 		}
 	)
 	if s.DataType.IsVariable() {
@@ -328,6 +332,7 @@ func (s Series) DeepCopy() Series {
 		AlignmentMultiple: s.AlignmentMultiple,
 		DataType:          s.DataType,
 		Data:              slices.Clone(s.Data),
+		Clock:             s.Clock,
 	}
 }
 

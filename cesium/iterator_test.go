@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -173,6 +172,24 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 
 				Context("Basic", func() {
+					It(
+						"Should stamp each series with the clock of its channel",
+						func() {
+							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []cesium.ChannelKey{index1Key, data1Key},
+							}))
+							Expect(i.SeekFirst()).To(BeTrue())
+							Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
+							f := i.Value()
+							for _, key := range []cesium.ChannelKey{index1Key, data1Key} {
+								for _, s := range f.Get(key).Series {
+									Expect(s.Clock).To(Equal(index1Key))
+								}
+							}
+							Expect(i.Close()).To(Succeed())
+						},
+					)
 					Specify("SeekLast", func() {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 							Bounds:   telem.TimeRangeMax,
@@ -453,14 +470,15 @@ var _ = Describe("Iterator Behavior", func() {
 						Channels: []cesium.ChannelKey{idxKey, dataKey},
 						Start:    1 * telem.SecondTS,
 					}))
-					MustSucceed(w.Write(telem.MultiFrame(
+					mustWrite(ctx, w, telem.MultiFrame(
 						[]cesium.ChannelKey{idxKey, dataKey},
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
 							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 						},
-					)))
-					MustCommit(w)
+					))
+
+					mustCommit(ctx, w)
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -689,11 +707,12 @@ var _ = Describe("Iterator Behavior", func() {
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
 							Start:    start,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						mustWrite(ctx, w, telem.MultiFrame(
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
-						)))
-						MustCommit(w)
+						))
+
+						mustCommit(ctx, w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -831,11 +850,12 @@ var _ = Describe("Iterator Behavior", func() {
 							Channels: []cesium.ChannelKey{idxKey, dataKey},
 							Start:    start,
 						}))
-						MustSucceed(w.Write(telem.MultiFrame(
+						mustWrite(ctx, w, telem.MultiFrame(
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
-						)))
-						MustCommit(w)
+						))
+
+						mustCommit(ctx, w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -1706,28 +1726,6 @@ var _ = Describe("Iterator Behavior", func() {
 			})
 
 			Describe("Open", func() {
-				It(
-					"Should return an error when attempting to open an iterator on a virtual channel",
-					func(ctx SpecContext) {
-						key := GenerateChannelKey()
-						Expect(db.CreateChannel(ctx, cesium.Channel{
-							Key:      key,
-							Name:     "Marco",
-							DataType: telem.Float32T,
-							Virtual:  true,
-						})).To(Succeed())
-						_, err := db.OpenIterator(
-							cesium.IteratorConfig{
-								Bounds:   telem.TimeRangeMax,
-								Channels: []cesium.ChannelKey{key},
-							},
-						)
-						Expect(err).To(MatchError(query.ErrUnsupported))
-						Expect(err).To(MatchError(ContainSubstring(
-							"cannot open iterator on virtual channel",
-						)))
-					},
-				)
 				It("Should reject a negative auto chunk size", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{

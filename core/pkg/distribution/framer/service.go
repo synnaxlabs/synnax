@@ -13,15 +13,16 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -50,7 +51,7 @@ type ServiceConfig struct {
 	// telemetry.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL]
@@ -73,7 +74,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-const freeWritePipelineBuffer = 4000
+const writePipelineBuffer = 4000
 
 // OpenService opens a new service using the provided configuration(s). Fields defined
 // in each subsequent configuration override those in previous configurations. See the
@@ -97,18 +98,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
+	writes := confluence.NewStream[relay.Response](writePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
-		TS:              cfg.TS,
-		FreeWrites:      freeWrites,
+		Writes:          writes,
 	}); !ok(err, s.relay) {
 		return nil, err
 	}
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
 		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
-		FreeWrites:      freeWrites,
+		Writes:          writes,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -172,11 +172,30 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 	return s.relay.NewStreamer(cfg)
 }
 
-// SetFreeIndexResolver injects the resolver the writer service uses to look up free
-// channel indexes at open time. It must be called before opening writers on free
-// channels; the service layer registers its channel service here at startup.
-func (s *Service) SetFreeIndexResolver(resolver writer.FreeIndexResolver) {
-	s.writer.SetFreeIndexResolver(resolver)
+// SetChannelResolver injects the resolver the writer service uses to look up the
+// records of free and virtual channels at open time. It must be called before opening
+// writers on such channels; the service layer registers its channel service here at
+// startup.
+func (s *Service) SetChannelResolver(resolver writer.ChannelResolver) {
+	s.writer.SetChannelResolver(resolver)
+}
+
+// ClaimDelete claims keys for a delete and returns the function that releases the
+// claim. While the claim is held, a writer on one of keys fails to open with
+// ErrChannelDeleting. ClaimDelete fails with ErrChannelInUse when a writer holds one of
+// keys.
+func (s *Service) ClaimDelete(keys channel.Keys) (release func(), err error) {
+	return s.writer.ClaimDelete(keys)
+}
+
+// ControlStates returns the state of control over each channel that a writer controls.
+func (s *Service) ControlStates() []writer.ControlState { return s.writer.ControlStates() }
+
+// OnControlUpdate calls handler with each batch of control transfers between writers.
+func (s *Service) OnControlUpdate(
+	handler func(context.Context, writer.ControlUpdate),
+) observe.Disconnect {
+	return s.writer.OnControlUpdate(handler)
 }
 
 // DeleteTimeRange deletes a time range in the specified channels.

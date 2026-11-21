@@ -11,6 +11,8 @@ package log
 
 import (
 	"encoding/binary"
+	"fmt"
+	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
@@ -188,5 +190,55 @@ func (d *Decoder) record(t uint16) Record {
 		return &d.intent
 	default:
 		return nil
+	}
+}
+
+// Clone returns a copy of r that shares no memory with it. The records of a Decoder
+// stay
+// valid only until its next call, so a caller that keeps one clones it.
+func Clone(r Record) Record {
+	switch r := r.(type) {
+	case *Reserve:
+		c := *r
+		return &c
+	case *Create:
+		c := *r
+		return &c
+	case *Commit:
+		c := *r
+		c.Slots = slices.Clone(r.Slots)
+		return &c
+	case *Seal:
+		c := *r
+		return &c
+	case *Tombstone:
+		c := *r
+		c.Left, c.Right = nil, nil
+		if r.Left != nil {
+			c.left = *r.Left
+			c.Left = &c.left
+		}
+		if r.Right != nil {
+			c.right = *r.Right
+			c.Right = &c.right
+		}
+		return &c
+	case *Replace:
+		c := *r
+		c.Pointers = slices.Clone(r.Pointers)
+		return &c
+	case *Drop:
+		c := *r
+		return &c
+	case *Restart:
+		return &Restart{}
+	case *Check:
+		c := *r
+		return &c
+	case *Intent:
+		c := *r
+		return &c
+	default:
+		panic(fmt.Sprintf("log: clone of an unknown record %T", r))
 	}
 }

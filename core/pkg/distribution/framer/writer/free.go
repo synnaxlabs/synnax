@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -27,7 +26,7 @@ import (
 // index channel and each free channel with no index, shared across every writer opened
 // on the service.
 type freeWriteAlignments struct {
-	counters map[channel.Key]*cesium.AlignmentCounter
+	counters map[channel.Key]*telem.AlignmentCounter
 	mu       sync.Mutex
 }
 
@@ -50,7 +49,7 @@ func (f *freeWriteAlignments) reserve(
 		}
 		c, ok := f.counters[idx]
 		if !ok {
-			c = cesium.NewAlignmentCounter()
+			c = telem.NewAlignmentCounter(telem.LeadingDomain)
 			f.counters[idx] = c
 		}
 		a, err := c.Next()
@@ -69,6 +68,8 @@ func (s *Service) newFree(
 	freeIndexes map[channel.Key]channel.Key,
 	alignments map[channel.Key]telem.Alignment,
 	group uint32,
+	g *gates,
+	release func(),
 ) StreamWriter {
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
@@ -78,13 +79,16 @@ func (s *Service) newFree(
 		return !indexed
 	})
 	w := &freeWriter{
-		freeWrites: s.cfg.FreeWrites,
+		writes:     s.cfg.Writes,
 		mode:       mode,
 		sync:       sync,
 		group:      group,
 		indexes:    freeIndexes,
 		alignments: alignments,
 		stamper:    newUnindexedStamper(unindexed),
+		gates:      g,
+		controls:   s.controls,
+		release:    release,
 	}
 	w.Transform = w.transform
 	return w
@@ -99,15 +103,89 @@ type freeWriter struct {
 	alignments map[channel.Key]telem.Alignment
 	stamper    *unindexedStamper[channel.Key]
 	confluence.LinearTransform[Request, Response]
-	// freeWrites is the inlet for communicating free frames to the relay
-	freeWrites confluence.Inlet[relay.Response]
+	// writes is where the writer sends its frames for the relay to stream.
+	writes confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
 	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
+	// gates gate the writes of the writer on its control of each leased virtual
+	// channel. Free channels have no control, so gates is nil when the writer holds no
+	// leased virtual channel.
+	gates    *gates
+	controls *controls
+	// release releases the writer's hold on its leased virtual channels. It is nil for
+	// a writer that holds none.
+	release func()
 	// group is the writer group identifier, used for server-side deduplication.
 	group uint32
+	// writeRefused is true when a write was refused for no control since the last
+	// commit.
+	writeRefused bool
+}
+
+// Flow implements confluence.Flow. A writer that holds leased virtual channels releases
+// its gates and its hold when it exits.
+func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
+	if w.release == nil {
+		w.LinearTransform.Flow(ctx, opts...)
+		return
+	}
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(w.Out)
+	ctx.Go(func(ctx context.Context) error {
+		err := w.run(ctx)
+		w.controls.notify(w.gates.release())
+		w.release()
+		return err
+	}, o.Signal...)
+}
+
+// run serves requests until the inlet closes or ctx ends.
+func (w *freeWriter) run(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case req, ok := <-w.In.Outlet():
+			if !ok {
+				return nil
+			}
+			res, send, err := w.transform(ctx, req)
+			if err != nil {
+				return err
+			}
+			if !send {
+				continue
+			}
+			if err = signal.SendUnderContext(ctx, w.Out.Inlet(), res); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// exclude returns fr without the leased virtual channels that the writer does not
+// control, and true when it left one out.
+func (w *freeWriter) exclude(fr frame.Frame) (frame.Frame, bool) {
+	if w.gates == nil {
+		return fr, false
+	}
+	refused := w.gates.refused()
+	if len(refused) == 0 {
+		return fr, false
+	}
+	var keys channel.Keys
+	for _, key := range fr.KeysSlice() {
+		if refused.Contains(uint32(key)) {
+			keys = append(keys, key)
+		}
+	}
+	if len(keys) == 0 {
+		return fr, false
+	}
+	return fr.ExcludeKeys(keys), true
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
@@ -148,22 +226,34 @@ func (w *freeWriter) transform(
 	ctx context.Context,
 	req Request,
 ) (res Response, ok bool, err error) {
-	if req.Command == CommandWrite {
+	res = Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}
+	switch req.Command {
+	case CommandWrite:
+		fr, refused := w.exclude(req.Frame)
+		w.writeRefused = w.writeRefused || refused
 		if w.mode.Stream() {
 			if err = signal.SendUnderContext(
-				ctx, w.freeWrites.Inlet(),
-				relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
+				ctx, w.writes.Inlet(),
+				relay.Response{Frame: w.alignFrame(fr), Group: w.group},
 			); err != nil {
 				return res, false, err
 			}
 		}
-		if !w.sync {
-			return res, false, nil
+		res.Authorized = !refused
+		return res, w.sync, nil
+	case CommandCommit:
+		res.Authorized = !w.writeRefused
+		w.writeRefused = false
+	case CommandSetAuthority:
+		if w.gates == nil {
+			res.Authorized = true
+			break
 		}
+		var transfers []transfer
+		transfers, res.Err = w.gates.setAuthority(req.Config)
+		res.Authorized = res.Err == nil
+		w.controls.notify(transfers)
+	case CommandOpen, CommandEndDomain:
 	}
-	return Response{
-		Command:    req.Command,
-		SeqNum:     req.SeqNum,
-		Authorized: true,
-	}, true, nil
+	return res, true, nil
 }

@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -51,9 +51,6 @@ func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 // virtual channel.
 func (k Key) Free() bool { return k.Lease() == node.KeyFree }
 
-// StorageKey returns the storage layer representation of the channel key.
-func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
-
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
 
@@ -74,10 +71,6 @@ func KeysFromUint32(keys []uint32) Keys {
 // Uint32 converts the Keys to a slice of uint32. NOTE: This does not copy the slice, it
 // just reinterprets the memory.
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
-
-// Storage returns the storage layer representation of the channel keys. NOTE: This does
-// not copy the slice, it just reinterprets the memory.
-func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
 // Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
@@ -133,17 +126,25 @@ func (c Channel) String() string {
 	return fmt.Sprintf("<%d>", c.Key())
 }
 
-// Storage returns the storage layer representation of the channel for creation in the
-// storage ts.DB. Virtual channels are never persisted by the storage layer: they are
-// registered at create time and re-registered from the channel table on boot.
-func (c Channel) Storage() ts.Channel {
-	return ts.Channel{
-		Key:         c.Key().StorageKey(),
-		Name:        c.Name,
-		IsIndex:     c.IsIndex,
-		DataType:    c.DataType,
-		Index:       c.Index().StorageKey(),
-		Virtual:     c.Virtual,
-		Concurrency: c.Concurrency,
+// Stored reports whether c has a storage channel. Free and virtual channels have none.
+func (c Channel) Stored() bool { return !c.Key().Free() && !c.Virtual }
+
+// ToStorage returns the storage representation of each channel that has a storage
+// channel, and leaves out the others.
+func ToStorage(channels []Channel) []cesium.Channel {
+	stored := make([]cesium.Channel, 0, len(channels))
+	for _, c := range channels {
+		if !c.Stored() {
+			continue
+		}
+		stored = append(stored, cesium.Channel{
+			Key:         cesium.ChannelKey(c.Key()),
+			Name:        c.Name,
+			IsIndex:     c.IsIndex,
+			DataType:    c.DataType,
+			Index:       cesium.ChannelKey(c.Index()),
+			Concurrency: cesium.Concurrency(c.Concurrency),
+		})
 	}
+	return stored
 }
