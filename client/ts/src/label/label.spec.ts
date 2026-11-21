@@ -345,7 +345,10 @@ describe("cached reads", () => {
     try {
       await list.retrieve();
       const { release } = holdRequests(local, "/label/create");
-      const creating = local.labels.create({ name: term, color: "#E774D0" });
+      const creating = local.labels.create({
+        name: term,
+        color: { type: "fixed", value: "#E774D0" },
+      });
       expect((await list.retrieve()).records).toEqual([]);
       release();
       const created = await creating;
