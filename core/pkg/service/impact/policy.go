@@ -30,8 +30,6 @@ const (
 	PolicyKeep Policy = iota + 1
 	// PolicyRetarget moves the link onto the channel that takes the path.
 	PolicyRetarget
-	// PolicyText marks a text holder, which binds the path at its next compile.
-	PolicyText
 )
 
 // Policies say what a heal does with each reference to the channel table.
