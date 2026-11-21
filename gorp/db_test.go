@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -844,9 +846,111 @@ var _ = Describe("DB", func() {
 		})
 	})
 
+	Describe("AfterEnd", func() {
+		var (
+			hookDB *gorp.DB
+			events []string
+			hook   = func(name string) func(bool) {
+				return func(committed bool) {
+					events = append(events, fmt.Sprintf("%s %v", name, committed))
+				}
+			}
+			create = func(ctx context.Context, tx gorp.Tx) error {
+				return gorp.NewCreate[int32, entry]().
+					Entry(&entry{ID: 1, Data: "One"}).
+					Exec(ctx, tx)
+			}
+		)
+		BeforeEach(func() {
+			events = nil
+			hookDB = DeferClose(gorp.Wrap(
+				storeCommits{DB: memkv.New(), events: &events},
+				gorp.WithCodec(msgpack.Codec),
+			))
+		})
+
+		It(
+			"Should run hooks in registration order once the store commit returns",
+			func(ctx SpecContext) {
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.AfterEnd(tx, hook("first"))
+					gorp.AfterEnd(tx, hook("second"))
+					return create(ctx, tx)
+				})).To(Succeed())
+				Expect(events).To(Equal(
+					[]string{"store commit", "first true", "second true"},
+				))
+			},
+		)
+
+		It(
+			"Should run hooks with committed false when the transaction closes without a commit",
+			func(ctx SpecContext) {
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.AfterEnd(tx, hook("first"))
+					return query.ErrNotFound
+				})).To(MatchError(query.ErrNotFound))
+				Expect(events).To(Equal([]string{"first false"}))
+			},
+		)
+
+		It(
+			"Should run hooks with committed false when work of BeforeCommit fails",
+			func(ctx SpecContext) {
+				Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.AfterEnd(tx, hook("first"))
+					gorp.BeforeCommit(tx, func(context.Context) error {
+						return query.ErrNotFound
+					})
+					return create(ctx, tx)
+				})).To(MatchError(query.ErrNotFound))
+				Expect(events).To(Equal([]string{"first false"}))
+			},
+		)
+
+		It("Should let a hook open a transaction", func(ctx SpecContext) {
+			var found bool
+			Expect(hookDB.WithTx(ctx, func(tx gorp.Tx) error {
+				gorp.AfterEnd(tx, func(bool) {
+					found = MustSucceed(gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](1)).
+						Exists(ctx, hookDB))
+				})
+				return create(ctx, tx)
+			})).To(Succeed())
+			Expect(found).To(BeTrue())
+		})
+
+		It("Should panic when registering on a DB", func() {
+			Expect(func() { gorp.AfterEnd(hookDB, hook("first")) }).
+				To(PanicWith("[gorp] - AfterEnd needs a transaction, not a DB"))
+		})
+	})
+
 	Describe("KV", func() {
 		It("Should return the underlying key-value store for the DB", func() {
 			Expect(db.KV()).To(BeIdenticalTo(kvDB))
 		})
 	})
 })
+
+// storeCommits records in events each time a commit of the store returns.
+type storeCommits struct {
+	kv.DB
+	events *[]string
+}
+
+func (s storeCommits) OpenTx() kv.Tx {
+	return storeCommit{Tx: s.DB.OpenTx(), events: s.events}
+}
+
+type storeCommit struct {
+	kv.Tx
+	events *[]string
+}
+
+func (c storeCommit) Commit(ctx context.Context, opts ...any) error {
+	err := c.Tx.Commit(ctx, opts...)
+	*c.events = append(*c.events, "store commit")
+	return err
+}

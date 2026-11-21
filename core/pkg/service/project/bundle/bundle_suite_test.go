@@ -135,6 +135,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})).To(Succeed())
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		Framer:  node.Framer,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

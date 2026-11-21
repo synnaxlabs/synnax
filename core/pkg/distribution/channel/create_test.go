@@ -46,7 +46,7 @@ var _ = Describe("Allocate", Ordered, func() {
 			}))
 			Expect(out[0].LocalKey).ToNot(BeZero())
 			Expect(out[0].Key().Lease()).To(Equal(host))
-			Expect(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).
+			Expect(n.Storage.TS.RetrieveChannel(ctx, uint32(out[0].Key()))).
 				Error().To(MatchError(query.ErrNotFound))
 		},
 	)
@@ -102,45 +102,6 @@ var _ = Describe("Allocate", Ordered, func() {
 			})).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
-})
-
-var _ = Describe("Create", Ordered, func() {
-	var n testutil.Node
-	BeforeAll(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		n = testutil.NewNode(ctx)
-	})
-
-	It("Should create the storage channel of a host channel", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{
-			{Name: "host", DataType: telem.TimestampT, IsIndex: true},
-		}))
-		Expect(n.Channel.Create(ctx, out)).To(Succeed())
-		stored := MustSucceed(
-			n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()),
-		)
-		Expect(stored.Name).To(Equal("host"))
-	})
-	It("Should not register a free channel in storage", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{
-			{
-				Name:        "free",
-				DataType:    telem.Float32T,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			},
-		}))
-		Expect(n.Channel.Create(ctx, out)).To(Succeed())
-		Expect(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).
-			Error().To(MatchError(query.ErrNotFound))
-	})
-	It("Should return the error of a failed storage create", func(ctx SpecContext) {
-		out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{
-			{Name: "no-index", DataType: telem.Float32T},
-		}))
-		Expect(n.Channel.Create(ctx, out)).
-			To(MatchError(ContainSubstring("non-indexed channel must have an index")))
-	})
 })
 
 var _ = Describe("Free key counter", func() {

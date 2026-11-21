@@ -12,65 +12,55 @@ package writer
 import (
 	"context"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 )
 
-const (
-	storageRequestsAddr  address.Address = "requests"
-	storageResponsesAddr address.Address = "responses"
-	storageTSWriterAddr  address.Address = "ts_writer"
-)
-
-// newStorage opens a StreamWriter that writes to the storage engine.
-func (s *Service) newStorage(ctx context.Context, cfg Config) (StreamWriter, error) {
-	storageCfg := cfg.toStorage()
-	virtual, err := virtualKeys(ctx, s.cfg.TS, storageCfg.Channels)
-	if err != nil {
-		return nil, err
-	}
-	w, err := s.cfg.TS.NewStreamWriter(ctx, storageCfg)
-	if err != nil {
-		return nil, err
-	}
-	pipe := plumber.New()
-	pipe.SetSegment(storageTSWriterAddr, w)
-	reqT := &confluence.LinearTransform[Request, ts.WriterRequest]{}
-	reqT.Transform = newRequestTranslator(virtual)
-	resT := &confluence.LinearTransform[ts.WriterResponse, Response]{}
-	resT.Transform = translateResponse
-	pipe.SetSegment(storageRequestsAddr, reqT)
-	pipe.SetSegment(storageResponsesAddr, resT)
-	pipe.MustConnect[ts.WriterRequest](storageRequestsAddr, storageTSWriterAddr, 1)
-	pipe.MustConnect[ts.WriterResponse](storageTSWriterAddr, storageResponsesAddr, 1)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(storageRequestsAddr))
-	lo.Must0(seg.RouteOutletFrom(storageResponsesAddr))
-	return seg, nil
-}
-
-// virtualKeys returns the keys of the virtual channels among keys.
-func virtualKeys(
+// newStorage opens the session that writes the stored channels of cfg, which are
+// channels.
+func (s *Service) newStorage(
 	ctx context.Context,
-	db *ts.DB,
-	keys []ts.ChannelKey,
-) ([]ts.ChannelKey, error) {
-	channels, err := db.RetrieveChannels(ctx, keys...)
-	if err != nil {
-		return nil, err
-	}
-	var virtual []ts.ChannelKey
+	cfg Config,
+	channels []cesium.Channel,
+) (StreamWriter, error) {
+	indexes := make(map[cesium.ChannelKey]cesium.ChannelKey, len(channels))
 	for _, ch := range channels {
-		if ch.Virtual {
-			virtual = append(virtual, ch.Key)
+		if !ch.IsIndex && ch.Index != 0 {
+			indexes[ch.Key] = ch.Index
 		}
 	}
-	return virtual, nil
+	var err error
+	var autoIndex *indexStamper
+	if *cfg.AutoIndex {
+		cfg = withIndexes(cfg, indexes)
+		autoIndex = newIndexStamper(cfg.Keys.Uint32(), indexes, cfg.Start)
+		// The session also gates the indexes that withIndexes adds.
+		if channels, err = s.cfg.TS.RetrieveChannels(
+			ctx,
+			cfg.Keys.Uint32()...,
+		); err != nil {
+			return nil, err
+		}
+	}
+	release, err := s.claims.hold(cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	g, transfers, err := s.controls.openGates(cfg, channels)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	w, err := s.cfg.TS.OpenWriter(ctx, cfg.toStorage())
+	if err != nil {
+		g.release()
+		release()
+		named, _ := s.controls.nameHolder(err)
+		return nil, named
+	}
+	s.controls.notify(transfers)
+	return s.newSession(w, cfg, autoIndex, release, g), nil
 }
 
 // unindexedStamper times each sample of a channel with no index 1ns after the one
@@ -117,35 +107,4 @@ func (st *unindexedStamper[K]) stamp(fr telem.Frame[K]) {
 		slot.frame, slot.end = st.frame, s.TimeRange.End
 		fr.SetRawSeriesAt(rawI, s)
 	}
-}
-
-func newRequestTranslator(
-	virtual []ts.ChannelKey,
-) func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
-	st := newUnindexedStamper(virtual)
-	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
-		fr := in.Frame.ToStorage()
-		if in.Command == CommandWrite {
-			st.stamp(fr)
-		}
-		return ts.WriterRequest{
-			Command: ts.WriterCommand(in.Command),
-			Frame:   fr,
-			Config:  in.Config.toStorage(),
-			SeqNum:  in.SeqNum,
-		}, true, nil
-	}
-}
-
-func translateResponse(
-	_ context.Context,
-	in ts.WriterResponse,
-) (Response, bool, error) {
-	return Response{
-		Command:    Command(in.Command),
-		SeqNum:     in.SeqNum,
-		End:        in.End,
-		Authorized: in.Authorized,
-		Err:        in.Err,
-	}, true, nil
 }

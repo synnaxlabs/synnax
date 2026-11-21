@@ -61,11 +61,12 @@ func (db *DB) Delete(
 	ctx, span := db.cfg.T.Bench(ctx, "Delete")
 	defer span.End()
 
+	// Pin before the check, so a Drop that runs in between waits for this call.
+	db.resourceCount.Add(1)
+	defer db.unpin()
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	db.resourceCount.Add(1)
-	defer db.resourceCount.Add(-1)
 
 	// Ensure that there cannot be deletion operations on the index between index lookup
 	// as that would invalidate the offsets. However, we cannot lock the index as a
@@ -261,6 +262,7 @@ func (idx *index) unprotectedSplice(start, end deleteBound, tr telem.TimeRange) 
 			append(newPointers, idx.mu.pointers[start.position:]...)...,
 		)
 	}
+	idx.checkApart(start.position, start.position+len(newPointers))
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -269,11 +271,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	_, span := db.cfg.T.Bench(ctx, "garbage_collect")
 	defer span.End()
 
+	// Pin before the check, so a Drop that runs in between waits for this call.
+	db.resourceCount.Add(1)
+	defer db.unpin()
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	db.resourceCount.Add(1)
-	defer db.resourceCount.Add(-1)
 
 	if err := db.fc.gcWriters(); err != nil {
 		return span.Error(err)
@@ -495,6 +498,7 @@ func (db *DB) swapCollectedFile(
 			db.idx.persistHead = min(db.idx.persistHead, i)
 		}
 	}
+	db.idx.checkApart(0, len(db.idx.mu.pointers)-1)
 	return nil
 }
 

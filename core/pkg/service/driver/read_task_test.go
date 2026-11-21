@@ -113,6 +113,7 @@ var _ = Describe("ReadTask", func() {
 			Source: src,
 			DB:     db, Status: statusSvc,
 			Framer:   framerSvc,
+			Channel:  channelSvc,
 			Channels: channel.Keys{idxCh.Key(), dataCh.Key()},
 			Task:     t,
 			Breaker:  brk,
@@ -134,10 +135,8 @@ var _ = Describe("ReadTask", func() {
 		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
-	// name formats ch as an error message names it.
-	name := func(ch channel.Channel) string {
-		return fmt.Sprintf("[%s]<%d>", ch.Name, ch.Key())
-	}
+	// name formats ch as a task status names it.
+	name := func(ch channel.Channel) string { return fmt.Sprintf("%q", ch.Name) }
 
 	// written returns every sample committed to ch.
 	written := func(
@@ -197,6 +196,7 @@ var _ = Describe("ReadTask", func() {
 	Describe("NewReadTask", func() {
 		It("Should reject a configuration with no source", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
+				Channel:  channelSvc,
 				DB:       db,
 				Status:   statusSvc,
 				Framer:   framerSvc,
@@ -206,16 +206,18 @@ var _ = Describe("ReadTask", func() {
 		})
 		It("Should reject a task with no key", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
-				Source: src,
-				DB:     db, Status: statusSvc,
+				Channel: channelSvc,
+				Source:  src,
+				DB:      db, Status: statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{idxCh.Key()},
 			})).Error().To(MatchError(ContainSubstring("task: must have a key")))
 		})
 		It("Should reject a breaker whose base interval exceeds its maximum", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
-				Source: src,
-				DB:     db, Status: statusSvc,
+				Channel: channelSvc,
+				Source:  src,
+				DB:      db, Status: statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{idxCh.Key()},
 				Task:     t,
@@ -291,6 +293,7 @@ var _ = Describe("ReadTask", func() {
 					idxCh.Key(), dataCh.Key(), earlyIdx.Key(), earlyData.Key(),
 				}
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
+					Channel:  channelSvc,
 					Source:   src,
 					DB:       db,
 					Status:   statusSvc,
@@ -343,6 +346,7 @@ var _ = Describe("ReadTask", func() {
 					idxCh.Key(), dataCh.Key(), behindIdx.Key(), behindData.Key(),
 				}
 				rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
+					Channel:  channelSvc,
 					Source:   src,
 					DB:       db,
 					Status:   statusSvc,

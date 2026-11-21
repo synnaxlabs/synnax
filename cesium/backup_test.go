@@ -18,6 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -129,9 +131,13 @@ var _ = Describe("Meta backup", func() {
 				backUpMeta(fs, backup)
 
 				db = openDBOnFS(ctx, fs)
-				Expect(db.RenameChannels(
+				renamed := metaDataCh
+				renamed.Name = "renamed"
+				Expect(meta.Create(
 					ctx,
-					map[cesium.ChannelKey]string{metaDataCh.Key: "renamed"},
+					MustSucceed(fs.Sub(channelKeyToPath(metaDataCh.Key))),
+					json.Codec,
+					renamed,
 				)).To(Succeed())
 				Expect(db.CreateChannel(ctx, metaAddedCh)).To(Succeed())
 				writeSamples(
@@ -145,7 +151,9 @@ var _ = Describe("Meta backup", func() {
 				Expect(db.Close()).To(Succeed())
 
 				Expect(cesium.RestoreMeta(fs, backup, "orphans")).To(Succeed())
-				Expect(entryNames(fs, "")).To(ConsistOf("1", "2", "orphans"))
+				Expect(
+					entryNames(fs, ""),
+				).To(ConsistOf("1", "2", "delete-intents", "orphans"))
 				Expect(entryNames(fs, "orphans")).To(ConsistOf("3"))
 				Expect(entryNames(fs, "orphans/3")).To(ContainElement("meta.json"))
 				Expect(fs.Remove("orphans")).To(Succeed())

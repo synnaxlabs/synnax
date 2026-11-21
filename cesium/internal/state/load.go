@@ -14,20 +14,20 @@ import (
 	"math"
 	"slices"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // load sets c to the durable state s of a head. It returns an error that wraps
 // ErrRefused when a value of s breaks a rule, or log.ErrUnknown for a segment format
 // version that this binary does not read.
 func (c *core) load(s *Snapshot) error {
-	if s.Limits.Alignments > uint64(alignment.ZeroLeading) {
+	if s.Limits.Alignments > uint64(telem.LeadingDomain) {
 		return refuse(
 			"head has alignment number limit %d, above %d",
 			s.Limits.Alignments,
-			alignment.ZeroLeading,
+			telem.LeadingDomain,
 		)
 	}
 	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits

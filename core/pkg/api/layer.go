@@ -370,9 +370,19 @@ func (l *Layer) BindTo(t Transport) {
 			l.config.Service.Resource,
 			l.config.Service.RBAC,
 		)
+		names = channelNamesMiddleware(
+			l.config.Distribution.DB,
+			l.config.Service.Channel,
+			l.config.Service.RBAC,
+		)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
-		gatedMiddleware    = append(slices.Clone(secureMiddleware), gate, restrict)
+		gatedMiddleware    = append(
+			slices.Clone(secureMiddleware),
+			gate,
+			restrict,
+			names,
+		)
 	)
 
 	freighter.UseOnAll(

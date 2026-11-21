@@ -14,14 +14,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/claim"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/virtual"
-	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -30,13 +29,29 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
-	// AlignmentCounter hands out the leading alignment domains of new writers.
-	AlignmentCounter = alignment.Counter
+	// Concurrency is the concurrency of a channel's writers, kept in its metadata.
+	Concurrency = channel.Concurrency
+	// ChannelError is an error of one channel. It carries the key of the channel, never
+	// its name, so a caller that holds channel records can name it.
+	ChannelError = channel.Error
 )
+
+const (
+	// ConcurrencyExclusive lets one writer write a channel at a time.
+	ConcurrencyExclusive = channel.ConcurrencyExclusive
+	// ConcurrencyShared lets many writers write a channel at once.
+	ConcurrencyShared = channel.ConcurrencyShared
+)
+
+// ClaimError is the refusal of a writer, a commit, or a delete that reaches the time
+// range another writer claims. It names the time range, never the writer.
+type ClaimError = claim.Error
 
 var (
 	ErrDBClosed        = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound = channel.ErrNotFound
+	// ErrClaimed is wrapped by a ClaimError that refuses an open or a delete.
+	ErrClaimed = claim.ErrClaimed
 )
 
 // Metrics contains statistics about the cesium database.
@@ -45,21 +60,17 @@ type Metrics struct {
 	DiskSize telem.Size
 }
 
-// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
-// leading alignment.
-func NewAlignmentCounter() *AlignmentCounter {
-	return alignment.NewCounter(alignment.ZeroLeading)
-}
-
 type DB struct {
-	// removals tracks the background removals of deleted channel data.
-	removals sync.WaitGroup
 	*options
-	relay *relay
-	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
-	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
+	// intents makes the delete intents of the DB durable.
+	intents *intents
+	// corruptIntents is the number of intent records that Open found bad before a good
+	// one.
+	corruptIntents int
+	// engine is the pointer log layout of the DB, and nil on the old layout.
+	engine *engine
 	// lifecycle orders the start of Run against Close.
 	lifecycle struct {
 		sync.Mutex
@@ -67,16 +78,29 @@ type DB struct {
 	}
 	mu struct {
 		dbs struct {
-			unary   map[ChannelKey]unary.DB
-			virtual map[ChannelKey]virtual.DB
+			unary map[ChannelKey]unary.DB
+			// hidden holds the channels that Sweep keeps: they hold samples but have no
+			// record and no intent. Writers and iterators cannot open on them.
+			hidden map[ChannelKey]unary.DB
 		}
+		// channels is the channel list of the pointer log layout.
+		channels map[ChannelKey]Channel
+		// virtualDirs holds the keys of the directories whose metadata names a virtual
+		// channel. A Core older than this Cesium wrote them, and an undo to it reads
+		// them, so Open leaves them in place.
+		virtualDirs set.Set[ChannelKey]
+		// skipped holds the keys whose directories Open skipped for their intent.
+		skipped set.Set[ChannelKey]
+		// swept is true once Sweep has run. kept holds the keys that it kept, and
+		// sweepErr its error.
+		swept    bool
+		kept     set.Set[ChannelKey]
+		sweepErr error
 		sync.RWMutex
 	}
 }
 
-// Write writes the frame to database at the specified start time. It returns
-// control.ErrUnauthorized if another writer controls a channel in the frame, and then
-// it may have committed only some of the channels.
+// Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -90,17 +114,10 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if err != nil {
 		return span.Error(err)
 	}
-	if _, err = w.Write(frame); err != nil {
-		return err
+	if _, _, err = w.Write(ctx, frame, nil); err == nil {
+		_, _, err = w.Commit(ctx, nil)
 	}
-	_, authorized, err := w.Commit()
-	if err != nil {
-		return err
-	}
-	if !authorized {
-		err = errors.Wrap(xcontrol.ErrUnauthorized, "another writer controls the frame")
-	}
-	return span.Error(errors.Combine(err, w.Close()))
+	return span.Error(errors.Join(err, w.Close()))
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
@@ -141,12 +158,21 @@ func (db *DB) Read(
 	return frame, err
 }
 
+// CorruptIntents returns the number of batches of delete intents that Open found
+// damaged, on two reads, before an intact one. Each Intend appends one batch, and a
+// crash tears only the last, so such a batch is damage on disk. The data of a damaged
+// intent's channel stays, and Sweep keeps it when no record holds its key.
+func (db *DB) CorruptIntents() int { return db.corruptIntents }
+
 // Metrics returns current metrics for the database.
 func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var size telem.Size
 	for _, u := range db.mu.dbs.unary {
+		size += u.Size()
+	}
+	for _, u := range db.mu.dbs.hidden {
 		size += u.Size()
 	}
 	return Metrics{DiskSize: size}
@@ -161,11 +187,9 @@ const (
 	runStopped
 )
 
-// Run runs the relay that feeds writes to streamers, and the garbage collector, until
-// ctx ends. It then waits for them to stop and returns the first error that either
-// returned. Writes block once the relay buffer fills while Run is not running, and
-// streamers do not start. Call Run once, after Open and before Close. A second Run
-// returns an error, and a Run after Close returns ErrDBClosed.
+// Run runs the garbage collector until ctx ends. It then waits for it to stop and
+// returns its error. Call Run once, after Open and before Close. A second Run returns
+// an error, and a Run after Close returns ErrDBClosed.
 func (db *DB) Run(ctx context.Context) error {
 	db.lifecycle.Lock()
 	if db.closed.Load() {
@@ -188,7 +212,9 @@ func (db *DB) Run(ctx context.Context) error {
 		signal.WithInstrumentation(db.Instrumentation),
 	)
 	defer cancel()
-	db.relay.flow(sCtx)
+	if db.engine != nil {
+		return db.engine.run(ctx)
+	}
 	db.startGC(sCtx, db.options)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
@@ -196,8 +222,6 @@ func (db *DB) Run(ctx context.Context) error {
 // Close closes the database. Call it only after Run returns: while Run runs, Close
 // returns an error wrapping resource.ErrOpen and closes nothing. Close is not safe to
 // call with any other DB methods concurrently.
-//
-// Writers still open after Run returns stop sending to streamers.
 //
 // If there is an error in closing the cesium database, the database will be marked as
 // closed regardless of whether an error occurred.
@@ -208,9 +232,20 @@ func (db *DB) Close() error {
 		return errors.Wrap(resource.ErrOpen, "close called while Run runs")
 	}
 	closing := db.closed.CompareAndSwap(false, true)
+	ran := db.lifecycle.state != runIdle
 	db.lifecycle.Unlock()
 	if !closing {
 		return nil
+	}
+	if db.engine != nil {
+		if ran {
+			return db.engine.close()
+		}
+		// The owners close only while they run, so a DB that never ran runs them with
+		// a done context, which closes them in order.
+		done, cancel := context.WithCancel(context.Background())
+		cancel()
+		return db.engine.run(done)
 	}
 	var err error
 	db.mu.Lock()
@@ -218,6 +253,8 @@ func (db *DB) Close() error {
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
-	db.removals.Wait()
-	return err
+	for _, u := range db.mu.dbs.hidden {
+		err = errors.Join(err, u.Close())
+	}
+	return errors.Join(err, db.intents.Close())
 }

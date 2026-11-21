@@ -19,7 +19,6 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -42,16 +41,6 @@ func mustOpenDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesiu
 }
 
 func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }
-
-// virtualChannel returns a virtual channel with the given key and name.
-func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
-	return cesium.Channel{
-		Key:      key,
-		Name:     name,
-		DataType: telem.Int64T,
-		Virtual:  true,
-	}
-}
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)

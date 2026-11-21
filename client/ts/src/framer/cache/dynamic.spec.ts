@@ -122,6 +122,15 @@ describe("DynamicCache", () => {
         expect(cache.leadingBuffer?.dataType.equals(DataType.FLOAT64)).toBe(true);
         expect(cache.leadingBuffer?.at(0)).toEqual(4);
       });
+      it("should start a new buffer when the clock of the series changes", () => {
+        const cache = new Dynamic({ dynamicBufferSize: 100 });
+        const on = (clock: number, values: number[], a: bigint): Series =>
+          new Series({ data: new Float32Array(values), clock }).reAlign(a);
+        cache.write(new MultiSeries([on(1, [1, 2, 3], 0n)]));
+        const { flushed } = cache.write(new MultiSeries([on(2, [4], 3n)]));
+        expect(flushed.series.map((s) => s.clock)).toEqual([1]);
+        expect(cache.leadingBuffer?.clock).toEqual(2);
+      });
       describe("time range stamping", () => {
         const WALL = TimeStamp.seconds(100);
         const stamped = (data: number[], tr: TimeRange, alignment = 0n): Series =>

@@ -93,3 +93,42 @@ func InferDataType[T Sample]() DataType {
 		return UnknownT
 	}
 }
+
+// dataTypesByCode holds the data type of each DataTypeCode, indexed by code.
+var dataTypesByCode = [...]DataType{
+	DataTypeCodeUnknown:   UnknownT,
+	DataTypeCodeUint8:     Uint8T,
+	DataTypeCodeUint16:    Uint16T,
+	DataTypeCodeUint32:    Uint32T,
+	DataTypeCodeUint64:    Uint64T,
+	DataTypeCodeInt8:      Int8T,
+	DataTypeCodeInt16:     Int16T,
+	DataTypeCodeInt32:     Int32T,
+	DataTypeCodeInt64:     Int64T,
+	DataTypeCodeFloat32:   Float32T,
+	DataTypeCodeFloat64:   Float64T,
+	DataTypeCodeTimestamp: TimestampT,
+	DataTypeCodeUUID:      UUIDT,
+	DataTypeCodeString:    StringT,
+	DataTypeCodeBytes:     BytesT,
+	DataTypeCodeJSON:      JSONT,
+	DataTypeCodeBoolean:   BooleanT,
+}
+
+// DataType returns the data type of c, or UnknownT for a code with no data type.
+func (c DataTypeCode) DataType() DataType {
+	if int(c) < len(dataTypesByCode) {
+		return dataTypesByCode[c]
+	}
+	return UnknownT
+}
+
+// CodeOf returns the code of dt, or DataTypeCodeUnknown for a data type with no code.
+func CodeOf(dt DataType) DataTypeCode {
+	for c, t := range dataTypesByCode {
+		if t == dt {
+			return DataTypeCode(c)
+		}
+	}
+	return DataTypeCodeUnknown
+}

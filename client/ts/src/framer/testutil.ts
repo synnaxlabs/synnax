@@ -65,3 +65,12 @@ export const createCodec = (keys: channel.Key[]): Codec =>
     keys,
     keys.map(() => DataType.FLOAT32),
   );
+
+/**
+ * @returns the payload encoded after the first frame of its state, which codec has
+ * decoded, so a benchmark measures the frame that a stream sends most.
+ */
+export const steady = (codec: Codec, payload: Payload | Frame): Uint8Array => {
+  codec.decode(codec.encode(payload));
+  return codec.encode(payload);
+};

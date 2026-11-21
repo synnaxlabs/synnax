@@ -159,6 +159,45 @@ type Log struct {
 // log, ready for its first frame. The size of the file is the size of the log, a whole
 // number of blocks that holds the frames start, the delete reserve, and two blocks.
 func Start(cfg Config) (*Log, error) {
+	l, err := newLog(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err = l.open(cfg.Generation); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// Position is where the log that recovery read goes on.
+type Position struct {
+	// End is the end of the last valid frame.
+	End int64
+	// Sequence is the sequence of the next entry.
+	Sequence uint64
+	// PrevCRC is the crc field of the last valid frame.
+	PrevCRC uint32
+}
+
+// Resume returns the log of cfg with its file as recovery left it, and writes nothing.
+// Its first frame starts at the first block boundary at or after pos.End, so no block
+// that holds a frame that recovery read is written again.
+func Resume(cfg Config, pos Position) (*Log, error) {
+	l, err := newLog(cfg)
+	if err != nil {
+		return nil, err
+	}
+	file, size, err := l.openFile(cfg.Generation)
+	if err != nil {
+		return nil, err
+	}
+	l.file, l.size = file, size
+	l.seq, l.prevCRC = pos.Sequence, pos.PrevCRC
+	l.prevEnd, l.lastEnd = pos.End, pos.End
+	return l, nil
+}
+
+func newLog(cfg Config) (*Log, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -171,32 +210,39 @@ func Start(cfg Config) (*Log, error) {
 		seq:     cfg.Sequence,
 		prevCRC: cfg.PrevCRC,
 	}
-	if err := l.open(cfg.Generation); err != nil {
-		return nil, err
-	}
 	l.step = l.run
 	return l, nil
 }
 
-// open opens the prepared file of the log of generation, writes and syncs both copies
-// of its header, and makes it the file that frames go to.
-func (l *Log) open(generation uint64) error {
+// openFile opens the file of the log of generation and returns its size, a whole
+// number of blocks of at least minSize.
+func (l *Log) openFile(generation uint64) (xfs.File, int64, error) {
 	file, err := l.cfg.FS.Open(Name(generation), os.O_RDWR)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	info, err := file.Stat()
 	if err != nil {
-		return errors.Join(err, file.Close())
+		return nil, 0, errors.Join(err, file.Close())
 	}
 	size := info.Size()
 	if size < minSize || size%BlockSize != 0 {
-		return errors.Join(errors.Wrapf(
+		return nil, 0, errors.Join(errors.Wrapf(
 			validate.ErrValidation,
 			"log file of %d bytes is not a whole number of blocks of at least %d",
 			size,
 			minSize,
 		), file.Close())
+	}
+	return file, size, nil
+}
+
+// open opens the prepared file of the log of generation, writes and syncs both copies
+// of its header, and makes it the file that frames go to.
+func (l *Log) open(generation uint64) error {
+	file, size, err := l.openFile(generation)
+	if err != nil {
+		return err
 	}
 	h := Header{
 		DB:         l.cfg.DB,
