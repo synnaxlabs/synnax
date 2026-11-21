@@ -277,6 +277,8 @@ export const use = ({
     if (canvasRef.current == null) return;
     const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
     const canvas = box.construct(canvasRef.current);
+    // A drag can end in any mode. A select end clears its bound once it reads it.
+    if (stage === "end" && mode !== "select") dragBoundRef.current = null;
     if (mode == null) return;
 
     if (mode === "cancel") {
@@ -300,7 +302,7 @@ export const use = ({
       dragBoundRef.current = drag;
     }
     if (stage === "end") {
-      const drag = mode === "select" ? dragBoundRef.current : null;
+      const drag = dragBoundRef.current;
       dragBoundRef.current = null;
       const args = { box: box_, triggers, cursor, mode, canvas };
       // A select drag that ends before its bound arrives commits once it does.
