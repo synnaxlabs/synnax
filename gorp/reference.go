@@ -503,6 +503,9 @@ func (r *reference[K, E, T]) Referenced(
 	in func(K) bool,
 	targets ...T,
 ) (set.Set[T], error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 		return r.scanReferenced(ctx, snap, in, targets)
 	} else if err != nil {
@@ -619,6 +622,9 @@ func (r *reference[K, E, T]) dependents(
 	targets []Target,
 	typed any,
 ) ([][]string, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if r.store.Empty(scopeOf(snap)) {
 		return nil, nil
 	}
@@ -657,6 +663,9 @@ func (r *reference[K, E, T]) dependentsOf(
 	snap Snapshot,
 	target Target,
 ) ([]string, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if r.store.Empty(scopeOf(snap)) {
 		return nil, nil
 	}

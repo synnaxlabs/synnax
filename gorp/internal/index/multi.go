@@ -41,7 +41,7 @@ func NewMulti[S Scope, K, V comparable]() *Multi[S, K, V] {
 		reverse:    make(map[K][]V),
 		none:       make(set.Set[K]),
 	}
-	m.overlay.init(newDelta[K, V], m.flush)
+	m.overlay.init(newDelta[K, V](), m.flush)
 	return m
 }
 
@@ -266,20 +266,20 @@ func (m *Multi[S, K, V]) Empty(scope S) bool {
 	if !m.loaded() {
 		return false
 	}
-	m.mu.RLock()
-	empty := m.population.err == nil && len(m.forward) == 0
-	m.mu.RUnlock()
-	if !empty {
-		return false
-	}
+	// The changes go first: a commit flushes them into committed state before it
+	// empties them, so a holder in either is seen.
 	o := &m.overlay
 	o.mu.RLock()
-	defer o.mu.RUnlock()
 	// Only the staging scope, or a scope in its commit, reads the changes.
-	if isNone(o.scope) || (o.scope != scope && !o.scope.Committing()) {
-		return true
+	staged := !isNone(o.scope) && (o.scope == scope || o.scope.Committing()) &&
+		len(o.d.forward) > 0
+	o.mu.RUnlock()
+	if staged {
+		return false
 	}
-	return len(o.d.forward) == 0
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.population.err == nil && len(m.forward) == 0
 }
 
 // CommittingEach returns, at each position of values, the keys that a transaction in

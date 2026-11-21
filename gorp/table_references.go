@@ -264,7 +264,7 @@ func (t *Table[K, E]) delete(
 			return err
 		}
 		if len(plan.weak) > 0 {
-			if err = t.callHeld(ctx, tx, entries, plan.weak, held); err != nil {
+			if err = t.callHeld(ctx, tx, entries, plan, held); err != nil {
 				return err
 			}
 		}
@@ -276,52 +276,60 @@ func (t *Table[K, E]) delete(
 	return w.Delete(ctx, keys...)
 }
 
-// callHeld calls held with each entry of the table that weak holds: the entries the
-// caller asked to delete first, then, in key order, those that a cascade deletes.
+// callHeld calls held with each entry of the table that the delete of plan removes and
+// that a Weak reference of an entry the delete keeps holds, and with those holders: the
+// entries the caller asked to delete first, then, in key order, those that a cascade
+// deletes.
 func (t *Table[K, E]) callHeld(
 	ctx context.Context,
 	tx Tx,
 	entries []E,
-	weak map[string][]Dependent,
+	plan *deletePlan,
 	held HeldFunc[K, E],
 ) error {
+	removed := func(d Dependent) bool { return plan.contains(d.Holder) }
+	holders := func(text string) []Dependent {
+		deps := plan.weak[text]
+		if !slices.ContainsFunc(deps, removed) {
+			return deps
+		}
+		return slices.DeleteFunc(slices.Clone(deps), removed)
+	}
 	requested := make(set.Set[string], len(entries))
 	for _, e := range entries {
-		k := FormatKey(e.GorpKey())
-		requested.Add(k)
-		if deps := weak[k]; len(deps) > 0 {
+		text := FormatKey(e.GorpKey())
+		requested.Add(text)
+		if deps := holders(text); len(deps) > 0 {
 			if err := held(ctx, tx, e, deps); err != nil {
 				return err
 			}
 		}
 	}
-	var texts []string
-	for text := range weak {
-		if !requested.Contains(text) {
-			texts = append(texts, text)
+	var cascaded []K
+	for text := range plan.weak {
+		if requested.Contains(text) || len(holders(text)) == 0 {
+			continue
 		}
-	}
-	if len(texts) == 0 {
-		return nil
-	}
-	slices.Sort(texts)
-	cascaded := make([]K, len(texts))
-	for i, text := range texts {
 		k, err := key.Parse[K](text)
 		if err != nil {
 			return err
 		}
-		cascaded[i] = k
+		cascaded = append(cascaded, k)
 	}
+	if len(cascaded) == 0 {
+		return nil
+	}
+	slices.SortFunc(cascaded, key.Order[K]())
 	var more []E
+	// An entry that tx removed after the plan is not one this delete removes.
 	if err := t.NewRetrieve().
 		Where(MatchKeys[K, E](cascaded...)).
 		Entries(&more).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	for _, e := range more {
-		if err := held(ctx, tx, e, weak[FormatKey(e.GorpKey())]); err != nil {
+		if err := held(ctx, tx, e, holders(FormatKey(e.GorpKey()))); err != nil {
 			return err
 		}
 	}

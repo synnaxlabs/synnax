@@ -81,6 +81,9 @@ func (s *SearchIndex[K, E]) Search(
 	q search.Query[K],
 ) (search.Result[K], error) {
 	checkForNilTx("SearchIndex.Search", snap)
+	if err := checkOpen(snap); err != nil {
+		return search.Result[K]{}, err
+	}
 	if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 		return s.scan(ctx, snap, q)
 	} else if err != nil {
