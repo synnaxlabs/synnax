@@ -632,6 +632,33 @@ describe("XAxis", () => {
       expect(segmentBounds(x)).toEqual([{ lower: DAY - S, upper: DAY + 60 * S }]);
     });
 
+    it("should start a manual lower bound in a gap at the segment past the gap", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: 3600 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: DAY - 3 * S, upper: DAY + 60 * S }]);
+    });
+
+    it("should end a manual upper bound in a gap at the segment before the gap", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: false, upper: true },
+        bounds: { lower: 0, upper: DAY - 3600 * S },
+      });
+      expect(segmentBounds(x)).toEqual([{ lower: 0, upper: 63 * S }]);
+    });
+
+    it("should keep a manual lower bound before the first segment", () => {
+      const x = mount(WINDOWS, {
+        type: "time",
+        manualBounds: { lower: true, upper: false },
+        bounds: { lower: -60 * S, upper: DAY + 60 * S },
+      });
+      expect(segmentBounds(x)[0]).toEqual({ lower: -60 * S, upper: 63 * S });
+    });
+
     it("should keep its segments while it holds", () => {
       const x = mount(WINDOWS, { type: "time" });
       const before = segmentBounds(x);
