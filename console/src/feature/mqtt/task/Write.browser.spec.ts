@@ -17,6 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
+import { Panel } from "@/platform/panel";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
@@ -117,7 +118,7 @@ describe("MQTT Write form", () => {
   // The form loads lazily. Loading it here keeps its import out of the first test. A
   // cold transform of its modules takes over 10 s on a loaded CI runner.
   beforeAll(async () => {
-    await import("@/feature/mqtt/task/Write");
+    await Panel.preload(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE]);
   }, 30_000);
 
   it("should show the empty state and add + select a target", async () => {

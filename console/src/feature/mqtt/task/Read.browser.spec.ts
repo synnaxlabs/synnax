@@ -21,6 +21,7 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
+import { Panel } from "@/platform/panel";
 import {
   clickDeploy,
   clickFailedDeploy,
@@ -294,7 +295,7 @@ describe("MQTT read form", () => {
   // The form loads lazily. Loading it here keeps its import out of the first test. A
   // cold transform of its modules takes over 10 s on a loaded CI runner.
   beforeAll(async () => {
-    await import("@/feature/mqtt/task/Read");
+    await Panel.preload(MQTT.Task.FORMS[MQTT.Task.READ_TYPE]);
   }, 30_000);
 
   it("should create a format named after the task and add later picks to it", async () => {

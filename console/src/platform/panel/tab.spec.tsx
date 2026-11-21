@@ -301,4 +301,18 @@ describe("Panel tab", () => {
       expect(load).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("preload", () => {
+    it("loads the module of a lazy component before its first render", async () => {
+      const load = vi.fn(async () => ({ Content: () => <p>Loaded</p> }));
+      await Panel.preload(Panel.lazyComponent(load, "Content"));
+      expect(load).toHaveBeenCalledTimes(1);
+    });
+
+    it("throws for a component that lazyComponent did not return", async () => {
+      await expect(Panel.preload(() => <p>Plain</p>)).rejects.toThrow(
+        "preload takes only a component that lazyComponent returned",
+      );
+    });
+  });
 });
