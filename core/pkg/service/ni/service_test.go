@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
@@ -395,34 +397,41 @@ var _ = Describe("Service", func() {
 				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2}),
 		)
 
-		DescribeTable("Should order the range of a legacy channel before checking it",
+		DescribeTable("Should order the range of an older config before checking it",
 			func(
 				ctx SpecContext,
 				store func() config.Store,
+				version imex.Version,
 				ch map[string]any,
 				wantMin, wantMax float64,
 			) {
-				out := MustSucceed(store().Normalize(ctx, db, 0, msgpack.EncodedJSON{
-					"channels": []any{ch},
-				}))
+				out := MustSucceed(
+					store().Normalize(ctx, db, version, msgpack.EncodedJSON{
+						"channels": []any{ch},
+					}),
+				)
 				MustSucceed(store().Prepare(ctx, db, uuid.New(), "", out))
 				Expect(channel(out)).To(SatisfyAll(
 					HaveKeyWithValue("min_val", BeNumerically("==", wantMin)),
 					HaveKeyWithValue("max_val", BeNumerically("==", wantMax)),
 				))
 			},
-			Entry("swapping a reversed analog input",
-				func() config.Store { return svc.AnalogRead },
+			Entry("swapping a reversed legacy analog input",
+				func() config.Store { return svc.AnalogRead }, imex.Version(0),
 				map[string]any{"type": "ai_voltage", "minVal": 5, "maxVal": -5},
 				-5.0, 5.0),
-			Entry("giving an equal analog output the default of its type",
-				func() config.Store { return svc.AnalogWrite },
+			Entry("giving an equal legacy analog output the default of its type",
+				func() config.Store { return svc.AnalogWrite }, imex.Version(0),
 				map[string]any{"type": "ao_voltage", "minVal": 1, "maxVal": 1},
 				0.0, 1.0),
-			Entry("giving an equal counter input the default of its type",
-				func() config.Store { return svc.CounterRead },
+			Entry("giving an equal legacy counter input the default of its type",
+				func() config.Store { return svc.CounterRead }, imex.Version(0),
 				map[string]any{"type": "ci_frequency", "minVal": 50, "maxVal": 50},
 				2.0, 100.0),
+			Entry("swapping a reversed v3 analog input",
+				func() config.Store { return svc.AnalogRead }, v3.Version,
+				map[string]any{"type": "ai_voltage", "min_val": 5, "max_val": -5},
+				-5.0, 5.0),
 		)
 
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {
