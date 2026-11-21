@@ -492,6 +492,11 @@ export const messageZ = z.object({
   name: z.string().min(1),
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
+  /**
+   * cycleTime is the send cycle that the protocol states for the message. When absent
+   * the protocol states none.
+   */
+  cycleTime: telem.timeSpanZ.optional(),
 });
 export interface Message extends z.infer<typeof messageZ> {}
 

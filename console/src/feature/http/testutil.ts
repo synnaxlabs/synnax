@@ -13,6 +13,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/http/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateHTTPDeviceOptions {
   configured?: boolean;
@@ -33,3 +34,10 @@ export const createHTTPDevice = async (
     configured,
     properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
   });
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(
+    async () => await import("@/feature/http/task/Read"),
+    async () => await import("@/feature/http/task/Write"),
+  );
