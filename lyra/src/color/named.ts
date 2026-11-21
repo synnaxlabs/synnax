@@ -50,7 +50,7 @@ export interface Library {
   /**
    * Shown under the palettes and a hairline, across the width of the picker. A small
    * `Button.CreateListItem` in it keeps the same edge on every side, and anything else
-   * in it takes the same box.
+   * in it takes the same margin.
    */
   footer?: ReactNode;
 }
