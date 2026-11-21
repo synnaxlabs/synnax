@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
@@ -37,6 +38,7 @@ export const Symbol = ({
     stalenessColor,
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const options = Options.use({ enumeration, options: ownOptions });
   const badged = Staleness.useBadged();
@@ -60,7 +62,7 @@ export const Symbol = ({
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         inlineSize={inlineSize}
         size={size}
         staleColor={

@@ -127,6 +127,9 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 export const isConnectionError = (err: unknown): boolean =>
   Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
+/** Raised when an edit targets a document that is not in the client's cache. */
+export class NotCachedError extends SynnaxError.sub("not_cached") {}
+
 /** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
@@ -189,6 +192,9 @@ const decode = (payload: errors.Payload): Error | null => {
       return new UnauthorizedError(payload.data);
     return new ControlError(payload.data);
   }
+
+  if (payload.type.startsWith(NotCachedError.TYPE))
+    return new NotCachedError(payload.data);
 
   if (payload.type.startsWith(RouteError.TYPE))
     return new RouteError(payload.data, payload.data);

@@ -13,10 +13,12 @@ import type { schematic } from "@synnaxlabs/client";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Stale } from "@/schematic/node/common/stale";
+import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 import { Staleness } from "@/vis/staleness";
@@ -56,13 +58,14 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
   const badged = Staleness.useBadged();
+  const resolve = Color.useResolve();
   const dims = GAUGE_DIMENSIONS[level] ?? DEFAULT_DIMENSIONS;
   const telem = Value.stringSource({ channel, rollingAverage, precision, notation });
   const { stale } = BaseGauge.use({
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, dims),
     telem,
-    color: strokeColor,
+    color: resolve(strokeColor),
     level,
     units,
     bounds,
@@ -79,4 +82,13 @@ export const Symbol = ({
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
+};
+
+/** Renders the gauge in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  ...rest
+}: schematic.GaugeNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <Gauge {...rest} strokeColor={resolve(strokeColor)} />;
 };

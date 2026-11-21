@@ -12,6 +12,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { MAKE, type Properties } from "@/feature/sift/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
+import { preload } from "@/testutil";
 
 export interface CreateSiftDeviceOptions {
   rack?: rack.Key;
@@ -42,3 +43,7 @@ export const createSiftDevice = async (
       ...properties,
     },
   });
+
+/** Loads the modules of the lazy task forms before the specs of a file run. */
+export const preloadForms = (): void =>
+  preload(async () => await import("@/feature/sift/task/Stream"));

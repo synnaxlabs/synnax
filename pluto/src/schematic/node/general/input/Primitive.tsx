@@ -22,8 +22,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface PrimitiveProps extends Partial<
-  Omit<schematic.InputNodeConfig, "variant" | "label" | "scale">
+  Omit<schematic.InputNodeConfig, "variant" | "label" | "scale" | "fillColor">
 > {
+  fillColor?: color.Crude;
   /** value is the last sent string, or null when none is known. */
   value?: string | null;
   /** readback renders under the field and shows the value the device holds. */

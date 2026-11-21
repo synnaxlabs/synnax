@@ -155,6 +155,18 @@ class InstanceSetter extends aether.Composite<typeof exampleProps, {}, ExampleLe
   }
 }
 
+/** Reads "key", then throws while `state.x` is negative. */
+class FailingReader extends aether.Leaf<typeof exampleProps> {
+  updatef = vi.fn();
+  override schema = exampleProps;
+
+  override afterUpdate(ctx: aether.Context): void {
+    ctx.getOptional<number>("key");
+    this.updatef();
+    if (this.state.x < 0) throw new Error("bad");
+  }
+}
+
 const invokeMethodsSchema = {
   increment: z.function({ input: z.tuple([z.number()]), output: z.number() }),
   greet: z.function({
@@ -242,6 +254,7 @@ const createConditionalReader = make(ConditionalReader, "conditional");
 const createShadowingSetter = make(ShadowingSetter, "shadow");
 const createInstanceSetter = make(InstanceSetter, "instance");
 const createInvokeLeaf = make(InvokeLeaf, "invoke-leaf");
+const createFailingReader = make(FailingReader, "failing");
 const createInvokeComposite = make(InvokeComposite, "invoke-composite");
 
 const shouldNotCallCreate = (): aether.Component => {
@@ -418,6 +431,23 @@ describe("Aether Worker", () => {
       const v = createContextSetter("test");
       update(v, ["test"], 2);
       expect(v.testingChildCtxValues.get("key")).toEqual(2);
+    });
+
+    it("should not re-run a child whose first update failed", () => {
+      const v = createContextSetter("test");
+      update(v, ["test"], 2);
+      let reader = null as FailingReader | null;
+      expect(() =>
+        update(
+          v,
+          ["test", "reader"],
+          -1,
+          (c) => (reader = createFailingReader("reader", c)),
+        ),
+      ).toThrow();
+      expect(v.children).toHaveLength(0);
+      expect(() => update(v, ["test"], 3)).not.toThrow();
+      expect(reader!.updatef).toHaveBeenCalledTimes(1);
     });
 
     it("should correctly pass an initial context value to a leaf child", () => {

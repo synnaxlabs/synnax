@@ -19,7 +19,7 @@ def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     swatch.click()
     picker = page.locator(".lyra-color-picker")
     picker.wait_for(state="visible", timeout=2000)
-    # A swatch with a library of named colors opens on its Library tab.
+    # A picker with palettes opens on them for an absent or named value.
     custom = picker.get_by_text("Custom", exact=True)
     if custom.count() > 0:
         custom.click()
