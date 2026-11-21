@@ -32,6 +32,7 @@ import (
 var _ = Describe("Service", func() {
 	var (
 		svc     *master.Service
+		rackSvc *rack.Service
 		tx      gorp.Tx
 		rackKey rack.Key
 	)
@@ -40,7 +41,7 @@ var _ = Describe("Service", func() {
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
 			HostKey:    1,
 			Status:     stat,
@@ -88,6 +89,25 @@ var _ = Describe("Service", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(got).To(HaveLen(1))
 			Expect(got[0].Key).To(Equal(m.Key))
+		})
+	})
+
+	Describe("Rack", func() {
+		It("Should refuse to delete a rack that holds a master", func(ctx SpecContext) {
+			r := rack.Rack{Name: "Bench"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			rackKey = r.Key
+			m := create(ctx, "eth4")
+			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, r.Key)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("because ethercat_master")),
+			))
+			var got master.Master
+			Expect(svc.NewRetrieve().
+				Where(master.MatchKeys(m.Key)).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Rack).To(Equal(r.Key))
 		})
 	})
 
