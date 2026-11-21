@@ -23,6 +23,8 @@ interface Range {
 interface Held extends Range {
   /** The path of the minimum value the range was typed for. */
   at: string;
+  /** The stored range when the hold started. */
+  stored: Range;
 }
 
 const MESSAGE = "Minimum value must be less than maximum value";
@@ -35,7 +37,8 @@ export interface MinMaxValueFieldsProps {
 /**
  * Edits a channel's range. The Core refuses a range whose minimum is not below its
  * maximum, so the fields hold such a range with an error and save nothing until the
- * range is valid again. A held range stops a deploy.
+ * range is valid again. A held range stops a deploy. Leaving the channel, or a change
+ * to the stored range, drops the held range.
  */
 export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const ctx = Form.useContext();
@@ -43,7 +46,11 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const maxVal = Form.useFieldValue(path.maxVal);
   const at = String(path.minVal);
   const [held, setHeld] = useState<Held>();
-  const holding = held?.at === at;
+  const stale =
+    held != null &&
+    (held.at !== at || held.stored.minVal !== minVal || held.stored.maxVal !== maxVal);
+  if (stale) setHeld(undefined);
+  const holding = held != null && !stale;
   const shown: Range = holding ? held : { minVal, maxVal };
 
   Task.useFlushFirst(async () => !holding);
@@ -57,7 +64,7 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const handleChange = (key: keyof Range) => (value: number) => {
     const next = { ...shown, [key]: value };
     if (next.minVal >= next.maxVal) {
-      setHeld({ ...next, at });
+      setHeld({ ...next, at, stored: { minVal, maxVal } });
       return;
     }
     setHeld(undefined);
