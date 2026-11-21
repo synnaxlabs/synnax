@@ -387,6 +387,15 @@ class Plot(ConsolePage):
         self._open_menu()
         self.layout.ctx_menu.click_option(option)
 
+    def reload_console(self) -> None:
+        """Reload the Console from the plot menu and wait for the plot to show.
+        The Console saves the Session before the reload."""
+        with self.page.expect_navigation(wait_until="load", timeout=30000):
+            self.select_menu_option("Reload Console")
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        self.pane_locator.wait_for(state="visible", timeout=10000)
+
     def get_range_strip(self) -> Locator:
         """Return the strip above the plot that shows the plot's ranges."""
         if not self.pane_locator:
