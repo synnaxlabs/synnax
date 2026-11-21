@@ -635,7 +635,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
     // A line whose span holds no time draws nothing, as when another line of its group
-    // draws all of its window. Its sources still read the span, so they hold no tiles.
+    // draws all of its window. Its sources still read the span, so they fetch no tiles.
     if (!(span.lower < span.upper)) {
       i.loadingState = undefined;
       i.drawn = [];
