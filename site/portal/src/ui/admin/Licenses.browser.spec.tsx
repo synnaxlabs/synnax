@@ -7,25 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// @vitest-environment jsdom
-
-import { ResizeObserver } from "@juggle/resize-observer";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LICENSE, NOW } from "@/server/license/testutil";
 import { Admin } from "@/ui/admin";
 
-// jsdom cannot navigate, so the spec reads where a page load would have gone.
+// A page load would end the spec, so the spec reads where it would have gone.
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn<(url: string) => void>() }));
 vi.mock("@/ui/api", async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -38,25 +26,6 @@ const chooseTerm = (current: string, next: string): void => {
 };
 
 describe("Admin.Licenses", () => {
-  // jsdom lacks the ResizeObserver, matchMedia, and canvas that Lyra's background uses.
-  beforeAll(() => {
-    vi.stubGlobal("ResizeObserver", ResizeObserver);
-    vi.stubGlobal("matchMedia", (media: string): MediaQueryList =>
-      Object.assign(new EventTarget(), {
-        media,
-        matches: false,
-        onchange: null,
-        addListener: () => {},
-        removeListener: () => {},
-      }),
-    );
-    HTMLCanvasElement.prototype.getContext = () => null;
-  });
-
-  afterAll(() => {
-    vi.unstubAllGlobals();
-  });
-
   afterEach(() => {
     cleanup();
   });
