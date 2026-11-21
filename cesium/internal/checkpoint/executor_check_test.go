@@ -12,6 +12,7 @@ package checkpoint_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
@@ -59,24 +61,50 @@ func executor(oneAtATime bool) func(func()) {
 	return s.run
 }
 
+// ownerErrs holds the errors of owners and their hooks until the cleanup of the spec
+// stops them. An error after that point is the stop itself.
+type ownerErrs struct {
+	mu       sync.Mutex
+	errs     []error
+	stopping atomic.Bool
+}
+
+func (o *ownerErrs) add(err error) {
+	if err == nil || o.stopping.Load() {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.errs = append(o.errs, err)
+}
+
+func (o *ownerErrs) err() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return errors.Join(o.errs...)
+}
+
 // runOwners runs each owner until the spec ends, and waits for them all to return at
-// its cleanup, before the cleanup of the executor that they share.
-func runOwners(runs ...func(context.Context) error) {
+// its cleanup, before the cleanup of the executor that they share. The cleanup fails
+// on an error of errs.
+func runOwners(errs *ownerErrs, runs ...func(context.Context) error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	for _, run := range runs {
-		wg.Go(func() { _ = run(ctx) })
+		wg.Go(func() { errs.add(errors.Skip(run(ctx), context.Canceled)) })
 	}
 	DeferCleanup(func() {
+		errs.stopping.Store(true)
 		cancel()
 		wg.Wait()
+		Expect(errs.err()).ToNot(HaveOccurred())
 	})
 }
 
 var _ = Describe("Check: executor", func() {
 	DescribeTable("Should write the head of a switched log when the state owner and "+
 		"the checkpointer share an executor", func(oneAtATime bool) {
-		fs := xfs.NewMem()
+		fs, errs := xfs.NewMem(), &ownerErrs{}
 		ex := executor(oneAtATime)
 		Expect(log.Prepare(fs, 2, logSize)).To(Succeed())
 		var cp *checkpoint.Checkpointer
@@ -94,7 +122,7 @@ var _ = Describe("Check: executor", func() {
 			Prepared: func(uint64, error) {},
 			Executor: ex,
 		}))
-		runOwners(st.Run, cp.Run)
+		runOwners(errs, st.Run, cp.Run)
 		Expect(st.Switch(2)).To(Succeed())
 		Eventually(func() error { return readErr(fs, 2) }).
 			WithTimeout(5 * time.Second).
@@ -106,7 +134,7 @@ var _ = Describe("Check: executor", func() {
 
 	DescribeTable("Should switch to the next log when the log owner and the state "+
 		"owner share an executor", func(oneAtATime bool) {
-		fs := xfs.NewMem()
+		fs, errs := xfs.NewMem(), &ownerErrs{}
 		ex := executor(oneAtATime)
 		Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
 		Expect(log.Prepare(fs, 2, logSize)).To(Succeed())
@@ -125,7 +153,7 @@ var _ = Describe("Check: executor", func() {
 			FS:       fs,
 			Executor: ex,
 			OnDurable: func(seq uint64, records []log.Record) {
-				_ = st.Durable(seq, records)
+				errs.add(st.Durable(seq, records))
 			},
 			Prepare: func(next uint64) {
 				if next == 2 {
@@ -133,17 +161,17 @@ var _ = Describe("Check: executor", func() {
 				}
 			},
 			OnRefused: func(records []log.Record, err error) {
-				_ = st.Refused(records, err)
+				errs.add(st.Refused(records, err))
 			},
 			Switched: func(g uint64) {
-				_ = st.Switch(g)
+				errs.add(st.Switch(g))
 				switched <- g
 			},
 			DB:         db,
 			Generation: 1,
 			Sequence:   1,
 		}))
-		runOwners(st.Run, l.Run)
+		runOwners(errs, st.Run, l.Run)
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
 		Expect(switched).To(Receive(Equal(uint64(2))))
 	},
@@ -153,7 +181,7 @@ var _ = Describe("Check: executor", func() {
 
 	DescribeTable("Should switch to the next log when the log owner and the "+
 		"checkpointer share an executor", func(oneAtATime bool) {
-		fs := xfs.NewMem()
+		fs, errs := xfs.NewMem(), &ownerErrs{}
 		ex := executor(oneAtATime)
 		Expect(log.Prepare(fs, 1, logSize)).To(Succeed())
 		var (
@@ -189,9 +217,9 @@ var _ = Describe("Check: executor", func() {
 		}))
 		// The log passes three quarters before the checkpointer's first step is on the
 		// executor.
-		runOwners(l.Run)
+		runOwners(errs, l.Run)
 		Eventually(fill(l)).WithTimeout(10 * time.Second).Should(Receive(BeNil()))
-		runOwners(cp.Run)
+		runOwners(errs, cp.Run)
 		Eventually(ready).WithTimeout(10 * time.Second).
 			Should(Receive(Equal(uint64(2))))
 		var e log.Entry
