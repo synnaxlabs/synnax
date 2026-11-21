@@ -165,11 +165,10 @@ export const use = ({
   const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // A view that moves leaves the mask on other values, so the mask clears.
+  // Each new initial box is a reset. A reset can move the data under the view.
   useEffect(() => {
-    const next = box.truncate(initial, calculateTruncPrecision(initial));
-    if (!box.equals(stateRef.current, next)) setMaskBox(box.ZERO);
-    setStateRef(() => next);
+    setMaskBox(box.ZERO);
+    setStateRef(() => box.truncate(initial, calculateTruncPrecision(initial)));
   }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
