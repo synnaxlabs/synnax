@@ -17,7 +17,7 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
@@ -37,11 +37,15 @@ interface RenderOptions {
   account?: Session.Account.SliceState;
 }
 
+// The tests share one client that logs in before they run. A new client would log in
+// on its first request, which is the Log in click's license read, and on a busy runner
+// that login can outlast the wait for the hub to open.
+const client = createTestClient();
+
 const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
   client: Client;
   store: TestStore;
 }> => {
-  const client = createTestClient();
   const { wrapper, store } = await createStatusConsoleWrapper({
     client,
     status,
@@ -61,6 +65,7 @@ const renderGuard = async ({ status, account }: RenderOptions = {}): Promise<{
 };
 
 describe("Account.Guard", () => {
+  beforeAll(async () => await client.license.retrieve());
   afterEach(() => vi.restoreAllMocks());
 
   it("should render children while the Core is not refused for a license", async () => {
@@ -75,7 +80,6 @@ describe("Account.Guard", () => {
   });
 
   it("should render children once the Core is licensed", async () => {
-    const client = createTestClient();
     const { wrapper } = await createConsoleWrapper({ client: null });
     const ui = (status: connection.Status): ReactElement => (
       <Synnax.TestProvider client={client} status={status}>
@@ -197,7 +201,7 @@ describe("Account.Guard", () => {
       expect(statuses.map((s) => s.message)).toContain("Failed to open login page"),
     );
     expect(open).not.toHaveBeenCalled();
-    rerender(ui(createTestClient()));
+    rerender(ui(client));
     fireEvent.click(findButton("Log in"));
     await waitFor(() => expect(open).toHaveBeenCalledOnce());
     expect(internal).not.toHaveLength(0);
