@@ -460,7 +460,11 @@ class TestParse:
         assert cfg.selected()
         assert {g.suite for g in cfg.selected()} == {"cpu"}
         only = cb.parse(["--base", "a", "--head", "b", "--only", "^cesium/"])
-        assert [g.name for g in only.selected()] == ["cesium/write", "cesium/read"]
+        assert [g.name for g in only.selected()] == [
+            "cesium/write",
+            "cesium/read",
+            "cesium/switch",
+        ]
 
     @pytest.mark.parametrize(
         ("args", "message"),
