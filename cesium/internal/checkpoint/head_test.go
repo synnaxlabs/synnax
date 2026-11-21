@@ -27,7 +27,7 @@ var _ = Describe("Head", func() {
 	DescribeTable(
 		"Should decode the state that it encodes",
 		func(s *state.Snapshot) {
-			b := mustEncode(generation, s)
+			b := mustEncode(s)
 			h, got := MustSucceed2(decode(b))
 			Expect(h.DB).To(Equal(uint64(db)))
 			Expect(h.Generation).To(Equal(uint64(generation)))
@@ -41,7 +41,7 @@ var _ = Describe("Head", func() {
 				Expect(*got.Channels[i]).To(Equal(*c))
 			}
 			Expect(got.Intents).To(Equal(s.Intents))
-			Expect(mustEncode(generation, got)).To(Equal(b))
+			Expect(mustEncode(got)).To(Equal(b))
 		},
 		Entry("a small state", sample(2)),
 		Entry("a state over three chunks", sample(4000)),
@@ -50,7 +50,7 @@ var _ = Describe("Head", func() {
 
 	It("Should lay out the header sector, the sections, and both tables", func() {
 		s := sample(2)
-		b := mustEncode(generation, s)
+		b := mustEncode(s)
 		Expect(b[:8]).To(Equal([]byte("CSCHKPT\x00")))
 		Expect(binary.LittleEndian.Uint16(b[8:])).To(Equal(uint16(1)))
 		Expect(b[10]).To(Equal(uint8(4)))
@@ -85,7 +85,7 @@ var _ = Describe("Head", func() {
 	})
 
 	It("Should write each record with the fields of the format in order", func() {
-		b := mustEncode(generation, sample(2))
+		b := mustEncode(sample(2))
 		chans, _ := section(b, 4)
 		Expect(b[chans+20 : chans+40]).To(Equal(le32(6, 2, 0, 0xFFFFFFFF, 0xFFFFFFFF)))
 		segs, _ := section(b, 5)
@@ -108,12 +108,12 @@ var _ = Describe("Head", func() {
 	})
 
 	It("Should encode one state to the same bytes every time", func() {
-		Expect(mustEncode(generation, sample(300))).
-			To(Equal(mustEncode(generation, sample(300))))
+		Expect(mustEncode(sample(300))).
+			To(Equal(mustEncode(sample(300))))
 	})
 
 	It("Should report a zero header sector as incomplete", func() {
-		b := mustEncode(generation, sample(2))
+		b := mustEncode(sample(2))
 		clear(b[:512])
 		Expect(decodeErr(b)).To(MatchError(checkpoint.ErrIncomplete))
 	})
@@ -132,7 +132,7 @@ var _ = Describe("Head", func() {
 	DescribeTable(
 		"Should refuse a head whose bytes fail a checksum",
 		func(at func(b []byte) int, msg string) {
-			b := mustEncode(generation, sample(4000))
+			b := mustEncode(sample(4000))
 			b[at(b)] ^= 0x10
 			Expect(decodeErr(b)).To(And(
 				MatchError(place.ErrCorrupt),
@@ -215,7 +215,7 @@ var _ = Describe("Head checks", func() {
 	DescribeTable(
 		"Should refuse a head that breaks a rule of the format",
 		func(mutate func(b []byte) []byte, wraps error, msg string) {
-			b := reseal(mutate(mustEncode(generation, sample(2))))
+			b := reseal(mutate(mustEncode(sample(2))))
 			Expect(decodeErr(b)).To(And(
 				MatchError(wraps),
 				MatchError(ContainSubstring(msg)),
@@ -226,7 +226,7 @@ var _ = Describe("Head checks", func() {
 
 	It("Should refuse a head with kills or tombstones as unknown", func() {
 		b := withRecord(
-			mustEncode(generation, sample(2)),
+			mustEncode(sample(2)),
 			3,
 			make([]byte, 24),
 		)
@@ -237,7 +237,7 @@ var _ = Describe("Head checks", func() {
 	})
 
 	It("Should refuse segment records that no channel names", func() {
-		empty := mustEncode(generation, &state.Snapshot{
+		empty := mustEncode(&state.Snapshot{
 			Limits: state.Limits{Segments: 9},
 		})
 		record := binary.LittleEndian.AppendUint64(nil, 1)
@@ -252,7 +252,7 @@ var _ = Describe("Head checks", func() {
 	})
 
 	It("Should refuse a section table inside the first 4 KiB", func() {
-		b := mustEncode(generation, &state.Snapshot{})
+		b := mustEncode(&state.Snapshot{})
 		tab := binary.LittleEndian.Uint64(b[72:])
 		moved := slices.Concat(b[:4088], b[tab:tab+9*24], make([]byte, 4))
 		binary.LittleEndian.PutUint64(moved[64:], uint64(len(moved)))
@@ -267,7 +267,7 @@ var _ = Describe("Head checks", func() {
 	})
 
 	It("Should refuse a gap before the section table", func() {
-		b := mustEncode(generation, sample(2))
+		b := mustEncode(sample(2))
 		tab := binary.LittleEndian.Uint64(b[72:])
 		grown := slices.Concat(b[:tab], make([]byte, 8), b[tab:])
 		binary.LittleEndian.PutUint64(grown[64:], uint64(len(grown)))

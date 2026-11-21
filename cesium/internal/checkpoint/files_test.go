@@ -46,7 +46,7 @@ var _ = Describe("Files", func() {
 						"header "+
 						"sector",
 					func() {
-						b := mustEncode(generation, sample(2))
+						b := mustEncode(sample(2))
 						MustSucceed(
 							checkpoint.Create(
 								fs,
@@ -116,7 +116,7 @@ var _ = Describe("Files", func() {
 			Describe("Read", func() {
 				var b []byte
 				BeforeEach(func() {
-					b = mustEncode(generation, sample(4000))
+					b = mustEncode(sample(4000))
 					MustSucceed(
 						checkpoint.Create(
 							fs,

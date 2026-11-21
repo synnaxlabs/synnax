@@ -46,7 +46,7 @@ func encode(dbID, generation uint64, s *state.Snapshot) ([]byte, error) {
 }
 
 // mustEncode returns the bytes of the head of generation that holds s, as encode does.
-func mustEncode(generation uint64, s *state.Snapshot) []byte {
+func mustEncode(s *state.Snapshot) []byte {
 	GinkgoHelper()
 	return MustSucceed(encode(db, generation, s))
 }

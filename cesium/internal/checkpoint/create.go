@@ -14,12 +14,13 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
-// Create writes the head of generation in database db, which holds s, to the root fs.
-// When the sealed segment records of s pass partSize bytes, they go to parts of about
-// partSize bytes each, which Create writes and syncs before the head, and the head
-// holds the rest. A partSize of zero is the default of Config.PartSize. Create first
-// removes each part file that a cut-short create left. It returns the index of the
-// parts. The sync of the header sector of the head is the commit point.
+// Create writes the head of generation in database db, which holds s, to the root fs,
+// which holds no committed head. When the sealed segment records of s pass partSize
+// bytes, they go to parts of about partSize bytes each, which Create writes and syncs
+// before the head, and the head holds the rest. A partSize of zero is the default of
+// Config.PartSize. Create first removes every part file in the root, since only a
+// cut-short create leaves one there. It returns the index of the parts. The sync of the
+// header sector of the head is the commit point.
 func Create(
 	fs xfs.FS,
 	db, generation uint64,
