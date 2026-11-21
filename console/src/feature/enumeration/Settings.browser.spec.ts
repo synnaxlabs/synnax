@@ -123,6 +123,8 @@ describe("Enumeration.Settings", () => {
     await renderEnumerations();
     const search = screen.getByPlaceholderText("Search enumerations");
     fireEvent.change(search, { target: { value: uniqueName("zzz") } });
+    // A create before the debounced search lands would show the new enumeration.
+    await screen.findByText("No enumerations");
     const name = uniqueName("enumeration");
     await clickAndSettle("Create enumeration");
     const field = await screen.findByLabelText("Enumeration name");
