@@ -231,7 +231,7 @@ func TakeUnit[T antlr.ParserRuleContext](
 ) {
 	node, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil || len(node.Type.Outputs) == 0 ||
-		!types.UnitsConvertible(node.Type.Outputs[0].Type.Unit, unit) {
+		!types.WriteConverts(node.Type.Outputs[0].Type.Unit, unit) {
 		return
 	}
 	node.Type.Outputs[0].Type.Unit = unit

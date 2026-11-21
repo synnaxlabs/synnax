@@ -1906,14 +1906,15 @@ var _ = Describe("Time", func() {
 				deadline telem.TimeSpan
 				fired    int
 			)
-			BeforeEach(func(ctx SpecContext) {
+			create := func(ctx context.Context, span telem.TimeSpan) {
+				GinkgoHelper()
 				factory := MustSucceed(time.NewHost(ctx, nil, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
 						"interval_1": {
 							"type":   "interval",
-							"period": int64(period),
+							"period": int64(span),
 						},
 					},
 					Functions: []ir.Function{{
@@ -1933,7 +1934,7 @@ var _ = Describe("Time", func() {
 					Node: ir.Node{
 						Type: "interval",
 						Inputs: types.Params{
-							{Name: "period", Type: types.TimeSpan(), Value: period},
+							{Name: "period", Type: types.TimeSpan(), Value: span},
 						},
 					},
 					State: s.Node("interval_1"),
@@ -1942,7 +1943,8 @@ var _ = Describe("Time", func() {
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 				deadline, fired = 0, 0
-			})
+			}
+			BeforeEach(func(ctx SpecContext) { create(ctx, period) })
 			tick := func(ctx context.Context, elapsed telem.TimeSpan) {
 				n.Next(node.Context{
 					Context:         ctx,
@@ -2001,16 +2003,44 @@ var _ = Describe("Time", func() {
 				})
 				Expect(channelDeadline).To(Equal(period))
 			})
+			It("Should set no deadline for a period that overflows it", func(
+				ctx SpecContext,
+			) {
+				create(ctx, telem.TimeSpanMax)
+				tick(ctx, 5*telem.Second)
+				Expect(fired).To(Equal(1))
+				Expect(deadline).To(Equal(telem.TimeSpanMax))
+			})
+			It("Should fire a period that overflows after a channel input", func(
+				ctx SpecContext,
+			) {
+				create(ctx, telem.TimeSpanMax)
+				n.Next(node.Context{
+					Context:         ctx,
+					Elapsed:         5 * telem.Second,
+					Reason:          node.ReasonChannelInput,
+					MarkChanged:     func(int) {},
+					MarkSelfChanged: func() {},
+					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+				})
+				Expect(deadline).To(Equal(5 * telem.Second))
+				tick(ctx, 6*telem.Second)
+				Expect(fired).To(Equal(1))
+				Expect(deadline).To(Equal(telem.TimeSpanMax))
+			})
 		})
 		Describe("Wait", func() {
 			var factory *time.Host
 			var s *node.ProgramState
-			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
+			newState := func(
+				ctx context.Context,
+				duration telem.TimeSpan,
+			) *node.ProgramState {
+				GinkgoHelper()
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
-						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
+						"wait_1": {"type": "wait", "duration": int64(duration)},
 					},
 					Functions: []ir.Function{{
 						Key: "wait",
@@ -2024,7 +2054,11 @@ var _ = Describe("Time", func() {
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
-				s = node.New(analyzed)
+				return node.New(analyzed)
+			}
+			BeforeEach(func(ctx SpecContext) {
+				factory = MustSucceed(time.NewHost(ctx, nil, nil, nil))
+				s = newState(ctx, telem.Second)
 			})
 			It("Should set deadline to startTime + duration", func(ctx SpecContext) {
 				cfg := node.Config{
@@ -2055,6 +2089,32 @@ var _ = Describe("Time", func() {
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})
 				Expect(deadline).To(Equal(6 * telem.Second))
+			})
+			It("Should set no deadline for a duration that overflows it", func(
+				ctx SpecContext,
+			) {
+				s = newState(ctx, telem.TimeSpanMax)
+				n := MustSucceed(factory.Create(node.Config{
+					Node: ir.Node{
+						Type: "wait",
+						Inputs: types.Params{{
+							Name:  "duration",
+							Type:  types.TimeSpan(),
+							Value: telem.TimeSpanMax,
+						}},
+					},
+					State: s.Node("wait_1"),
+				}))
+				var deadline telem.TimeSpan
+				n.Next(node.Context{
+					Context:         ctx,
+					Elapsed:         5 * telem.Second,
+					Reason:          node.ReasonTimerTick,
+					MarkChanged:     func(int) {},
+					MarkSelfChanged: func() {},
+					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
+				})
+				Expect(deadline).To(Equal(telem.TimeSpanMax))
 			})
 			It("Should not set deadline after firing", func(ctx SpecContext) {
 				cfg := node.Config{

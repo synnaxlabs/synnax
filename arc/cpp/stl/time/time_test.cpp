@@ -951,10 +951,45 @@ TEST(IntervalDeadlineTest, SetsDeadlineAfterFiring) {
     EXPECT_EQ(tick(node, x::telem::SECOND).deadline, x::telem::SECOND * 2);
 }
 
+/// @brief A period that overflows the deadline should fire once and set no deadline.
+TEST(IntervalDeadlineTest, SetsNoDeadlineForAPeriodThatOverflowsIt) {
+    TestSetup setup("interval", "period", x::telem::TimeSpan::max().nanoseconds());
+    time::Interval node(setup.make_node());
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    const auto r = tick(node, x::telem::SECOND * 5);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(r.deadline, x::telem::TimeSpan::max());
+}
+
+/// @brief A period that overflows should fire on the first tick after a channel input.
+TEST(IntervalDeadlineTest, FiresAPeriodThatOverflowsAfterAChannelInput) {
+    TestSetup setup("interval", "period", x::telem::TimeSpan::max().nanoseconds());
+    time::Interval node(setup.make_node());
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    const auto input = tick(
+        node,
+        x::telem::SECOND * 5,
+        runtime::node::RunReason::ChannelInput
+    );
+    EXPECT_EQ(input.deadline, x::telem::SECOND * 5);
+    const auto r = tick(node, x::telem::SECOND * 6);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(r.deadline, x::telem::TimeSpan::max());
+}
+
 TEST(WaitDeadlineTest, SetsDeadlineToStartTimePlusDuration) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
     time::Wait node(setup.make_node());
     EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::SECOND * 6);
+}
+
+/// @brief A duration that overflows the deadline should set no deadline.
+TEST(WaitDeadlineTest, SetsNoDeadlineForADurationThatOverflowsIt) {
+    TestSetup setup("wait", "duration", x::telem::TimeSpan::max().nanoseconds());
+    time::Wait node(setup.make_node());
+    EXPECT_EQ(tick(node, x::telem::SECOND * 5).deadline, x::telem::TimeSpan::max());
 }
 
 TEST(WaitDeadlineTest, SetsDeadlineOnChannelInput) {
@@ -1776,7 +1811,37 @@ INSTANTIATE_TEST_SUITE_P(
         },
         UnitCase{"h_low", "2h", "1h", x::telem::HOUR, Rate::LOW},
         UnitCase{"h_low_long", "24h", "12h", 12 * x::telem::HOUR, Rate::LOW},
-        UnitCase{"h_reassigned_to_a_longer_span", "1h", "2h", x::telem::HOUR, Rate::LOW}
+        UnitCase{
+            "h_reassigned_to_a_longer_span",
+            "1h",
+            "2h",
+            x::telem::HOUR,
+            Rate::LOW
+        },
+        UnitCase{"hz_high", "200hz", "2000hz", 500 * x::telem::MICROSECOND, Rate::HIGH},
+        UnitCase{
+            "hz_medium",
+            "200hz",
+            "500hz",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{"hz_low", "20hz", "200hz", 5 * x::telem::MILLISECOND, Rate::LOW},
+        UnitCase{
+            "hz_reassigned_to_a_lower_rate",
+            "500hz",
+            "20hz",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{
+            "hz_reassigned_with_a_literal_in_khz",
+            "200hz",
+            "2khz",
+            500 * x::telem::MICROSECOND,
+            Rate::HIGH
+        },
+        UnitCase{"khz_high", "1khz", "2khz", 500 * x::telem::MICROSECOND, Rate::HIGH}
     ),
     [](const testing::TestParamInfo<UnitCase> &info) { return info.param.name; }
 );

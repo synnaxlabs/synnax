@@ -152,7 +152,7 @@ func compileStatefulVariable(
 			name,
 		)
 	}
-	if types.UnitsConvertible(exprType.Unit, varType.Unit) {
+	if types.WriteConverts(exprType.Unit, varType.Unit) {
 		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
 			return err
 		}

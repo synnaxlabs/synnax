@@ -231,3 +231,26 @@ TEST(InputScale, InverseScaleOfAnInput) {
     );
     EXPECT_EQ(input_scale(nanoseconds).second, 1);
 }
+
+/// @brief builds a type with a rate unit of the given name and scale.
+arc::types::Type with_rate(arc::types::Type t, std::string name, const double scale) {
+    t = with_unit(std::move(t), std::move(name), scale);
+    t.unit->dimensions.time = -1;
+    return t;
+}
+
+/// @brief it should give the period factor of a var ref that reads a rate.
+TEST(InputPeriod, PeriodFactorOfAnInput) {
+    using arc::types::input_period;
+    arc::types::Type i64;
+    i64.kind = arc::types::Kind::I64;
+    const auto hertz = with_rate(i64, "hz", 1);
+    const auto kilohertz = with_rate(i64, "khz", 1e3);
+    const auto seconds = with_unit(i64, "s", 1e9);
+    EXPECT_EQ(input_period(with_unit(var_ref(hertz), "ns", 1)), 1e9);
+    EXPECT_EQ(input_period(with_unit(var_ref(kilohertz), "ms", 1e6)), 1);
+    EXPECT_EQ(input_period(with_unit(var_ref(seconds), "ns", 1)), 0);
+    EXPECT_EQ(input_period(with_rate(var_ref(seconds), "hz", 1)), 0);
+    EXPECT_EQ(input_period(var_ref(hertz)), 0);
+    EXPECT_EQ(input_period(hertz), 0);
+}

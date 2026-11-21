@@ -50,7 +50,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	w Write,
 ) (converts, ok bool) {
 	from, to := w.Source.Unwrap().Unit, w.Target.Unwrap().Unit
-	if types.UnitsIncompatible(from, to) {
+	if types.UnitsIncompatible(from, to) && !types.UnitsReciprocal(from, to) {
 		ctx.Diagnostics.Add(codes.DimensionMismatch.Atf(
 			w.AST,
 			"cannot write %s to %s (%s)",
@@ -82,7 +82,7 @@ func CheckUnits[T antlr.ParserRuleContext](
 	if from == nil && to != nil && w.Expr != nil {
 		warnDroppedUnit(ctx, w, to)
 	}
-	if !types.UnitsConvertible(from, to) {
+	if !types.WriteConverts(from, to) {
 		return false, true
 	}
 	isLiteral := w.Expr != nil && parser.IsLiteral(w.Expr)
@@ -167,7 +167,7 @@ func warnDroppedUnit[T antlr.ParserRuleContext](
 	from := ctx.Constraints.ApplySubstitutions(
 		atypes.InferFromExpression(ctx.Child(value)),
 	).Unwrap().Unit
-	if !types.UnitsConvertible(from, to) {
+	if !types.WriteConverts(from, to) {
 		return
 	}
 	d := codes.UnitDropped.Atf(

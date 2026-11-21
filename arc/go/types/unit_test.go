@@ -249,3 +249,86 @@ var _ = Describe("InputScale", func() {
 		Entry("not a var ref", seconds, 1.0),
 	)
 })
+
+var _ = Describe("UnitsReciprocal", func() {
+	ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+	hz := &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+	psi := &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+
+	DescribeTable("conversion by a reciprocal",
+		func(from, to *types.Unit, want bool) {
+			Expect(types.UnitsReciprocal(from, to)).To(Equal(want))
+		},
+		Entry("a rate to a time span", hz, ns, true),
+		Entry("a time span to a rate", ns, hz, false),
+		Entry("a rate to a rate", hz, hz, false),
+		Entry("another dimension", psi, ns, false),
+		Entry("no unit on the source", (*types.Unit)(nil), ns, false),
+		Entry("no unit on the target", hz, (*types.Unit)(nil), false),
+	)
+})
+
+var _ = Describe("WriteConverts", func() {
+	ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+	s := &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+	hz := &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+	psi := &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+
+	DescribeTable("conversion of a write",
+		func(from, to *types.Unit, want bool) {
+			Expect(types.WriteConverts(from, to)).To(Equal(want))
+		},
+		Entry("another unit of the dimension", s, ns, true),
+		Entry("a rate to a time span", hz, ns, true),
+		Entry("a time span to a rate", ns, hz, false),
+		Entry("the same unit", ns, ns, false),
+		Entry("another dimension", psi, ns, false),
+		Entry("no unit on the source", (*types.Unit)(nil), ns, false),
+		Entry("no unit on the target", hz, (*types.Unit)(nil), false),
+	)
+})
+
+var _ = Describe("PeriodFactor", func() {
+	span := func(scale float64) *types.Unit {
+		return &types.Unit{Dimensions: types.DimTime, Scale: scale}
+	}
+	rate := func(scale float64) *types.Unit {
+		return &types.Unit{Dimensions: types.DimFrequency, Scale: scale}
+	}
+
+	DescribeTable("factor of a period",
+		func(from, to *types.Unit, want float64) {
+			Expect(types.PeriodFactor(from, to)).To(Equal(want))
+		},
+		Entry("hz to ns", rate(1), span(1), 1e9),
+		Entry("khz to ns", rate(1e3), span(1), 1e6),
+		Entry("hz to s", rate(1), span(1e9), 1.0),
+		Entry("khz to ms", rate(1e3), span(1e6), 1.0),
+	)
+})
+
+var _ = Describe("InputPeriod", func() {
+	in := func(t types.Type, dims types.Dimensions, scale float64) types.Type {
+		t.Unit = &types.Unit{Dimensions: dims, Scale: scale}
+		return t
+	}
+	hertz := in(types.I64(), types.DimFrequency, 1)
+	kilohertz := in(types.I64(), types.DimFrequency, 1e3)
+	seconds := in(types.I64(), types.DimTime, 1e9)
+
+	DescribeTable("period factor of an input",
+		func(t types.Type, want float64) {
+			Expect(types.InputPeriod(t)).To(Equal(want))
+		},
+		Entry("hz variable into an ns input",
+			in(types.VarRef(hertz, "v"), types.DimTime, 1), 1e9),
+		Entry("khz variable into an ms input",
+			in(types.VarRef(kilohertz, "v"), types.DimTime, 1e6), 1.0),
+		Entry("s variable into an ns input",
+			in(types.VarRef(seconds, "v"), types.DimTime, 1), 0.0),
+		Entry("s variable into a hz input",
+			in(types.VarRef(seconds, "v"), types.DimFrequency, 1), 0.0),
+		Entry("var ref with no unit of its own", types.VarRef(hertz, "v"), 0.0),
+		Entry("not a var ref", hertz, 0.0),
+	)
+})
