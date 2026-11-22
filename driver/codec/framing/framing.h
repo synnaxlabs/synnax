@@ -43,8 +43,8 @@ public:
     /// @brief returns the next complete frame in the written bytes, or nothing when
     /// there is none. The frame is valid until the next call to write, idle, or clear.
     /// @returns VALIDATION when the framer drops bytes that cannot be a frame, such as
-    /// more than MAX_SIZE bytes with no delimiter. Call next again to read the frames
-    /// after them.
+    /// more than MAX_SIZE bytes with no delimiter, or a frame with invalid stuffing.
+    /// Call next again to read the frames after them.
     virtual std::pair<std::optional<std::span<const std::uint8_t>>, x::errors::Error>
     next() = 0;
 
@@ -75,4 +75,12 @@ delimited(std::vector<std::uint8_t> delimiter);
 /// @brief creates a framer whose frames each hold length bytes.
 /// @returns CONFIG_ERROR when length is zero or larger than MAX_SIZE.
 std::pair<std::unique_ptr<Framer>, x::errors::Error> fixed(std::size_t length);
+
+/// @brief creates a framer that stuffs each frame with consistent overhead byte
+/// stuffing (COBS) and ends it with a zero byte.
+std::unique_ptr<Framer> cobs();
+
+/// @brief creates a framer that escapes each frame with the serial line internet
+/// protocol (SLIP, RFC 1055) and ends it with an END byte.
+std::unique_ptr<Framer> slip();
 }

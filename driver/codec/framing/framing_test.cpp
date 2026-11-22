@@ -255,11 +255,168 @@ TEST(Fixed, RefuseLength) {
     }
 }
 
+namespace {
+using Bytes = std::vector<std::uint8_t>;
+
+/// @brief returns the bytes from first to last, in order.
+Bytes run(const std::uint8_t first, const std::uint8_t last) {
+    Bytes out;
+    for (unsigned b = first; b <= last; b++)
+        out.push_back(static_cast<std::uint8_t>(b));
+    return out;
+}
+
+Bytes join(const Bytes &a, const Bytes &b) {
+    Bytes out = a;
+    out.insert(out.end(), b.begin(), b.end());
+    return out;
+}
+
+/// @brief asserts that f encodes frame as wire, and reads wire back as frame.
+void assert_codes(Framer &f, const Bytes &frame, const Bytes &wire) {
+    Bytes out;
+    ASSERT_NIL(f.encode(frame, out));
+    EXPECT_EQ(out, wire);
+    f.write(wire);
+    const auto got = ASSERT_NIL_P(f.next());
+    ASSERT_TRUE(got.has_value());
+    EXPECT_EQ(Bytes(got.value().begin(), got.value().end()), frame);
+    EXPECT_FALSE(ASSERT_NIL_P(f.next()).has_value());
+}
+
+/// @brief asserts that reading wire with f drops one frame with text, then reads "ok",
+/// which wire must end with in the framing of f.
+void assert_drops(Framer &f, const Bytes &wire, const std::string &text) {
+    f.write(wire);
+    const auto [frame, err] = f.next();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, text);
+    const auto ok = ASSERT_NIL_P(f.next());
+    ASSERT_TRUE(ok.has_value());
+    EXPECT_EQ(Bytes(ok.value().begin(), ok.value().end()), vec("ok"));
+}
+
+/// @brief returns random frames of 1 to 600 bytes, a quarter of them special.
+std::vector<Bytes> random_frames(const std::uint8_t special) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): a fixed seed repeats each run.
+    std::mt19937 rng(6322);
+    std::vector<Bytes> frames(300);
+    for (auto &p: frames) {
+        p.resize(rng() % 600 + 1);
+        for (auto &b: p)
+            b = static_cast<std::uint8_t>(rng() % 4 == 0 ? special : rng());
+    }
+    return frames;
+}
+}
+
+/// @brief it should encode and decode the standard COBS examples.
+TEST(Cobs, Vectors) {
+    const auto f = cobs();
+    assert_codes(*f, {0x00}, {0x01, 0x01, 0x00});
+    assert_codes(*f, {0x00, 0x00}, {0x01, 0x01, 0x01, 0x00});
+    assert_codes(*f, {0x00, 0x11, 0x00}, {0x01, 0x02, 0x11, 0x01, 0x00});
+    assert_codes(*f, {0x11, 0x22, 0x00, 0x33}, {0x03, 0x11, 0x22, 0x02, 0x33, 0x00});
+    assert_codes(*f, {0x11, 0x22, 0x33, 0x44}, {0x05, 0x11, 0x22, 0x33, 0x44, 0x00});
+    assert_codes(*f, {0x11, 0x00, 0x00, 0x00}, {0x02, 0x11, 0x01, 0x01, 0x01, 0x00});
+    assert_codes(*f, run(0x01, 0xFE), join(join({0xFF}, run(0x01, 0xFE)), {0x00}));
+    assert_codes(
+        *f,
+        join({0x00}, run(0x01, 0xFE)),
+        join(join({0x01, 0xFF}, run(0x01, 0xFE)), {0x00})
+    );
+    assert_codes(
+        *f,
+        run(0x01, 0xFF),
+        join(join({0xFF}, run(0x01, 0xFE)), {0x02, 0xFF, 0x00})
+    );
+    assert_codes(
+        *f,
+        join(run(0x02, 0xFF), {0x00}),
+        join(join({0xFF}, run(0x02, 0xFF)), {0x01, 0x01, 0x00})
+    );
+}
+
+/// @brief it should drop a frame whose code byte runs past its end, and read the frames
+/// after it.
+TEST(Cobs, DropInvalidFrame) {
+    assert_drops(
+        *cobs(),
+        {0x05, 0x11, 0x22, 0x00, 0x03, 'o', 'k', 0x00},
+        "dropped a frame with invalid COBS bytes"
+    );
+}
+
+/// @brief it should encode frames that a COBS framer reads back.
+TEST(Cobs, RoundTrip) {
+    const auto f = cobs();
+    assert_round_trips(*f, random_frames(0x00));
+}
+
+/// @brief it should refuse to encode an empty frame.
+TEST(Cobs, RefuseEmptyFrame) {
+    assert_refuses(*cobs(), "", "the frame is empty");
+}
+
+/// @brief it should escape END and ESC bytes, and start and end a frame with END.
+TEST(Slip, Vectors) {
+    const auto f = slip();
+    assert_codes(*f, {0x01, 0x02}, {0xC0, 0x01, 0x02, 0xC0});
+    assert_codes(*f, {0xC0, 0xDB, 0x01}, {0xC0, 0xDB, 0xDC, 0xDB, 0xDD, 0x01, 0xC0});
+    assert_codes(*f, {0xDC, 0xDD}, {0xC0, 0xDC, 0xDD, 0xC0});
+}
+
+/// @brief it should drop a frame with an invalid escape, and read the frames after it.
+TEST(Slip, DropInvalidEscape) {
+    assert_drops(
+        *slip(),
+        {0xC0, 0x01, 0xDB, 0x01, 0xC0, 'o', 'k', 0xC0},
+        "dropped a frame with an invalid SLIP escape"
+    );
+    assert_drops(
+        *slip(),
+        {0x01, 0xDB, 0xC0, 'o', 'k', 0xC0},
+        "dropped a frame with an invalid SLIP escape"
+    );
+}
+
+/// @brief it should drop a frame that decodes to more than MAX_SIZE bytes.
+TEST(Slip, DropFrameOverMaxSize) {
+    Bytes wire(MAX_SIZE + 1, 0x01);
+    wire.insert(wire.end(), {0xC0, 'o', 'k', 0xC0});
+    assert_drops(*slip(), wire, "dropped a frame longer than 65536 bytes");
+}
+
+/// @brief it should accept a frame of MAX_SIZE bytes that each need an escape.
+TEST(Slip, AcceptEscapedMaxSize) {
+    const auto f = slip();
+    const Bytes frame(MAX_SIZE, 0xC0);
+    Bytes wire;
+    ASSERT_NIL(f->encode(frame, wire));
+    f->write(wire);
+    const auto got = ASSERT_NIL_P(f->next());
+    ASSERT_TRUE(got.has_value());
+    EXPECT_EQ(got.value().size(), MAX_SIZE);
+}
+
+/// @brief it should encode frames that a SLIP framer reads back.
+TEST(Slip, RoundTrip) {
+    const auto f = slip();
+    auto frames = random_frames(0xC0);
+    for (std::size_t i = 0; i < frames.size(); i += 2)
+        std::ranges::replace(frames[i], std::uint8_t{0xC0}, std::uint8_t{0xDB});
+    assert_round_trips(*f, frames);
+}
+
 /// @brief it should split a stream without allocating once its buffer has grown.
 TEST(Framer, SplitWithoutAllocating) {
     const auto d = delimited_by("\r\n");
     const auto f = ASSERT_NIL_P(fixed(4));
+    const auto c = cobs();
+    const auto s = slip();
     const auto chunk = bytes("abc\r\ndefg\r\nhi");
+    const Bytes stuffed = {0x02, 'a', 0x02, 'b', 0x00};
+    const Bytes escaped = {0x01, 0xC0, 0xDB, 0xDC, 0xC0};
     const auto drain = [](Framer &framer) {
         std::size_t n = 0;
         while (true) {
@@ -270,14 +427,22 @@ TEST(Framer, SplitWithoutAllocating) {
     };
     d->write(chunk);
     f->write(chunk);
+    c->write(stuffed);
+    s->write(escaped);
     drain(*d);
     drain(*f);
+    drain(*c);
+    drain(*s);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++) {
         d->write(chunk);
         f->write(chunk);
+        c->write(stuffed);
+        s->write(escaped);
         EXPECT_EQ(drain(*d), 2);
         EXPECT_GE(drain(*f), 3);
+        EXPECT_EQ(drain(*c), 1);
+        EXPECT_EQ(drain(*s), 2);
     }
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
