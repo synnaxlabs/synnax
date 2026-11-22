@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -81,21 +82,22 @@ var _ = Describe("Ambiguity breaker 2", func() {
 
 	It("Should quote the shown path when an edit makes a calculated channel read an "+
 		"ambiguous name", func(ctx SpecContext) {
-		calc := channel.Channel{
-			Name:       UniqueChannelName(),
-			DataType:   telem.Float32T,
-			Virtual:    true,
-			Expression: "return 1.0",
-			Group:      &shown.Key,
-		}
+		c := calculation.Calculation{Expression: "return 1.0"}
+		var calc channel.Channel
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			made, err := layer.Calculation.NewWriter(tx).
+				CreateOutput(ctx, &c, UniqueChannelName(), &shown.Key)
+			if err == nil {
+				calc = made[0]
+			}
+			return err
 		})).To(Succeed())
 		grantOn(
 			ctx,
 			u.ResourceID(),
 			[]access.Action{access.ActionRetrieve, access.ActionUpdate},
 			calc.ResourceID(),
+			c.ResourceID(),
 		)
 		Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
 			Key: calc.Key(),

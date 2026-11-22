@@ -24,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -76,6 +77,18 @@ func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
 	return ch
 }
 
+// expressionOf returns the expression of the calculation that writes the channel with
+// key.
+func expressionOf(ctx SpecContext, key channel.Key) string {
+	GinkgoHelper()
+	var c calculation.Calculation
+	Expect(layer.Calculation.NewRetrieve().
+		Where(calculation.MatchOutputs(key)).
+		Entry(&c).
+		Exec(ctx, db)).To(Succeed())
+	return c.Expression
+}
+
 var _ = Describe("Service", func() {
 	Describe("Create", func() {
 		var (
@@ -115,11 +128,24 @@ var _ = Describe("Service", func() {
 				[]access.Action{access.ActionCreate},
 				resource.ID{Type: resource.TypeChannel},
 			)
+			// The old API writes the calculation record of each calculated channel, so
+			// the subject may act on calculations and a refusal comes from the reads.
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				access.AllActions,
+				resource.ID{Type: resource.TypeCalculation},
+			)
+			// A calculation's record uses each channel it reads, so a save needs
+			// retrieve on the channel as well as on its data.
 			grantOn(
 				ctx,
 				u.ResourceID(),
 				[]access.Action{access.ActionRetrieve},
-				framer.ResourceIDs(channel.Keys{public.Key()})...,
+				append(
+					framer.ResourceIDs(channel.Keys{public.Key()}),
+					channel.ResourceID(public.Key()),
+				)...,
 			)
 		})
 		It(
@@ -161,7 +187,11 @@ var _ = Describe("Service", func() {
 		It(
 			"Should refuse an edit that reads an unreadable channel through a stored one",
 			func(ctx SpecContext) {
-				creator := calctestutil.Creator{DB: db, Channel: channelSvc}
+				creator := calctestutil.Creator{
+					DB:          db,
+					Channel:     channelSvc,
+					Calculation: layer.Calculation,
+				}
 				stored := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Float32T,
@@ -184,7 +214,7 @@ var _ = Describe("Service", func() {
 				calc.Expression = fmt.Sprintf("return %s * 2", stored.Name)
 				Expect(create(ctx, plain, calc)).
 					Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveChannel(ctx, calc.Key).Expression).
+				Expect(expressionOf(ctx, calc.Key)).
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)
@@ -194,7 +224,28 @@ var _ = Describe("Service", func() {
 				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
 				calc.Expression = fmt.Sprintf("return %s * 2", secret.Name)
 				Expect(create(ctx, calc)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveChannel(ctx, calc.Key).Expression).
+				Expect(expressionOf(ctx, calc.Key)).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+		It(
+			"Should refuse a dispatch that makes a calculation read an unreadable channel",
+			func(ctx SpecContext) {
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(calc.Key),
+				)
+				Expect(dispatch(AuthedCtx(ctx, u), apichannel.DispatchRequest{
+					Key: calc.Key,
+					Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 2", secret.Name),
+					})},
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(expressionOf(ctx, calc.Key)).
 					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
 			},
 		)

@@ -18,8 +18,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -36,6 +38,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculations that the graph compiles.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// DB holds the channels that the graph compiles.
 	//
 	// [REQUIRED]
@@ -59,6 +65,7 @@ var ErrCycle = errors.New("circular dependency detected")
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
@@ -67,6 +74,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("calculation.graph")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -111,10 +119,14 @@ func New(cfgs ...Config) (*Graph, error) {
 	}, nil
 }
 
-// Add compiles a channel and its dependencies, then assigns it to a group.
-// Increments the explicit reference count for the channel. A failed Add leaves the
-// graph as it was.
-func (g *Graph) Add(ctx context.Context, ch channel.Channel) (err error) {
+// Add compiles ch, which c writes, and its dependencies, then assigns ch to a group.
+// Increments the explicit reference count for ch. A failed Add leaves the graph as it
+// was.
+func (g *Graph) Add(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) (err error) {
 	if info := g.channels[ch.Key()]; info != nil {
 		oldCount := info.explicitCount
 		info.explicitCount++
@@ -127,7 +139,7 @@ func (g *Graph) Add(ctx context.Context, ch channel.Channel) (err error) {
 		return nil
 	}
 	defer g.restoreOnError(&err)()
-	return g.addInternal(ctx, ch, true)
+	return g.addInternal(ctx, ch, c, true)
 }
 
 // restoreOnError saves the state of the graph. The returned function restores that
@@ -150,20 +162,25 @@ func (g *Graph) restoreOnError(err *error) func() {
 	}
 }
 
-// Update recompiles a channel with a new expression and updates its dependencies and
-// group assignment. Preserves reference counts - use this when a channel's calculation
+// Update recompiles ch with c, the calculation that now writes it, and updates its
+// dependencies and group assignment. Preserves reference counts - use this when a
+// channel's calculation
 // changes but the same users are still requesting it. If the channel's DataType
 // changes, all downstream channels that depend on it are recompiled in topological
 // order. A failed Update leaves the graph as it was.
-func (g *Graph) Update(ctx context.Context, ch channel.Channel) (err error) {
+func (g *Graph) Update(
+	ctx context.Context,
+	ch channel.Channel,
+	c calculation.Calculation,
+) (err error) {
 	info, err := g.getChannelInfo(ch.Key())
 	if err != nil {
 		return err
 	}
 	defer g.restoreOnError(&err)()
-	mod, err := g.compile(ctx, ch)
+	mod, err := g.compile(ctx, ch, c)
 	if err != nil {
-		g.logCompileError(ctx, err, ch)
+		g.logCompileError(ctx, err, ch, c)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
 	var dependents []compiler.Module
@@ -197,7 +214,7 @@ func (g *Graph) compileDependents(
 	if len(ordered) == 0 {
 		return nil, nil
 	}
-	fetched, err := g.fetchChannels(ctx, ordered)
+	fetched, calcs, err := g.fetchChannels(ctx, ordered)
 	if err != nil {
 		return nil, errors.Wrap(
 			err,
@@ -211,12 +228,13 @@ func (g *Graph) compileDependents(
 	mods := make([]compiler.Module, 0, len(ordered))
 	for _, key := range ordered {
 		ch, ok := byKey[key]
-		if !ok {
+		c, calculated := calcs[key]
+		if !ok || !calculated {
 			continue
 		}
-		mod, err := g.compile(ctx, ch)
+		mod, err := g.compile(ctx, ch, c)
 		if err != nil {
-			g.logCompileError(ctx, err, ch)
+			g.logCompileError(ctx, err, ch, c)
 			return nil, errors.Wrapf(
 				err,
 				"failed to recompile dependent channel %s",
@@ -298,7 +316,7 @@ func (g *Graph) updateSingle(
 	info.processing = true
 	defer func() { info.processing = false }()
 
-	depChannels, newCalcDeps, err := g.addCalcDeps(
+	depChannels, calcs, newCalcDeps, err := g.addCalcDeps(
 		ctx,
 		ch,
 		mod.Dependencies.Reads.Slice(),
@@ -311,7 +329,7 @@ func (g *Graph) updateSingle(
 	}
 
 	// Resolve new base dependencies
-	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
+	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels, calcs)
 	if err != nil {
 		return err
 	}
@@ -341,26 +359,27 @@ func (g *Graph) addCalcDeps(
 	ctx context.Context,
 	ch channel.Channel,
 	dependencies []channel.Key,
-) ([]channel.Channel, []channel.Key, error) {
+) ([]channel.Channel, map[channel.Key]calculation.Calculation, []channel.Key, error) {
 	if len(dependencies) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
-	depChannels, err := g.fetchChannels(ctx, dependencies)
+	depChannels, calcs, err := g.fetchChannels(ctx, dependencies)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
+		return nil, nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
 	}
 	var newCalcDeps []channel.Key
 	for _, depCh := range depChannels {
-		if !depCh.IsCalculated() {
+		c, ok := calcs[depCh.Key()]
+		if !ok {
 			continue
 		}
 		// Check for circular dependencies before adding
 		if err = g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		// Add dependency if not already in graph
-		if err = g.addInternal(ctx, depCh, false); err != nil {
-			return nil, nil, errors.Wrapf(
+		if err = g.addInternal(ctx, depCh, c, false); err != nil {
+			return nil, nil, nil, errors.Wrapf(
 				err,
 				"failed to add calculated dependency %v",
 				depCh.Key(),
@@ -368,7 +387,7 @@ func (g *Graph) addCalcDeps(
 		}
 		newCalcDeps = append(newCalcDeps, depCh.Key())
 	}
-	return depChannels, newCalcDeps, nil
+	return depChannels, calcs, newCalcDeps, nil
 }
 
 // updateDepCounts increments the dependency count of each calculated dependency that
@@ -451,10 +470,14 @@ func (g *Graph) moveGroup(
 	oldGroupID, newGroupID int,
 ) (int, error) {
 	if oldGroupID == newGroupID {
-		g.L.Debug("channel updated in same group",
+		g.L.Debug(
+			"channel updated in same group",
 			zap.String("channel", ch.Key().String()),
 			zap.Int("group_id", newGroupID),
-			zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+			zap.Stringer(
+				"dependency_tree",
+				dependencyTree{g: g, ctx: ctx, key: ch.Key()},
+			),
 		)
 		return newGroupID, nil
 	}
@@ -462,7 +485,7 @@ func (g *Graph) moveGroup(
 		zap.String("channel", ch.Key().String()),
 		zap.Int("old_group_id", oldGroupID),
 		zap.Int("new_group_id", newGroupID),
-		zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+		zap.Stringer("dependency_tree", dependencyTree{g: g, ctx: ctx, key: ch.Key()}),
 	)
 	if oldGroup := g.groups[oldGroupID]; oldGroup != nil {
 		oldGroup.members.Remove(ch.Key())
@@ -562,7 +585,7 @@ func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error
 			continue
 		}
 
-		depChannels, err := g.fetchChannels(ctx, deps)
+		depChannels, calcs, err := g.fetchChannels(ctx, deps)
 		if err != nil {
 			return errors.Wrap(
 				err,
@@ -570,7 +593,7 @@ func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error
 			)
 		}
 
-		baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
+		baseDeps, err := g.resolveBaseDependencies(ctx, depChannels, calcs)
 		if err != nil {
 			return err
 		}
@@ -588,6 +611,7 @@ func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error
 func (g *Graph) addInternal(
 	ctx context.Context,
 	ch channel.Channel,
+	c calculation.Calculation,
 	explicit bool,
 ) error {
 	if info := g.channels[ch.Key()]; info != nil {
@@ -601,16 +625,20 @@ func (g *Graph) addInternal(
 	g.channels[ch.Key()] = info
 	defer func() { info.processing = false }()
 
-	mod, err := g.compile(ctx, ch)
+	mod, err := g.compile(ctx, ch, c)
 	if err != nil {
-		g.logCompileError(ctx, err, ch)
+		g.logCompileError(ctx, err, ch, c)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	depChannels, calcDeps, err := g.addDeps(ctx, ch, mod.Dependencies.Reads.Slice())
+	depChannels, calcs, calcDeps, err := g.addDeps(
+		ctx,
+		ch,
+		mod.Dependencies.Reads.Slice(),
+	)
 	if err != nil {
 		return err
 	}
-	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
+	baseDeps, err := g.resolveBaseDependencies(ctx, depChannels, calcs)
 	if err != nil {
 		return err
 	}
@@ -630,7 +658,7 @@ func (g *Graph) addInternal(
 	// Log the addition with full dependency tree
 	g.L.Debug("channel added to graph",
 		zap.String("channel", ch.Key().String()),
-		zap.String("dependency_tree", g.formatDependencyTree(ctx, ch.Key())),
+		zap.Stringer("dependency_tree", dependencyTree{g: g, ctx: ctx, key: ch.Key()}),
 		zap.Uint32("explicit_count", uint32(info.explicitCount)),
 		zap.Uint32("dependency_count", uint32(info.depCount)),
 		zap.Int("group_id", groupID),
@@ -646,21 +674,22 @@ func (g *Graph) addDeps(
 	ctx context.Context,
 	ch channel.Channel,
 	dependencies []channel.Key,
-) ([]channel.Channel, []channel.Key, error) {
+) ([]channel.Channel, map[channel.Key]calculation.Calculation, []channel.Key, error) {
 	if len(dependencies) == 0 {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
-	depChannels, err := g.fetchChannels(ctx, dependencies)
+	depChannels, calcs, err := g.fetchChannels(ctx, dependencies)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
+		return nil, nil, nil, errors.Wrap(err, "failed to retrieve dependency channels")
 	}
 	var calcDeps []channel.Key
 	for _, depCh := range depChannels {
-		if !depCh.IsCalculated() {
+		c, ok := calcs[depCh.Key()]
+		if !ok {
 			continue
 		}
-		if err = g.addInternal(ctx, depCh, false); err != nil {
-			return nil, nil, errors.Wrapf(
+		if err = g.addInternal(ctx, depCh, c, false); err != nil {
+			return nil, nil, nil, errors.Wrapf(
 				err,
 				"failed to add calculated dependency %v",
 				depCh.Key(),
@@ -669,33 +698,43 @@ func (g *Graph) addDeps(
 		g.incrementDepCount(depCh.Key(), g.channels[depCh.Key()], ch.Key())
 		calcDeps = append(calcDeps, depCh.Key())
 	}
-	return depChannels, calcDeps, nil
+	return depChannels, calcs, calcDeps, nil
 }
 
-// fetchChannels retrieves channels by their keys.
+// fetchChannels retrieves channels by their keys, and the calculation of each one that
+// a calculation writes.
 func (g *Graph) fetchChannels(
 	ctx context.Context,
 	keys []channel.Key,
-) ([]channel.Channel, error) {
-	var channels []channel.Channel
-	if err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return g.cfg.Channel.NewRetrieve().
+) ([]channel.Channel, map[channel.Key]calculation.Calculation, error) {
+	var (
+		channels []channel.Channel
+		calcs    map[channel.Key]calculation.Calculation
+	)
+	if err := g.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = g.cfg.Channel.NewRetrieve().
 			Entries(&channels).
 			Where(channel.MatchKeys(keys...)).
-			Exec(ctx, snap)
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		calcs, err = g.cfg.Calculation.Outputs(ctx, snap, keys...)
+		return err
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return channels, nil
+	return channels, calcs, nil
 }
 
 func (g *Graph) compile(
 	ctx context.Context,
 	ch channel.Channel,
+	c calculation.Calculation,
 ) (compiler.Module, error) {
 	return g.cfg.Compile(ctx, g.cfg.DB, compiler.Config{
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
+		Calculation:    c,
 	})
 }
 
@@ -705,6 +744,7 @@ func (g *Graph) compile(
 func (g *Graph) resolveBaseDependencies(
 	ctx context.Context,
 	depChannels []channel.Channel,
+	calcs map[channel.Key]calculation.Calculation,
 ) (set.Set[channel.Key], error) {
 	baseDeps := make(set.Set[channel.Key])
 
@@ -713,7 +753,7 @@ func (g *Graph) resolveBaseDependencies(
 	}
 
 	for _, depCh := range depChannels {
-		if !depCh.IsCalculated() {
+		if _, ok := calcs[depCh.Key()]; !ok {
 			// An index of a calculated channel is not a base dependency.
 			if !g.isCalculatedIndex(depCh.Key()) {
 				baseDeps.Add(depCh.Key())
@@ -741,16 +781,19 @@ func (g *Graph) resolveCalculatedBaseDeps(
 		return nil, err
 	}
 	depDeps := info.module.Dependencies.Reads.Slice()
-	var depDepChannels []channel.Channel
+	var (
+		depDepChannels []channel.Channel
+		calcs          map[channel.Key]calculation.Calculation
+	)
 	if len(depDeps) > 0 {
-		if depDepChannels, err = g.fetchChannels(ctx, depDeps); err != nil {
+		if depDepChannels, calcs, err = g.fetchChannels(ctx, depDeps); err != nil {
 			return nil, errors.Wrap(
 				err,
 				"failed to retrieve recursive dependency channels",
 			)
 		}
 	}
-	return g.resolveBaseDependencies(ctx, depDepChannels)
+	return g.resolveBaseDependencies(ctx, depDepChannels, calcs)
 }
 
 // isCalculatedIndex reports whether the channel with key is the index of a calculated
@@ -991,6 +1034,15 @@ func (g *Graph) CalculatedKeys() set.Set[channel.Key] {
 	return keys
 }
 
+// Requests returns the number of requests that the graph holds for the calculated
+// channel with the given key.
+func (g *Graph) Requests(key channel.Key) int {
+	if info, ok := g.channels[key]; ok {
+		return info.explicitCount
+	}
+	return 0
+}
+
 // Contains returns whether the graph holds the calculated channel with the given key.
 func (g *Graph) Contains(key channel.Key) bool {
 	_, ok := g.channels[key]
@@ -1092,28 +1144,29 @@ func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 
 // logCompileError logs detailed diagnostic information when a calculated channel
 // fails to compile, including its expression, data type, and dependency graph. It logs
-// nothing for channel.ErrLookupsChanged, which the caller retries.
+// nothing for resolver.ErrLookupsChanged, which the caller retries.
 func (g *Graph) logCompileError(
 	ctx context.Context,
 	err error,
 	ch channel.Channel,
+	c calculation.Calculation,
 ) {
-	if errors.Is(err, channel.ErrLookupsChanged) {
+	if errors.Is(err, resolver.ErrLookupsChanged) {
 		return
 	}
 	fields := []zap.Field{
 		zap.String("channel", ch.String()),
-		zap.String("expression", ch.Expression),
+		zap.String("expression", c.Expression),
 		zap.String("data_type", string(ch.DataType)),
 		zap.Error(err),
 	}
-	deps := g.fetchDependencyDiagnostics(ctx, ch)
+	deps, calcs := g.fetchDependencyDiagnostics(ctx, ch, c)
 	if len(deps) > 0 {
 		depStrs := make([]string, len(deps))
 		for i, dep := range deps {
 			s := fmt.Sprintf("%s %s", dep, dep.DataType)
-			if dep.IsCalculated() {
-				s += " expression: " + dep.Expression
+			if depCalc, ok := calcs[dep.Key()]; ok {
+				s += " expression: " + depCalc.Expression
 			}
 			depStrs[i] = s
 		}
@@ -1127,28 +1180,40 @@ func (g *Graph) logCompileError(
 func (g *Graph) fetchDependencyDiagnostics(
 	ctx context.Context,
 	ch channel.Channel,
-) []channel.Channel {
+	c calculation.Calculation,
+) ([]channel.Channel, map[channel.Key]calculation.Calculation) {
 	// Try preProcess to discover channel references from the expression
 	prog, preErr := compiler.PreProcess(ctx, g.cfg.DB, compiler.Config{
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
+		Calculation:    c,
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
-		return nil
+		return nil, nil
 	}
 	keys := make([]channel.Key, 0)
 	for k := range prog.Functions[0].Channels.Read {
 		keys = append(keys, channel.Key(k))
 	}
 	if len(keys) == 0 {
-		return nil
+		return nil, nil
 	}
-	deps, fetchErr := g.fetchChannels(ctx, keys)
+	deps, calcs, fetchErr := g.fetchChannels(ctx, keys)
 	if fetchErr != nil {
-		return nil
+		return nil, nil
 	}
-	return deps
+	return deps, calcs
 }
+
+// dependencyTree formats the dependency tree of key only when a log entry writes it,
+// since the format reads the channels of the tree.
+type dependencyTree struct {
+	g   *Graph
+	ctx context.Context
+	key channel.Key
+}
+
+func (t dependencyTree) String() string { return t.g.formatDependencyTree(t.ctx, t.key) }
 
 // formatDependencyTree builds a string representation of the full dependency tree for a
 // channel. Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5,
@@ -1177,9 +1242,9 @@ func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) strin
 	// Resolve and add base dependencies
 	deps := info.module.Dependencies.Reads.Slice()
 	if len(deps) > 0 {
-		depChannels, err := g.fetchChannels(ctx, deps)
+		depChannels, calcs, err := g.fetchChannels(ctx, deps)
 		if err == nil {
-			baseDeps, err := g.resolveBaseDependencies(ctx, depChannels)
+			baseDeps, err := g.resolveBaseDependencies(ctx, depChannels, calcs)
 			if err == nil && len(baseDeps) > 0 {
 				baseDepStrings := make([]string, 0, len(baseDeps))
 				for dep := range baseDeps {

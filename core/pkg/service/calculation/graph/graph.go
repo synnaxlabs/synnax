@@ -11,6 +11,7 @@ package graph
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"sync"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
@@ -39,9 +42,10 @@ type channelChange = gorp.EntryChange[channel.Key, channel.Channel]
 
 type node struct {
 	channel.Channel
-	deps       channel.Keys
-	unresolved []string
-	invalid    bool
+	calculation calculation.Calculation
+	deps        channel.Keys
+	unresolved  []string
+	invalid     bool
 }
 
 // Graph tracks all calculated channels, their dependency edges, and their inferred
@@ -52,11 +56,20 @@ type node struct {
 // reports through SetRuntimeStatus instead of writing the record itself.
 type Graph struct {
 	alamos.Instrumentation
-	db         *gorp.DB
-	svc        *channel.Service
-	status     *status.Service
-	obs        observe.Observer[Changes]
-	disconnect observe.Disconnect
+	db           *gorp.DB
+	svc          *channel.Service
+	calculations *calculation.Service
+	status       *status.Service
+	obs          observe.Observer[Changes]
+	disconnect   observe.Disconnect
+	// disconnectCalculations stops the observation of the calculation table.
+	disconnectCalculations observe.Disconnect
+	// outputs maps the key of each calculation to the key of its output, so a delete of
+	// a calculation, which carries no value, reaches its output.
+	outputs struct {
+		keys map[calculation.Key]channel.Key
+		sync.Mutex
+	}
 	// changed reconciles the latest change to each channel that commits change, since a
 	// reader of a commit must not commit.
 	changed *coalesce.Worker[channel.Key, channelChange]
@@ -66,6 +79,9 @@ type Graph struct {
 		unresolvedByName map[string]set.Set[channel.Key]
 		// rejected holds the channels reported through RejectDefinition.
 		rejected set.Set[channel.Key]
+		// reported holds the expression that the runtime ran for its last report on
+		// each channel.
+		reported map[channel.Key]string
 		sync.RWMutex
 	}
 }
@@ -81,11 +97,15 @@ type Config struct {
 	DB *gorp.DB
 	// Channel is the service-layer channel service. The graph retrieves and writes
 	// channels through its embedded distribution service and builds the Arc symbol
-	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
-	// expressions.
+	// resolver (via resolver.New) used to analyze calculated channel expressions.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation holds the calculation of each calculated channel. The graph observes
+	// it, so an edit of a calculation re-inspects its output.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// Status is used to publish error/clear statuses for calculated channels.
 	//
 	// [REQUIRED]
@@ -102,6 +122,7 @@ func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("status", c.Status)
 	return v.Error()
 }
@@ -109,6 +130,7 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -125,6 +147,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 		Instrumentation: cfg.Instrumentation,
 		db:              cfg.DB,
 		svc:             cfg.Channel,
+		calculations:    cfg.Calculation,
 		status:          cfg.Status,
 		obs:             observe.New[Changes](),
 	}
@@ -132,6 +155,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	g.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
 	g.mu.unresolvedByName = make(map[string]set.Set[channel.Key])
 	g.mu.rejected = make(set.Set[channel.Key])
+	g.mu.reported = make(map[channel.Key]string)
+	g.outputs.keys = make(map[calculation.Key]channel.Key)
 	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return g.hydrate(ctx, tx)
 	}); err != nil {
@@ -140,7 +165,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	// ctx can end before the Graph closes.
 	if g.changed, err = coalesce.Open(
 		context.WithoutCancel(ctx),
-		coalesce.Config[channel.Key, channelChange]{Handle: g.handleChanges},
+		coalesce.Config[channel.Key, channelChange]{
+			Handle: g.handleChanges,
+			Merge:  keepDeletedName,
+		},
 	); err != nil {
 		return nil, err
 	}
@@ -149,6 +177,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 			g.changed.Add(ch.Key, ch)
 		}
 	})
+	g.disconnectCalculations = cfg.Calculation.Observe().OnChange(g.observeCalculations)
 	return g, nil
 }
 
@@ -177,16 +206,19 @@ func (g *Graph) RejectDefinition(
 }
 
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
-// channel with the given key when the report changes the stored status. A success
-// changes only a stored error. Any other report changes a stored status with a
-// different variant, message, or description. Routing runtime reports through the Graph
-// keeps a single writer on the status record, so a report and a validity clear apply in
-// submission order. The Graph drops a report for a deleted channel, and a report for a
-// channel it holds as invalid or rejected: that record describes the channel
-// definition. A report that changes nothing takes only the read lock of the DB.
+// channel with the given key when the report changes the stored status. expression is
+// the expression that the runtime ran, and the Graph clears the status once the
+// calculation holds another. A success changes only a stored error. Any other report
+// changes a stored status with a different variant, message, or description. Routing
+// runtime reports through the Graph keeps a single writer on the status record, so a
+// report and a validity clear apply in submission order. The Graph drops a report for a
+// deleted channel, and a report for a channel it holds as invalid or rejected: that
+// record describes the channel definition. A report that changes nothing takes only the
+// read lock of the DB.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
+	expression string,
 	stat *calculation.Status,
 ) error {
 	g.mu.Lock()
@@ -194,6 +226,7 @@ func (g *Graph) SetRuntimeStatus(
 	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
 		return nil
 	}
+	g.mu.reported[key] = expression
 	var changed bool
 	if err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		stored, found, err := g.retrieveStatus(ctx, snap, key)
@@ -240,8 +273,12 @@ func (g *Graph) retrieveStatus(
 	key channel.Key,
 ) (calculation.Status, bool, error) {
 	var stored calculation.Status
-	err := g.status.NewRetrieve[struct{}]().
-		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
+	c, ok, err := g.calculationOf(ctx, snap, key)
+	if err != nil || !ok {
+		return stored, false, err
+	}
+	err = g.status.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](calculation.ResourceID(c.Key))).
 		Entry(&stored).
 		Exec(ctx, snap)
 	if errors.Is(err, query.ErrNotFound) {
@@ -256,19 +293,17 @@ func (g *Graph) writeStatus(
 	key channel.Key,
 	stat *calculation.Status,
 ) error {
-	exists, err := g.svc.NewRetrieve().
-		Where(channel.MatchKeys(key)).
-		Exists(ctx, tx)
+	c, ok, err := g.calculationOf(ctx, tx, key)
 	if err != nil {
 		return err
 	}
-	if !exists {
-		g.L.Debug("dropping runtime status for a deleted channel",
+	if !ok {
+		g.L.Debug("dropping runtime status for a deleted calculation",
 			zap.Stringer("channel", key),
 		)
 		return nil
 	}
-	stat.Owner = new(channel.ResourceID(key))
+	stat.Owner = new(calculation.ResourceID(c.Key))
 	return g.status.NewWriter(tx).Set(ctx, stat)
 }
 
@@ -304,21 +339,132 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 }
 
 func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
-	return g.status.NewWriter(tx).DeleteOwned(ctx, channel.ResourceID(key))
+	c, ok, err := g.calculationOf(ctx, tx, key)
+	if err != nil || !ok {
+		return err
+	}
+	return g.status.NewWriter(tx).DeleteOwned(ctx, calculation.ResourceID(c.Key))
+}
+
+// calculationOf returns the calculation that writes the channel with key, as snap sees
+// it, and false when none does.
+func (g *Graph) calculationOf(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key channel.Key,
+) (calculation.Calculation, bool, error) {
+	calcs, err := g.calculations.Outputs(ctx, snap, key)
+	c, ok := calcs[key]
+	return c, ok, err
+}
+
+// channelOf returns the channel of chg, and false when chg deletes it. A change of a
+// calculation holds only the key of its output, so channelOf reads that channel from
+// tx.
+func (g *Graph) channelOf(
+	ctx context.Context,
+	tx gorp.Tx,
+	chg channelChange,
+) (channel.Channel, bool, error) {
+	switch {
+	case chg.Kind == gorp.ChangeDelete:
+		return chg.Value, false, nil
+	case chg.Value.Key() != 0:
+		return chg.Value, true, nil
+	default:
+		return g.fetchChannel(ctx, tx, chg.Key)
+	}
+}
+
+// fetchChannel returns the channel with key as tx sees it, and false when it does not
+// exist. Each channel reads alone, so one that fails to read leaves the others.
+func (g *Graph) fetchChannel(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+) (channel.Channel, bool, error) {
+	var ch channel.Channel
+	err := g.svc.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return ch, false, nil
+	}
+	return ch, err == nil, err
+}
+
+// renameStatus gives the status of c the new name of its output.
+func (g *Graph) renameStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	c calculation.Calculation,
+	name string,
+) {
+	err := g.status.NewWriter(tx).RenameOwned(ctx, calculation.ResourceID(c.Key), name)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		g.L.Warn(
+			"failed to rename status for calculation",
+			zap.Stringer("channel", c.Output),
+			zap.Error(err),
+		)
+	}
 }
 
 // Close disconnects the graph from the channel observable.
 func (g *Graph) Close() error {
+	g.disconnectCalculations()
 	g.disconnect()
 	return g.changed.Close()
 }
 
+// keepDeletedName keeps the name of a deleted channel when a change of its calculation
+// follows the delete, so the Graph can still re-inspect the channels that name it.
+func keepDeletedName(waiting, added channelChange) channelChange {
+	if added.Value.Name == "" {
+		added.Value.Name = waiting.Value.Name
+	}
+	return added
+}
+
+// observeCalculations hands the output of each changed calculation to the Graph, which
+// inspects the output again with its stored calculation.
+func (g *Graph) observeCalculations(
+	_ context.Context,
+	r gorp.TxReader[calculation.Key, calculation.Calculation],
+) {
+	g.outputs.Lock()
+	defer g.outputs.Unlock()
+	for c := range r {
+		output, ok := g.outputs.keys[c.Key]
+		if c.Kind == gorp.ChangeDelete {
+			delete(g.outputs.keys, c.Key)
+		} else {
+			output, ok = c.Value.Output, true
+			g.outputs.keys[c.Key] = output
+		}
+		if ok {
+			g.changed.Add(output, channelChange{Key: output, Kind: gorp.ChangeUpdate})
+		}
+	}
+}
+
 func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
-	var channels []channel.Channel
-	if err := g.svc.NewRetrieve().Where(
-		channel.MatchCalculated(),
-	).Entries(&channels).Exec(ctx, tx); err != nil {
+	var calcs []calculation.Calculation
+	if err := g.calculations.NewRetrieve().Entries(&calcs).Exec(ctx, tx); err != nil {
 		return err
+	}
+	byOutput := make(map[channel.Key]calculation.Calculation, len(calcs))
+	outputs := make([]channel.Key, len(calcs))
+	for i, c := range calcs {
+		byOutput[c.Output], outputs[i] = c, c.Output
+		g.outputs.keys[c.Key] = c.Output
+	}
+	var channels []channel.Channel
+	if len(outputs) > 0 {
+		if err := g.svc.NewRetrieve().
+			Where(channel.MatchKeys(outputs...)).
+			Entries(&channels).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
 	}
 	g.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
 	repairs := make([]channel.Channel, 0)
@@ -338,13 +484,10 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		nextUnresolved = make(map[string]set.Set[channel.Key])
 		invalidCount = 0
 		for i, ch := range channels {
-			nd, err := g.inspectNode(ctx, tx, ch, analyzer)
+			c := byOutput[ch.Key()]
+			nd, err := g.inspectNode(ctx, tx, ch, c, analyzer)
 			if err != nil {
-				statuses[ch.Key()] = calculation.StatusFromError(
-					ch.Key(),
-					ch.Name,
-					err,
-				)
+				statuses[ch.Key()] = calculation.StatusFromError(c.Key, ch.Name, err)
 				invalidCount++
 				g.L.Debug(
 					"channel expression invalid",
@@ -391,7 +534,18 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 		if st != nil {
 			g.setNodeStatus(ctx, tx, st)
 		} else {
-			g.clearNodeStatus(ctx, tx, key)
+			g.clearNodeStatus(ctx, tx, byOutput[key])
+		}
+	}
+	// The start pass fills the reads of a record that the upgrade or a later rename
+	// left behind.
+	calcWriter := g.calculations.NewWriter(tx)
+	for _, nd := range nextNodes {
+		if nd.invalid {
+			continue
+		}
+		if err := calcWriter.SetReads(ctx, nd.calculation, nd.deps); err != nil {
+			return err
 		}
 	}
 	g.mu.Lock()
@@ -436,66 +590,99 @@ func (g *Graph) handleChanges(
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
+		calcs, err := g.calculations.Outputs(
+			ctx,
+			tx,
+			slices.Collect(maps.Keys(latest))...,
+		)
+		if err != nil {
+			return err
+		}
 		for _, chg := range latest {
-			batch = append(batch, chg)
-			ch := chg.Value
-			if chg.Kind == gorp.ChangeDelete {
+			ch, found, err := g.channelOf(ctx, tx, chg)
+			if err != nil {
+				g.L.Warn(
+					"failed to retrieve changed channel",
+					zap.Stringer("channel", chg.Key),
+					zap.Error(err),
+				)
+				continue
+			}
+			if !found {
+				batch = append(batch, channelChange{
+					Key:   chg.Key,
+					Value: chg.Value,
+					Kind:  gorp.ChangeDelete,
+				})
 				g.L.Debug(
 					"channel deleted, removing node and re-inspecting dependents",
 					zap.Stringer("channel", chg.Key),
 				)
-				if _, tracked := g.mu.nodes[chg.Key]; tracked {
-					g.clearNodeStatus(ctx, tx, chg.Key)
-				}
 				g.removeNode(chg.Key)
-				if ch.Name != "" {
-					unresolvedNames = append(unresolvedNames, ch.Name)
+				delete(g.mu.reported, chg.Key)
+				if chg.Value.Name != "" {
+					unresolvedNames = append(unresolvedNames, chg.Value.Name)
 				}
 				g.enqueueDependents(chg.Key, queued)
 				g.mu.rejected.Remove(chg.Key)
 				continue
 			}
+			batch = append(batch, channelChange{
+				Key:   chg.Key,
+				Value: ch,
+				Kind:  gorp.ChangeUpdate,
+			})
 			unresolvedNames = append(unresolvedNames, ch.Name)
-			if ch.IsCalculated() {
-				nd, err := g.inspectNode(ctx, tx, ch, analyzer)
-				if err != nil {
-					g.L.Info("calculated channel has invalid expression",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("name", ch.Name),
-						zap.Error(err),
-					)
-					g.setNodeStatus(
-						ctx,
-						tx,
-						calculation.StatusFromError(ch.Key(), ch.Name, err),
-					)
-				} else {
-					g.L.Debug("calculated channel inspected",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("name", ch.Name),
-						zap.Stringers("deps", nd.deps),
-					)
-					// An update to an untracked node holds a coalesced create, so the
-					// expression a runtime status describes may be gone.
-					prev, ok := g.mu.nodes[ch.Key()]
-					if (!ok && chg.Kind == gorp.ChangeUpdate) ||
-						(ok && (prev.invalid || prev.Expression != ch.Expression)) {
-						g.clearNodeStatus(ctx, tx, ch.Key())
-					}
+			prev, tracked := g.mu.nodes[chg.Key]
+			c, calculated := calcs[chg.Key]
+			if !calculated {
+				delete(g.mu.reported, chg.Key)
+				if tracked {
+					g.removeNode(chg.Key)
+					g.mu.rejected.Remove(chg.Key)
 				}
-				if !nd.invalid && nd.DataType != ch.DataType {
-					g.L.Debug(
-						"calculated channel DataType changed",
-						zap.Stringer("channel", ch.Key()),
-						zap.String("old", string(ch.DataType)),
-						zap.String("new", string(nd.DataType)),
-					)
-					updates = append(updates, nd.Channel)
-				}
-				g.upsertNode(nd)
-				g.enqueueDependents(ch.Key(), queued)
+				g.enqueueDependents(chg.Key, queued)
 				continue
 			}
+			if tracked && prev.Name != ch.Name {
+				g.renameStatus(ctx, tx, c, ch.Name)
+			}
+			nd, err := g.inspectNode(ctx, tx, ch, c, analyzer)
+			if err != nil {
+				g.L.Info("calculated channel has invalid expression",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.Error(err),
+				)
+				g.setNodeStatus(
+					ctx,
+					tx,
+					calculation.StatusFromError(c.Key, ch.Name, err),
+				)
+			} else {
+				g.L.Debug("calculated channel inspected",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("name", ch.Name),
+					zap.Stringers("deps", nd.deps),
+				)
+				var heldExpression *string
+				if tracked {
+					heldExpression = &prev.calculation.Expression
+				}
+				if (tracked && prev.invalid) || g.stale(chg.Key, heldExpression, c) {
+					g.clearNodeStatus(ctx, tx, c)
+				}
+			}
+			if !nd.invalid && nd.DataType != ch.DataType {
+				g.L.Debug(
+					"calculated channel DataType changed",
+					zap.Stringer("channel", ch.Key()),
+					zap.String("old", string(ch.DataType)),
+					zap.String("new", string(nd.DataType)),
+				)
+				updates = append(updates, nd.Channel)
+			}
+			g.upsertNode(nd)
 			g.enqueueDependents(ch.Key(), queued)
 		}
 		var reconciled []channel.Channel
@@ -548,19 +735,35 @@ func (g *Graph) setNodeStatus(
 	}
 }
 
-func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
-	if err := g.deleteStatus(ctx, tx, key); err != nil {
+// stale reports whether the runtime status of c describes an expression that c no
+// longer holds: the expression of the last report, or else held, the expression that
+// the Graph held for the node. A status of an untracked node with no report is current.
+func (g *Graph) stale(key channel.Key, held *string, c calculation.Calculation) bool {
+	if reported, ok := g.mu.reported[key]; ok {
+		return reported != c.Expression
+	}
+	return held != nil && *held != c.Expression
+}
+
+func (g *Graph) clearNodeStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	c calculation.Calculation,
+) {
+	delete(g.mu.reported, c.Output)
+	err := g.status.NewWriter(tx).DeleteOwned(ctx, calculation.ResourceID(c.Key))
+	if err != nil {
 		g.L.Warn(
 			"failed to clear status for channel",
-			zap.Stringer("channel", key),
+			zap.Stringer("channel", c.Output),
 			zap.Error(err),
 		)
 	}
 }
 
-func (g *Graph) newAnalyzer(tx gorp.Tx) *channel.CalculationAnalyzer {
-	return channel.NewCalculationAnalyzer(g.svc.NewArcSymbolResolver(tx), parser.Config{
-		AllowDashedNames: !g.svc.ShouldValidateNames(),
+func (g *Graph) newAnalyzer(tx gorp.Tx) *compiler.Analyzer {
+	return compiler.NewAnalyzer(resolver.New(g.svc, tx), parser.Config{
+		AllowDashedNames: resolver.AllowDashedNames(g.svc),
 	})
 }
 
@@ -568,7 +771,8 @@ func (g *Graph) inspectNode(
 	ctx context.Context,
 	tx gorp.Tx,
 	ch channel.Channel,
-	analyzer *channel.CalculationAnalyzer,
+	c calculation.Calculation,
+	analyzer *compiler.Analyzer,
 ) (node, error) {
 	if analyzer == nil {
 		analyzer = g.newAnalyzer(tx)
@@ -576,8 +780,13 @@ func (g *Graph) inspectNode(
 	if ch.Key() == 0 {
 		return node{}, errors.Newf("channel %q has no key, cannot inspect", ch.Name)
 	}
-	result, err := analyzer.Analyze(ctx, ch)
-	nd := node{Channel: ch}
+	result, err := analyzer.AnalyzeExpression(
+		ctx,
+		ch,
+		c.Expression,
+		compiler.HasDerivative(c.Operations),
+	)
+	nd := node{Channel: ch, calculation: c}
 	if err == nil {
 		nd.DataType = result.ChanDataType
 		nd.deps = result.Deps
@@ -593,7 +802,7 @@ func (g *Graph) reconcileQueued(
 	tx gorp.Tx,
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
-	analyzer *channel.CalculationAnalyzer,
+	analyzer *compiler.Analyzer,
 ) (updates, valid []channel.Channel) {
 	g.enqueueUnresolved(unresolvedNames, queued)
 	if len(queued) > 0 {
@@ -602,24 +811,38 @@ func (g *Graph) reconcileQueued(
 	updates = make([]channel.Channel, 0)
 	for len(queued) > 0 {
 		next := make(set.Set[channel.Key])
+		tracked := make([]channel.Key, 0, len(queued))
 		for key := range queued {
-			nd, ok := g.mu.nodes[key]
-			if !ok {
+			if _, ok := g.mu.nodes[key]; ok {
+				tracked = append(tracked, key)
+			}
+		}
+		calcs, err := g.calculations.Outputs(ctx, tx, tracked...)
+		if err != nil {
+			g.L.Warn(
+				"failed to refetch calculations during reconciliation",
+				zap.Error(err),
+			)
+			return updates, valid
+		}
+		for _, key := range tracked {
+			nd := g.mu.nodes[key]
+			c, calculated := calcs[key]
+			if !calculated {
 				continue
 			}
-			refetched := nd.Channel
-			if err := g.svc.NewRetrieve().
-				Where(channel.MatchKeys(key)).
-				Entry(&refetched).
-				Exec(ctx, tx); err != nil {
-				g.L.Warn(
-					"failed to refetch channel during reconciliation",
-					zap.Stringer("channel", key),
-					zap.Error(err),
-				)
+			refetched, found, err := g.fetchChannel(ctx, tx, key)
+			if err != nil || !found {
+				if err != nil {
+					g.L.Warn(
+						"failed to refetch channel during reconciliation",
+						zap.Stringer("channel", key),
+						zap.Error(err),
+					)
+				}
 				continue
 			}
-			newNode, err := g.inspectNode(ctx, tx, refetched, analyzer)
+			newNode, err := g.inspectNode(ctx, tx, refetched, c, analyzer)
 			oldInvalid := nd.invalid
 			oldType := nd.DataType
 			g.upsertNode(newNode)
@@ -633,13 +856,13 @@ func (g *Graph) reconcileQueued(
 				g.setNodeStatus(
 					ctx,
 					tx,
-					calculation.StatusFromError(key, refetched.Name, err),
+					calculation.StatusFromError(c.Key, refetched.Name, err),
 				)
 				continue
 			}
 			valid = append(valid, refetched)
-			if oldInvalid || refetched.Expression != nd.Expression {
-				g.clearNodeStatus(ctx, tx, key)
+			if oldInvalid || g.stale(key, &nd.calculation.Expression, c) {
+				g.clearNodeStatus(ctx, tx, c)
 			}
 			if oldInvalid || oldType != newNode.DataType {
 				if oldType != newNode.DataType {

@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 	"uuid"
@@ -20,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -55,6 +57,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Calculation stores the calculation of each calculated metric channel.
+	//
+	// [REQUIRED]
+	Calculation *calculation.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED]
@@ -90,6 +96,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Calculation = override.Nil(c.Calculation, other.Calculation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
 	c.DB = override.Nil(c.DB, other.DB)
@@ -107,6 +114,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
 	v.NotNil("channel", c.Channel)
+	v.NotNil("calculation", c.Calculation)
 	v.NotNil("framer", c.Framer)
 	v.NonZero("host_key", c.HostKey)
 	v.NotNil("storage", c.Storage)
@@ -192,6 +200,37 @@ func createFolder(ctx context.Context, groups *group.Service) (group.Group, erro
 	}
 }
 
+// createChannel returns the create of openChannels for a metric that the service
+// writes.
+func createChannel(
+	cfg ServiceConfig,
+) func(context.Context, gorp.Tx, *channel.Channel) error {
+	return func(ctx context.Context, tx gorp.Tx, ch *channel.Channel) error {
+		return cfg.Channel.NewWriter(tx).Create(ctx, ch)
+	}
+}
+
+// createOutput returns the create of openChannels for the outputs of calculated: it
+// creates the calculation of each output, and the output with it.
+func createOutput(
+	cfg ServiceConfig,
+	calculated []calculatedMetric,
+) func(context.Context, gorp.Tx, *channel.Channel) error {
+	return func(ctx context.Context, tx gorp.Tx, ch *channel.Channel) error {
+		i := slices.IndexFunc(calculated, func(m calculatedMetric) bool {
+			return m.name == ch.Name
+		})
+		c := calculation.Calculation{Expression: calculated[i].expression}
+		made, err := cfg.Calculation.NewWriter(tx).
+			CreateOutput(ctx, &c, ch.Name, ch.Group)
+		if err != nil {
+			return err
+		}
+		*ch = made[0]
+		return nil
+	}
+}
+
 // channelKeyPrefix prefixes the KV key that holds the key of a metrics channel, by the
 // name that the service gives the channel.
 const channelKeyPrefix = "sy_metrics_channel/"
@@ -200,14 +239,15 @@ const channelKeyPrefix = "sy_metrics_channel/"
 // its name, so that a rename or a move keeps it. With no stored key, it takes the one
 // channel of its name in folder, else the one channel of its name anywhere, as a store
 // from before stored keys holds it. It creates the rest, each in a transaction of its
-// own, and stores the key of each. A name never fails a start: a channel that a name
-// keeps from being found or created is left out, and off holds its position and a
-// channel.AmbiguousNameError for the name.
+// own with create, and stores the key of each. A name never fails a start: a channel
+// that a name keeps from being found or created is left out, and off holds its position
+// and a channel.AmbiguousNameError for the name.
 func openChannels(
 	ctx context.Context,
 	cfg ServiceConfig,
 	folder group.Key,
 	chs []channel.Channel,
+	create func(context.Context, gorp.Tx, *channel.Channel) error,
 ) (off map[int]error, err error) {
 	names := channel.Names(chs)
 	missing, holders, err := findChannels(ctx, cfg, chs)
@@ -221,7 +261,7 @@ func openChannels(
 			continue
 		}
 		err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Channel.NewWriter(tx).Create(ctx, &chs[i])
+			return create(ctx, tx, &chs[i])
 		})
 		if blocked, isBlocked := nameBlock(err, name, holders[name]); isBlocked {
 			off[i] = blocked
@@ -434,7 +474,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		IsIndex:  true,
 		Group:    &s.group.Key,
 	}}
-	off, err := openChannels(ctx, cfg, s.group.Key, idx)
+	off, err := openChannels(ctx, cfg, s.group.Key, idx, createChannel(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +486,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			m.ch.Group = &s.group.Key
 			return m.ch
 		})
-		if off, err = openChannels(ctx, cfg, s.group.Key, chs); err != nil {
+		if off, err = openChannels(
+			ctx,
+			cfg,
+			s.group.Key,
+			chs,
+			createChannel(cfg),
+		); err != nil {
 			return nil, err
 		}
 		warnings = append(warnings, offErrors(off, len(chs))...)
@@ -460,13 +506,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			}
 		}
 		calculated := createCalculatedMetrics(namePrefix, opened)
-		for i := range calculated {
-			calculated[i].Group = &s.group.Key
-		}
-		if off, err = openChannels(ctx, cfg, s.group.Key, calculated); err != nil {
+		outputs := lo.Map(calculated, func(m calculatedMetric, _ int) channel.Channel {
+			return channel.Channel{Name: m.name, Group: &s.group.Key}
+		})
+		if off, err = openChannels(
+			ctx,
+			cfg,
+			s.group.Key,
+			outputs,
+			createOutput(cfg, calculated),
+		); err != nil {
 			return nil, err
 		}
-		warnings = append(warnings, offErrors(off, len(calculated))...)
+		warnings = append(warnings, offErrors(off, len(outputs))...)
 	}
 	if err = s.report(ctx, warnings); err != nil {
 		return nil, err

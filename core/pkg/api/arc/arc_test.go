@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -109,6 +110,22 @@ func deployOn(ctx context.Context, a arc.Arc, r rack.Key) task.Task {
 		return err
 	})).To(Succeed())
 	return *tsk
+}
+
+// createOutput creates, in tx, the calculation of expression and its output named
+// ch.Name, and fills ch with the output.
+func createOutput(
+	ctx context.Context,
+	tx gorp.Tx,
+	ch *channel.Channel,
+	expression string,
+) error {
+	c := calculation.Calculation{Expression: expression}
+	created, err := svc.Calculation.NewWriter(tx).CreateOutput(ctx, &c, ch.Name, nil)
+	if err == nil {
+		*ch = created[0]
+	}
+	return err
 }
 
 var _ = Describe("Service", func() {
@@ -406,24 +423,30 @@ var _ = Describe("Service", func() {
 				out := channel.Channel{
 					Name: "cb_out", DataType: telem.Int64T, Virtual: true,
 				}
-				inner := channel.Channel{
-					Name:       "cb_inner",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cb_base + 1",
-				}
-				outer := channel.Channel{
-					Name:       "cb_outer",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cb_inner * 2",
-				}
+				inner := channel.Channel{Name: "cb_inner"}
+				outer := channel.Channel{Name: "cb_outer"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
-					for _, ch := range []*channel.Channel{&base, &out, &inner, &outer} {
+					for _, ch := range []*channel.Channel{&base, &out} {
 						if err := w.Create(ctx, ch); err != nil {
 							return err
 						}
+					}
+					if err := createOutput(
+						ctx,
+						tx,
+						&inner,
+						"return cb_base + 1",
+					); err != nil {
+						return err
+					}
+					if err := createOutput(
+						ctx,
+						tx,
+						&outer,
+						"return cb_inner * 2",
+					); err != nil {
+						return err
 					}
 					return w.Delete(ctx, base.Key(), false)
 				})).To(Succeed())
@@ -464,7 +487,9 @@ var _ = Describe("Service", func() {
 				Eventually(func(g Gomega) {
 					var stat status.Status[struct{}]
 					g.Expect(statusSvc.NewRetrieve[struct{}]().
-						Where(status.MatchOwners[struct{}](channel.ResourceID(inner.Key()))).
+						Where(status.MatchOwners[struct{}](calculation.ResourceID(
+							MustSucceed(creator.CalculationOf(ctx, inner.Key())).Key,
+						))).
 						Entry(&stat).
 						Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
@@ -475,38 +500,34 @@ var _ = Describe("Service", func() {
 		It(
 			"Should leave out calculated channels that read each other",
 			func(ctx SpecContext) {
+				// base holds the name cy_a until a takes it, which closes a cycle that
+				// no save writes.
 				base := channel.Channel{
-					Name: "cy_base", DataType: telem.Int64T, Virtual: true,
+					Name: "cy_a", DataType: telem.Int64T, Virtual: true,
 				}
 				out := channel.Channel{
 					Name: "cy_out", DataType: telem.Int64T, Virtual: true,
 				}
-				b := channel.Channel{
-					Name:       "cy_b",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cy_base + 1",
-				}
-				a := channel.Channel{
-					Name:       "cy_a",
-					DataType:   telem.Int64T,
-					Virtual:    true,
-					Expression: "return cy_b * 2",
-				}
+				b := channel.Channel{Name: "cy_b"}
+				a := channel.Channel{Name: "cy_a_next"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					w := channelSvc.NewWriter(tx)
-					for _, ch := range []*channel.Channel{&base, &out, &b, &a} {
+					for _, ch := range []*channel.Channel{&base, &out} {
 						if err := w.Create(ctx, ch); err != nil {
 							return err
 						}
 					}
-					_, err := w.Apply(ctx, b.Key(), channel.NewSetAction(
-						channel.SetPayload{
-							Path:  []string{"expression"},
-							Value: "return cy_a + 1",
-						},
-					))
-					return err
+					if err := createOutput(ctx, tx, &b, "return cy_a + 1"); err != nil {
+						return err
+					}
+					return createOutput(ctx, tx, &a, "return cy_b * 2")
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := channelSvc.NewWriter(tx)
+					if err := w.Rename(ctx, base.Key(), "cy_base", false); err != nil {
+						return err
+					}
+					return w.Rename(ctx, a.Key(), "cy_a", false)
 				})).To(Succeed())
 				automation := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
 					Name: "cy_automation",

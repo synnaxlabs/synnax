@@ -47,15 +47,7 @@ var _ = Describe("Codec", func() {
 				LocalIndex:  v2.LocalKey(7),
 				Virtual:     true,
 				Concurrency: control.Concurrency(0),
-				Operations: []v2.Operation{
-					{
-						Type:         v2.OperationType("min"),
-						ResetChannel: v2.Key(12),
-						Duration:     telem.TimeSpan(13),
-					},
-				},
-				Expression: "test_13",
-				Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 			}),
 			Entry("zero values", v2.Channel{
 				Name:        "",
@@ -66,22 +58,7 @@ var _ = Describe("Codec", func() {
 				LocalIndex:  v2.LocalKey(0),
 				Virtual:     false,
 				Concurrency: control.Concurrency(0),
-				Operations:  []v2.Operation{},
-				Expression:  "",
 				Group:       nil,
-			}),
-			Entry("empty collections", v2.Channel{
-				Name:        "test_1",
-				Leaseholder: node.Key(3),
-				DataType:    telem.DataType("test_3"),
-				IsIndex:     false,
-				LocalKey:    v2.LocalKey(6),
-				LocalIndex:  v2.LocalKey(7),
-				Virtual:     true,
-				Concurrency: control.Concurrency(0),
-				Operations:  []v2.Operation{},
-				Expression:  "test_10",
-				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 			}),
 		)
 	})
@@ -97,15 +74,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		LocalIndex:  v2.LocalKey(7),
 		Virtual:     true,
 		Concurrency: control.Concurrency(0),
-		Operations: []v2.Operation{
-			{
-				Type:         v2.OperationType("min"),
-				ResetChannel: v2.Key(12),
-				Duration:     telem.TimeSpan(13),
-			},
-		},
-		Expression: "test_13",
-		Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+		Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -133,15 +102,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			LocalIndex:  v2.LocalKey(7),
 			Virtual:     true,
 			Concurrency: control.Concurrency(0),
-			Operations: []v2.Operation{
-				{
-					Type:         v2.OperationType("min"),
-					ResetChannel: v2.Key(12),
-					Duration:     telem.TimeSpan(13),
-				},
-			},
-			Expression: "test_13",
-			Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -159,29 +120,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			LocalIndex:  v2.LocalKey(0),
 			Virtual:     false,
 			Concurrency: control.Concurrency(0),
-			Operations:  []v2.Operation{},
-			Expression:  "",
 			Group:       nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.Channel{
-			Name:        "test_1",
-			Leaseholder: node.Key(3),
-			DataType:    telem.DataType("test_3"),
-			IsIndex:     false,
-			LocalKey:    v2.LocalKey(6),
-			LocalIndex:  v2.LocalKey(7),
-			Virtual:     true,
-			Concurrency: control.Concurrency(0),
-			Operations:  []v2.Operation{},
-			Expression:  "test_10",
-			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -20,9 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -32,7 +34,9 @@ import (
 )
 
 // saveReport saves every status a Group reports.
-func saveReport(context.Context, channel.Key, calculator.Status) bool { return true }
+func saveReport(context.Context, channel.Key, string, calculator.Status) bool {
+	return true
+}
 
 var _ = Describe("Calculator", Ordered, func() {
 	var (
@@ -58,7 +62,14 @@ var _ = Describe("Calculator", Ordered, func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		creator = calctestutil.Creator{DB: db, Channel: channelSvc}
+		creator = calctestutil.Creator{
+			DB:      db,
+			Channel: channelSvc,
+			Calculation: MustOpen(calculation.OpenService(
+				ctx,
+				calculation.ServiceConfig{DB: db, Channel: channelSvc},
+			)),
+		}
 	})
 
 	open := func(
@@ -95,6 +106,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        out,
+			Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 		}))
 		return MustOpen(calculator.Open(
 			ctx,
@@ -929,12 +941,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
 			Expression: "return " + base[0].Name,
-			Operations: []channel.Operation{
-				{
-					Type:     "avg",
-					Duration: 6 * telem.Second,
+			Operations: []calculation.Operation{{
+				Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 6 * telem.Second},
 				},
-			},
+			}},
 		})
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -971,11 +982,11 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	Describe("Reset channel", func() {
 		It(
-			"Should fail to compile with a non-boolean reset channel",
+			"Should fail to compile when its reset channel is no longer a boolean",
 			func(ctx SpecContext) {
 				reset := channel.Channel{
 					Name:     UniqueChannelName(),
-					DataType: telem.Uint8T,
+					DataType: telem.BooleanT,
 					Virtual:  true,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -993,13 +1004,20 @@ var _ = Describe("Calculator", Ordered, func() {
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
 					Expression: "return " + base[0].Name,
-					Operations: []channel.Operation{
-						{Type: "max", ResetChannel: reset.Key()},
-					},
+					Operations: []calculation.Operation{{
+						Variant: calculation.MaxOperation{
+							Window: calculation.Window{Reset: new(reset.Key())},
+						},
+					}},
 				}))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).
+						ChangeDataType(ctx, reset.Key(), telem.Uint8T)
+				})).To(Succeed())
 				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
 			},
 		)
@@ -1021,8 +1039,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float64T,
 				Expression: "return " + base[0].Name,
-				Operations: []channel.Operation{
-					{Type: "derivative"},
+				Operations: []calculation.Operation{
+					{Variant: calculation.DerivativeOperation{}},
 				},
 			})
 			d := telem.NewSeriesV[int64](10, 20, 40)
@@ -1072,15 +1090,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       UniqueChannelName(),
 			DataType:   telem.Int64T,
 			Expression: "return " + base[0].Name,
-			Operations: []channel.Operation{
-				{
-					Type:     "avg",
-					Duration: 3 * telem.Second,
-				},
-				{
-					Type:     "avg",
-					Duration: 6 * telem.Second,
-				},
+			Operations: []calculation.Operation{
+				{Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 3 * telem.Second},
+				}},
+				{Variant: calculation.AvgOperation{
+					Window: calculation.Window{Duration: 6 * telem.Second},
+				}},
 			},
 		})
 
@@ -1218,6 +1234,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				g.Next(ctx, frame.NewUnary(base[0].Key(), d), func(
 					_ context.Context,
 					key channel.Key,
+					_ string,
 					st calculator.Status,
 				) bool {
 					Expect(key).To(Equal(calc.Key()))
@@ -1403,18 +1420,20 @@ var _ = Describe("Calculator", Ordered, func() {
 				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
 			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
-					Analyze(ctx, channel.Channel{
-						Name:       calc.Name,
-						Virtual:    true,
-						Expression: calc.Expression,
-					}),
+				compiler.NewAnalyzer(resolver.New(channelSvc, db)).
+					AnalyzeExpression(
+						ctx,
+						channel.Channel{Name: calc.Name, Virtual: true},
+						calc.Expression,
+						false,
+					),
 			)
 			calc.DataType = res.ChanDataType
 			out := MustSucceed(creator.Create(ctx, calc))
 			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        out,
+				Calculation:    MustSucceed(creator.CalculationOf(ctx, out.Key())),
 			}))
 			return MustOpen(calculator.Open(ctx, calculator.Config{Module: mod})), out
 		}
@@ -1513,6 +1532,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
+					Calculation:    MustSucceed(creator.CalculationOf(ctx, calc.Key())),
 				}))
 				c := MustOpen(calculator.Open(ctx, calculator.Config{Module: mod}))
 				fr := frame.NewUnary(

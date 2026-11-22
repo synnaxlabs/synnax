@@ -554,8 +554,9 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 
 // formatString is a format string literal token with at least one placeholder.
 type formatString struct {
-	text string
-	segs []literal.FmtStrSegment
+	text  string
+	flags literal.StringFlags
+	segs  []literal.FmtStrSegment
 	// prefixLen is the length of the prefix, and bodyOff the offset of the body.
 	prefixLen, bodyOff int
 	// at holds the source position of each byte of text, and of its end.
@@ -578,7 +579,7 @@ func parseFormatString(t antlr.Token) (formatString, bool) {
 	if err != nil || !literal.FmtStrHasPlaceholder(segs) {
 		return f, false
 	}
-	f.segs = segs
+	f.segs, f.flags = segs, flags
 	f.bodyOff = f.prefixLen + 1
 	f.at = textPositions(protocol.Position{
 		Line:      uint32(t.GetLine() - 1),

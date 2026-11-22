@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -158,7 +159,7 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 		Expect(create(ctx, &ch)).To(Succeed())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return bsvc.NewWriter(tx).
-				DeleteManyByNames(ctx, []string{"n\u0303_brk_delete"}, false)
+				DeleteManyByNames(ctx, []string{"n\u0303_brk_delete"})
 		})).To(Succeed())
 		Expect(bsvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
@@ -174,9 +175,12 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 				return bsvc.NewWriter(tx).CreateMany(ctx, &chs)
 			})
 			Expect(err).To(MatchError(validate.ErrValidation))
-			pathErr, ok := errors.AsType[validate.PathError](err)
+			batchErr, ok := errors.AsType[channel.BatchError](err)
 			Expect(ok).To(BeTrue())
-			Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+			Expect(batchErr.At).To(Equal(1))
+			pathErr, ok := errors.AsType[validate.PathError](batchErr.Err)
+			Expect(ok).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"name"}))
 		})
 
 	It("Should refuse a name that shows as nothing", func(ctx SpecContext) {
@@ -276,18 +280,19 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 			Expect(stored(ctx, b.Key()).Name).To(Equal("brk_deleted"))
 		})
 
-	It("Should refuse a calculated channel whose index name a channel holds",
+	It("Should refuse a free channel whose index name a channel holds",
 		func(ctx SpecContext) {
 			taken := virtual("brk_calc_time")
 			Expect(create(ctx, &taken)).To(Succeed())
 			calc := channel.Channel{
-				Name:       "brk_calc",
-				DataType:   telem.Float64T,
-				Expression: "return 1.0",
+				Name:        "brk_calc",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
 			}
-			Expect(create(ctx, &calc)).To(MatchError(ContainSubstring(
-				"cannot serve as the index for a calculated channel",
-			)))
+			Expect(create(ctx, &calc, channel.FreeIndex())).To(MatchError(
+				ContainSubstring("cannot serve as the index for a calculated channel"),
+			))
 			Expect(bsvc.NewRetrieve().
 				Where(channel.MatchNames("brk_calc")).
 				Exists(ctx, db)).To(BeFalse())

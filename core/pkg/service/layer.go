@@ -29,9 +29,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/resolver"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -279,6 +281,8 @@ type Layer struct {
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
+	// Calculation stores the calculation of each calculated channel.
+	Calculation *calculation.Service
 	// Control reads the control state of channels and publishes every transfer on the
 	// control channel.
 	Control *control.Service
@@ -433,13 +437,50 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Limit:           l.License.CheckChannelLimit,
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
+		// The calculation service opens after this one, so a fill reads it as it runs.
+		Fills: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			keys ...channel.Key,
+		) (map[channel.Key]channel.Fill, error) {
+			return l.Calculation.Fills(ctx, tx, keys...)
+		},
+		Computes: func(u channel.Use) bool {
+			return u.Holder.Table == string(resource.TypeCalculation) &&
+				u.Direction == channel.DirectionWrite
+		},
 	}); !ok(err, l.Channel) {
+		return nil, err
+	}
+	if l.Calculation, err = calculation.OpenService(ctx, calculation.ServiceConfig{
+		Instrumentation: cfg.Child("calculation"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+	}); !ok(err, l.Calculation) {
+		return nil, err
+	}
+	// The graph writes the statuses of calculations and compiles them as it opens, so
+	// their records, statuses, and channel names move first.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations: []gorp.Migration{
+			newNameClash(cfg.Distribution.Identity.HostKey),
+			l.Calculation.Migration(
+				l.Status,
+				cfg.Distribution.Channel.IssuedAtFirstOpen,
+			),
+			calculationTextMigration,
+		},
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		Calculation:     l.Calculation,
 		Status:          l.Status,
 	})
 	if !ok(err, channelGraph) {
@@ -460,6 +501,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
+			Calculation:     l.Calculation,
 			ChannelGraph:    channelGraph,
 			Reserved:        l.Signals.Publishes,
 		},
@@ -553,6 +595,27 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Name:     "sy_color_action_set",
 			Actions:  l.Color.Actions(),
 			Resource: color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[calculation.Key, calculation.Calculation]{
+			SetName:    "sy_calculation_set",
+			DeleteName: "sy_calculation_delete",
+			Changes:    l.Calculation.Changes,
+			Resource:   calculation.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[calculation.Key, calculation.Action]{
+			Name:     "sy_calculation_action_set",
+			Actions:  l.Calculation.Actions(),
+			Resource: calculation.ResourceID,
 		},
 	); !ok(err, nil) {
 		return nil, err
@@ -910,10 +973,23 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("arc"),
 		DB:              cfg.Distribution.DB,
 		Parser: parser.Config{
-			AllowDashedNames: !l.Channel.ShouldValidateNames(),
+			AllowDashedNames: resolver.AllowDashedNames(l.Channel),
 		},
 	})
 	if !ok(err, arcTable) {
+		return nil, err
+	}
+	// Stored Arc text names channels, so it takes their new names before anything that
+	// compiles it opens.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations: []gorp.Migration{
+			arcTextMigration,
+			newRenameReport(l.Status, cfg.Storage.TS),
+		},
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
@@ -1064,21 +1140,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Metrics, err = metrics.OpenService(
-		ctx,
-		metrics.ServiceConfig{
-			Instrumentation: cfg.Child("metrics"),
-			DB:              cfg.Distribution.DB,
-			Framer:          l.Framer,
-			Channel:         l.Channel,
-			HostKey:         cfg.Distribution.Identity.HostKey,
-			Storage:         cfg.Storage,
-			Group:           l.Group,
-			Status:          l.Status,
-		},
-	); !ok(err, l.Metrics) {
-		return nil, err
-	}
 	// Composition migrations move data across service boundaries, so they can only run
 	// once every service table above is open: a table's own chain runs at open, before
 	// later services have staged the legacy data these migrations consume. Table chains
@@ -1090,6 +1151,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
+			newCalculationGrantMigration(l.RBAC.Policy, l.Calculation),
 			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
@@ -1100,15 +1162,26 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 				l.Table,
 				cfg.Distribution.Channel.IssuedAtFirstOpen,
 			),
+			newRetiredChannelDelete(l.Channel),
 		),
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if err = deleteRetiredChannels(
+	// Metrics writes calculations, so it opens after the migrations that build them.
+	if l.Metrics, err = metrics.OpenService(
 		ctx,
-		cfg.Distribution.DB,
-		l.Channel,
-	); !ok(err, nil) {
+		metrics.ServiceConfig{
+			Instrumentation: cfg.Child("metrics"),
+			DB:              cfg.Distribution.DB,
+			Framer:          l.Framer,
+			Channel:         l.Channel,
+			Calculation:     l.Calculation,
+			HostKey:         cfg.Distribution.Identity.HostKey,
+			Storage:         cfg.Storage,
+			Group:           l.Group,
+			Status:          l.Status,
+		},
+	); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	// The change channels send no commit before Start, so the migrations above send
