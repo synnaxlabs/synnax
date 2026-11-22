@@ -31,7 +31,7 @@ export interface CreateKeyModalParams {
 }
 
 type CloseProps = Pick<
-  Modals.ContentProps<CreateKeyModalParams, auth.APIKeyKey>,
+  Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>,
   "close"
 >;
 
@@ -128,7 +128,7 @@ const Token = ({ created, close }: TokenProps): ReactElement => (
 const Content = ({
   subject,
   close,
-}: Modals.ContentProps<CreateKeyModalParams, auth.APIKeyKey>): ReactElement => {
+}: Modals.ContentProps<CreateKeyModalParams, auth.apiKey.Key>): ReactElement => {
   const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
   return (
     <Modal.Frame className={CSS.B("create-key")}>
@@ -147,6 +147,6 @@ const Content = ({
  * with the key once the user is done, or null when the user cancels.
  */
 export const useCreateKeyModal = Modals.createPrompt<
-  auth.APIKeyKey,
+  auth.apiKey.Key,
   CreateKeyModalParams
 >(Content);

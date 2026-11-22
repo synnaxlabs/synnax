@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/auth/password/actions.gen";
+export * from "@/auth/password/client";
 export * from "@/auth/password/types.gen";
