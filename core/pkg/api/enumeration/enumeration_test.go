@@ -291,7 +291,7 @@ func createHolders(ctx SpecContext, e enumeration.Key, keys ...string) {
 	GinkgoHelper()
 	holders := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, holder]{
 		DB:   db,
-		Name: string(resource.TypeModbusServer),
+		Name: string(resource.TypeFramer),
 		References: []gorp.Reference[string, holder]{gorp.NewKeyReference(
 			gorp.KeyReferenceConfig[string, holder, enumeration.Key]{
 				Name:     "enumeration",
@@ -323,7 +323,7 @@ func createHolders(ctx SpecContext, e enumeration.Key, keys ...string) {
 
 // holderID returns the resource ID of the holder with the given key.
 func holderID(key string) resource.ID {
-	return resource.ID{Type: resource.TypeModbusServer, Key: key}
+	return resource.ID{Type: resource.TypeFramer, Key: key}
 }
 
 // retrieveHolder returns the enumeration that the holder with the given key uses.
