@@ -17,7 +17,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { Color } from "@/color";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { Gauge } from "@/vis/gauge";
 import { gauge } from "@/vis/gauge/aether";
 import { canvasTest } from "@/vis/render/testutil";

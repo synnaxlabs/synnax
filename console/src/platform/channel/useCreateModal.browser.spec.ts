@@ -23,6 +23,7 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
+import { pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -113,10 +114,7 @@ describe("useCreateModal", () => {
       const name = uniqueName("data");
       setName(name);
       fireEvent.click(screen.getByText("Select channel"));
-      fireEvent.change(await screen.findByPlaceholderText("Search channels...", {}), {
-        target: { value: index.name },
-      });
-      fireEvent.click(await screen.findByText(index.name, {}));
+      await pickOption(index.name, "Search channels...");
       await clickCreate();
       await waitFor(async () => {
         const created = await client.channels.retrieve(name);

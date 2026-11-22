@@ -18,8 +18,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderHookSuspended,
+} from "@/testutil";
 import { User } from "@/user";
 
 const path = User.formPath;

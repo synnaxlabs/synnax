@@ -22,8 +22,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const alertZ = z.object({ key: z.string(), status: z.string() });
 
