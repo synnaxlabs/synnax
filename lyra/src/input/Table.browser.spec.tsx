@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
+import { Form } from "@/form";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -209,6 +210,32 @@ describe("Input.Table", () => {
     );
     const cell = indicator?.closest("td");
     if (indicator == null || cell == null) throw new Error("The cell has no checkbox");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
+  it("should center a switch in its cell inside a form section", async () => {
+    const { container } = await renderThemed(
+      <Form.Sections>
+        <Form.Section>
+          <Input.Table value={[[true]]} onChange={() => {}}>
+            <Input.TableColumn name="Enabled" type="boolean" width={20}>
+              {({ value, onChange, "aria-label": label }) => (
+                <Input.Switch value={value} onChange={onChange} aria-label={label} />
+              )}
+            </Input.TableColumn>
+          </Input.Table>
+        </Form.Section>
+      </Form.Sections>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "switch", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no switch");
     const center = (el: Element): number => {
       const { left, width } = el.getBoundingClientRect();
       return left + width / 2;
@@ -510,6 +537,7 @@ describe("Input.Table", () => {
     createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
     rowLabel?: (index: number) => string;
     resourceName?: string;
+    autoFocus?: boolean;
     cellStatus?: (at: xy.XY) => Status.Crude | undefined;
     onRemove?: (index: number) => void;
     onMove?: (from: number, to: number) => void;
@@ -802,6 +830,21 @@ describe("Input.Table", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       fireEvent.click(removeButton(0));
       expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should focus the first cell on mount with autoFocus", () => {
+      renderTable({ value: VALUE, autoFocus: true });
+      expect(document.activeElement).toBe(cell("Raw", "1"));
+    });
+
+    it("should focus the add button on mount with autoFocus and no rows", () => {
+      renderTable({ value: [], autoFocus: true });
+      expect(document.activeElement).toBe(addButton());
+    });
+
+    it("should take no focus on mount without autoFocus", () => {
+      renderTable({ value: VALUE });
+      expect(document.activeElement).toBe(document.body);
     });
   });
 
