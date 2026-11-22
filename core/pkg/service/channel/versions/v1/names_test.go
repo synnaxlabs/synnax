@@ -136,6 +136,19 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(names[2]).To(Equal("caf\u00E9_2"))
 		})
 
+	// Check (D-176 (3)): a legal stored name never moves, so the legal NFC name keeps
+	// its name and the name that needs a rewrite takes the suffix.
+	It("Should keep a legal name when a lower key matches it only after NFC",
+		func(ctx SpecContext) {
+			names := migrate(
+				ctx,
+				channel(1, "cafe\u0301", nil),
+				channel(2, "caf\u00E9", nil),
+			)
+			Expect(names[2]).To(Equal("caf\u00E9"))
+			Expect(names[1]).To(Equal("caf\u00E9_2"))
+		})
+
 	It("Should move a channel that holds the name of a built-in in its group, even "+
 		"with a lower key", func(ctx SpecContext) {
 		builtIn := channel(9, "sy_node_1_metrics", nil)
