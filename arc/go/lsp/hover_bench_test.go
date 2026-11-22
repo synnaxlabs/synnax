@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
@@ -39,7 +40,14 @@ func benchHover(b *testing.B, source string, char uint32) {
 	b.Helper()
 	ctx := b.Context()
 	server, err := lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-		return symbol.NewRoot(nil, stl.NewSymbols())
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		root.Parent.AddChild(&symbol.Symbol{
+			Name: "stand.sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+			ID:   1,
+		})
+		return root
 	}})
 	if err != nil {
 		b.Fatal(err)
@@ -80,8 +88,8 @@ func benchHover(b *testing.B, source string, char uint32) {
 	}
 }
 
-// BenchmarkHover hovers a variable and a quoted channel name near the top of documents
-// of growing length. Each hover costs the same at any length.
+// BenchmarkHover hovers a variable, a quoted channel name, and a bare channel path near
+// the top of documents of growing length. Each hover costs the same at any length.
 func BenchmarkHover(b *testing.B) {
 	for _, lines := range []int{10, 1000, 10000} {
 		n := "lines=" + strconv.Itoa(lines)
@@ -90,6 +98,9 @@ func BenchmarkHover(b *testing.B) {
 		})
 		b.Run(n+"/channel", func(b *testing.B) {
 			benchHover(b, hoverSource("s := 'sensor value'", lines), 10)
+		})
+		b.Run(n+"/path", func(b *testing.B) {
+			benchHover(b, hoverSource("s := stand.sensor", lines), 16)
 		})
 	}
 }
