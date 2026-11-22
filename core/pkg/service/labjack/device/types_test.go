@@ -109,6 +109,32 @@ var _ = Describe("Update", func() {
 		}}, "ports"),
 	)
 
+	DescribeTable("Should check the identifier",
+		func(identifier string, valid bool) {
+			c := configuration
+			c.Identifier = identifier
+			err := device.Update{
+				Variant: device.ConfigurationUpdate{Configuration: c},
+			}.Validate()
+			if valid {
+				Expect(err).ToNot(HaveOccurred())
+				return
+			}
+			Expect(err).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("Identifier must be 2 to 12 characters")),
+			))
+		},
+		Entry("empty", "", true),
+		Entry("two characters", "lj", true),
+		Entry("twelve characters with digits and underscores", "LabJack_T7_1", true),
+		Entry("one character", "l", false),
+		Entry("thirteen characters", "LabJack_T7_12", false),
+		Entry("a leading digit", "7lj", false),
+		Entry("a leading underscore", "_lj", false),
+		Entry("a hyphen", "lab-jack", false),
+	)
+
 	It("Should accept a valid update", func() {
 		Expect(device.Update{
 			Variant: device.ConfigurationUpdate{Configuration: configuration},

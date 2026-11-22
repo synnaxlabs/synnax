@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	"regexp"
 )
 
 // Key uniquely identifies a LabJack device.
@@ -71,6 +72,8 @@ type T7Device = versions.T7Device
 
 // T8Device is a T8.
 type T8Device = versions.T8Device
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Identity holds the device fields that the scanner owns.
 type Identity struct {
@@ -252,6 +255,7 @@ type Configuration struct {
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
 	v.NotEmptyString("name", c.Name)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(c.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	v.Exec(func() error { return validate.PathedError(c.Ports.Validate(), "ports") })
 	return v.Error()
 }

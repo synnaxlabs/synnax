@@ -14,6 +14,7 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"regexp"
 	"uuid"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -22,6 +23,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
+
+var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Key uniquely identifies a LabJack device.
 type Key = uuid.UUID
@@ -114,6 +117,7 @@ func (b Base) Validate() error {
 	v.Ternaryf("connection", !b.Connection.IsValid(), "invalid connection: %v", b.Connection)
 	v.NotEmptyString("name", b.Name)
 	v.NonZero("serial", b.Serial)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(b.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	return v.Error()
 }
 

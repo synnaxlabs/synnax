@@ -78,10 +78,11 @@ Base struct {
         @doc value "is the connection the scanner last found the device on."
     }
     identifier        string = "" {
-        @doc value """
+        @doc value   """
             is the prefix of the device's channel names. The device is unconfigured
             while it is empty.
         """
+        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
     read_index        channel.Key = 0 {
         @doc value "is the index channel of the channels that the device reads into."

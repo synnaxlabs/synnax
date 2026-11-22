@@ -65,5 +65,10 @@ var _ = Describe("Device", func() {
 			func(b *v0.Base) { b.Connection = "LJM_ctTCP" },
 			"invalid connection",
 		),
+		Entry(
+			"an identifier that starts with a digit",
+			func(b *v0.Base) { b.Identifier = "1lj" },
+			"Identifier must be 2 to 12 characters",
+		),
 	)
 })
