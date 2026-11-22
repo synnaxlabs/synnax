@@ -125,15 +125,50 @@ const widest = (ranges: bounds.Bounds[]): bounds.Bounds | undefined =>
     undefined,
   );
 
+type TemperatureChannel = Extract<
+  AIChannel,
+  { type: "ai_rtd" | "ai_thermistor_iex" | "ai_thermistor_vex" | "ai_thermocouple" }
+>;
+
+const TEMPERATURE_TYPES: ReadonlySet<AIChannelType> = new Set<
+  TemperatureChannel["type"]
+>(["ai_rtd", "ai_thermistor_iex", "ai_thermistor_vex", "ai_thermocouple"]);
+
+const isTemperature = (channel: AIChannel): channel is TemperatureChannel =>
+  TEMPERATURE_TYPES.has(channel.type);
+
+// NI's own default for a temperature channel, 0 to 100 °C, in each unit.
+const TEMPERATURE_RANGES: Record<ni.TemperatureUnits, bounds.Bounds> = {
+  DegC: { lower: 0, upper: 100 },
+  DegF: { lower: 32, upper: 212 },
+  Kelvins: { lower: 273.15, upper: 373.15 },
+  DegR: { lower: 491.67, upper: 671.67 },
+};
+
 /**
- * The range a channel switched to the type takes on the device: the widest current
- * range for a current channel. Undefined when the channel keeps its range.
+ * The range a channel takes when it switches from the previous type: the widest
+ * current range for a current channel, and 0 to 100 °C in its units for a channel that
+ * starts to measure temperature. Undefined when the channel keeps its range.
  */
 export const defaultAIRange = (
-  type: AIChannelType,
+  previous: AIChannelType,
+  channel: AIChannel,
   hardware?: ni.Hardware,
-): bounds.Bounds | undefined =>
-  type === "ai_current" ? widest(hardware?.aiCurrentRanges ?? []) : undefined;
+): bounds.Bounds | undefined => {
+  if (channel.type === "ai_current") return widest(hardware?.aiCurrentRanges ?? []);
+  if (!isTemperature(channel) || TEMPERATURE_TYPES.has(previous)) return undefined;
+  return TEMPERATURE_RANGES[channel.units];
+};
+
+// Most NI voltage inputs have a ±10 V range.
+const VOLTAGE_RANGE: bounds.Bounds = { lower: -10, upper: 10 };
+
+/**
+ * The range a new voltage input takes: the widest voltage range of the device, or ±10
+ * V when the device reports none.
+ */
+export const defaultAIVoltageRange = (hardware?: ni.Hardware): bounds.Bounds =>
+  widest(hardware?.aiVoltageRanges ?? []) ?? VOLTAGE_RANGE;
 
 export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =>
   ni.AI_CHANNEL_SCHEMAS[type].parse({ type });

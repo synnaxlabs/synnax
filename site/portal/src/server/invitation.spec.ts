@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import type { Organization } from "@/server/db/schema";
+import type { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { addressedTo, linked, list, retrieve } from "@/server/invitation";
 import { NOW } from "@/server/license/testutil";
@@ -20,8 +20,8 @@ const at = (iso: string): Date => new Date(iso);
 
 describe("invitation", () => {
   let store: Memory;
-  let acme: Organization;
-  let globex: Organization;
+  let acme: schema.Organization;
+  let globex: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
