@@ -27,6 +27,7 @@ import {
   createTestClientWithGrants,
   findTagCloseButton,
   type Grants,
+  pickOption,
   queryIconButton,
   resolveFocusedTab,
 } from "@/testutil";
@@ -79,10 +80,7 @@ describe("range/overview", () => {
       });
       await renderOverview(rng.key);
       fireEvent.click(await screen.findByRole("button", { name: "Labels" }));
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: lbl.name },
-      });
-      fireEvent.click(await screen.findByRole("option", { name: lbl.name }));
+      await pickOption(lbl.name, "Search labels...");
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).labels).toEqual([lbl.key]),
       );

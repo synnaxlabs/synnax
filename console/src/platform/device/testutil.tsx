@@ -15,13 +15,9 @@ import { deep, id, narrow, TimeSpan } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
-  fireEvent,
   render,
   type RenderOptions,
   type RenderResult,
-  screen,
-  waitFor,
-  within,
 } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -165,27 +161,6 @@ export const createTestDevice = async (
     },
     schemas,
   );
-};
-
-/**
- * Searches the open device select for the device, then picks it once the search
- * answers. Until then the list shows its first page, which unmounts a row out of view
- * once the list measures its height, so a row found there can be gone by the click.
- *
- * @param search - The placeholder of the search field, such as "Search devices...".
- */
-export const pickDevice = async (name: string, search: string): Promise<void> => {
-  const field = await screen.findByPlaceholderText(search);
-  const dialog = field.closest<HTMLElement>('[role="dialog"]');
-  if (dialog == null) throw new Error(`no dialog holds the field "${search}"`);
-  fireEvent.change(field, { target: { value: name } });
-  const option = await waitFor(() => {
-    const options = within(dialog).getAllByRole("option");
-    if (options.length !== 1 || options[0].textContent?.includes(name) !== true)
-      throw new Error(`the search for ${name} has not answered`);
-    return options[0];
-  });
-  fireEvent.click(option);
 };
 
 export const TEST_DEVICE_STATUS_MESSAGE = "Device reported";

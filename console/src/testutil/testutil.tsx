@@ -28,6 +28,7 @@ import { deep, id, uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
+  fireEvent,
   render,
   renderHook,
   type RenderHookOptions,
@@ -36,6 +37,7 @@ import {
   type RenderResult,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   type CSSProperties,
@@ -79,6 +81,33 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
     assertDefined(el, "dialog trigger not found");
     return el;
   });
+
+const findListOf = (field: HTMLElement): HTMLElement => {
+  for (let el = field.parentElement; el != null; el = el.parentElement) {
+    const list = el.querySelector<HTMLElement>('[role="listbox"]');
+    if (list != null) return list;
+  }
+  throw new Error("no option list sits near the search field");
+};
+
+/**
+ * Searches the mounted select for the name, then clicks its option once the search
+ * answers. Until then the list shows its first page, which unmounts a row out of view
+ * once the list measures its height, so a row found there can be gone by the click.
+ *
+ * @param search - The placeholder of the search field, such as "Search devices...".
+ */
+export const pickOption = async (name: string, search: string): Promise<void> => {
+  const field = await screen.findByPlaceholderText(search);
+  fireEvent.change(field, { target: { value: name } });
+  const option = await waitFor(() => {
+    const options = within(findListOf(field)).queryAllByRole("option");
+    if (options.length !== 1 || options[0].textContent?.includes(name) !== true)
+      throw new Error(`the search for ${name} has not answered`);
+    return options[0];
+  });
+  fireEvent.click(option);
+};
 
 /** Finds the close button of the rendered pluto tag whose text matches name. */
 export const findTagCloseButton = (name: string): HTMLElement => {

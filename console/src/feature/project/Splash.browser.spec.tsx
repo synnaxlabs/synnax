@@ -21,7 +21,7 @@ import { describe, expect, it } from "vitest";
 import { Project } from "@/feature/project";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderWithConsole } from "@/testutil";
+import { createConsoleWrapper, pickOption, renderWithConsole } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -101,9 +101,7 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
-      const search = await screen.findByPlaceholderText("Search projects...");
-      fireEvent.change(search, { target: { value: name } });
-      fireEvent.click(await screen.findByText(name));
+      await pickOption(name, "Search projects...");
 
       await waitFor(() => {
         const active = Session.Project.selectOptionalSelected(store.getState());

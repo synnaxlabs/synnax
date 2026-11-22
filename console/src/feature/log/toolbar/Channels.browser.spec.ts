@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
+import { pickOption } from "@/testutil";
 
 const createChannel = async (
   dataType: DataType = DataType.FLOAT32,
@@ -148,9 +149,7 @@ describe("log/toolbar/Channels", () => {
     const [fromCh, toCh] = await client.channels.retrieve([from, to]);
     await screen.findByLabelText(`Clear ${fromCh.name}`);
     fireEvent.click(screen.getAllByText(fromCh.name)[0]);
-    const search = await screen.findByPlaceholderText("Search channels...");
-    fireEvent.change(search, { target: { value: toCh.name } });
-    fireEvent.click(await screen.findByRole("option", { name: new RegExp(toCh.name) }));
+    await pickOption(toCh.name, "Search channels...");
     expect(await screen.findByLabelText(`Clear ${toCh.name}`)).toBeDefined();
     expect(screen.queryByLabelText(`Clear ${fromCh.name}`)).toBeNull();
     expect(channelRows()).toHaveLength(1);

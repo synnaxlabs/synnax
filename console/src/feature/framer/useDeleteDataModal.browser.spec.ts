@@ -25,6 +25,7 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
+import { pickOption } from "@/testutil";
 
 const client = createTestClient();
 
@@ -48,10 +49,7 @@ const createWrittenPair = async (): Promise<TestIndexedPair> => {
 
 const selectChannel = async (name: string): Promise<void> => {
   fireEvent.click(screen.getByText("Select channels to delete"));
-  fireEvent.change(await screen.findByPlaceholderText("Search channels...", {}), {
-    target: { value: name },
-  });
-  fireEvent.click(await screen.findByText(name, {}));
+  await pickOption(name, "Search channels...");
 };
 
 const goToConfirmStep = async (): Promise<void> => {
