@@ -82,6 +82,7 @@ class Host:
             "PREVIEW_MAX=2\n"
             "PREVIEW_CPUS=0.25\n"
             "PREVIEW_MEMORY=1g\n"
+            "PREVIEW_GO_MEMORY=800MiB\n"
             f"PREVIEW_LOGS={self.logs}\n"
         )
         self.env = {
@@ -155,6 +156,7 @@ class TestUp:
         assert "--label synnax.preview=12" in run
         assert "--env SYNNAX_LICENSE_KEY" in run
         assert "--memory 1g --memory-swap 1g --cpus 0.25" in run
+        assert "--env GOMEMLIMIT=800MiB" in run
         assert run.endswith(
             "registry/synnax-preview:pr-12 --listen 0.0.0.0:9090 --insecure --mem "
             "--no-driver"
@@ -363,14 +365,13 @@ class TestUpgrade:
         assert self.caddy_runs(host) == []
         assert "docker rm --force caddy" not in host.docker()
 
-    def test_should_apply_the_limits_to_running_previews(self, host: Host) -> None:
+    def test_should_apply_the_cpu_limit_to_running_previews(self, host: Host) -> None:
         (host.path / "caddy_mounts").write_text(f"{host.logs}\n")
         host.containers((12, 100), (13, 200))
         assert host.run("upgrade").returncode == 0
         updates = [c for c in host.docker() if c.startswith("docker update")]
         assert updates == [
-            f"docker update --cpus 0.25 --memory 1g --memory-swap 1g synnax-pr-{pr}"
-            for pr in (12, 13)
+            f"docker update --cpus 0.25 synnax-pr-{pr}" for pr in (12, 13)
         ]
 
 
@@ -397,6 +398,8 @@ class TestSweep:
     def test_should_remove_only_expired_previews(self, host: Host) -> None:
         now = int(time.time())
         host.containers((12, now - 8 * 86400), (13, now - 86400))
+        host.mark(12).write_text("0 none\n")
+        host.mark(13).write_text("0 none\n")
         host.site(12).write_text("route")
         host.site(13).write_text("route")
         result = host.run("sweep")
@@ -409,6 +412,7 @@ class TestSweep:
     def test_should_keep_an_old_preview_viewed_within_the_ttl(self, host: Host) -> None:
         now = int(time.time())
         host.containers((12, now - 8 * 86400))
+        host.mark(12).write_text("0 none\n")
         host.viewed(12, now - 3600)
         result = host.run("sweep")
         assert result.returncode == 0, result.stderr
@@ -422,9 +426,17 @@ class TestSweep:
         assert not [c for c in host.docker() if c.startswith("docker rm")]
         assert host.notices() == []
 
+    def test_should_keep_an_expired_preview_without_a_mark(self, host: Host) -> None:
+        host.containers((12, int(time.time()) - 8 * 86400))
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert not [c for c in host.docker() if c.startswith("docker rm")]
+
     def test_should_write_a_notice_for_each_removed_preview(self, host: Host) -> None:
         now = int(time.time())
         host.containers((12, now - 8 * 86400), (13, now - 86400))
+        host.mark(12).write_text("0 none\n")
+        host.mark(13).write_text("0 none\n")
         result = host.run("sweep")
         assert result.returncode == 0, result.stderr
         assert host.notices() == ["12 expired"]

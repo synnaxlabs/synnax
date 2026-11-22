@@ -81,7 +81,9 @@ variable "ttl_days" {
 
 # The defaults fit a t3.large (2 vCPUs, 8 GiB). Twenty-five previews may take 6400 MiB,
 # which leaves about 1.4 GiB for Caddy, Docker, and the SSM agent. An idle Core uses
-# about 50 MiB and 1% of a vCPU, so the CPU limit is a ceiling for a starting Core.
+# about 65 MiB and 1% of a vCPU, so the CPU limit is a ceiling for a starting Core. The
+# sample simulator stores about 16 MiB a day in memory. GOMEMLIMIT makes the Go GC hold
+# the heap under the container limit, so a Core keeps about 8 days of it.
 variable "max_previews" {
   description = "Previews the host runs at once. A new one removes the oldest."
   type        = number
@@ -98,6 +100,12 @@ variable "preview_memory" {
   description = "Memory each preview Core may use, as docker run --memory takes it."
   type        = string
   default     = "256m"
+}
+
+variable "preview_go_memory" {
+  description = "GOMEMLIMIT of each preview Core. Keep it below preview_memory."
+  type        = string
+  default     = "200MiB"
 }
 
 data "aws_ssm_parameter" "ami" {
@@ -238,6 +246,7 @@ locals {
     PREVIEW_MAX=${var.max_previews}
     PREVIEW_CPUS=${var.preview_cpus}
     PREVIEW_MEMORY=${var.preview_memory}
+    PREVIEW_GO_MEMORY=${var.preview_go_memory}
     PREVIEW_LOGS=/var/log/caddy
   EOT
 }

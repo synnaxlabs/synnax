@@ -21,11 +21,11 @@
 #                             its labels showed at <time> (Unix seconds). A mark older
 #                             than the saved one changes nothing.
 #   preview upgrade           Starts Caddy, or recreates it without its access log
-#                             mount, and applies the CPU and memory limits to the
-#                             running previews.
+#                             mount, and applies the CPU limit to the running
+#                             previews. Memory limits apply from the next deploy.
 #   preview down <pr>         Removes the Core for a pull request.
-#   preview sweep             Removes every Core not marked human and not deployed
-#                             or viewed for the TTL.
+#   preview sweep             Removes every Core marked none and not deployed or
+#                             viewed for the TTL.
 #   preview notices           Prints the notices of removed previews, one per line:
 #                             "<pr> <UTC time> evicted <pr that took its place>" or
 #                             "<pr> <UTC time> expired".
@@ -39,6 +39,7 @@ source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
 : "${PREVIEW_MAX:?}" "${PREVIEW_CPUS:?}" "${PREVIEW_MEMORY:?}" "${PREVIEW_LOGS:?}"
+: "${PREVIEW_GO_MEMORY:?}"
 
 # One command at a time, so a sweep never removes a preview that up just replaced.
 exec 9> "$PREVIEW_SITES/.lock"
@@ -60,6 +61,11 @@ previews() {
 mark_file() { echo "$PREVIEW_SITES/pr-$1.human"; }
 
 marked_human() { [[ $(cut -d' ' -f2 "$(mark_file "$1")" 2> /dev/null) == human ]]; }
+
+# A preview deployed before marks and access logs existed has neither, so nothing
+# shows whether it waits on a review or gets views. The sweep keeps it until its next
+# deploy writes a mark.
+marked_none() { [[ $(cut -d' ' -f2 "$(mark_file "$1")" 2> /dev/null) == none ]]; }
 
 # Notices stay on the host until a deploy job posts them and sends ack, so a run that
 # is cancelled or fails before it posts them loses none.
@@ -138,6 +144,7 @@ up() {
     docker run --detach --name "$name" --network preview --restart unless-stopped \
         --memory "$PREVIEW_MEMORY" --memory-swap "$PREVIEW_MEMORY" \
         --cpus "$PREVIEW_CPUS" --env SYNNAX_LICENSE_KEY \
+        --env GOMEMLIMIT="$PREVIEW_GO_MEMORY" \
         --label synnax.preview="$pr" --label synnax.preview.deployed="$(date +%s)" \
         "$image" --listen 0.0.0.0:9090 --insecure --mem --no-driver > /dev/null
     prune_images
@@ -192,9 +199,9 @@ upgrade() {
             --volume "$PREVIEW_LOGS:$PREVIEW_LOGS" --volume caddy_data:/data \
             caddy:2.10 > /dev/null
     fi
+    # A running Core cannot get GOMEMLIMIT, so a lower memory limit could kill it.
     for preview in $(docker ps --all --quiet --filter label=synnax.preview); do
-        docker update --cpus "$PREVIEW_CPUS" --memory "$PREVIEW_MEMORY" \
-            --memory-swap "$PREVIEW_MEMORY" "$preview" > /dev/null
+        docker update --cpus "$PREVIEW_CPUS" "$preview" > /dev/null
     done
 }
 
@@ -202,7 +209,7 @@ sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
     previews | while read -r pr deployed _; do
-        if marked_human "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
+        if ! marked_none "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
             continue
         fi
         notice "$pr" expired
