@@ -73,7 +73,7 @@ func NewSorted[S Scope, K comparable, V cmp.Ordered](
 		reverse:     make(map[K]V),
 		compareKeys: compareKeys,
 	}
-	s.overlay.create, s.overlay.flush = newDelta[K, V], s.flush
+	s.overlay.init(newDelta[K, V], s.flush)
 	return s
 }
 
@@ -129,7 +129,7 @@ func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 		s.Set(key, value)
 		return
 	}
-	s.overlay.load(scope).set(key, []V{value})
+	s.overlay.load(scope).setOne(key, value)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
@@ -201,13 +201,11 @@ func (s *Sorted[S, K, V]) Range(scope S, lower, upper *Bound[V]) ([]K, error) {
 func (s *Sorted[S, K, V]) CommittingRange(lower, upper *Bound[V]) []K {
 	s.overlay.mu.RLock()
 	defer s.overlay.mu.RUnlock()
-	var keys []K
-	for scope, d := range s.overlay.deltas {
-		if scope.Committing() {
-			keys = appendInRange(keys, d, lower, upper)
-		}
+	d, ok := s.overlay.committing()
+	if !ok {
+		return nil
 	}
-	return keys
+	return appendInRange(nil, d, lower, upper)
 }
 
 // Count returns the number of committed entries whose values lie between lower and

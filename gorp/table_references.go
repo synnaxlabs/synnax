@@ -52,16 +52,46 @@ func (t *Table[K, E]) register(named bool) error {
 	return nil
 }
 
-// registerReferences adds the table's references to its indexes and to its DB's
-// registry. Call it after the table's migrations: a delete that follows a reference
-// waits for its index to populate, which starts only after them.
-func (t *Table[K, E]) registerReferences() error {
+// registerIndexes adds the table's references to its indexes and to its DB's
+// registry, and its unique indexes to their spaces. Call it after the table's
+// migrations: a delete that follows a reference waits for its index to populate, which
+// starts only after them.
+func (t *Table[K, E]) registerIndexes() error {
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
-	return t.db.registry.addReferences(refs)
+	if err := t.db.registry.addReferences(refs); err != nil {
+		return err
+	}
+	return t.joinSpaces()
+}
+
+// joinSpaces adds the table's unique indexes to their spaces, all of them or none, so
+// that no check waits for the index of a table that failed to open.
+func (t *Table[K, E]) joinSpaces() error {
+	r := t.db.registry
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	spaces := make(set.Set[string], len(t.uniques))
+	for _, u := range t.uniques {
+		if spaces.Contains(u.spaceName()) {
+			return errors.Newf(
+				"[gorp] - table %s already has an index in space %q",
+				t.name,
+				u.spaceName(),
+			)
+		}
+		spaces.Add(u.spaceName())
+		if err := u.canJoin(r); err != nil {
+			return err
+		}
+	}
+	for _, u := range t.uniques {
+		u.join(r, t.name)
+	}
+	return nil
 }
 
 // unregister removes the table and its references from its DB's registry.
@@ -69,23 +99,50 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
+	for _, u := range t.uniques {
+		u.leave()
+	}
 	t.db.registry.unregister(t.name, t.keyPrefix)
 	t.registered = false
 }
 
+// writerChecks are the checks that a Writer of a Table runs on each entry it sets.
+type writerChecks uint8
+
+const (
+	// checkReferences checks the references of each entry.
+	checkReferences writerChecks = 1 << iota
+	// checkUnique checks the values of the unique indexes of the table.
+	checkUnique
+	// checkAll runs every check.
+	checkAll = checkReferences | checkUnique
+)
+
 // writer returns a Writer that stages against the indexes of every open table of E on
-// the table's key prefix and checks the table's references when checked is true. A
-// table outside the registry writes as a Writer with no table does.
-func (t *Table[K, E]) writer(tx Tx, checked bool) Writer[K, E] {
+// the table's key prefix and runs checks on each entry it sets. A table outside the
+// registry writes as a Writer with no table does.
+func (t *Table[K, E]) writer(tx Tx, checks writerChecks) Writer[K, E] {
 	if !t.registered {
 		return wrapWriter[K, E](tx, "", t.keyPrefix, nil)
 	}
 	w := wrapWriter[K, E](tx, t.name, t.keyPrefix, nil)
 	w.references = t.references
-	if checked && len(t.references) > 0 {
+	if checks&checkReferences != 0 && len(t.references) > 0 {
 		w.table = t
 	}
+	if checks&checkUnique != 0 {
+		w.uniques = t.uniques
+	}
 	return w
+}
+
+// formatKey implements registeredTable.
+func (t *Table[K, E]) formatKey(k string) (string, error) {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return "", err
+	}
+	return key.Format(pk), nil
 }
 
 // canonical implements registeredTable.
@@ -128,9 +185,19 @@ func (t *Table[K, E]) deleteKeys(ctx context.Context, tx Tx, keys []string) erro
 	if err != nil {
 		return err
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	w.derived = true
 	return w.Delete(ctx, pks...)
+}
+
+// release implements registeredTable.
+func (t *Table[K, E]) release(tx Tx, keys []string) error {
+	for _, u := range t.uniques {
+		if err := u.release(tx, keys); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // issues implements registeredTable.
@@ -173,29 +240,145 @@ func (t *Table[K, E]) detach(
 			return err
 		}
 	}
-	w := t.writer(tx, false)
+	// A detach moves the values of e, so it checks them.
+	w := t.writer(tx, checkUnique)
 	w.derived = true
-	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
+	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
 	}
-	return t.onDetach(ctx, tx, e)
+	return t.onRewrite(ctx, tx, e)
 }
 
-// delete deletes the entries with keys and applies the OnDelete of every reference
-// that points at them, from planned when it is not nil.
+// retarget implements registeredTable.
+func (t *Table[K, E]) retarget(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	refs []string,
+	table string,
+	to any,
+) error {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	moved := false
+	for _, name := range refs {
+		i := slices.IndexFunc(t.references, func(r Reference[K, E]) bool {
+			return r.referenceName() == name
+		})
+		if i < 0 {
+			return errors.Newf("[gorp] - table %s has no reference %s", t.name, name)
+		}
+		held, err := t.references[i].retargetTargets(&e, table, to)
+		if err != nil {
+			return err
+		}
+		moved = moved || held
+	}
+	if !moved {
+		return nil
+	}
+	w := t.writer(tx, checkAll)
+	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
+		return err
+	}
+	return t.onRewrite(ctx, tx, e)
+}
+
+// Retarget moves the links that holders keep to entries of the table: each named
+// reference of each holder replaces every target that is a key of to with its value.
+// holders are dependents that Dependents returns, or a subset of them. Gorp applies to
+// once per holder, so a map that swaps two keys swaps them, and writes each holder that
+// held a key of to once, through its reference checks, then runs OnRewrite. A Unique
+// reference checks each holder against the others as they stand, so a map cannot swap
+// or chain targets between holders of one Unique reference.
+//
+// Retarget fails with a validation error when to moves the zero key or moves a key onto
+// it. It fails on a holder that does not exist, and on a reference that has no Retarget
+// or does not point at the table. It can fail after it writes other holders, so discard
+// tx on an error.
+func (t *Table[K, E]) Retarget(
+	ctx context.Context,
+	tx Tx,
+	to map[K]K,
+	holders []Dependent,
+) error {
+	if len(to) == 0 {
+		return nil
+	}
+	var zero K
+	for from, onto := range to {
+		if from == zero || onto == zero {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot retarget %s to or from the zero key",
+				t.name,
+			)
+		}
+	}
+	var (
+		order []Target
+		refs  = make(map[Target][]string, len(holders))
+	)
+	for _, d := range holders {
+		table, err := t.db.registry.table(d.Holder.Table)
+		if err != nil {
+			return err
+		}
+		h := d.Holder
+		if h.Key, err = table.formatKey(h.Key); err != nil {
+			return err
+		}
+		named, ok := refs[h]
+		if !ok {
+			order = append(order, h)
+		}
+		if !slices.Contains(named, d.Reference) {
+			refs[h] = append(named, d.Reference)
+		}
+	}
+	for _, h := range order {
+		table, err := t.db.registry.table(h.Table)
+		if err != nil {
+			return err
+		}
+		if err = table.retarget(ctx, tx, h.Key, refs[h], t.name, to); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// delete deletes entries and applies the OnDelete of every reference that points at
+// them, from planned when it is not nil. Before it changes anything, it calls held,
+// when not nil, with each entry it removes from the table and its Weak holders.
 func (t *Table[K, E]) delete(
 	ctx context.Context,
 	tx Tx,
-	keys []K,
+	entries []E,
 	planned *DeleteEffects,
+	held HeldFunc[K, E],
 ) error {
+	keys := make([]K, len(entries))
+	for i, e := range entries {
+		keys[i] = e.GorpKey()
+	}
 	if t.registered {
 		var (
 			plan *deletePlan
 			err  error
 		)
+		weak := held != nil
 		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
-			plan, err = t.db.registry.planned(tx, t.name, *planned)
+			plan, err = t.db.registry.planned(tx, t.name, *planned, weak)
 		} else {
 			formatted := make([]string, len(keys))
 			for i, k := range keys {
@@ -207,17 +390,111 @@ func (t *Table[K, E]) delete(
 				t.name,
 				formatted,
 				t.db.MaxDeleteSize,
+				weak,
 			)
 		}
 		if err != nil {
 			return err
 		}
+		if held != nil {
+			if err = t.callHeld(ctx, tx, entries, plan, held); err != nil {
+				return err
+			}
+		}
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
 			return err
 		}
+	} else if held != nil {
+		for _, e := range entries {
+			if err := held(ctx, tx, e, nil); err != nil {
+				return err
+			}
+		}
 	}
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
+}
+
+// callHeld calls held with each entry of the table that the delete of plan removes, and
+// with the Weak holders of each that the delete keeps: the entries the caller asked to
+// delete first, then, in key order, those that a cascade deletes.
+func (t *Table[K, E]) callHeld(
+	ctx context.Context,
+	tx Tx,
+	entries []E,
+	plan *deletePlan,
+	held HeldFunc[K, E],
+) error {
+	var requested set.Set[string]
+	if len(plan.weak) > 0 {
+		requested = make(set.Set[string], len(entries))
+		for _, e := range entries {
+			requested.Add(FormatKey(e.GorpKey()))
+		}
+	}
+	// A plan from PlanDelete lists no requested key, so they are checked here.
+	removed := func(d Dependent) bool {
+		return plan.contains(d.Holder) ||
+			(d.Holder.Table == t.name && requested.Contains(d.Holder.Key))
+	}
+	holders := func(e E) []Dependent {
+		if len(plan.weak) == 0 {
+			return nil
+		}
+		deps := plan.weak[FormatKey(e.GorpKey())]
+		if !slices.ContainsFunc(deps, removed) {
+			return deps
+		}
+		if deps = slices.DeleteFunc(slices.Clone(deps), removed); len(deps) == 0 {
+			return nil
+		}
+		return deps
+	}
+	for _, e := range entries {
+		if err := held(ctx, tx, e, holders(e)); err != nil {
+			return err
+		}
+	}
+	more, err := t.cascaded(ctx, tx, plan)
+	if err != nil {
+		return err
+	}
+	for _, e := range more {
+		if err = held(ctx, tx, e, holders(e)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// cascaded returns, in key order, the entries of the table that a cascade of plan
+// deletes. An entry that tx removed after the plan is not one the delete removes.
+func (t *Table[K, E]) cascaded(
+	ctx context.Context,
+	tx Tx,
+	plan *deletePlan,
+) ([]E, error) {
+	texts := plan.cascades[t.name]
+	if len(texts) == 0 {
+		return nil, nil
+	}
+	keys := make([]K, 0, len(texts))
+	for text := range texts {
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, key.Order[K]())
+	var entries []E
+	if err := t.NewRetrieve().
+		Where(MatchKeys[K, E](keys...)).
+		Entries(&entries).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	return entries, nil
 }
 
 // referenceIndex implements registeredTable.
@@ -265,6 +542,11 @@ type Dependent struct {
 	Kind LinkKind
 	// Tag is the Tag of the reference's config.
 	Tag uint8
+}
+
+// ReferenceID returns the ID of the reference through which d holds its target.
+func (d Dependent) ReferenceID() ReferenceID {
+	return ReferenceID{Table: d.Holder.Table, Name: d.Reference}
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry

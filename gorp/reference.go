@@ -105,6 +105,10 @@ type Reference[K Key, E Entry[K]] interface {
 	canDetach() bool
 	// inlineTarget replaces target in e through the reference's Inline.
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
+	// retargetTargets replaces each target of e that is a key of to, a map between keys
+	// of the table named table, through the reference's Retarget. It reports whether e
+	// held a key of to.
+	retargetTargets(e *E, table string, to any) (bool, error)
 	// check validates the targets that e holds against tx, for a write of e to t. It
 	// reports whether the index already holds those targets for e, with the changes of
 	// tx applied.
@@ -134,6 +138,8 @@ type referenceSpec struct {
 	detachable bool
 	// inlinable is true when the reference can replace a target in an entry.
 	inlinable bool
+	// retargetable is true when the reference can move its targets to other keys.
+	retargetable bool
 	// tablesField names the config field that holds tables, for validation errors.
 	tablesField string
 	// owner is the name of the table the reference is registered on.
@@ -161,6 +167,11 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 		"detach",
 		s.onDelete == Detach && !s.detachable,
 		"must be set when on_delete is Detach",
+	)
+	v.Ternary(
+		"retarget",
+		s.retargetable && s.onDelete != Detach && s.onDelete != Weak,
+		"must be nil unless on_delete is Detach or Weak",
 	)
 	v.Ternary(
 		"on_delete",
@@ -244,6 +255,10 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED] when OnDelete is Inline.
 	Inline func(ctx context.Context, tx Tx, e *E, target T) error
+	// Retarget replaces each target of e that is a key of to with its value. Gorp
+	// passes one map for all the targets it moves, so a map that swaps two keys swaps
+	// them. It must be nil unless OnDelete is Detach or Weak. Table.Retarget calls it.
+	Retarget func(e *E, to map[T]T)
 	// Kind is the kind of the link from e to each of its targets.
 	//
 	// [REQUIRED]
@@ -269,20 +284,22 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 ) *KeyReference[K, E, T] {
 	table := cfg.Table
 	return &KeyReference[K, E, T]{
-		name:        cfg.Name,
-		tables:      []string{table},
-		tablesField: "table",
-		onDelete:    cfg.OnDelete,
-		kind:        cfg.Kind,
-		unique:      cfg.Unique,
-		acyclic:     cfg.Acyclic,
-		tag:         cfg.Tag,
-		detachable:  cfg.Detach != nil,
-		inlinable:   cfg.Inline != nil,
-		targetsOf:   cfg.Targets,
-		detach:      cfg.Detach,
-		inline:      cfg.Inline,
-		format:      func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
+		name:         cfg.Name,
+		tables:       []string{table},
+		tablesField:  "table",
+		onDelete:     cfg.OnDelete,
+		kind:         cfg.Kind,
+		unique:       cfg.Unique,
+		acyclic:      cfg.Acyclic,
+		tag:          cfg.Tag,
+		detachable:   cfg.Detach != nil,
+		inlinable:    cfg.Inline != nil,
+		retargetable: cfg.Retarget != nil,
+		targetsOf:    cfg.Targets,
+		detach:       cfg.Detach,
+		inline:       cfg.Inline,
+		retarget:     cfg.Retarget,
+		format:       func(t T) Target { return Target{Table: table, Key: key.Format(t)} },
 		parse: func(target Target) (T, bool) {
 			if target.Table != table {
 				var zero T
@@ -368,6 +385,7 @@ type reference[K Key, E Entry[K], T comparable] struct {
 	targetsOf func(e *E) []T
 	detach    func(e *E, target T)
 	inline    func(ctx context.Context, tx Tx, e *E, target T) error
+	retarget  func(e *E, to map[T]T)
 	// format returns the Target of t.
 	format func(t T) Target
 	// parse returns the value of target, or false when the reference cannot hold it.
@@ -465,6 +483,30 @@ func (r *reference[K, E, T]) inlineTarget(
 	return r.inline(ctx, tx, e, t)
 }
 
+func (r *reference[K, E, T]) retargetTargets(
+	e *E,
+	table string,
+	to any,
+) (bool, error) {
+	typed, ok := to.(map[T]T)
+	if r.retarget == nil || !ok || !slices.Contains(r.tables, table) {
+		return false, errors.Newf(
+			"[gorp] - reference %s of table %s cannot retarget keys of table %s",
+			r.name,
+			r.owner,
+			table,
+		)
+	}
+	if !slices.ContainsFunc(r.targetsOf(e), func(t T) bool {
+		_, moved := typed[t]
+		return moved
+	}) {
+		return false, nil
+	}
+	r.retarget(e, typed)
+	return true, nil
+}
+
 // Get returns the keys of the entries that hold any of targets, with the changes staged
 // against snap applied. Pass a nil snap to skip staged changes. See LookupIndex.Get for
 // its contract.
@@ -489,6 +531,9 @@ func (r *reference[K, E, T]) Referenced(
 	in func(K) bool,
 	targets ...T,
 ) (set.Set[T], error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 		return r.scanReferenced(ctx, snap, in, targets)
 	} else if err != nil {
@@ -605,6 +650,12 @@ func (r *reference[K, E, T]) dependents(
 	targets []Target,
 	typed any,
 ) ([][]string, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
+	if r.store.Empty(scopeOf(snap)) {
+		return nil, nil
+	}
 	values, positions := r.values(targets, typed)
 	keys, err := probeEach(ctx, r.store, snap, values)
 	if err != nil || keys == nil {
@@ -640,6 +691,9 @@ func (r *reference[K, E, T]) dependentsOf(
 	snap Snapshot,
 	target Target,
 ) ([]string, error) {
+	if r.store.Empty(scopeOf(snap)) {
+		return nil, nil
+	}
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
@@ -684,6 +738,7 @@ func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
 func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
 func (r *reference[K, E, T]) referenceTag() uint8      { return r.tag }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
+func (r *reference[K, E, T]) canRetarget() bool        { return r.retargetable }
 
 // check implements Reference.
 func (r *reference[K, E, T]) check(

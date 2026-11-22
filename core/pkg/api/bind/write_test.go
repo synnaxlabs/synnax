@@ -24,6 +24,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -1107,6 +1108,19 @@ var _ = Describe("Owned records", func() {
 		grant(ctx, owner, access.ActionRetrieve, other.ResourceID())
 		Expect(write(ctx, owner, setOwner(p.Key, &other.Key))).
 			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
+})
+
+var _ = Describe("Mirror records", func() {
+	It("Should refuse a write that changes only mirror records", func(ctx SpecContext) {
+		u := newUser(ctx)
+		Expect(write(ctx, u, func(ctx context.Context, tx gorp.Tx) error {
+			return gorp.NewCreate[channel.Key, channel.Tombstone]().
+				Entry(&channel.Tombstone{Key: 1, Name: "orphan"}).
+				Exec(ctx, tx)
+		})).To(MatchError(
+			"[bind] - a write changed mirror records and no record they mirror",
+		))
 	})
 })
 

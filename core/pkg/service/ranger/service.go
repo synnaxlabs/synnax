@@ -106,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}),
 		// A label delete detaches the label from each range that holds it, which no
 		// range write does, so the service sets the labels that the range keeps.
-		OnDetach: func(_ context.Context, tx gorp.Tx, r Range) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, r Range) error {
 			s.state.Dispatcher().Attach(tx, r.Key, labelsAction(r.Labels))
 			return nil
 		},

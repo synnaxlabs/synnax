@@ -199,6 +199,9 @@ type Entry struct {
 	Choices []Choice `json:"choices" msgpack:"choices"`
 	// Default is the pick that applies when the caller makes none.
 	Default *Choice `json:"default,omitzero" msgpack:"default,omitempty"`
+	// Path is set only for the entry of a tombstone: its name under its folders, from
+	// the deleted folder that holds it, with `.` between segments.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

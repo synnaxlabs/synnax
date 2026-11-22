@@ -26,6 +26,9 @@ type registeredTable interface {
 	// canonical reports whether k is a key of the table in the text form that
 	// FormatKey returns.
 	canonical(k string) bool
+	// formatKey returns k, a text key of the table, in the text form that FormatKey
+	// returns.
+	formatKey(k string) (string, error)
 	// exists reports whether the entry with the text key k exists in snap.
 	exists(ctx context.Context, snap Snapshot, k string) (bool, error)
 	// issues reports whether the table has a TableConfig.Issued.
@@ -37,9 +40,23 @@ type registeredTable interface {
 	// referenceIndex returns the index of the reference named name among the references
 	// of the table, and false when the table has none of that name.
 	referenceIndex(name string) (int, bool)
+	// release stages, in tx, the removal of the unique values of the entries with the
+	// text keys keys.
+	release(tx Tx, keys []string) error
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
+	// retarget replaces the targets that the entry with the text key k holds through
+	// each reference named in refs and that are keys of to, a map between keys of the
+	// table named table, and writes the entry once when it held one.
+	retarget(
+		ctx context.Context,
+		tx Tx,
+		k string,
+		refs []string,
+		table string,
+		to any,
+	) error
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool
@@ -57,6 +74,7 @@ type registeredReference interface {
 	linkKind() LinkKind
 	referenceTag() uint8
 	targetTables() []string
+	canRetarget() bool
 	// dependents returns, at each position of targets, the text keys of the entries
 	// that hold that target, or nil when no entry holds any of targets. keys is nil or
 	// a slice of the keys of targets, which a reference whose values have that type
@@ -84,7 +102,7 @@ type detachOp struct {
 type registry struct {
 	// version counts the changes to the registered tables and their references.
 	version atomic.Uint64
-	// mu guards tables, names, referencing, and indexed.
+	// mu guards tables, names, referencing, indexed, and spaces.
 	mu     sync.RWMutex
 	tables map[string]registeredTable
 	// names maps a key prefix to the name of the registered table that stores under it.
@@ -93,6 +111,8 @@ type registry struct {
 	referencing map[string][]registeredReference
 	// indexed maps a key prefix to the open tables with indexes that store under it.
 	indexed map[string][]any
+	// spaces maps the name of a space of unique indexes to its *uniqueSpace.
+	spaces map[string]any
 }
 
 func newRegistry() *registry {
@@ -101,6 +121,7 @@ func newRegistry() *registry {
 		names:       make(map[string]string),
 		referencing: make(map[string][]registeredReference),
 		indexed:     make(map[string][]any),
+		spaces:      make(map[string]any),
 	}
 }
 
@@ -245,6 +266,33 @@ func (r *registry) referencesTo(table string) []registeredReference {
 	return slices.Clone(r.referencing[table])
 }
 
+// ReferenceID names a reference: the table whose entries hold it, and its name.
+type ReferenceID struct {
+	Table string
+	Name  string
+}
+
+// ReferenceInfo describes a reference that points at a table.
+type ReferenceInfo struct {
+	ID ReferenceID
+	// Retargets is true when the reference can move its targets to other keys.
+	Retargets bool
+}
+
+// References returns each reference that points at the table named table, in the order
+// that their tables opened.
+func (db *DB) References(table string) []ReferenceInfo {
+	refs := db.registry.referencesTo(table)
+	out := make([]ReferenceInfo, len(refs))
+	for i, r := range refs {
+		out[i] = ReferenceInfo{
+			ID:        ReferenceID{Table: r.ownerTable(), Name: r.referenceName()},
+			Retargets: r.canRetarget(),
+		}
+	}
+	return out
+}
+
 // dependents returns, at each position of targets, the entries that hold that target
 // through any registered reference. Every target is an entry of the table named table,
 // and keys is a slice of their keys, in order.
@@ -353,6 +401,23 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
+	// heldWanted is true when the delete asks for the Weak holders of its entries.
+	heldWanted bool
+	// weak holds, by text key, the Weak holders of each entry of table when heldWanted
+	// is true. It is nil until the first such holder.
+	weak map[string][]Dependent
+}
+
+// holdWeakly records that dep holds t through a Weak reference, when the delete asks
+// for Weak holders and t is in table.
+func (p *deletePlan) holdWeakly(t Target, dep Dependent) {
+	if !p.heldWanted || t.Table != p.table {
+		return
+	}
+	if p.weak == nil {
+		p.weak = make(map[string][]Dependent)
+	}
+	p.weak[t.Key] = append(p.weak[t.Key], dep)
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
@@ -411,8 +476,10 @@ func (r *registry) plan(
 	table string,
 	keys []string,
 	limit int,
+	weak bool,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
+	w.plan.heldWanted = weak
 	if err := r.walk(ctx, tx, w); err != nil {
 		return nil, err
 	}
@@ -455,6 +522,7 @@ func (r *registry) planned(
 	tx Tx,
 	table string,
 	effects DeleteEffects,
+	weak bool,
 ) (*deletePlan, error) {
 	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
 	// since still exists.
@@ -468,12 +536,16 @@ func (r *registry) planned(
 		}
 	}
 	p := &deletePlan{
-		table:    table,
-		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
-		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
+		table:      table,
+		cascades:   make(map[string]set.Set[string], len(effects.Cascades)),
+		detaches:   make(map[Target][]detachOp, len(effects.Detaches)),
+		heldWanted: weak,
 	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
+	}
+	for _, e := range effects.Weak {
+		p.holdWeakly(e.Target, e.Dependent)
 	}
 	for _, e := range effects.Detaches {
 		if deletedIn(tx, e.Holder) {
@@ -625,6 +697,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		}
 	case Weak:
 		w.record(ref, dep, target)
+		w.plan.holdWeakly(target, newDeleteEffect(ref, dep, target).Dependent)
 		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {
@@ -655,8 +728,14 @@ func (w *planWalk) checkRestrictions() error {
 
 // apply carries out what p adds to the delete that the caller asked for: it detaches
 // first, then cascades, so each Inline reads a target that still exists. It leaves the
-// entries the caller asked to delete in place.
+// entries the caller asked to delete in place. Before the detaches, it releases the
+// unique values of every entry that p deletes, so a detached entry can take one.
 func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
+	if len(p.detaches) > 0 {
+		if err := r.release(tx, p); err != nil {
+			return err
+		}
+	}
 	for dep, ops := range p.detaches {
 		t, err := r.table(dep.Table)
 		if err != nil {
@@ -676,4 +755,26 @@ func (r *registry) apply(ctx context.Context, tx Tx, p *deletePlan) error {
 		}
 	}
 	return nil
+}
+
+// release stages, in tx, the removal of the unique values of every entry that p
+// deletes.
+func (r *registry) release(tx Tx, p *deletePlan) error {
+	if err := r.releaseKeys(tx, p.table, p.requested); err != nil {
+		return err
+	}
+	for name, keys := range p.cascades {
+		if err := r.releaseKeys(tx, name, keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *registry) releaseKeys(tx Tx, table string, keys set.Set[string]) error {
+	t, err := r.table(table)
+	if err != nil {
+		return err
+	}
+	return t.release(tx, keys.Slice())
 }

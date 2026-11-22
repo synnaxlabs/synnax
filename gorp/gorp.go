@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"io"
 	"runtime/pprof"
 	"slices"
 	"sync"
@@ -264,6 +265,11 @@ func (db *DB) KV() kv.DB { return db.DB }
 // if they desire to do so, or simply use the DB directly otherwise.
 //
 // A Tx is a Snapshot that also sees its own writes. Tx is sealed through Snapshot.
+//
+// A transaction ends when its Commit returns, with any result, or its Close runs. Every
+// later read, write, and Commit through it fails with errTxEnded, and Close does
+// nothing. Commit and Close must not run at the same time as other use of the
+// transaction.
 type Tx interface {
 	Snapshot
 	kv.Tx
@@ -312,6 +318,8 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// ended is true once the transaction ends: its Commit returned, or its Close ran.
+	ended atomic.Bool
 	// inline holds the first cleanups of a transaction, so that registering them
 	// allocates nothing.
 	inline [8]func(committed bool)
@@ -385,6 +393,8 @@ type tx struct {
 	db *DB
 	// ticket is the place of the commit in the delivery order of db.
 	ticket ticket
+	// closed is true once Close ran.
+	closed bool
 }
 
 // txDB returns the DB of tx, or nil when tx is neither a DB nor one of its
@@ -404,13 +414,62 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
+// errTxEnded is the error of a read, a write, or a commit through a transaction that
+// has ended: its Commit returned, or its Close ran.
+var errTxEnded = errors.New("[gorp] - the transaction has ended")
+
+// checkOpen returns errTxEnded when snap is a transaction that has ended.
+func checkOpen(snap Snapshot) error {
+	if s := scopeOf(snap); s != nil && s.ended.Load() {
+		return errTxEnded
+	}
+	return nil
+}
+
+// Get implements kv.Reader. It fails with errTxEnded once the transaction ends.
+func (t *tx) Get(key []byte, opts ...any) ([]byte, io.Closer, error) {
+	if t.state.ended.Load() {
+		return nil, nil, errTxEnded
+	}
+	return t.Tx.Get(key, opts...)
+}
+
+// OpenIterator implements kv.Reader. It fails with errTxEnded once the transaction
+// ends.
+func (t *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if t.state.ended.Load() {
+		return nil, errTxEnded
+	}
+	return t.Tx.OpenIterator(opts)
+}
+
+// Set implements kv.Writer. It fails with errTxEnded once the transaction ends.
+func (t *tx) Set(ctx context.Context, key, value []byte) error {
+	if t.state.ended.Load() {
+		return errTxEnded
+	}
+	return t.Tx.Set(ctx, key, value)
+}
+
+// Delete implements kv.Writer. It fails with errTxEnded once the transaction ends.
+func (t *tx) Delete(ctx context.Context, key []byte) error {
+	if t.state.ended.Load() {
+		return errTxEnded
+	}
+	return t.Tx.Delete(ctx, key)
+}
+
 // Commit runs the work of BeforeCommit, commits the transaction, and returns once the
 // store syncs its writes. An error from the work rolls the transaction back. The write
 // lock releases before the sync, once the writes are visible to reads. Hooks registered
 // via state.OnCleanup run before the release, with committed=true once the writes are
 // visible and committed=false otherwise. Then the readers of DB.Observe run. The
-// release comes before them, because a reader can open a transaction.
+// release comes before them, because a reader can open a transaction. Commit fails with
+// errTxEnded once the transaction ends.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
+	if t.state.ended.Load() {
+		return errTxEnded
+	}
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {
 			t.end(false)
@@ -428,8 +487,12 @@ func (t *tx) Commit(ctx context.Context, opts ...any) error {
 
 // Close closes the transaction. When it has not committed, hooks registered via
 // state.OnCleanup run with committed=false, and the transaction releases the write
-// lock.
+// lock. A Close after the first does nothing.
 func (t *tx) Close() error {
+	if t.closed {
+		return nil
+	}
+	t.closed = true
 	err := t.Tx.Close()
 	t.end(false)
 	return err
@@ -441,6 +504,7 @@ func (t *tx) end(committed bool) {
 	if t.unlock == nil {
 		return
 	}
+	t.state.ended.Store(true)
 	t.state.runCleanups(committed)
 	if committed && (len(t.state.attached) > 0 || t.state.changes.changed()) {
 		t.ticket = t.db.delivery.take()

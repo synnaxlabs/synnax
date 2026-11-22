@@ -98,7 +98,9 @@ func (s *Service) planDelete(
 		add(e, EffectDetach)
 	}
 	for _, e := range effects.Weak {
-		if record := s.cfg.RecordOf(e.Holder); !hasKey(effectOf, record) {
+		// A holder with no resource type, such as a tombstone, is no caller's record.
+		record := s.cfg.RecordOf(e.Holder)
+		if record.Type.IsValid() && !hasKey(effectOf, record) {
 			effectOf[record] = ""
 			p.Kept++
 		}

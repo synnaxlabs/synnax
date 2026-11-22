@@ -109,9 +109,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{
-			DB:   dist.DB,
-			RBAC: rbacSvc,
-			Held: apiauth.HeldTables(),
+			DB:      dist.DB,
+			RBAC:    rbacSvc,
+			Held:    apiauth.HeldTables(),
+			Mirrors: channel.MirrorTables(),
 		}),
 	)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)

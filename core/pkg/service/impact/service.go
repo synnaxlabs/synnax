@@ -15,6 +15,7 @@ package impact
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -46,6 +47,16 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Delete func(ctx context.Context, tx gorp.Tx, records []resource.ID) error
+	// DB is the database whose references to channels Policies maps.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Policies maps each reference to the channel table to what a heal does with it.
+	// OpenService fails unless it maps every such reference of DB exactly, so open the
+	// Service after the last table.
+	//
+	// [REQUIRED]
+	Policies Policies
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -56,6 +67,12 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
 	c.Delete = override.Nil(c.Delete, other.Delete)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Policies.Links = override.Nil(c.Policies.Links, other.Policies.Links)
+	c.Policies.KeptTables = override.Nil(
+		c.Policies.KeptTables,
+		other.Policies.KeptTables,
+	)
 	return c
 }
 
@@ -66,6 +83,8 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
+	v.NotNil("db", c.DB)
+	v.NotNil("policies.links", c.Policies.Links)
 	return v.Error()
 }
 
@@ -76,6 +95,9 @@ type Service struct{ cfg ServiceConfig }
 func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
+		return nil, err
+	}
+	if err = cfg.Policies.check(cfg.DB.References(channelTable)); err != nil {
 		return nil, err
 	}
 	return &Service{cfg: cfg}, nil
@@ -248,10 +270,11 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // returns the entries that it applied, as opts.Visible lets the caller see them. A
 // restrict entry that takes cancel fails Apply with the gorp.RestrictError of its
 // record. A delete pick on a record other than a channel deletes it through
-// ServiceConfig.Delete before the channels go. A delete of groups deletes as
-// group.Writer.Delete does, after the token check, and returns a plan of c with no
-// entries. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a transaction
-// of its own.
+// ServiceConfig.Delete before the channels go. A delete of groups deletes the
+// tombstones in them after the token check, then the groups as group.Writer.Delete
+// does, and returns a plan of c that lists each tombstone as a cascade entry with its
+// path. Picks fail as they fail Plan. Given a gorp.DB, Apply runs in a transaction of
+// its own.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -278,7 +301,9 @@ func (s *Service) Apply(
 // no change. Formatting the variant would make every change escape to the heap.
 var errUnknownChange = errors.Wrap(validate.ErrValidation, "unknown change")
 
-// deleteGroups deletes the groups with keys, the groups of c, as Apply describes.
+// deleteGroups deletes the groups with keys, the groups of c, and the tombstones in
+// them
+// first, as Apply describes.
 func (s *Service) deleteGroups(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -298,10 +323,69 @@ func (s *Service) deleteGroups(
 		}
 		p.Token = opts.Token
 	}
+	dead, err := s.cfg.Channel.NewWriter(tx).DeleteTombstones(ctx, keys...)
+	if err != nil {
+		return Plan{}, err
+	}
+	var paths []string
+	if len(dead) > 0 {
+		if paths, err = s.tombstonePaths(ctx, tx, keys, dead); err != nil {
+			return Plan{}, err
+		}
+	}
 	if err = s.cfg.Group.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return Plan{}, err
 	}
+	for i, t := range dead {
+		p.Entries = append(p.Entries, Entry{
+			Record: channel.ResourceID(t.Key),
+			Effect: EffectCascade,
+			Path:   &paths[i],
+		})
+	}
+	slices.SortFunc(p.Entries, compareEntries)
 	return p, nil
+}
+
+// tombstonePaths returns the path of each of dead from the deleted group that holds it.
+// A group inside a deleted one is deleted too, so each walk ends at a deleted group.
+func (s *Service) tombstonePaths(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys []group.Key,
+	dead []channel.Tombstone,
+) ([]string, error) {
+	groups := make([]group.Group, 0, len(keys))
+	if err := s.cfg.Group.NewRetrieve().
+		Where(group.MatchKeys(keys...)).
+		Entries(&groups).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	deleted := make(map[group.Key]group.Group, len(groups))
+	for _, g := range groups {
+		deleted[g.Key] = g
+	}
+	paths := make([]string, len(dead))
+	var segments []string
+	for i, t := range dead {
+		segments = append(segments[:0], t.Name)
+		g, ok := deleted[*t.Group]
+		for ok {
+			segments = append(segments, g.Name)
+			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
+				break
+			}
+			parent, err := group.KeyFromResourceID(*g.Parent)
+			if err != nil {
+				return nil, err
+			}
+			g, ok = deleted[parent]
+		}
+		slices.Reverse(segments)
+		paths[i] = strings.Join(segments, ".")
+	}
+	return paths, nil
 }
 
 // checkToken returns nil when t is the token of a plan whose sum is sum. Otherwise it

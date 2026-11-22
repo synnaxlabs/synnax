@@ -21,7 +21,9 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -87,6 +89,88 @@ var _ = Describe("Delete groups", Ordered, func() {
 			}}))
 		Expect(exists(ctx, parent.Key)).To(BeFalse())
 		Expect(exists(ctx, child.Key)).To(BeFalse())
+	})
+
+	// tombstone deletes a channel in folder that a schematic holds, which leaves its
+	// tombstone in folder.
+	tombstone := func(ctx SpecContext, folder group.Group) channel.Channel {
+		GinkgoHelper()
+		ch := channel.Channel{
+			Name:     UniqueChannelName(),
+			DataType: telem.Float32T,
+			Virtual:  true,
+			Group:    &folder.Key,
+		}
+		proj := project.Project{Name: "impact-tombstones"}
+		var value schematic.ValueNodeConfig
+		value.SetDefaults()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := layer.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+				return err
+			}
+			if err := layer.Channel.NewWriter(tx).Create(ctx, &ch); err != nil {
+				return err
+			}
+			value.Channel = ch.Key()
+			sch := schematic.Schematic{
+				Name:    "pid",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{{
+					Key:    "value",
+					Config: schematic.NodeConfig{Variant: value},
+				}},
+			}
+			return layer.Schematic.NewWriter(tx).Create(ctx, &sch)
+		})).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Delete(ctx, ch.Key(), false)
+		})).To(Succeed())
+		return ch
+	}
+
+	cascade := func(ch channel.Channel, path string) impact.Entry {
+		return impact.Entry{
+			Record: channel.ResourceID(ch.Key()),
+			Effect: impact.EffectCascade,
+			Path:   &path,
+		}
+	}
+
+	It("Should delete the tombstones of a folder first and list them", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-tombstoned", nil)
+		ch := tombstone(ctx, folder)
+		Expect(apply(ctx, impact.ApplyOptions{}, folder.Key)).To(Equal(impact.Plan{
+			Entries: []impact.Entry{cascade(ch, "impact-tombstoned."+ch.Name)},
+		}))
+		Expect(exists(ctx, folder.Key)).To(BeFalse())
+	})
+
+	It("Should give each tombstone its path through the deleted folders", func(
+		ctx SpecContext,
+	) {
+		outer := createFolder(ctx, "impact-outer", nil)
+		inner := createFolder(ctx, "impact-inner", &outer)
+		inOuter := tombstone(ctx, outer)
+		inInner := tombstone(ctx, inner)
+		plan := MustSucceed(apply(ctx, impact.ApplyOptions{}, outer.Key, inner.Key))
+		Expect(plan.Entries).To(ConsistOf(
+			cascade(inOuter, "impact-outer."+inOuter.Name),
+			cascade(inInner, "impact-outer.impact-inner."+inInner.Name),
+		))
+	})
+
+	It("Should start a path at the deleted folder, not at a kept folder above it", func(
+		ctx SpecContext,
+	) {
+		kept := createFolder(ctx, "impact-kept", nil)
+		gone := createFolder(ctx, "impact-gone", &kept)
+		ch := tombstone(ctx, gone)
+		Expect(apply(ctx, impact.ApplyOptions{}, gone.Key)).To(Equal(impact.Plan{
+			Entries: []impact.Entry{cascade(ch, "impact-gone."+ch.Name)},
+		}))
+		Expect(exists(ctx, kept.Key)).To(BeTrue())
 	})
 
 	It("Should refuse a folder that holds a channel", func(ctx SpecContext) {

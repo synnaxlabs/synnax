@@ -428,8 +428,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.License) {
 		return nil, err
 	}
+	policies := channelPolicies()
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
+		Retargets:       policies.Retargets,
 		Channel:         cfg.Distribution.Channel,
 		TS:              cfg.Storage.TS,
 		DB:              cfg.Distribution.DB,
@@ -1202,6 +1204,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:  l.Channel,
 		Group:    l.Group,
 		RecordOf: taskconfig.RecordOf,
+		DB:       cfg.Distribution.DB,
+		Policies: policies,
 		Delete: func(ctx context.Context, tx gorp.Tx, records []resource.ID) error {
 			w := l.Task.NewWriter(tx)
 			for _, r := range records {
@@ -1221,5 +1225,33 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); err != nil {
 		return nil, err
 	}
+	if err = l.Channel.Heal(ctx); err != nil {
+		return nil, err
+	}
 	return l, nil
+}
+
+// channelPolicies returns what a heal does with each reference to the channel table:
+// displays move onto the channel that takes the path, and task configs, the index, and
+// path histories keep the dead key.
+func channelPolicies() impact.Policies {
+	retarget, keep := impact.PolicyRetarget, impact.PolicyKeep
+	return impact.Policies{
+		Links: map[gorp.ReferenceID]impact.Policy{
+			{Table: "schematic", Name: "nodes.config.channel"}:         retarget,
+			{Table: "schematic", Name: "nodes.config.command_channel"}: retarget,
+			{Table: "schematic", Name: "nodes.config.state_channel"}:   retarget,
+			{Table: "table", Name: "rows.cells.config.channel"}:        retarget,
+			{Table: "lineplot", Name: "channels"}:                      retarget,
+			{Table: "log", Name: "channels.channel"}:                   retarget,
+			{Table: "channel", Name: "index"}:                          keep,
+			{Table: "channel", Name: "rewires.from"}:                   keep,
+			{Table: "channel_tombstone", Name: "rewires.from"}:         keep,
+			{Table: "status", Name: "owner"}:                           keep,
+		},
+		KeptTables: func(table string) bool {
+			_, ok := taskconfig.TaskOf(gorp.Target{Table: table})
+			return ok
+		},
+	}
 }

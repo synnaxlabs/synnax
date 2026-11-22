@@ -99,14 +99,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:         cfg.DB,
 		Name:       tableName,
 		Indexes:    s.indexes.all(),
-		References: s.indexes.references(),
+		References: append(s.indexes.references(), channelsReference()),
 		Migrations: append(
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
 		// A channel delete detaches the channel from the log, which no log write does,
 		// so the service sends the log as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, l Log) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, l Log) error {
 			s.state.Dispatcher().
 				Attach(tx, l.Key, NewCreateAction(CreatePayload{Log: l}))
 			return nil

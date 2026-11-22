@@ -39,10 +39,11 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
-	// OnDetach runs in the transaction of each delete that detaches or inlines a target
-	// in an entry of the table, after Gorp writes the entry. It gets the entry as
-	// written. An error fails the delete.
-	OnDetach func(ctx context.Context, tx Tx, e E) error
+	// OnRewrite runs in the transaction of each delete that detaches or inlines a
+	// target in an entry of the table, and of each Table.Retarget that moves one, after
+	// Gorp rewrites the entry. It gets the entry as written. An error fails the delete
+	// or the retarget.
+	OnRewrite func(ctx context.Context, tx Tx, e E) error
 	// OnTargetSet maps the name of a table to a hook. The hook runs in the transaction
 	// of each write that sets an entry of that table which an entry of this table holds
 	// through a Use reference, after Gorp writes it, with the holding entry. An error
@@ -69,6 +70,8 @@ type Table[K Key, E Entry[K]] struct {
 	name string
 	// references are the references registered on the Table.
 	references []Reference[K, E]
+	// uniques are the unique indexes of the Table, which its checked writes check.
+	uniques []checkedIndex[K, E]
 	// registered is true when the table is in the DB's registry.
 	registered bool
 	// closing closes when Close starts, to stop the populate of the indexes. Nil when
@@ -76,8 +79,8 @@ type Table[K Key, E Entry[K]] struct {
 	closing chan struct{}
 	// populated closes when the populate of the indexes returns.
 	populated chan struct{}
-	// onDetach is TableConfig.OnDetach.
-	onDetach func(ctx context.Context, tx Tx, e E) error
+	// onRewrite is TableConfig.OnRewrite.
+	onRewrite func(ctx context.Context, tx Tx, e E) error
 	// onTargetSet is TableConfig.OnTargetSet.
 	onTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
 	// issuedKey is TableConfig.Issued.
@@ -123,16 +126,21 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:     slices.Clone(cfg.Indexes),
 		name:        cfg.Name,
 		references:  cfg.References,
-		onDetach:    cfg.OnDetach,
+		onRewrite:   cfg.OnRewrite,
 		onTargetSet: cfg.OnTargetSet,
 		issuedKey:   cfg.Issued,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
 	}
+	for _, idx := range cfg.Indexes {
+		if u, ok := idx.(checkedIndex[K, E]); ok {
+			t.uniques = append(t.uniques, u)
+		}
+	}
 	// The migrations of other tables can write references to the table while its own
 	// migrations run.
-	if err := t.register(cfg.Name != ""); err != nil {
+	if err := t.register(cfg.Name != "" || len(t.uniques) > 0); err != nil {
 		return nil, err
 	}
 	if err := Migrate(ctx, MigrateConfig{
@@ -162,7 +170,7 @@ func OpenTable[K Key, E Entry[K]](
 		t.unregister()
 		return nil, err
 	}
-	if err := t.registerReferences(); err != nil {
+	if err := t.registerIndexes(); err != nil {
 		close(closing)
 		close(locked)
 		<-populated
@@ -240,10 +248,10 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 }
 
 // NewUncheckedWriter returns a Writer that keeps the table's indexes current and skips
-// its reference checks and delete plans. Use it only in a migration that writes before
-// a target of the table's references opens.
+// its reference checks, unique checks, and delete plans. Use it only in a migration
+// that writes before a target of the table's references opens.
 func (t *Table[K, E]) NewUncheckedWriter(tx Tx) *Writer[K, E] {
-	w := t.writer(tx, false)
+	w := t.writer(tx, 0)
 	return &w
 }
 

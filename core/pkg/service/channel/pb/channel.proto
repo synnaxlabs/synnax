@@ -42,6 +42,17 @@ message Operation {
   int64 duration = 3;
 }
 
+// Rewire is one past holder of a channel's path.
+message Rewire {
+  // from is the channel that held the path, or 0 for a span that no channel held.
+  uint32 from = 1;
+  // at is the time at which the holder stopped holding the path.
+  int64 at = 2;
+}
+message RewireList {
+  repeated Rewire values = 1;
+}
+
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
@@ -74,6 +85,8 @@ message Channel {
   string expression = 10;
   // group is the group the channel sits in, if any.
   optional string group = 11;
+  // rewires are the channels that held the path before this one, oldest first.
+  RewireList rewires = 12;
 }
 message WhereList {
   repeated Where values = 1;

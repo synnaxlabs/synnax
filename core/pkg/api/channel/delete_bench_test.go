@@ -10,18 +10,24 @@
 package channel_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // BenchmarkDelete measures the delete route for one channel and for a page of 100, each
-// channel held by three schematics. Each run deletes in a transaction that it then
-// discards, so the storage delete at commit never runs.
+// channel held by three schematics, and the same with channels that nothing holds
+// ("unheld"). Each run deletes in a transaction that it then discards, so the storage
+// delete at commit never runs.
 func BenchmarkDelete(b *testing.B) {
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
@@ -46,6 +52,7 @@ func BenchmarkDelete(b *testing.B) {
 		b.Fatalf("failed to open the API service: %v", err)
 	}
 	keys := createUsedChannels(b, node.DB, layer)
+	unheld := createUnheldChannels(b, node.DB, layer)
 	run := func(b *testing.B, req apichannel.DeleteRequest) {
 		b.Helper()
 		b.ReportAllocs()
@@ -63,4 +70,33 @@ func BenchmarkDelete(b *testing.B) {
 	b.Run("page", func(b *testing.B) {
 		run(b, apichannel.DeleteRequest{Keys: keys})
 	})
+	b.Run("unheld/one", func(b *testing.B) {
+		run(b, apichannel.DeleteRequest{Keys: unheld[:1]})
+	})
+	b.Run("unheld/page", func(b *testing.B) {
+		run(b, apichannel.DeleteRequest{Keys: unheld})
+	})
+}
+
+// createUnheldChannels creates 100 channels that nothing holds.
+func createUnheldChannels(
+	b *testing.B,
+	db *gorp.DB,
+	layer *service.Layer,
+) channel.Keys {
+	b.Helper()
+	channels := make([]channel.Channel, 100)
+	for i := range channels {
+		channels[i] = channel.Channel{
+			Name:     fmt.Sprintf("bench_unheld_%d", i),
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
+	}
+	if err := db.WithTx(b.Context(), func(tx gorp.Tx) error {
+		return layer.Channel.NewWriter(tx).CreateMany(b.Context(), &channels)
+	}); err != nil {
+		b.Fatalf("failed to create the channels: %v", err)
+	}
+	return channel.KeysFromChannels(channels)
 }

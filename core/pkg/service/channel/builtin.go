@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -147,7 +148,7 @@ func (w Writer) rehome(ctx context.Context, h Channel) error {
 			h.Name,
 		)
 	}
-	name, err := w.freeName(ctx, h.Name)
+	name, err := w.freeName(ctx, h.Name, h.Group)
 	if err != nil {
 		return err
 	}
@@ -169,13 +170,24 @@ func (w Writer) rehome(ctx context.Context, h Channel) error {
 	})
 }
 
-// freeName returns name with the first suffix (_2, _3) that no channel holds.
-func (w Writer) freeName(ctx context.Context, name string) (string, error) {
+// freeName returns name with the first suffix (_2, _3) that no channel holds and no
+// tombstone holds in g.
+func (w Writer) freeName(
+	ctx context.Context,
+	name string,
+	g *group.Key,
+) (string, error) {
 	for i := 2; ; i++ {
 		candidate := fmt.Sprintf("%s_%d", name, i)
 		taken, err := w.svc.newRetrieve().
 			Where(MatchNames(candidate)).
 			Exists(ctx, w.tx)
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			_, taken, err = w.tombstoneAt(ctx, candidate, g)
+		}
 		if err != nil || !taken {
 			return candidate, err
 		}
