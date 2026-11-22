@@ -34,6 +34,11 @@ TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
 
 TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
 
 
@@ -171,6 +176,18 @@ class DigitalPort(BaseModel):
     output: bool = False
 
 
+class Order(BaseModel):
+    """Is a sort of devices.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Where(BaseModel):
     """Is a filter that selects NI devices.
 
@@ -235,9 +252,11 @@ class Cursor(BaseModel):
 
     Attributes:
         key: Is the key of the device at the position.
+        name: Is the name of the device at the position, when the order sorts by it.
     """
 
     key: Key
+    name: str | None = None
 
 
 class DigitalOutputChannels(BaseModel):
@@ -314,6 +333,7 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the devices to retrieve. An absent where selects all of them.
         search_term: Keeps the devices that match the term, closest match first.
+        order: Sorts the devices. An absent order sorts them by key.
         after: Starts the devices strictly past this position in their order.
         limit: Is the most devices to return.
         include_status: Includes the status of each record.
@@ -323,6 +343,7 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
@@ -342,7 +363,7 @@ class Configuration(BaseModel):
         digital_output: Maps a digital port number to its output channels.
     """
 
-    name: str
+    name: str = Field(min_length=1)
     identifier: str = ""
     analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
     analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
@@ -373,10 +394,10 @@ class Identity(BaseModel):
             it keeps the stored value.
     """
 
-    rack: rack_.Key = Field(ge=0, le=4294967295)
+    rack: rack_.Key = Field(gt=0, le=4294967295)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     chassis: chassis_.Key | None = None
     hardware: Hardware | None = None
 
@@ -407,10 +428,10 @@ class Device(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    name: str
+    name: str = Field(min_length=1)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     chassis: chassis_.Key | None = None
     hardware: Hardware | None = None
     identifier: str = ""

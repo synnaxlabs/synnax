@@ -28,6 +28,10 @@ export const TERMINAL_CONFIGS = [
 export const terminalConfigZ = z.enum(TERMINAL_CONFIGS);
 export type TerminalConfig = z.infer<typeof terminalConfigZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /** CommandStatePair is the pair of channels that writes to one port. */
 export const commandStatePairZ = z.object({
   /** command is the channel that commands the port. */
@@ -140,6 +144,15 @@ export const digitalPortZ = z.object({
   output: z.boolean().default(false),
 });
 export interface DigitalPort extends z.infer<typeof digitalPortZ> {}
+
+/** Order is a sort of devices. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -281,6 +294,8 @@ export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 export const cursorZ = z.object({
   /** key is the key of the device at the position. */
   key: keyZ,
+  /** name is the name of the device at the position, when the order sorts by it. */
+  name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
@@ -338,6 +353,8 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the devices that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the devices. An absent order sorts them by key. */
+  order: orderZ.optional(),
   /** after starts the devices strictly past this position in their order. */
   after: cursorZ.optional(),
   /** limit is the most devices to return. */
