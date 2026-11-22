@@ -15,6 +15,7 @@ import type { role } from "@/access/role";
 import { actions } from "@/actions";
 import type { batch } from "@/batch";
 import type { connection } from "@/connection";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/user/actions";
@@ -77,6 +78,13 @@ const LINES: Lines = {
 export const ACTION_CHANNEL_NAME = "sy_user_action_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
+type SingleParams = KeyRetrieveRequest;
+
+const singleParamsZ = z.union([
+  z.strictObject({ key: keyZ }),
+  keyZ.transform((key) => ({ key })),
+]);
+
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
@@ -86,7 +94,14 @@ export interface ClientConfig {
   identity: observe.Observable<User | undefined>;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, User> {
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  User,
+  User,
+  SingleParams,
+  SingleParams
+> {
   /** The signed-in user. */
   readonly current: Current;
   /** The users that the client holds, by key. */
@@ -113,6 +128,21 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
       createOf,
     });
     cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
+    const single = cache.queries<SingleParams, User, Key, User>({
+      name: "user",
+      table: store,
+      // A user written after since keeps that write, since the fetch predates it.
+      fetch: async (params) =>
+        await store.track(async (since) => {
+          const users = await this.execRetrieve(params);
+          checkSingle(params, users);
+          store.ingest(users, { since });
+          return users.map((u) => u.key);
+        }),
+      compose: (records) => records[0],
+      keyOf: (params) => params.key,
+      single: true,
+    });
     super(cache, {
       name: "user",
       table: store,
@@ -123,6 +153,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
         matches: (u, req) => matches(LINES, u, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
       },
+      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
@@ -217,3 +248,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
 
 export const resourceID = resource.createIDFactory<Key>("user");
 export const TYPE_RESOURCE_ID = resourceID("");
+
+const checkSingle = ({ key }: SingleParams, users: User[]): void => {
+  if (users.length === 0) throw new NotFoundError(`No user with key ${key} found`);
+  if (users.length > 1)
+    throw new MultipleFoundError(`Multiple users found with key ${key}`);
+};
