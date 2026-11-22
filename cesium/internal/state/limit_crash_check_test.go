@@ -55,6 +55,25 @@ func (f imageFile) Sync() error {
 	return f.File.Sync()
 }
 
+// errs gathers the errors of the callbacks and runs that a spec starts on other
+// goroutines, for the spec to check once they stop.
+type errs struct {
+	mu  sync.Mutex
+	err error
+}
+
+func (e *errs) add(err error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.err = errors.Join(e.err, err)
+}
+
+func (e *errs) get() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.err
+}
+
 // replay replays the valid frames of log 1 in image into a new state on the head h,
 // and returns the first refusal.
 func replay(image *fault.FS, h *state.Snapshot) error {
@@ -71,16 +90,22 @@ func replayInto(s *state.State, image *fault.FS, next uint64) (uint64, error) {
 	f := MustSucceed(image.Open(log.Name(1), os.O_RDONLY))
 	b := MustSucceed(io.ReadAll(f))
 	Expect(f.Close()).To(Succeed())
+	// A frame that fails its decode ends the valid frames, unless the log wrote a mark
+	// there and goes on at the next block boundary.
+	frame := func(at int64) (log.Frame, bool) {
+		fr, err := log.DecodeFrame(b[at:], 7, 1, uint64(at))
+		return fr, err == nil
+	}
 	at := int64(log.FramesStart)
 	for at+log.FrameHeaderSize <= int64(len(b)) {
-		fr, err := log.DecodeFrame(b[at:], 7, 1, uint64(at))
-		if err != nil {
+		fr, ok := frame(at)
+		if !ok {
 			aligned := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
 			if aligned == at || aligned+log.FrameHeaderSize > int64(len(b)) {
 				return next, nil
 			}
 			at = aligned
-			if fr, err = log.DecodeFrame(b[at:], 7, 1, uint64(at)); err != nil {
+			if fr, ok = frame(at); !ok {
 				return next, nil
 			}
 		}
@@ -118,6 +143,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					images []*fault.FS
 					l      *log.Log
 					goExe  = func(f func()) { go f() }
+					failed errs
 				)
 				take := func() {
 					mu.Lock()
@@ -140,24 +166,24 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					FS:       imageFS{FS: disk, take: take},
 					Executor: goExe,
 					OnDurable: func(seq uint64, records []log.Record) {
-						_ = st.Durable(seq, records)
+						failed.add(st.Durable(seq, records))
 					},
 					OnRefused: func(records []log.Record, err error) {
-						_ = st.Refused(records, err)
+						failed.add(st.Refused(records, err))
 					},
 					// No next file, so every entry stays in log 1.
 					Prepare: func(next uint64) {
 						go l.Prepared(next, errors.New("no next log"))
 					},
-					Switched:   func(g uint64) { _ = st.Switch(g) },
+					Switched:   func(g uint64) { failed.add(st.Switch(g)) },
 					DB:         7,
 					Generation: 1,
 					Sequence:   1,
 				}))
 				ctx, cancel := context.WithCancel(context.Background())
 				var wg sync.WaitGroup
-				wg.Go(func() { _ = st.Run(ctx) })
-				wg.Go(func() { _ = l.Run(ctx) })
+				wg.Go(func() { failed.add(st.Run(ctx)) })
+				wg.Go(func() { failed.add(l.Run(ctx)) })
 				// 40 identities cross the first Reserve block of 16 and the next of
 				// 1,024.
 				keys := make([]state.WriterKey, 40)
@@ -180,6 +206,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 				Expect(st.Close()).To(Succeed())
 				cancel()
 				wg.Wait()
+				Expect(failed.get()).ToNot(HaveOccurred())
 				mu.Lock()
 				Expect(len(images)).To(BeNumerically(">", 40))
 				for i, image := range images {

@@ -57,6 +57,7 @@ type chanState struct {
 	kills []Kill
 	// parts holds the range and kills of c for the Channels that c publishes.
 	parts *Parts
+	count *pubCount
 }
 
 // repart sets the parts of c from its range and kills.
@@ -69,6 +70,30 @@ func (c *chanState) repart() {
 			Generation: c.generation,
 			Kills:      c.kills,
 		}
+	}
+}
+
+// pubCount counts the publishes of the owner, for a reader that loads more than one
+// Channel: it is odd while a step of the owner publishes, and grows by two with each
+// step that publishes. Only the owner writes it.
+type pubCount struct {
+	n    atomic.Uint64
+	open bool
+}
+
+// begin makes the count odd before the first publish of a step.
+func (p *pubCount) begin() {
+	if !p.open {
+		p.open = true
+		p.n.Add(1)
+	}
+}
+
+// end makes the count even again at the end of a step that published.
+func (p *pubCount) end() {
+	if p.open {
+		p.open = false
+		p.n.Add(1)
 	}
 }
 
@@ -135,6 +160,7 @@ func (c *chanState) publish() {
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)
 	}
+	c.count.begin()
 	c.pub.Store(ch)
 }
 
