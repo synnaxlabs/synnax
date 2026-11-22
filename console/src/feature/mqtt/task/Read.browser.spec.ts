@@ -1478,19 +1478,20 @@ describe("MQTT read form", () => {
 
       it("should list the messages of the page after a page with no messages", async () => {
         await createEmptyPage();
+        const topic = `plant/${uniqueName("pump")}`;
+        // The dialog opens on the choice of the entry, so its ICD lists right after the
+        // empty page, and its row shows once the select pages past it.
         const entry = await createEntry({
           fields: [createField("temperature", "float")],
+          topic,
+          icdKey: createKeyListedAt("01"),
         });
-        const { shared, message } = await createShared(
-          [createField("pressure", "float")],
-          createKeyListedAt("01"),
-        );
-        onTestFinished(async () => await client.icds.delete(shared.key));
+        onTestFinished(async () => await client.icds.delete(entry.icd));
         await renderRead({ entries: [entry] });
-        await openTopic();
-        fireEvent.click(await findDialogTriggerByText(TOPIC));
+        await openTopic(topic);
+        fireEvent.click(await findDialogTriggerByText(topic));
         const dialogs = await screen.findAllByRole("dialog");
-        await within(dialogs[dialogs.length - 1]).findByText(message.name);
+        await within(dialogs[dialogs.length - 1]).findByText(topic);
       });
     });
   });
