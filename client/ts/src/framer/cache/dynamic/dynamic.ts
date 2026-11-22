@@ -28,7 +28,7 @@ export interface WriteResponse {
 }
 
 /** Props for the {@link Dynamic} buffer. */
-export interface DynamicProps {
+export interface Props {
   /**
    * The samples each buffer holds, or a span that the measured write rate turns into a
    * sample count.
@@ -91,7 +91,7 @@ const shouldCompact = (buffer: Series): boolean => {
  * written, so it needs no channel metadata.
  */
 export class Dynamic {
-  private readonly props: Required<Omit<DynamicProps, "now">>;
+  private readonly props: Required<Omit<Props, "now">>;
 
   private counter = 0;
   private curr: Series | null = null;
@@ -106,7 +106,7 @@ export class Dynamic {
   private runSize = Infinity;
   private readonly now: () => TimeStamp;
 
-  constructor(props: DynamicProps) {
+  constructor(props: Props) {
     const {
       dynamicBufferSize,
       instrumentation = alamos.NOOP,

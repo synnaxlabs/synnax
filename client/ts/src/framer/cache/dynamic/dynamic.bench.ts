@@ -11,7 +11,7 @@ import { DataType, MultiSeries, Series, TimeRange, TimeSpan } from "@synnaxlabs/
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { Dynamic } from "@/framer/cache/dynamic";
+import { dynamic as cacheDynamic } from "@/framer/cache/dynamic";
 
 const makeSeries = (samples: number, alignment: bigint): Series => {
   const data = new Float32Array(samples);
@@ -31,7 +31,7 @@ const makeSteadyCase = (
   samples: number,
   dynamicBufferSize: number | TimeSpan = 100_000,
 ): (() => void) => {
-  const dynamic = new Dynamic({ dynamicBufferSize });
+  const dynamic = new cacheDynamic.Dynamic({ dynamicBufferSize });
   const inputs = Array.from(
     { length: 512 },
     (_, i) => new MultiSeries([makeSeries(samples, BigInt(i * samples))]),
@@ -45,7 +45,7 @@ const makeSteadyCase = (
 
 // Flush-heavy: every write overflows the buffer, exercising allocation and flush.
 const makeFlushCase = (): (() => void) => {
-  const dynamic = new Dynamic({ dynamicBufferSize: 64 });
+  const dynamic = new cacheDynamic.Dynamic({ dynamicBufferSize: 64 });
   const inputs = Array.from(
     { length: 512 },
     (_, i) => new MultiSeries([makeSeries(128, BigInt(i * 128))]),

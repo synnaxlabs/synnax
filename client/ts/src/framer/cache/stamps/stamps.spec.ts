@@ -10,7 +10,7 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { IndexStamps, Stamps } from "@/framer/cache/stamps";
+import { stamps as cacheStamps } from "@/framer/cache/stamps";
 
 const T0 = TimeStamp.seconds(1_700_000_000);
 const T1 = T0.add(TimeSpan.seconds(1));
@@ -33,7 +33,7 @@ const plus = (stamp: TimeStamp, i: number): TimeStamp =>
 
 describe("Stamps", () => {
   it("should time each sample of a write 1ns after the one before", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(10n, 3, T0));
     s.record(write(13n, 2, T1));
     expect(s.at(10n)).toEqual(T0);
@@ -44,27 +44,27 @@ describe("Stamps", () => {
   });
 
   it("should time the samples of a large write", () => {
-    const s = new Stamps(1);
+    const s = new cacheStamps.Stamps(1);
     s.record(write(0n, 70_000, T0));
     expect(s.at(69_999n)).toEqual(plus(T0, 69_999));
   });
 
   it("should be null before the first write and past the last", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(10n, 3, T0));
     expect(s.at(9n)).toBeNull();
     expect(s.at(13n)).toBeNull();
   });
 
   it("should be null between two writes", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(10n, 2, T0));
     s.record(write(20n, 1, T1));
     expect(s.at(15n)).toBeNull();
   });
 
   it("should forget the oldest write at capacity", () => {
-    const s = new Stamps(2);
+    const s = new cacheStamps.Stamps(2);
     s.record(write(0n, 1, T0));
     s.record(write(1n, 1, T1));
     s.record(write(2n, 1, T2));
@@ -74,7 +74,7 @@ describe("Stamps", () => {
   });
 
   it("should find every kept write after the ring wraps", () => {
-    const s = new Stamps(3);
+    const s = new cacheStamps.Stamps(3);
     [T0, T1, T2, T3, T4].forEach((t, i) => s.record(write(BigInt(i) * 2n, 2, t)));
     expect(s.at(3n)).toBeNull();
     expect(s.at(4n)).toEqual(T2);
@@ -84,7 +84,7 @@ describe("Stamps", () => {
   });
 
   it("should keep every write as it grows toward capacity", () => {
-    const s = new Stamps(100);
+    const s = new cacheStamps.Stamps(100);
     for (let i = 0; i < 100; i++) s.record(write(BigInt(i) * 2n, 2, plus(T0, i * 10)));
     for (let i = 0; i < 100; i++) {
       expect(s.at(BigInt(i) * 2n)).toEqual(plus(T0, i * 10));
@@ -94,14 +94,14 @@ describe("Stamps", () => {
   });
 
   it("should forget the oldest write once it grows to capacity", () => {
-    const s = new Stamps(20);
+    const s = new cacheStamps.Stamps(20);
     for (let i = 0; i < 25; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
     expect(s.at(4n)).toBeNull();
     for (let i = 5; i < 25; i++) expect(s.at(BigInt(i))).toEqual(plus(T0, i));
   });
 
   it("should replace the writes from a repeated alignment once it grows", () => {
-    const s = new Stamps(40);
+    const s = new cacheStamps.Stamps(40);
     for (let i = 0; i < 30; i++) s.record(write(BigInt(i), 1, plus(T0, i)));
     s.record(write(10n, 3, T1));
     expect(s.at(9n)).toEqual(plus(T0, 9));
@@ -110,7 +110,7 @@ describe("Stamps", () => {
   });
 
   it("should replace the writes from a repeated alignment on", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(0n, 3, T0));
     s.record(write(3n, 2, T1));
     s.record(write(3n, 4, T2));
@@ -121,7 +121,7 @@ describe("Stamps", () => {
   });
 
   it("should forget every write when the alignment regresses", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(100n, 2, T0));
     s.record(write(102n, 2, T1));
     s.record(write(0n, 1, T2));
@@ -131,7 +131,7 @@ describe("Stamps", () => {
   });
 
   it("should hold a leading alignment above the signed 64-bit range", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(LEADING, 2, T0));
     s.record(write(LEADING + 2n, 1, T1));
     expect(s.at(LEADING - 1n)).toBeNull();
@@ -142,7 +142,7 @@ describe("Stamps", () => {
   });
 
   it("should record nothing for an empty or unstamped series", () => {
-    const s = new Stamps(4);
+    const s = new cacheStamps.Stamps(4);
     s.record(write(0n, 0, T0));
     s.record(
       new Series({
@@ -168,14 +168,14 @@ const span = (lower: bigint, upper: bigint) => ({ lower, upper });
 
 describe("IndexStamps", () => {
   it("should return the stamp of the index sample at an alignment", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(10n, T0, T1)], [span(10n, 12n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(11n)).toEqual(T1);
   });
 
   it("should be null outside the series it holds", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(20n, T1), index(10n, T0)], [span(10n, 11n), span(20n, 21n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(20n)).toEqual(T1);
@@ -185,27 +185,27 @@ describe("IndexStamps", () => {
   });
 
   it("should keep the index series that overlap unsorted data spans", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n), span(10n, 11n)]);
     expect(s.at(10n)).toEqual(T0);
     expect(s.at(20n)).toEqual(T1);
   });
 
   it("should join the data spans that touch or overlap", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(13n, T0)], [span(10n, 12n), span(11n, 14n), span(12n, 13n)]);
     expect(s.at(13n)).toEqual(T0);
   });
 
   it("should keep only the index series that overlap the data", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(10n, T0), index(20n, T1)], [span(20n, 21n)]);
     expect(s.at(10n)).toBeNull();
     expect(s.at(20n)).toEqual(T1);
   });
 
   it("should replace the series held over the alignments of a new one", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(10n, T0, T1)], [span(10n, 12n)]);
     s.add([index(10n, T2, T3, T4)], [span(10n, 13n)]);
     expect(s.at(10n)).toEqual(T2);
@@ -213,7 +213,7 @@ describe("IndexStamps", () => {
   });
 
   it("should drop the series that no data overlaps", () => {
-    const s = new IndexStamps();
+    const s = new cacheStamps.IndexStamps();
     s.add([index(10n, T0), index(20n, T1)], [span(10n, 11n), span(20n, 21n)]);
     s.retain([span(20n, 21n)]);
     expect(s.at(10n)).toBeNull();
