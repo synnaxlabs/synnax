@@ -99,6 +99,8 @@ var hoverDocs = map[string]string{
 	"output": "**output** *\"path\"*\n\nOutput path for generated code.",
 	"request_output": "**request_output** *\"path\"*\n\nOutput path for a " +
 		"filter's retrieve request and response.",
+	"shortcut": "**shortcut** *omit*\n\nLeave out the TypeScript shortcut that reads " +
+		"a key, a name, or a list of either as a filter.",
 }
 
 func (s *Server) Hover(

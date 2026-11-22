@@ -222,7 +222,8 @@ func buildData(
 		return templateData{}, err
 	}
 	// A name could look like a free-text key, so a name needs another key type.
-	if key != nil && named && resolution.PrimitiveBase(*key, table) != "string" {
+	if key != nil && named && resolution.PrimitiveBase(*key, table) != "string" &&
+		domain.GetStringFromType(where, "ts", "shortcut") != "omit" {
 		data.ShortcutKey = lb.zodOf(*key)
 	}
 	// The analyzer derives a Cursor for a target with a key, and its sorts from the

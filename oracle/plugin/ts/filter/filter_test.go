@@ -381,6 +381,17 @@ var _ = Describe("TS Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
 		})
 
+		It("Should take no shortcut when the filter omits it", func() {
+			resp := MustGenerate(thing+`
+				Where filter Thing {
+					key
+					name
+					@ts shortcut omit
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("shortcutZ")
+		})
+
 		It("Should read a typed line as its type, or a list from a value", func() {
 			resp := MustGenerate(thing+`
 				Where filter Thing {

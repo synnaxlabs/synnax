@@ -459,6 +459,15 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		))
 		return
 	}
+	if expr, ok := where.Domains["ts"].Expressions.Find("shortcut"); ok &&
+		(len(expr.Values) != 1 || expr.Values[0].IdentValue != "omit") {
+		c.report(diagnostics.Errorf(
+			filterDef(where),
+			"filter %s: @ts shortcut takes only omit",
+			where.Name,
+		))
+		return
+	}
 	target, fields, ok := filterTarget(where.Filter.Target, c.table)
 	if !ok {
 		return

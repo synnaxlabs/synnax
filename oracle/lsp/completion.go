@@ -361,6 +361,11 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Override generated type/schema name"),
 		},
+		{
+			Label:  "shortcut",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Omit a filter's key and name shortcut"),
+		},
 	}
 )
 
