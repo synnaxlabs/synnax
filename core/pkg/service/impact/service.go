@@ -93,7 +93,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("record_of", c.RecordOf)
 	v.NotNil("delete", c.Delete)
-	if v.NotNil("moves", c.Moves) {
+	if !v.NotNil("moves", c.Moves) {
 		for _, t := range group.MemberTypes() {
 			_, ok := c.Moves[t]
 			v.Ternaryf("moves", !ok, "has no move for a %s", t)
