@@ -33,11 +33,13 @@ type Stack struct {
 }
 
 type layer struct {
-	name     string
-	cancel   context.CancelFunc
-	done     chan struct{}
-	err      error
-	closer   func() error
+	name   string
+	cancel context.CancelFunc
+	done   chan struct{}
+	err    error
+	closer func() error
+	// closed is nil until Stop calls closer, and closes when closer returns.
+	closed   chan struct{}
 	closeErr error
 }
 
@@ -73,33 +75,56 @@ func (s *Stack) Go(
 // it to start shutdown, then calls Stop to get the error.
 func (s *Stack) Failed() <-chan struct{} { return s.failed }
 
-// Stop ends the newest lifetime, waits for its run to return, and calls its closer. It
-// then does the same for each older one. It returns the errors of the runs and closers
-// joined. No goroutine that Go started runs after Stop returns, unless ctx ends first.
+// Stop ends the newest lifetime, waits for its run to return, and waits for its closer
+// to return. It then does the same for each older one. It returns the errors of the
+// runs and closers joined. No goroutine that Go or Stop started runs after Stop
+// returns, unless ctx ends first.
 //
-// When ctx ends first, Stop ends every lifetime that is left and returns at once
-// without calling their closers. The runs that have not returned keep running until
-// they see their context end. The error then wraps ctx.Err() and names those runs. Call
-// Stop once.
+// ctx bounds the whole of Stop. When ctx ends first, Stop ends every lifetime that is
+// left, calls no more closers, and returns at once. A run that has not returned keeps
+// running until it sees its context end, and a closer that has not returned keeps
+// running in its own goroutine until it returns. The error then wraps ctx.Err() and
+// names those runs and closers. Call Stop once.
 func (s *Stack) Stop(ctx context.Context) error {
 	for _, l := range slices.Backward(s.layers) {
 		l.cancel()
-		// A run that already returned wins over a ctx that already ended.
-		select {
-		case <-l.done:
-		default:
-			select {
-			case <-l.done:
-			case <-ctx.Done():
-				for _, l := range s.layers {
-					l.cancel()
-				}
-				return s.result(ctx)
-			}
+		if !wait(ctx, l.done) {
+			return s.abort(ctx)
 		}
-		if l.closer != nil {
+		if l.closer == nil {
+			continue
+		}
+		l.closed = make(chan struct{})
+		go func() {
+			defer close(l.closed)
 			l.closeErr = l.closer()
+		}()
+		if !wait(ctx, l.closed) {
+			return s.abort(ctx)
 		}
+	}
+	return s.result(ctx)
+}
+
+// wait returns true when done closes before ctx ends. A done that is already closed
+// wins over a ctx that already ended.
+func wait(ctx context.Context, done <-chan struct{}) bool {
+	select {
+	case <-done:
+		return true
+	default:
+	}
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (s *Stack) abort(ctx context.Context) error {
+	for _, l := range s.layers {
+		l.cancel()
 	}
 	return s.result(ctx)
 }
@@ -108,6 +133,7 @@ func (s *Stack) result(ctx context.Context) error {
 	var (
 		errs    []error
 		running []string
+		closing []string
 	)
 	for _, l := range s.layers {
 		select {
@@ -115,11 +141,20 @@ func (s *Stack) result(ctx context.Context) error {
 			if l.err != nil {
 				errs = append(errs, errors.Wrapf(l.err, "%s", l.name))
 			}
+		default:
+			running = append(running, l.name)
+			continue
+		}
+		if l.closed == nil {
+			continue
+		}
+		select {
+		case <-l.closed:
 			if l.closeErr != nil {
 				errs = append(errs, errors.Wrapf(l.closeErr, "%s close", l.name))
 			}
 		default:
-			running = append(running, l.name)
+			closing = append(closing, l.name)
 		}
 	}
 	if len(running) > 0 {
@@ -127,6 +162,13 @@ func (s *Stack) result(ctx context.Context) error {
 			ctx.Err(),
 			"%s did not return",
 			strings.Join(running, ", "),
+		))
+	}
+	if len(closing) > 0 {
+		errs = append(errs, errors.Wrapf(
+			ctx.Err(),
+			"%s did not close",
+			strings.Join(closing, ", "),
 		))
 	}
 	return errors.Join(errs...)

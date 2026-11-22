@@ -194,6 +194,48 @@ var _ = Describe("Stack", func() {
 		})
 	})
 
+	Describe("Close deadline", func() {
+		It("returns at the deadline and names a closer that did not return", func(
+			ctx SpecContext,
+		) {
+			var (
+				release       = make(chan struct{})
+				closerReturns = make(chan struct{})
+				storageClosed = false
+				storageDone   = make(chan struct{})
+			)
+			DeferCleanup(func() {
+				close(release)
+				Eventually(closerReturns).Should(BeClosed())
+			})
+			s := lifetime.NewStack()
+			storage := s.Go(ctx, "storage", func(ctx context.Context) error {
+				defer close(storageDone)
+				<-ctx.Done()
+				return nil
+			}, func() error {
+				storageClosed = true
+				return nil
+			})
+			s.Go(storage, "service", func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			}, func() error {
+				defer close(closerReturns)
+				<-release
+				return nil
+			})
+			stopCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+			defer cancel()
+			err := s.Stop(stopCtx)
+			Expect(err).To(MatchError(context.DeadlineExceeded))
+			Expect(err).To(MatchError(ContainSubstring("service did not close")))
+			Expect(err).ToNot(MatchError(ContainSubstring("storage did not close")))
+			Eventually(storageDone).Should(BeClosed())
+			Expect(storageClosed).To(BeFalse())
+		})
+	})
+
 	Describe("Failed", func() {
 		It("closes when a run returns an error", func(ctx SpecContext) {
 			var r recorder

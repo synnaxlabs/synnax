@@ -236,8 +236,8 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
-// storageStopTimeout bounds the wait for the distribution and storage layers to stop
-// and close at shutdown.
+// storageStopTimeout bounds the whole stop of the layer lifetimes at shutdown: the wait
+// for each Run to return and for each Close.
 const storageStopTimeout = 20 * time.Second
 
 // BootupCore contains the most important Core startup logic. It does and should not
