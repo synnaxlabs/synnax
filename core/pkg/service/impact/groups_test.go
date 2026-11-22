@@ -298,6 +298,31 @@ var _ = Describe("Delete groups", Ordered, func() {
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
 	})
 
+	It("Should refuse a pick on a hidden tombstone as a pick for no entry", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-hidden-pick", nil)
+		ch := tombstone(ctx, folder)
+		record := channel.ResourceID(ch.Key())
+		visible := func(id resource.ID) bool { return id != record }
+		picks := map[string]impact.Choice{record.String(): impact.ChoiceDelete}
+		refused := And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("no entry is %s", record)),
+		)
+		Expect(
+			plan(ctx, impact.PlanOptions{Picks: picks, Visible: visible}, folder.Key),
+		).
+			Error().
+			To(refused)
+		Expect(apply(
+			ctx,
+			impact.ApplyOptions{Picks: picks, Visible: visible},
+			folder.Key,
+		)).Error().To(refused)
+		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	})
+
 	It("Should name the pick with the smallest key among the picks it refuses", func(
 		ctx SpecContext,
 	) {
