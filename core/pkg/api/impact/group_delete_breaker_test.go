@@ -25,15 +25,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -157,31 +154,6 @@ var _ = Describe("Group delete routes breaker", Ordered, ContinueOnFailure, func
 		Expect(plan(AuthedCtx(ctx, u), apiimpact.PlanRequest{
 			Change: groupsOf(seen.Key, hidden.Key, seen.Key, hidden.Key),
 		})).Error().To(MatchError(access.ErrDenied))
-	})
-
-	// Pending: main's /group/delete answers the same way (founder rule 4).
-	PIt("Should not name a group that the subject cannot retrieve on apply", func(
-		ctx SpecContext,
-	) {
-		g := createFolder(ctx)
-		ch := channel.Channel{
-			Name:     UniqueChannelName(),
-			DataType: telem.Float32T,
-			Virtual:  true,
-			Group:    &g.Key,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return layer.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		u := createUser(ctx)
-		authed := AuthedCtx(ctx, u)
-		Expect(plan(authed, apiimpact.PlanRequest{Change: groupsOf(g.Key)})).
-			Error().To(MatchError(access.ErrDenied))
-		_, err := apply(authed, apiimpact.ApplyRequest{Change: groupsOf(g.Key)})
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).ToNot(ContainSubstring(g.Name))
-		Expect(err).To(MatchError(access.ErrDenied))
-		Expect(exists(ctx, g.Key)).To(BeTrue())
 	})
 
 	It("Should refuse a plan request with no change as a validation error", func(
