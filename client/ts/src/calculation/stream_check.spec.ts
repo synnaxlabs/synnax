@@ -133,8 +133,8 @@ describe("calculation stream check", () => {
       hidden: false,
       calculation: shown.key,
     });
-    expect(reader.calculations.watch(shown.key).getCached()?.expression).toBe(
-      `return ${input.name} * 2`,
-    );
+    expect(reader.calculations.watch(shown.key).getCached()).toMatchObject({
+      expression: `return ${input.name} * 2`,
+    });
   });
 });
