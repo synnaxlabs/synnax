@@ -532,6 +532,22 @@ describe("useList", () => {
     await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
   });
 
+  it("should drop a pending search when it unmounts", () => {
+    // No client, so every timer left pending belongs to the list.
+    const { result, unmount } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges" }),
+      { wrapper: createSynnaxWrapper({ client: null }) },
+    );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      act(() => result.current.search(randomWord()));
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("should start the list on a search", async () => {
     const name = randomWord();
     const match = await create(name);
