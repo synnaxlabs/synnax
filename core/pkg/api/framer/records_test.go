@@ -25,7 +25,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -829,5 +832,98 @@ var _ = Describe("Change channels", func() {
 		createLabels(ctx, removed)
 		createLabels(ctx, granted)
 		Expect(received()).To(Equal([]resource.ID{label.ResourceID(granted.Key)}))
+	})
+
+	Describe("Calculations", func() {
+		virtual := func(ctx SpecContext) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			return ch
+		}
+		calculate := func(ctx SpecContext, expression string) calculation.Calculation {
+			GinkgoHelper()
+			output := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
+				Name:       UniqueChannelName(),
+				Expression: expression,
+			}))
+			return MustSucceed(creator.CalculationOf(ctx, output.Key()))
+		}
+		// edit sets the expression of c through an action.
+		edit := func(ctx SpecContext, c calculation.Calculation, expression string) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := svc.Calculation.NewWriter(tx).Apply(
+					ctx,
+					c.Key,
+					calculation.NewSetAction(calculation.SetPayload{
+						Path:  []string{"expression"},
+						Value: expression,
+					}),
+				)
+				return err
+			})).To(Succeed())
+		}
+		times := func(ch channel.Channel, n int) string {
+			return fmt.Sprintf("return %s * %d", ch.Name, n)
+		}
+		// links returns every calculation and the channels that the calculations link,
+		// except secret.
+		links := func(
+			secret channel.Channel,
+			calcs ...calculation.Calculation,
+		) []resource.ID {
+			ids := []resource.ID{{Type: resource.TypeCalculation}}
+			for _, c := range calcs {
+				for _, id := range svc.Calculation.Channels(c) {
+					if id != channel.ResourceID(secret.Key()) {
+						ids = append(ids, id)
+					}
+				}
+			}
+			return ids
+		}
+
+		DescribeTable(
+			"Should send a change to a calculation only to a subject that can read "+
+				"every channel that it links",
+			func(ctx SpecContext, name string) {
+				open, secret := virtual(ctx), virtual(ctx)
+				readable := calculate(ctx, times(open, 2))
+				denied := calculate(ctx, times(secret, 2))
+				stream(ctx, name, links(secret, readable, denied)...)
+				edit(ctx, denied, times(secret, 3))
+				edit(ctx, readable, times(open, 3))
+				Expect(received()).To(Equal(
+					[]resource.ID{calculation.ResourceID(readable.Key)},
+				))
+			},
+			Entry("a calculation set", "sy_calculation_set"),
+			Entry("a calculation action", "sy_calculation_action_set"),
+		)
+
+		DescribeTable(
+			"Should not send the change that makes a calculation read a channel "+
+				"that the subject cannot read",
+			func(ctx SpecContext, name string) {
+				open, secret := virtual(ctx), virtual(ctx)
+				c := calculate(ctx, times(open, 2))
+				witness := calculate(ctx, times(open, 4))
+				stream(ctx, name, links(secret, c, witness)...)
+				edit(ctx, c, times(secret, 2))
+				edit(ctx, witness, times(open, 5))
+				Expect(received()).To(Equal(
+					[]resource.ID{calculation.ResourceID(witness.Key)},
+				))
+			},
+			Entry("a calculation set", "sy_calculation_set"),
+			Entry("a calculation action", "sy_calculation_action_set"),
+		)
 	})
 })
