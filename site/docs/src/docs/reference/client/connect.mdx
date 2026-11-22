@@ -474,6 +474,14 @@ python my_script.py
 With TLS, the client tunnels through the proxy and checks the certificate of the Core as
 it does with no proxy. The client reads the variables when you create it.
 
+- **Credentials** -> put them in the proxy URL, such as
+  `http://user:password@proxy.example.com:3128`. Encode special characters, such as
+  `%40` for `@`.
+- **Schemes** -> the proxy URL must use `http` or `https`. A URL with no scheme uses
+  `http`. For a SOCKS proxy, the client raises `ValueError` when you create it.
+- **System settings** -> when no proxy variable is set, the client on macOS and Windows
+  uses the proxy and the bypass list in the network settings of the computer.
+
 <Divider.Divider x />
 
 ## Connect from a web page

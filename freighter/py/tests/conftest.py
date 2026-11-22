@@ -53,6 +53,12 @@ def cert_host() -> str:
 
 
 @pytest.fixture
+def tls() -> bool:
+    """Whether the http_url and ws_url servers use TLS."""
+    return True
+
+
+@pytest.fixture
 def server_ctx(ca: trustme.CA, cert_host: str) -> ssl.SSLContext:
     ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     ca.issue_cert(cert_host).configure_cert(ctx)
@@ -67,9 +73,10 @@ def trusted_ctx(tmp_path: Path, ca: trustme.CA) -> ssl.SSLContext:
 
 
 @pytest.fixture
-def http_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
+def http_url(server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
     server = HTTPServer(("localhost", 0), _EchoHandler)
-    server.socket = server_ctx.wrap_socket(server.socket, server_side=True)
+    if tls:
+        server.socket = server_ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
     yield URL(host="localhost", port=server.server_address[1])
     server.shutdown()
@@ -77,14 +84,14 @@ def http_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
 
 
 @pytest.fixture
-def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
+def ws_url(server_ctx: ssl.SSLContext, tls: bool) -> Iterator[URL]:
     # The sync websockets server drops some TLS 1.3 handshakes, so the server runs on
     # an event loop in its own thread.
     loop = asyncio.new_event_loop()
     threading.Thread(target=loop.run_forever, daemon=True).start()
 
     async def start() -> Server:
-        return await serve(_open_ack, "localhost", 0, ssl=server_ctx)
+        return await serve(_open_ack, "localhost", 0, ssl=server_ctx if tls else None)
 
     server = asyncio.run_coroutine_threadsafe(start(), loop).result()
     yield URL(host="localhost", port=next(iter(server.sockets)).getsockname()[1])

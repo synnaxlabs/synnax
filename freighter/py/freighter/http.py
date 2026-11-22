@@ -14,9 +14,9 @@ import ssl
 from collections.abc import Generator, Iterable, Iterator
 from contextlib import contextmanager
 from typing import IO, Any
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlsplit
 
-from urllib3 import PoolManager, ProxyManager, Retry
+from urllib3 import PoolManager, ProxyManager, Retry, make_headers
 from urllib3.exceptions import MaxRetryError, ProtocolError, ReadTimeoutError
 from urllib3.response import BaseHTTPResponse
 
@@ -95,8 +95,8 @@ class HTTPClient(MiddlewareCollector):
         :param ssl_context: The TLS context that verifies the server. The client uses
             HTTPS when set and plain HTTP when None.
 
-        The client connects through the proxy that HTTPS_PROXY or HTTP_PROXY names,
-        unless NO_PROXY matches url.
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        url, and sends the credentials in the proxy URL.
         """
         super().__init__()
         self._endpoint = url.replace(
@@ -105,10 +105,21 @@ class HTTPClient(MiddlewareCollector):
         self._codec = codec
         self._registry = registry
         proxy = resolve(url, secure=ssl_context is not None)
-        self._pool = (
-            PoolManager(ssl_context=ssl_context, **kwargs)
-            if proxy is None
-            else ProxyManager(proxy, ssl_context=ssl_context, **kwargs)
+        if proxy is None:
+            self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
+            return
+        # urllib3 ignores credentials in the proxy URL.
+        parsed = urlsplit(proxy)
+        proxy_headers = (
+            None
+            if parsed.username is None
+            else make_headers(
+                proxy_basic_auth=f"{unquote(parsed.username)}:"
+                f"{unquote(parsed.password or '')}"
+            )
+        )
+        self._pool = ProxyManager(
+            proxy, proxy_headers=proxy_headers, ssl_context=ssl_context, **kwargs
         )
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:

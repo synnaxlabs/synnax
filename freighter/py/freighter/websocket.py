@@ -372,8 +372,8 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
 
-        The client connects through the proxy that HTTPS_PROXY or HTTP_PROXY names,
-        unless NO_PROXY matches base_url.
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(
@@ -464,8 +464,8 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
             TLS when set and a plain connection when None.
         :param kwargs: Options for the websockets connect function.
 
-        The client connects through the proxy that HTTPS_PROXY or HTTP_PROXY names,
-        unless NO_PROXY matches base_url.
+        The client connects through the proxy that freighter.proxy.resolve picks for
+        base_url.
         """
         MiddlewareCollector.__init__(self)
         _Base.__init__(
