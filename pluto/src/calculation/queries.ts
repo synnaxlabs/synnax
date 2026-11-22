@@ -20,7 +20,7 @@ type RetrieveOutputQuery = {
  * Answers with the calculation that writes the channel of the query, or with none. The
  * lookups of a tick share one request.
  */
-const { useResult: useResultOutput } = Flux.createRetrieve<
+export const { useResult: useResultOutput } = Flux.createRetrieve<
   RetrieveOutputQuery,
   calculation.Output
 >({

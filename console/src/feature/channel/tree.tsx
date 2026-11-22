@@ -116,12 +116,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
   const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
-  const isCalc = Calculation.useIsOutput(firstChannel?.key ?? 0) && singleResource;
+  const output = Calculation.useResultOutput(
+    firstChannel == null ? null : { channel: firstChannel.key },
+  ).data;
+  const editable =
+    singleResource && output?.hidden === false && output.calculation != null;
   const renamable = firstChannel?.internal !== true;
 
   return (
     <ContextMenu.Menu>
-      {isCalc && hasUpdatePermission && (
+      {editable && hasUpdatePermission && (
         <Menu.Item itemKey="openCalculated" onClick={() => openCalculated(props)}>
           <Icon.Edit />
           Edit calculation

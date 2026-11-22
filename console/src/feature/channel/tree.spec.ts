@@ -16,6 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   failRequests,
   RoleClients,
 } from "@synnaxlabs/client/testutil";
@@ -405,5 +406,31 @@ describe("permission to write the channel", () => {
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Group selection")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("should withhold Edit calculation from a user who cannot read the calculation", async () => {
+    const calc = await createChannel({
+      isIndex: false,
+      virtual: true,
+      expression: "return 1",
+    });
+    const writer = await createTestClientWithPolicy(client, {
+      name: uniqueName("channel_writer"),
+      objects: [channelClient.TYPE_RESOURCE_ID],
+      actions: ["retrieve", "update"],
+    });
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: writer,
+      resources: [createResource(channelClient.resourceID(calc.key), calc.name)],
+    });
+    expect(await screen.findByText("Rename")).toBeTruthy();
+    await waitFor(() =>
+      expect(writer.calculations.outputs.get(calc.key)).toEqual({
+        key: calc.key,
+        hidden: true,
+      }),
+    );
+    expect(screen.queryByText("Edit calculation")).toBeNull();
   });
 });
