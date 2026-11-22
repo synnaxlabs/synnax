@@ -99,9 +99,9 @@ describe("project/Splash", () => {
       const name = `proj-${id.create()}`;
       const proj = await client.projects.create({ name });
       const { wrapper, store } = await createConsoleWrapper({ client });
-      render(<Project.Splash />, { wrapper });
+      const { container } = render(<Project.Splash />, { wrapper });
 
-      await pickOption(name, "Search projects...");
+      await pickOption(name, "Search projects...", container);
 
       await waitFor(() => {
         const active = Session.Project.selectOptionalSelected(store.getState());

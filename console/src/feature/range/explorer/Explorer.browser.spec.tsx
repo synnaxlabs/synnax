@@ -364,8 +364,8 @@ describe("range/explorer/Explorer", () => {
       await renderExplorer();
       await search(token);
       await findItem(other.name);
-      await openFilterProperty("Parent");
-      await pickOption(parent.name, "Search ranges...");
+      const picker = await openFilterProperty("Parent");
+      await pickOption(parent.name, "Search ranges...", picker);
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(child.name)).toBeTruthy();

@@ -185,8 +185,8 @@ describe("Label.Filter.createProperty", () => {
       const [first, second] = await createLabels(2);
       await renderFixture({ labels: [first.key] });
       fireEvent.click(await screen.findByRole("button", { name: first.name }));
-      await screen.findByRole("dialog", { name: "Labels" });
-      await pickOption(second.name, "Search labels...");
+      const picker = await screen.findByRole("dialog", { name: "Labels" });
+      await pickOption(second.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [first.key, second.key] }] });
     });
   });
@@ -195,16 +195,16 @@ describe("Label.Filter.createProperty", () => {
     it("should add a picked label to the filter", async () => {
       const [only] = await createLabels(1);
       await renderFixture();
-      await openFilterProperty("Labels");
-      await pickOption(only.name, "Search labels...");
+      const picker = await openFilterProperty("Labels");
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere({ and: [{ labels: [only.key] }] });
     });
 
     it("should drop the condition once no label is picked", async () => {
       const [only] = await createLabels(1);
       await renderFixture({ labels: [only.key] });
-      await openFilterProperty("Labels");
-      await pickOption(only.name, "Search labels...");
+      const picker = await openFilterProperty("Labels");
+      await pickOption(only.name, "Search labels...", picker);
       await expectWhere(undefined);
     });
 
