@@ -58,6 +58,12 @@ func (s *Server) Hover(
 	}
 
 	displayContent := d.displayContent()
+	// A dotted name that is no channel is a module member, which the word hovers.
+	if n, ok := d.pathAt(params.Position, s.parserConfig()); ok {
+		if h := s.channelHover(ctx, d, n, params.Position); h != nil {
+			return h, nil
+		}
+	}
 
 	operator := s.getOperatorAtPosition(displayContent, params.Position)
 	if operator != "" {
@@ -552,6 +558,30 @@ func variableTypeDetail(sym *symbol.Symbol) string {
 	}
 }
 
+// channelHover returns the hover of the channel that n names at pos, or nil when n
+// names no channel.
+func (s *Server) channelHover(
+	ctx context.Context,
+	d *document,
+	n parser.Name,
+	pos protocol.Position,
+) *protocol.Hover {
+	scope := s.cfg.NewRoot()
+	if d.IR.Symbols != nil {
+		scope = d.findScopeAtPosition(pos)
+	}
+	sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
+	if err != nil || sym.Kind != symbol.KindChannel {
+		return nil
+	}
+	return &protocol.Hover{
+		Contents: &protocol.MarkupContent{
+			Kind:  protocol.MarkupKindMarkdown,
+			Value: s.symbolHover(sym, n.String()),
+		},
+	}
+}
+
 func (s *Server) getUserSymbolHover(
 	ctx context.Context,
 	scope *symbol.Symbol,
@@ -561,7 +591,12 @@ func (s *Server) getUserSymbolHover(
 	if err != nil {
 		return ""
 	}
+	return s.symbolHover(sym, name)
+}
 
+// symbolHover returns the hover contents of sym, titled name or, when name is empty,
+// the name of sym.
+func (s *Server) symbolHover(sym *symbol.Symbol, name string) string {
 	docComment := s.extractDocComment(sym)
 
 	displayName := name

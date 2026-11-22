@@ -11,9 +11,12 @@ package lsp
 
 import (
 	"context"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -46,6 +49,44 @@ type document struct {
 	Version   int32
 	debouncer *debounce.Debouncer
 	wordChars lsp.WordChars
+	// paths is shared by every snapshot of the document.
+	paths *pathTokens
+}
+
+// pathTokens holds the dotted names of one content. It lexes the content on first use
+// and keeps them until the content changes, so a lookup by position costs the same at
+// any document length.
+type pathTokens struct {
+	mu      sync.Mutex
+	content string
+	lexed   bool
+	paths   []pathToken
+}
+
+// of returns the dotted names of content in order. Callers must not change them.
+func (p *pathTokens) of(content string, cfg parser.Config) []pathToken {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.lexed || p.content != content {
+		p.content, p.lexed = content, true
+		p.paths = linePaths(tokenizeContent(content, cfg))
+	}
+	return p.paths
+}
+
+// pathAt returns the dotted name whose text holds pos.
+func (d *document) pathAt(pos protocol.Position, cfg parser.Config) (parser.Name, bool) {
+	ps := d.paths.of(d.displayContent(), cfg)
+	// Paths do not overlap, so only the first that ends after pos can hold it.
+	i := sort.Search(len(ps), func(i int) bool {
+		end := ps[i].rng.End
+		return end.Line > pos.Line ||
+			(end.Line == pos.Line && end.Character > pos.Character)
+	})
+	if i < len(ps) && holds(ps[i].rng, pos) {
+		return ps[i].name, true
+	}
+	return parser.Name{}, false
 }
 
 func (d *document) isBlock() bool {

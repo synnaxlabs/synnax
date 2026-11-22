@@ -359,6 +359,7 @@ func (s *Server) DidOpen(
 		Content:   params.TextDocument.Text,
 		metadata:  metadata,
 		wordChars: s.wordChars,
+		paths:     &pathTokens{},
 	}
 	// ctx ends when DidOpen returns, but analysis runs until the document closes.
 	deb, err := debounce.New(context.WithoutCancel(ctx), debounce.Config{
