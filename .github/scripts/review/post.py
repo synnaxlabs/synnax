@@ -82,8 +82,9 @@ ANSWER_END = " -->"
 _FIXED = re.compile(r"(?:\*agent reply\.\*\s*)?fixed (?:in|by)\b", re.IGNORECASE)
 _COMMENT = (
     "{id, login: .user.login, author: {__typename: .user.type, login: .user.login}, "
-    "body}"
+    "body, created_at}"
 )
+_MENTION = re.compile(r"@sedosaur\b", re.IGNORECASE)
 
 _SUMMARY = re.compile(
     f"{re.escape(render.SUMMARY_START)}.*?{re.escape(render.SUMMARY_END)}", re.DOTALL
@@ -527,6 +528,24 @@ def reviewed(t: Target, gh: GH) -> list[str]:
 def summaries(t: Target, gh: GH) -> list[str]:
     """Returns each summary that the bot wrote in the pull request body, newest first,
     from the revisions of the body."""
+    return [block for _, block in _summaries(t, gh)]
+
+
+def replies(t: Target, gh: GH, can: Authority) -> list[dict[str, Any]]:
+    """Returns each comment on the pull request that mentions the bot outside a quote,
+    from someone with write access, since the bot last wrote its summary. Returns none
+    before the first review."""
+    last = next((at for at, _ in _summaries(t, gh)), None)
+    if last is None:
+        return []
+    return [
+        c
+        for c in comments(t, gh)
+        if c["created_at"] > last and _MENTION.search(_unquoted(c["body"])) and can(c)
+    ]
+
+
+def _summaries(t: Target, gh: GH) -> list[tuple[str, str]]:
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -543,12 +562,12 @@ def summaries(t: Target, gh: GH) -> list[str]:
         "--jq",
         ".data.repository.pullRequest.userContentEdits.nodes[] | tojson",
     )
-    blocks: list[str] = []
+    blocks: list[tuple[str, str]] = []
     for line in out.splitlines():
         e = json.loads(line)
         block = _SUMMARY.search(e["diff"] or "")
         if (e["editor"] or {}).get("login") == t.bot and block is not None:
-            blocks.append(block[0])
+            blocks.append((e["editedAt"], block[0]))
     return blocks
 
 

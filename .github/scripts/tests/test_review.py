@@ -21,11 +21,13 @@ from review import (
     Fix,
     Review,
     Target,
+    authority,
     gh as call_gh,
     outside_findings,
     parse,
     post,
     render,
+    replies,
     reviewed,
 )
 
@@ -128,8 +130,8 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
-        if path == f"repos/{REPO}/collaborators/member/permission":
-            return "write\n"
+        if path.startswith(f"repos/{REPO}/collaborators/"):
+            return ("write" if path.endswith("/member/permission") else "read") + "\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
@@ -608,10 +610,16 @@ def posted(f: Finding) -> dict[str, Any]:
     return th
 
 
-def summary_edit(commit: str, login: str = "sedosaur") -> dict[str, Any]:
+def summary_edit(
+    commit: str, login: str = "sedosaur", at: str = "2026-11-08T05:00:00Z"
+) -> dict[str, Any]:
     block = f"[c](https://github.com/{REPO}/commit/{commit})"
     body = f"Fixes A.\n<!-- sedosaur_comment -->\n{block}\n<!-- /sedosaur_comment -->"
-    return {"editor": {"__typename": "Bot", "login": login}, "diff": body}
+    return {
+        "editor": {"__typename": "Bot", "login": login},
+        "diff": body,
+        "editedAt": at,
+    }
 
 
 class TestReviewed:
@@ -625,6 +633,37 @@ class TestReviewed:
     def test_should_skip_an_edit_by_another_author(self, gh: FakeGH) -> None:
         gh.edits = [summary_edit("a" * 40, login="pat"), {"editor": None, "diff": None}]
         assert reviewed(TARGET, gh) == []
+
+
+def conversation(id: int, body: str, at: str, login: str = "member") -> dict[str, Any]:
+    """A comment on the pull request in the shape that `comments` serves."""
+    who = {"__typename": "User", "login": login}
+    return {"id": id, "login": login, "author": who, "body": body, "created_at": at}
+
+
+class TestReplies:
+    """Tests reading the comments to the bot since its last review."""
+
+    LAST = "2026-11-08T05:00:00Z"
+    AFTER = "2026-11-08T06:00:00Z"
+
+    def test_should_keep_a_member_mention_after_the_last_review(
+        self, gh: FakeGH
+    ) -> None:
+        gh.edits = [summary_edit("b" * 40, at=self.LAST), summary_edit("a" * 40)]
+        kept = conversation(1, "@sedosaur `b.go:3` checks it.", self.AFTER)
+        gh.comments = [
+            conversation(2, "@sedosaur It is meant.", "2026-11-08T04:00:00Z"),
+            kept,
+            conversation(3, "@Sedosaur it is fine.", self.AFTER, login="reader"),
+            conversation(4, "Looks good to me.", self.AFTER),
+            conversation(5, "> @sedosaur review\n\nThanks.", self.AFTER),
+        ]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == [kept]
+
+    def test_should_keep_none_before_the_first_review(self, gh: FakeGH) -> None:
+        gh.comments = [conversation(1, "@sedosaur It is meant.", self.AFTER)]
+        assert replies(TARGET, gh, authority(TARGET, gh)) == []
 
 
 class TestGH:

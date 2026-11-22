@@ -39,7 +39,11 @@ def lines(items: list[dict[str, Any]]) -> str:
 def summary_edit(commit: str) -> dict[str, Any]:
     block = f"[c](https://github.com/{REPO}/commit/{commit})"
     body = f"Fixes A.\n<!-- sedosaur_comment -->\n{block}\n<!-- /sedosaur_comment -->"
-    return {"editor": {"__typename": "Bot", "login": "sedosaur"}, "diff": body}
+    return {
+        "editor": {"__typename": "Bot", "login": "sedosaur"},
+        "diff": body,
+        "editedAt": "2026-11-08T05:00:00Z",
+    }
 
 
 def check_run(**kw: Any) -> dict[str, Any]:
