@@ -29,10 +29,17 @@ type Committed struct {
 
 // Reader reads checked stream bytes of segments. It holds the last block that it read
 // for part of a block until Reset, so a later read inside that block reads no bytes
-// again. With a cache, it takes such a block from the cache when the cache holds it,
-// and adds each full block that it checks. It is not safe for concurrent use.
+// again. With a cache, a probe takes its full block from the cache when the cache holds
+// it, and adds the block once it checks it. A probe is a read inside one block that
+// does not go on from the last read of the reader. Other reads, such as scans, read
+// past the cache. A Reader is not safe for concurrent use.
 type Reader struct {
 	cache *Cache
+	// end is where the last read ended: its segment, and the stream offset after it.
+	end struct {
+		id  uint64
+		off int64
+	}
 	// buf is what the next read from the disk fills, or nil until the reader needs one.
 	buf []byte
 	// block holds the checked bytes that held names: buf, or the bytes of cached.
@@ -69,6 +76,9 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 			s.ID,
 		)
 	}
+	probe := rd.cache != nil && (s.ID != rd.end.id || off != rd.end.off) &&
+		off/BlockSize == (off+int64(len(p))-1)/BlockSize
+	rd.end.id, rd.end.off = s.ID, off+int64(len(p))
 	for len(p) > 0 {
 		start := off - off%BlockSize
 		end := min(start+BlockSize, s.Length)
@@ -79,7 +89,7 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 			if err := rd.checked(r, s, start, p[:BlockSize+s.trailer()]); err != nil {
 				return err
 			}
-		} else if err := rd.hold(r, s, start, end); err != nil {
+		} else if err := rd.hold(r, s, start, end, probe); err != nil {
 			return err
 		} else {
 			copy(p[:n], rd.block[off-start:])
@@ -89,8 +99,9 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 	return nil
 }
 
-// hold makes rd hold the checked block of s from stream offset start to end.
-func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
+// hold makes rd hold the checked block of s from stream offset start to end, through
+// the cache for a probe.
+func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64, probe bool) error {
 	size := end - start
 	if size == BlockSize {
 		size += s.trailer()
@@ -99,7 +110,7 @@ func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
 		return nil
 	}
 	rd.held.size = 0
-	if err := rd.fill(r, s, start, size); err != nil {
+	if err := rd.fill(r, s, start, size, probe && size > BlockSize); err != nil {
 		return err
 	}
 	rd.held.db, rd.held.id, rd.held.start, rd.held.size = s.DB, s.ID, start, size
@@ -107,9 +118,14 @@ func (rd *Reader) hold(r io.ReaderAt, s Committed, start, end int64) error {
 }
 
 // fill makes the block of rd the checked size bytes at stream offset start of s: from
-// the cache for a full block that it holds, or from r.
-func (rd *Reader) fill(r io.ReaderAt, s Committed, start, size int64) error {
-	shared, k := size > BlockSize && rd.cache != nil, blockKey{id: s.ID, start: start}
+// the cache for a shared full block that it holds, or from r.
+func (rd *Reader) fill(
+	r io.ReaderAt,
+	s Committed,
+	start, size int64,
+	shared bool,
+) error {
+	k := blockKey{id: s.ID, start: start}
 	if !shared {
 		rd.release()
 	} else if b, ok := rd.cache.get(k, rd.cached); ok {
@@ -133,11 +149,11 @@ func (rd *Reader) fill(r io.ReaderAt, s Committed, start, size int64) error {
 }
 
 // Reset drops the block that rd holds, so the next read of it reads it from the cache
-// or checks it again. A caller resets a reader when it is done with it, which lets the
-// cache drop the block.
+// or checks it again, and forgets where the last read ended. A caller resets a reader
+// when it is done with it, which lets the cache drop the block.
 func (rd *Reader) Reset() {
 	rd.release()
-	rd.held.size = 0
+	rd.held.size, rd.end.id = 0, 0
 }
 
 // release drops the hold of rd on its cached block.

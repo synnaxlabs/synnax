@@ -196,6 +196,41 @@ var _ = Describe("Cache", func() {
 			Expect(r.reads.Load()).To(BeZero(), "the reader holds block 0")
 		})
 
+	It("Should read past the cache for a read that goes on from the last read",
+		func() {
+			cache := segment.NewCache(4 * entry)
+			rd := segment.NewReader(cache)
+			p := make([]byte, 8)
+			Expect(rd.Read(h, com, p, segment.BlockSize-8)).To(Succeed())
+			Expect(rd.Read(h, com, p, segment.BlockSize)).To(Succeed())
+			Expect(p).To(Equal(stream[segment.BlockSize : segment.BlockSize+8]))
+			Expect(probe(cache, r, block(1))).To(Succeed())
+			Expect(probe(cache, r, block(0))).To(Succeed())
+			Expect(r.reads.Load()).To(Equal(int64(1)), "only block 0 is cached")
+		})
+
+	It("Should read past the cache for a read over two blocks", func() {
+		cache := segment.NewCache(4 * entry)
+		p := make([]byte, 16)
+		Expect(segment.NewReader(cache).Read(h, com, p, segment.BlockSize-8)).
+			To(Succeed())
+		Expect(p).To(Equal(stream[segment.BlockSize-8 : segment.BlockSize+8]))
+		Expect(probe(cache, r, block(0))).To(Succeed())
+		Expect(probe(cache, r, block(1))).To(Succeed())
+		Expect(r.reads.Load()).To(Equal(int64(2)))
+	})
+
+	It("Should take the first read after a reset as a probe", func() {
+		cache := segment.NewCache(4 * entry)
+		rd := segment.NewReader(cache)
+		p := make([]byte, 8)
+		Expect(rd.Read(h, com, p, segment.BlockSize-8)).To(Succeed())
+		rd.Reset()
+		Expect(rd.Read(h, com, p, segment.BlockSize)).To(Succeed())
+		Expect(probe(cache, r, block(1))).To(Succeed())
+		Expect(r.reads.Load()).To(BeZero())
+	})
+
 	It("Should not give the block of one segment to another", func() {
 		cache := segment.NewCache(4 * entry)
 		Expect(probe(cache, h, 100)).To(Succeed())
