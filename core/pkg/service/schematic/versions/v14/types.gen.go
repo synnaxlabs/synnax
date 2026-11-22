@@ -21,7 +21,7 @@ import (
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
@@ -3300,9 +3300,9 @@ type CustomActuatorNodeConfig struct {
 	ToggleConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
@@ -3326,9 +3326,9 @@ type CustomStaticNodeConfig struct {
 	ScaledConfig
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// StateOverrides contains per-instance overrides of the spec's visual states,
-	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
+	// StateOverrides contains per-instance replacements of the spec's region colors,
+	// one for each value that the node draws, in value order: Base, then Active.
+	StateOverrides []symbol.StateOverride `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}

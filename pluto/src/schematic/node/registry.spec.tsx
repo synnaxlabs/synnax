@@ -16,14 +16,10 @@ import { Node } from "@/schematic/node";
 import { GroupBox } from "@/schematic/node/groupBox";
 import { createSynnaxWrapper, renderForm } from "@/testutil";
 
-const createSymbol = (variant: string, stateKeys: string[]): schematic.symbol.Symbol =>
+const createSymbol = (variant: string): schematic.symbol.Symbol =>
   schematic.symbol.symbolZ.parse({
     name: "Pump",
-    data: {
-      svg: "<svg></svg>",
-      variant,
-      states: stateKeys.map((key) => ({ key, name: key })),
-    },
+    data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant },
   });
 
 describe("Schematic.Node.resolveSpec", () => {
@@ -155,18 +151,11 @@ describe("Schematic.Node.createConfig", () => {
 
 describe("Schematic.Node.customVariant", () => {
   it("should draw a static symbol as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("static", ["base"]))).toBe("custom_static");
+    expect(Node.customVariant(createSymbol("static"))).toBe("custom_static");
   });
 
-  it("should draw an actuator with several states as a custom actuator", () => {
-    const symbol = createSymbol("actuator", ["base", "active"]);
-    expect(Node.customVariant(symbol)).toBe("custom_actuator");
-  });
-
-  it("should draw an actuator with a single state as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("actuator", ["base"]))).toBe(
-      "custom_static",
-    );
+  it("should draw an actuator as a custom actuator", () => {
+    expect(Node.customVariant(createSymbol("actuator"))).toBe("custom_actuator");
   });
 });
 
