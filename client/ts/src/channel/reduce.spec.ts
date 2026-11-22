@@ -27,6 +27,7 @@ const create = (stored: Partial<Stored>): Action => ({
       virtual: true,
       concurrency: control.Concurrency.exclusive,
       expression: "",
+      description: "",
       ...stored,
     },
   },
