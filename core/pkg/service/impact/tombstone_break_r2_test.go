@@ -134,11 +134,16 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		display(ctx, keys...)
 		deleteChannels(ctx, keys...)
 		p := MustSucceed(deleteGroups(ctx, child.Key, parent.Key))
-		want := make([]impact.Entry, len(keys))
-		for i, k := range keys {
+		want := make([]impact.Entry, len(chs))
+		for i, ch := range chs {
+			path := parent.Name + "." + ch.Name
+			if *ch.Group == child.Key {
+				path = parent.Name + "." + child.Name + "." + ch.Name
+			}
 			want[i] = impact.Entry{
-				Record: channel.ResourceID(k),
+				Record: channel.ResourceID(ch.Key()),
 				Effect: impact.EffectCascade,
+				Path:   &path,
 			}
 		}
 		slices.SortFunc(want, func(a, b impact.Entry) int {
@@ -232,10 +237,12 @@ var _ = Describe("Tombstone break r2", Ordered, ContinueOnFailure, func() {
 		))
 		Expect(tombstoneKeys(ctx)).To(ContainElement(dead.Key()))
 		deleteChannels(ctx, live.Key())
+		path := parent.Name + "." + child.Name + "." + dead.Name
 		Expect(deleteGroups(ctx, parent.Key, child.Key)).To(Equal(impact.Plan{
 			Entries: []impact.Entry{{
 				Record: channel.ResourceID(dead.Key()),
 				Effect: impact.EffectCascade,
+				Path:   &path,
 			}},
 		}))
 		Expect(tombstoneKeys(ctx)).ToNot(ContainElement(dead.Key()))

@@ -72,6 +72,12 @@ Entry struct {
     default Choice?     {
         @doc value "is the pick that applies when the caller makes none."
     }
+    path    string?     {
+        @doc value """
+            is set only for the entry of a tombstone: its name under its folders, from
+            the deleted folder that holds it, with `.` between segments.
+        """
+    }
 
     @doc value "is one record that a change touches."
 }

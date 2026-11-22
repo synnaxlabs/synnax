@@ -217,11 +217,14 @@ var _ = Describe("Tombstone", Ordered, func() {
 				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
 			})).To(MatchError(validate.ErrValidation))
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				dead, err := svc.NewWriter(tx).DeleteTombstones(ctx, g.Key)
+				gone, err := svc.NewWriter(tx).DeleteTombstones(ctx, g.Key)
 				if err != nil {
 					return err
 				}
-				Expect(dead).To(Equal(channel.Keys{dead[0]}))
+				Expect(gone).To(HaveLen(1))
+				Expect(gone[0].Key).To(Equal(dead.Key()))
+				Expect(gone[0].Name).To(Equal(dead.Name))
+				Expect(gone[0].Group).To(Equal(&g.Key))
 				return groupSvc.NewWriter(tx).Delete(ctx, g.Key)
 			})).To(Succeed())
 			_, ok := tombstoneOf(ctx, dead.Key())
