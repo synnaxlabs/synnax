@@ -74,7 +74,7 @@ variable "instance_type" {
 }
 
 variable "ttl_days" {
-  description = "Days after its last deploy that the host removes a preview."
+  description = "Days after its last deploy or view that the host removes a preview."
   type        = number
   default     = 2
 }
