@@ -384,6 +384,8 @@ export interface CreateConsoleWrapperParams {
   additionalRegistry?: aether.ComponentRegistry;
   /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
+  /** Leaves the permissions unloaded, for a spec of a failed permissions load. */
+  skipPermissionLoad?: boolean;
 }
 
 export const createConsoleWrapper = async ({
@@ -392,6 +394,7 @@ export const createConsoleWrapper = async ({
   store,
   additionalRegistry,
   portal,
+  skipPermissionLoad = false,
 }: CreateConsoleWrapperParams): Promise<{
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
@@ -399,7 +402,7 @@ export const createConsoleWrapper = async ({
   const resolvedStore = store ?? (await createTestStore({ preloadedState }));
   // The Console renders nothing before the permissions load, so no item that a
   // permission gates mounts after the first render.
-  if (client != null) {
+  if (client != null && !skipPermissionLoad) {
     const { role } = await client.users.current.retrieve();
     await client.access.policies.watch({ roles: [role] }).retrieve();
   }
