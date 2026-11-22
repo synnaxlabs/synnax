@@ -198,66 +198,71 @@ func BenchmarkBuild(b *testing.B) {
 	}
 }
 
+// storeBenchArcs stores n text automations in the root directory of a fresh node, with
+// the Arc table closed, and returns the node's database and the first Arc.
+func storeBenchArcs(b *testing.B, n int) (*gorp.DB, arc.Arc) {
+	b.Helper()
+	gomega.RegisterTestingT(b)
+	ctx := b.Context()
+	node := testutil.OpenNode(ctx)
+	statuses := MustSucceed(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
+	channels := MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		TS:      node.Storage.TS,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statuses,
+	}))
+	b.Cleanup(func() {
+		if err := (io.MultiCloser{node, statuses, channels}).Close(); err != nil {
+			b.Error(err)
+		}
+	})
+	createBenchChannels(b, node.DB, channels, 1)
+	table := MustSucceed(arc.OpenTable(ctx, arc.TableConfig{DB: node.DB}))
+	var root directory.Directory
+	if err := gorp.NewRetrieve[directory.Key, directory.Directory]().
+		Entry(&root).
+		Exec(ctx, node.DB); err != nil {
+		b.Fatal(err)
+	}
+	arcs := make([]arc.Arc, n)
+	for i := range arcs {
+		arcs[i] = newArc(arc.TypeAutomation, arc.Base{
+			Key:       uuid.New(),
+			Name:      "bench_" + strconv.Itoa(i),
+			Directory: &root.Key,
+			Source: arc.Source{Variant: arc.TextSource{
+				Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
+			}},
+		})
+	}
+	if err := node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs...)
+	}); err != nil {
+		b.Fatal(err)
+	}
+	if err := table.Close(); err != nil {
+		b.Fatal(err)
+	}
+	return node.DB, arcs[0]
+}
+
 // BenchmarkOpenTable opens the Arc table over n stored text automations and waits for
 // its indexes and references to fill, as a Core start does.
 func BenchmarkOpenTable(b *testing.B) {
 	for _, n := range []int{100, 1000} {
 		b.Run(fmt.Sprintf("arcs=%d", n), func(b *testing.B) {
-			gomega.RegisterTestingT(b)
+			db, first := storeBenchArcs(b, n)
 			ctx := b.Context()
-			node := testutil.OpenNode(ctx)
-			statuses := MustSucceed(
-				status.OpenService(ctx, status.ServiceConfig{DB: node.DB}),
-			)
-			channels := MustSucceed(channel.OpenService(ctx, channel.ServiceConfig{
-				Channel: node.Channel,
-				TS:      node.Storage.TS,
-				DB:      node.DB,
-				HostKey: node.Identity.HostKey,
-				Status:  statuses,
-			}))
-			b.Cleanup(func() {
-				closer := io.MultiCloser{node, statuses, channels}
-				if err := closer.Close(); err != nil {
-					b.Error(err)
-				}
-			})
-			createBenchChannels(b, node.DB, channels, 1)
-			cfg := arc.TableConfig{DB: node.DB}
-			table := MustSucceed(arc.OpenTable(ctx, cfg))
-			var root directory.Directory
-			if err := gorp.NewRetrieve[directory.Key, directory.Directory]().
-				Entry(&root).
-				Exec(ctx, node.DB); err != nil {
-				b.Fatal(err)
-			}
-			arcs := make([]arc.Arc, n)
-			for i := range arcs {
-				arcs[i] = newArc(arc.TypeAutomation, arc.Base{
-					Key:       uuid.New(),
-					Name:      "bench_" + strconv.Itoa(i),
-					Directory: &root.Key,
-					Source: arc.Source{Variant: arc.TextSource{
-						Text: text.Text{Raw: "bench_in_0 * 2.0 -> bench_out_0"},
-					}},
-				})
-			}
-			if err := node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs...)
-			}); err != nil {
-				b.Fatal(err)
-			}
-			if err := table.Close(); err != nil {
-				b.Fatal(err)
+			rewrite := func(tx gorp.Tx) error {
+				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, first)
 			}
 			b.ReportAllocs()
-			rewrite := func(tx gorp.Tx) error {
-				return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, arcs[0])
-			}
 			for b.Loop() {
-				t := MustSucceed(arc.OpenTable(ctx, cfg))
+				t := MustSucceed(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 				// A write waits for the table's indexes and references to fill.
-				if err := node.DB.WithTx(ctx, rewrite); err != nil {
+				if err := db.WithTx(ctx, rewrite); err != nil {
 					b.Fatal(err)
 				}
 				if err := t.Close(); err != nil {

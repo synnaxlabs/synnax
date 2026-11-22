@@ -13,10 +13,8 @@ package arc
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
@@ -38,8 +36,6 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 	name   *gorp.SortedIndex[Key, Arc, string]
-	reads  *gorp.KeyReference[Key, Arc, channel.Key]
-	writes *gorp.KeyReference[Key, Arc, channel.Key]
 	search *gorp.SearchIndex[Key, Arc]
 }
 
@@ -52,76 +48,6 @@ func newIndexes() indexes {
 			"name",
 			func(e *Arc) string { return compare.TextKey(string(e.Base().Name)) },
 		),
-		reads: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Arc, channel.Key]{
-			Name:     "reads",
-			Table:    "channel",
-			OnDelete: gorp.Weak,
-			Kind:     gorp.Use,
-			Tag:      1, // direction read
-			Targets: func(e *Arc) []channel.Key {
-				var targets []channel.Key
-				switch v1 := e.Variant.(type) {
-				case AutomationArc:
-					for _, k2 := range v1.Reads {
-						targets = append(targets, k2)
-					}
-				case ModuleArc:
-					for _, k3 := range v1.Reads {
-						targets = append(targets, k3)
-					}
-				}
-				return targets
-			},
-			Detach: func(e *Arc, t channel.Key) {
-				switch v4 := e.Variant.(type) {
-				case AutomationArc:
-					v4.Reads = slices.DeleteFunc(v4.Reads, func(k5 channel.Key) bool {
-						return k5 == t
-					})
-					e.Variant = v4
-				case ModuleArc:
-					v4.Reads = slices.DeleteFunc(v4.Reads, func(k6 channel.Key) bool {
-						return k6 == t
-					})
-					e.Variant = v4
-				}
-			},
-		}),
-		writes: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Arc, channel.Key]{
-			Name:     "writes",
-			Table:    "channel",
-			OnDelete: gorp.Weak,
-			Kind:     gorp.Use,
-			Tag:      2, // direction write
-			Targets: func(e *Arc) []channel.Key {
-				var targets []channel.Key
-				switch v1 := e.Variant.(type) {
-				case AutomationArc:
-					for _, k2 := range v1.Writes {
-						targets = append(targets, k2)
-					}
-				case ModuleArc:
-					for _, k3 := range v1.Writes {
-						targets = append(targets, k3)
-					}
-				}
-				return targets
-			},
-			Detach: func(e *Arc, t channel.Key) {
-				switch v4 := e.Variant.(type) {
-				case AutomationArc:
-					v4.Writes = slices.DeleteFunc(v4.Writes, func(k5 channel.Key) bool {
-						return k5 == t
-					})
-					e.Variant = v4
-				case ModuleArc:
-					v4.Writes = slices.DeleteFunc(v4.Writes, func(k6 channel.Key) bool {
-						return k6 == t
-					})
-					e.Variant = v4
-				}
-			},
-		}),
 		search: gorp.NewSearchIndex[Key, Arc](
 			"search",
 			func(e *Arc) []string {
@@ -137,15 +63,6 @@ func (i indexes) all() []gorp.Index[Key, Arc] {
 	return []gorp.Index[Key, Arc]{
 		i.name,
 		i.search,
-	}
-}
-
-// references returns the references packaged for registration via
-// gorp.TableConfig.References when opening the underlying table.
-func (i indexes) references() []gorp.Reference[Key, Arc] {
-	return []gorp.Reference[Key, Arc]{
-		i.reads,
-		i.writes,
 	}
 }
 
@@ -256,40 +173,6 @@ func MatchNames(vals ...string) Filter {
 				return want.Contains(e.Base().Name), nil
 			}),
 		)
-	}
-}
-
-// MatchReads returns a filter for arcs
-// whose Reads contains any of the provided
-// values.
-func MatchReads(vals ...channel.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Arc] {
-		return r.indexes.reads.Filter(vals...)
-	}
-}
-
-// MatchHasReads returns a filter for arcs whose
-// Reads holds a target when has is true, and holds none when has is false.
-func MatchHasReads(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Arc] {
-		return r.indexes.reads.FilterHolding(has)
-	}
-}
-
-// MatchWrites returns a filter for arcs
-// whose Writes contains any of the provided
-// values.
-func MatchWrites(vals ...channel.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Arc] {
-		return r.indexes.writes.Filter(vals...)
-	}
-}
-
-// MatchHasWrites returns a filter for arcs whose
-// Writes holds a target when has is true, and holds none when has is false.
-func MatchHasWrites(has bool) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Arc] {
-		return r.indexes.writes.FilterHolding(has)
 	}
 }
 

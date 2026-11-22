@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -93,10 +92,9 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		DB:      cfg.DB,
 		Name:    tableName,
 		Indexes: t.indexes.all(),
-		References: slices.Concat(
+		References: append(
 			[]gorp.Reference[Key, Arc]{newDirectoryReference()},
-			t.indexes.references(),
-			newNodeReferences(newChannelParams(standardSymbols())),
+			newChannelReferences(newChannelParams(standardSymbols()))...,
 		),
 		Migrations:      versions.NewMigrations(t.root),
 		Instrumentation: cfg.Instrumentation,

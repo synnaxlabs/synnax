@@ -80,22 +80,16 @@ Base struct {
         @doc value "is the key of the directory that holds the Arc."
     }
     reads     channel.Key[] = [] {
-        @doc value     """
+        @doc value """
             are the channels that the Arc reads, as the last compile of its source that
             succeeded found them.
         """
-        @ref direction read
-        @ref kind      use
-        @ref on_delete weak
     }
     writes    channel.Key[] = [] {
-        @doc value     """
+        @doc value """
             are the channels that the Arc writes, as the last compile of its source that
             succeeded found them.
         """
-        @ref direction write
-        @ref kind      use
-        @ref on_delete weak
     }
 
     @doc value  "carries the fields that every Arc shares."
