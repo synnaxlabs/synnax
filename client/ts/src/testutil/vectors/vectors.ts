@@ -17,9 +17,13 @@ import type Synnax from "@/client";
 import type { label } from "@/label";
 import { spyOnSend, waitForStreamLive } from "@/testutil";
 
+// The longest each wait for quiet lists runs. Lists stay busy while other spec files
+// write to the same Core.
 const FETCH_TIMEOUT = TimeSpan.seconds(5);
 // Five times the 100 ms debounce of a list's refetch.
 const QUIET = TimeSpan.milliseconds(500);
+// Covers the connect, the writes, and both waits for quiet lists.
+const SETUP_TIMEOUT = TimeSpan.seconds(30);
 
 const VECTORS_URL = new URL(
   "../../../../../core/testdata/filter/vectors.json",
@@ -195,7 +199,7 @@ export const itFiltersLive = <R, W, K>(
     } finally {
       send.mockRestore();
     }
-  });
+  }, SETUP_TIMEOUT.milliseconds);
 
   afterAll(() => opened.forEach(({ close }) => close()));
 
