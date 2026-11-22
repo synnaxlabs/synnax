@@ -61,6 +61,7 @@ describe("Color.Field", () => {
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
+    await waitForStreamLive(other.connection);
   });
 
   const renderField = async (fill?: color.Ref, fieldWrapper = wrapper) => {
