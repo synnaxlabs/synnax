@@ -364,22 +364,20 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// refuseAmbiguous returns a validation error when a name or path of the strict where
-// is held by several channels, every holder counted, with the paths that the subject
-// can see. It returns a validation error when where holds a match other than a key,
-// name, or path, at the top level or as the branches of one or.
+// refuseAmbiguous returns a validation error when a name of the strict where is held by
+// several channels, every holder counted, with the paths that the subject can see. It
+// returns a validation error when where holds a match other than a key, name, or path,
+// at the top level or as the branches of one or.
 func (s *Service) refuseAmbiguous(
 	ctx context.Context,
 	snap bind.Snapshot,
 	where *channel.Where,
 ) error {
-	names, paths, err := strictLookups(where)
+	names, err := strictNames(where)
 	if err != nil {
 		return err
 	}
-	if _, err = s.internal.KeysByNames(ctx, snap, names); err == nil {
-		err = s.pathsHeldOnce(ctx, snap, paths)
-	}
+	_, err = s.internal.KeysByNames(ctx, snap, names)
 	return s.internal.DescribeAmbiguity(ctx, snap, err, func(
 		context.Context,
 	) (func(resource.ID) bool, error) {
@@ -387,71 +385,48 @@ func (s *Service) refuseAmbiguous(
 	})
 }
 
-// pathsHeldOnce returns an AmbiguousNameError for the first of paths that several
-// channels hold.
-func (s *Service) pathsHeldOnce(
-	ctx context.Context,
-	snap bind.Snapshot,
-	paths []string,
-) error {
-	for _, p := range paths {
-		var holders []channel.Channel
-		if err := s.internal.NewRetrieve().
-			Where(channel.MatchPaths(p)).
-			Entries(&holders).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		if len(holders) > 1 {
-			return channel.AmbiguousNameError{
-				Name:    p,
-				Holders: channel.KeysFromChannels(holders),
-			}
-		}
-	}
-	return nil
-}
-
-// strictLookups returns the names and paths that a strict where matches, and a
-// validation error when where holds any other match.
-func strictLookups(where *channel.Where) (names, paths []string, err error) {
+// strictNames returns the names that a strict where matches, and a validation error
+// when where holds a match other than a key, name, or path.
+func strictNames(where *channel.Where) ([]string, error) {
 	refuse := validate.PathedError(
 		validate.Errorf("a strict retrieve takes only key, name, and path matches"),
 		"where",
 	)
 	if where == nil {
-		return nil, nil, refuse
+		return nil, refuse
 	}
 	branches := []channel.Where{*where}
 	if len(where.Or) > 0 {
 		if !lookupsOnly(*where) || where.Key != nil || where.Name != nil ||
 			where.Path != nil {
-			return nil, nil, refuse
+			return nil, refuse
 		}
 		branches = where.Or
 	}
+	var names []string
 	for _, b := range branches {
-		if !lookupsOnly(b) || len(b.Or) > 0 {
-			return nil, nil, refuse
+		if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
+			return nil, refuse
 		}
 		if n := b.Name; n != nil {
 			if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
 				n.CaseInsensitive {
-				return nil, nil, refuse
+				return nil, refuse
 			}
 			names = append(names, n.In...)
 			if n.Eq != nil {
 				names = append(names, *n.Eq)
 			}
 		}
-		if b.Path != nil {
-			paths = append(paths, b.Path.In...)
-			if b.Path.Eq != nil {
-				paths = append(paths, *b.Path.Eq)
-			}
-		}
 	}
-	return names, paths, nil
+	return names, nil
+}
+
+// looksUp reports whether w holds a key, name, or path to look up.
+func looksUp(w channel.Where) bool {
+	return w.Key != nil && (w.Key.Eq != nil || len(w.Key.In) > 0) ||
+		w.Name != nil && (w.Name.Eq != nil || len(w.Name.In) > 0) ||
+		w.Path != nil && (w.Path.Eq != nil || len(w.Path.In) > 0)
 }
 
 // lookupsOnly reports whether w holds no match but key, name, path, and or.

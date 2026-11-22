@@ -176,7 +176,7 @@ var _ = Describe("Strict retrieve", func() {
 		}),
 	)
 
-	It("Should refuse each other field of a where and of its name filter", func(
+	It("Should refuse each other field of a where and of its lookup filters", func(
 		ctx SpecContext,
 	) {
 		set := func(v reflect.Value) {
@@ -215,6 +215,31 @@ var _ = Describe("Strict retrieve", func() {
 			set(reflect.ValueOf(w.Name).Elem().Field(i))
 			Expect(retrieve(ctx, w, true)).Error().
 				To(refused, nameFields.Field(i).Name)
+		}
+		sets := map[string]func() (channel.Where, reflect.Value){
+			"key": func() (channel.Where, reflect.Value) {
+				w := channel.Where{
+					Key: &filter.Set[channel.Key]{Eq: new(inShown.Key())},
+				}
+				return w, reflect.ValueOf(w.Key).Elem()
+			},
+			"path": func() (channel.Where, reflect.Value) {
+				w := channel.Where{Path: &filter.Set[string]{Eq: new("x")}}
+				return w, reflect.ValueOf(w.Path).Elem()
+			},
+		}
+		for field, fresh := range sets {
+			_, v := fresh()
+			for i := range v.NumField() {
+				switch v.Type().Field(i).Name {
+				case "Eq", "In":
+					continue
+				}
+				w, fields := fresh()
+				set(fields.Field(i))
+				Expect(retrieve(ctx, w, true)).Error().
+					To(refused, field+" "+v.Type().Field(i).Name)
+			}
 		}
 	})
 })
