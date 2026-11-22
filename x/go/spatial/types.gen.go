@@ -142,6 +142,11 @@ type Decimal = versions.Decimal
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = versions.Bounds
 
+// ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
+// such as the range of a hardware input. The TypeScript binding is generic over T;
+// other languages emit a concrete float64-based type.
+type ClosedBounds = versions.ClosedBounds
+
 // Order is a positional ordering indicator for elements in a sequence.
 type Order string
 

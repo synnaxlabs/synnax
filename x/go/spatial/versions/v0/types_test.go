@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -63,4 +64,18 @@ var _ = Describe("StickyXY", func() {
 			Units: v0.StickyUnits{X: v0.StickyUnitPx, Y: v0.StickyUnitPx},
 		}))
 	})
+})
+
+var _ = Describe("ClosedBounds", func() {
+	It("Should accept a lower below the upper", func() {
+		Expect(v0.ClosedBounds{Lower: -10, Upper: 10}.Validate()).To(Succeed())
+	})
+
+	DescribeTable("Should reject a lower that is not below the upper",
+		func(b v0.ClosedBounds) {
+			Expect(b.Validate()).To(MatchError(validate.ErrValidation))
+		},
+		Entry("equal ends", v0.ClosedBounds{Lower: 1, Upper: 1}),
+		Entry("reversed ends", v0.ClosedBounds{Lower: 5, Upper: -5}),
+	)
 })

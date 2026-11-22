@@ -513,7 +513,9 @@ func structComparisonProblems(
 	table *resolution.Table,
 ) []string {
 	var problems []string
-	fields := resolution.UnifiedFields(t, table)
+	// Go emits a struct whose type parameters all have defaults as a concrete type, so
+	// its fields compare at those defaults.
+	fields, _ := resolution.RecordFields(t, table)
 	for _, f := range fields {
 		name := t.QualifiedName + "." + f.Name
 		_, declared := form.Field(f.Name)
@@ -536,7 +538,7 @@ func structComparisonProblems(
 			}
 			continue
 		}
-		if len(form.TypeParams) > 0 {
+		if len(resolution.NonDefaultedTypeParams(form.TypeParams)) > 0 {
 			problems = append(problems, fmt.Sprintf(
 				"%s has an lt rule, but %s is generic", name, t.QualifiedName,
 			))

@@ -33,6 +33,25 @@ func (bv *Bounds) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (cb ClosedBounds) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(cb.Lower))
+	w.Float64(float64(cb.Upper))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cb *ClosedBounds) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if cb.Lower, err = r.Float64(); err != nil {
+		return err
+	}
+	if cb.Upper, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (cl CornerLocation) EncodeOrc(w *orc.Writer) error {
 	w.String(string(cl.X))
 	w.String(string(cl.Y))

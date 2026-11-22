@@ -9,6 +9,7 @@
 
 export * from "@/spatial/bounds";
 export * from "@/spatial/box";
+export * from "@/spatial/closedBounds";
 export * from "@/spatial/dimensions";
 export * from "@/spatial/direction";
 export * from "@/spatial/location";
