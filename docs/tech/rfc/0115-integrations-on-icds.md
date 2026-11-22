@@ -16,10 +16,10 @@ and receives. This RFC makes the ICD the one description of message shape for ev
 message integration: MQTT, Kafka, HTTP, serial, TCP, UDP, and CAN. A task names ICD
 messages and binds their fields to channels. It never describes a message itself.
 
-MQTT reads work this way on `main` (#5345, #5649, #5654, #6320, #5661). This RFC records
-the model, the locked decisions, and the phases that move the other integrations onto
-it. All phases land before the 0.62.0 release, so ICD v0, MQTT v2, and Kafka v1 change
-in place until then and need no migration between them.
+MQTT and Kafka reads work this way on `main`. This RFC records the model, the locked
+decisions, and the phases that move the other integrations onto it. The remaining phases
+land before the 0.63.0 release, so ICD v1, MQTT v3, Kafka v1, and HTTP v5 change in
+place until then.
 
 ## 1 Vocabulary
 
@@ -75,7 +75,8 @@ This RFC changes the ICD in these ways:
 - The unused `payload.FloatRead` to `payload.TimestampRead` types are deleted. The ICD
   JSON field is their replacement.
 - A message gets a `cycle_time`, the send cycle the protocol states. DBC import fills it
-  from `GenMsgCycleTime`.
+  from `GenMsgCycleTime`. DBC files mark an event-triggered message with 0, so import
+  leaves its `cycle_time` unset, and `Check` refuses a cycle time that is not positive.
 
 ### 3.1 Tasks
 
@@ -101,11 +102,11 @@ changed.
 
 ### 3.2 Codecs
 
-The Go codec (`core/pkg/service/icd/codec`) decodes JSON for MQTT and Kafka. It gains an
-encoder for writes. The C++ codec (`driver/codec`) decodes and encodes binary and text
-payloads, matches messages, and frames streams (delimiter, fixed length, sync, COBS,
-SLIP). It gains a JSON payload on `x/cpp/json` for HTTP. A C++ spec runs the shared
-fixtures.
+The Go codec (`core/pkg/service/icd/codec`) decodes and encodes JSON for MQTT and Kafka.
+The C++ codec (`driver/codec`) decodes JSON on `x/cpp/json` for HTTP (Phase 24). Phase
+28 adds binary and text payloads and message matching to it, and Phase 29 adds stream
+framing (delimiter, fixed length, sync, COBS, SLIP) in `driver/codec/framing`. A C++
+spec runs the shared fixtures for each payload format as it lands.
 
 ### 3.3 The Driver reads ICDs
 
@@ -115,22 +116,23 @@ emits C++ and protobuf types for `icd.oracle`.
 
 ### 3.4 Integrations
 
-| Integration      | Runs in | Read                  | Write         | Stored version |
-| ---------------- | ------- | --------------------- | ------------- | -------------- |
-| MQTT             | Core    | On ICDs (`main`)      | Moves to ICDs | v2, unshipped  |
-| Kafka            | Core    | Moves to ICDs (#6209) | Moves to ICDs | v1, unshipped  |
-| HTTP             | Driver  | Moves to ICDs         | Moves to ICDs | v5, new        |
-| Serial, TCP, UDP | Driver  | New on ICDs           | New on ICDs   | v0, new        |
-| CAN              | Driver  | New on ICDs           | New on ICDs   | v0, new        |
+| Integration      | Runs in | Read             | Write         | Stored version |
+| ---------------- | ------- | ---------------- | ------------- | -------------- |
+| MQTT             | Core    | On ICDs (`main`) | Moves to ICDs | v3, unshipped  |
+| Kafka            | Core    | On ICDs (`main`) | Moves to ICDs | v1, unshipped  |
+| HTTP             | Driver  | Moves to ICDs    | Moves to ICDs | v5, new        |
+| Serial, TCP, UDP | Driver  | New on ICDs      | New on ICDs   | v0, new        |
+| CAN              | Driver  | New on ICDs      | New on ICDs   | v0, new        |
 
 MQTT Sparkplug and Edge entries keep their own shapes, because the protocol defines the
-payload. HTTP v5 migrates each v4 field into an ICD field, with `fill_value` as the ICD
-`default`. Kafka v1 migrates each v0 task into one ICD.
+payload. HTTP v5 migrates each v4 endpoint's fields into one ICD message, with
+`fill_value` as the ICD `default`. Kafka v1 migrates each v0 task into one ICD. MQTT v3
+migrates each v1 and v2 write target into an ICD message.
 
 The bus integrations come from the SY-4971 branch. They drop that branch's own ICD
 stack, its `library` toolkit, and its `icd_hash` stamping, and use the ICD on `main`.
-Their Console forms hide behind one `bus` flag in `console/src/flags.ts`, and the Driver
-leaves them out of its default integration list, until Phase 32.
+Their Console forms hide behind one `bus` flag in `console/src/flags/flags.ts`, and the
+Driver leaves them out of its default integration list, until Phase 32.
 
 ### 3.5 Console
 
@@ -143,9 +145,18 @@ already defines.
 
 ## 4 Compatibility
 
-ICD v0, MQTT v2, and Kafka v1 are in no stable release. They change in place until
-0.62.0. Kafka v0 and HTTP v4 shipped in 0.61.0, so Kafka v1 and HTTP v5 each carry a
-migration. The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
+ICD v0 and MQTT v2 shipped in 0.62.0, and Kafka v0 and HTTP v4 shipped before it. ICD
+v1, MQTT v3, Kafka v1, and HTTP v5 are in no stable release, so they change in place
+until 0.63.0. Each carries a migration from the version that shipped:
+
+- ICD v1 migrates each v0 message, and lifts a v0 binary field that is not a number to
+  unsigned.
+- MQTT v3 migrates read entries as v2 does, and migrates each v1 and v2 write target,
+  including one in an 0.61.0 export, into an ICD message.
+- Kafka v1 migrates each v0 task into one ICD.
+- HTTP v5 migrates each v4 endpoint into one ICD message.
+
+The MQTT v1 to v2 migration writes ICDs when a Core upgrades.
 
 ## 5 Implementation phases
 
@@ -154,45 +165,44 @@ Four paths run in parallel. The ICD core and MQTT path (Phases 1 to 5, 10 to 12,
 (Phases 23 to 27) builds the Driver's ICD access and JSON codec. The bus path (Phases 28
 to 32) reuses them and runs at lower priority.
 
-Phases 1 to 7 have open PRs: #5801, #6228, #5803, #5805, the channel name fix, #6216,
-and #6209. Phases 30 and 31 also need #5380 and #5383, which change the status data that
-the bus forms read. Phase 32 shows only the CAN backends whose read and write tasks pass
-on a real adapter (§6.16).
+Phases 30 and 31 also need #5380 and #5383, which change the status data that the bus
+forms read. Phase 32 shows only the CAN backends whose read and write tasks pass on a
+real adapter (§6.16).
 
-| Phase | Scope                                             | Touches                                                                                              | Depends on |
-| ----- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Decode placed values in the ICD clients           | `client/ts/src/icd`, `client/py/synnax/icd`                                                          | -          |
-| 2     | Save ICD edits before the task config             | `console/src/platform/task`                                                                          | -          |
-| 3     | Edit enum values and defaults in the ICD editor   | `console/src/platform/icd`, `client/ts/src/icd`                                                      | 1          |
-| 4     | Rewrite the MQTT read task docs                   | `site/docs/src/pages/reference/hardware/mqtt`                                                        | 3          |
-| 5     | Number clashing read channel names                | `console/src/platform/task`                                                                          | -          |
-| 6     | Share the ICD read form pieces                    | `console/src/platform/task`, `console/src/feature/mqtt`                                              | -          |
-| 7     | Read Kafka messages through ICDs                  | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`                                              | -          |
-| 8     | Move the Kafka read form onto ICDs                | `console/src/feature/kafka`                                                                          | 6, 7       |
-| 9     | Rename the Kafka device TLS field to secure       | `schemas/synnax/kafka.oracle`, `core/pkg/service/kafka`, `console/src/feature/kafka`                 | 7          |
-| 10    | Pick an existing ICD message for an MQTT topic    | `console/src/feature/mqtt`, `console/src/platform/icd`                                               | 4          |
-| 11    | Infer timestamps and message kinds in MQTT browse | `x/go/json`, `core/pkg/service/mqtt`                                                                 | -          |
-| 12    | Show inferred kinds in the MQTT browse dialog     | `console/src/feature/mqtt`                                                                           | 10, 11     |
-| 13    | Move Add data into the ICD platform               | `console/src/platform/icd`, `console/src/feature/mqtt`                                               | 8          |
-| 14    | Add data to Kafka read tasks                      | `console/src/feature/kafka`                                                                          | 2, 13      |
-| 15    | Return ICD check problems as path errors          | `x/go/validate`, `core/pkg/service/icd`, `client/ts/src/icd`, `client/py/synnax/icd`                 | -          |
-| 16    | Add payload format and import format enums        | `schemas/x/payload.oracle`, `schemas/synnax/icd.oracle`                                              | -          |
-| 17    | Remove the unused payload read types              | `schemas/x/payload.oracle`                                                                           | -          |
-| 18    | Add cycle times to ICD messages                   | `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `console/src/platform/icd`                      | -          |
-| 19    | Encode ICD messages in the Core                   | `core/pkg/service/icd/codec`                                                                         | -          |
-| 20    | Write MQTT messages through ICDs                  | `core/pkg/service/mqtt`, `schemas/synnax/mqtt.oracle`, `console/src/feature/mqtt`                    | 19         |
-| 21    | Write Kafka messages through ICDs                 | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`, `console/src/feature/kafka`                 | 7, 19      |
-| 22    | Document ICDs, the editor, and import             | `site/docs/src/pages/reference`                                                                      | 3          |
-| 23    | Serve ICDs to the Driver                          | `schemas/synnax/icd.oracle`, `core/pkg/api/icd`, `client/cpp/icd`                                    | 18         |
-| 24    | Decode JSON ICD messages in the Driver            | `driver/codec`, `x/cpp/json`, `core/pkg/service/icd/testdata`                                        | 23         |
-| 25    | Read HTTP responses through ICDs                  | `driver/http`, `core/pkg/service/http`, `schemas/synnax/http.oracle`                                 | 24         |
-| 26    | Move the HTTP read form onto ICDs                 | `console/src/feature/http`                                                                           | 6, 25      |
-| 27    | Write HTTP requests through ICDs                  | `driver/http`, `core/pkg/service/http`, `console/src/feature/http`                                   | 25         |
-| 28    | Decode binary and text ICD messages in the Driver | `driver/codec`                                                                                       | 24         |
-| 29    | Add framing and transports to the Driver          | `driver/transport`, `driver/bus`                                                                     | 28         |
-| 30    | Add serial, TCP, and UDP tasks                    | `driver/serial`, `driver/tcp`, `driver/udp`, `core/pkg/service/serial`, `console/src/feature/serial` | 6, 29      |
-| 31    | Add CAN tasks                                     | `driver/can`, `core/pkg/service/can`, `console/src/feature/can`                                      | 6, 29      |
-| 32    | Document the bus integrations and remove the flag | `site/docs`, `console/src/flags.ts`, `.github/workflows`                                             | 30, 31     |
+| Phase | Scope                                             | Touches                                                                                                                      | Depends on |
+| ----- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Decode placed values in the ICD clients           | `client/ts/src/icd`, `client/py/synnax/icd`                                                                                  | -          |
+| 2     | Save ICD edits before the task config             | `console/src/platform/task`                                                                                                  | -          |
+| 3     | Edit enum values and defaults in the ICD editor   | `console/src/platform/icd`, `client/ts/src/icd`                                                                              | 1          |
+| 4     | Rewrite the MQTT read task docs                   | `site/docs/src/pages/reference/hardware/mqtt`                                                                                | 3          |
+| 5     | Number clashing read channel names                | `console/src/platform/task`                                                                                                  | -          |
+| 6     | Share the ICD read form pieces                    | `console/src/platform/task`, `console/src/feature/mqtt`                                                                      | -          |
+| 7     | Read Kafka messages through ICDs                  | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`                                                                      | -          |
+| 8     | Move the Kafka read form onto ICDs                | `console/src/feature/kafka`                                                                                                  | 6, 7       |
+| 9     | Rename the Kafka device TLS field to secure       | `schemas/synnax/kafka.oracle`, `core/pkg/service/kafka`, `console/src/feature/kafka`                                         | 7          |
+| 10    | Pick an existing ICD message for an MQTT topic    | `console/src/feature/mqtt`, `console/src/platform/icd`                                                                       | 4          |
+| 11    | Infer timestamps and message kinds in MQTT browse | `x/go/json`, `core/pkg/service/mqtt`                                                                                         | -          |
+| 12    | Show inferred kinds in the MQTT browse dialog     | `console/src/feature/mqtt`                                                                                                   | 10, 11     |
+| 13    | Move Add data into the ICD platform               | `console/src/platform/icd`, `console/src/feature/mqtt`                                                                       | 8          |
+| 14    | Add data to Kafka read tasks                      | `console/src/feature/kafka`                                                                                                  | 2, 13      |
+| 15    | Return ICD check problems as path errors          | `x/go/validate`, `core/pkg/service/icd`, `core/pkg/api/icd`, `client/ts/src/icd`, `client/py/synnax/icd`, `pluto/src/icd`    | -          |
+| 16    | Add payload format and import format enums        | `schemas/x/payload.oracle`, `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `client/ts/src/icd`, `client/py/synnax/icd` | -          |
+| 17    | Remove the unused payload read types              | `schemas/x/payload.oracle`, `x/py/x/payload`, `x/py/tests`, `x/cpp/payload`                                                  | -          |
+| 18    | Add cycle times to ICD messages                   | `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `console/src/platform/icd`                                              | -          |
+| 19    | Encode ICD messages in the Core                   | `core/pkg/service/icd/codec`                                                                                                 | -          |
+| 20    | Write MQTT messages through ICDs                  | `core/pkg/service/mqtt`, `schemas/synnax/mqtt.oracle`, `console/src/feature/mqtt`                                            | 19         |
+| 21    | Write Kafka messages through ICDs                 | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`, `console/src/feature/kafka`                                         | 7, 19      |
+| 22    | Document ICDs, the editor, and import             | `site/docs/src/pages/reference`                                                                                              | 3          |
+| 23    | Serve ICDs to the Driver                          | `schemas/synnax/icd.oracle`, `core/pkg/api/icd`, `client/cpp/icd`                                                            | 18         |
+| 24    | Decode JSON ICD messages in the Driver            | `driver/codec`, `x/cpp/json`, `core/pkg/service/icd/testdata`                                                                | 23         |
+| 25    | Read HTTP responses through ICDs                  | `driver/http`, `core/pkg/service/http`, `schemas/synnax/http.oracle`                                                         | 24         |
+| 26    | Move the HTTP read form onto ICDs                 | `console/src/feature/http`                                                                                                   | 6, 25      |
+| 27    | Write HTTP requests through ICDs                  | `driver/http`, `core/pkg/service/http`, `console/src/feature/http`                                                           | 25         |
+| 28    | Decode binary and text ICD messages in the Driver | `driver/codec`                                                                                                               | 24         |
+| 29    | Add framing and transports to the Driver          | `driver/transport`, `driver/bus`                                                                                             | 28         |
+| 30    | Add serial, TCP, and UDP tasks                    | `driver/serial`, `driver/tcp`, `driver/udp`, `core/pkg/service/serial`, `console/src/feature/serial`                         | 6, 29      |
+| 31    | Add CAN tasks                                     | `driver/can`, `core/pkg/service/can`, `console/src/feature/can`                                                              | 6, 29      |
+| 32    | Document the bus integrations and remove the flag | `site/docs`, `console/src/flags.ts`, `.github/workflows`                                                                     | 30, 31     |
 
 ## 6 Resolved decisions
 
@@ -232,11 +242,11 @@ on a real adapter (§6.16).
     offset. A calibration is the rig's and is not part of the binding (2026-11-18).
 14. **Units are free text**: They hold what the device documentation says. Channels have
     no units field, and DBC files spell units in many ways (2026-11-18).
-15. **Writes move onto ICDs before 0.62.0**: The ICD field's `default` holds the fixed
+15. **Writes move onto ICDs before 0.63.0**: The ICD field's `default` holds the fixed
     values and generators that RFC 0103 put on typed write fields. #5346, #5363, and
-    #5366 close, and their work moves to Phases 19 to 21 and 25 to 27. #5344 lands in
-    Kafka v1, and Phase 21 replaces its fields before the release. Moving writes after
-    0.62.0 would cost a migration each for Kafka, MQTT, and HTTP (2026-11-18).
+    #5366 close, and their work moves to Phases 19 to 21 and 25 to 27 (2026-11-18).
+    0.62.0 shipped with MQTT v2 and ICD v0 only (2026-11-19), so MQTT writes move in v3
+    with a migration, and Kafka v1 and HTTP v5 take writes before 0.63.0 freezes them.
 16. **A CAN backend ships visible only after real hardware**: Its read and write tasks
     must pass on a real adapter. A backend with no adapter stays hidden (2026-11-18).
 17. **A query lives on the task, a cycle time on the ICD**: Principle 1 sorts each
@@ -250,8 +260,7 @@ on a real adapter (§6.16).
 18. **An MQTT write publishes on command only**: Each command on a bound channel sends
     one message, as a one-channel target does today (2026-11-18). A field with no
     command yet sends its `default`, and with none the target waits for that channel's
-    first command. Commands on several bound channels in one frame send one message,
-    so an Arc stage that sets two fields in one cycle sends one message, not two. A
-    command that its field cannot hold, such as NaN, is dropped with a warning, and the
-    field keeps its last good command. A timer that publishes every `period` was
-    rejected.
+    first command. Commands on several bound channels in one frame send one message, so
+    an Arc stage that sets two fields in one cycle sends one message, not two. A command
+    that its field cannot hold, such as NaN, is dropped with a warning, and the field
+    keeps its last good command. A timer that publishes every `period` was rejected.
