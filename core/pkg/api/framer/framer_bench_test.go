@@ -10,6 +10,7 @@
 package framer_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -118,7 +119,7 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 			})).To(gomega.Succeed())
 			calcs := xtestutil.MustSucceed(creator.CreateMany(ctx, calculations))
 			calcs = append(calcs, xtestutil.MustSucceed(creator.Indexes(ctx, calcs))...)
-			keys := channel.KeysFromChannels(append(raw, calcs...))
+			keys := channel.KeysFromChannels(slices.Concat(raw, calcs))
 			u := xtestutil.MustSucceed(rbactestutil.CreateUser(
 				ctx,
 				db,
