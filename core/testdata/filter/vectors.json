@@ -2751,24 +2751,6 @@
         "server_computed": true
       },
       {
-        "name": "serial eq",
-        "where": {
-          "serial": {
-            "eq": 1001
-          }
-        },
-        "expected": ["a"]
-      },
-      {
-        "name": "serial eq zero",
-        "where": {
-          "serial": {
-            "eq": 0
-          }
-        },
-        "expected": ["b"]
-      },
-      {
         "name": "vendor_id eq",
         "where": {
           "vendor_id": {
@@ -2805,36 +2787,6 @@
         "expected": ["a", "b"]
       },
       {
-        "name": "the slots on one node are ANDed",
-        "where": {
-          "vendor_id": {
-            "eq": 2
-          },
-          "serial": {
-            "gt": 0
-          }
-        },
-        "expected": ["a"]
-      },
-      {
-        "name": "or",
-        "where": {
-          "or": [
-            {
-              "serial": {
-                "eq": 2002
-              }
-            },
-            {
-              "serial": {
-                "eq": 0
-              }
-            }
-          ]
-        },
-        "expected": ["b", "c"]
-      },
-      {
         "name": "not",
         "where": {
           "not": {
@@ -2844,6 +2796,36 @@
           }
         },
         "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "vendor_id": {
+            "eq": 2
+          },
+          "product_code": {
+            "eq": 131608658
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "master": {
+                "eq": "00000000-0000-4000-8000-00000000040f"
+              }
+            },
+            {
+              "product_code": {
+                "eq": 203305042
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
       }
     ]
   }

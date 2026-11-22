@@ -253,7 +253,6 @@ export type Where = {
   not?: Where;
   key?: filter.Set<typeof keyZ>;
   name?: filter.String;
-  serial?: filter.Ordered<z.ZodBigInt>;
   vendorId?: filter.Ordered<z.ZodNumber>;
   productCode?: filter.Ordered<z.ZodNumber>;
   master?: filter.Set<typeof ethercatMaster.keyZ>;
@@ -276,8 +275,6 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
   /** name selects by name. */
   name: filter.stringZ.optional(),
-  /** serial selects by serial. */
-  serial: filter.orderedZ(z.uint64()).optional(),
   /** vendorId selects by vendor_id. */
   vendorId: filter.orderedZ(z.uint32()).optional(),
   /** productCode selects by product_code. */

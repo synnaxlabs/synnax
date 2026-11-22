@@ -101,7 +101,6 @@ class Where(BaseModel):
         not_: Matches when the child does not match.
         key: Selects by key.
         name: Selects by name.
-        serial: Selects by serial.
         vendor_id: Selects by vendor_id.
         product_code: Selects by product_code.
         master: Selects by master.
@@ -115,7 +114,6 @@ class Where(BaseModel):
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
     name: filter.String | None = None
-    serial: filter.Ordered[int] | None = None
     vendor_id: filter.Ordered[int] | None = None
     product_code: filter.Ordered[int] | None = None
     master: filter.Set[master_.Key] | None = None
@@ -132,7 +130,6 @@ WhereInput = TypedDict(
         "not": "WhereInput",
         "key": filter.SetInput[Key],
         "name": filter.StringInput,
-        "serial": filter.OrderedInput[int],
         "vendor_id": filter.OrderedInput[int],
         "product_code": filter.OrderedInput[int],
         "master": filter.SetInput[master_.Key],
