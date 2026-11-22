@@ -43,7 +43,7 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 		size = 1
 	}
 	keys := []cesium.ChannelKey{1, 2}
-	db, stop := runPartsDB(b, ctx, fs, size)
+	db, stop := runPartsDB(b, ctx, fs, size, 0)
 	if err := db.CreateChannel(
 		ctx,
 		cesium.Channel{Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT},
@@ -64,8 +64,9 @@ func benchmarkReadParts(b *testing.B, parted bool) {
 		b.Fatal(err)
 	}
 	waitPartsHead(b, fs)
+	id := db.Identity()
 	stop()
-	db, stop = runPartsDB(b, ctx, fs, size)
+	db, stop = runPartsDB(b, ctx, fs, size, id)
 	defer stop()
 	// A writer's open waits for the state owner, which applies the tags of the parts
 	// that the open loaded first.
@@ -91,12 +92,14 @@ func waitPartsHead(b *testing.B, fs xfs.FS) {
 }
 
 // runPartsDB opens and runs a database of the pointer log layout on fs with partSize,
-// and returns the function that stops and closes it.
+// stating identity id, 0 for a new root, and returns the function that stops and
+// closes it.
 func runPartsDB(
 	b *testing.B,
 	ctx context.Context,
 	fs xfs.FS,
 	partSize int,
+	id uint64,
 ) (*cesium.DB, func()) {
 	b.Helper()
 	db, err := cesium.Open(
@@ -105,6 +108,7 @@ func runPartsDB(
 		cesium.WithFS(fs),
 		cesium.WithPointerLog(),
 		cesium.WithPartSize(partSize),
+		cesium.WithIdentity(id),
 	)
 	if err != nil {
 		b.Fatal(err)

@@ -38,7 +38,7 @@ func benchmarkOpen(b *testing.B, groups, stretches int) {
 	b.Helper()
 	const samples = 10
 	ctx, fs := b.Context(), xfs.NewMem()
-	db, stop := runPartsDB(b, ctx, fs, 1)
+	db, stop := runPartsDB(b, ctx, fs, 1, 0)
 	channels := make([]cesium.Channel, 0, 2*groups)
 	for g := range groups {
 		index, data := cesium.ChannelKey(2*g+1), cesium.ChannelKey(2*g+2)
@@ -71,6 +71,7 @@ func benchmarkOpen(b *testing.B, groups, stretches int) {
 		b.Fatal(err)
 	}
 	waitPartsHead(b, fs)
+	id := db.Identity()
 	stop()
 	// With ctx done before it starts, Run returns once its orphan pass is done.
 	done, cancel := context.WithCancel(ctx)
@@ -83,6 +84,7 @@ func benchmarkOpen(b *testing.B, groups, stretches int) {
 			cesium.WithFS(fs),
 			cesium.WithPointerLog(),
 			cesium.WithPartSize(1),
+			cesium.WithIdentity(id),
 		)
 		if err != nil {
 			b.Fatal(err)

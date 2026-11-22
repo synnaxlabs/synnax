@@ -41,7 +41,7 @@ func benchmarkDeleteParts(b *testing.B, parted bool) {
 		size = 1
 	}
 	keys := []cesium.ChannelKey{1, 2}
-	db, stop := runPartsDB(b, ctx, fs, size)
+	db, stop := runPartsDB(b, ctx, fs, size, 0)
 	if err := db.CreateChannel(
 		ctx,
 		cesium.Channel{Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT},
@@ -56,8 +56,9 @@ func benchmarkDeleteParts(b *testing.B, parted bool) {
 		b.Fatal(err)
 	}
 	waitPartsHead(b, fs)
+	id := db.Identity()
 	stop()
-	db, stop = runPartsDB(b, ctx, fs, size)
+	db, stop = runPartsDB(b, ctx, fs, size, id)
 	defer stop()
 	// Stretch 50 ends at second 5,000, and stretch 51 starts at second 5,001.
 	gap := telem.TimeRange{
