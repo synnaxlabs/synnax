@@ -10,7 +10,7 @@
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { control as xControl, direction, primitive } from "@synnaxlabs/x";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { math } from "@synnaxlabs/x";
 import { type RefCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -42,9 +43,7 @@ const content = (cell: Element | null): number => {
   if (cell == null) return 0;
   const parts = Array.from(cell.children);
   const gap = parseFloat(getComputedStyle(cell).columnGap) || 0;
-  return (
-    parts.reduce((total, p) => total + p.scrollWidth, 0) + gap * (parts.length - 1)
-  );
+  return math.sum(parts.map((p) => p.scrollWidth)) + gap * (parts.length - 1);
 };
 
 /**
@@ -60,9 +59,11 @@ const fit = (list: HTMLElement | null): void => {
   const cs = getComputedStyle(first);
   const children = Array.from(first.children);
   const flexible = ["indent", "name", "labels"].map((n) => part(first, n));
-  const fixed = children
-    .filter((c) => !flexible.includes(c) && getComputedStyle(c).display !== "none")
-    .reduce((total, c) => total + width(c), 0);
+  const fixed = math.sum(
+    children
+      .filter((c) => !flexible.includes(c) && getComputedStyle(c).display !== "none")
+      .map((c) => width(c)),
+  );
   const shown = children.filter((c) => getComputedStyle(c).display !== "none");
   const rest =
     fixed +
@@ -97,22 +98,28 @@ export const useLabelsRoom = (): RefCallback<HTMLElement> => {
     // Fitting as each item first lays out reads widths with no extra layout.
     resize.observe(list);
     const observed = new WeakSet<Element>();
-    const observe = (): void =>
+    let frame = 0;
+    const observe = (): void => {
+      frame = 0;
       list.querySelectorAll(ITEM).forEach((item) => {
         if (observed.has(item)) return;
         observed.add(item);
         resize.observe(item);
       });
+    };
     // A name or a parent's path that loads or changes leaves the items' widths as they
     // were, so only the content tells.
     const mutations = new MutationObserver((records) => {
       if (!records.some(changesRoom)) return;
-      observe();
+      // Items can mount while the browser delivers resizes, which skips an observation
+      // made then and reports a loop error. New items wait for the next frame.
+      if (frame === 0) frame = requestAnimationFrame(observe);
       fit(list);
     });
     mutations.observe(list, { childList: true, subtree: true, characterData: true });
     observe();
     return () => {
+      cancelAnimationFrame(frame);
       resize.disconnect();
       mutations.disconnect();
     };

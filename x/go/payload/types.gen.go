@@ -80,24 +80,6 @@ type StringEntry = versions.StringEntry
 // BooleanEntry maps a payload label to a boolean channel value.
 type BooleanEntry = versions.BooleanEntry
 
-// FloatRead holds the options of a field that reads a float.
-type FloatRead = versions.FloatRead
-
-// IntegerRead holds the options of a field that reads a signed integer.
-type IntegerRead = versions.IntegerRead
-
-// UnsignedRead holds the options of a field that reads an unsigned integer.
-type UnsignedRead = versions.UnsignedRead
-
-// StringRead holds the options of a field that reads a string.
-type StringRead = versions.StringRead
-
-// BooleanRead holds the options of a field that reads a boolean.
-type BooleanRead = versions.BooleanRead
-
-// TimestampRead holds the options of a field that reads a timestamp.
-type TimestampRead = versions.TimestampRead
-
 // EnumEntry maps a string label in a payload to a numeric channel value for enum-style
 // parsing (e.g. "ON" -> 1, "OFF" -> 0).
 type EnumEntry = versions.EnumEntry

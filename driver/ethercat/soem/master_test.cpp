@@ -3655,6 +3655,22 @@ TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
     );
 }
 
+/// @brief it should read a slave that was starting at the scan again at a later scan,
+/// once the slave has left INIT.
+TEST_F(SOEMMasterTest, ScanReadsAStartingSlaveAgainOnceItLeavesInit) {
+    this->mock->statecheck_overrides[EC_STATE_PRE_OP] = EC_STATE_INIT;
+    auto slave = create_coe_slave(0x5555);
+    slave.bus_state = EC_STATE_INIT;
+    this->add_slave(slave);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    ASSERT_TRUE(ASSERT_NIL_P(this->master->scan())[0].status.starting);
+    this->mock->slave_infos[0].bus_state = EC_STATE_PRE_OP;
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 0x5555);
+}
+
 /// @brief it should keep the CoE serial number of a slave that it discovers again
 /// after its startup parameters.
 TEST_F(SOEMMasterTest, ActivateKeepsTheSerialNumberOfAParameterizedSlave) {

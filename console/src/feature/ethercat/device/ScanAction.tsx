@@ -10,11 +10,11 @@
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Status } from "@synnaxlabs/lyra/status";
-import { type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { z } from "zod";
 
 import { useDisableFilter } from "@/feature/ethercat/device/queries";
-import { type Device } from "@/platform/device";
+import type { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 
 const scanStatusDataZ = z

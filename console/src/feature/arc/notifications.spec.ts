@@ -9,6 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +19,6 @@ import {
   settleWrites,
   writeStatus,
 } from "@/platform/notifications/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

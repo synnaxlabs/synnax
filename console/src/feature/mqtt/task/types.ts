@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { payload, record } from "@synnaxlabs/x";
+import { json, payload, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -74,8 +74,6 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
-export interface ReadBinding extends mqtt.ReadBinding {}
-
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
@@ -140,14 +138,91 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
+export interface ChannelField extends mqtt.ChannelField {}
+
 export interface PlainWriteTarget extends mqtt.PlainWriteTarget {}
 
 export interface SparkplugWriteTarget extends mqtt.SparkplugWriteTarget {}
 
 export type WriteTarget = PlainWriteTarget | SparkplugWriteTarget;
 
+const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
+  const { value } = ctx;
+  if (value.enumValues.length > 0 && value.jsonType !== "string")
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: value,
+      message: "Enum values require the string JSON type",
+      path: ["jsonType"],
+    });
+  const seen = new Set<number>();
+  value.enumValues.forEach((entry, i) => {
+    if (seen.has(entry.value))
+      ctx.issues.push({
+        continue: true,
+        code: "custom",
+        input: value,
+        message: `Duplicate enum value ${entry.value}`,
+        path: ["enumValues", i, "value"],
+      });
+    else seen.add(entry.value);
+  });
+};
+
+// The Core sets each pointer in turn, so one inside another replaces or blocks it.
+const overlaps = (a: string, b: string) =>
+  a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+
+const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
+  const { value } = ctx;
+  const { channel, fields } = value;
+  if (channel.pointer === "") {
+    if (fields.length > 0)
+      ctx.issues.push({
+        continue: true,
+        code: "custom",
+        input: value,
+        message:
+          "An empty channel pointer sends the raw value as the payload, so additional fields are not allowed",
+        path: ["channel", "pointer"],
+      });
+    return;
+  }
+  const pointers = [channel.pointer];
+  fields.forEach((field, i) => {
+    if (field.pointer === "") return;
+    if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
+      ctx.issues.push({
+        continue: true,
+        code: "custom",
+        input: value,
+        message: `Pointer "${field.pointer}" overlaps another field`,
+        path: ["fields", i, "pointer"],
+      });
+    else pointers.push(field.pointer);
+  });
+};
+
+const deployPointerZ = json.pointerZ.min(1, "Additional field pointer cannot be empty");
+
+const deployWriteFieldZ = z.discriminatedUnion("type", [
+  mqtt.staticWriteFieldZ.extend({ pointer: deployPointerZ, value: json.primitiveZ }),
+  mqtt.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
+]);
+
+const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
+  .extend({
+    topic: deployTopicZ,
+    channel: mqtt.channelFieldZ
+      .extend({ pointer: json.pointerZ })
+      .check(validateChannelField),
+    fields: deployWriteFieldZ.array().default(() => []),
+  })
+  .check(validateWriteTarget);
+
 const deployWriteTargetZ = z.discriminatedUnion("type", [
-  mqtt.plainWriteTargetZ.extend({ topic: deployTopicZ }),
+  deployPlainWriteTargetZ,
   mqtt.sparkplugWriteTargetZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
 ]);
 
@@ -181,9 +256,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
   channel: channel.keyZ.refine((key) => key !== 0, "A channel is required"),
 });
 
-// Two enabled tags may publish one channel under two names, so only the name is
-// checked for duplicates.
-const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
+const validateAnyTagEnabled = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
       continue: true,
@@ -192,26 +265,23 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
       message: "At least one tag must be enabled",
       path: [],
     });
-  const seen = new Set<string>();
-  ctx.value.forEach(({ disabled, name }, i) => {
-    if (disabled || name === "") return;
-    if (seen.has(name))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate name "${name}"`,
-        path: [i, "name"],
-      });
-    else seen.add(name);
-  });
 };
+
+// Two enabled tags may publish one channel under two names, so only the name is
+// checked for duplicates.
+const validateTagNames = zod.uniqueBy<EdgeTag, "name">(
+  "name",
+  (name) => `Duplicate name "${name}"`,
+  ({ disabled, name }) => disabled || name === "",
+);
 
 export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
   device: Task.deviceKeyZ,
   group: sparkplugIDZ("Group").min(1, "Group is required"),
   edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
-  tags: mqtt.edgeTagZ.array().check(validateEnabled(deployEdgeTagZ), validateEdgeTags),
+  tags: mqtt.edgeTagZ
+    .array()
+    .check(validateEnabled(deployEdgeTagZ), validateAnyTagEnabled, validateTagNames),
 });
 
 export const EDGE_SCHEMAS = {

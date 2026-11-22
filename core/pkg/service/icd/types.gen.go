@@ -62,6 +62,31 @@ type BaseField = versions.BaseField
 // write needs a channel.
 type BinaryField = versions.BinaryField
 
+// BinaryFieldVariant is implemented by every BinaryField variant.
+type BinaryFieldVariant = versions.BinaryFieldVariant
+
+// BinaryFieldType is the "kind" value that selects a variant of BinaryField.
+type BinaryFieldType = versions.BinaryFieldType
+
+const (
+	// FloatBinaryFieldType is a field whose raw bits are an IEEE 754 float of 32 or 64
+	// bits.
+	FloatBinaryFieldType BinaryFieldType = versions.FloatBinaryFieldType
+	// IntegerBinaryFieldType is a field whose raw bits are a two's complement integer.
+	IntegerBinaryFieldType BinaryFieldType = versions.IntegerBinaryFieldType
+	// UnsignedBinaryFieldType is a field whose raw bits are an unsigned integer.
+	UnsignedBinaryFieldType BinaryFieldType = versions.UnsignedBinaryFieldType
+)
+
+// FloatBinaryField is a field whose raw bits are an IEEE 754 float of 32 or 64 bits.
+type FloatBinaryField = versions.FloatBinaryField
+
+// IntegerBinaryField is a field whose raw bits are a two's complement integer.
+type IntegerBinaryField = versions.IntegerBinaryField
+
+// UnsignedBinaryField is a field whose raw bits are an unsigned integer.
+type UnsignedBinaryField = versions.UnsignedBinaryField
+
 // TextBaseField carries the parts every text field shares.
 type TextBaseField = versions.TextBaseField
 
@@ -191,6 +216,9 @@ const (
 	StringJSONMatchType JSONMatchType = versions.StringJSONMatchType
 	// BooleanJSONMatchType matches an equal JSON boolean.
 	BooleanJSONMatchType JSONMatchType = versions.BooleanJSONMatchType
+	// PresentJSONMatchType matches a document that holds a value other than null at the
+	// pointer.
+	PresentJSONMatchType JSONMatchType = versions.PresentJSONMatchType
 )
 
 // FloatJSONMatch matches a JSON number equal to a float.
@@ -207,6 +235,10 @@ type StringJSONMatch = versions.StringJSONMatch
 
 // BooleanJSONMatch matches an equal JSON boolean.
 type BooleanJSONMatch = versions.BooleanJSONMatch
+
+// PresentJSONMatch matches a document that holds a value other than null at the
+// pointer.
+type PresentJSONMatch = versions.PresentJSONMatch
 
 // Payload is the layout of a message's payload.
 type Payload = versions.Payload
@@ -229,6 +261,55 @@ type Message = versions.Message
 // ICD is an interface control document: the messages a system sends and receives, and
 // how to parse each one.
 type ICD = versions.ICD
+
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads one message of an ICD.
+type ReadMessage = versions.ReadMessage
+
+// WriteValue is a fixed value that a write binding sends as its field. Its type is the
+// kind of the field.
+type WriteValue = versions.WriteValue
+
+// WriteValueVariant is implemented by every WriteValue variant.
+type WriteValueVariant = versions.WriteValueVariant
+
+// FloatWriteValue is a fixed float.
+type FloatWriteValue = versions.FloatWriteValue
+
+// IntegerWriteValue is a fixed signed integer.
+type IntegerWriteValue = versions.IntegerWriteValue
+
+// UnsignedWriteValue is a fixed unsigned integer.
+type UnsignedWriteValue = versions.UnsignedWriteValue
+
+// StringWriteValue is a fixed string.
+type StringWriteValue = versions.StringWriteValue
+
+// BooleanWriteValue is a fixed boolean.
+type BooleanWriteValue = versions.BooleanWriteValue
+
+// TimestampWriteValue is a fixed timestamp.
+type TimestampWriteValue = versions.TimestampWriteValue
+
+// JSONWriteValue is a fixed JSON value.
+type JSONWriteValue = versions.JSONWriteValue
+
+// UuidWriteValue is a fixed UUID.
+type UuidWriteValue = versions.UuidWriteValue
+
+// BytesWriteValue is fixed bytes.
+type BytesWriteValue = versions.BytesWriteValue
+
+// WriteBinding fills one message field with a command channel or a fixed value.
+type WriteBinding = versions.WriteBinding
+
+// WriteMessage sends one message of an ICD.
+type WriteMessage = versions.WriteMessage
+
+// BinaryBaseField carries the parts every binary field shares.
+type BinaryBaseField = versions.BinaryBaseField
 
 // ImportFormat is the file format of an ICD that an import reads.
 type ImportFormat string

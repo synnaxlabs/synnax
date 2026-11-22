@@ -20,7 +20,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { primitive, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
-import { type z } from "zod";
+import type { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";

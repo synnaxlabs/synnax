@@ -19,9 +19,17 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
   module that can import the package. CI passes `-base` with a checkout of the target
   branch, so it fails on the findings that a change adds. It also fails on every finding
   of a module and usage (`unused` or `tests-only`) that `.github/exports-go.json` lists.
-  A PR that brings a pair to zero adds it there.
+  A PR that brings a pair to zero adds it there. The file's `pending` list names an
+  identifier and the PR that adds its first caller, so the identifier can land before
+  its caller. The check then fails on the caller's PR until that PR deletes the entry.
+- Modernize: `CGO_ENABLED=0 GOOS=<os> go fix ./...` applies the modernizer fixes for one
+  GOOS. CI fails when `go fix -diff ./...` prints a diff for any GOOS that lint checks,
+  so run it for `linux`, `windows`, and `darwin`.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
-  (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
+  (recursive), `ginkgo -v`, `ginkgo --focus "Name"`. `go tool ginkgo` runs the version
+  that the module's `go.mod` sets, as CI does.
+- Generate: `go generate ./...`. A module with `stringer` directives pins `stringer` in
+  its `go.mod` `tool` block, and the directives call `go tool stringer`.
 
 ## Style
 

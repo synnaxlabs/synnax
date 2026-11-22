@@ -9,7 +9,7 @@
 
 import "@/logo/Watermark.css";
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Logo, type LogoProps } from "@/logo/Logo";
 

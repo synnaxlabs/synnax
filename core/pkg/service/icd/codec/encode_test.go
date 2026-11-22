@@ -147,6 +147,24 @@ var _ = Describe("JSONEncoder", func() {
 		)
 	})
 
+	It("Should give a present rule its value from a field inside its pointer", func() {
+		enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
+			Name: "fault",
+			Payload: icd.JSONPayload{
+				Match: &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+					JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/fault"},
+				}},
+				Fields: []icd.JSONField{{Variant: icd.FloatJSONField{
+					Key: fixedKey, Name: "code", Scale: 1, Pointer: "/fault/code",
+				}}},
+			},
+			Bindings: []codec.Binding{{Field: fixedKey, DataType: telem.Float64T}},
+		}))
+		Expect(enc.Encode(nil, [][]byte{float64Sample(2)})).To(
+			MatchJSON(`{"fault":{"code":2}}`),
+		)
+	})
+
 	DescribeTable("Should write the default of a field with no channel",
 		func(field icd.JSONField, expected string) {
 			enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{field})))
@@ -207,7 +225,7 @@ var _ = Describe("JSONEncoder", func() {
 				Name:    "v",
 				Scale:   1,
 				Pointer: "/v",
-				Default: new(any(map[string]any{"set_point": 1.5, "mode": "auto"})),
+				Default: new(`{"set_point":1.5,"mode":"auto"}`),
 			}},
 			`{"v":{"set_point":1.5,"mode":"auto"}}`,
 		),
@@ -232,6 +250,33 @@ var _ = Describe("JSONEncoder", func() {
 				Default: new("AQI="),
 			}},
 			`{"v":"AQI="}`,
+		),
+	)
+
+	DescribeTable("Should write every digit of a default",
+		func(field icd.JSONField, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{field})))
+			Expect(string(MustSucceed(enc.Encode(nil, nil)))).To(Equal(expected))
+		},
+		Entry("JSON text with an integer past a float64",
+			icd.JSONField{Variant: icd.JSONJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(`{"id": 9007199254740993}`),
+			}},
+			`{"v":{"id": 9007199254740993}}`,
+		),
+		Entry("the largest unsigned integer",
+			icd.JSONField{Variant: icd.UnsignedJSONField{
+				Key:     uuid.New(),
+				Name:    "v",
+				Scale:   1,
+				Pointer: "/v",
+				Default: new(payload.Unsigned(math.MaxUint64)),
+			}},
+			`{"v":18446744073709551615}`,
 		),
 	)
 
@@ -273,6 +318,7 @@ var _ = Describe("JSONEncoder", func() {
 			}},
 		})))
 		idOf := func() uuid.UUID {
+			GinkgoHelper()
 			doc := MustSucceed(enc.Encode(nil, nil))
 			var v struct {
 				V string `json:"v"`
@@ -323,6 +369,7 @@ var _ = Describe("JSONEncoder", func() {
 				codec.Binding{Field: key, DataType: telem.UUIDT},
 			)))
 			idOf := func() uuid.UUID {
+				GinkgoHelper()
 				doc := MustSucceed(enc.Encode(nil, [][]byte{nil}))
 				var v struct {
 					V string `json:"v"`
@@ -343,6 +390,46 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(enc.Encode(nil, [][]byte{nil})).Error().
 			To(MatchError("message command: field temp: no sample and no default"))
 	})
+
+	DescribeTable("Should write a generated default beside a match rule",
+		func(match icd.JSONMatch, expectedType string) {
+			enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
+				Name: "status",
+				Payload: icd.JSONPayload{
+					Match: &match,
+					Fields: []icd.JSONField{{Variant: icd.UuidJSONField{
+						Key:     uuid.New(),
+						Name:    "id",
+						Scale:   1,
+						Pointer: "/id",
+						Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
+					}}},
+				},
+			}))
+			var doc struct {
+				Type string `json:"type"`
+				ID   string `json:"id"`
+			}
+			Expect(
+				json.Unmarshal(MustSucceed(enc.Encode(nil, nil)), &doc),
+			).To(Succeed())
+			Expect(doc.Type).To(Equal(expectedType))
+			Expect(MustSucceed(uuid.Parse(doc.ID))).ToNot(Equal(uuid.Nil()))
+		},
+		Entry("a rule that writes its value",
+			icd.JSONMatch{Variant: icd.StringJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
+				Value:         "status",
+			}},
+			"status",
+		),
+		Entry("a rule on a present field",
+			icd.JSONMatch{Variant: icd.PresentJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/id"},
+			}},
+			"",
+		),
+	)
 
 	It("Should write a float before its scale and offset", func() {
 		key := uuid.New()
@@ -493,9 +580,10 @@ var _ = Describe("JSONEncoder", func() {
 				MatchError(expected),
 			))
 		},
-		Entry("a field with no binding and no default",
+		Entry(
+			"a field with no binding and no default",
 			message([]icd.JSONField{floatField("temp", uuid.New(), 1, 0)}),
-			"message command: field temp: no channel and no default: validation error",
+			"message command: field temp: needs a channel or a default: validation error",
 		),
 		Entry(
 			"a bytes default that is not base64",
@@ -506,8 +594,18 @@ var _ = Describe("JSONEncoder", func() {
 				Pointer: "/blob",
 				Default: new("AQI"),
 			}}}),
-			"message command: field blob: default: illegal base64 data at input byte 0: "+
+			"message command: field blob: default: not canonical base64: "+
 				"validation error",
+		),
+		Entry("a JSON default that is not valid JSON",
+			message([]icd.JSONField{{Variant: icd.JSONJSONField{
+				Key:     uuid.New(),
+				Name:    "doc",
+				Scale:   1,
+				Pointer: "/doc",
+				Default: new(`{"id":`),
+			}}}),
+			"message command: field doc: default: not valid JSON: validation error",
 		),
 		Entry("a timestamp default with no type",
 			message([]icd.JSONField{{Variant: icd.TimestampJSONField{
@@ -598,6 +696,20 @@ var _ = Describe("JSONEncoder", func() {
 			},
 			`message command: match: pointer "/10" holds an array index, which a `+
 				"document cannot place: validation error",
+		),
+		Entry("a present rule with no field at or inside its pointer",
+			codec.JSONMessage{
+				Name: "command",
+				Payload: icd.JSONPayload{
+					Match: &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+						JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/fault"},
+					}},
+					Fields: []icd.JSONField{floatField("temp", fixedKey, 1, 0)},
+				},
+				Bindings: []codec.Binding{{Field: fixedKey, DataType: telem.Float64T}},
+			},
+			`message command: match: no field is at or inside "/fault": `+
+				"validation error",
 		),
 		Entry("a scaled field with an integer channel",
 			message(
@@ -701,3 +813,45 @@ var _ = Describe("JSONEncoder", func() {
 })
 
 var fixedKey = uuid.MustParse("00000000-0000-4000-8000-0000000000aa")
+
+var _ = Describe("CheckDefault", func() {
+	DescribeTable("Should accept a default that its field can send",
+		func(v icd.JSONFieldVariant) {
+			Expect(codec.CheckDefault(icd.JSONField{Variant: v})).To(Succeed())
+		},
+		Entry("no default", icd.JSONJSONField{}),
+		Entry("JSON text", icd.JSONJSONField{Default: new(`{"max":10}`)}),
+		Entry("base64 text", icd.BytesJSONField{Default: new("AQI=")}),
+		Entry("a finite float", icd.FloatJSONField{Default: new(payload.Float(2.5))}),
+	)
+
+	DescribeTable("Should refuse a default without naming it",
+		func(v icd.JSONFieldVariant, expected string) {
+			Expect(codec.CheckDefault(icd.JSONField{Variant: v})).
+				To(MatchError(expected))
+		},
+		Entry("JSON text that is not valid",
+			icd.JSONJSONField{Default: new("{")},
+			"not valid JSON: validation error",
+		),
+		Entry("text that is not base64",
+			icd.BytesJSONField{Default: new("AQI")},
+			"not canonical base64: validation error",
+		),
+		Entry("a float that is not finite",
+			icd.FloatJSONField{Default: new(payload.Float(math.NaN()))},
+			"NaN is not a JSON number: validation error",
+		),
+		Entry("a timestamp default with no type",
+			icd.TimestampJSONField{
+				TimeFormat: payload.TimeFormatUnixNs,
+				Default:    &icd.TimestampDefault{},
+			},
+			"type is required: validation error",
+		),
+		Entry("a UUID default with no type",
+			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
+			"type is required: validation error",
+		),
+	)
+})

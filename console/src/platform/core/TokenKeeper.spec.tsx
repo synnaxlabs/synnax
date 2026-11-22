@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import type { Synnax as Client } from "@synnaxlabs/client";
 import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -17,7 +17,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
 
-vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });

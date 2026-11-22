@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/color"
@@ -249,7 +250,7 @@ func dispatchCreate(
 	report taskreporter.Reporter,
 	name, parent, colorHex string,
 ) string {
-	var c *color.Color
+	var c *servicecolor.Ref
 	if colorHex != "" {
 		parsed, err := color.Parse(colorHex)
 		if err != nil {
@@ -261,7 +262,7 @@ func dispatchCreate(
 			)
 			return ""
 		}
-		c = &parsed
+		c = &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: parsed}}
 	}
 	r := ranger.Range{
 		Name:      name,

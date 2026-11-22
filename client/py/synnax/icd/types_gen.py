@@ -14,8 +14,9 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import channel as channel_
 from synnax.resource import ID
 from x import filter, payload as payload_, telem
 
@@ -92,6 +93,85 @@ UUIDDefault = Annotated[
 ]
 
 
+class FloatWriteValue(BaseModel):
+    """Is a fixed float."""
+
+    type: Literal["float"] = "float"
+    value: payload_.Float
+
+
+class IntegerWriteValue(BaseModel):
+    """Is a fixed signed integer."""
+
+    type: Literal["integer"] = "integer"
+    value: payload_.Integer = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class UnsignedWriteValue(BaseModel):
+    """Is a fixed unsigned integer."""
+
+    type: Literal["unsigned"] = "unsigned"
+    value: payload_.Unsigned = Field(ge=0, le=18446744073709551615)
+
+
+class StringWriteValue(BaseModel):
+    """Is a fixed string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanWriteValue(BaseModel):
+    """Is a fixed boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class TimestampWriteValue(BaseModel):
+    """Is a fixed timestamp."""
+
+    type: Literal["timestamp"] = "timestamp"
+    value: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
+
+
+class JSONWriteValue(BaseModel):
+    """Is a fixed JSON value."""
+
+    type: Literal["json"] = "json"
+    value: str
+
+
+class UuidWriteValue(BaseModel):
+    """Is a fixed UUID."""
+
+    type: Literal["uuid"] = "uuid"
+    value: UUID
+
+
+class BytesWriteValue(BaseModel):
+    """Is fixed bytes."""
+
+    type: Literal["bytes"] = "bytes"
+    value: str
+
+
+# Is a fixed value that a write binding sends as its field. Its type is the kind
+# of the field.
+WriteValue = Annotated[
+    FloatWriteValue
+    | IntegerWriteValue
+    | UnsignedWriteValue
+    | StringWriteValue
+    | BooleanWriteValue
+    | TimestampWriteValue
+    | JSONWriteValue
+    | UuidWriteValue
+    | BytesWriteValue,
+    Field(discriminator="type"),
+]
+
+
 class Where(BaseModel):
     """Is a filter that selects ICDs.
 
@@ -158,6 +238,22 @@ class BaseField(BaseModel):
     max: float | None = None
 
 
+class ReadBinding(BaseModel):
+    """Writes the value of one message field to a channel.
+
+    Attributes:
+        field: Is the key of the message field to read.
+        channel: Is the channel the value of the field is written to.
+        data_type: Is the data type of the channel that a client creates for the field.
+            Empty takes the default of the field's kind. The Core ignores it once the
+            channel exists.
+    """
+
+    field: FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType = telem.DataType("")
+
+
 class CanIdentifier(BaseModel):
     """Matches a CAN frame by arbitration identifier."""
 
@@ -219,15 +315,41 @@ class BooleanJSONMatch(JSONBaseMatch):
     value: bool
 
 
+class PresentJSONMatch(JSONBaseMatch):
+    """Matches a document that holds a value other than null at the pointer."""
+
+    type: Literal["present"] = "present"
+
+
 # Selects the JSON documents that belong to a message.
 JSONMatch = Annotated[
     FloatJSONMatch
     | IntegerJSONMatch
     | UnsignedJSONMatch
     | StringJSONMatch
-    | BooleanJSONMatch,
+    | BooleanJSONMatch
+    | PresentJSONMatch,
     Field(discriminator="type"),
 ]
+
+
+class WriteBinding(BaseModel):
+    """Fills one message field with a command channel or a fixed value.
+
+    Attributes:
+        field: Is the key of the message field to send.
+        channel: Is the command channel whose values the field sends.
+        data_type: Is the data type of the command channel that a client creates for the
+            field. Empty takes the default of the field's kind. The Core ignores it once
+            the channel exists.
+        value: Is the fixed value that the field sends. A binding with a value has
+            channel 0 and no data type.
+    """
+
+    field: FieldKey
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    data_type: telem.DataType = telem.DataType("")
+    value: WriteValue | None = None
 
 
 class RetrieveRequest(BaseModel):
@@ -246,35 +368,6 @@ class RetrieveRequest(BaseModel):
     search_term: str = ""
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-
-
-class BinaryField(BaseField):
-    """Is a field read from a bit range of a binary payload. With no default, a write
-    needs a channel.
-
-    Attributes:
-        start_bit: Is the bit where the field starts, numbered as in a DBC file: the
-            least significant bit for little-endian fields and the most significant bit
-            for big-endian fields.
-        bit_length: Is the number of bits in the field, from 1 to 64.
-        byte_order: Is the byte order of the field.
-        kind: Is the kind of the raw bits: an IEEE 754 float of 32 or 64 bits, a two's
-            complement integer, or an unsigned integer. No other kind is valid.
-        multiplexor: Is the key of the field that selects whether this field is present.
-            When absent the field is always present.
-        multiplex_values: Are the raw values of the multiplexor for which this field is
-            present.
-        default: Is the raw value, before scale and offset, when a read finds none or no
-            channel is bound. It is a whole number unless the kind is float.
-    """
-
-    start_bit: int = Field(default=0, ge=0, le=65535)
-    bit_length: int = Field(default=8, ge=1, le=64)
-    byte_order: ByteOrder = "little_endian"
-    kind: payload_.Kind = "unsigned"
-    multiplexor: FieldKey | None = None
-    multiplex_values: list[int] = Field(default_factory=list)
-    default: payload_.Float | None = None
 
 
 class TextBaseField(BaseField):
@@ -297,6 +390,58 @@ class JSONBaseField(BaseField):
     """
 
     pointer: str = ""
+
+
+class BinaryBaseField(BaseField):
+    """Carries the parts every binary field shares.
+
+    Attributes:
+        start_bit: Is the bit where the field starts, numbered as in a DBC file: the
+            least significant bit for little-endian fields and the most significant bit
+            for big-endian fields.
+        bit_length: Is the number of bits in the field, from 1 to 64.
+        byte_order: Is the byte order of the field.
+        multiplexor: Is the key of the field that selects whether this field is present.
+            When absent the field is always present.
+        multiplex_values: Are the raw values of the multiplexor for which this field is
+            present.
+    """
+
+    start_bit: int = Field(default=0, ge=0, le=65535)
+    bit_length: int = Field(default=8, ge=1, le=64)
+    byte_order: ByteOrder = "little_endian"
+    multiplexor: FieldKey | None = None
+    multiplex_values: list[Annotated[int, Field(ge=-2147483648, le=2147483647)]] = (
+        Field(default_factory=list)
+    )
+
+
+class ReadMessage(BaseModel):
+    """Reads one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to read.
+        index: Is the key of the field whose channel indexes the others. Absent when the
+            task stamps samples on arrival, or with the timestamp of the Kafka record.
+        bindings: Are the fields the task reads. A field with no binding is not read.
+    """
+
+    message: MessageKey
+    index: FieldKey | None = None
+    bindings: list[ReadBinding] = Field(default_factory=list)
+
+
+class WriteMessage(BaseModel):
+    """Sends one message of an ICD.
+
+    Attributes:
+        message: Is the key of the ICD message to send.
+        bindings: Are the fields that command channels or fixed values fill. Each other
+            field sends its default.
+    """
+
+    message: MessageKey
+    bindings: list[WriteBinding] = Field(default_factory=list)
 
 
 class DelimitedTextField(TextBaseField):
@@ -376,7 +521,7 @@ class JSONJSONField(JSONBaseField):
     """Is any JSON value."""
 
     type: Literal["json"] = "json"
-    default: JsonValue | None = None
+    default: str | None = None
 
 
 class UuidJSONField(JSONBaseField):
@@ -406,6 +551,39 @@ JSONField = Annotated[
     | UuidJSONField
     | BytesJSONField,
     Field(discriminator="type"),
+]
+
+
+class FloatBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are an IEEE 754 float of 32 or 64 bits."""
+
+    kind: Literal["float"] = "float"
+    default: payload_.Float | None = None
+
+
+class IntegerBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are a two's complement integer."""
+
+    kind: Literal["integer"] = "integer"
+    default: payload_.Integer | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class UnsignedBinaryField(BinaryBaseField):
+    """Is a field whose raw bits are an unsigned integer."""
+
+    kind: Literal["unsigned"] = "unsigned"
+    default: payload_.Unsigned | None = Field(
+        default=None, ge=0, le=18446744073709551615
+    )
+
+
+# Is a field read from a bit range of a binary payload. With no default, a write
+# needs a channel.
+BinaryField = Annotated[
+    FloatBinaryField | IntegerBinaryField | UnsignedBinaryField,
+    Field(discriminator="kind"),
 ]
 
 
@@ -449,11 +627,16 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
+        cycle_time: Is the send cycle that the protocol states for the message. When
+            absent the protocol states none.
     """
 
     key: MessageKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     payload: Payload
+    cycle_time: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
 
 class ICD(BaseModel):

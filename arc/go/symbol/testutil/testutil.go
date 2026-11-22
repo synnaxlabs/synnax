@@ -46,9 +46,8 @@ func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
 // which PathError has no Unwrap for, so MatchError(validate.ErrValidation) misses it.
 func BeAValidationPathError() types.GomegaMatcher {
 	return gomega.MatchError(func(err error) bool {
-		var pathErr validate.PathError
-		return errors.As(err, &pathErr) &&
-			errors.Is(pathErr.Err, validate.ErrValidation)
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		return ok && errors.Is(pathErr.Err, validate.ErrValidation)
 	}, "be a validation path error")
 }
 

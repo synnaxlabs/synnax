@@ -28,7 +28,7 @@
               "bit_length": 8,
               "byte_order": "little_endian",
               "kind": "integer",
-              "default": -129
+              "default": "-129"
             }
           ],
           "length": 8

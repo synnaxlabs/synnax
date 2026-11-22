@@ -74,8 +74,7 @@ func prefixPath(err error, segments []string) error {
 		}
 		return errors.Join(prefixed...)
 	}
-	var errPath PathError
-	if errors.As(err, &errPath) {
+	if errPath, ok := errors.AsType[PathError](err); ok {
 		errPath.Path = slices.Concat(segments, errPath.Path)
 		return errPath
 	}
@@ -102,8 +101,7 @@ const (
 )
 
 func encode(c *errors.Codec, err error) (errors.Payload, bool) {
-	var errPath PathError
-	if errors.As(err, &errPath) {
+	if errPath, ok := errors.AsType[PathError](err); ok {
 		internal := c.Encode(errPath.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,

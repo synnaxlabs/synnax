@@ -14,7 +14,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Symbol } from "@/schematic/node/general/box/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
+import type { NodeProps } from "@/schematic/node/spec";
 
 const NODE_KEY = "b1";
 

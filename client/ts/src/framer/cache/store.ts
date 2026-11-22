@@ -11,6 +11,7 @@ import { alamos } from "@synnaxlabs/alamos";
 import {
   type DataType,
   type destructor,
+  map,
   MultiSeries,
   type Series,
   Size,
@@ -600,19 +601,14 @@ export class Store {
   }
 
   private liveOf(ch: channel.Key): Live {
-    let live = this.live.get(ch);
-    if (live == null) {
-      live = {
-        buffer: new Dynamic({
-          dynamicBufferSize: this.dynamicBufferSize,
-          maxBufferSize: this.liveSamples / 16,
-          instrumentation: this.instrumentation.child(`live-${ch}`),
-          now: this.now,
-        }),
-        block: null,
-      };
-      this.live.set(ch, live);
-    }
-    return live;
+    return map.getOrInsert(this.live, ch, () => ({
+      buffer: new Dynamic({
+        dynamicBufferSize: this.dynamicBufferSize,
+        maxBufferSize: this.liveSamples / 16,
+        instrumentation: this.instrumentation.child(`live-${ch}`),
+        now: this.now,
+      }),
+      block: null,
+    }));
   }
 }

@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -317,7 +318,7 @@ func appendBase64(dst, text []byte) ([]byte, error) {
 	}
 	dst, err := strictBase64.AppendDecode(dst, text)
 	if err != nil {
-		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+		return nil, errors.Wrap(validate.ErrValidation, "not canonical base64")
 	}
 	return dst, nil
 }
@@ -346,7 +347,7 @@ func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) 
 // type is not numeric, or v does not convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if math.IsNaN(v) || math.IsInf(v, 0) {
+	if !xmath.Finite(v) {
 		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
 	}
 	if dt := d.field.DataType; !numeric(dt) {

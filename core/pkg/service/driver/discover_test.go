@@ -92,8 +92,7 @@ var _ = Describe("Discover", func() {
 		// description that gives advice.
 		expectFailure := func(err error, message, advice string) {
 			GinkgoHelper()
-			var f driver.Failure
-			Expect(errors.As(err, &f)).To(BeTrue())
+			f := MustBeOk(errors.AsType[driver.Failure](err))
 			Expect(f.Message).To(Equal(message))
 			Expect(f.Description).To(ContainSubstring(advice))
 		}

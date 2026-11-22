@@ -9,13 +9,21 @@
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { type z } from "zod";
+import type { z } from "zod";
 
-import { NotFoundError, PathError } from "@/errors";
+import { NotCachedError, NotFoundError, PathError, ValidationError } from "@/errors";
 import { icd } from "@/icd";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
+
+interface Problem {
+  path: string;
+  message: string;
+}
+
+const problemsOf = (errors: PathError[]): Problem[] =>
+  errors.map(({ path, error }) => ({ path: path.join("."), message: error.message }));
 
 const createNew = (name: string = "ICD"): icd.New => ({
   name,
@@ -27,15 +35,15 @@ const createNew = (name: string = "ICD"): icd.New => ({
         identifier: { type: "can", id: 0x101, extended: false, fd: false },
         length: 8,
         fields: [
-          { name: "state", startBit: 0, bitLength: 8 },
+          { kind: "unsigned", name: "state", startBit: 0, bitLength: 8 },
           {
+            kind: "integer",
             name: "temperature",
             startBit: 8,
             bitLength: 16,
-            kind: "integer",
             scale: 0.1,
             units: "degC",
-            default: 250,
+            default: "250",
           },
         ],
       },
@@ -88,7 +96,7 @@ describe("icd", () => {
         kind: "integer",
         scale: 0.1,
         units: "degC",
-        default: 250,
+        default: "250",
       });
       const keys = [msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
@@ -137,6 +145,7 @@ describe("icd", () => {
         pointer: "/seq",
         value: "18446744073709551615",
       };
+      const present: icd.JSONMatch = { type: "present", pointer: "/fault" };
       const ic = await client.icds.create({
         name: "JSON",
         messages: [
@@ -163,9 +172,18 @@ describe("icd", () => {
               ],
             },
           },
+          {
+            name: "Fault",
+            payload: {
+              format: "json",
+              match: present,
+              fields: [{ type: "string", name: "fault", pointer: "/fault" }],
+            },
+          },
         ],
       });
       expect(await client.icds.retrieve(ic.key)).toEqual(ic);
+      expect(ic.messages[1].payload).toMatchObject({ format: "json", match: present });
       expect(ic.messages[0].payload).toMatchObject({
         format: "json",
         match,
@@ -238,7 +256,7 @@ describe("icd", () => {
           type: "json",
           name: "config",
           pointer: "/config",
-          default: { set_point: 1, modeName: "auto" },
+          default: '{"set_point": 1, "modeName": "auto"}',
         },
         {
           type: "uuid",
@@ -266,6 +284,74 @@ describe("icd", () => {
       const retrieved = await client.icds.retrieve(ic.key);
       expect(retrieved).toEqual(ic);
       expect(retrieved.messages[0].payload).toMatchObject({ format: "json", fields });
+    });
+
+    it("should keep the non-finite enum values of a float field", async () => {
+      const enumValues = [
+        { label: "UNKNOWN", value: NaN },
+        { label: "HIGH", value: Infinity },
+        { label: "LOW", value: -Infinity },
+      ];
+      const ic = await client.icds.create({
+        name: "Non-finite",
+        messages: [
+          {
+            name: "Reading",
+            payload: {
+              format: "json",
+              fields: [{ type: "float", name: "level", pointer: "/level", enumValues }],
+            },
+          },
+        ],
+      });
+      const retrieved = await client.icds.retrieve(ic.key);
+      expect(retrieved.messages[0].payload).toMatchObject({
+        format: "json",
+        fields: [{ enumValues }],
+      });
+    });
+
+    it("should keep every digit of large binary defaults and of JSON text", async () => {
+      const text = '{"id": 9007199254740993}';
+      const ic = await client.icds.create({
+        name: "Exact",
+        messages: [
+          {
+            name: "Frame",
+            payload: {
+              format: "binary",
+              length: 16,
+              fields: [
+                {
+                  kind: "unsigned",
+                  name: "max",
+                  bitLength: 64,
+                  default: "18446744073709551615",
+                },
+                {
+                  kind: "unsigned",
+                  name: "odd",
+                  startBit: 64,
+                  bitLength: 64,
+                  default: "9007199254740993",
+                },
+              ],
+            },
+          },
+          {
+            name: "Document",
+            payload: {
+              format: "json",
+              fields: [{ type: "json", name: "doc", pointer: "/doc", default: text }],
+            },
+          },
+        ],
+      });
+      const [frame, document] = (await client.icds.retrieve(ic.key)).messages;
+      expect(frame.payload).toMatchObject({
+        fields: [{ default: "18446744073709551615" }, { default: "9007199254740993" }],
+      });
+      expect(document.payload).toMatchObject({ fields: [{ default: text }] });
     });
 
     it("should create multiple ICDs", async () => {
@@ -298,6 +384,27 @@ describe("icd", () => {
       expect(await client.icds.check(createNew())).toEqual([]);
     });
 
+    it("should return each problem as a path error of a validation error", async () => {
+      const problems = [
+        ...(await client.icds.check({
+          name: "ICD",
+          messages: [{ name: "", payload: { format: "binary" } }],
+        })),
+        ...(await client.icds.check({
+          name: "ICD",
+          messages: [
+            { name: "Mode", payload: { format: "binary" } },
+            { name: "Mode", payload: { format: "binary" } },
+          ],
+        })),
+      ];
+      expect(problems).toHaveLength(2);
+      for (const p of problems) {
+        expect(p).toBeInstanceOf(PathError);
+        expect(p.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
     it("should return every problem with its path", async () => {
       const problems = await client.icds.check({
         name: "ICD",
@@ -309,12 +416,14 @@ describe("icd", () => {
             payload: {
               format: "binary",
               length: 8,
-              fields: [{ name: "rpm", startBit: 0, bitLength: 8, scale: 0 }],
+              fields: [
+                { kind: "unsigned", name: "rpm", startBit: 0, bitLength: 8, scale: 0 },
+              ],
             },
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         { path: "messages.1.name", message: 'duplicate message name "Mode"' },
         {
           path: "messages.2.payload.fields.0.scale",
@@ -342,7 +451,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.identifier.bitrateSwitched",
           message: "only a CAN FD frame can switch bitrates",
@@ -366,7 +475,7 @@ describe("icd", () => {
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.fields.1.pointer",
           message: 'pointer "/v/x" is inside the value of field "a"',
@@ -378,12 +487,55 @@ describe("icd", () => {
       ]);
     });
 
+    it.each<[string, z.input<typeof icd.payloadZ>]>([
+      [
+        "binary",
+        {
+          format: "binary",
+          length: 8,
+          fields: [{ kind: "float", name: "level", bitLength: 64, default: Infinity }],
+        },
+      ],
+      [
+        "text",
+        {
+          format: "text",
+          fields: [
+            { encoding: "delimited", name: "level", position: 1, default: Infinity },
+          ],
+        },
+      ],
+      [
+        "JSON",
+        {
+          format: "json",
+          fields: [
+            { type: "float", name: "level", pointer: "/level", default: Infinity },
+          ],
+        },
+      ],
+    ])(
+      "should return a problem for an infinite default of a %s field",
+      async (_, payload) => {
+        const problems = await client.icds.check({
+          name: "ICD",
+          messages: [{ name: "Reading", payload }],
+        });
+        expect(problemsOf(problems)).toEqual([
+          {
+            path: "messages.0.payload.fields.0.default",
+            message: "default must be finite",
+          },
+        ]);
+      },
+    );
+
     it("should return the problems with a rule of the schema", async () => {
       const problems = await client.icds.check({
         name: "ICD",
         messages: [{ name: "", payload: { format: "binary" } }],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.name",
           message: "name is required",
@@ -397,11 +549,14 @@ describe("icd", () => {
         messages: [
           {
             name: "M",
-            payload: { format: "binary", fields: [{ name: "a", bitLength: 65 }] },
+            payload: {
+              format: "binary",
+              fields: [{ kind: "unsigned", name: "a", bitLength: 65 }],
+            },
           },
         ],
       });
-      expect(problems).toEqual([
+      expect(problemsOf(problems)).toEqual([
         {
           path: "messages.0.payload.fields.0.bitLength",
           message: "bit length must be less than or equal to 64",
@@ -495,7 +650,7 @@ describe("icd", () => {
       const path = ["messages", msg.key, "payload", "fields", state.key, "name"];
       await client.icds.dispatch(ic.key, icd.set({ path, value: "temperature" }));
       const stored = await createTestClient().icds.retrieve(ic.key);
-      expect(await client.icds.check(stored)).toEqual([
+      expect(problemsOf(await client.icds.check(stored))).toEqual([
         {
           path: "messages.0.payload.fields.1.name",
           message: 'duplicate field name "temperature"',
@@ -511,14 +666,14 @@ describe("icd", () => {
       expect((await client.icds.retrieve(ic.key)).key).toEqual(ic.key);
     });
 
-    it("should return false without a send when the ICD is not cached", async () => {
+    it("should throw when the ICD is not cached", async () => {
       const ic = await client.icds.create(createNew());
-      expect(
-        await createTestClient().icds.dispatch(
+      await expect(
+        createTestClient().icds.dispatch(
           ic.key,
           icd.set({ path: ["name"], value: "Renamed" }),
         ),
-      ).toBe(false);
+      ).rejects.toThrow(NotCachedError);
     });
   });
 

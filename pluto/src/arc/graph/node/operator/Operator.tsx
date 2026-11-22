@@ -11,7 +11,7 @@ import "@/arc/graph/node/operator/Operator.css";
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type FC } from "react";
+import type { FC } from "react";
 
 import { Minimal } from "@/arc/graph/node/Base";
 import { CSS } from "@/css";

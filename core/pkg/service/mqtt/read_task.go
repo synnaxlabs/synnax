@@ -152,14 +152,29 @@ func newReadTopic(
 // newTopicMessage validates rm and fills decoded with what the decoder needs to read
 // it.
 func newTopicMessage(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 	decoded *codec.JSONMessage,
 ) (*topicMessage, error) {
-	msg, payload, err := jsonMessageOf(ic, rm.Message)
-	if err != nil {
-		return nil, err
+	var msg *icd.Message
+	for i := range ic.Messages {
+		if ic.Messages[i].Key == rm.Message {
+			msg = &ic.Messages[i]
+			break
+		}
+	}
+	if msg == nil {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"message %s does not exist in ICD %s", rm.Message, ic.Name,
+		)
+	}
+	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
+	if !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
+		)
 	}
 	if len(rm.Bindings) == 0 {
 		return nil, errors.Wrapf(
@@ -186,7 +201,7 @@ func newTopicMessage(
 // bind sets the data types, the index channel, and the index field of m from the
 // bindings of rm and their channels. It returns the codec binding of each.
 func (m *topicMessage) bind(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	channels map[channel.Key]channel.Channel,
 ) ([]codec.Binding, error) {
 	bindings := make([]codec.Binding, len(rm.Bindings))

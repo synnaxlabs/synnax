@@ -14,9 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/color"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -68,17 +69,18 @@ var _ = Describe("Actions", func() {
 			Expect(res.TimeRange).To(Equal(telem.NewRangeSeconds(1, 9)))
 		})
 		It("Should set a color the range does not have", func() {
-			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
+			res := MustSucceed(ranger.Reduce(base, set(
+				[]string{"color"},
+				map[string]any{"type": "fixed", "value": "#ff0000"},
+			)))
+			Expect(res.Color).To(Equal(fixed("#ff0000")))
 		})
-		It("Should reject a path into the color", func() {
-			base.Color = new(MustSucceed(color.Parse("#00ff00")))
-			act := set([]string{"color", "a"}, 128)
+		It("Should reject a change of the color type in place", func() {
+			base.Color = fixed("#00ff00")
+			act := set([]string{"color", "type"}, "named")
 			Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("[color]: the value takes only a whole set"),
-				),
+				MatchError(ContainSubstring("[color]: decoding value")),
 			))
 		})
 		It("Should set the parent", func() {
@@ -122,17 +124,17 @@ var _ = Describe("Actions", func() {
 				"[time_range, end]: decoding value",
 			),
 			Entry(
-				"a legacy object color",
+				"a bare hex color",
 				[]string{"color"},
-				map[string]any{"r": 255, "g": 0, "b": 0, "a": 0.5},
-				"color is not a hex string",
+				"#ff0000",
+				"[color]: decoding value",
 			),
 		)
 	})
 
 	Describe("RemovePayload", func() {
 		It("Should remove the color", func() {
-			base.Color = new(MustSucceed(color.Parse("#00ff00")))
+			base.Color = fixed("#00ff00")
 			res := MustSucceed(ranger.Reduce(
 				base,
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),
@@ -205,3 +207,8 @@ var _ = Describe("Actions", func() {
 		})
 	})
 })
+
+func fixed(hex string) *color.Ref {
+	GinkgoHelper()
+	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
+}

@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Event, type License } from "@/server/db/schema";
+import { array, math } from "@synnaxlabs/x";
+
+import type { schema } from "@/server/db";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
-import { type Status } from "@/server/license/status";
+import type { Status } from "@/server/license/status";
 
 /** Clock reads dates and times in one time zone. */
 export interface Clock {
@@ -79,25 +81,26 @@ export interface Standing {
 
 /** standing sums the seats and expiries of the licenses usable at `now`. */
 export const standing = (
-  licenses: { license: License; seats: number }[],
+  licenses: { license: schema.License; seats: number }[],
   now: Date,
 ): Standing => {
   const live = licenses.filter(({ license }) => deny(license, now) == null);
   const expiries = live.flatMap(({ license }) =>
     license.expiresAt == null ? [] : [license.expiresAt.getTime()],
   );
+  const nextExpiry = array.minBy(expiries, (time) => time);
   return {
     active: live.length,
-    seats: live.reduce((n, l) => n + l.seats, 0),
-    capacity: live.reduce((n, l) => n + l.license.nodes, 0),
-    nextExpiry: expiries.length === 0 ? null : new Date(Math.min(...expiries)),
+    seats: math.sum(live.map((l) => l.seats)),
+    capacity: math.sum(live.map((l) => l.license.nodes)),
+    nextExpiry: nextExpiry == null ? null : new Date(nextExpiry),
   };
 };
 
-export const edition = (e: License["edition"]): string =>
+export const edition = (e: schema.License["edition"]): string =>
   e === "desktop" ? "Desktop" : "Enterprise";
 
-const EVENT_LABELS: Record<Event["kind"], string> = {
+const EVENT_LABELS: Record<schema.Event["kind"], string> = {
   issue: "License issued",
   amend: "License changed",
   activate: "Machine activated",
@@ -139,7 +142,10 @@ const text = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
 /** describeEvent writes one event as a line: what happened, to what, by whom. */
-export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
+export const describeEvent = (
+  e: schema.Event,
+  { machines, actors }: Narrator,
+): string => {
   const detail = e.detail as Record<string, unknown>;
   const on =
     e.activation == null

@@ -9,7 +9,7 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 
-import { type Viewport } from "@/viewport";
+import { Viewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
 
 export interface ContextValue {
@@ -18,6 +18,7 @@ export interface ContextValue {
   onEditableChange: (v: boolean) => void;
   viewportMode: Viewport.Mode;
   onViewportModeChange: (v: Viewport.Mode) => void;
+  triggers: Viewport.UseTriggers;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
   fitViewOptions: diagram.FitViewOptions;
@@ -31,6 +32,7 @@ export const [Context, useContext] = context.create<ContextValue>({
     onEditableChange: () => {},
     onViewportModeChange: () => {},
     setFitViewOnResize: () => {},
+    triggers: Viewport.DEFAULT_TRIGGERS.select,
     viewportMode: "select",
     visible: true,
   },

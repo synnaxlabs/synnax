@@ -15,6 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -30,7 +31,6 @@ import { Session } from "@/session";
 import {
   createTestClientWithGrants,
   resolveFocusedTab,
-  uniqueName,
   waitForFocusedTab,
 } from "@/testutil";
 
@@ -632,8 +632,8 @@ describe("Panel.useCanOpenTab", () => {
     async (role) => {
       const existing = await createServerPanel(client, viewLeaf(uuid.create(), "seed"));
       const { result } = await renderCan(await roles.get(role), existing.key);
-      await waitFor(() => expect(result.current.edit).toBe(false));
-      expect(result.current.open).toBe(false);
+      await waitFor(() => expect(result.current.open).toBe(false));
+      expect(result.current.edit).toBe(false);
     },
   );
 

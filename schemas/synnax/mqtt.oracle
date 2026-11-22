@@ -78,46 +78,6 @@ SparkplugDataType enum {
     @doc value "is the Sparkplug B data type of a tag."
 }
 
-ReadBinding struct {
-    field     icd.FieldKey   {
-        @doc value "is the key of the message field to read."
-    }
-    channel   channel.Key = 0 {
-        @doc value     "is the channel the value of the field is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    data_type telem.DataType = "" {
-        @doc value """
-            is the data type of the channel that a client creates for the field. Empty
-            takes the default of the field's kind. The Core ignores it once the channel
-            exists.
-        """
-        @ts type   "string"
-    }
-
-    @doc value  "writes the value of one message field to a channel."
-    @go marshal
-}
-
-ReadMessage struct {
-    message  icd.MessageKey {
-        @doc value "is the key of the ICD message to read."
-    }
-    index    icd.FieldKey?  {
-        @doc value """
-            is the key of the field whose channel indexes the others. Absent when the
-            task stamps samples on arrival.
-        """
-    }
-    bindings ReadBinding[] = [] {
-        @doc value "are the fields the task reads. A field with no binding is not read."
-    }
-
-    @doc value  "reads the documents of one ICD message."
-    @go marshal
-}
-
 BaseReadEntry struct {
     key      string = create {
         @doc value "uniquely identifies the entry within the task."
@@ -180,12 +140,12 @@ ReadEntry union on type extends BaseReadEntry {
                 on subscribe.
             """
         }
-        icd              icd.Key       {
+        icd              icd.Key           {
             @doc value     "is the key of the ICD that holds the messages of the topic."
             @ref kind      use
             @ref on_delete restrict
         }
-        messages         ReadMessage[] = [] {
+        messages         icd.ReadMessage[] = [] {
             @doc value """
                 are the messages the topic carries. Each payload is read as the message
                 whose match rule it meets.
@@ -260,40 +220,87 @@ ReadConfig struct extends task.PersistConfig {
     @retrieve references
 }
 
-WriteBinding struct {
-    field     icd.FieldKey   {
-        @doc value "is the key of the message field to send."
+ChannelField struct {
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the payload. An
+            empty pointer sends the bare value as the entire payload, in which case the
+            target may not declare any additional fields.
+        """
     }
-    channel   channel.Key = 0 {
-        @doc value     "is the command channel whose values the field sends."
+    json_type   payload.JSONType = number {
+        @doc value "is the JSON type the channel value is serialized as."
+    }
+    channel     channel.Key = 0 {
+        @doc value     "is the Synnax command channel that triggers the publish."
         @ref kind      use
         @ref on_delete restrict
     }
-    data_type telem.DataType = "" {
-        @doc value """
-            is the data type of the command channel that a client creates for the field.
-            Empty takes the default of the field's kind. The Core ignores it once the
-            channel exists.
-        """
+    name        string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the command channel."
         @ts type   "string"
     }
+    time_format payload.TimeFormat? {
+        @doc value """
+            is the output encoding when the command channel holds timestamps. An unset
+            format is ISO 8601.
+        """
+    }
+    enum_values payload.EnumEntry[] {
+        @doc value """
+            maps numeric channel values to string labels. Only valid when json_type is
+            'string'.
+        """
+    }
 
-    @doc value  "sends the values of one command channel as one message field."
+    @doc value  "is the command channel value placed into the payload of a target."
     @go marshal
 }
 
-WriteMessage struct {
-    message  icd.MessageKey {
-        @doc value "is the key of the ICD message to send."
+BaseWriteField struct {
+    key     string = create {
+        @doc value "uniquely identifies the field within the target."
+        @key
     }
-    bindings WriteBinding[] = [] {
-        @doc value """
-            are the fields that command channels fill. Each other field sends its
-            default.
-        """
+    pointer string = "" {
+        @doc value "is the JSON Pointer where the value is placed in the payload."
     }
 
-    @doc value  "sends the documents of one ICD message."
+    @doc value  "carries the fields every write payload field shares."
+    @go marshal
+}
+
+WriteField union on type extends BaseWriteField {
+    static {
+        json_type payload.JSONType = number {
+            @doc value "is the JSON type the value is serialized as."
+        }
+        value     any              {
+            @doc value "is the fixed JSON value placed at the pointer."
+        }
+
+        @doc value "places a fixed value in the payload."
+    }
+    generated {
+        generator   payload.GeneratorType = uuid {
+            @doc value "is the generator that produces a fresh value per publish."
+        }
+        time_format payload.TimeFormat?   {
+            @doc value """
+                is the output encoding for timestamp generators. Defaults to iso8601.
+            """
+        }
+
+        @doc value "places a freshly generated UUID or timestamp in the payload."
+    }
+
+    @doc value  """
+        is an additional payload field on a plain write target. The type field selects
+        whether the value is fixed or generated per publish.
+    """
     @go marshal
 }
 
@@ -321,19 +328,14 @@ WriteTarget union on type extends BaseWriteTarget {
         retained bool = false {
             @doc value "is true when the broker retains the published message."
         }
-        icd      icd.Key      {
-            @doc value     "is the key of the ICD that holds the message."
-            @ref kind      use
-            @ref on_delete restrict
+        channel  ChannelField = {} {
+            @doc value "is the command channel whose writes trigger the publish."
         }
-        message  WriteMessage {
-            @doc value """
-                is the message the target publishes. A command on any bound channel
-                publishes one document.
-            """
+        fields   WriteField[] {
+            @doc value "contains additional static or generated payload fields."
         }
 
-        @doc value "publishes the JSON documents of one ICD message to one topic."
+        @doc value "publishes a JSON payload to one topic."
     }
     sparkplug {
         group     string = "" {

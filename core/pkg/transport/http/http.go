@@ -69,6 +69,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/login",
 		),
+		AuthMethods: unary[struct{}, auth.MethodsResponse](
+			router,
+			"/api/v1/auth/methods",
+		),
 		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
 			router,
 			"/api/v1/auth/change-password",
@@ -350,6 +354,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/symbol/group/delete",
 		),
+		SchematicSymbolRetrieveBuiltins: unary[
+			struct{},
+			symbol.RetrieveBuiltinsResponse,
+		](router, "/api/v1/schematic/symbol/retrieve-builtins"),
 
 		// LINE PLOT
 		LinePlotCreate: unary[lineplot.CreateRequest, lineplot.CreateResponse](
@@ -505,14 +513,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1"+api.PathEnumerationDispatch,
 		),
+		EnumerationReplace: unary[enumeration.ReplaceRequest, struct{}](
+			router,
+			"/api/v1/enumeration/replace",
+		),
 		EnumerationRetrieveBuiltins: unary[
 			struct{},
 			enumeration.RetrieveBuiltinsResponse,
 		](router, "/api/v1/enumeration/retrieve-builtins"),
-		EnumerationRetrieveDependents: unary[
-			enumeration.RetrieveDependentsRequest,
-			enumeration.RetrieveDependentsResponse,
-		](router, "/api/v1/enumeration/retrieve-dependents"),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](
@@ -763,6 +771,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathCertificateDispatch,
+		),
+		CertificateRefresh: unary[certificate.RefreshRequest, struct{}](
+			router,
+			"/api/v1/certificate/refresh",
 		),
 
 		// IMPORT/EXPORT

@@ -2,12 +2,32 @@
   "$schema": "https://turborepo.org/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "env": ["VITE_DESKTOP"],
+      "passThroughEnv": [
+        "TAURI_SIGNING_PRIVATE_KEY",
+        "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+      ]
+    },
+    "build-desktop": {
+      "env": ["VITE_DESKTOP"],
+      "passThroughEnv": [
+        "TAURI_SIGNING_PRIVATE_KEY",
+        "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+      ]
+    },
+    "build-vite": { "env": ["VITE_DESKTOP"] },
+    "dev": { "env": ["VITE_DESKTOP"] },
+    "dev-desktop": { "env": ["VITE_DESKTOP"] },
+    "dev-vite": { "env": ["VITE_DESKTOP"] },
     "lint": {
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/src/**",
         "$TURBO_ROOT$/{lyra,pluto,console,site/*}/index.html"
       ]
-    }
+    },
+    "test": { "cache": false, "env": ["VITE_DESKTOP"] },
+    "cov": { "cache": false, "env": ["VITE_DESKTOP"] }
   }
 }

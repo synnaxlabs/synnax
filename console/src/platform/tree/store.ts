@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { resource } from "@synnaxlabs/client";
-import { type Tree as Base } from "@synnaxlabs/lyra/tree";
-import { array, compare, type destructor } from "@synnaxlabs/x";
+import type { Tree as Base } from "@synnaxlabs/lyra/tree";
+import { array, compare, type destructor, map } from "@synnaxlabs/x";
 
-import { type Source, type Window } from "@/platform/tree/children";
-import { type Resource } from "@/platform/tree/types";
+import type { Source, Window } from "@/platform/tree/children";
+import type { Resource } from "@/platform/tree/types";
 
 const MORE_PREFIX = "more/";
 
@@ -315,11 +315,7 @@ export class Store {
 
   /** Calls the handler each time the resource or the loading of the key changes. */
   readonly subscribeKey = (handler: () => void, key: string): destructor.Destructor => {
-    let handlers = this.keyListeners.get(key);
-    if (handlers == null) {
-      handlers = new Set();
-      this.keyListeners.set(key, handlers);
-    }
+    const handlers = map.getOrInsert(this.keyListeners, key, () => new Set());
     handlers.add(handler);
     return () => {
       handlers.delete(handler);
