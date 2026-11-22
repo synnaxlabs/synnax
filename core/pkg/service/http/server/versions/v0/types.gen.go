@@ -105,6 +105,14 @@ type BearerAuth struct {
 
 func (BearerAuth) isAuthVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BearerAuth) Validate() error {
+	v := validate.New("BearerAuth")
+	v.NonZero("token", b.Token)
+	return v.Error()
+}
+
 // BasicAuth sends a user name and password with HTTP basic authentication.
 type BasicAuth struct {
 	// Username is the user name to authenticate with.
@@ -120,6 +128,7 @@ func (BasicAuth) isAuthVariant() {}
 func (b BasicAuth) Validate() error {
 	v := validate.New("BasicAuth")
 	v.NotEmptyString("username", b.Username)
+	v.NonZero("password", b.Password)
 	return v.Error()
 }
 
@@ -145,6 +154,7 @@ func (a *APIKeyAuth) SetDefaults() {
 func (a APIKeyAuth) Validate() error {
 	v := validate.New("APIKeyAuth")
 	v.Ternaryf("send_as", !a.SendAs.IsValid(), "invalid send_as: %v", a.SendAs)
+	v.NonZero("key", a.Key)
 	v.NotEmptyString("name", a.Name)
 	return v.Error()
 }
@@ -272,6 +282,8 @@ func (u Auth) Validate() error {
 	v := validate.New("Auth")
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
+	case BearerAuth:
+		v.Exec(variant.Validate)
 	case BasicAuth:
 		v.Exec(variant.Validate)
 	case APIKeyAuth:

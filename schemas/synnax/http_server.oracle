@@ -50,7 +50,8 @@ Auth union on type {
     }
     bearer {
         token secret.Key {
-            @doc value "is the secret that holds the bearer token."
+            @doc value         "is the secret that holds the bearer token."
+            @validate required
         }
 
         @doc value "sends a bearer token in the Authorization header."
@@ -61,14 +62,16 @@ Auth union on type {
             @validate required
         }
         password secret.Key {
-            @doc value "is the secret that holds the password."
+            @doc value         "is the secret that holds the password."
+            @validate required
         }
 
         @doc value "sends a user name and password with HTTP basic authentication."
     }
     api_key {
         key     secret.Key {
-            @doc value "is the secret that holds the API key."
+            @doc value         "is the secret that holds the API key."
+            @validate required
         }
         send_as SendAs = header {
             @doc value "selects where requests carry the key."

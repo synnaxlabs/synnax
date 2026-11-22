@@ -60,7 +60,7 @@ export interface NoneAuth extends z.infer<typeof noneAuthZ> {}
 export const bearerAuthZ = z.object({
   type: z.literal("bearer"),
   /** token is the secret that holds the bearer token. */
-  token: secret.keyZ,
+  token: secret.keyZ.min(1, "token is required"),
 });
 export interface BearerAuth extends z.infer<typeof bearerAuthZ> {}
 
@@ -70,7 +70,7 @@ export const basicAuthZ = z.object({
   /** username is the user name to authenticate with. */
   username: z.string().min(1, "username is required"),
   /** password is the secret that holds the password. */
-  password: secret.keyZ,
+  password: secret.keyZ.min(1, "password is required"),
 });
 export interface BasicAuth extends z.infer<typeof basicAuthZ> {}
 
@@ -78,7 +78,7 @@ export interface BasicAuth extends z.infer<typeof basicAuthZ> {}
 export const apiKeyAuthZ = z.object({
   type: z.literal("api_key"),
   /** key is the secret that holds the API key. */
-  key: secret.keyZ,
+  key: secret.keyZ.min(1, "key is required"),
   /** sendAs selects where requests carry the key. */
   sendAs: sendAsZ.default("header"),
   /** name is the name of the header or query parameter that carries the key. */

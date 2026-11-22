@@ -128,6 +128,15 @@ var _ = Describe("Server", func() {
 			"max_concurrent_requests",
 		),
 		Entry("no auth", func(s *v0.Server) { s.Auth = v0.Auth{} }, "type"),
+		Entry("a bearer token with no secret", func(s *v0.Server) {
+			s.Auth = v0.Auth{Variant: v0.BearerAuth{}}
+		}, "token"),
+		Entry("basic auth with no password secret", func(s *v0.Server) {
+			s.Auth = v0.Auth{Variant: v0.BasicAuth{Username: "admin"}}
+		}, "password"),
+		Entry("an API key with no secret", func(s *v0.Server) {
+			s.Auth = v0.Auth{Variant: v0.APIKeyAuth{SendAs: "header", Name: "k"}}
+		}, "key"),
 		Entry("basic auth with no user name", func(s *v0.Server) {
 			s.Auth = v0.Auth{Variant: v0.BasicAuth{Password: uuid.New()}}
 		}, "username"),

@@ -175,7 +175,7 @@ inline x::json::json NoneAuth::to_json() const {
 
 inline BearerAuth BearerAuth::parse(x::json::Parser parser) {
     BearerAuth result;
-    result.token = parser.field<::synnax::secret::Key>("token");
+    result.token = parser.required_field<::synnax::secret::Key>("token");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -190,7 +190,7 @@ inline x::json::json BearerAuth::to_json() const {
 inline BasicAuth BasicAuth::parse(x::json::Parser parser) {
     BasicAuth result;
     result.username = parser.required_field<std::string>("username");
-    result.password = parser.field<::synnax::secret::Key>("password");
+    result.password = parser.required_field<::synnax::secret::Key>("password");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -205,7 +205,7 @@ inline x::json::json BasicAuth::to_json() const {
 
 inline APIKeyAuth APIKeyAuth::parse(x::json::Parser parser) {
     APIKeyAuth result;
-    result.key = parser.field<::synnax::secret::Key>("key");
+    result.key = parser.required_field<::synnax::secret::Key>("key");
     result.send_as = parser.field<std::string>("send_as", "header");
     result.name = parser.required_field<std::string>("name");
     result.type = parser.field<std::string>("type");
