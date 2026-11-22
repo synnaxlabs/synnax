@@ -56,7 +56,7 @@ type engine struct {
 	// checkpointer writes once it runs, or zero.
 	switched uint64
 	// ready is closed once the orphan pass is done. A writer waits for it before it
-	// creates a segment file.
+	// creates a segment file, and lockRoot before a call that removes files.
 	ready chan struct{}
 	// unstored gives out the alignment numbers of unstored writers, from
 	// telem.LeadingDomain.
