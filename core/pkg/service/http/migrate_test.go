@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -132,31 +133,42 @@ var _ = Describe("ICDMigration", func() {
 		}
 	})
 
-	// stage stores a config that the task named name owns, with its fields staged as
-	// v5.ReadMigration stages them.
-	stage := func(ctx SpecContext, name string) uuid.UUID {
+	// stageEndpoint stores a config that the task named name owns, with one endpoint
+	// that reads fields and indexes them with index, staged as v5.ReadMigration stages
+	// them.
+	stageEndpoint := func(
+		ctx SpecContext,
+		name string,
+		index string,
+		fields ...http.ReadField,
+	) uuid.UUID {
 		GinkgoHelper()
 		key := uuid.New()
-		fields := []http.ReadField{{
-			Key:      "level",
-			Pointer:  "/level",
-			DataType: telem.Float64T,
-		}}
 		Expect(gorp.WrapWriter[uuid.UUID, http.ReadConfig](db).Set(
 			ctx,
-			http.ReadConfig{Key: key, Endpoints: []http.ReadEndpoint{{
+			http.ReadConfig{Key: key, Rate: 1, Endpoints: []http.ReadEndpoint{{
 				Key:    "ep",
 				Method: "GET",
 				Path:   "/level",
+				Index:  index,
 				Fields: fields,
 			}}},
 		)).To(Succeed())
 		b := MustSucceed(json.Marshal(http.InlineRead{
-			Endpoints: []http.InlineEndpoint{{Key: "ep", Fields: fields}},
+			Endpoints: []http.InlineEndpoint{{Key: "ep", Index: index, Fields: fields}},
 		}))
 		Expect(db.Set(ctx, v5.StagedFieldsKVKey(key), b)).To(Succeed())
 		names[key] = name
 		return key
+	}
+	// stage stores a config that the task named name owns, with one staged field.
+	stage := func(ctx SpecContext, name string) uuid.UUID {
+		GinkgoHelper()
+		return stageEndpoint(ctx, name, "", http.ReadField{
+			Key:      "level",
+			Pointer:  "/level",
+			DataType: telem.Float64T,
+		})
 	}
 	run := func(ctx SpecContext) error {
 		return db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -206,6 +218,32 @@ var _ = Describe("ICDMigration", func() {
 			Expect(ic.Messages[0].Name).To(Equal("GET /level"))
 		},
 	)
+
+	It("Should store reads that a later save accepts", func(ctx SpecContext) {
+		idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+		value := createChannel(ctx, telem.Float64T, idx)
+		key := stageEndpoint(
+			ctx,
+			"Tank farm",
+			"ts",
+			http.ReadField{
+				Key:      "ts",
+				Disabled: true,
+				Channel:  idx.Key(),
+				Pointer:  "/ts",
+				DataType: telem.TimestampT,
+			},
+			http.ReadField{
+				Key:      "level",
+				Channel:  value.Key(),
+				Pointer:  "/level",
+				DataType: telem.Float64T,
+			},
+		)
+		Expect(run(ctx)).To(Succeed())
+		data := MustSucceed(svc.Read.Read(ctx, db, key))
+		MustSucceed(svc.Read.Prepare(ctx, db, key, "Tank farm", data))
+	})
 
 	It("Should do nothing without staged fields", func(ctx SpecContext) {
 		Expect(run(ctx)).To(Succeed())
