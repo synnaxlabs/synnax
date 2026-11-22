@@ -29,8 +29,8 @@ place until then.
 - **Field**: One value in a message, with its location, kind (`payload.Kind`), enum
   values, default, scale, offset, and units.
 - **Binding**: A task's link from one field to one channel, with the data type of a new
-  channel. A write binding is a channel binding or a value binding, which holds a fixed
-  value instead of a channel.
+  channel. A write binding is a channel binding or a value binding. A value binding
+  holds a fixed value instead of a channel.
 - **Codec**: The code that turns payload bytes into field values and back.
 
 ## 2 Principles
@@ -275,7 +275,7 @@ real adapter (§6.16).
     picks goes on the write binding instead (2026-11-22). A channel for each site's
     constant was rejected: the operator would have to command it each time the task
     starts. The write binding is a union of a channel binding and a value binding, as
-    RFC 0103's `Binding` is (2026-11-22). An optional `value` with a save rule that
+    `Binding` is in RFC 0103 §1 (2026-11-22). An optional `value` with a save rule that
     refuses it next to a channel was rejected: a new client forgets a rule, but cannot
     forget a shape. #5346, #5363, and #5366 close, and their work moves to Phases 19 to
     21 and 25 to 27 (2026-11-18). 0.62.0 shipped with MQTT v2 and ICD v0 only
