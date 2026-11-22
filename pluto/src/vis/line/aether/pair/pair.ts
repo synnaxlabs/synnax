@@ -34,7 +34,7 @@ const byAlignment = (series: Series[]): Series[] => {
  * Pairs come in alignment order: x by x, then y by y, when no list holds two series
  * that overlap in alignment. The cost is linear in the series and the pairs.
  */
-export const forEachPair = (
+export const forEach = (
   xs: Series[],
   ys: Series[],
   overlapThreshold: TimeSpan,
@@ -96,7 +96,7 @@ const clip = (
 
 /**
  * @param xData - the x (timestamp) series.
- * @param yData - the y series, paired with x by {@link forEachPair}.
+ * @param yData - the y series, paired with x by {@link forEach}.
  * @param xWindow - the x range to bound over.
  * @param overlapThreshold - minimum time range overlap for an x/y pair to count.
  * @param fallback - returned when no paired sample falls inside the window.
@@ -111,7 +111,7 @@ export const windowBounds = (
 ): bounds.Bounds => {
   let lower = Infinity;
   let upper = -Infinity;
-  forEachPair(xData.series, yData.series, overlapThreshold, (x, y, start, end) => {
+  forEach(xData.series, yData.series, overlapThreshold, (x, y, start, end) => {
     const range = clip(x, y, xWindow, start, end);
     if (range == null) return;
     const b = y.boundsFor(range[0], range[1]);

@@ -47,9 +47,9 @@ const MICROSECOND_FORMAT_THRESHOLD = TimeSpan.microseconds(50);
  * Maps a time domain onto a numeric range, holding nanosecond precision in BigInt
  * throughout.
  *
- * @example preciseTimeScale().domain([start, end]).range([0, 1000]).scale(t)
+ * @example timeScale().domain([start, end]).range([0, 1000]).scale(t)
  */
-export class PreciseTimeScale {
+export class TimeScale {
   private _domain: [TimeStamp, TimeStamp];
   private _range: [number, number];
   private _span: TimeSpan;
@@ -129,4 +129,4 @@ export class PreciseTimeScale {
   }
 }
 
-export const preciseTimeScale = (): PreciseTimeScale => new PreciseTimeScale();
+export const timeScale = (): TimeScale => new TimeScale();
