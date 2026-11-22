@@ -13,6 +13,7 @@ import {
   createTestClient,
   createTestClientAs,
   createTestClientWithRole,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -57,11 +58,7 @@ describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const subject = await client.users.create({ name: uniqueName("user"), role });
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
@@ -83,11 +80,7 @@ describe("useModal", () => {
   it("should stay open while a key saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const { user: subject } = await createTestUser(client, { role });
     const id = user.resourceID(subject.key);
     await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
@@ -164,11 +157,7 @@ describe("useModal", () => {
   it("should stay open while a password saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
+    const { user: subject } = await createTestUser(client, { role });
     await openModal(Credential.useModal, {
       client,
       params: { subject: user.resourceID(subject.key) },
@@ -190,12 +179,10 @@ describe("useModal", () => {
 
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
-    const username = uniqueName("user");
     const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username,
-      password: "password123",
+    const { user: subject, username } = await createTestUser(client, {
       role,
+      username: uniqueName("user"),
     });
     await openModal(Credential.useModal, {
       client,

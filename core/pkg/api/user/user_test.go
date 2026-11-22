@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -158,73 +157,48 @@ func roleOf(ctx SpecContext, key user.Key) role.Key {
 
 var _ = Describe("Service", func() {
 	Describe("Create", func() {
-		It(
-			"Should register users and their credentials in a single call",
-			func(ctx SpecContext) {
-				username := uuid.New().String()
-				res := MustSucceed(
-					create(rootCtx(ctx), apiuser.CreateRequest{
-						Users: []apiuser.NewUser{
-							{
-								Username: username,
-								Password: "p",
-								Name:     "First Last",
-								Role:     rbacSvc.Builtin.ViewerKey,
-							},
-						},
-					}),
-				)
-				Expect(res.Users).To(HaveLen(1))
-				Expect(res.Users[0].Name).To(Equal("First Last"))
-				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
-				MustSucceed(login(ctx, username, "p"))
-			},
-		)
-		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
-			other := DeferClose(gorp.Wrap(memkv.New()))
-			StartRun(other.Run)
-			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: other,
-				Authenticators: map[auth.Method]auth.Authenticator{
-					auth.MethodAPIKey: passwordSvc,
+		It("Should create users and give each a new key", func(ctx SpecContext) {
+			viewer := rbacSvc.Builtin.ViewerKey
+			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{
+				Users: []user.User{
+					{Name: "Ada", Role: viewer},
+					{Name: "Grace", Role: viewer},
 				},
 			}))
-			noPasswords := MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
-				DB:       db,
-				RBAC:     rbacSvc,
-				User:     userSvc,
-				Password: passwordSvc,
-				Auth:     keysOnly,
-			}))
-			username := "should-not-exist-" + uuid.New().String()
-			Expect(noPasswords.PrepareCreate(rootCtx(ctx), apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
-			})).Error().To(MatchError(validate.ErrValidation))
-			Expect(login(ctx, username, "p")).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(res.Users).To(HaveLen(2))
+			Expect(res.Users[0].Name).To(Equal("Ada"))
+			Expect(res.Users[1].Name).To(Equal("Grace"))
+			Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
+			Expect(res.Users[0].Key).ToNot(Equal(res.Users[1].Key))
 		})
-		It("Should name a user after its username by default", func(ctx SpecContext) {
-			username := uuid.New().String()
+		It("Should keep a key the caller gives", func(ctx SpecContext) {
+			key := uuid.New()
 			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{
-					Username: username,
-					Password: "p",
-					Role:     rbacSvc.Builtin.ViewerKey,
+				Users: []user.User{{
+					Key:  key,
+					Name: "Ada",
+					Role: rbacSvc.Builtin.ViewerKey,
 				}},
 			}))
-			Expect(res.Users[0].Name).To(Equal(username))
+			Expect(res.Users[0].Key).To(Equal(key))
+		})
+		It("Should refuse a root user", func(ctx SpecContext) {
+			Expect(create(rootCtx(ctx), apiuser.CreateRequest{
+				Users: []user.User{{
+					Name:     "root",
+					RootUser: true,
+					Role:     rbacSvc.Builtin.OwnerKey,
+				}},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 		It(
 			"Should deny access when the subject lacks create permission",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
-				key := uuid.New()
 				Expect(create(fctx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Key:      key,
-						Username: "should-not-exist-" + uuid.New().String(),
-						Password: "p",
-						Role:     rbacSvc.Builtin.ViewerKey,
+					Users: []user.User{{
+						Name: "denied",
+						Role: rbacSvc.Builtin.ViewerKey,
 					}},
 				})).Error().To(denied(
 					subject,
@@ -233,23 +207,7 @@ var _ = Describe("Service", func() {
 				))
 			},
 		)
-		It(
-			"Should roll back the users when one fails to create",
-			func(ctx SpecContext) {
-				username := "rollback-" + uuid.New().String()
-				viewer := rbacSvc.Builtin.ViewerKey
-				Expect(create(rootCtx(ctx), apiuser.CreateRequest{
-					Users: []apiuser.NewUser{
-						{Username: username, Password: "p", Role: viewer},
-						{Username: username, Password: "p", Role: viewer},
-					},
-				})).Error().To(MatchError(auth.ErrRepeatedUsername))
-				Expect(login(ctx, username, "p")).Error().
-					To(MatchError(auth.ErrInvalidCredentials))
-			},
-		)
 	})
-
 	Describe("Retrieve", func() {
 		It("Should leave out the users that the subject cannot retrieve", func(
 			ctx SpecContext,
@@ -537,33 +495,28 @@ var _ = Describe("Service", func() {
 		It("Should give new users the provided role", func(ctx SpecContext) {
 			viewer := rbacSvc.Builtin.ViewerKey
 			res := MustSucceed(create(rootCtx(ctx), apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{
-					Username: uuid.New().String(),
-					Password: "p",
-					Role:     viewer,
+				Users: []user.User{{
+					Name: "new user",
+					Role: viewer,
 				}},
 			}))
 			Expect(roleOf(ctx, res.Users[0].Key)).To(Equal(viewer))
 		})
 		It("Should refuse to create a user with no role", func(ctx SpecContext) {
-			username := uuid.New().String()
 			Expect(create(rootCtx(ctx), apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
+				Users: []user.User{{Name: "no role"}},
 			})).Error().To(SatisfyAll(
 				BeAssignableToTypeOf(validate.PathError{}),
 				MatchError(ContainSubstring("role: must be non-zero")),
 			))
-			Expect(login(ctx, username, "p")).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It(
 			"Should refuse to create a user with a role that does not exist",
 			func(ctx SpecContext) {
 				Expect(create(rootCtx(ctx), apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Username: uuid.New().String(),
-						Password: "p",
-						Role:     uuid.New(),
+					Users: []user.User{{
+						Name: "new user",
+						Role: uuid.New(),
 					}},
 				})).Error().To(SatisfyAll(
 					BeAssignableToTypeOf(validate.PathError{}),
@@ -577,10 +530,9 @@ var _ = Describe("Service", func() {
 				fctx, u := nonRootCtx(ctx)
 				grantOnUsers(ctx, u, access.ActionCreate)
 				Expect(create(fctx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Username: uuid.New().String(),
-						Password: "p",
-						Role:     rbacSvc.Builtin.OwnerKey,
+					Users: []user.User{{
+						Name: "new user",
+						Role: rbacSvc.Builtin.OwnerKey,
 					}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
@@ -593,10 +545,9 @@ var _ = Describe("Service", func() {
 				grantOnUsers(ctx, u, access.ActionUpdate)
 				r := createRole(ctx)
 				Expect(create(fctx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Username: uuid.New().String(),
-						Password: "p",
-						Role:     r,
+					Users: []user.User{{
+						Name: "new user",
+						Role: r,
 					}},
 				})).Error().To(beDeniedUpdateOn(r))
 			},
@@ -609,10 +560,9 @@ var _ = Describe("Service", func() {
 				r := createRole(ctx)
 				grantRoleChange(ctx, u, r)
 				res := MustSucceed(create(fctx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Username: uuid.New().String(),
-						Password: "p",
-						Role:     r,
+					Users: []user.User{{
+						Name: "new user",
+						Role: r,
 					}},
 				}))
 				Expect(roleOf(ctx, res.Users[0].Key)).To(Equal(r))

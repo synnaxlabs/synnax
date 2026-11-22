@@ -60,6 +60,7 @@ export const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
 });
 
 export const formSchema = user.newZ.extend({
+  username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
 });
@@ -82,7 +83,20 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    await client.users.create({ key: uuid.create(), ...value() });
+    const { username, password, ...u } = value();
+    const created = await client.users.create({ key: uuid.create(), ...u });
+    let registered = false;
+    try {
+      await client.auth.createPassword({
+        subject: user.resourceID(created.key),
+        username,
+        password,
+      });
+      registered = true;
+    } finally {
+      // a user with no password cannot log in, so a failed registration removes it
+      if (!registered) await client.users.delete(created.key);
+    }
   },
 });
 
