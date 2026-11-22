@@ -322,8 +322,8 @@ func defaultInvariantViolation(
 			return v.IntValue() == 0
 		})
 		if hasZero && ev.Variant.IntValue() != 0 {
-			return "an integer-enum default other than 0 leaves the member with value " +
-				"0 (the zero value) as a valid, distinct value", true
+			return "an integer-enum default other than 0 leaves the member with " +
+				"value 0 (the zero value) as a valid, distinct value", true
 		}
 	case resolution.ValueKindString,
 		resolution.ValueKindInt,
