@@ -93,19 +93,28 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Tag:      1, // direction read
 			Targets: func(e *Calculation) []channel.Key {
-				targets := make([]channel.Key, 0, len(e.Operations))
+				var targets []channel.Key
 				for _, v1 := range e.Operations {
 					switch v2 := v1.Variant.(type) {
 					case MinOperation:
 						if v2.Reset != nil {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Operations))
+							}
 							targets = append(targets, *v2.Reset)
 						}
 					case MaxOperation:
 						if v2.Reset != nil {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Operations))
+							}
 							targets = append(targets, *v2.Reset)
 						}
 					case AvgOperation:
 						if v2.Reset != nil {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Operations))
+							}
 							targets = append(targets, *v2.Reset)
 						}
 					}

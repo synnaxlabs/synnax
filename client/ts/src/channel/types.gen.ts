@@ -235,6 +235,11 @@ export const payloadZ = z.object({
    * its task.
    */
   uses: zod.nullToUndefined(useZ.array()),
+  /**
+   * calculated is true if a calculation writes the channel, whether or not the caller
+   * can retrieve the calculation.
+   */
+  calculated: z.boolean().default(false),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

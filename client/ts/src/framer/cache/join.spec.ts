@@ -445,6 +445,7 @@ describe("Joins", () => {
           index: INDEX,
           virtual: true,
           expression: "return a + b",
+          calculated: true,
         }).payload,
       );
       joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
