@@ -53,6 +53,7 @@ export const useResize = <E extends HTMLElement>(
   const ref = useRef<E | null>(null);
   const observed = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
+  const observedWith = useRef<unknown>(null);
   const memoTriggers = useMemoCompare(() => triggers, compareArrayDeps, [
     triggers,
   ] as const);
@@ -68,12 +69,22 @@ export const useResize = <E extends HTMLElement>(
     }, debouncePeriod);
     obs.current = new ResizeObserver(deb);
     obs.current.observe(el);
+    observedWith.current = startObserving;
   };
 
+  // Restarts the observer when the inputs change but the element stays attached, as
+  // under useCombinedRefs, whose ref callback never changes.
   useEffect(() => {
-    if (ref.current != null && enabled) startObserving(ref.current);
-    return () => obs.current?.disconnect();
+    if (!enabled) {
+      obs.current?.disconnect();
+      observedWith.current = null;
+      return;
+    }
+    if (ref.current != null && observedWith.current !== startObserving)
+      startObserving(ref.current);
   }, [startObserving, enabled]);
+
+  useEffect(() => () => obs.current?.disconnect(), []);
 
   return (el: E | null) => {
     ref.current = el;

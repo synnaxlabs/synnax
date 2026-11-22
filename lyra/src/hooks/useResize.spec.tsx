@@ -7,10 +7,59 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render, renderHook } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useWindowResize } from "@/hooks";
+import { useResize, type UseResizeHandler, useWindowResize } from "@/hooks";
+
+const Observed = ({ onResize }: { onResize: UseResizeHandler }): ReactElement => (
+  <div ref={useResize(onResize)} />
+);
+
+describe("useResize", () => {
+  let Base: typeof ResizeObserver;
+  let created = 0;
+
+  beforeEach(() => {
+    Base = globalThis.ResizeObserver;
+    created = 0;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class extends Base {
+        constructor(callback: ResizeObserverCallback) {
+          super(callback);
+          created++;
+        }
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.stubGlobal("ResizeObserver", Base);
+  });
+
+  it("should create one observer on mount", () => {
+    render(<Observed onResize={vi.fn()} />);
+    expect(created).toBe(1);
+  });
+
+  it("should create no observers across rerenders with stable inputs", () => {
+    const onResize = vi.fn();
+    const { rerender } = render(<Observed onResize={onResize} />);
+    created = 0;
+    rerender(<Observed onResize={onResize} />);
+    rerender(<Observed onResize={onResize} />);
+    expect(created).toBe(0);
+  });
+
+  it("should create one observer when the handler changes", () => {
+    const { rerender } = render(<Observed onResize={vi.fn()} />);
+    created = 0;
+    rerender(<Observed onResize={vi.fn()} />);
+    expect(created).toBe(1);
+  });
+});
 
 describe("useWindowResize", () => {
   it("should call the handler on window resize when enabled", () => {
