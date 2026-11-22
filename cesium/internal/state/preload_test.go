@@ -93,6 +93,30 @@ var _ = Describe("Preloads", func() {
 })
 
 var _ = Describe("Put-back", func() {
+	It("Should put a parted record back in the order of identity of its key", func() {
+		head := sample()
+		head.Channels[1].Parts = &state.Parts{Oldest: 7, Newest: 7}
+		cfg := config(&appended{})
+		cfg.Generation = 5
+		s := MustSucceed(state.Open(cfg, head))
+		run(s)
+		record := state.Segment{
+			ID: 9, Clock: 5, Version: 1, DataType: 4, Sealed: true, Length: 8,
+			TailCRC: 24, Part: 7,
+			Pointers: []state.Pointer{pointer(3, 0, 40, 50, 0, 8, 2)},
+		}
+		d := MustSucceed(s.BeginDelete(6, 45, 55, state.Preload{
+			Key: 6, Generation: 5, Segments: []state.Segment{record},
+		}))
+		DeferCleanup(func() { Expect(d.Release()).To(Succeed()) })
+		MustSucceed(s.Snapshot())
+		ids := make([]uint64, 0, 2)
+		for _, seg := range s.Channel(6).Segments {
+			ids = append(ids, seg.ID)
+		}
+		Expect(ids).To(Equal([]uint64{3, 9}))
+	})
+
 	It("Should put a parted record that the state lacks back for the cut of a delete",
 		func() {
 			head := sample()
