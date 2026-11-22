@@ -692,6 +692,25 @@ var _ = Describe("Read", func() {
 			)))
 		})
 
+		It("Should not give the samples after a piece that a bad stamp ended the "+
+			"stamps of a later pointer", func() {
+			root.channel(idx(1))
+			root.file(1, 1, stamps(1, 2, 0, 4, 5, 6, 7, 8, 9))
+			root.pointers(1, old{1, 7, 1, 0, 48}, old{7, 10, 1, 48, 24})
+			root.channel(data(telem.Int64T))
+			root.file(2, 1, telem.NewSeriesV[int64](1, 2, 3).Data)
+			// An explicit end reaches into the next index pointer.
+			root.pointers(2, old{1, 10, 1, 0, 24})
+			s, _ := read()
+			Expect(s.Channels[1].Segments[0].Pointers).To(Equal(
+				[]state.Pointer{ptr(1, 2, 1, 0, 0, 16, 2)},
+			))
+			Expect(warned(noStamps)).To(ConsistOf(SatisfyAll(
+				HaveKeyWithValue("offset", uint32(16)),
+				HaveKeyWithValue("bytes", uint32(8)),
+			)))
+		})
+
 		It("Should end a data piece at its last stamp inside its index pointer, and "+
 			"keep the zero inside the index pointer for the check pass", func() {
 			root.channel(idx(1))
