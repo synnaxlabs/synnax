@@ -347,6 +347,30 @@ TEST(Cobs, DropInvalidFrame) {
     );
 }
 
+/// @brief it should drop a frame that decodes to more than MAX_SIZE bytes, and read the
+/// frame after it.
+TEST(Cobs, DropFrameOverMaxSize) {
+    // Each 0x01 code byte decodes to one zero, so the raw frame stays under the
+    // splitter bound.
+    Bytes wire(MAX_SIZE + 2, 0x01);
+    wire.insert(wire.end(), {0x00, 0x03, 'o', 'k', 0x00});
+    assert_drops(*cobs(), wire, "dropped a frame longer than 65536 bytes");
+}
+
+/// @brief it should accept a frame of MAX_SIZE nonzero bytes, whose encoding is the
+/// longest that the framer reads.
+TEST(Cobs, AcceptMaxSize) {
+    const auto f = cobs();
+    const Bytes frame(MAX_SIZE, 0x11);
+    Bytes wire;
+    ASSERT_NIL(f->encode(frame, wire));
+    EXPECT_EQ(wire.size(), MAX_SIZE + (MAX_SIZE / 254) + 2);
+    f->write(wire);
+    const auto got = ASSERT_NIL_P(f->next());
+    ASSERT_TRUE(got.has_value());
+    EXPECT_EQ(Bytes(got.value().begin(), got.value().end()), frame);
+}
+
 /// @brief it should encode frames that a COBS framer reads back.
 TEST(Cobs, RoundTrip) {
     const auto f = cobs();
