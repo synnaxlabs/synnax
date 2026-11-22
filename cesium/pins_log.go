@@ -55,18 +55,68 @@ func (e *engine) load(
 	prev held,
 ) (ch *state.Channel, h held, err, unlinkErr error) {
 	e.pins.mu.Lock()
+	ch = e.state.Channel(key)
+	h, err = e.pinLocked(key, ch, nil)
+	free := e.pins.unpin(prev)
+	e.pins.mu.Unlock()
+	return ch, h, err, e.unlink(free)
+}
+
+// loadView loads key and its clock as load does, from one step of the state, so the
+// samples of key and their stamps come from one state. It puts the segments that it
+// pins in the arrays of buf when they have room, which must not share an array with
+// prev. For an index, clock is key, and the clock half of the view is the same Channel
+// with no pins of its own.
+func (e *engine) loadView(
+	key, clock ChannelKey,
+	prev [2]held,
+	buf [2][]uint64,
+) (chs [2]*state.Channel, hs [2]held, err, unlinkErr error) {
+	for {
+		var count uint64
+		chs[0], chs[1], count = e.state.Pair(key, clock)
+		e.pins.mu.Lock()
+		// A segment leaves the state only on a step that publishes, so with the count
+		// unchanged, release has unlinked no segment of chs.
+		if e.state.Unchanged(count) {
+			break
+		}
+		e.pins.mu.Unlock()
+	}
+	hs[0], err = e.pinLocked(key, chs[0], buf[0])
+	if clock == key {
+		chs[1] = chs[0]
+	} else {
+		var clockErr error
+		hs[1], clockErr = e.pinLocked(clock, chs[1], buf[1])
+		err = errors.Join(err, clockErr)
+	}
+	free := append(e.pins.unpin(prev[0]), e.pins.unpin(prev[1])...)
+	e.pins.mu.Unlock()
+	return chs, hs, err, e.unlink(free)
+}
+
+// pinLocked pins each segment of ch, the visible Channel of key, and the parts of its
+// range, and returns them, or the error of parts that e no longer holds. It puts the
+// segments in buf when it has room. The caller holds e.pins.mu.
+func (e *engine) pinLocked(
+	key ChannelKey,
+	ch *state.Channel,
+	buf []uint64,
+) (h held, err error) {
 	h.key = key
-	if ch = e.state.Channel(key); ch != nil {
-		h.segments = make([]uint64, len(ch.Segments))
-		for i, seg := range ch.Segments {
-			h.segments[i] = seg.ID
+	if ch != nil {
+		h.segments = buf[:0]
+		if cap(h.segments) < len(ch.Segments) {
+			h.segments = make([]uint64, 0, len(ch.Segments))
+		}
+		for _, seg := range ch.Segments {
+			h.segments = append(h.segments, seg.ID)
 		}
 		h.parts, err = e.partsOf(key, ch.Parts)
 	}
 	e.pins.pin(h)
-	free := e.pins.unpin(prev)
-	e.pins.mu.Unlock()
-	return ch, h, err, e.unlink(free)
+	return h, err
 }
 
 // pinned returns the parts that readers pin.
