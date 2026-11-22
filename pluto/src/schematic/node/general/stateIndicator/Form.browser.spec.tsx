@@ -15,7 +15,7 @@ import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
-import { CreatePromptStub } from "@/schematic/node/testutil";
+import { CreatePromptStub, pickEnumeration } from "@/schematic/node/testutil";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const path = deep.path<schematic.StateIndicatorNodeConfig>();
@@ -44,17 +44,13 @@ describe("StateIndicator form", () => {
       name: `indicator-${id.create()}`,
       entries: [],
     });
-    const { findByRole, getByPlaceholderText, value } = renderForm(
+    const { value } = renderForm(
       <StateIndicator.spec.Form tab="options" onTabChange={vi.fn()} />,
       schematic.stateIndicatorNodeConfigZ.parse({ variant: "state_indicator" }),
       schematic.stateIndicatorNodeConfigZ,
       wrapper,
     );
-    fireEvent.click(await findByRole("button", { name: "Enumeration" }));
-    fireEvent.change(getByPlaceholderText("Search enumerations..."), {
-      target: { value: created.name },
-    });
-    fireEvent.click(await findByRole("option", { name: created.name }));
+    await pickEnumeration(created.name);
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
   });
 
