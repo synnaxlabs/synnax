@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/errors/errbase"
 )
 
 const (
@@ -148,9 +149,11 @@ func (t joinText) SafeFormatError(p errors.Printer) error {
 }
 
 var (
-	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
-	joinType       = reflect.TypeFor[*joinError]()
-	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
+	stackType = reflect.TypeOf(errors.WithStack(errors.New("")))
+	// A decoded error keeps the type key of its original type, so a join decoded from
+	// the codec has the key of a join.
+	joinTypeKey       = errbase.GetTypeKey(&joinError{})
+	stdlibJoinTypeKey = errbase.GetTypeKey(stderrors.Join(errors.New("")))
 )
 
 // unwrapJoin returns the members of err if err is a bare join, or err alone if it is
@@ -166,14 +169,15 @@ func unwrapJoin(err error) []error {
 	return []error{err}
 }
 
-// joinMembers returns the members of err if err is a Join or a standard library join.
+// joinMembers returns the members of err if err is a Join or a standard library join,
+// live or decoded from the codec.
 func joinMembers(err error) ([]error, bool) {
 	joined, ok := err.(multiCause)
 	if !ok {
 		return nil, false
 	}
-	switch reflect.TypeOf(err) {
-	case joinType, stdlibJoinType:
+	switch errbase.GetTypeKey(err) {
+	case joinTypeKey, stdlibJoinTypeKey:
 		return joined.Unwrap(), true
 	}
 	return nil, false
@@ -184,14 +188,15 @@ func joinMembers(err error) ([]error, bool) {
 // multi-error unwrapping (errors.Is and errors.As detect the same method set).
 type multiCause interface{ Unwrap() []error }
 
-// UnwrapMulti returns the individual errors carried by a multi-cause error produced by
-// Join, or nil if err is not a multi-cause error. It looks through single-cause
-// wrappers (such as the stack wrapper Join adds) to find the underlying join, so
-// callers do not need to know how a joined error is layered.
+// UnwrapMulti returns the individual errors carried by a join, made by Join or by the
+// standard library's errors.Join, or nil if err holds no join. It looks through
+// single-cause wrappers (such as the stack wrapper Join adds) to find the underlying
+// join, so callers do not need to know how a joined error is layered. Any other error
+// with many causes, such as a diagnostics list, stays whole.
 func UnwrapMulti(err error) []error {
 	for e := err; e != nil; e = errors.Unwrap(e) {
-		if joined, ok := e.(multiCause); ok {
-			return joined.Unwrap()
+		if members, ok := joinMembers(e); ok {
+			return members
 		}
 	}
 	return nil
