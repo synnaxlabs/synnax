@@ -90,12 +90,14 @@ OpModeChoice struct {
         @doc value    """
             replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
         """
+        @ts type      telem.NumericTimeSpan
         @validate min 0
     }
     sync1_cycle     telem.TimeSpan = 0 {
         @doc value    """
             replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
         """
+        @ts type      telem.NumericTimeSpan
         @validate min 0
     }
 

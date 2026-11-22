@@ -64,7 +64,7 @@ describe("slaveZ", () => {
       dataType: "uint16",
       value: 500,
     });
-    expect(slave.opMode?.sync0Cycle.nanoseconds).toEqual(1000);
+    expect(slave.opMode?.sync0Cycle).toEqual(1000);
   });
 
   const ENTRY = { name: "Value", index: 0x6000, subIndex: 1, dataType: "int16" };
