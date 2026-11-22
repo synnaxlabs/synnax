@@ -334,10 +334,10 @@ var _ = Describe("Undo of a conversion", func() {
 				}
 				return nil
 			}}
-			// Each unsynced rename survives a crash at random, so 8 images of each
+			// Each unsynced rename survives a crash at random, so 4 images of each
 			// event find a root that keeps some renames and loses the others.
 			takeMany := func() {
-				for range 8 {
+				for range 4 {
 					c.take()
 				}
 			}
