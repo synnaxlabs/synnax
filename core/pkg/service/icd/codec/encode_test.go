@@ -318,6 +318,7 @@ var _ = Describe("JSONEncoder", func() {
 			}},
 		})))
 		idOf := func() uuid.UUID {
+			GinkgoHelper()
 			doc := MustSucceed(enc.Encode(nil, nil))
 			var v struct {
 				V string `json:"v"`
@@ -368,6 +369,7 @@ var _ = Describe("JSONEncoder", func() {
 				codec.Binding{Field: key, DataType: telem.UUIDT},
 			)))
 			idOf := func() uuid.UUID {
+				GinkgoHelper()
 				doc := MustSucceed(enc.Encode(nil, [][]byte{nil}))
 				var v struct {
 					V string `json:"v"`
