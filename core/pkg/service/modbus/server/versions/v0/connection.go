@@ -42,8 +42,8 @@ func (c Connection) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and an
-// omitted field takes its default, as in the JSON encoding. It returns a validation
+// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
+// an omitted field takes its default, as in the JSON encoding. It returns a validation
 // error for an unknown transport.
 func (c *Connection) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
