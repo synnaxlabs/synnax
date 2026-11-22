@@ -14,7 +14,7 @@
 # require() in both Node.js versions. The test writes channels and projects to the Core
 # at SYNNAX_TEST_HOST and SYNNAX_TEST_PORT (default localhost:9090). When
 # SYNNAX_TEST_CA_CERT_FILE names a CA certificate, the test also runs in Node.js, Deno,
-# and Bun against the TLS Core at SYNNAX_TEST_TLS_PORT that the CA signs.
+# and Bun against the TLS Core at SYNNAX_TEST_TLS_PORT (default 9091) that the CA signs.
 
 set -euo pipefail
 
@@ -41,7 +41,7 @@ echo "Bun $(bun --version)"
 bun smoke.mjs
 if [ -n "${SYNNAX_TEST_CA_CERT_FILE:-}" ]; then
     echo "TLS"
-    tls=(SYNNAX_TEST_PORT="$SYNNAX_TEST_TLS_PORT" SYNNAX_TEST_SECURE=true)
+    tls=(SYNNAX_TEST_PORT="${SYNNAX_TEST_TLS_PORT:-9091}" SYNNAX_TEST_SECURE=true)
     ca=$(cat "$SYNNAX_TEST_CA_CERT_FILE")
     env "${tls[@]}" SYNNAX_TEST_CA_CERT="$ca" node smoke.mjs
     # A Deno WebSocket cannot trust a caCert, so Deno takes the CA with --cert.
