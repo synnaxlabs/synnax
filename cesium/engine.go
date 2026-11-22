@@ -130,7 +130,7 @@ func openEngine(o *options) (*engine, error) {
 		partSize: o.partSize,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]state.Dead)
-	e.pins.parts = make(map[uint64]int)
+	e.pins.parts, e.pins.keys = make(map[uint64]int), make(map[ChannelKey]int)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
