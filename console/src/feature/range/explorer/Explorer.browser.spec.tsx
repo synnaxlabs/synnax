@@ -26,7 +26,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Range } from "@/feature/range";
 import { createSiftDevice } from "@/feature/sift/testutil";
-import { createTestLabel, searchAndClickLabelOption } from "@/platform/label/testutil";
+import { createTestLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createPlannedTestRange, createTestRange } from "@/platform/range/testutil";
@@ -42,6 +42,7 @@ import {
   isPlutoDisabled,
   openContextMenu,
   openSubmenu,
+  pickOption,
   renderLazy,
   resolveFocusedTab,
   selectRange,
@@ -189,10 +190,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       await findItem(other.name);
       await openFilterProperty("Labels");
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: label.name },
-      });
-      fireEvent.click(await screen.findByRole("option", { name: label.name }));
+      await pickOption(label.name, "Search labels...");
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(labeled.name)).toBeTruthy();
@@ -367,10 +365,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       await findItem(other.name);
       const picker = await openFilterProperty("Parent");
-      fireEvent.change(within(picker).getByPlaceholderText("Search ranges..."), {
-        target: { value: parent.name },
-      });
-      fireEvent.click(await within(picker).findByRole("option", { name: parent.name }));
+      await pickOption(parent.name, "Search ranges...", picker);
       await waitFor(() => {
         expect(screen.queryByRole("listitem", { name: other.name })).toBeNull();
         expect(itemOf(child.name)).toBeTruthy();
@@ -852,7 +847,7 @@ describe("range/explorer/Explorer", () => {
       await search(token);
       const item = await findSearchedItem(rng.name, token);
       fireEvent.click(within(item).getByRole("button", { name: "Labels" }));
-      await searchAndClickLabelOption(label.name);
+      await pickOption(label.name, "Search labels...");
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).labels).toEqual([label.key]),
       );

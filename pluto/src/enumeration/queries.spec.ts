@@ -16,8 +16,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Enumeration } from "@/enumeration";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();

@@ -72,6 +72,8 @@ interface BaseProps<K extends record.Key> {
 interface HoverProps<K extends record.Key> extends BaseProps<K> {
   cursor?: "hover";
   order: Order<K>;
+  /** While none is hovered, the first arrow key moves on from the first of these. */
+  selected?: K[];
 }
 
 interface SelectionProps<K extends record.Key> extends BaseProps<K> {
@@ -217,7 +219,7 @@ export const useCursor = <K extends record.Key>(
     // The order reads the DOM, so the server has no target.
     () => undefined,
   );
-  const place = (key: K): void => {
+  const place = (key: K | undefined): void => {
     movedRef.current = key;
     listenersRef.current.forEach((listener) => listener());
   };
@@ -225,6 +227,10 @@ export const useCursor = <K extends record.Key>(
   const enabledRef = useSyncedRef<Triggers.Condition>(
     enableTriggers ?? (hovering ? visible : true),
   );
+  // A hover lasts one open. The first arrow key of the next moves on from the choice.
+  useEffect(() => {
+    if (hovering && !visible && movedRef.current != null) place(undefined);
+  }, [hovering, visible, place]);
 
   const moveTo = (key: K, direction: location.Y): void => {
     if (selection != null) movedFromRef.current = selection.selected;
@@ -235,7 +241,7 @@ export const useCursor = <K extends record.Key>(
   const step = (key: Exclude<CursorKey, "Enter">, held: boolean): void => {
     const order = getOrder();
     if (order.length === 0) return;
-    const from = resolve(order);
+    const from = resolve(order) ?? startOf(order, -1, props.selected);
     const at = from == null ? -1 : order.indexOf(from);
     let to: K | undefined;
     if (isX(key)) {

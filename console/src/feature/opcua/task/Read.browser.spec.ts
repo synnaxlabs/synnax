@@ -49,6 +49,7 @@ import {
   findIconButton,
   getLabeledInput,
   interceptFilePicker,
+  pickOption,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -146,18 +147,6 @@ const renderWithNode = async (
   });
   await root.answered;
   return { scan, draft, statuses, device };
-};
-
-// Moves the task from the device named from to the device named to.
-const selectDevice = async (from: string, to: string) => {
-  fireEvent.click(await findDialogTriggerByText(from));
-  const search = await waitFor(() => {
-    const dialog = screen.getAllByRole("dialog").at(-1);
-    if (dialog == null) throw new Error("the device list did not open");
-    return within(dialog).getByRole("textbox");
-  });
-  fireEvent.change(search, { target: { value: to } });
-  fireEvent.click(await screen.findByText(to));
 };
 
 const importCSV = async (rows: string[]) => {
@@ -656,7 +645,8 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [secondNode] },
     });
-    await selectDevice(first.device.name, second.device.name);
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await screen.findByText(secondNode.name);
     expect(screen.queryByText(firstNode.name)).toBeNull();
@@ -695,7 +685,8 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [] },
     });
-    await selectDevice(first.device.name, second.device.name);
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    await pickOption(second.device.name, "Search devices...");
     await secondRoot.answered;
     await answerCommand(client, first.scan, search, {
       data: {

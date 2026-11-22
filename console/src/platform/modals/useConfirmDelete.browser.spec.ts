@@ -10,13 +10,13 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Modals } from "@/platform/modals";
 import {
   findButton,
   findDismissButton,
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { useConfirmDelete } from "@/platform/modals/useConfirmDelete";
 
 interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
@@ -36,7 +36,7 @@ const openConfirm = async ({
   description,
 }: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
   await renderModalOpener(
-    () => useConfirmDelete({ type, plural, title, icon, description }),
+    () => Modals.useConfirmDelete({ type, plural, title, icon, description }),
     [items],
   );
 
@@ -46,7 +46,7 @@ const OPTION = {
 };
 
 const useConfirmTaskWithOption = () => {
-  const confirmDelete = useConfirmDelete({ type: "Task" });
+  const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   return (items: { name: string }) => confirmDelete(items, OPTION);
 };
 

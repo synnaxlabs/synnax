@@ -12,13 +12,13 @@ package icd
 import (
 	"bytes"
 	"encoding/csv"
-	"math"
 	"slices"
 	"strconv"
 	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/xuri/excelize/v2"
 )
@@ -388,7 +388,7 @@ func (t *table) number(row int, cells []string, column string) (*float64, error)
 		return nil, nil
 	}
 	v, err := strconv.ParseFloat(s, 64)
-	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+	if err != nil || !math.Finite(v) {
 		return nil, rowErrorf(row, column, "invalid number %q", s)
 	}
 	return &v, nil
