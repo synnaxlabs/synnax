@@ -18,7 +18,8 @@ import (
 // Core stored, with each dashed name that held reports true for written as a quoted
 // channel token. A dashed name is an identifier that holds '-', as v0.62 lexed it with
 // dashed names on. QuoteDashedNames reads code and the placeholders of format strings,
-// and leaves comments, the rest of strings, and quoted tokens as they are.
+// and leaves comments, the rest of strings, quoted tokens, and names that a placeholder
+// writes with an escape as they are.
 func QuoteDashedNames(text string, held func(string) bool) string {
 	var edits []span
 	scanCode(text, nil, func(s span) {
@@ -49,10 +50,9 @@ func QuoteDashedNames(text string, held func(string) bool) string {
 type span struct{ start, end int }
 
 // scanCode calls found with the span of each identifier in the code src, in order. When
-// at is not nil, src is a placeholder of a format string: at holds the offset in the
-// enclosing text of each byte of src and of its end, and found gets only the
-// identifiers that src holds as written there. It follows the v0.62 lexer with dashed
-// names on.
+// at is not nil, src is a placeholder of a format string, at holds the offset in the
+// enclosing text of each byte of src and of its end, and each span is in the enclosing
+// text. It follows the v0.62 lexer with dashed names on.
 func scanCode(src string, at []int, found func(span)) {
 	for i := 0; i < len(src); {
 		c := src[i]
@@ -86,7 +86,7 @@ func scanCode(src string, at []int, found func(span)) {
 			// Each starts a token only before '=', so the error recovery of a lone one
 			// drops the character after it too.
 			i = min(i+2, len(src))
-		case c == '_' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z':
+		case isIdentifierByte(c) && (c < '0' || c > '9'):
 			i = scanIdentifier(src, i, at, found)
 		default:
 			i++
@@ -104,19 +104,22 @@ func scanIdentifier(src string, i int, at []int, found func(span)) int {
 			if end+1 < len(src) && (src[end+1] == '>' || src[end+1] == '=') {
 				break
 			}
-		} else if c != '_' && !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z') &&
-			!('0' <= c && c <= '9') {
+		} else if !isIdentifierByte(c) {
 			break
 		}
 		end++
 	}
-	switch {
-	case at == nil:
+	if at == nil {
 		found(span{start: i, end: end})
-	case at[end]-at[i] == end-i:
+	} else {
 		found(span{start: at[i], end: at[end]})
 	}
 	return end
+}
+
+func isIdentifierByte(c byte) bool {
+	return c == '_' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' ||
+		'0' <= c && c <= '9'
 }
 
 // quotedLen returns the length of the quoted channel token at the start of src, and

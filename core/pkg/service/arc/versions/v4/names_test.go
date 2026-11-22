@@ -37,6 +37,8 @@ var _ = Describe("QuoteDashedNames", func() {
 		Entry("a placeholder", `f"{pt-01}"`, `f"{'pt-01'}"`),
 		Entry("a placeholder with a spec", `f"v={pt-01:.2f}"`, `f"v={'pt-01':.2f}"`),
 		Entry("a raw format string", `rf"{pt-01}"`, `rf"{'pt-01'}"`),
+		Entry("a raw format string with a backslash", `rf"\u{pt-01}"`,
+			`rf"\u{'pt-01'}"`),
 		Entry("a format string with the prefixes swapped", `fr"{pt-01}"`,
 			`fr"{'pt-01'}"`),
 		Entry("a multi-line format string", "f`{pt-01}\n`", "f`{'pt-01'}\n`"),
