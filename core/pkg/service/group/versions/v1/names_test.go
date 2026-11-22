@@ -65,7 +65,7 @@ var _ = Describe("NameRuleMigration", func() {
 		func(ctx SpecContext, name, expected string) {
 			Expect(migrate(ctx, folder(first, name, nil))[first]).To(Equal(expected))
 			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(ConsistOf(
-				resourcev0.Rename{Resource: groupID(first), From: name},
+				resourcev0.Rename{ID: groupID(first), From: name},
 			))
 		},
 		Entry("a separator", "Stand.A", "Stand_A"),
@@ -100,6 +100,17 @@ var _ = Describe("NameRuleMigration", func() {
 			)
 			Expect(names[first]).To(Equal("Stand A"))
 			Expect(names[second]).To(Equal("Stand A_2"))
+		})
+
+	It("Should keep a legal name when a lower key matches it only after NFC",
+		func(ctx SpecContext) {
+			names := migrate(
+				ctx,
+				folder(first, "Cafe\u0301", nil),
+				folder(second, "Caf\u00E9", nil),
+			)
+			Expect(names[second]).To(Equal("Caf\u00E9"))
+			Expect(names[first]).To(Equal("Caf\u00E9_2"))
 		})
 
 	It("Should give a new name the first suffix that no sibling holds",
