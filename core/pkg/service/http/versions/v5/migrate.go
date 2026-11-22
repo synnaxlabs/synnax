@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateReadConfig lifts a v4 read config to v5. The fields of each endpoint move into
-// Inline, for ResolveReadConfig to read back from a message of an ICD. NaN fill turns
-// on when an optional field has no fill value, because an ICD default cannot be NaN.
+// MigrateReadConfig lifts a v4 read config to v5, with the fields of each endpoint
+// staged in Inline. NaN fill turns on when an optional field has no fill value, because
+// an ICD default cannot be NaN.
 func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
 	cfg, err := autoMigrateReadConfig(ctx, old)
 	if err != nil || len(old.Endpoints) == 0 {
@@ -61,8 +61,8 @@ func StagedFieldsKVKey(key uuid.UUID) []byte {
 	return []byte(StagedFieldsKVPrefix + key.String())
 }
 
-// ReadMigration lifts each stored v4 read config to v5. The v5 shape stores no inline
-// fields, so ReadMigration stages the fields of each config under StagedFieldsKVPrefix.
+// ReadMigration lifts each stored v4 read config to v5. The v5 shape does not store
+// Inline, so ReadMigration stages it under StagedFieldsKVPrefix.
 var ReadMigration = migrate.New(
 	"v63_http_read_stage",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
