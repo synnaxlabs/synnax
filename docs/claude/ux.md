@@ -96,6 +96,8 @@ a color picker has no "+".
 
 - A compound icon is a base icon with a modifier (add, import, export) or a stack. Draw
   it as one glyph with `Icon.createFromPath`. Do not layer icons at run time.
+  `scripts/compound_icon.py` makes the glyph of a base and a modifier. For a line base,
+  give it the line width (`--line-width`), so the cut ends get round caps.
 - The modifier sits at top right: 9 units wide, centered at (17.5, 6.5), with a 2.5-unit
   stem (2 on a line base). The base scales to 0.9 from its bottom-left corner.
 - Cut the base 1.75 units clear of the modifier, with no backing disc. Cut with the
@@ -494,12 +496,17 @@ bound, a log precision, or the line plot X channel.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
-- An open select marks the current value and opens scrolled to it.
-- An open `Select.Multiple` and the line plot's Ranges select list their selected values
-  first, with no divider: their joined tint marks where they end. The order is set when
-  the select opens and holds while it stays open, so an item never moves under the
-  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
-  A filter menu keeps its own order.
+- An open select marks the current value and opens scrolled to it. The first arrow key
+  moves on from the current value, as in a native dropdown.
+- An open select lists its current values first when it sets `selectedFirst`, as
+  `Select.Single` does, or when it pins them with `fixedItems`.
+- A `selectedFirst` select shows no divider: the joined tint of several values marks
+  where they end. Its order is set when it opens and holds while it stays open, so an
+  item never moves under the pointer. A current value that loads after it opens joins
+  the values listed first, until the user scrolls, moves the cursor, or searches. A
+  search lists its matches in their own order. GitHub and GitLab do the same.
+- Any other select keeps its order, as `Select.Simple` does. A filter menu keeps its own
+  order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above

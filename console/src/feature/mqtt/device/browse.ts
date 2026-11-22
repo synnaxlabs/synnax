@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Synnax } from "@synnaxlabs/client";
+import { status, type Synnax } from "@synnaxlabs/client";
 import { TimeSpan } from "@synnaxlabs/x";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
@@ -41,13 +41,13 @@ export const browseTopics = async (
   filter: string,
 ): Promise<BrowseResult> => {
   const scanTask = await retrieveScanTask(client, device.rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
+  const res = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
     args: { device: device.key, filter, duration: BROWSE_DURATION.milliseconds },
   });
-  if (variant !== "success") throw new Error(message);
-  const data = details?.data;
+  if (res.variant !== "success") throw status.toError(res);
+  const data = res.details?.data;
   // A sample answer holds topics too, beside its shapes.
   if (data == null || !("topics" in data) || "shapes" in data)
     throw new Error("The scan task replied without topics");
@@ -68,7 +68,7 @@ export const browseSparkplug = async (
   { group, edgeNode }: BrowseArgs,
 ) => {
   const scanTask = await retrieveScanTask(client, device.rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
+  const res = await scanTask.executeCommandSync({
     type: BROWSE_SPARKPLUG_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
     args: {
@@ -78,8 +78,8 @@ export const browseSparkplug = async (
       duration: BROWSE_DURATION.milliseconds,
     },
   });
-  if (variant !== "success") throw new Error(message);
-  const data = details?.data;
+  if (res.variant !== "success") throw status.toError(res);
+  const data = res.details?.data;
   if (data == null || !("nodes" in data))
     throw new Error("The scan task replied without edge nodes");
   return data;
