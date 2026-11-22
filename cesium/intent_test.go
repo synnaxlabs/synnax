@@ -404,7 +404,10 @@ var _ = Describe("Delete intents", func() {
 			var file []byte
 			restarted, fs := crashWith(ctx, func(cp *xfs.MemFS) {
 				f := MustSucceed(cp.Open("delete-intents", os.O_RDWR))
-				MustSucceed(f.WriteAt([]byte{0xFF}, 4))
+				b := make([]byte, 1)
+				MustSucceed(f.ReadAt(b, 4))
+				b[0] ^= 0xFF
+				MustSucceed(f.WriteAt(b, 4))
 				Expect(f.Close()).To(Succeed())
 				file = MustSucceed(xfs.ReadFile(cp, "delete-intents"))
 			})
