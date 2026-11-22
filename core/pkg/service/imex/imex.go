@@ -174,8 +174,8 @@ func (e Envelope) WithEncodeOptions(opts ...json.Options) (Envelope, error) {
 // passes the decoder of its channel links. e must have been unmarshaled.
 func (e Envelope) WithDecodeOptions(opts ...json.Options) Envelope {
 	e.decodeOptions = append(slices.Clip(e.decodeOptions), opts...)
-	e.codec = xjson.NewCodec(
-		append([]json.Options{decodeOptions}, e.decodeOptions...)...)
+	all := append([]json.Options{decodeOptions}, e.decodeOptions...)
+	e.codec = xjson.NewCodec(all...)
 	return e
 }
 

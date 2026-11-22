@@ -36,11 +36,12 @@ func BenchmarkDelete(b *testing.B) {
 		}
 	}()
 	svc, err := apichannel.NewService(apichannel.ServiceConfig{
-		DB:      node.DB,
-		RBAC:    layer.RBAC,
-		Channel: layer.Channel,
-		Status:  layer.Status,
-		Impact:  layer.Impact,
+		DB:          node.DB,
+		RBAC:        layer.RBAC,
+		Channel:     layer.Channel,
+		Status:      layer.Status,
+		Calculation: layer.Calculation,
+		Impact:      layer.Impact,
 	})
 	if err != nil {
 		b.Fatalf("failed to open the API service: %v", err)

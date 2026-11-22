@@ -96,8 +96,8 @@ var _ = Describe("Delete breaker", func() {
 		return tsk
 	}
 
-	It("Should refuse an index named by key when its data channel is named by name, "+
-		"as it did before", func(ctx SpecContext) {
+	It("Should delete an index named by key and its data channel named by name in "+
+		"one plan", func(ctx SpecContext) {
 		index := createChannel(
 			ctx,
 			channel.Channel{IsIndex: true, DataType: telem.TimestampT},
@@ -110,29 +110,27 @@ var _ = Describe("Delete breaker", func() {
 			Keys:  channel.Keys{index.Key()},
 			Names: []string{data.Name},
 		}
-		want := oldDelete(ctx, db, channelSvc, req)
-		Expect(want).To(MatchError(gorp.RestrictError{
-			Target:    gorp.NewTarget("channel", index.Key()),
-			Holder:    gorp.NewTarget("channel", data.Key()),
-			Reference: "index",
-		}))
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			_, err := apiSvc.Delete(ctx, tx, req)
 			return err
-		})).To(MatchError(want))
+		})).To(Succeed())
 		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(index.Key(), data.Key())).
-			Count(ctx, db)).To(Equal(2))
+			Count(ctx, db)).To(BeZero())
 	})
 
 	It("Should name the channel that it named before when a task holds two deleted "+
 		"channels", func(ctx SpecContext) {
 		a := createChannel(ctx, channel.Channel{})
 		b := createChannel(ctx, channel.Channel{})
-		createTask(ctx, a.Key(), b.Key())
+		tsk := createTask(ctx, a.Key(), b.Key())
 		req := apichannel.DeleteRequest{Keys: channel.Keys{b.Key(), a.Key()}}
 		want := oldDelete(ctx, db, channelSvc, req)
-		Expect(want).To(HaveOccurred())
+		Expect(want).To(MatchError(gorp.RestrictError{
+			Target:    gorp.NewTarget("channel", b.Key()),
+			Holder:    gorp.NewTarget("modbus_read_config", tsk.Key),
+			Reference: "channels.channel",
+		}))
 		Expect(deleteChannels(AuthedCtx(ctx, author), req)).Error().
 			To(MatchError(want))
 	})
@@ -157,11 +155,12 @@ var _ = Describe("Delete breaker", func() {
 				},
 			}))
 			svc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
-				DB:      limitedDB,
-				RBAC:    limited.RBAC,
-				Channel: limited.Channel,
-				Status:  limited.Status,
-				Impact:  limited.Impact,
+				DB:          limitedDB,
+				RBAC:        limited.RBAC,
+				Channel:     limited.Channel,
+				Status:      limited.Status,
+				Calculation: limited.Calculation,
+				Impact:      limited.Impact,
 			}))
 			for range 2 {
 				over = channel.Channel{

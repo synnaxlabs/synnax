@@ -94,26 +94,39 @@ func (w benchWorkspace) createChannels(b *testing.B) []channel.Key {
 					if err != nil {
 						return err
 					}
-					chs := make([]channel.Channel, 10)
-					for i := range chs {
-						chs[i] = channel.Channel{
-							Name:     fmt.Sprintf("ch_%d_%d_%d_%d", a, s, l, i),
-							DataType: telem.Float32T,
-							Virtual:  true,
-							Group:    &leaf.Key,
-						}
-					}
-					if err = w.layer.Channel.NewWriter(tx).
-						CreateMany(w.ctx, &chs); err != nil {
+					prefix := fmt.Sprintf("ch_%d_%d_%d", a, s, l)
+					created, err := w.createLeafChannels(tx, leaf, prefix)
+					if err != nil {
 						return err
 					}
-					keys = append(keys, channel.KeysFromChannels(chs)...)
+					keys = append(keys, created...)
 				}
 			}
 		}
 		return nil
 	})).To(gomega.Succeed())
 	return keys
+}
+
+// createLeafChannels creates 10 channels named prefix_<i> in the folder leaf.
+func (w benchWorkspace) createLeafChannels(
+	tx gorp.Tx,
+	leaf group.Group,
+	prefix string,
+) ([]channel.Key, error) {
+	chs := make([]channel.Channel, 10)
+	for i := range chs {
+		chs[i] = channel.Channel{
+			Name:     fmt.Sprintf("%s_%d", prefix, i),
+			DataType: telem.Float32T,
+			Virtual:  true,
+			Group:    &leaf.Key,
+		}
+	}
+	if err := w.layer.Channel.NewWriter(tx).CreateMany(w.ctx, &chs); err != nil {
+		return nil, err
+	}
+	return channel.KeysFromChannels(chs), nil
 }
 
 // createVisualizations creates 50 schematics with 100 links each, 20 line plots with 20

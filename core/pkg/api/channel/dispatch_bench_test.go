@@ -68,6 +68,7 @@ func openBenchWriter(b *testing.B, db *gorp.DB, layer *service.Layer) benchWrite
 		Channel:     layer.Channel,
 		Status:      layer.Status,
 		Calculation: layer.Calculation,
+		Impact:      layer.Impact,
 	})
 	if err != nil {
 		b.Fatalf("failed to open the API service: %v", err)

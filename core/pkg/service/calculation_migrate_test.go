@@ -170,6 +170,7 @@ var _ = Describe("Calculated channels of a channel-only subject after upgrade", 
 			Channel:     l.Channel,
 			Status:      l.Status,
 			Calculation: l.Calculation,
+			Impact:      l.Impact,
 		}))
 		apiCalculations := MustSucceed(apicalculation.NewService(
 			apicalculation.ServiceConfig{

@@ -59,7 +59,7 @@ func createFolderChannel(ctx SpecContext, folder, name string) channel.Key {
 }
 
 // createLinkedLog creates a log in proj with one entry per key.
-func createLinkedLog(ctx SpecContext, proj project.Key, keys ...channel.Key) log.Log {
+func createLinkedLog(ctx SpecContext, proj project.Key, keys ...channel.Key) {
 	GinkgoHelper()
 	l := defaults.Fill(log.Log{Project: &proj, Name: "Pressures"})
 	for _, k := range keys {
@@ -76,7 +76,6 @@ func createLinkedLog(ctx SpecContext, proj project.Key, keys ...channel.Key) log
 			return logSvc.NewWriter(tx).Delete(ctx, l.Key)
 		})).To(Succeed())
 	})
-	return l
 }
 
 // memberOfType returns the decoded body of the one file in files of type t.
@@ -196,7 +195,8 @@ var _ = Describe("Channel links", func() {
 			Where(arc.MatchKeys(MustSucceed(uuid.Parse(arcID.Key)))).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
-		g := res.Base().Source.Variant.(arc.GraphSource).Graph
-		Expect(g.Inputs["n1"]["channel"]).To(BeNumerically("==", key))
+		graphSrc, ok := res.Base().Source.Variant.(arc.GraphSource)
+		Expect(ok).To(BeTrue())
+		Expect(graphSrc.Graph.Inputs["n1"]["channel"]).To(BeNumerically("==", key))
 	})
 })
