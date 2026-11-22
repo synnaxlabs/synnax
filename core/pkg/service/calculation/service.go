@@ -162,37 +162,44 @@ func (s *Service) Channels(c Calculation) []resource.ID {
 	return ids
 }
 
-// required returns the resources that a subject must retrieve to read c: c and each
-// channel that it links. The retrieve and the change channels of calculations both
-// decide by it.
-func (s *Service) required(c Calculation) []resource.ID {
-	return append([]resource.ID{ResourceID(c.Key)}, s.Channels(c)...)
-}
-
 // Denied returns the first resource that a subject must retrieve to read c and that
-// allowed refuses, and false when allowed admits them all.
+// allowed refuses, and false when allowed admits them all. The resources are c and
+// each channel that c links. The retrieve and the change channels of calculations both
+// decide by it.
 func (s *Service) Denied(
 	c Calculation,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	return firstRefused(s.required(c), allowed)
+	return denied(
+		ResourceID(c.Key),
+		func() []resource.ID { return s.Channels(c) },
+		allowed,
+	)
 }
 
 // Readable returns whether a subject reads c, given whether it can retrieve each
-// resource. It finds the resources once, so a check of many subjects reads c once.
+// resource. It finds the channels of c once, so a check of many subjects reads them
+// once.
 func (s *Service) Readable(c Calculation) func(allowed func(resource.ID) bool) bool {
-	required := s.required(c)
+	calc, channels := ResourceID(c.Key), s.Channels(c)
+	linked := func() []resource.ID { return channels }
 	return func(allowed func(resource.ID) bool) bool {
-		_, refused := firstRefused(required, allowed)
+		_, refused := denied(calc, linked, allowed)
 		return !refused
 	}
 }
 
-func firstRefused(
-	ids []resource.ID,
+// denied returns the first that allowed refuses of calc and the channels that linked
+// returns. It calls linked only when allowed admits calc.
+func denied(
+	calc resource.ID,
+	linked func() []resource.ID,
 	allowed func(resource.ID) bool,
 ) (resource.ID, bool) {
-	for _, id := range ids {
+	if !allowed(calc) {
+		return calc, true
+	}
+	for _, id := range linked() {
 		if !allowed(id) {
 			return id, true
 		}
