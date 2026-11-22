@@ -642,12 +642,12 @@ func extractAuthorityExistingChannels(content string, pos protocol.Position) []s
 	if parenIdx < 0 {
 		return nil
 	}
-	// Collect identifiers inside the block — these are channel names in entries
-	// like `valve 100`.
+	// Each name inside the block is the channel of an entry like `valve 100` or
+	// `'pt-01' 100`.
 	var existing []string
 	for i := parenIdx + 1; i < len(tokensBeforeCursor); i++ {
-		if tokensBeforeCursor[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
-			existing = append(existing, tokensBeforeCursor[i].GetText())
+		if n := parser.TokenName(tokensBeforeCursor[i]); n.Head != "" {
+			existing = append(existing, n.Head)
 		}
 	}
 	return existing

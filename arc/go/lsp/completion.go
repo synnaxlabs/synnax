@@ -734,10 +734,21 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 		kind = protocol.CompletionItemKindConstant
 	}
 	return protocol.CompletionItem{
-		Label:  sym.Name,
-		Kind:   kind,
-		Detail: optStr(detail),
+		Label:      sym.Name,
+		Kind:       kind,
+		Detail:     optStr(detail),
+		InsertText: channelInsertText(sym.Name, sym.Type),
 	}
+}
+
+// channelInsertText returns the quoted token of a channel name that is not an
+// identifier, since its bare text lexes as several tokens. It returns no text for any
+// other name.
+func channelInsertText(name string, t types.Type) protocol.Optional[string] {
+	if t.Kind != types.KindChan || parser.IsIdentifier(name) {
+		return protocol.Optional[string]{}
+	}
+	return protocol.NewOptional(parser.QuoteChannelName(name))
 }
 
 // getImportPathCompletions returns the modules in doc's scope chain and the user
@@ -1040,9 +1051,10 @@ func (s *Server) getAuthorityEntryCompletions(
 			return
 		}
 		items = append(items, protocol.CompletionItem{
-			Label:  name,
-			Kind:   protocol.CompletionItemKindVariable,
-			Detail: protocol.NewOptional(t.String()),
+			Label:      name,
+			Kind:       protocol.CompletionItemKindVariable,
+			Detail:     protocol.NewOptional(t.String()),
+			InsertText: channelInsertText(name, t),
 		})
 	}
 	if root != nil {
@@ -1108,9 +1120,10 @@ func (s *Server) collectSymbols(
 		}
 		seen.Add(name)
 		items = append(items, protocol.CompletionItem{
-			Label:  name,
-			Kind:   protocol.CompletionItemKindVariable,
-			Detail: protocol.NewOptional(t.String()),
+			Label:      name,
+			Kind:       protocol.CompletionItemKindVariable,
+			Detail:     protocol.NewOptional(t.String()),
+			InsertText: channelInsertText(name, t),
 		})
 	}
 	if root != nil {
