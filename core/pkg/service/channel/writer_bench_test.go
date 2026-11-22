@@ -132,6 +132,7 @@ func BenchmarkOpenService(b *testing.B) {
 	cfg := channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      node.DB,
+		TS:      node.Storage.TS,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	}
