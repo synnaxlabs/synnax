@@ -11,29 +11,34 @@ package cesium_test
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // headComplete reports whether the head of generation 2 has its header sector.
-func headComplete(fs xfs.FS) bool {
+func headComplete(fs xfs.FS) (bool, error) {
 	f, err := fs.Open("0000000000000002.head", os.O_RDONLY)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
 	if err != nil {
-		return false
+		return false, err
 	}
-	defer func() { _ = f.Close() }()
 	b := make([]byte, 8)
-	if _, err = f.ReadAt(b, 0); err != nil {
-		return false
+	_, err = f.ReadAt(b, 0)
+	if err = errors.Combine(err, f.Close()); errors.Is(err, io.EOF) {
+		return false, nil
 	}
-	return bytes.Equal(b, []byte("CSCHKPT\x00"))
+	return bytes.Equal(b, []byte("CSCHKPT\x00")), err
 }
 
 var _ = Describe("Delete on the pointer log, broken by a head", func() {
@@ -63,7 +68,7 @@ var _ = Describe("Delete on the pointer log, broken by a head", func() {
 		for range 4 {
 			intend(900_000)
 		}
-		Eventually(func() bool {
+		Eventually(func() (bool, error) {
 			intend(1)
 			return headComplete(fs)
 		}).WithTimeout(time.Minute).Should(BeTrue())
@@ -74,7 +79,7 @@ var _ = Describe("Delete on the pointer log, broken by a head", func() {
 		)).To(Succeed())
 		closeDB()
 		db, closeDB = breakOpen(ctx, fs)
-		Expect(breakValues(ctx, db, breakData)).To(Equal([]int64{20, 21, 22}))
+		Expect(breakValues(ctx, db)).To(Equal([]int64{20, 21, 22}))
 		keys := []cesium.ChannelKey{breakIdx, breakData}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
@@ -86,7 +91,7 @@ var _ = Describe("Delete on the pointer log, broken by a head", func() {
 		}), nil))
 		MustSucceed2(w.Commit(ctx, nil))
 		Expect(w.Close()).To(Succeed())
-		Expect(breakValues(ctx, db, breakData)).To(Equal([]int64{20, 21, 22, 30, 31}))
+		Expect(breakValues(ctx, db)).To(Equal([]int64{20, 21, 22, 30, 31}))
 		closeDB()
 	})
 
@@ -127,23 +132,23 @@ var _ = Describe("Delete on the pointer log, broken by a head", func() {
 			for range 4 {
 				intend(900_000)
 			}
-			Eventually(func() bool {
+			Eventually(func() (bool, error) {
 				intend(1)
 				return headComplete(fs)
 			}).WithTimeout(time.Minute).Should(BeTrue())
 			closeDB()
 			db, closeDB = breakOpen(ctx, fs)
-			Expect(breakValues(ctx, db, breakData)).
+			Expect(breakValues(ctx, db)).
 				To(Equal([]int64{10, 11, 15, 16, 20, 22}))
 			Expect(db.DeleteTimeRange(
 				ctx, keys, (11 * telem.SecondTS).Range(16*telem.SecondTS),
 			)).To(Succeed())
 			breakWrite(ctx, db, 12, 13)
-			Expect(breakValues(ctx, db, breakData)).
+			Expect(breakValues(ctx, db)).
 				To(Equal([]int64{10, 12, 13, 16, 20, 22}))
 			closeDB()
 			db, closeDB = breakOpen(ctx, fs)
-			Expect(breakValues(ctx, db, breakData)).
+			Expect(breakValues(ctx, db)).
 				To(Equal([]int64{10, 12, 13, 16, 20, 22}))
 			closeDB()
 		})
