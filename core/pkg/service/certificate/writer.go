@@ -74,16 +74,8 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	if prev.Variant != nil && prev.Source() != c.Source() {
-		v := validate.New("certificate")
-		v.Ternaryf(
-			"source",
-			true,
-			"cannot change from %s to %s",
-			prev.Source(),
-			c.Source(),
-		)
-		return v.Error()
+	if err = checkSource(prev, *c); err != nil {
+		return err
 	}
 	// A rack may use a certificate that has no key, so a key added later would reach
 	// the rack through a use that no user vouched for.
@@ -109,28 +101,7 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		}
 		c.Variant = variant
 	case FileCertificate:
-		prevFile, replaced := prev.Variant.(FileCertificate)
-		if replaced && prevFile.Rack != variant.Rack {
-			if err = w.table.RestrictChange(ctx, w.tx, base.Key, "rack"); err != nil {
-				return err
-			}
-		}
-		v := validate.New("certificate")
-		v.NotEmptyString("certificate_path", variant.CertificatePath)
-		if variant.PrivateKeyFile != nil {
-			secret.ValidateFileName(v, "private_key_file", *variant.PrivateKeyFile)
-		}
-		v.Ternary(
-			"private_key_file",
-			replaced && prevFile.PrivateKeyFile == nil && variant.PrivateKeyFile != nil,
-			"must be empty for a certificate saved without a private key file",
-		)
-		v.Ternary(
-			"private_key_pem",
-			len(privateKey) != 0,
-			"must be empty for a file certificate",
-		)
-		if err = v.Error(); err != nil {
+		if err = w.checkFile(ctx, base.Key, variant, prev, privateKey); err != nil {
 			return err
 		}
 	}
@@ -139,6 +110,51 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	}
 	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Certificate: *c}))
 	return w.writeStatus(ctx, prev, *c)
+}
+
+// checkSource returns a validation error when c replaces a certificate of another
+// source.
+func checkSource(prev, c Certificate) error {
+	if prev.Variant == nil || prev.Source() == c.Source() {
+		return nil
+	}
+	v := validate.New("certificate")
+	v.Ternaryf("source", true, "cannot change from %s to %s", prev.Source(), c.Source())
+	return v.Error()
+}
+
+// checkFile validates the file certificate f that replaces prev, if any, under key. It
+// returns a gorp.RestrictError when the replace moves f to another rack while anything
+// uses it.
+func (w Writer) checkFile(
+	ctx context.Context,
+	key Key,
+	f FileCertificate,
+	prev Certificate,
+	privateKey []byte,
+) error {
+	prevFile, replaced := prev.Variant.(FileCertificate)
+	if replaced && prevFile.Rack != f.Rack {
+		if err := w.table.RestrictChange(ctx, w.tx, key, "rack"); err != nil {
+			return err
+		}
+	}
+	v := validate.New("certificate")
+	v.NotEmptyString("certificate_path", f.CertificatePath)
+	if f.PrivateKeyFile != nil {
+		secret.ValidateFileName(v, "private_key_file", *f.PrivateKeyFile)
+	}
+	v.Ternary(
+		"private_key_file",
+		replaced && prevFile.PrivateKeyFile == nil && f.PrivateKeyFile != nil,
+		"must be empty for a certificate saved without a private key file",
+	)
+	v.Ternary(
+		"private_key_pem",
+		len(privateKey) != 0,
+		"must be empty for a file certificate",
+	)
+	return v.Error()
 }
 
 // writeStatus writes the expiry status of next, which replaces prev. A certificate with
