@@ -58,6 +58,9 @@ export class InvalidCredentialsError extends AuthError.sub("invalid-credentials"
 /** Raised when a request or login has no credentials, API key, token, or cookie. */
 export class MissingCredentialsError extends AuthError.sub("missing_credentials") {}
 
+/** Raised when the client cannot load an API key, such as from Synnax Desktop. */
+export class APIKeyUnavailableError extends AuthError.sub("api_key_unavailable") {}
+
 /** InvalidTokenError is raised when an authentication token is invalid. */
 export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 

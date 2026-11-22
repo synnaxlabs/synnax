@@ -13,6 +13,7 @@ import { describe, expect, it, onTestFinished, test, vi } from "vitest";
 
 import { auth } from "@/auth";
 import {
+  APIKeyUnavailableError,
   AuthError,
   ExpiredTokenError,
   InvalidCredentialsError,
@@ -1144,7 +1145,7 @@ describe("auth", () => {
         },
       });
       await expect(keyed.retrieveSessions()).rejects.toThrow(
-        new MissingCredentialsError("no keychain"),
+        new APIKeyUnavailableError("no keychain"),
       );
     });
 

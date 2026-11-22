@@ -25,6 +25,7 @@ import {
   sessionZ,
 } from "@/auth/types.gen";
 import {
+  APIKeyUnavailableError,
   AuthError,
   errorsMiddleware,
   ExpiredTokenError,
@@ -316,7 +317,7 @@ export interface Authority {
   /**
    * Loads an API key to log in with when the authority gives no other proof. Runs on
    * each login until a load succeeds, and again after the Core rejects the key. A
-   * rejection fails the login with a MissingCredentialsError.
+   * rejection fails the login with an APIKeyUnavailableError.
    */
   loadAPIKey?: () => Promise<string>;
   /** The token of an earlier login to resume. */
@@ -710,7 +711,7 @@ export class Client {
           key = await this.loadAPIKey();
         } catch (e) {
           const err = errors.fromUnknown(e);
-          throw new MissingCredentialsError(err.message, { cause: err });
+          throw new APIKeyUnavailableError(err.message, { cause: err });
         }
         if (generation !== this.generation) return null;
         this.apiKey = key;

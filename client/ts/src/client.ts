@@ -329,7 +329,7 @@ export default class Synnax extends framer.Client {
    * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
    * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
    * The key helper of Synnax Desktop runs before the first login. If it is gone or
-   * fails, that login rejects with a MissingCredentialsError, and the connection status
+   * fails, that login rejects with an APIKeyUnavailableError, and the connection status
    * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with

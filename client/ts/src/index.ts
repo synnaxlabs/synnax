@@ -33,6 +33,7 @@ export { device } from "@/device";
 export { enumeration } from "@/enumeration";
 export {
   AccessDeniedError,
+  APIKeyUnavailableError,
   AuthError,
   ContiguityError,
   ControlError,

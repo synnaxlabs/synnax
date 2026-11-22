@@ -41,9 +41,9 @@ import { z } from "zod";
 
 import type { connection } from "@/connection";
 import {
+  APIKeyUnavailableError,
   DisconnectedError,
   InvalidCredentialsError,
-  MissingCredentialsError,
   Synnax,
   ValidationError,
 } from "@/index";
@@ -171,7 +171,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     writeDesktop("echo 'no keychain' >&2\nexit 1", testCoreAddress());
     const client = createClient();
     await expect(client.channels.retrieve("ch")).rejects.toThrow(
-      new MissingCredentialsError("no keychain"),
+      new APIKeyUnavailableError("no keychain"),
     );
     await expect.poll(() => reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
@@ -182,8 +182,9 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     const { token, key } = await owner.auth.createKey({ name: "desktop" });
     const ready = join(home, "ready");
     writeDesktop(`[ -f ${ready} ] || exit 1\necho ${token}`, testCoreAddress());
-    const client = createClient();
-    await expect(client.connect()).rejects.toThrow(MissingCredentialsError);
+    // the default retry budget outlasts the wait for the change stream
+    const client = new Synnax({ onInternalError: () => {} });
+    await expect(client.connect()).rejects.toThrow(APIKeyUnavailableError);
     writeFileSync(ready, "");
     await expect(client.connect()).resolves.toBeDefined();
     await client.close();
