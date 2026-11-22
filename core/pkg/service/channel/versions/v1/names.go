@@ -20,15 +20,14 @@ import (
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/validate"
 )
 
-// NameRuleMigration renames each stored channel whose name breaks the name rule
-// (validate.IsPathSegment), or that an earlier channel in the same group holds after
-// NFC, and stages each rename (resource.StageRename). Built-in channels come first and
-// keep their names, then the rest by key. A new name is validate.SanitizePathSegment of
-// the old one, "channel_<key>" when that is empty, and takes the first suffix (_2, _3)
-// that no channel holds. It runs after the step that names each unnamed channel.
+// NameRuleMigration renames each stored channel whose name breaks the v63 name rule
+// (resource.IsLegalName), or whose legal name an earlier channel in the same group
+// holds, and stages each rename (resource.StageRename). Built-ins come first and keep
+// their names, then the rest go by key. A new name is resource.SanitizeName of the old
+// one, or "channel_<key>" when that is empty, with the first suffix (_2, _3) that no
+// other channel holds. It runs after the step that names each unnamed channel.
 var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
 
 // sibling is a name in a group, or in no group when group is zero.
@@ -59,15 +58,18 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		taken   = make(set.Set[string], len(channels))
 	)
 	for i, c := range channels {
-		at := sibling{name: validate.NormalizeName(c.Name)}
+		if !c.Internal && !resource.IsLegalName(c.Name) {
+			moves[i] = true
+			continue
+		}
+		at := sibling{name: resource.NormalizeName(c.Name)}
 		if c.Group != nil {
 			at.group = *c.Group
 		}
-		moves[i] = !c.Internal &&
-			(claimed.Contains(at) || !validate.IsPathSegment(c.Name))
+		moves[i] = !c.Internal && claimed.Contains(at)
 		claimed.Add(at)
 		if !moves[i] {
-			taken.Add(c.Name)
+			taken.Add(at.name)
 		}
 	}
 	var renamed []Channel
@@ -75,7 +77,7 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		if !moves[i] {
 			continue
 		}
-		base := validate.SanitizePathSegment(c.Name)
+		base := resource.SanitizeName(c.Name)
 		if base == "" {
 			base = "channel_" + c.Key().String()
 		}

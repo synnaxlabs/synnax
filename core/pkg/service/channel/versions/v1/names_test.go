@@ -63,8 +63,8 @@ var _ = Describe("NameRuleMigration", func() {
 		renames := MustSucceed(resource.StagedRenames(db))
 		from := make(map[string]string, len(renames))
 		for _, r := range renames {
-			Expect(r.Resource.Type).To(Equal(resource.TypeChannel))
-			from[r.Resource.Key] = r.From
+			Expect(r.ID.Type).To(Equal(resource.TypeChannel))
+			from[r.ID.Key] = r.From
 		}
 		return from
 	}
@@ -125,15 +125,15 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(names[5]).To(Equal("pressure_2"))
 		})
 
-	It("Should keep the name of the lower key when the two match only after NFC",
+	It("Should keep a legal name when a lower key matches it only after NFC",
 		func(ctx SpecContext) {
 			names := migrate(
 				ctx,
 				channel(1, "cafe\u0301", nil),
 				channel(2, "caf\u00E9", nil),
 			)
-			Expect(names[1]).To(Equal("caf\u00E9"))
-			Expect(names[2]).To(Equal("caf\u00E9_2"))
+			Expect(names[2]).To(Equal("caf\u00E9"))
+			Expect(names[1]).To(Equal("caf\u00E9_2"))
 		})
 
 	It("Should move a channel that holds the name of a built-in in its group, even "+

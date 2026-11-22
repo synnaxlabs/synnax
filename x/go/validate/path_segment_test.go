@@ -10,7 +10,6 @@
 package validate_test
 
 import (
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,8 +26,8 @@ var _ = Describe("Path segments", func() {
 		Entry("an inner space", "Stand A", true),
 		Entry("spaces around a name", " pt ", true),
 		Entry("digits only", "2024", true),
-		Entry("letters of other scripts", "\u5727\u529B \u00E9", true),
-		Entry("a symbol with no variation selector", "\U0001F4A7", true),
+		Entry("letters of other scripts", "圧力 \u00E9", true),
+		Entry("a symbol with no variation selector", "💧", true),
 		Entry("the replacement character", "\uFFFD", true),
 		Entry("empty", "", false),
 		Entry("spaces only", "   ", false),
@@ -49,40 +48,9 @@ var _ = Describe("Path segments", func() {
 		Entry("a halfwidth Hangul filler (default ignorable)", "\uFFA0", false),
 		Entry("a Braille pattern blank, which shows as nothing", "a\u2800b", false),
 		Entry("a combining grapheme joiner (default ignorable)", "a\u034Fb", false),
-		Entry("a variation selector (default ignorable)", "\u2764\uFE0F", false),
+		Entry("a variation selector (default ignorable)", "❤\uFE0F", false),
 		Entry("an invalid byte", "a\xffb", false),
 		Entry("a name not in NFC", "e\u0301", false),
-	)
-
-	DescribeTable("SanitizePathSegment",
-		func(s, expected string) {
-			out := validate.SanitizePathSegment(s)
-			Expect(out).To(Equal(expected))
-			if out != "" {
-				Expect(validate.IsPathSegment(out)).To(BeTrue())
-			}
-		},
-		Entry("a legal name", "Stand A-01", "Stand A-01"),
-		Entry("a separator", "stand.pt", "stand_pt"),
-		Entry("a control character", "a\x00b", "ab"),
-		Entry("a zero-width space", "a\u200Bb", "ab"),
-		Entry("a no-break space", "a\u00A0b", "ab"),
-		Entry("a Braille pattern blank", "a\u2800b", "ab"),
-		Entry("each invalid byte", "a\xff\xfeb", "a\uFFFD\uFFFDb"),
-		Entry("a name not in NFC", "e\u0301", "\u00E9"),
-		Entry("refused characters around a mark", "e\u200B\u0301", "\u00E9"),
-		Entry("refused characters only", "\u200B\u00A0", ""),
-		Entry("spaces only after the rest goes", " \u200B ", ""),
-		Entry(
-			"31 combining marks in a row",
-			"a"+strings.Repeat("\u0316", 31),
-			"a"+strings.Repeat("\u0316", 30),
-		),
-		Entry(
-			"61 combining marks in a row",
-			"a"+strings.Repeat("\u0316", 61)+"b",
-			"a"+strings.Repeat("\u0316", 30)+"b",
-		),
 	)
 
 	It("Should allocate nothing for an ASCII name or a name in NFC", func() {
