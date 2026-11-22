@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { z } from "zod";
+
+import type { access } from "@/access";
+import type { arc } from "@/arc";
+import { channel } from "@/channel";
+import { framer } from "@/framer";
+import type { status } from "@/status";
+
 export { access } from "@/access";
-export type { Policy } from "@/access/policy/types.gen";
-export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
-export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
 export { batch } from "@/batch";
 export { certificate } from "@/certificate";
 export { channel } from "@/channel";
-export { Channel } from "@/channel/client";
-export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   type ConstructorParams,
@@ -62,7 +65,6 @@ export {
 } from "@/errors";
 export { ethercat } from "@/ethercat";
 export { framer } from "@/framer";
-export { Frame } from "@/framer/frame";
 export { group } from "@/group";
 export { http } from "@/http";
 export { icd } from "@/icd";
@@ -89,7 +91,6 @@ export { schematic } from "@/schematic";
 export { secret } from "@/secret";
 export { sift } from "@/sift";
 export { status } from "@/status";
-export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
 export { user } from "@/user";
@@ -114,3 +115,16 @@ export {
   type TimeZone,
   type TypedArray,
 } from "@synnaxlabs/x";
+
+export type Policy = access.policy.Policy;
+export type Role = access.role.Role;
+export type Param = arc.types.Param;
+export const Channel = channel.Channel;
+export type Channel = channel.Channel;
+export const isCalculated = channel.isCalculated;
+export const Frame = framer.Frame;
+export type Frame = framer.Frame;
+export type StatusZodObject<
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<status.Variant> = typeof status.variantZ,
+> = status.StatusZodObject<Details, V>;
