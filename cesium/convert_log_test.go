@@ -226,6 +226,8 @@ var _ = Describe("Conversion on the pointer log", func() {
 				cesium.WithFS(disk),
 				cesium.WithPointerLog(),
 				cesium.WithPartSize(1),
+				cesium.WithRandom(rand.NewPCG(1, 2)),
+				cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
 			))
 			stop := GoRun(ctx, db.Run)
 			return db, func() error { return errors.Join(stop(), db.Close()) }

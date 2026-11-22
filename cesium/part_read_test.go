@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"slices"
 	"strconv"
@@ -110,7 +111,8 @@ func (f *gateFS) arm() {
 }
 
 // partedDB opens a database of the pointer log layout on fs whose switch writes every
-// sealed segment to a part.
+// sealed segment to a part. Its random source is fixed, so each database that it makes
+// has the identity that it states: the first draw of that source.
 func partedDB(ctx context.Context, fs xfs.FS) *cesium.DB {
 	GinkgoHelper()
 	return MustSucceed(cesium.Open(
@@ -119,6 +121,8 @@ func partedDB(ctx context.Context, fs xfs.FS) *cesium.DB {
 		cesium.WithFS(fs),
 		cesium.WithPointerLog(),
 		cesium.WithPartSize(1),
+		cesium.WithRandom(rand.NewPCG(1, 2)),
+		cesium.WithIdentity(rand.NewPCG(1, 2).Uint64()),
 	))
 }
 
