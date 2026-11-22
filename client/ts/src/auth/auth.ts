@@ -313,6 +313,11 @@ export interface Authority {
    * A code works only once, so later logins resume the session it opened.
    */
   oidc?: OIDCCredentials;
+  /**
+   * Loads an API key to log in with when the authority gives no other proof. Runs on
+   * each login until one succeeds.
+   */
+  loadAPIKey?: () => Promise<string>;
   /** The token of an earlier login to resume. */
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
@@ -345,6 +350,7 @@ export class Client {
   private credentials?: Credentials;
   private apiKey?: string;
   private oidc?: OIDCCredentials;
+  private loadAPIKey?: () => Promise<string>;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -368,6 +374,7 @@ export class Client {
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
     this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
+    this.loadAPIKey = authority.loadAPIKey;
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
@@ -379,6 +386,7 @@ export class Client {
     this.credentials = { username, password };
     this.apiKey = undefined;
     this.oidc = undefined;
+    this.loadAPIKey = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -643,6 +651,7 @@ export class Client {
     this.credentials = undefined;
     this.apiKey = undefined;
     this.oidc = undefined;
+    this.loadAPIKey = undefined;
     this.resumeToken = undefined;
   }
 
@@ -689,6 +698,12 @@ export class Client {
       let owned: string | undefined;
       let u: user.User | undefined;
       let spentCode = false;
+      if (this.loadAPIKey != null && this.proof() == null) {
+        const key = await this.loadAPIKey();
+        if (generation !== this.generation) return null;
+        this.apiKey = key;
+        this.loadAPIKey = undefined;
+      }
       const proof = this.proof();
       if (proof != null) {
         const res = await this.client.send(

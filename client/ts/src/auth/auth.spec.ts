@@ -1096,6 +1096,26 @@ describe("auth", () => {
       await owner.deleteKeys(key.key);
     });
 
+    it("should log in with a key it loads", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "loaded" });
+      const keyed = makeClient({ loadAPIKey: async () => token });
+      await keyed.retrieveSessions();
+      expect(keyed.session?.credential).toEqual(key.key);
+      await owner.deleteKeys(key.key);
+    });
+
+    it("should load the key again after a load fails", async () => {
+      const loadAPIKey = vi
+        .fn<() => Promise<string>>()
+        .mockRejectedValueOnce(new Error("helper failed"))
+        .mockResolvedValue(`syk_${id.create()}secret`);
+      const keyed = makeClient({ loadAPIKey });
+      await expect(keyed.retrieveSessions()).rejects.toThrow("helper failed");
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
+      expect(loadAPIKey).toHaveBeenCalledTimes(2);
+    });
+
     it("should reject a key the Core never issued", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
       await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);

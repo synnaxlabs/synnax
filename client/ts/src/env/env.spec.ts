@@ -185,19 +185,27 @@ const desktop = (
   run: env.Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
 ): env.System => ({
   readFile: () => (file == null ? null : JSON.stringify(file)),
-  run: vi.fn(() => run),
+  run: vi.fn(async () => run),
 });
 
 describe("resolveParams with Synnax Desktop", () => {
-  it("should fill every missing field from Synnax Desktop", () => {
+  it("should fill every missing field from Synnax Desktop", async () => {
     const system = desktop();
-    expect(env.resolveParams({}, {}, system)).toEqual({
+    const resolved = env.resolveParams({}, {}, system);
+    expect(resolved).toEqual({
       host: "localhost",
       port: 9095,
-      apiKey: "syk_desktop",
+      loadAPIKey: expect.any(Function),
       secure: true,
     });
+    expect(await resolved.loadAPIKey?.()).toEqual("syk_desktop");
     expect(system.run).toHaveBeenCalledWith("/app/synnax-desktop-key");
+  });
+
+  it("should not run the key helper until the key is loaded", () => {
+    const system = desktop();
+    env.resolveParams({}, {}, system);
+    expect(system.run).not.toHaveBeenCalled();
   });
 
   it("should let the params and variables win over Synnax Desktop", () => {
@@ -225,8 +233,9 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should not run the key helper when the params give credentials", () => {
     const system = desktop();
     const params = { username: "u", password: "p" };
-    expect(env.resolveParams(params, {}, system).apiKey).toBeUndefined();
-    expect(system.run).not.toHaveBeenCalled();
+    const resolved = env.resolveParams(params, {}, system);
+    expect(resolved.apiKey).toBeUndefined();
+    expect(resolved.loadAPIKey).toBeUndefined();
   });
 
   it("should not read Synnax Desktop when the params give a host", () => {
@@ -234,7 +243,7 @@ describe("resolveParams with Synnax Desktop", () => {
       readFile: () => {
         throw new Error("read");
       },
-      run: () => {
+      run: async () => {
         throw new Error("run");
       },
     };
@@ -250,11 +259,20 @@ describe("resolveParams with Synnax Desktop", () => {
     throw new Error("resolveParams did not throw");
   };
 
+  const rejected = async (system: env.System): Promise<unknown> => {
+    try {
+      await env.resolveParams({}, {}, system).loadAPIKey?.();
+    } catch (e) {
+      return e;
+    }
+    throw new Error("loadAPIKey did not reject");
+  };
+
   const reading = (error: Error): env.System => ({
     readFile: () => {
       throw error;
     },
-    run: () => null,
+    run: async () => null,
   });
 
   it("should not name Synnax Desktop when there is no file", () => {
@@ -282,15 +300,15 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error).toHaveProperty("cause", cause);
   });
 
-  it("should name Synnax Desktop when Deno cannot run the key helper", () => {
+  it("should name Synnax Desktop when Deno cannot run the key helper", async () => {
     const cause = notCapable();
     const system: env.System = {
       readFile: () => JSON.stringify(DESKTOP_FILE),
-      run: () => {
+      run: async () => {
         throw cause;
       },
     };
-    const error = thrown(system);
+    const error = await rejected(system);
     expect(error).toBeInstanceOf(ValidationError);
     expect(error).toHaveProperty(
       "message",
@@ -299,8 +317,8 @@ describe("resolveParams with Synnax Desktop", () => {
     expect(error).toHaveProperty("cause", cause);
   });
 
-  it("should throw Unreachable when Synnax Desktop is not running", () => {
-    const error = thrown(desktop(DESKTOP_FILE, null));
+  it("should reject with Unreachable when Synnax Desktop is not running", async () => {
+    const error = await rejected(desktop(DESKTOP_FILE, null));
     if (!(error instanceof Unreachable)) throw new Error("expected Unreachable");
     expect(error.message).toEqual(
       "Synnax Desktop is not running. Open it and try again. To connect to another " +
@@ -323,30 +341,37 @@ describe("resolveParams with Synnax Desktop", () => {
     ],
     [
       "the file is not valid JSON",
-      { readFile: () => "{", run: () => null },
+      { readFile: () => "{", run: async () => null },
       "Cannot read ~/.synnax/desktop.json",
-    ],
-    [
-      "the key helper fails",
-      desktop(DESKTOP_FILE, {
-        status: 1,
-        stdout: "",
-        stderr: "failed to read the Synnax Desktop API key: no keychain\n",
-      }),
-      "failed to read the Synnax Desktop API key: no keychain",
     ],
   ])("should reject when %s", (_, system, message) => {
     expect(() => env.resolveParams({}, {}, system)).toThrow(ValidationError);
     expect(() => env.resolveParams({}, {}, system)).toThrow(message);
   });
 
+  it("should reject the key when the key helper fails", async () => {
+    const system = desktop(DESKTOP_FILE, {
+      status: 1,
+      stdout: "",
+      stderr: "failed to read the Synnax Desktop API key: no keychain\n",
+    });
+    const error = await rejected(system);
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty(
+      "message",
+      "failed to read the Synnax Desktop API key: no keychain",
+    );
+  });
+
   describe.skipIf(process.platform === "win32")("with a real key helper", () => {
-    const withDir = (f: (dir: string, system: env.System) => void): void => {
+    const withDir = async (
+      f: (dir: string, system: env.System) => Promise<void>,
+    ): Promise<void> => {
       const dir = mkdtempSync(join(tmpdir(), "synnax-desktop-"));
       try {
         const system = env.nodeSystem();
         if (system == null) throw new Error("no system");
-        f(dir, system);
+        await f(dir, system);
       } finally {
         rmSync(dir, { recursive: true });
       }
@@ -359,26 +384,27 @@ describe("resolveParams with Synnax Desktop", () => {
       return helper;
     };
 
-    it("should read the key from the helper", () =>
-      withDir((dir, real) => {
+    it("should read the key from the helper", async () =>
+      await withDir(async (dir, real) => {
         const helper = writeHelper(dir, 0o755);
         const system: env.System = {
           readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
           run: real.run,
         };
-        expect(env.resolveParams({}, {}, system).apiKey).toEqual("syk_real");
+        expect(await env.resolveParams({}, {}, system).loadAPIKey?.()).toEqual("syk_real");
       }));
 
-    it("should return null for a helper that is not there", () =>
-      withDir((dir, real) => {
-        expect(real.run(join(dir, "missing"))).toBeNull();
+    it("should resolve null for a helper that is not there", async () =>
+      await withDir(async (dir, real) => {
+        expect(await real.run(join(dir, "missing"))).toBeNull();
       }));
 
-    it("should name a helper that exists but cannot start", () =>
-      withDir((dir, real) => {
+    it("should name a helper that exists but cannot start", async () =>
+      await withDir(async (dir, real) => {
         const helper = writeHelper(dir, 0o644);
-        expect(() => real.run(helper)).toThrow(ValidationError);
-        expect(() => real.run(helper)).toThrow(
+        const run = real.run(helper);
+        await expect(run).rejects.toThrow(ValidationError);
+        await expect(run).rejects.toThrow(
           `Cannot run the key helper of Synnax Desktop at ${helper}`,
         );
       }));
@@ -390,7 +416,7 @@ const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n";
 // Reads only the files in the map, and runs no program.
 const files = (map: Record<string, string>): env.System => ({
   readFile: (path) => map[path] ?? null,
-  run: () => null,
+  run: async () => null,
 });
 
 describe("resolveParams with SYNNAX_CA_CERT", () => {
@@ -437,12 +463,12 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     const system: env.System = {
       readFile: (path) =>
         path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, secure: false }),
-      run: () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
+      run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
     };
     expect(env.resolveParams({}, { SYNNAX_CA_CERT: "~/ca.pem" }, system)).toEqual({
       host: "localhost",
       port: 9095,
-      apiKey: "syk_desktop",
+      loadAPIKey: expect.any(Function),
       secure: true,
       caCert: PEM,
     });
@@ -489,7 +515,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   it("should turn on TLS without reading the file when the CA is unsupported", () => {
     const deno: env.System = {
       readFile: vi.fn(() => PEM),
-      run: () => null,
+      run: async () => null,
       caCertUnsupported: true,
     };
     const resolved = env.resolveParams(
@@ -516,7 +542,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       readFile: () => {
         throw cause;
       },
-      run: () => null,
+      run: async () => null,
     };
     let error: unknown;
     try {

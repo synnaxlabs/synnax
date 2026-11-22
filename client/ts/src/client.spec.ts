@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer as createHTTPServer } from "node:http";
 import { createServer, type Server } from "node:https";
 import type { AddressInfo } from "node:net";
@@ -101,6 +109,56 @@ describe("constructor", () => {
     } finally {
       rmSync(home, { recursive: true });
     }
+  });
+});
+
+describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop", () => {
+  let home: string;
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+    vi.stubEnv("SYNNAX_HOST", "");
+    vi.stubEnv("SYNNAX_API_KEY", "");
+    vi.stubEnv("HOME", home);
+    mkdirSync(join(home, ".synnax"));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    rmSync(home, { recursive: true });
+  });
+
+  it("should run the key helper without blocking other tasks", async () => {
+    const started = join(home, "started");
+    const helper = join(home, "synnax-desktop-key");
+    writeFileSync(helper, `#!/bin/sh\ntouch ${started}\nsleep 1\necho syk_slow\n`);
+    chmodSync(helper, 0o755);
+    writeFileSync(
+      join(home, ".synnax", "desktop.json"),
+      JSON.stringify({
+        host: "127.0.0.1",
+        port: 1,
+        secure: false,
+        api_key_helper: helper,
+      }),
+    );
+    const start = performance.now();
+    const client = new Synnax({
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    expect(performance.now() - start).toBeLessThan(500);
+    let ticks = 0;
+    const timer = setInterval(() => (ticks += 1), 10);
+    const request = client.channels.retrieve("ch").catch(() => {});
+    await expect.poll(() => existsSync(started)).toBe(true);
+    const before = ticks;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    clearInterval(timer);
+    expect(ticks).toBeGreaterThan(before);
+    await request;
+    await client.close();
   });
 });
 
