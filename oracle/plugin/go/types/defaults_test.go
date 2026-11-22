@@ -859,6 +859,34 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should leave the lt check of a restated default to the embedded struct",
+			func() {
+				source := `
+					@go output "core/pkg/service/x"
+
+					Range struct {
+						min float64 {
+							@go validate lt max
+						}
+						max float64
+					}
+
+					Shape union on kind {
+						tuned extends Range {
+							min float64 = 2
+						}
+					}
+				`
+				resp := MustGenerate(source, "x", loader, goPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(strings.Count(content, `v.Ternary("min"`)).To(Equal(1))
+				ExpectContent(
+					resp,
+					"types.gen.go",
+				).ToContain(`v.Exec(t.Range.Validate)`)
+			},
+		)
+
 		It(
 			"Should merge a field's rules with its type's rules",
 			func() {

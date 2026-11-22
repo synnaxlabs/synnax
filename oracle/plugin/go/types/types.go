@@ -976,7 +976,7 @@ func addFieldMethods(
 		sd.ConstraintChecks,
 		goConstraintChecks(field, defaultOnly, fd)...,
 	)
-	if chk, ok := goLessThanCheck(field, siblings); ok {
+	if chk, ok := goLessThanCheck(field, siblings, defaultOnly); ok {
 		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
 	}
 	if step, ok := goRecurseStep(field, fd, validateRule); ok {
