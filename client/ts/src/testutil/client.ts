@@ -130,8 +130,8 @@ export const holdRequests = (
 
 /**
  * Holds each request to target until release is called, then fails it with error, so
- * the Core does not get it. Call it inside a test: the hold ends when the test
- * finishes.
+ * the Core does not get it. sent returns the count of held requests. Call it inside a
+ * test: the hold ends when the test finishes.
  */
 export const holdFailures = (
   client: Synnax,
@@ -142,8 +142,10 @@ export const holdFailures = (
   const { unary } = client[field];
   const send = unary.send.bind(unary);
   const released = Promise.withResolvers<void>();
+  let sent = 0;
   const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
     if (args[0] !== target) return await send(...args);
+    sent++;
     await released.promise;
     throw error;
   });
@@ -151,7 +153,7 @@ export const holdFailures = (
     released.resolve();
     spy.mockRestore();
   });
-  return { release: () => released.resolve() };
+  return { release: () => released.resolve(), sent: () => sent };
 };
 
 /** Rejects with error each request for which matches is true. Sends the others on. */
