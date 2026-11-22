@@ -257,6 +257,87 @@ var _ = Describe("Tombstone", Ordered, func() {
 		Expect(svc.Tombstones(ctx, db, createFolder(ctx).Key)).To(BeEmpty())
 	})
 
+	Describe("MoveTombstones", func() {
+		keysOf := func(ts []channel.Tombstone) channel.Keys {
+			keys := make(channel.Keys, len(ts))
+			for i, t := range ts {
+				keys[i] = t.Key
+			}
+			return keys
+		}
+		move := func(
+			ctx SpecContext,
+			moves map[group.Key]*group.Key,
+		) []channel.Tombstone {
+			GinkgoHelper()
+			var dropped []channel.Tombstone
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				dropped, err = svc.NewWriter(tx).MoveTombstones(ctx, moves)
+				return err
+			})).To(Succeed())
+			return dropped
+		}
+
+		It("Should move tombstones and drop the ones whose new paths are taken", func(
+			ctx SpecContext,
+		) {
+			from, to := createFolder(ctx), createFolder(ctx)
+			moved := deleteHeld(ctx, channel.Channel{Group: &from.Key})
+			byChannel := deleteHeld(ctx, channel.Channel{Group: &from.Key})
+			create(ctx, channel.Channel{Name: byChannel.Name, Group: &to.Key})
+			name := UniqueChannelName()
+			kept := deleteHeld(ctx, channel.Channel{Name: name, Group: &to.Key})
+			byTombstone := deleteHeld(
+				ctx,
+				channel.Channel{Name: name, Group: &from.Key},
+			)
+			moves := map[group.Key]*group.Key{from.Key: &to.Key}
+			Expect(keysOf(MustSucceed(svc.DroppedTombstones(ctx, db, moves)))).
+				To(ConsistOf(byChannel.Key(), byTombstone.Key()))
+			Expect(keysOf(move(ctx, moves))).
+				To(ConsistOf(byChannel.Key(), byTombstone.Key()))
+			Expect(MustBeOk(tombstoneOf(ctx, moved.Key())).Group).To(Equal(&to.Key))
+			Expect(MustBeOk(tombstoneOf(ctx, kept.Key())).Group).To(Equal(&to.Key))
+			_, ok := tombstoneOf(ctx, byChannel.Key())
+			Expect(ok).To(BeFalse())
+			_, ok = tombstoneOf(ctx, byTombstone.Key())
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should move a tombstone out of any folder for nil", func(ctx SpecContext) {
+			from := createFolder(ctx)
+			dead := deleteHeld(ctx, channel.Channel{Group: &from.Key})
+			Expect(move(ctx, map[group.Key]*group.Key{from.Key: nil})).To(BeEmpty())
+			Expect(MustBeOk(tombstoneOf(ctx, dead.Key())).Group).To(BeNil())
+		})
+
+		It("Should count a channel in a moved folder at the folder it moves to", func(
+			ctx SpecContext,
+		) {
+			a, b, to := createFolder(ctx), createFolder(ctx), createFolder(ctx)
+			dead := deleteHeld(ctx, channel.Channel{Group: &b.Key})
+			create(ctx, channel.Channel{Name: dead.Name, Group: &a.Key})
+			moves := map[group.Key]*group.Key{a.Key: &to.Key, b.Key: &to.Key}
+			Expect(keysOf(MustSucceed(svc.DroppedTombstones(ctx, db, moves)))).
+				To(ConsistOf(dead.Key()))
+		})
+
+		It("Should drop the tombstone of the later folder when two take one path", func(
+			ctx SpecContext,
+		) {
+			a, b, to := createFolder(ctx), createFolder(ctx), createFolder(ctx)
+			name := UniqueChannelName()
+			inA := deleteHeld(ctx, channel.Channel{Name: name, Group: &a.Key})
+			inB := deleteHeld(ctx, channel.Channel{Name: name, Group: &b.Key})
+			later := inB
+			if string(b.Key[:]) < string(a.Key[:]) {
+				later = inA
+			}
+			moves := map[group.Key]*group.Key{a.Key: &to.Key, b.Key: &to.Key}
+			Expect(keysOf(move(ctx, moves))).To(ConsistOf(later.Key()))
+		})
+	})
+
 	It("Should skip a tombstone path in the folder of a channel it rehomes", func(
 		ctx SpecContext,
 	) {
