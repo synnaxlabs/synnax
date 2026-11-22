@@ -159,9 +159,9 @@ type picks struct {
 	visible func(resource.ID) bool
 }
 
-// newPicks parses the picks of opts. A pick that is not a choice fails with a
-// validation error, as does a pick that names no record; that error names the smallest
-// such pick.
+// newPicks parses the picks of opts. A pick that is not a choice, or then a pick that
+// names no record, fails with a validation error that names the one with the smallest
+// key.
 func newPicks(opts PlanOptions) (picks, error) {
 	if opts.Hidden != nil && !opts.Hidden.IsValid() {
 		return picks{}, errors.Wrapf(
@@ -175,14 +175,11 @@ func newPicks(opts PlanOptions) (picks, error) {
 		hidden:  opts.Hidden,
 		visible: opts.Visible,
 	}
-	var unparsed []string
+	var invalid, unparsed []string
 	for text, pick := range opts.Picks {
 		if !pick.IsValid() {
-			return picks{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s is not a choice",
-				pick,
-			)
+			invalid = append(invalid, text)
+			continue
 		}
 		id, err := resource.ParseID(text)
 		if err != nil {
@@ -190,6 +187,13 @@ func newPicks(opts PlanOptions) (picks, error) {
 			continue
 		}
 		p.named[id] = pick
+	}
+	if len(invalid) > 0 {
+		return picks{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a choice",
+			opts.Picks[slices.Min(invalid)],
+		)
 	}
 	if len(unparsed) > 0 {
 		return picks{}, errors.Wrapf(

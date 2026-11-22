@@ -10,6 +10,8 @@
 package impact_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -157,6 +159,26 @@ var _ = Describe("Delete groups", Ordered, func() {
 			plan(ctx, impact.PlanOptions{}, folder.Key),
 		)))
 		Expect(exists(ctx, folder.Key)).To(BeTrue())
+	})
+
+	It("Should name the pick with the smallest key among the picks it refuses", func(
+		ctx SpecContext,
+	) {
+		folder := createFolder(ctx, "impact-smallest", nil)
+		invalid := make(map[string]impact.Choice, 8)
+		unparsed := make(map[string]impact.Choice, 8)
+		for c := 'a'; c <= 'h'; c++ {
+			invalid[fmt.Sprintf("task:%c", c)] = impact.Choice(
+				fmt.Sprintf("keep_%c", c),
+			)
+			unparsed[fmt.Sprintf("%c", c)] = impact.ChoiceDelete
+		}
+		for range 32 {
+			Expect(plan(ctx, impact.PlanOptions{Picks: invalid}, folder.Key)).
+				Error().To(MatchError(ContainSubstring("keep_a is not a choice")))
+			Expect(plan(ctx, impact.PlanOptions{Picks: unparsed}, folder.Key)).
+				Error().To(MatchError(ContainSubstring("no entry is a")))
+		}
 	})
 
 	DescribeTable("Should refuse a pick in a plan or an apply", func(
