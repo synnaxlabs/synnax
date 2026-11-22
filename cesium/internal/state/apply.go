@@ -29,9 +29,15 @@ func refuse(format string, args ...any) error {
 // core is the data of the state and the rules that change it. Only the owner uses it.
 type core struct {
 	versions set.Set[uint16]
-	channels map[uint32]*chanState
-	segments map[uint64]*segState
-	intents  set.Set[uint32]
+	// version and threshold are the format version and the dead share of the candidate
+	// test.
+	version   uint16
+	threshold float32
+	// candidates holds the segments that pass the candidate test.
+	candidates set.Set[uint64]
+	channels   map[uint32]*chanState
+	segments   map[uint64]*segState
+	intents    set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
 	// limits are the durable limits, below which the state gives out values. reserved
@@ -64,15 +70,18 @@ type core struct {
 	checked map[uint64][]Segment
 }
 
-func newCore(versions set.Set[uint16]) *core {
+func newCore(cfg Config) *core {
 	return &core{
-		versions:  versions,
-		channels:  map[uint32]*chanState{},
-		segments:  map[uint64]*segState{},
-		intents:   set.Set[uint32]{},
-		keys:      set.Set[uint32]{},
-		dropUsers: map[uint32][]User{},
-		checked:   map[uint64][]Segment{},
+		versions:   cfg.Versions,
+		version:    cfg.Version,
+		threshold:  cfg.Threshold,
+		candidates: set.Set[uint64]{},
+		channels:   map[uint32]*chanState{},
+		segments:   map[uint64]*segState{},
+		intents:    set.Set[uint32]{},
+		keys:       set.Set[uint32]{},
+		dropUsers:  map[uint32][]User{},
+		checked:    map[uint64][]Segment{},
 	}
 }
 
@@ -121,6 +130,8 @@ func (c *core) record(r log.Record, pre []Preload) error {
 		return c.intent(r)
 	case *log.Tombstone:
 		return c.tombstone(r, pre)
+	case *log.Replace:
+		return c.replace(r)
 	default:
 		return errors.Wrapf(log.ErrUnknown, "the state does not apply a %T record", r)
 	}
@@ -288,8 +299,79 @@ func (c *core) seal(r *log.Seal) error {
 	if s.vis.Sealed && s.vis.Length == s.dur.length {
 		s.dur.pointers = s.vis.Pointers
 	}
+	c.test(s)
 	c.bury(s)
 	return nil
+}
+
+// test adds s to the candidates when it is sealed in the durable view, untagged, of the
+// format version of new segments, and its dead share is above the threshold, and takes
+// it out when not.
+func (c *core) test(s *segState) {
+	var live uint64
+	for _, p := range s.dur.pointers {
+		live += uint64(p.Length)
+	}
+	length := uint64(s.dur.length)
+	if s.dur.sealed && s.vis.Part == 0 && s.vis.Version == c.version &&
+		float64(length-live) > float64(c.threshold)*float64(length) {
+		c.candidates.Add(s.vis.ID)
+		return
+	}
+	c.candidates.Remove(s.vis.ID)
+}
+
+// replace takes the old segment of r out of the state, and seals in its place the new
+// segment that the entry of r created, with the pointers of r. The copy keeps the time
+// range, the alignment, the samples, and the length of each pointer.
+func (c *core) replace(r *log.Replace) error {
+	old, s := c.segments[r.Old], c.segments[r.New]
+	switch {
+	case old == nil || !old.dur.sealed:
+		return refuse("replace of segment %d, which is not sealed", r.Old)
+	case old.vis.Part != 0:
+		return refuse("replace of segment %d, whose record part %d holds", r.Old,
+			old.vis.Part)
+	case s == nil || !s.dur.created || s.dur.sealed || s.dur.length != 0 ||
+		s.holder != nil:
+		return refuse("replace of segment %d by %d, which is not a new segment",
+			r.Old, r.New)
+	case s.key != old.key || s.vis.Clock != old.vis.Clock ||
+		s.vis.DataType != old.vis.DataType:
+		return refuse("replace of segment %d by %d, which differs in key, clock, or "+
+			"type", r.Old, r.New)
+	case !copied(old.dur.pointers, r.Pointers):
+		return refuse("replace of segment %d, whose pointers differ from the copy",
+			r.Old)
+	}
+	ptrs := make([]Pointer, len(r.Pointers))
+	for i, p := range r.Pointers {
+		ptrs[i] = Pointer{
+			First:     telem.TimeStamp(p.First),
+			Last:      telem.TimeStamp(p.Last),
+			Alignment: telem.Alignment(p.Alignment),
+			Offset:    p.Offset,
+			Length:    p.Length,
+			Samples:   p.Samples,
+		}
+	}
+	s.dur.sealed, s.dur.length, s.dur.tailCRC, s.dur.pointers = true, r.Length,
+		r.TailCRC, ptrs
+	s.vis.Sealed, s.vis.Length, s.vis.TailCRC, s.vis.Pointers = true, r.Length,
+		r.TailCRC, ptrs
+	old.dur.pointers = nil
+	c.bury(old)
+	return nil
+}
+
+// copied reports whether ptrs, the durable pointers of a segment, and copy name the
+// same ranges, at any offsets.
+func copied(ptrs []Pointer, copy []log.Pointer) bool {
+	return slices.EqualFunc(ptrs, copy, func(p Pointer, q log.Pointer) bool {
+		return int64(p.First) == q.First && int64(p.Last) == q.Last &&
+			uint64(p.Alignment) == q.Alignment && p.Length == q.Length &&
+			p.Samples == q.Samples
+	})
 }
 
 // bury takes s out of the state when it is sealed in the durable view and no durable
@@ -303,6 +385,7 @@ func (c *core) bury(s *segState) {
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
 	delete(c.segments, s.vis.ID)
+	c.candidates.Remove(s.vis.ID)
 	c.dead = append(c.dead, Dead{Segment: s.vis.ID, Key: s.key})
 	ch.publish()
 }
@@ -334,6 +417,7 @@ func (c *core) drop(key uint32, pre []Preload) error {
 		)
 		for _, s := range ch.segs {
 			delete(c.segments, s.vis.ID)
+			c.candidates.Remove(s.vis.ID)
 		}
 		delete(c.channels, key)
 		ch.pub.Store(nil)
@@ -347,6 +431,7 @@ func (c *core) restart() {
 	for _, s := range c.segments {
 		if s.dur.created && !s.dur.sealed {
 			s.dur.sealed = true
+			c.test(s)
 			c.bury(s)
 		}
 	}

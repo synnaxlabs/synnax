@@ -144,6 +144,7 @@ func openEngine(o *options) (*engine, error) {
 	if e.state, err = state.Open(state.Config{
 		Versions:   set.New[uint16](segmentVersion),
 		Version:    segmentVersion,
+		Threshold:  o.gcCfg.Threshold,
 		Append:     e.append,
 		Executor:   e.exec,
 		OnHead:     e.onHead,

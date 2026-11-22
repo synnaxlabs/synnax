@@ -32,6 +32,9 @@ type Config struct {
 	Versions set.Set[uint16]
 	// Version is the segment format version of new segments, one of Versions.
 	Version uint16
+	// Threshold is the dead share of a sealed segment of Version above which the
+	// segment is a candidate for a rewrite.
+	Threshold float32
 	// Append queues an entry for the log and returns at once. The state appends a
 	// Reserve with it before it gives out a value above the durable limit.
 	Append func(e *log.Entry)
@@ -49,6 +52,7 @@ type Config struct {
 func (c Config) Validate() error {
 	v := validate.New("state.Config")
 	v.Ternary("versions", !c.Versions.Contains(c.Version), "must hold version")
+	v.Ternary("threshold", c.Threshold <= 0 || c.Threshold >= 1, "must be in (0, 1)")
 	v.NotNil("append", c.Append)
 	v.NotNil("executor", c.Executor)
 	v.NotNil("on_head", c.OnHead)
@@ -103,7 +107,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 	}
 	s := &State{
 		cfg:     cfg,
-		core:    newCore(cfg.Versions),
+		core:    newCore(cfg),
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
