@@ -80,3 +80,11 @@ func TestHTTP(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// as returns v as a T, and fails the spec when v is not a T.
+func as[T any](v any) T {
+	GinkgoHelper()
+	t, ok := v.(T)
+	Expect(ok).To(BeTrue())
+	return t
+}

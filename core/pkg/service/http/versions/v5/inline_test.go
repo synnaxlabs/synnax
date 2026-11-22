@@ -69,8 +69,13 @@ func jsonFields(ic icdv1.ICD, i int) []icdv1.JSONField {
 	return p.Fields
 }
 
-// fill returns a pointer to v, as a fill value.
-func fill(v any) *any { return &v }
+// as returns v as a T, and fails the spec when v is not a T.
+func as[T any](v any) T {
+	GinkgoHelper()
+	t, ok := v.(T)
+	Expect(ok).To(BeTrue())
+	return t
+}
 
 var _ = Describe("ResolveReadConfig", func() {
 	It("Should return false for a config with no inline fields", func(ctx SpecContext) {
@@ -143,17 +148,17 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 		Entry(
 			"a float",
-			v4.ReadField{DataType: telem.Float64T, FillValue: fill(2.5)},
+			v4.ReadField{DataType: telem.Float64T, FillValue: new(any(2.5))},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.FloatJSONField).Default
+				return *as[icdv1.FloatJSONField](v).Default
 			},
 			payload.Float(2.5),
 		),
 		Entry(
 			"an integer",
-			v4.ReadField{DataType: telem.Int32T, FillValue: fill(-4)},
+			v4.ReadField{DataType: telem.Int32T, FillValue: new(any(-4))},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.IntegerJSONField).Default
+				return *as[icdv1.IntegerJSONField](v).Default
 			},
 			payload.Integer(-4),
 		),
@@ -162,18 +167,18 @@ var _ = Describe("ResolveReadConfig", func() {
 			v4.ReadField{
 				DataType:   telem.Uint8T,
 				EnumValues: []payload.EnumEntry{{Label: "running", Value: 2}},
-				FillValue:  fill("running"),
+				FillValue:  new(any("running")),
 			},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.UnsignedJSONField).Default
+				return *as[icdv1.UnsignedJSONField](v).Default
 			},
 			payload.Unsigned(2),
 		),
 		Entry(
 			"a boolean",
-			v4.ReadField{DataType: telem.BooleanT, FillValue: fill(true)},
+			v4.ReadField{DataType: telem.BooleanT, FillValue: new(any(true))},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.BooleanJSONField).Default
+				return *as[icdv1.BooleanJSONField](v).Default
 			},
 			true,
 		),
@@ -181,18 +186,18 @@ var _ = Describe("ResolveReadConfig", func() {
 			"a JSON value",
 			v4.ReadField{
 				DataType:  telem.JSONT,
-				FillValue: fill(map[string]any{"a": 1}),
+				FillValue: new(any(map[string]any{"a": 1})),
 			},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.JSONJSONField).Default
+				return *as[icdv1.JSONJSONField](v).Default
 			},
 			`{"a":1}`,
 		),
 		Entry(
 			"a string",
-			v4.ReadField{DataType: telem.StringT, FillValue: fill("idle")},
+			v4.ReadField{DataType: telem.StringT, FillValue: new(any("idle"))},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.StringJSONField).Default
+				return *as[icdv1.StringJSONField](v).Default
 			},
 			"idle",
 		),
@@ -201,10 +206,10 @@ var _ = Describe("ResolveReadConfig", func() {
 			v4.ReadField{
 				DataType:   telem.TimestampT,
 				TimeFormat: new(payload.TimeFormatUnixSec),
-				FillValue:  fill(3),
+				FillValue:  new(any(3)),
 			},
 			func(v icdv1.JSONFieldVariant) any {
-				return v.(icdv1.TimestampJSONField).Default.Variant
+				return as[icdv1.TimestampJSONField](v).Default.Variant
 			},
 			icdv1.ConstantTimestampDefault{Value: telem.TimeStamp(3 * telem.Second)},
 		),
@@ -212,10 +217,10 @@ var _ = Describe("ResolveReadConfig", func() {
 			"a UUID",
 			v4.ReadField{
 				DataType:  telem.UUIDT,
-				FillValue: fill("f81d4fae-7dec-11d0-a765-00a0c91e6bf6"),
+				FillValue: new(any("f81d4fae-7dec-11d0-a765-00a0c91e6bf6")),
 			},
 			func(v icdv1.JSONFieldVariant) any {
-				return v.(icdv1.UuidJSONField).Default.Variant
+				return as[icdv1.UuidJSONField](v).Default.Variant
 			},
 			icdv1.ConstantUUIDDefault{
 				Value: uuid.MustParse("f81d4fae-7dec-11d0-a765-00a0c91e6bf6"),
@@ -223,9 +228,9 @@ var _ = Describe("ResolveReadConfig", func() {
 		),
 		Entry(
 			"bytes",
-			v4.ReadField{DataType: telem.BytesT, FillValue: fill("AQI=")},
+			v4.ReadField{DataType: telem.BytesT, FillValue: new(any("AQI="))},
 			func(v icdv1.JSONFieldVariant) any {
-				return *v.(icdv1.BytesJSONField).Default
+				return *as[icdv1.BytesJSONField](v).Default
 			},
 			"AQI=",
 		),
@@ -238,11 +243,12 @@ var _ = Describe("ResolveReadConfig", func() {
 				Key:       "f",
 				Pointer:   "/f",
 				DataType:  telem.Float64T,
-				FillValue: fill("high"),
+				FillValue: new(any("high")),
 			}},
 		}), nil)
 		Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
-		Expect(jsonFields(ic, 0)[0].Variant.(icdv1.FloatJSONField).Default).To(BeNil())
+		Expect(as[icdv1.FloatJSONField](jsonFields(ic, 0)[0].Variant).Default).
+			To(BeNil())
 	})
 
 	It("Should fail when a staged endpoint is not an endpoint of the config",
