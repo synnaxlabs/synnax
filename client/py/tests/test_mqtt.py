@@ -245,22 +245,33 @@ class TestMQTTWriteTask:
         assert target.tag_type == "double"
 
     def test_parse_plain_target(self) -> None:
-        """Should parse the message and the bindings of a plain target."""
-        icd_key, message_key, field_key = uuid4(), uuid4(), uuid4()
+        """Should parse the message and each kind of binding of a plain target."""
+        icd_key, message_key = uuid4(), uuid4()
+        speed_key, unit_key = uuid4(), uuid4()
         target = sy.mqtt.PlainWriteTarget.model_validate(
             {
                 "topic": "plant/pump/set",
                 "icd": str(icd_key),
                 "message": {
                     "message": str(message_key),
-                    "bindings": [{"field": str(field_key), "channel": 7}],
+                    "bindings": [
+                        {"type": "channel", "field": str(speed_key), "channel": 7},
+                        {
+                            "type": "value",
+                            "field": str(unit_key),
+                            "value": {"type": "string", "value": "rpm"},
+                        },
+                    ],
                 },
             }
         )
         assert target.icd == icd_key
         assert target.message.message == message_key
         assert target.message.bindings == [
-            sy.icd.WriteBinding(field=field_key, channel=7)
+            sy.icd.ChannelWriteBinding(field=speed_key, channel=7),
+            sy.icd.ValueWriteBinding(
+                field=unit_key, value=sy.icd.StringWriteValue(value="rpm")
+            ),
         ]
 
     def test_payload_type(self) -> None:
@@ -288,8 +299,8 @@ class TestMQTTWriteTask:
                     message=sy.icd.WriteMessage(
                         message=message.key,
                         bindings=[
-                            sy.icd.WriteBinding(field=state.key, channel=4321),
-                            sy.icd.WriteBinding(
+                            sy.icd.ChannelWriteBinding(field=state.key, channel=4321),
+                            sy.icd.ValueWriteBinding(
                                 field=source.key,
                                 value=sy.icd.StringWriteValue(value="synnax"),
                             ),
@@ -311,9 +322,9 @@ class TestMQTTWriteTask:
         sent = task.config.targets[0]
         assert isinstance(sent, sy.mqtt.PlainWriteTarget)
         assert target.message == sent.message
-        assert target.message.bindings[1].value == sy.icd.StringWriteValue(
-            value="synnax"
-        )
+        fixed = target.message.bindings[1]
+        assert isinstance(fixed, sy.icd.ValueWriteBinding)
+        assert fixed.value == sy.icd.StringWriteValue(value="synnax")
 
 
 @pytest.mark.mqtt
@@ -495,7 +506,9 @@ class TestMQTTTaskRack:
                     icd=ic.key,
                     message=sy.icd.WriteMessage(
                         message=message.key,
-                        bindings=[sy.icd.WriteBinding(field=value.key, channel=ch.key)],
+                        bindings=[
+                            sy.icd.ChannelWriteBinding(field=value.key, channel=ch.key)
+                        ],
                     ),
                 )
             ],

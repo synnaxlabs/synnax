@@ -75,7 +75,7 @@ const createPlainTarget = async (
       icd: ic.key,
       message: {
         message: message.key,
-        bindings: [{ field: field.key, channel: cmd.key }],
+        bindings: [{ type: "channel", field: field.key, channel: cmd.key }],
       },
     }),
     key,
@@ -555,9 +555,13 @@ describe("MQTT Write form", () => {
           message: {
             message: message.key,
             bindings: [
-              { field: value.key, dataType: "int32" },
-              { field: open.key },
-              { field: unit.key, value: { type: "string", value: "degC" } },
+              { type: "channel", field: value.key, dataType: "int32" },
+              { type: "channel", field: open.key },
+              {
+                type: "value",
+                field: unit.key,
+                value: { type: "string", value: "degC" },
+              },
             ],
           },
         }),
@@ -571,10 +575,13 @@ describe("MQTT Write form", () => {
       const [target] = created.config.targets;
       if (target.type !== "plain") throw new Error("expected a plain target");
       const [valueBinding, openBinding, unitBinding] = target.message.bindings;
-      expect(unitBinding).toMatchObject({
-        channel: 0,
+      expect(unitBinding).toEqual({
+        type: "value",
+        field: unit.key,
         value: { type: "string", value: "degC" },
       });
+      if (valueBinding.type !== "channel" || openBinding.type !== "channel")
+        throw new Error("expected channel bindings");
       const keys = [valueBinding.channel, openBinding.channel];
       const channels = await client.channels.retrieve(keys);
       expect(channels.map((ch) => ch.dataType.toString())).toEqual(["int32", "uint8"]);

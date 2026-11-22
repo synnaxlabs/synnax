@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt, type Synnax } from "@synnaxlabs/client";
+import { channel, type icd, mqtt, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -282,8 +282,8 @@ const Form = PlatformDevice.wrapTaskForm({
 });
 
 /**
- * Gives each binding of target with no channel and no value a command channel: the one
- * that dev stores for its field, or a new one. A new channel takes the data type of the
+ * Gives each channel binding of target with channel 0 a command channel: the one that
+ * dev stores for its field, or a new one. A new channel takes the data type of the
  * binding, or the default of its field's kind when the binding names none. Updates the
  * write properties of dev in place.
  */
@@ -293,7 +293,8 @@ const configureBindings = async (
   target: PlainWriteTarget,
 ): Promise<void> => {
   const unbound = target.message.bindings.filter(
-    ({ channel, value }) => !primitive.isNonZero(channel) && value == null,
+    (b): b is icd.ChannelWriteBinding =>
+      b.type === "channel" && !primitive.isNonZero(b.channel),
   );
   if (unbound.length === 0) return;
   const messages = await ICD.retrieveMessages(client, [target.icd]);
@@ -309,7 +310,7 @@ const configureBindings = async (
       propertiesKey: `${target.topic}#${binding.field}`,
       channel: binding.channel,
       name: `${prefix}_${channel.escapeInvalidName(field.name)}_cmd`,
-      dataType: ICD.bindingDataType(binding, field.type),
+      dataType: ICD.bindingDataType({ dataType: binding.dataType ?? "" }, field.type),
     });
   }
 };

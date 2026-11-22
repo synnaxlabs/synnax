@@ -68,7 +68,20 @@ func fieldTarget(
 ) map[string]any {
 	GinkgoHelper()
 	m := jsonMessage("Command", nil, fields...)
-	return messageTarget(topic, createICD(ctx, m), m, binding(m, 0, ch))
+	return messageTarget(topic, createICD(ctx, m), m, channelBinding(m, 0, ch))
+}
+
+// channelBinding returns the config of a binding that sends the commands of ch as field
+// i of m.
+func channelBinding(m icd.Message, i int, ch channel.Channel) map[string]any {
+	return map[string]any{
+		"type": "channel", "field": fieldKey(m, i), "channel": ch.Key(),
+	}
+}
+
+// valueBinding returns the config of a binding that sends v as field i of m.
+func valueBinding(m icd.Message, i int, v map[string]any) map[string]any {
+	return map[string]any{"type": "value", "field": fieldKey(m, i), "value": v}
 }
 
 func writeConfig(dev device.Device, targets ...map[string]any) msgpack.EncodedJSON {
@@ -226,13 +239,11 @@ var _ = Describe("Write task", func() {
 					jsonField("setpoint", "/setpoint", icd.FloatJSONField{}),
 					jsonField("unit", "/unit", icd.StringJSONField{}),
 				)
+				unit := map[string]any{"type": "string", "value": "degC"}
 				start(ctx, writeConfig(dev, messageTarget(
 					"plant/heater/set", createICD(ctx, m), m,
-					binding(m, 0, ch),
-					map[string]any{
-						"field": fieldKey(m, 1),
-						"value": map[string]any{"type": "string", "value": "degC"},
-					},
+					channelBinding(m, 0, ch),
+					valueBinding(m, 1, unit),
 				)))
 				command(ctx, ch, telem.NewSeriesV[float32](1.5), func(g Gomega) {
 					g.Expect(payloads("plant/heater/set")).
@@ -402,8 +413,8 @@ var _ = Describe("Write task", func() {
 				"plant/point",
 				ic,
 				m,
-				binding(m, 0, x),
-				binding(m, 1, y),
+				channelBinding(m, 0, x),
+				channelBinding(m, 1, y),
 			)
 		}
 
@@ -785,7 +796,7 @@ var _ = Describe("Write task", func() {
 			m := jsonMessage("Command", nil, jsonField("v", "/v", icd.FloatJSONField{}))
 			ic := createICD(ctx, m)
 			t, configured := start(ctx, writeConfig(
-				dev, messageTarget("plant/edit", ic, m, binding(m, 0, ch)),
+				dev, messageTarget("plant/edit", ic, m, channelBinding(m, 0, ch)),
 			))
 			command(ctx, ch, telem.NewSeriesV(1.5), func(g Gomega) {
 				g.Expect(payloads("plant/edit")).To(ContainElement(`{"v":1.5}`))
@@ -876,7 +887,7 @@ var _ = Describe("Write task", func() {
 					missing := icd.ICD{Key: uuid.New()}
 					ch := createVirtual(ctx, telem.Float64T)
 					return writeConfig(dev, messageTarget(
-						"plant/x", missing, m, binding(m, 0, ch),
+						"plant/x", missing, m, channelBinding(m, 0, ch),
 					)), "icd: ICD " + missing.Key.String() + " does not exist"
 				},
 			),
@@ -890,7 +901,7 @@ var _ = Describe("Write task", func() {
 					)
 					ch := createVirtual(ctx, telem.Float64T)
 					return writeConfig(dev, messageTarget(
-							"plant/x", ic, m, binding(m, 0, ch),
+							"plant/x", ic, m, channelBinding(m, 0, ch),
 						)), "target plant/x: message " + m.Key.String() +
 							" does not exist in ICD Plant"
 				},
@@ -905,7 +916,9 @@ var _ = Describe("Write task", func() {
 					ch := createVirtual(ctx, telem.Float64T)
 					return writeConfig(dev, messageTarget(
 						"plant/x", createICD(ctx, m), m,
-						map[string]any{"field": uuid.New(), "channel": ch.Key()},
+						map[string]any{
+							"type": "channel", "field": uuid.New(), "channel": ch.Key(),
+						},
 					)), "target plant/x: message Frame is not a JSON message"
 				},
 			),

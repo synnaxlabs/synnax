@@ -695,7 +695,7 @@ var _ = Describe("Service", func() {
 				return icds.NewWriter(tx).Create(ctx, &ic)
 			})).To(Succeed())
 			cmd := createCommand(ctx, telem.Float64T)
-			return ic, m, messageTarget("plant/x", ic, m, binding(m, 0, cmd))
+			return ic, m, messageTarget("plant/x", ic, m, channelBinding(m, 0, cmd))
 		}
 		plainTarget := func(cfg mqtt.WriteConfig) mqtt.PlainWriteTarget {
 			GinkgoHelper()
@@ -762,9 +762,10 @@ var _ = Describe("Service", func() {
 					Expect(unit.Default).To(HaveValue(Equal("psi")))
 					Expect(t.Message).To(Equal(icd.WriteMessage{
 						Message: m.Key,
-						Bindings: []icd.WriteBinding{
-							{Field: fieldKey(m, 0), Channel: cmd.Key()},
-						},
+						Bindings: []icd.WriteBinding{{Variant: icd.ChannelWriteBinding{
+							Field:   fieldKey(m, 0),
+							Channel: cmd.Key(),
+						}}},
 					}))
 				},
 			)
@@ -777,9 +778,12 @@ var _ = Describe("Service", func() {
 					"data_type": "float32",
 				}))
 				m := retrieveICD(ctx, t.ICD).Messages[0]
-				Expect(t.Message.Bindings).To(Equal([]icd.WriteBinding{
-					{Field: fieldKey(m, 0), DataType: telem.Float32T},
-				}))
+				Expect(t.Message.Bindings).To(Equal([]icd.WriteBinding{{
+					Variant: icd.ChannelWriteBinding{
+						Field:    fieldKey(m, 0),
+						DataType: new(telem.Float32T),
+					},
+				}}))
 			})
 
 			It("Should leave a v2 config with no plain target without an ICD",
@@ -837,15 +841,20 @@ var _ = Describe("Service", func() {
 
 		Describe("Fixed values", func() {
 			// fixedTarget returns a target that sends the value field from a channel
-			// and the unit field from fixed.
+			// and the fixed value of the unit field.
 			fixedTarget := func(ctx context.Context, fixed map[string]any) map[string]any {
 				GinkgoHelper()
 				ic, m, _ := createSetpoint(
 					ctx, jsonField("unit", "/unit", icd.StringJSONField{}),
 				)
-				fixed["field"] = fieldKey(m, 1)
 				cmd := createCommand(ctx, telem.Float64T)
-				return messageTarget("plant/x", ic, m, binding(m, 0, cmd), fixed)
+				return messageTarget(
+					"plant/x",
+					ic,
+					m,
+					channelBinding(m, 0, cmd),
+					valueBinding(m, 1, fixed),
+				)
 			}
 			degC := map[string]any{"type": "string", "value": "degC"}
 
@@ -853,7 +862,7 @@ var _ = Describe("Service", func() {
 				func(ctx SpecContext) {
 					key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 						"targets": []any{
-							fixedTarget(ctx, map[string]any{"value": degC}),
+							fixedTarget(ctx, degC),
 						},
 					}))
 					var cfg mqtt.WriteConfig
@@ -861,26 +870,9 @@ var _ = Describe("Service", func() {
 						To(Succeed())
 					t := plainTarget(cfg)
 					Expect(t.Message.Bindings).To(HaveLen(2))
-					Expect(*t.Message.Bindings[1].Value).To(Equal(icd.WriteValue{
-						Variant: icd.StringWriteValue{Value: "degC"},
-					}))
-				},
-			)
-
-			It(
-				"Should reject a fixed value with a data type at the path of its binding",
-				func(ctx SpecContext) {
-					Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-						"targets": []any{fixedTarget(ctx, map[string]any{
-							"value":     degC,
-							"data_type": "string",
-						})},
-					})).Error().To(SatisfyAll(
-						MatchError(validate.ErrValidation),
-						MatchError(ContainSubstring(
-							"targets.0.message.bindings.1.data_type: a binding with a "+
-								"value cannot have a data type",
-						)),
+					Expect(t.Message.Bindings[1].Variant).To(HaveField(
+						"Value",
+						icd.WriteValue{Variant: icd.StringWriteValue{Value: "degC"}},
 					))
 				},
 			)

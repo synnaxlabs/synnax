@@ -88,7 +88,8 @@ def create_plain_target(
         message=sy.icd.WriteMessage(
             message=message.key,
             bindings=[
-                sy.icd.WriteBinding(field=f.key, channel=ch) for f, ch in bindings
+                sy.icd.ChannelWriteBinding(field=f.key, channel=ch)
+                for f, ch in bindings
             ],
         ),
     )
@@ -238,5 +239,9 @@ class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase[mqtt.WriteTask]):
             if isinstance(t, mqtt.SparkplugWriteTarget):
                 keys.append(t.channel)
             else:
-                keys.extend(b.channel for b in t.message.bindings if b.channel != 0)
+                keys.extend(
+                    b.channel
+                    for b in t.message.bindings
+                    if isinstance(b, sy.icd.ChannelWriteBinding) and b.channel != 0
+                )
         return keys

@@ -110,7 +110,7 @@ func (r writeResolver) check(
 	}
 	var keys []channel.Key
 	for _, t := range targets {
-		for _, b := range t.Message.Bindings {
+		for _, b := range channelBindings(t.Message) {
 			if b.Channel != 0 {
 				keys = append(keys, b.Channel)
 			}

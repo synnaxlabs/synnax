@@ -230,8 +230,11 @@ var _ = Describe("NewWriteMigration", func() {
 			Expect(migrated.Retained).To(BeTrue())
 			Expect(migrated.ICD).To(Equal(made[0].Key))
 			Expect(migrated.Message).To(Equal(icd.WriteMessage{
-				Message:  msg.Key,
-				Bindings: []icd.WriteBinding{{Field: f[0].Base().Key, Channel: 7}},
+				Message: msg.Key,
+				Bindings: []icd.WriteBinding{{Variant: icd.ChannelWriteBinding{
+					Field:   f[0].Base().Key,
+					Channel: 7,
+				}}},
 			}))
 		},
 	)
@@ -265,8 +268,10 @@ var _ = Describe("NewWriteMigration", func() {
 			f, msg := lift(ctx, ch)
 			Expect(f[0].Type()).To(Equal(payload.KindInteger))
 			Expect(msg.Bindings).To(Equal([]icd.WriteBinding{{
-				Field:    f[0].Base().Key,
-				DataType: telem.Int16T,
+				Variant: icd.ChannelWriteBinding{
+					Field:    f[0].Base().Key,
+					DataType: new(telem.Int16T),
+				},
 			}}))
 		},
 	)
@@ -277,7 +282,8 @@ var _ = Describe("NewWriteMigration", func() {
 			ch.Channel, ch.DataType = 0, ""
 			f, msg := lift(ctx, ch)
 			Expect(f[0].Type()).To(Equal(payload.KindFloat))
-			Expect(msg.Bindings[0].DataType).To(Equal(telem.Float64T))
+			Expect(msg.Bindings[0].Variant).
+				To(HaveField("DataType", HaveValue(Equal(telem.Float64T))))
 		},
 	)
 
@@ -292,8 +298,10 @@ var _ = Describe("NewWriteMigration", func() {
 			f := fields(made[0].Messages[0])
 			Expect(plainWrite(read(ctx, old.Key).Targets[0]).Message.Bindings).
 				To(Equal([]icd.WriteBinding{{
-					Field:    f[0].Base().Key,
-					DataType: telem.Float64T,
+					Variant: icd.ChannelWriteBinding{
+						Field:    f[0].Base().Key,
+						DataType: new(telem.Float64T),
+					},
 				}}))
 			const change = `channel name "valve_cmd" of field value on topic ` +
 				`plant/valve/set was dropped, so a client names the new channel`
@@ -690,7 +698,8 @@ var _ = Describe("ResolveWriteConfig", func() {
 				Expect(t.Message.Message).To(Equal(ic.Messages[i].Key))
 				Expect(ic.Messages[i].Name).To(Equal(t.Topic))
 				Expect(t.Message.Bindings).To(HaveLen(1))
-				Expect(t.Message.Bindings[0].Channel).To(BeEquivalentTo(7))
+				Expect(t.Message.Bindings[0].Variant).
+					To(HaveField("Channel", BeEquivalentTo(7)))
 			}
 		},
 	)

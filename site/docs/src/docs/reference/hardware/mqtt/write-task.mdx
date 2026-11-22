@@ -107,8 +107,8 @@ task = mqtt.WriteTask(
             message=sy.icd.WriteMessage(
                 message=command.key,
                 bindings=[
-                    sy.icd.WriteBinding(field=position.key, channel=cmd.key),
-                    sy.icd.WriteBinding(
+                    sy.icd.ChannelWriteBinding(field=position.key, channel=cmd.key),
+                    sy.icd.ValueWriteBinding(
                         field=source.key,
                         value=sy.icd.StringWriteValue(value="synnax"),
                     ),
@@ -156,16 +156,18 @@ A plain target has these settings:
 | ICD <small>`icd`</small>                |               | The ICD that holds the message.                            |
 | Message <small>`message`</small>        |               | The message to publish, and the bindings of its fields.    |
 
-A binding fills one field of the message:
+A binding fills one field of the message from a command channel or a fixed value:
 
-| Setting                          | Default | Notes                                              |
-| -------------------------------- | ------- | -------------------------------------------------- |
-| Field <small>`field`</small>     |         | The field to fill.                                 |
-| Channel <small>`channel`</small> |         | The command channel whose commands it sends.       |
-| Value <small>`value`</small>     | None    | A fixed value that it sends in place of a channel. |
+| Setting                          | Default | Notes                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------- |
+| Kind <small>`type`</small>       |         | `channel` or `value`.                                               |
+| Field <small>`field`</small>     |         | The field to fill.                                                  |
+| Channel <small>`channel`</small> |         | Channel bindings only. The command channel whose commands it sends. |
+| Value <small>`value`</small>     |         | Value bindings only. The fixed value that it sends.                 |
 
-In code, a plain target is `PlainWriteTarget`, its message is `icd.WriteMessage`, and
-each binding is `icd.WriteBinding`.
+In code, a plain target is `PlainWriteTarget`, and its message is `icd.WriteMessage`. A
+binding to a command channel is `icd.ChannelWriteBinding`, and a binding to a fixed
+value is `icd.ValueWriteBinding`.
 
 <Divider.Divider x />
 

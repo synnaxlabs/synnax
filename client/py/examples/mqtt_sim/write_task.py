@@ -73,7 +73,9 @@ tsk = mqtt.WriteTask(
             message=sy.icd.WriteMessage(
                 message=message.key,
                 bindings=[
-                    sy.icd.WriteBinding(field=position_field.key, channel=cmd.key)
+                    sy.icd.ChannelWriteBinding(
+                        field=position_field.key, channel=cmd.key
+                    )
                 ],
             ),
         ),

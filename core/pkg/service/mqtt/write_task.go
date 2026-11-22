@@ -87,9 +87,7 @@ func newMessageTarget(
 	if err = validateTopic(target.Topic); err != nil {
 		return nil, err
 	}
-	sampled := lo.Filter(target.Message.Bindings, func(b icd.WriteBinding, _ int) bool {
-		return b.Value == nil
-	})
+	sampled := channelBindings(target.Message)
 	n := len(sampled)
 	t := &messageTarget{
 		topic:    target.Topic,
@@ -162,6 +160,17 @@ func (t *messageTarget) publications(
 			}
 		}
 	}
+}
+
+// channelBindings returns the channel bindings of wm, in binding order.
+func channelBindings(wm icd.WriteMessage) []icd.ChannelWriteBinding {
+	return lo.FilterMap(wm.Bindings, func(b icd.WriteBinding, _ int) (
+		icd.ChannelWriteBinding,
+		bool,
+	) {
+		cb, ok := b.Variant.(icd.ChannelWriteBinding)
+		return cb, ok
+	})
 }
 
 // skip counts in skips a command for t that err dropped.

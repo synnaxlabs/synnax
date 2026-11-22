@@ -235,7 +235,9 @@ describe("MQTT Task Types", () => {
     icd: entry.icd,
     message: {
       message: read.message,
-      bindings: [{ field: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a03", channel: 1 }],
+      bindings: [
+        { type: "channel", field: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a03", channel: 1 },
+      ],
     },
   };
   const tagTarget = { type: "sparkplug", key: "s1", ...tagID };

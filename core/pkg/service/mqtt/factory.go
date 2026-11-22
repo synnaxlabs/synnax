@@ -650,10 +650,8 @@ func enabledTargets(
 				continue
 			}
 			icds = append(icds, target.ICD)
-			for _, b := range target.Message.Bindings {
-				if b.Value == nil {
-					keys = append(keys, b.Channel)
-				}
+			for _, b := range channelBindings(target.Message) {
+				keys = append(keys, b.Channel)
 			}
 		case SparkplugWriteTarget:
 			if target.Disabled {

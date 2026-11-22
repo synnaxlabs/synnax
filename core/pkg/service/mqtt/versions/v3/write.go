@@ -268,9 +268,9 @@ func liftTarget(
 		return icd.Message{}, icd.WriteMessage{}, err
 	}
 	fields = append(fields, field)
-	binding := icd.WriteBinding{Field: key, Channel: t.Channel.Channel}
+	binding := icd.ChannelWriteBinding{Field: key, Channel: t.Channel.Channel}
 	if !exists {
-		binding = icd.WriteBinding{Field: key, DataType: dataType}
+		binding.Channel, binding.DataType = 0, dataType
 		if t.Channel.Name != "" {
 			note(path+".channel", fmt.Sprintf(
 				"channel name %q of field %s on topic %s was dropped, so a client "+
@@ -279,7 +279,7 @@ func liftTarget(
 			))
 		}
 	}
-	write.Bindings = []icd.WriteBinding{binding}
+	write.Bindings = []icd.WriteBinding{{Variant: binding}}
 	for i, wf := range t.Fields {
 		base := icd.JSONBaseField{
 			Key:     uuid.New(),
@@ -302,9 +302,10 @@ func liftTarget(
 }
 
 // liftChannel returns the JSON field of base that sends old the way v1 sent it, and the
-// data type of a new channel for it. The data type of ch, when old's channel exists,
-// picks the kind. Otherwise the stored data type picks it, and is the data type of a
-// new channel. note receives each change to what the field sends.
+// data type of a new channel for it, or nil when that data type is not known. The data
+// type of ch, when old's channel exists, picks the kind. Otherwise the stored data type
+// picks it, and is the data type of a new channel. note receives each change to what
+// the field sends.
 func liftChannel(
 	ctx context.Context,
 	old v1.ChannelField,
@@ -312,7 +313,7 @@ func liftChannel(
 	exists bool,
 	base icd.JSONBaseField,
 	note func(format string, args ...any),
-) (icd.JSONField, telem.DataType, error) {
+) (icd.JSONField, *telem.DataType, error) {
 	dt := lo.CoalesceOrEmpty(old.DataType, telem.Float64T)
 	if exists {
 		dt = ch.DataType
@@ -350,12 +351,12 @@ func liftChannel(
 		note,
 	))
 	if err != nil {
-		return icd.JSONField{}, "", err
+		return icd.JSONField{}, nil, err
 	}
 	if !known {
-		dt = ""
+		return field, nil, nil
 	}
-	return field, dt, nil
+	return field, &dt, nil
 }
 
 // numeric reports whether k holds numbers or booleans.
