@@ -28,8 +28,8 @@ type pins struct {
 	// parts counts the readers of each part, which a switch keeps.
 	parts map[uint64]int
 	// keys counts the loads of each key that pin parts. Such a load may read the file
-	// of any segment that a part of its range held a record of, whichever part holds
-	// that record now.
+	// of any segment of its key that a part held a record of, which the state no longer
+	// tells apart.
 	keys map[ChannelKey]int
 }
 
@@ -89,7 +89,7 @@ func (e *engine) unpin(h held) error {
 }
 
 // release unlinks the file of each segment of dead, which left the state, once no
-// reader pins it, and no load of its key pins parts when a part held its record.
+// reader pins it and no load of its key pins parts.
 func (e *engine) release(dead []state.Dead) error {
 	var free []state.Dead
 	e.pins.mu.Lock()
@@ -172,7 +172,7 @@ func (p *pins) unpin(h held) []state.Dead {
 }
 
 // held reports whether a reader pins the dead segment d, or a load of its key pins
-// parts when a part held its record. The caller holds p.mu.
+// parts. The caller holds p.mu.
 func (p *pins) held(d state.Dead) bool {
-	return p.readers[d.Segment] > 0 || (d.Part != 0 && p.keys[d.Key] > 0)
+	return p.readers[d.Segment] > 0 || p.keys[d.Key] > 0
 }
