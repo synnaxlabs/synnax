@@ -21,6 +21,7 @@
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/bench/alloc.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/text.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -247,11 +248,13 @@ TEST(Text, RefuseUnmatchableTag) {
     auto m = message("a", {tagged("t", "T: ")});
     m.payload.delimiter = " ";
     assert_refuses({m}, "message a: field t: the tag contains the delimiter \" \"");
-    for (const auto *tag: {" T", "\tT", "\rT"})
+    for (const auto *tag: {" T", "\tT", "\rT"}) {
+        SCOPED_TRACE(x::json::quote(tag));
         assert_refuses(
             {message("a", {tagged("t", tag)})},
             "message a: field t: the tag starts with whitespace"
         );
+    }
 }
 
 /// @brief it should refuse an empty delimiter or tag.
